@@ -677,12 +677,18 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// for its action to be executed.
     fn process_mouse_bindings(&mut self, button: MouseButton) {
         let mods = *self.ctx.modifiers();
+        let mode = *self.ctx.terminal().mode();
+        let mouse_mode = mode.intersects(TermMode::MOUSE_MODE);
 
         for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {
-            let binding = &self.ctx.config().ui_config.mouse_bindings[i];
+            let mut binding = self.ctx.config().ui_config.mouse_bindings[i].clone();
 
-            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button) {
-                let binding = binding.clone();
+            // Require shift for all modifiers when mouse mode is active
+            if mouse_mode {
+                binding.mods |= ModifiersState::SHIFT;
+            }
+
+            if binding.is_triggered_by(mode, mods, &button) {
                 binding.execute(&mut self.ctx);
             }
         }

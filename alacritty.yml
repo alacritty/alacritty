@@ -427,10 +427,8 @@
 # And optionally:
 #
 # - `mods` (see key bindings)
-# - `mode` (see key bindings)
 #mouse_bindings:
-#  - { mouse: Middle, action: PasteSelection, mode: ~Mouse }
-#  - { mouse: Middle, mods: Shift, action: PasteSelection, mode: Mouse }
+#  - { mouse: Middle, action: PasteSelection }
 
 # Key bindings
 #
@@ -521,7 +519,6 @@
 #    This is mainly used to send applications the correct escape sequences
 #    when in different modes.
 #
-#    - Mouse
 #    - AppCursor
 #    - AppKeypad
 #    - Alt

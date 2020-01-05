@@ -81,23 +81,12 @@ impl Default for MouseBinding {
 
 impl<T: Eq> Binding<T> {
     #[inline]
-    pub fn is_triggered_by(
-        &self,
-        mode: TermMode,
-        mods: ModifiersState,
-        input: &T,
-    ) -> bool {
-        // Match `MOUSE_MODE` as any one mouse mode, since multiple can't be active at once
-        let mut binding_mode = self.mode;
-        if binding_mode.contains(TermMode::MOUSE_MODE) && mode.intersects(TermMode::MOUSE_MODE) {
-            binding_mode &= mode | !TermMode::MOUSE_MODE;
-        }
-
+    pub fn is_triggered_by(&self, mode: TermMode, mods: ModifiersState, input: &T) -> bool {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input
-            && mode.contains(binding_mode)
+            && mode.contains(self.mode)
             && !mode.intersects(self.notmode)
             && (self.mods == mods)
     }
@@ -272,8 +261,7 @@ macro_rules! bindings {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
-        MouseButton::Middle, ModifiersState::SHIFT, +TermMode::MOUSE_MODE; Action::PasteSelection;
-        MouseButton::Middle, ~TermMode::MOUSE_MODE; Action::PasteSelection;
+        MouseButton::Middle; Action::PasteSelection;
     )
 }
 
@@ -501,7 +489,9 @@ impl<'a> Deserialize<'a> for ModeWrapper {
             type Value = ModeWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Combination of Mouse | AppCursor | AppKeypad | Alt, possibly with negation (~)")
+                f.write_str(
+                    "Combination of AppCursor | AppKeypad | Alt, possibly with negation (~)",
+                )
             }
 
             fn visit_str<E>(self, value: &str) -> Result<ModeWrapper, E>
@@ -512,8 +502,6 @@ impl<'a> Deserialize<'a> for ModeWrapper {
 
                 for modifier in value.split('|') {
                     match modifier.trim().to_lowercase().as_str() {
-                        "mouse" => res.mode |= TermMode::MOUSE_REPORT_CLICK,
-                        "~mouse" => res.not_mode |= TermMode::MOUSE_REPORT_CLICK,
                         "appcursor" => res.mode |= TermMode::APP_CURSOR,
                         "~appcursor" => res.not_mode |= TermMode::APP_CURSOR,
                         "appkeypad" => res.mode |= TermMode::APP_KEYPAD,
