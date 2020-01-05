@@ -91,20 +91,20 @@ pub trait ActionContext<T: EventListener> {
 }
 
 trait Execute<T: EventListener> {
-    fn execute<A: ActionContext<T>>(&self, ctx: &mut A, mouse_mode: bool);
+    fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
 }
 
 impl<T, U: EventListener> Execute<U> for Binding<T> {
     /// Execute the action associate with this binding
     #[inline]
-    fn execute<A: ActionContext<U>>(&self, ctx: &mut A, mouse_mode: bool) {
-        self.action.execute(ctx, mouse_mode)
+    fn execute<A: ActionContext<U>>(&self, ctx: &mut A) {
+        self.action.execute(ctx)
     }
 }
 
 impl<T: EventListener> Execute<T> for Action {
     #[inline]
-    fn execute<A: ActionContext<T>>(&self, ctx: &mut A, mouse_mode: bool) {
+    fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
                 ctx.clear_selection();
@@ -119,11 +119,8 @@ impl<T: EventListener> Execute<T> for Action {
                 paste(ctx, &text);
             },
             Action::PasteSelection => {
-                // Only paste if mouse events are not captured by an application
-                if !mouse_mode {
-                    let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
-                    paste(ctx, &text);
-                }
+                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
+                paste(ctx, &text);
             },
             Action::Command(ref program, ref args) => {
                 trace!("Running command {} with args {:?}", program, args);
@@ -648,10 +645,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     fn process_key_bindings(&mut self, input: KeyboardInput) {
+        let mods = *self.ctx.modifiers();
         let mut suppress_chars = None;
 
         for i in 0..self.ctx.config().ui_config.key_bindings.len() {
-            let mods = *self.ctx.modifiers();
             let binding = &self.ctx.config().ui_config.key_bindings[i];
 
             let key = match (binding.trigger, input.virtual_keycode) {
@@ -660,10 +657,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 _ => continue,
             };
 
-            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &key, false) {
+            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &key) {
                 // Binding was triggered; run the action
                 let binding = binding.clone();
-                binding.execute(&mut self.ctx, false);
+                binding.execute(&mut self.ctx);
 
                 // Don't suppress when there has been a `ReceiveChar` action
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
@@ -679,17 +676,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     fn process_mouse_bindings(&mut self, button: MouseButton) {
+        let mods = *self.ctx.modifiers();
+
         for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {
-            let mods = *self.ctx.modifiers();
             let binding = &self.ctx.config().ui_config.mouse_bindings[i];
 
-            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
-                // binding was triggered; run the action
-                let mouse_mode_active =
-                    !mods.shift() && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
-
+            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button) {
                 let binding = binding.clone();
-                binding.execute(&mut self.ctx, mouse_mode_active);
+                binding.execute(&mut self.ctx);
             }
         }
     }
@@ -1003,9 +997,9 @@ mod tests {
             #[test]
             fn $name() {
                 if $triggers {
-                    assert!($binding.is_triggered_by($mode, $mods, &KEY, false));
+                    assert!($binding.is_triggered_by($mode, $mods, &KEY));
                 } else {
-                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY, false));
+                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY));
                 }
             }
         }

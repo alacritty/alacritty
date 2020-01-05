@@ -11,7 +11,7 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
 
-use crate::config::{Config, RelaxedEq};
+use crate::config::Config;
 use crate::event::Mouse;
 use crate::renderer::rects::{RenderLine, RenderRect};
 
@@ -155,12 +155,17 @@ impl Urls {
         mouse_mode: bool,
         selection: bool,
     ) -> Option<Url> {
+        // Require additional shift in mouse mode
+        let mut required_mods = config.ui_config.mouse.url.mods();
+        if mouse_mode {
+            required_mods |= ModifiersState::SHIFT;
+        }
+
         // Make sure all prerequisites for highlighting are met
         if selection
-            || (mouse_mode && !mods.shift())
             || !mouse.inside_grid
             || config.ui_config.mouse.url.launcher.is_none()
-            || !config.ui_config.mouse.url.mods().relaxed_eq(mods)
+            || required_mods != mods
             || mouse.left_button_state == ElementState::Pressed
         {
             return None;
