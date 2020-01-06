@@ -11,11 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(clippy::enum_glob_use)]
 
 use std::fmt;
 use std::str::FromStr;
 
-use glutin::event::{ModifiersState, MouseButton};
+use glutin::event::VirtualKeyCode::*;
+use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
 use log::error;
 use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
@@ -60,7 +62,7 @@ impl Default for KeyBinding {
             action: Action::Esc(String::new()),
             mode: TermMode::NONE,
             notmode: TermMode::NONE,
-            trigger: Key::A,
+            trigger: Key::Keycode(A),
         }
     }
 }
@@ -219,9 +221,31 @@ impl RelaxedEq for ModifiersState {
 
 macro_rules! bindings {
     (
+        KeyBinding;
+        $(
+            $key:ident
+            $(,$mods:expr)*
+            $(,+$mode:expr)*
+            $(,~$notmode:expr)*
+            ;$action:expr
+        );*
+        $(;)*
+    ) => {{
+        bindings!(
+            KeyBinding;
+            $(
+                Key::Keycode($key)
+                $(,$mods)*
+                $(,+$mode)*
+                $(,~$notmode)*
+                ;$action
+            );*
+        )
+    }};
+    (
         $ty:ident;
         $(
-            $key:path
+            $key:expr
             $(,$mods:expr)*
             $(,+$mode:expr)*
             $(,~$notmode:expr)*
@@ -249,7 +273,7 @@ macro_rules! bindings {
         )*
 
         v
-    }}
+    }};
 }
 
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
@@ -262,58 +286,58 @@ pub fn default_mouse_bindings() -> Vec<MouseBinding> {
 pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
-        Key::Paste; Action::Paste;
-        Key::Copy;  Action::Copy;
-        Key::L, ModifiersState::CTRL; Action::ClearLogNotice;
-        Key::L, ModifiersState::CTRL; Action::Esc("\x0c".into());
-        Key::PageUp,   ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
-        Key::PageDown, ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
-        Key::Home,     ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToTop;
-        Key::End,      ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
-        Key::Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
-        Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
-        Key::Home, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
-        Key::End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
-        Key::End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
-        Key::End,  ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
-        Key::PageUp;   Action::Esc("\x1b[5~".into());
-        Key::PageUp,   ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
-        Key::PageDown; Action::Esc("\x1b[6~".into());
-        Key::PageDown, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
-        Key::Tab,  ModifiersState::SHIFT; Action::Esc("\x1b[Z".into());
-        Key::Back; Action::Esc("\x7f".into());
-        Key::Back, ModifiersState::ALT; Action::Esc("\x1b\x7f".into());
-        Key::Insert; Action::Esc("\x1b[2~".into());
-        Key::Delete; Action::Esc("\x1b[3~".into());
-        Key::Up,    +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
-        Key::Up,    ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
-        Key::Down,  +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
-        Key::Down,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
-        Key::Right, +TermMode::APP_CURSOR; Action::Esc("\x1bOC".into());
-        Key::Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
-        Key::Left,  +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
-        Key::Left,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
-        Key::F1;  Action::Esc("\x1bOP".into());
-        Key::F2;  Action::Esc("\x1bOQ".into());
-        Key::F3;  Action::Esc("\x1bOR".into());
-        Key::F4;  Action::Esc("\x1bOS".into());
-        Key::F5;  Action::Esc("\x1b[15~".into());
-        Key::F6;  Action::Esc("\x1b[17~".into());
-        Key::F7;  Action::Esc("\x1b[18~".into());
-        Key::F8;  Action::Esc("\x1b[19~".into());
-        Key::F9;  Action::Esc("\x1b[20~".into());
-        Key::F10; Action::Esc("\x1b[21~".into());
-        Key::F11; Action::Esc("\x1b[23~".into());
-        Key::F12; Action::Esc("\x1b[24~".into());
-        Key::F13; Action::Esc("\x1b[25~".into());
-        Key::F14; Action::Esc("\x1b[26~".into());
-        Key::F15; Action::Esc("\x1b[28~".into());
-        Key::F16; Action::Esc("\x1b[29~".into());
-        Key::F17; Action::Esc("\x1b[31~".into());
-        Key::F18; Action::Esc("\x1b[32~".into());
-        Key::F19; Action::Esc("\x1b[33~".into());
-        Key::F20; Action::Esc("\x1b[34~".into());
-        Key::NumpadEnter; Action::Esc("\n".into());
+        Paste; Action::Paste;
+        Copy;  Action::Copy;
+        L, ModifiersState::CTRL; Action::ClearLogNotice;
+        L, ModifiersState::CTRL; Action::Esc("\x0c".into());
+        PageUp,   ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
+        PageDown, ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
+        Home,     ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToTop;
+        End,      ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
+        Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
+        Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
+        Home, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
+        End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
+        End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
+        End,  ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
+        PageUp;   Action::Esc("\x1b[5~".into());
+        PageUp,   ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
+        PageDown; Action::Esc("\x1b[6~".into());
+        PageDown, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
+        Tab,  ModifiersState::SHIFT; Action::Esc("\x1b[Z".into());
+        Back; Action::Esc("\x7f".into());
+        Back, ModifiersState::ALT; Action::Esc("\x1b\x7f".into());
+        Insert; Action::Esc("\x1b[2~".into());
+        Delete; Action::Esc("\x1b[3~".into());
+        Up,    +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
+        Up,    ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
+        Down,  +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
+        Down,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
+        Right, +TermMode::APP_CURSOR; Action::Esc("\x1bOC".into());
+        Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
+        Left,  +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
+        Left,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
+        F1;  Action::Esc("\x1bOP".into());
+        F2;  Action::Esc("\x1bOQ".into());
+        F3;  Action::Esc("\x1bOR".into());
+        F4;  Action::Esc("\x1bOS".into());
+        F5;  Action::Esc("\x1b[15~".into());
+        F6;  Action::Esc("\x1b[17~".into());
+        F7;  Action::Esc("\x1b[18~".into());
+        F8;  Action::Esc("\x1b[19~".into());
+        F9;  Action::Esc("\x1b[20~".into());
+        F10; Action::Esc("\x1b[21~".into());
+        F11; Action::Esc("\x1b[23~".into());
+        F12; Action::Esc("\x1b[24~".into());
+        F13; Action::Esc("\x1b[25~".into());
+        F14; Action::Esc("\x1b[26~".into());
+        F15; Action::Esc("\x1b[28~".into());
+        F16; Action::Esc("\x1b[29~".into());
+        F17; Action::Esc("\x1b[31~".into());
+        F18; Action::Esc("\x1b[32~".into());
+        F19; Action::Esc("\x1b[33~".into());
+        F20; Action::Esc("\x1b[34~".into());
+        NumpadEnter; Action::Esc("\n".into());
     );
 
     //   Code     Modifiers
@@ -342,31 +366,31 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         let modifiers_code = index + 2;
         bindings.extend(bindings!(
             KeyBinding;
-            Key::Delete, mods; Action::Esc(format!("\x1b[3;{}~", modifiers_code));
-            Key::Up,     mods; Action::Esc(format!("\x1b[1;{}A", modifiers_code));
-            Key::Down,   mods; Action::Esc(format!("\x1b[1;{}B", modifiers_code));
-            Key::Right,  mods; Action::Esc(format!("\x1b[1;{}C", modifiers_code));
-            Key::Left,   mods; Action::Esc(format!("\x1b[1;{}D", modifiers_code));
-            Key::F1,     mods; Action::Esc(format!("\x1b[1;{}P", modifiers_code));
-            Key::F2,     mods; Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
-            Key::F3,     mods; Action::Esc(format!("\x1b[1;{}R", modifiers_code));
-            Key::F4,     mods; Action::Esc(format!("\x1b[1;{}S", modifiers_code));
-            Key::F5,     mods; Action::Esc(format!("\x1b[15;{}~", modifiers_code));
-            Key::F6,     mods; Action::Esc(format!("\x1b[17;{}~", modifiers_code));
-            Key::F7,     mods; Action::Esc(format!("\x1b[18;{}~", modifiers_code));
-            Key::F8,     mods; Action::Esc(format!("\x1b[19;{}~", modifiers_code));
-            Key::F9,     mods; Action::Esc(format!("\x1b[20;{}~", modifiers_code));
-            Key::F10,    mods; Action::Esc(format!("\x1b[21;{}~", modifiers_code));
-            Key::F11,    mods; Action::Esc(format!("\x1b[23;{}~", modifiers_code));
-            Key::F12,    mods; Action::Esc(format!("\x1b[24;{}~", modifiers_code));
-            Key::F13,    mods; Action::Esc(format!("\x1b[25;{}~", modifiers_code));
-            Key::F14,    mods; Action::Esc(format!("\x1b[26;{}~", modifiers_code));
-            Key::F15,    mods; Action::Esc(format!("\x1b[28;{}~", modifiers_code));
-            Key::F16,    mods; Action::Esc(format!("\x1b[29;{}~", modifiers_code));
-            Key::F17,    mods; Action::Esc(format!("\x1b[31;{}~", modifiers_code));
-            Key::F18,    mods; Action::Esc(format!("\x1b[32;{}~", modifiers_code));
-            Key::F19,    mods; Action::Esc(format!("\x1b[33;{}~", modifiers_code));
-            Key::F20,    mods; Action::Esc(format!("\x1b[34;{}~", modifiers_code));
+            Delete, mods; Action::Esc(format!("\x1b[3;{}~", modifiers_code));
+            Up,     mods; Action::Esc(format!("\x1b[1;{}A", modifiers_code));
+            Down,   mods; Action::Esc(format!("\x1b[1;{}B", modifiers_code));
+            Right,  mods; Action::Esc(format!("\x1b[1;{}C", modifiers_code));
+            Left,   mods; Action::Esc(format!("\x1b[1;{}D", modifiers_code));
+            F1,     mods; Action::Esc(format!("\x1b[1;{}P", modifiers_code));
+            F2,     mods; Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
+            F3,     mods; Action::Esc(format!("\x1b[1;{}R", modifiers_code));
+            F4,     mods; Action::Esc(format!("\x1b[1;{}S", modifiers_code));
+            F5,     mods; Action::Esc(format!("\x1b[15;{}~", modifiers_code));
+            F6,     mods; Action::Esc(format!("\x1b[17;{}~", modifiers_code));
+            F7,     mods; Action::Esc(format!("\x1b[18;{}~", modifiers_code));
+            F8,     mods; Action::Esc(format!("\x1b[19;{}~", modifiers_code));
+            F9,     mods; Action::Esc(format!("\x1b[20;{}~", modifiers_code));
+            F10,    mods; Action::Esc(format!("\x1b[21;{}~", modifiers_code));
+            F11,    mods; Action::Esc(format!("\x1b[23;{}~", modifiers_code));
+            F12,    mods; Action::Esc(format!("\x1b[24;{}~", modifiers_code));
+            F13,    mods; Action::Esc(format!("\x1b[25;{}~", modifiers_code));
+            F14,    mods; Action::Esc(format!("\x1b[26;{}~", modifiers_code));
+            F15,    mods; Action::Esc(format!("\x1b[28;{}~", modifiers_code));
+            F16,    mods; Action::Esc(format!("\x1b[29;{}~", modifiers_code));
+            F17,    mods; Action::Esc(format!("\x1b[31;{}~", modifiers_code));
+            F18,    mods; Action::Esc(format!("\x1b[32;{}~", modifiers_code));
+            F19,    mods; Action::Esc(format!("\x1b[33;{}~", modifiers_code));
+            F20,    mods; Action::Esc(format!("\x1b[34;{}~", modifiers_code));
         ));
 
         // We're adding the following bindings with `Shift` manually above, so skipping them here
@@ -374,11 +398,11 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
-                Key::Insert,   mods; Action::Esc(format!("\x1b[2;{}~", modifiers_code));
-                Key::PageUp,   mods; Action::Esc(format!("\x1b[5;{}~", modifiers_code));
-                Key::PageDown, mods; Action::Esc(format!("\x1b[6;{}~", modifiers_code));
-                Key::End,      mods; Action::Esc(format!("\x1b[1;{}F", modifiers_code));
-                Key::Home,     mods; Action::Esc(format!("\x1b[1;{}H", modifiers_code));
+                Insert,   mods; Action::Esc(format!("\x1b[2;{}~", modifiers_code));
+                PageUp,   mods; Action::Esc(format!("\x1b[5;{}~", modifiers_code));
+                PageDown, mods; Action::Esc(format!("\x1b[6;{}~", modifiers_code));
+                End,      mods; Action::Esc(format!("\x1b[1;{}F", modifiers_code));
+                Home,     mods; Action::Esc(format!("\x1b[1;{}H", modifiers_code));
             ));
         }
     }
@@ -392,14 +416,14 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
-        Key::V,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Paste;
-        Key::C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
-        Key::Insert,   ModifiersState::SHIFT; Action::PasteSelection;
-        Key::Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
-        Key::Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
-        Key::Add,      ModifiersState::CTRL;  Action::IncreaseFontSize;
-        Key::Subtract, ModifiersState::CTRL;  Action::DecreaseFontSize;
-        Key::Minus,    ModifiersState::CTRL;  Action::DecreaseFontSize;
+        V,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Paste;
+        C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
+        Insert,   ModifiersState::SHIFT; Action::PasteSelection;
+        Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
+        Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
+        Add,      ModifiersState::CTRL;  Action::IncreaseFontSize;
+        Subtract, ModifiersState::CTRL;  Action::DecreaseFontSize;
+        Minus,    ModifiersState::CTRL;  Action::DecreaseFontSize;
     )
 }
 
@@ -412,7 +436,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
-        Key::Return, ModifiersState::ALT; Action::ToggleFullscreen;
+        Return, ModifiersState::ALT; Action::ToggleFullscreen;
     );
     bindings.extend(common_keybindings());
     bindings
@@ -422,20 +446,20 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
-        Key::Key0,   ModifiersState::LOGO;  Action::ResetFontSize;
-        Key::Equals, ModifiersState::LOGO;  Action::IncreaseFontSize;
-        Key::Add,    ModifiersState::LOGO;  Action::IncreaseFontSize;
-        Key::Minus,  ModifiersState::LOGO;  Action::DecreaseFontSize;
-        Key::Insert, ModifiersState::SHIFT; Action::Esc("\x1b[2;2~".into());
-        Key::F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
-        Key::K, ModifiersState::LOGO; Action::ClearHistory;
-        Key::K, ModifiersState::LOGO; Action::Esc("\x0c".into());
-        Key::V, ModifiersState::LOGO; Action::Paste;
-        Key::C, ModifiersState::LOGO; Action::Copy;
-        Key::H, ModifiersState::LOGO; Action::Hide;
-        Key::M, ModifiersState::LOGO; Action::Minimize;
-        Key::Q, ModifiersState::LOGO; Action::Quit;
-        Key::W, ModifiersState::LOGO; Action::Quit;
+        Key0,   ModifiersState::LOGO;  Action::ResetFontSize;
+        Equals, ModifiersState::LOGO;  Action::IncreaseFontSize;
+        Add,    ModifiersState::LOGO;  Action::IncreaseFontSize;
+        Minus,  ModifiersState::LOGO;  Action::DecreaseFontSize;
+        Insert, ModifiersState::SHIFT; Action::Esc("\x1b[2;2~".into());
+        F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
+        K, ModifiersState::LOGO; Action::ClearHistory;
+        K, ModifiersState::LOGO; Action::Esc("\x0c".into());
+        V, ModifiersState::LOGO; Action::Paste;
+        C, ModifiersState::LOGO; Action::Copy;
+        H, ModifiersState::LOGO; Action::Hide;
+        M, ModifiersState::LOGO; Action::Minimize;
+        Q, ModifiersState::LOGO; Action::Quit;
+        W, ModifiersState::LOGO; Action::Quit;
     )
 }
 
@@ -448,337 +472,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Key {
     Scancode(u32),
-    Key1,
-    Key2,
-    Key3,
-    Key4,
-    Key5,
-    Key6,
-    Key7,
-    Key8,
-    Key9,
-    Key0,
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    Escape,
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    F13,
-    F14,
-    F15,
-    F16,
-    F17,
-    F18,
-    F19,
-    F20,
-    F21,
-    F22,
-    F23,
-    F24,
-    Snapshot,
-    Scroll,
-    Pause,
-    Insert,
-    Home,
-    Delete,
-    End,
-    PageDown,
-    PageUp,
-    Left,
-    Up,
-    Right,
-    Down,
-    Back,
-    Return,
-    Space,
-    Compose,
-    Numlock,
-    Numpad0,
-    Numpad1,
-    Numpad2,
-    Numpad3,
-    Numpad4,
-    Numpad5,
-    Numpad6,
-    Numpad7,
-    Numpad8,
-    Numpad9,
-    AbntC1,
-    AbntC2,
-    Add,
-    Apostrophe,
-    Apps,
-    At,
-    Ax,
-    Backslash,
-    Calculator,
-    Capital,
-    Colon,
-    Comma,
-    Convert,
-    Decimal,
-    Divide,
-    Equals,
-    Grave,
-    Kana,
-    Kanji,
-    LAlt,
-    LBracket,
-    LControl,
-    LShift,
-    LWin,
-    Mail,
-    MediaSelect,
-    MediaStop,
-    Minus,
-    Multiply,
-    Mute,
-    MyComputer,
-    NavigateForward,
-    NavigateBackward,
-    NextTrack,
-    NoConvert,
-    NumpadComma,
-    NumpadEnter,
-    NumpadEquals,
-    OEM102,
-    Period,
-    PlayPause,
-    Power,
-    PrevTrack,
-    RAlt,
-    RBracket,
-    RControl,
-    RShift,
-    RWin,
-    Semicolon,
-    Slash,
-    Sleep,
-    Stop,
-    Subtract,
-    Sysrq,
-    Tab,
-    Underline,
-    Unlabeled,
-    VolumeDown,
-    VolumeUp,
-    Wake,
-    WebBack,
-    WebFavorites,
-    WebForward,
-    WebHome,
-    WebRefresh,
-    WebSearch,
-    WebStop,
-    Yen,
-    Caret,
-    Copy,
-    Paste,
-    Cut,
-}
-
-impl Key {
-    pub fn from_glutin_input(key: glutin::event::VirtualKeyCode) -> Self {
-        use glutin::event::VirtualKeyCode::*;
-        // Thank you, vim macros and regex!
-        match key {
-            Key1 => Key::Key1,
-            Key2 => Key::Key2,
-            Key3 => Key::Key3,
-            Key4 => Key::Key4,
-            Key5 => Key::Key5,
-            Key6 => Key::Key6,
-            Key7 => Key::Key7,
-            Key8 => Key::Key8,
-            Key9 => Key::Key9,
-            Key0 => Key::Key0,
-            A => Key::A,
-            B => Key::B,
-            C => Key::C,
-            D => Key::D,
-            E => Key::E,
-            F => Key::F,
-            G => Key::G,
-            H => Key::H,
-            I => Key::I,
-            J => Key::J,
-            K => Key::K,
-            L => Key::L,
-            M => Key::M,
-            N => Key::N,
-            O => Key::O,
-            P => Key::P,
-            Q => Key::Q,
-            R => Key::R,
-            S => Key::S,
-            T => Key::T,
-            U => Key::U,
-            V => Key::V,
-            W => Key::W,
-            X => Key::X,
-            Y => Key::Y,
-            Z => Key::Z,
-            Escape => Key::Escape,
-            F1 => Key::F1,
-            F2 => Key::F2,
-            F3 => Key::F3,
-            F4 => Key::F4,
-            F5 => Key::F5,
-            F6 => Key::F6,
-            F7 => Key::F7,
-            F8 => Key::F8,
-            F9 => Key::F9,
-            F10 => Key::F10,
-            F11 => Key::F11,
-            F12 => Key::F12,
-            F13 => Key::F13,
-            F14 => Key::F14,
-            F15 => Key::F15,
-            F16 => Key::F16,
-            F17 => Key::F17,
-            F18 => Key::F18,
-            F19 => Key::F19,
-            F20 => Key::F20,
-            F21 => Key::F21,
-            F22 => Key::F22,
-            F23 => Key::F23,
-            F24 => Key::F24,
-            Snapshot => Key::Snapshot,
-            Scroll => Key::Scroll,
-            Pause => Key::Pause,
-            Insert => Key::Insert,
-            Home => Key::Home,
-            Delete => Key::Delete,
-            End => Key::End,
-            PageDown => Key::PageDown,
-            PageUp => Key::PageUp,
-            Left => Key::Left,
-            Up => Key::Up,
-            Right => Key::Right,
-            Down => Key::Down,
-            Back => Key::Back,
-            Return => Key::Return,
-            Space => Key::Space,
-            Compose => Key::Compose,
-            Numlock => Key::Numlock,
-            Numpad0 => Key::Numpad0,
-            Numpad1 => Key::Numpad1,
-            Numpad2 => Key::Numpad2,
-            Numpad3 => Key::Numpad3,
-            Numpad4 => Key::Numpad4,
-            Numpad5 => Key::Numpad5,
-            Numpad6 => Key::Numpad6,
-            Numpad7 => Key::Numpad7,
-            Numpad8 => Key::Numpad8,
-            Numpad9 => Key::Numpad9,
-            AbntC1 => Key::AbntC1,
-            AbntC2 => Key::AbntC2,
-            Add => Key::Add,
-            Apostrophe => Key::Apostrophe,
-            Apps => Key::Apps,
-            At => Key::At,
-            Ax => Key::Ax,
-            Backslash => Key::Backslash,
-            Calculator => Key::Calculator,
-            Capital => Key::Capital,
-            Colon => Key::Colon,
-            Comma => Key::Comma,
-            Convert => Key::Convert,
-            Decimal => Key::Decimal,
-            Divide => Key::Divide,
-            Equals => Key::Equals,
-            Grave => Key::Grave,
-            Kana => Key::Kana,
-            Kanji => Key::Kanji,
-            LAlt => Key::LAlt,
-            LBracket => Key::LBracket,
-            LControl => Key::LControl,
-            LShift => Key::LShift,
-            LWin => Key::LWin,
-            Mail => Key::Mail,
-            MediaSelect => Key::MediaSelect,
-            MediaStop => Key::MediaStop,
-            Minus => Key::Minus,
-            Multiply => Key::Multiply,
-            Mute => Key::Mute,
-            MyComputer => Key::MyComputer,
-            NavigateForward => Key::NavigateForward,
-            NavigateBackward => Key::NavigateBackward,
-            NextTrack => Key::NextTrack,
-            NoConvert => Key::NoConvert,
-            NumpadComma => Key::NumpadComma,
-            NumpadEnter => Key::NumpadEnter,
-            NumpadEquals => Key::NumpadEquals,
-            OEM102 => Key::OEM102,
-            Period => Key::Period,
-            PlayPause => Key::PlayPause,
-            Power => Key::Power,
-            PrevTrack => Key::PrevTrack,
-            RAlt => Key::RAlt,
-            RBracket => Key::RBracket,
-            RControl => Key::RControl,
-            RShift => Key::RShift,
-            RWin => Key::RWin,
-            Semicolon => Key::Semicolon,
-            Slash => Key::Slash,
-            Sleep => Key::Sleep,
-            Stop => Key::Stop,
-            Subtract => Key::Subtract,
-            Sysrq => Key::Sysrq,
-            Tab => Key::Tab,
-            Underline => Key::Underline,
-            Unlabeled => Key::Unlabeled,
-            VolumeDown => Key::VolumeDown,
-            VolumeUp => Key::VolumeUp,
-            Wake => Key::Wake,
-            WebBack => Key::WebBack,
-            WebFavorites => Key::WebFavorites,
-            WebForward => Key::WebForward,
-            WebHome => Key::WebHome,
-            WebRefresh => Key::WebRefresh,
-            WebSearch => Key::WebSearch,
-            WebStop => Key::WebStop,
-            Yen => Key::Yen,
-            Caret => Key::Caret,
-            Copy => Key::Copy,
-            Paste => Key::Paste,
-            Cut => Key::Cut,
-        }
-    }
+    Keycode(VirtualKeyCode),
 }
 
 struct ModeWrapper {

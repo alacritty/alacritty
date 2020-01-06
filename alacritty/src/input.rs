@@ -656,7 +656,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             let key = match (binding.trigger, input.virtual_keycode) {
                 (Key::Scancode(_), _) => Key::Scancode(input.scancode),
-                (_, Some(key)) => Key::from_glutin_input(key),
+                (_, Some(key)) => Key::Keycode(key),
                 _ => continue,
             };
 
