@@ -7,7 +7,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton};
@@ -342,7 +342,9 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
+        let txob_refresh_freq = Duration::new(0, 50_000_000);
         let mut event_queue = Vec::new();
+        let mut next_txob_draw = Instant::now();
 
         event_loop.run_return(|event, _event_loop, control_flow| {
             if self.config.debug.print_events {
@@ -358,7 +360,6 @@ impl<N: Notify + OnResize> Processor<N> {
                 // Process events
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
-
                     if event_queue.is_empty() {
                         return;
                     }
@@ -416,6 +417,16 @@ impl<N: Notify + OnResize> Processor<N> {
 
             if terminal.dirty {
                 terminal.dirty = false;
+                let draw_text_objects = Instant::now() >= next_txob_draw;
+                if draw_text_objects {
+                    next_txob_draw = Instant::now() + txob_refresh_freq;
+                } else {
+                    // Don't let it wayt forever if we want to trigger draw
+                    if *control_flow == ControlFlow::Wait {
+                        *control_flow = ControlFlow::WaitUntil(next_txob_draw);
+                    }
+                    event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
+                }
 
                 // Request immediate re-draw if visual bell animation is not finished yet
                 if !terminal.visual_bell.completed() {
@@ -429,6 +440,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
+                    draw_text_objects,
                 );
             }
         });

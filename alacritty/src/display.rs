@@ -366,6 +366,7 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
+        draw_text_objects: bool,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -382,7 +383,7 @@ impl Display {
         self.window.update_ime_position(&terminal, &self.size_info);
 
         // Only get export display content if text-objects are configured
-        let (display_text, display_cells) = if config.ui_config.text_objects.is_empty() {
+        let (display_text, display_cells) = if draw_text_objects && config.ui_config.text_objects.is_empty() {
             (Vec::new(), Vec::new())
         } else {
             terminal.display_index()
