@@ -49,7 +49,15 @@ Defines the window class hint on Linux [default: Alacritty,Alacritty ]
 Command and args to execute (must be last argument)
 .TP
 \fB\-\-config\-file\fR <config\-file>
-Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]
+Specify alternative configuration file
+
+Alacritty looks for the configuration file at the following paths:
+    1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
+    2. $XDG_CONFIG_HOME/alacritty.yml
+    3. $HOME/.config/alacritty/alacritty.yml
+    4. $HOME/.alacritty.yml
+
+On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
 .TP
 \fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
 Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
