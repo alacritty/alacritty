@@ -469,10 +469,26 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
     vec![]
 }
 
-#[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Key {
     Scancode(u32),
     Keycode(VirtualKeyCode),
+}
+
+impl<'a> Deserialize<'a> for Key {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let value = serde_yaml::Value::deserialize(deserializer)?;
+        match u32::deserialize(value.clone()) {
+            Ok(scancode) => Ok(Key::Scancode(scancode)),
+            Err(_) => {
+                let keycode = VirtualKeyCode::deserialize(value).map_err(D::Error::custom)?;
+                Ok(Key::Keycode(keycode))
+            },
+        }
+    }
 }
 
 struct ModeWrapper {
@@ -481,7 +497,7 @@ struct ModeWrapper {
 }
 
 impl<'a> Deserialize<'a> for ModeWrapper {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -494,7 +510,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                 f.write_str("Combination of AppCursor | AppKeypad, possibly with negation (~)")
             }
 
-            fn visit_str<E>(self, value: &str) -> ::std::result::Result<ModeWrapper, E>
+            fn visit_str<E>(self, value: &str) -> Result<ModeWrapper, E>
             where
                 E: de::Error,
             {
@@ -528,7 +544,7 @@ impl MouseButtonWrapper {
 }
 
 impl<'a> Deserialize<'a> for MouseButtonWrapper {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -541,7 +557,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                 f.write_str("Left, Right, Middle, or a number")
             }
 
-            fn visit_str<E>(self, value: &str) -> ::std::result::Result<MouseButtonWrapper, E>
+            fn visit_str<E>(self, value: &str) -> Result<MouseButtonWrapper, E>
             where
                 E: de::Error,
             {
@@ -577,7 +593,7 @@ struct RawBinding {
 }
 
 impl RawBinding {
-    fn into_mouse_binding(self) -> ::std::result::Result<MouseBinding, Self> {
+    fn into_mouse_binding(self) -> Result<MouseBinding, Self> {
         if let Some(mouse) = self.mouse {
             Ok(Binding {
                 trigger: mouse,
@@ -591,7 +607,7 @@ impl RawBinding {
         }
     }
 
-    fn into_key_binding(self) -> ::std::result::Result<KeyBinding, Self> {
+    fn into_key_binding(self) -> Result<KeyBinding, Self> {
         if let Some(key) = self.key {
             Ok(KeyBinding {
                 trigger: key,
@@ -607,7 +623,7 @@ impl RawBinding {
 }
 
 impl<'a> Deserialize<'a> for RawBinding {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -622,7 +638,7 @@ impl<'a> Deserialize<'a> for RawBinding {
         }
 
         impl<'a> Deserialize<'a> for Field {
-            fn deserialize<D>(deserializer: D) -> ::std::result::Result<Field, D::Error>
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
             where
                 D: Deserializer<'a>,
             {
@@ -638,7 +654,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                         f.write_str("binding fields")
                     }
 
-                    fn visit_str<E>(self, value: &str) -> ::std::result::Result<Field, E>
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
                     where
                         E: de::Error,
                     {
@@ -667,7 +683,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 f.write_str("binding specification")
             }
 
-            fn visit_map<V>(self, mut map: V) -> ::std::result::Result<RawBinding, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<RawBinding, V::Error>
             where
                 V: MapAccess<'a>,
             {
@@ -787,7 +803,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 }
 
 impl<'a> Deserialize<'a> for MouseBinding {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -797,7 +813,7 @@ impl<'a> Deserialize<'a> for MouseBinding {
 }
 
 impl<'a> Deserialize<'a> for KeyBinding {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -847,7 +863,7 @@ impl ModsWrapper {
 }
 
 impl<'a> de::Deserialize<'a> for ModsWrapper {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'a>,
     {
@@ -860,7 +876,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                 f.write_str("Some subset of Command|Shift|Super|Alt|Option|Control")
             }
 
-            fn visit_str<E>(self, value: &str) -> ::std::result::Result<ModsWrapper, E>
+            fn visit_str<E>(self, value: &str) -> Result<ModsWrapper, E>
             where
                 E: de::Error,
             {
