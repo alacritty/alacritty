@@ -165,7 +165,7 @@ impl Options {
                     .help("Start the shell in the specified working directory"),
             )
             .arg(Arg::with_name("config-file").long("config-file").takes_value(true).help(
-                &format!("Specify alternative configuration file [default: {}]", CONFIG_PATH)
+                &format!("Specify alternative configuration file [default: {}]", CONFIG_PATH),
             ))
             .arg(
                 Arg::with_name("command")
