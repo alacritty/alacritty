@@ -6,11 +6,14 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::mem;
 use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton};
+use glutin::event::{
+    DeviceEvent, ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent,
+};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use glutin::platform::desktop::EventLoopExtDesktop;
 use log::{debug, info, warn};
@@ -42,7 +45,7 @@ use crate::window::Window;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct DisplayUpdate {
-    pub dimensions: Option<PhysicalSize>,
+    pub dimensions: Option<PhysicalSize<u32>>,
     pub message_buffer: Option<()>,
     pub font: Option<Font>,
 }
@@ -349,7 +352,12 @@ impl<N: Notify + OnResize> Processor<N> {
                 info!("glutin event: {:?}", event);
             }
 
-            match &event {
+            // Ignore all events we do not care about
+            if Self::skip_event(&event) {
+                return;
+            }
+
+            match event {
                 // Check for shutdown
                 GlutinEvent::UserEvent(Event::Exit) => {
                     *control_flow = ControlFlow::Exit;
@@ -363,12 +371,19 @@ impl<N: Notify + OnResize> Processor<N> {
                         return;
                     }
                 },
-                // Buffer events
-                _ => {
+                // Remap DPR change event to remove lifetime
+                GlutinEvent::WindowEvent {
+                    event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
+                    ..
+                } => {
                     *control_flow = ControlFlow::Poll;
-                    if !Self::skip_event(&event) {
-                        event_queue.push(event);
-                    }
+                    let event = GlutinEvent::UserEvent(Event::ScaleFactorChanged(scale_factor));
+                    event_queue.push(event);
+                    return;
+                },
+                event => unsafe {
+                    *control_flow = ControlFlow::Poll;
+                    event_queue.push(mem::transmute(event));
                     return;
                 },
             }
@@ -443,6 +458,15 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         match event {
             GlutinEvent::UserEvent(event) => match event {
+                Event::ScaleFactorChanged(scale_factor) => {
+                    let display_update_pending = &mut processor.ctx.display_update_pending;
+
+                    // Push current font to update its DPR
+                    display_update_pending.font = Some(processor.ctx.config.font.clone());
+
+                    processor.ctx.size_info.dpr = scale_factor;
+                    processor.ctx.terminal.dirty = true;
+                },
                 Event::Title(title) => processor.ctx.window.set_title(&title),
                 Event::Wakeup => processor.ctx.terminal.dirty = true,
                 Event::Urgent => {
@@ -483,20 +507,19 @@ impl<N: Notify + OnResize> Processor<N> {
                 use glutin::event::WindowEvent::*;
                 match event {
                     CloseRequested => processor.ctx.terminal.exit(),
-                    Resized(lsize) => {
+                    Resized(size) => {
                         #[cfg(windows)]
                         {
                             // Minimizing the window sends a Resize event with zero width and
                             // height. But there's no need to ever actually resize to this.
                             // Both WinPTY & ConPTY have issues when resizing down to zero size
                             // and back.
-                            if lsize.width == 0.0 && lsize.height == 0.0 {
+                            if size.width == 0.0 && size.height == 0.0 {
                                 return;
                             }
                         }
 
-                        let psize = lsize.to_physical(processor.ctx.size_info.dpr);
-                        processor.ctx.display_update_pending.dimensions = Some(psize);
+                        processor.ctx.display_update_pending.dimensions = Some(size);
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -516,10 +539,10 @@ impl<N: Notify + OnResize> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    CursorMoved { position: lpos, .. } => {
-                        let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
-                        let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
-                        let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
+                    CursorMoved { position, .. } => {
+                        let (x, y) = position.into();
+                        let x = limit(x, 0, processor.ctx.size_info.width as i32);
+                        let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_moved(x as usize, y as usize);
@@ -546,26 +569,6 @@ impl<N: Notify + OnResize> Processor<N> {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    HiDpiFactorChanged(dpr) => {
-                        let dpr_change = (dpr / processor.ctx.size_info.dpr) as f32;
-                        let display_update_pending = &mut processor.ctx.display_update_pending;
-
-                        // Push current font to update its DPR
-                        display_update_pending.font = Some(processor.ctx.config.font.clone());
-
-                        // Scale window dimensions with new DPR
-                        let old_width = processor.ctx.size_info.width;
-                        let old_height = processor.ctx.size_info.height;
-                        let dimensions =
-                            display_update_pending.dimensions.get_or_insert_with(|| {
-                                PhysicalSize::new(f64::from(old_width), f64::from(old_height))
-                            });
-                        dimensions.width *= f64::from(dpr_change);
-                        dimensions.height *= f64::from(dpr_change);
-
-                        processor.ctx.terminal.dirty = true;
-                        processor.ctx.size_info.dpr = dpr;
-                    },
                     CursorLeft { .. } => {
                         processor.ctx.mouse.inside_grid = false;
 
@@ -574,6 +577,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         }
                     },
                     TouchpadPressure { .. }
+                    | ScaleFactorChanged { .. }
                     | CursorEntered { .. }
                     | AxisMotion { .. }
                     | HoveredFileCancelled
@@ -602,7 +606,6 @@ impl<N: Notify + OnResize> Processor<N> {
     /// Check if an event is irrelevant and can be skipped
     fn skip_event(event: &GlutinEvent<Event>) -> bool {
         match event {
-            GlutinEvent::UserEvent(Event::Exit) => true,
             GlutinEvent::WindowEvent { event, .. } => {
                 use glutin::event::WindowEvent::*;
                 match event {
@@ -617,13 +620,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     _ => false,
                 }
             },
-            GlutinEvent::DeviceEvent { event, .. } => {
-                use glutin::event::DeviceEvent::*;
-                match event {
-                    ModifiersChanged { .. } => false,
-                    _ => true,
-                }
-            },
+            GlutinEvent::DeviceEvent { event: DeviceEvent::ModifiersChanged { .. }, .. } => true,
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::MainEventsCleared
