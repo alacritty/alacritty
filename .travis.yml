@@ -69,6 +69,8 @@ deploy:
   file: "./target/deploy/*"
   on:
     tags: true
-    rust: stable
+    rust:
+      - stable
+      - stable-x86_64-pc-windows-msvc
     condition: $CLIPPY != true
     repo: jwilm/alacritty
