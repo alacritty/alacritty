@@ -373,14 +373,17 @@ impl<N: Notify + OnResize> Processor<N> {
                 },
                 // Remap DPR change event to remove lifetime
                 GlutinEvent::WindowEvent {
-                    event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
+                    event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                     ..
                 } => {
                     *control_flow = ControlFlow::Poll;
-                    let event = GlutinEvent::UserEvent(Event::ScaleFactorChanged(scale_factor));
+                    let size = (new_inner_size.width, new_inner_size.height);
+                    let event = GlutinEvent::UserEvent(Event::DPRChanged(scale_factor, size));
                     event_queue.push(event);
                     return;
                 },
+                // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
+                // Since we remap that event to remove the lifetime, this is safe.
                 event => unsafe {
                     *control_flow = ControlFlow::Poll;
                     event_queue.push(mem::transmute(event));
@@ -458,11 +461,14 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         match event {
             GlutinEvent::UserEvent(event) => match event {
-                Event::ScaleFactorChanged(scale_factor) => {
+                Event::DPRChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR
                     display_update_pending.font = Some(processor.ctx.config.font.clone());
+
+                    // Resize to event's dimensions, since no resize event is emitted on Wayland
+                    display_update_pending.dimensions = Some(PhysicalSize::new(width, height));
 
                     processor.ctx.size_info.dpr = scale_factor;
                     processor.ctx.terminal.dirty = true;

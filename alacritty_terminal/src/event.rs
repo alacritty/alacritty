@@ -6,7 +6,7 @@ use crate::term::SizeInfo;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
-    ScaleFactorChanged(f64),
+    DPRChanged(f64, (u32, u32)),
     ConfigReload(PathBuf),
     MouseCursorDirty,
     Message(Message),
