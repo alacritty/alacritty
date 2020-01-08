@@ -649,8 +649,7 @@ impl<T> Grid<T> {
 
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history
-        let shrinkage = self.history_size();
-        self.raw.shrink_lines(shrinkage);
+        self.raw.shrink_lines(self.history_size());
         self.scroll_limit = 0;
     }
 
