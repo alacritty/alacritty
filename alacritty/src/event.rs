@@ -11,9 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{
-    DeviceEvent, ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent,
-};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use glutin::platform::desktop::EventLoopExtDesktop;
 use log::{debug, info, warn};
@@ -626,7 +624,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     _ => false,
                 }
             },
-            GlutinEvent::DeviceEvent { event: DeviceEvent::ModifiersChanged { .. }, .. } => true,
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::MainEventsCleared
