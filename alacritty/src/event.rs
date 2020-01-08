@@ -518,7 +518,7 @@ impl<N: Notify + OnResize> Processor<N> {
                             // height. But there's no need to ever actually resize to this.
                             // Both WinPTY & ConPTY have issues when resizing down to zero size
                             // and back.
-                            if size.width == 0.0 && size.height == 0.0 {
+                            if size.width == 0 && size.height == 0 {
                                 return;
                             }
                         }
