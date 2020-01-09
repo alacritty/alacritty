@@ -820,35 +820,35 @@ mod test {
         };
 
         // Initialize additional lines
-        storage.initialize(3, Row::new(Column(1), &'-'));
+        let init_size = 3;
+        storage.initialize(init_size, Row::new(Column(1), &'-'));
 
         // Make sure the lines are present and at the right location
-        let shrinking_expected = Storage {
-            inner: vec![
+
+        let expected_init_size = std::cmp::max(init_size, MIN_INIT_SIZE);
+        let mut expected_inner = vec![
                 Row::new(Column(1), &'4'),
                 Row::new(Column(1), &'5'),
-                Row::new(Column(1), &'-'),
-                Row::new(Column(1), &'-'),
-                Row::new(Column(1), &'-'),
+        ];
+        expected_inner.append(&mut vec![
+                Row::new(Column(1), &'-');expected_init_size
+        ]);
+        expected_inner.append(&mut vec![
                 Row::new(Column(1), &'0'),
                 Row::new(Column(1), &'1'),
                 Row::new(Column(1), &'2'),
                 Row::new(Column(1), &'3'),
-            ],
-            zero: 5,
+        ]);
+        let expected_storage = Storage {
+            inner: expected_inner,
+            zero: 2 + expected_init_size,
             visible_lines: Line(0),
             len: 9,
         };
-        assert_eq!(
-            storage.inner[..shrinking_expected.zero],
-            shrinking_expected.inner[..shrinking_expected.zero]
-        );
-        assert_eq!(
-            storage.inner[storage.zero..],
-            shrinking_expected.inner[shrinking_expected.zero..]
-        );
-        assert_eq!(storage.zero, MIN_INIT_SIZE + 2);
-        assert_eq!(storage.len, shrinking_expected.len);
+
+        assert_eq!(storage.inner, expected_storage.inner);
+        assert_eq!(storage.zero, expected_storage.zero);
+        assert_eq!(storage.len, expected_storage.len);
     }
 
     #[test]
