@@ -67,23 +67,23 @@ impl GridCell for Cell {
             && self.extra[0] == ' '
             && self.bg == Color::Named(NamedColor::Background)
             && self.fg == Color::Named(NamedColor::Foreground)
-            && !self
-                .flags
-                .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE)
+            && !self.flags.intersects(
+                Flags::INVERSE
+                    | Flags::UNDERLINE
+                    | Flags::STRIKEOUT
+                    | Flags::WRAPLINE
+                    | Flags::WIDE_CHAR_SPACER,
+            )
     }
 
     #[inline]
-    fn is_wrap(&self) -> bool {
-        self.flags.contains(Flags::WRAPLINE)
+    fn flags(&self) -> &Flags {
+        &self.flags
     }
 
     #[inline]
-    fn set_wrap(&mut self, wrap: bool) {
-        if wrap {
-            self.flags.insert(Flags::WRAPLINE);
-        } else {
-            self.flags.remove(Flags::WRAPLINE);
-        }
+    fn flags_mut(&mut self) -> &mut Flags {
+        &mut self.flags
     }
 
     #[inline]
