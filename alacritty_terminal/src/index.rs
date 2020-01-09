@@ -44,24 +44,32 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub(mut self, num_cols: usize, length: usize) -> Point<L>
+    pub fn sub(mut self, num_cols: usize, length: usize, absolute_indexing: bool) -> Point<L>
     where
-        L: Copy + Sub<usize, Output = L>,
+        L: Copy + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let line_changes = f32::ceil(length.saturating_sub(self.col.0) as f32 / num_cols as f32);
-        self.line = self.line - line_changes as usize;
+        if absolute_indexing {
+            self.line = self.line + line_changes as usize;
+        } else {
+            self.line = self.line - line_changes as usize;
+        }
         self.col = Column((num_cols + self.col.0 - length % num_cols) % num_cols);
         self
     }
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add(mut self, num_cols: usize, length: usize) -> Point<L>
+    pub fn add(mut self, num_cols: usize, length: usize, absolute_indexing: bool) -> Point<L>
     where
-        L: Copy + Add<usize, Output = L>,
+        L: Copy + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes = length.saturating_sub(self.col.0) / num_cols;
-        self.line = self.line + line_changes;
+        let line_changes = (length + self.col.0) / num_cols;
+        if absolute_indexing {
+            self.line = self.line - line_changes;
+        } else {
+            self.line = self.line + line_changes;
+        }
         self.col = Column((self.col.0 + length) % num_cols);
         self
     }
