@@ -413,8 +413,8 @@
 # Mouse bindings are specified as a list of objects, much like the key
 # bindings further below.
 #
-# To activate mouse bindings when an application inside Alacritty captures the mouse, the `Shift`
-# modifier is automatically added as requirement.
+# To trigger mouse bindings when an application running within Alacritty captures the mouse, the
+# `Shift` modifier is automatically added as a requirement.
 #
 # Each mouse binding will specify a:
 #
