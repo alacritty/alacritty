@@ -60,7 +60,7 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             && self.cols.eq(&other.cols)
             && self.lines.eq(&other.lines)
             && self.display_offset.eq(&other.display_offset)
-            && self.scroll_limit.eq(&other.scroll_limit)
+            && self.history_size().eq(&other.history_size())
             && self.selection.eq(&other.selection)
     }
 }
@@ -123,7 +123,8 @@ pub struct Grid<T> {
     /// updates this offset accordingly.
     display_offset: usize,
 
-    /// An limit on how far back it's possible to scroll
+    /// Legacy value, however we can't remove it, since it's in all ref-tests
+    #[serde(skip)]
     scroll_limit: usize,
 
     /// Selected region
@@ -180,8 +181,10 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     pub fn update_history(&mut self, history_size: usize, template: &T) {
         self.raw.update_history(history_size, Row::new(self.cols, &template));
         self.max_scroll_limit = history_size;
-        self.scroll_limit = min(self.scroll_limit, history_size);
-        self.display_offset = min(self.display_offset, self.scroll_limit);
+        if history_size < self.history_size() {
+            self.decrease_scroll_limit(self.history_size() - history_size);
+        }
+        self.display_offset = min(self.display_offset, self.history_size());
     }
 
     pub fn scroll_display(&mut self, scroll: Scroll) {
@@ -189,16 +192,16 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             Scroll::Lines(count) => {
                 self.display_offset = min(
                     max((self.display_offset as isize) + count, 0isize) as usize,
-                    self.scroll_limit,
+                    self.history_size(),
                 );
             },
             Scroll::PageUp => {
-                self.display_offset = min(self.display_offset + self.lines.0, self.scroll_limit);
+                self.display_offset = min(self.display_offset + self.lines.0, self.history_size());
             },
             Scroll::PageDown => {
                 self.display_offset -= min(self.display_offset, self.lines.0);
             },
-            Scroll::Top => self.display_offset = self.scroll_limit,
+            Scroll::Top => self.display_offset = self.history_size(),
             Scroll::Bottom => self.display_offset = 0,
         }
     }
@@ -230,18 +233,14 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     fn increase_scroll_limit(&mut self, count: usize, template: &T) {
-        self.scroll_limit = min(self.scroll_limit + count, self.max_scroll_limit);
-
-        // Initialize new lines when the history buffer is smaller than the scroll limit
-        let history_size = self.history_size();
-        if history_size < self.scroll_limit {
-            let new = min(self.scroll_limit - history_size, self.max_scroll_limit - history_size);
-            self.raw.initialize(new, Row::new(self.cols, template));
-        }
+        let new = min(count, self.max_scroll_limit - self.history_size());
+        self.raw.initialize(new, Row::new(self.cols, template));
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
-        self.scroll_limit = self.scroll_limit.saturating_sub(count);
+        let history_size = self.history_size();
+        let count = history_size - history_size.saturating_sub(count);
+        self.raw.shrink_lines(count);
     }
 
     /// Add lines to the visible area
@@ -257,12 +256,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.lines = new_line_count;
 
         // Move existing lines up if there is no scrollback to fill new lines
-        if lines_added.0 > self.scroll_limit {
-            let scroll_lines = lines_added - self.scroll_limit;
+        if lines_added.0 > self.history_size() {
+            let scroll_lines = lines_added - self.history_size();
             self.scroll_up(&(Line(0)..new_line_count), scroll_lines, template);
         }
 
-        self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
+        self.decrease_scroll_limit(*lines_added);
         self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
@@ -275,6 +274,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         };
 
         let mut new_empty_lines = 0;
+        let mut history_size = self.history_size();
         let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
             // FIXME: Rust 1.39.0+ allows moving in pattern guard here
@@ -322,7 +322,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
             if row.is_empty() {
                 let raw_len = i + 1 + reversed.len();
-                if raw_len < self.lines.0 || self.scroll_limit == 0 {
+                if raw_len < self.lines.0 || history_size == 0 {
                     // Add new line and move lines up if we can't pull from history
                     cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                     new_empty_lines += 1;
@@ -335,8 +335,9 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
                     // Remove one line from scrollback, since we just moved it to the
                     // viewport
-                    self.scroll_limit = self.scroll_limit.saturating_sub(1);
-                    self.display_offset = min(self.display_offset, self.scroll_limit);
+                    // self.decrease_scroll_limit(1);
+                    history_size -= 1;
+                    self.display_offset = min(self.display_offset, history_size);
                 }
 
                 // Don't push line into the new buffer
@@ -370,6 +371,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     fn shrink_cols(&mut self, reflow: bool, cols: Column, template: &T) {
         let mut new_raw = Vec::with_capacity(self.raw.len());
         let mut buffered = None;
+        let mut history_size = self.history_size();
         for (i, mut row) in self.raw.drain().enumerate().rev() {
             // Append lines left over from previous row
             if let Some(buffered) = buffered.take() {
@@ -447,7 +449,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                     row = Row::from_vec(wrapped, occ);
 
                     // Increase scrollback history
-                    self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
+                    history_size = min(history_size + 1, self.max_scroll_limit);
                 }
             }
         }
@@ -650,12 +652,6 @@ impl<T> Grid<T> {
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history
         self.raw.shrink_lines(self.history_size());
-        self.scroll_limit = 0;
-    }
-
-    #[inline]
-    pub fn scroll_limit(&self) -> usize {
-        self.scroll_limit
     }
 
     /// Total number of lines in the buffer, this includes scrollback + visible lines

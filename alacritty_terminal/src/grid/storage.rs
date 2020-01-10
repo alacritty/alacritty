@@ -826,18 +826,13 @@ mod test {
         // Make sure the lines are present and at the right location
 
         let expected_init_size = std::cmp::max(init_size, MIN_INIT_SIZE);
-        let mut expected_inner = vec![
-                Row::new(Column(1), &'4'),
-                Row::new(Column(1), &'5'),
-        ];
+        let mut expected_inner = vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5')];
+        expected_inner.append(&mut vec![Row::new(Column(1), &'-'); expected_init_size]);
         expected_inner.append(&mut vec![
-                Row::new(Column(1), &'-');expected_init_size
-        ]);
-        expected_inner.append(&mut vec![
-                Row::new(Column(1), &'0'),
-                Row::new(Column(1), &'1'),
-                Row::new(Column(1), &'2'),
-                Row::new(Column(1), &'3'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
         ]);
         let expected_storage = Storage {
             inner: expected_inner,
