@@ -972,6 +972,7 @@ mod tests {
                 let urls = Urls::new();
                 let mut processor = Processor::new(context, &urls, &None);
 
+                let event: Event::<'_, TerminalEvent> = $input;
                 if let Event::WindowEvent {
                     event: WindowEvent::MouseInput {
                         state,
@@ -979,7 +980,7 @@ mod tests {
                         ..
                     },
                     ..
-                } = $input
+                } = event
                 {
                     processor.mouse_input(state, button);
                 };
@@ -1015,7 +1016,7 @@ mod tests {
         name: single_click,
         initial_state: ClickState::None,
         initial_button: MouseButton::Other(0),
-        input: Event::<TerminalEvent>::WindowEvent {
+        input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1032,7 +1033,7 @@ mod tests {
         name: double_click,
         initial_state: ClickState::Click,
         initial_button: MouseButton::Left,
-        input: Event::<TerminalEvent>::WindowEvent {
+        input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1049,7 +1050,7 @@ mod tests {
         name: triple_click,
         initial_state: ClickState::DoubleClick,
         initial_button: MouseButton::Left,
-        input: Event::<TerminalEvent>::WindowEvent {
+        input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1066,7 +1067,7 @@ mod tests {
         name: multi_click_separate_buttons,
         initial_state: ClickState::DoubleClick,
         initial_button: MouseButton::Left,
-        input: Event::<TerminalEvent>::WindowEvent {
+        input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,

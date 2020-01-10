@@ -358,7 +358,7 @@ impl GlyphCache {
         dpr: f64,
         cell_width: f32,
         cell_height: f32,
-    ) -> Option<(f64, f64)> {
+    ) -> Option<(u32, u32)> {
         let dimensions = config.window.dimensions;
 
         if dimensions.columns_u32() == 0
@@ -378,7 +378,7 @@ impl GlyphCache {
         let width = padding_x.mul_add(2., f64::from(grid_width)).floor();
         let height = padding_y.mul_add(2., f64::from(grid_height)).floor();
 
-        Some((width, height))
+        Some((width as u32, height as u32))
     }
 }
 
