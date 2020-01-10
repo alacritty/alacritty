@@ -184,12 +184,12 @@ impl<T> Storage<T> {
     }
 
     /// Dynamically grow the storage buffer at runtime.
-    pub fn initialize(&mut self, additional: usize, template_row: Row<T>)
+    pub fn initialize(&mut self, additional_rows: usize, template_row: Row<T>)
     where
         T: Clone,
     {
-        if self.len + additional > self.inner.len() {
-            let realloc_size = max(additional, MIN_INIT_SIZE);
+        if self.len + additional_rows > self.inner.len() {
+            let realloc_size = max(additional_rows, MIN_INIT_SIZE);
             let mut new = vec![template_row; realloc_size];
             let mut split = self.inner.split_off(self.zero);
             self.inner.append(&mut new);
@@ -197,7 +197,7 @@ impl<T> Storage<T> {
             self.zero += realloc_size;
         }
 
-        self.len += additional;
+        self.len += additional_rows;
     }
 
     #[inline]
