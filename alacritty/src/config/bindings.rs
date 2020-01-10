@@ -81,20 +81,14 @@ impl Default for MouseBinding {
 
 impl<T: Eq> Binding<T> {
     #[inline]
-    pub fn is_triggered_by(
-        &self,
-        mode: TermMode,
-        mods: ModifiersState,
-        input: &T,
-        relaxed: bool,
-    ) -> bool {
+    pub fn is_triggered_by(&self, mode: TermMode, mods: ModifiersState, input: &T) -> bool {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input
             && mode.contains(self.mode)
             && !mode.intersects(self.notmode)
-            && (self.mods == mods || (relaxed && self.mods.relaxed_eq(mods)))
+            && (self.mods == mods)
     }
 
     #[inline]
@@ -204,18 +198,6 @@ impl Default for Action {
 impl From<&'static str> for Action {
     fn from(s: &'static str) -> Action {
         Action::Esc(s.into())
-    }
-}
-
-pub trait RelaxedEq<T: ?Sized = Self> {
-    fn relaxed_eq(&self, other: T) -> bool;
-}
-
-impl RelaxedEq for ModifiersState {
-    // Make sure that modifiers in the config are always present,
-    // but ignore surplus modifiers.
-    fn relaxed_eq(&self, other: Self) -> bool {
-        !*self | other == ModifiersState::all()
     }
 }
 
@@ -507,7 +489,9 @@ impl<'a> Deserialize<'a> for ModeWrapper {
             type Value = ModeWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Combination of AppCursor | AppKeypad, possibly with negation (~)")
+                f.write_str(
+                    "Combination of AppCursor | AppKeypad | Alt, possibly with negation (~)",
+                )
             }
 
             fn visit_str<E>(self, value: &str) -> Result<ModeWrapper, E>
@@ -522,8 +506,8 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                         "~appcursor" => res.not_mode |= TermMode::APP_CURSOR,
                         "appkeypad" => res.mode |= TermMode::APP_KEYPAD,
                         "~appkeypad" => res.not_mode |= TermMode::APP_KEYPAD,
-                        "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
                         "alt" => res.mode |= TermMode::ALT_SCREEN,
+                        "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
                         _ => error!(target: LOG_TARGET_CONFIG, "Unknown mode {:?}", modifier),
                     }
                 }
@@ -1040,8 +1024,8 @@ mod test {
         let mods = binding.mods;
         let mode = binding.mode;
 
-        assert!(binding.is_triggered_by(mode, mods, &13, true));
-        assert!(!binding.is_triggered_by(mode, mods, &32, true));
+        assert!(binding.is_triggered_by(mode, mods, &13));
+        assert!(!binding.is_triggered_by(mode, mods, &32));
     }
 
     #[test]
@@ -1055,14 +1039,9 @@ mod test {
         let t = binding.trigger;
         let mode = binding.mode;
 
-        assert!(binding.is_triggered_by(mode, binding.mods, &t, true));
-        assert!(binding.is_triggered_by(mode, binding.mods, &t, false));
-
-        assert!(binding.is_triggered_by(mode, superset_mods, &t, true));
-        assert!(!binding.is_triggered_by(mode, superset_mods, &t, false));
-
-        assert!(!binding.is_triggered_by(mode, subset_mods, &t, true));
-        assert!(!binding.is_triggered_by(mode, subset_mods, &t, false));
+        assert!(binding.is_triggered_by(mode, binding.mods, &t));
+        assert!(!binding.is_triggered_by(mode, superset_mods, &t));
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t));
     }
 
     #[test]
@@ -1073,9 +1052,9 @@ mod test {
         let t = binding.trigger;
         let mods = binding.mods;
 
-        assert!(!binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
-        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
-        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::INSERT, mods, &t));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t));
     }
 
     #[test]
@@ -1086,8 +1065,8 @@ mod test {
         let t = binding.trigger;
         let mods = binding.mods;
 
-        assert!(binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
-        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
-        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::INSERT, mods, &t));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t));
     }
 }
