@@ -1,11 +1,11 @@
 [package]
 name = "alacritty"
 version = "0.4.2-dev"
-authors = ["Joe Wilm <joe@jwilm.com>"]
+authors = ["Christian Duerr <contact@christianduerr.com", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
 readme = "../README.md"
-homepage = "https://github.com/jwilm/alacritty"
+homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
 [dependencies]
@@ -56,7 +56,7 @@ nightly = []
 bench = []
 
 [package.metadata.deb]
-maintainer = "Joe Wilm <joe@jwilm.com>"
+maintainer = "Christian Duerr <contact@christianduerr.com>"
 license-file = ["../LICENSE-APACHE", "3"]
 extended-description = """\
 Alacritty is the fastest terminal emulator in existence. Using the GPU for \
