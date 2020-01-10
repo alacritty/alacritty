@@ -18,9 +18,7 @@ use std::fmt::{self, Display, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::os::raw::c_ulong;
 
-#[cfg(not(windows))]
-use glutin::dpi::PhysicalPosition;
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
@@ -105,7 +103,7 @@ fn create_gl_window(
     mut window: WindowBuilder,
     event_loop: &EventLoop<Event>,
     srgb: bool,
-    dimensions: Option<LogicalSize>,
+    dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
     if let Some(dimensions) = dimensions {
         window = window.with_inner_size(dimensions);
@@ -139,12 +137,12 @@ impl Window {
     pub fn new(
         event_loop: &EventLoop<Event>,
         config: &Config,
-        logical: Option<LogicalSize>,
+        size: Option<PhysicalSize<u32>>,
     ) -> Result<Window> {
         let window_builder = Window::get_platform_window(&config.window.title, &config.window);
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, logical)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;
+            create_gl_window(window_builder.clone(), &event_loop, false, size)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, size))?;
 
         // Text cursor
         let current_mouse_cursor = CursorIcon::Text;
@@ -166,16 +164,16 @@ impl Window {
         Ok(Self { current_mouse_cursor, mouse_visible: true, windowed_context })
     }
 
-    pub fn set_inner_size(&mut self, size: LogicalSize) {
+    pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
         self.window().set_inner_size(size);
     }
 
-    pub fn inner_size(&self) -> LogicalSize {
+    pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window().inner_size()
     }
 
-    pub fn hidpi_factor(&self) -> f64 {
-        self.window().hidpi_factor()
+    pub fn scale_factor(&self) -> f64 {
+        self.window().scale_factor()
     }
 
     #[inline]
@@ -301,7 +299,7 @@ impl Window {
     #[cfg(windows)]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
-    pub fn set_outer_position(&self, pos: LogicalPosition) {
+    pub fn set_outer_position(&self, pos: PhysicalPosition<u32>) {
         self.window().set_outer_position(pos);
     }
 
@@ -367,20 +365,19 @@ impl Window {
     #[cfg(not(windows))]
     pub fn update_ime_position<T>(&mut self, terminal: &Term<T>, size_info: &SizeInfo) {
         let point = terminal.cursor().point;
-        let SizeInfo { cell_width: cw, cell_height: ch, padding_x: px, padding_y: py, dpr, .. } =
-            size_info;
+        let SizeInfo { cell_width, cell_height, padding_x, padding_y, .. } = size_info;
 
-        let nspot_x = f64::from(px + point.col.0 as f32 * cw);
-        let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
+        let nspot_x = f64::from(padding_x + point.col.0 as f32 * cell_width);
+        let nspot_y = f64::from(padding_y + (point.line.0 + 1) as f32 * cell_height);
 
-        self.window().set_ime_position(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(*dpr));
+        self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }
 
     pub fn swap_buffers(&self) {
         self.windowed_context.swap_buffers().expect("swap buffers");
     }
 
-    pub fn resize(&self, size: PhysicalSize) {
+    pub fn resize(&self, size: PhysicalSize<u32>) {
         self.windowed_context.resize(size);
     }
 

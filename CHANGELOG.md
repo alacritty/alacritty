@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them
+- Renamed `WINIT_HIDPI_FACTOR` environment variable to `WINIT_X11_SCALE_FACTOR`
 
 ### Fixed
 
 - Incorrect default config path in `--help` on Windows and macOS
 - Semantic selection stopping at full-width glyphs
 - Full-width glyphs cut off in last column
+- Crash when starting on some X11 systems
 
 ## 0.4.1
 

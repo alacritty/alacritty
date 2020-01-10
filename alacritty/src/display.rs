@@ -124,7 +124,7 @@ impl Display {
     pub fn new(config: &Config, event_loop: &EventLoop<Event>) -> Result<Display, Error> {
         // Guess DPR based on first monitor
         let estimated_dpr =
-            event_loop.available_monitors().next().map(|m| m.hidpi_factor()).unwrap_or(1.);
+            event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.);
 
         // Guess the target window dimensions
         let metrics = GlyphCache::static_metrics(config.font.clone(), estimated_dpr)?;
@@ -137,16 +137,16 @@ impl Display {
         debug!("Estimated Dimensions: {:?}", dimensions);
 
         // Create the window where Alacritty will be displayed
-        let logical = dimensions.map(|d| PhysicalSize::new(d.0, d.1).to_logical(estimated_dpr));
+        let size = dimensions.map(|(width, height)| PhysicalSize::new(width, height));
 
         // Spawn window
-        let mut window = Window::new(event_loop, &config, logical)?;
+        let mut window = Window::new(event_loop, &config, size)?;
 
-        let dpr = window.hidpi_factor();
+        let dpr = window.scale_factor();
         info!("Device pixel ratio: {}", dpr);
 
         // get window properties for initializing the other subsystems
-        let mut viewport_size = window.inner_size().to_physical(dpr);
+        let viewport_size = window.inner_size();
 
         // Create renderer
         let mut renderer = QuadRenderer::new()?;
@@ -160,12 +160,11 @@ impl Display {
         if let Some((width, height)) =
             GlyphCache::calculate_dimensions(config, dpr, cell_width, cell_height)
         {
-            let PhysicalSize { width: w, height: h } = window.inner_size().to_physical(dpr);
-            if (w - width).abs() < f64::EPSILON && (h - height).abs() < f64::EPSILON {
+            let PhysicalSize { width: w, height: h } = window.inner_size();
+            if w == width && h == height {
                 info!("Estimated DPR correctly, skipping resize");
             } else {
-                viewport_size = PhysicalSize::new(width, height);
-                window.set_inner_size(viewport_size.to_logical(dpr));
+                window.set_inner_size(PhysicalSize::new(width, height));
             }
         } else if config.window.dynamic_padding {
             // Make sure additional padding is spread evenly
@@ -217,9 +216,7 @@ impl Display {
         // TODO: replace `set_position` with `with_position` once available
         // Upstream issue: https://github.com/tomaka/winit/issues/806
         if let Some(position) = config.window.position {
-            let physical = PhysicalPosition::from((position.x, position.y));
-            let logical = physical.to_logical(dpr);
-            window.set_outer_position(logical);
+            window.set_outer_position(PhysicalPosition::from((position.x, position.y)));
         }
 
         #[allow(clippy::single_match)]
@@ -341,8 +338,7 @@ impl Display {
         terminal.resize(&pty_size);
 
         // Resize renderer
-        let physical =
-            PhysicalSize::new(f64::from(self.size_info.width), f64::from(self.size_info.height));
+        let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
     }
