@@ -17,11 +17,35 @@
 #![crate_type = "dylib"]
 #![crate_type = "rlib"]
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 extern crate smithay_clipboard;
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 extern crate wayland_client;
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 extern crate x11_clipboard as x11_clipboard_crate;
 
 #[cfg(windows)]
@@ -38,9 +62,25 @@ extern crate objc_id;
 mod common;
 pub use common::ClipboardProvider;
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 pub mod wayland_clipboard;
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 pub mod x11_clipboard;
 
 #[cfg(windows)]
@@ -51,7 +91,15 @@ pub mod osx_clipboard;
 
 pub mod nop_clipboard;
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "macos",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "emscripten"
+    ))
+))]
 pub type ClipboardContext = x11_clipboard::X11ClipboardContext;
 #[cfg(windows)]
 pub type ClipboardContext = windows_clipboard::WindowsClipboardContext;
@@ -59,11 +107,15 @@ pub type ClipboardContext = windows_clipboard::WindowsClipboardContext;
 pub type ClipboardContext = osx_clipboard::OSXClipboardContext;
 #[cfg(target_os = "android")]
 pub type ClipboardContext = nop_clipboard::NopClipboardContext; // TODO: implement AndroidClipboardContext
+#[cfg(target_os = "ios")]
+pub type ClipboardContext = nop_clipboard::NopClipboardContext; // TODO: implement IOSClipboardContext
+
 #[cfg(not(any(
     unix,
     windows,
     target_os = "macos",
     target_os = "android",
+    target_os = "ios",
     target_os = "emscripten"
 )))]
 pub type ClipboardContext = nop_clipboard::NopClipboardContext;
