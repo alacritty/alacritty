@@ -319,7 +319,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         F18; Action::Esc("\x1b[32~".into());
         F19; Action::Esc("\x1b[33~".into());
         F20; Action::Esc("\x1b[34~".into());
-        NumpadEnter; Action::Esc("\n".into());
+        NumpadEnter; Action::Esc("\x0d".into());
     );
 
     //   Code     Modifiers
