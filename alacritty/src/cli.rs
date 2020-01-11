@@ -261,7 +261,7 @@ impl Options {
 
     pub fn into_config(self, mut config: Config) -> Config {
         match self.working_dir.or_else(|| config.working_directory.take()) {
-            Some(wd) if !wd.is_dir() => error!("Unable to set working directory to {:?}", wd),
+            Some(ref wd) if !wd.is_dir() => error!("Unable to set working directory to {:?}", wd),
             wd => config.working_directory = wd,
         }
 
