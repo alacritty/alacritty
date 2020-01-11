@@ -25,11 +25,11 @@ However, it does allow configuration of many aspects of the terminal.</p>
     <keyword>terminal emulator</keyword>
     <keyword>GPU</keyword>
   </keywords>
-  <url type="homepage">https://github.com/jwilm/alacritty</url>
-  <url type="bugtracker">https://github.com/jwilm/alacritty/issues</url>
+  <url type="homepage">https://github.com/alacritty/alacritty</url>
+  <url type="bugtracker">https://github.com/alacritty/alacritty/issues</url>
   <releases>
     <release version="0.4.2-dev" date="2019-06-16" unix_timestamp="1560694196"/>
   </releases>
-  <update_contact>https://github.com/jwilm/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
-  <developer_name>Joe Wilm</developer_name> 
+  <update_contact>https://github.com/alacritty/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
+  <developer_name>Joe Wilm</developer_name>
 </component>

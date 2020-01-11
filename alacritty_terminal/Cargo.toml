@@ -1,11 +1,11 @@
 [package]
 name = "alacritty_terminal"
 version = "0.4.2-dev"
-authors = ["Joe Wilm <joe@jwilm.com>"]
+authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
 readme = "../README.md"
-homepage = "https://github.com/jwilm/alacritty"
+homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
 [dependencies]
@@ -24,7 +24,7 @@ unicode-width = "0.1"
 base64 = "0.11.0"
 terminfo = "0.6.1"
 url = "2"
-copypasta = { path = "../copypasta" }
+copypasta = "0.6.1"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15.0"

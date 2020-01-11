@@ -214,7 +214,7 @@ impl Display {
         // Set window position
         //
         // TODO: replace `set_position` with `with_position` once available
-        // Upstream issue: https://github.com/tomaka/winit/issues/806
+        // Upstream issue: https://github.com/rust-windowing/winit/issues/806
         if let Some(position) = config.window.position {
             window.set_outer_position(PhysicalPosition::from((position.x, position.y)));
         }

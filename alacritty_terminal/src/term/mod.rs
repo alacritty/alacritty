@@ -395,7 +395,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                         inner: self.grid[self.cursor],
                         column: self.cursor.col,
                         // Using `self.cursor.line` leads to inconsitent cursor position when
-                        // scrolling. See https://github.com/jwilm/alacritty/issues/2570 for more
+                        // scrolling. See https://github.com/alacritty/alacritty/issues/2570 for more
                         // info.
                         line: self.inner.line(),
                     };

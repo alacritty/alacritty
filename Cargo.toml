@@ -2,7 +2,6 @@
 members = [
     "alacritty",
     "alacritty_terminal",
-    "copypasta",
     "font",
     "winpty"
 ]
