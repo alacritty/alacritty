@@ -463,7 +463,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR
-                    display_update_pending.font = Some(processor.ctx.config.font.clone());
+                    display_update_pending.font =
+                        Some(processor.ctx.config.font.clone().with_size(*processor.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland
                     display_update_pending.dimensions = Some(PhysicalSize::new(width, height));
