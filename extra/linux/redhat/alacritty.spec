@@ -3,8 +3,8 @@ Version:       0.4.2-dev
 Release:       1%{?dist}
 Summary:       A cross-platform, GPU enhanced terminal emulator
 License:       ASL 2.0
-URL:           https://github.com/jwilm/alacritty
-VCS:           https://github.com/jwilm/alacritty.git
+URL:           https://github.com/alacritty/alacritty
+VCS:           https://github.com/alacritty/alacritty.git
 Source:        alacritty-%{version}.tar
 
 BuildRequires: rust >= 1.36.0

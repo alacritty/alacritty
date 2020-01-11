@@ -74,9 +74,9 @@ Defines the X11 window ID (as a decimal integer) to embed Alacritty within
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
 .SH "SEE ALSO"
-See the alacritty github repository at https://github.com/jwilm/alacritty for the full documentation.
+See the alacritty github repository at https://github.com/alacritty/alacritty for the full documentation.
 .SH "BUGS"
-Found a bug? Please report it at https://github.com/jwilm/alacritty/issues.
+Found a bug? Please report it at https://github.com/alacritty/alacritty/issues.
 .SH "AUTHORS"
 Maintainers:
 .sp
@@ -87,5 +87,10 @@ Maintainers:
 .el \{\
 .sp -1
 .IP \(bu 2.3
+.\}
+Christian Duerr <contact@christianduerr.com>
+.sp
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
 .\}
 Joe Wilm <joe@jwilm.com>

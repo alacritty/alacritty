@@ -17,29 +17,29 @@ Table of Contents:
 ## Feature Requests
 
 Feature requests should be reported in the
-[Alacritty issue tracker](https://github.com/jwilm/alacritty/issues). To reduce the number of
+[Alacritty issue tracker](https://github.com/alacritty/alacritty/issues). To reduce the number of
 duplicates, please make sure to check the existing
-[enhancement](https://github.com/jwilm/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Aenhancement)
+[enhancement](https://github.com/alacritty/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Aenhancement)
 and
-[missing feature](https://github.com/jwilm/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22B+-+missing+feature%22)
+[missing feature](https://github.com/alacritty/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22B+-+missing+feature%22)
 issues.
 
 ## Bug Reports
 
 Bug reports should be reported in the
-[Alacritty issue tracker](https://github.com/jwilm/alacritty/issues).
+[Alacritty issue tracker](https://github.com/alacritty/alacritty/issues).
 
 If a bug was not present in a previous version of Alacritty, providing the exact commit which
 introduced the regression helps out a lot.
 
 ## Patches / Pull Requests
 
-All patches have to be sent on Github as [pull requests](https://github.com/jwilm/alacritty/pulls).
+All patches have to be sent on Github as [pull requests](https://github.com/alacritty/alacritty/pulls).
 
 If you are looking for a place to start contributing to Alacritty, take a look at the
-[help wanted](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
+[help wanted](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
 and
-[easy](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
+[easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
 Please note that the minimum supported version of Alacritty is Rust 1.36.0. All patches are expected
@@ -71,9 +71,9 @@ If changes could affect throughput or latency of Alacritty, these aspects should
 prevent potential regressions. Since there are often big performance differences between Rust's
 nightly releases, it's advised to perform these tests on the latest Rust stable release.
 
-Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for testing Alacritty's
+Alacritty mainly uses the [vtebench](https://github.com/alacritty/vtebench) tool for testing Alacritty's
 performance. Instructions on how to use it can be found in its
-[README](https://github.com/jwilm/vtebench/blob/master/README.md).
+[README](https://github.com/alacritty/vtebench/blob/master/README.md).
 
 Latency is another important factor for Alacritty. On X11, Windows, and macOS the
 [typometer](https://github.com/pavelfatin/typometer) tool allows measuring keyboard latency.
@@ -130,7 +130,7 @@ The exact steps for an exemplary `1.2.3` release might look like this:
 # Contact
 
 If there are any outstanding questions about contributing to Alacritty, they can be asked on the
-[Alacritty issue tracker](https://github.com/jwilm/alacritty/issues).
+[Alacritty issue tracker](https://github.com/alacritty/alacritty/issues).
 
 As a more immediate and direct form of communication, the Alacritty IRC channel (`#alacritty` on
 Freenode) can be used to contact many of the Alacritty contributors.
