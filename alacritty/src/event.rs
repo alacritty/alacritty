@@ -460,10 +460,13 @@ impl<N: Notify + OnResize> Processor<N> {
         match event {
             GlutinEvent::UserEvent(event) => match event {
                 Event::DPRChanged(scale_factor, (width, height)) => {
-                    let display_update_pending = &mut processor.ctx.display_update_pending;
+                    let display_update_pending = &mut ctx.display_update_pending;
 
                     // Push current font to update its DPR
-                    display_update_pending.font = Some(processor.ctx.config.font.clone());
+                    if display_update_pending.font.is_none() {
+                        display_update_pending.font =
+                            processor.ctx.config.font.clone().with_size(processor.ctx.font_size);
+                    }
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland
                     display_update_pending.dimensions = Some(PhysicalSize::new(width, height));
