@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Semantic selection stopping at full-width glyphs
 - Full-width glyphs cut off in last column
 - Crash when starting on some X11 systems
+- Font size resetting when Alacritty is moved between screens
 
 ## 0.4.1
 
