@@ -2165,12 +2165,12 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "utf8parse 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "vte_generate_state_changes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "vte_generate_state_changes 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "vte_generate_state_changes"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2665,7 +2665,7 @@ dependencies = [
 "checksum vswhom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "be979b7f07507105799e854203b470ff7c78a1639e330a58f183b5fea574608b"
 "checksum vswhom-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc2f5402d3d0e79a069714f7b48e3ecc60be7775a2c049cb839457457a239532"
 "checksum vte 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a558b9c59823439c4b42b4d900b43450e2cd548a98ccf9c2170dfc824c1313de"
-"checksum vte_generate_state_changes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b13d812946c0e69bb85b5d1a6de218207d761ea31b98b0e021ed3e31594c00b5"
+"checksum vte_generate_state_changes 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d257817081c7dffcdbab24b9e62d2def62e2ff7d00b1c20062551e6cccc145ff"
 "checksum walkdir 2.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "777182bc735b6424e1a57516d35ed72cb8019d85c8c9bf536dccb3445c1a2f7d"
 "checksum wasi 0.9.0+wasi-snapshot-preview1 (registry+https://github.com/rust-lang/crates.io-index)" = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 "checksum wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)" = "af1080ebe0efabcf12aef2132152f616038f2d7dcbbccf7b2d8c5270fe14bcda"
