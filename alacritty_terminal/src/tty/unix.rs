@@ -208,7 +208,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     }
 
     // Handle set working directory option
-    if let Some(ref dir) = config.working_directory() {
+    if let Some(dir) = &config.working_directory {
         builder.current_dir(dir);
     }
 

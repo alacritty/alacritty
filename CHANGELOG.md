@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them
 - Renamed `WINIT_HIDPI_FACTOR` environment variable to `WINIT_X11_SCALE_FACTOR`
+- Print an error instead of crashing, when startup working directory is invalid
 
 ### Fixed
 
