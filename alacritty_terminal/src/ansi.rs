@@ -724,7 +724,7 @@ where
     }
 
     #[inline]
-    fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool) {
+    fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool, _c: char) {
         debug!(
             "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
             params, intermediates, ignore
