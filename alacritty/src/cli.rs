@@ -16,7 +16,7 @@ use std::cmp::max;
 use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
-use log::{self, LevelFilter};
+use log::{self, error, LevelFilter};
 
 use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
@@ -260,11 +260,13 @@ impl Options {
     }
 
     pub fn into_config(self, mut config: Config) -> Config {
+        match self.working_dir.or_else(|| config.working_directory.take()) {
+            Some(ref wd) if !wd.is_dir() => error!("Unable to set working directory to {:?}", wd),
+            wd => config.working_directory = wd,
+        }
+
         if let Some(lcr) = self.live_config_reload {
             config.set_live_config_reload(lcr);
-        }
-        if let Some(wd) = self.working_dir {
-            config.set_working_directory(Some(wd));
         }
         config.shell = self.command.or(config.shell);
 
