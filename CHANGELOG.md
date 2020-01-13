@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regression which added a UNC path prefix to the working directory on Windows
 - CLI parameters discarded when config is reload
 - Blurred icons in KDE task switcher (alacritty.ico is now high-res)
+- Force Application symlink when packaging for macOS
 
 ## 0.4.1
 
