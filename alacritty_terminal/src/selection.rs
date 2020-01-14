@@ -319,12 +319,23 @@ impl Selection {
 
     fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
     where
-        T: Dimensions,
+        T: Search + Dimensions,
     {
-        end.col = term.dimensions().col - 1;
-        start.col = Column(0);
+        let needs_swap = Selection::points_need_swap(start, end);
+        if needs_swap {
+            start = term.search_wrapline_left(start.into()).into();
+            end = term.search_wrapline_right(end.into()).into();
+        } else {
+            start = term.search_wrapline_right(start.into()).into();
+            end = term.search_wrapline_left(end.into()).into();
+        }
 
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
+        start.col = term.dimensions().col - 1;
+        end.col = Column(0);
+
+        let (start, end) = (start.into(), end.into());
+
+        Some(Span { start, end, is_block: false })
     }
 
     fn span_simple<T>(
