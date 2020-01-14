@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash when starting on some X11 systems
 - Font size resetting when Alacritty is moved between screens
 - Limited payload length in clipboard escape (used for Tmux copy/paste)
+- Alacritty not ignoring keyboard events for changing WM focus on X11
 
 ## 0.4.1
 

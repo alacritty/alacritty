@@ -527,7 +527,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.display_update_pending.dimensions = Some(size);
                         processor.ctx.terminal.dirty = true;
                     },
-                    KeyboardInput { input, .. } => {
+                    KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
@@ -581,7 +581,8 @@ impl<N: Notify + OnResize> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    TouchpadPressure { .. }
+                    KeyboardInput { is_synthetic: true, .. }
+                    | TouchpadPressure { .. }
                     | ScaleFactorChanged { .. }
                     | CursorEntered { .. }
                     | AxisMotion { .. }
@@ -614,7 +615,8 @@ impl<N: Notify + OnResize> Processor<N> {
             GlutinEvent::WindowEvent { event, .. } => {
                 use glutin::event::WindowEvent::*;
                 match event {
-                    TouchpadPressure { .. }
+                    KeyboardInput { is_synthetic: true, .. }
+                    | TouchpadPressure { .. }
                     | CursorEntered { .. }
                     | AxisMotion { .. }
                     | HoveredFileCancelled
