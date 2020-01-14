@@ -319,7 +319,7 @@ impl Selection {
 
     fn span_lines<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
     where
-        T: Search + Dimensions,
+        T: Search,
     {
         let start = term.line_search_left(start.into());
         let end = term.line_search_right(end.into());
