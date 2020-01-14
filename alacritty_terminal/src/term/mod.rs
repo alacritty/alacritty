@@ -56,10 +56,10 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the extent of wrap lines to the left of provided point.
-    fn search_wrapline_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the extent of wrap lines to the right of provided point.
-    fn search_wrapline_right(&self, _: Point<usize>) -> Point<usize>;
+    /// Find the beginning of this line, including wrapped content.
+    fn line_search_left(&self, _: Point<usize>) -> Point<usize>;
+    /// Find the end of this line, including wrapped content.
+    fn line_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest matching bracket.
     fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
 }
@@ -113,26 +113,26 @@ impl<T> Search for Term<T> {
         point
     }
 
-    fn search_wrapline_left(&self, point: Point<usize>) -> Point<usize> 
-    {
-        let mut left: Point<usize> = point;
-
-        while self.grid[left.line + 1][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
-            left.line += 1;
+    fn line_search_left(&self, mut point: Point<usize>) -> Point<usize> {
+        while point.line + 1 < self.grid.len()
+            && self.grid[point.line + 1][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE)
+        {
+            point.line += 1;
         }
 
-        left
+        point.col = Column(0);
+
+        point
     }
 
-    fn search_wrapline_right(&self, point: Point<usize>) -> Point<usize>
-    {
-        let mut right: Point<usize> = point;
-
-        while self.grid[right.line][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
-            right.line -= 1;
+    fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
+        while self.grid[point.line][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
+            point.line -= 1;
         }
 
-        right
+        point.col = self.grid.num_cols() - 1;
+
+        point
     }
 
     fn bracket_search(&self, point: Point<usize>) -> Option<Point<usize>> {
