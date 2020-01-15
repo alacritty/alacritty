@@ -42,14 +42,13 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let (conin, conout) = (agent.conin_name(), agent.conout_name());
 
     let cmdline = cmdline(&config);
-    let cwd = config.working_directory.as_ref().map(|pb| pb.as_path().canonicalize().unwrap());
 
     // Spawn process
     let spawnconfig = SpawnConfig::new(
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
         None, // appname
         Some(&cmdline),
-        cwd.as_ref().map(|p| p.as_ref()),
+        config.working_directory.as_ref().map(|p| p.as_path()),
         None, // Env
     )
     .unwrap();
