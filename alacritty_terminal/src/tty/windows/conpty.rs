@@ -203,10 +203,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     }
 
     let cmdline = win32_string(&cmdline(&config));
-    let cwd = config
-        .working_directory
-        .as_ref()
-        .map(|pb| win32_string(&pb.as_path().canonicalize().unwrap()));
+    let cwd = config.working_directory.as_ref().map(win32_string);
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();
     unsafe {
