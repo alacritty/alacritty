@@ -14,7 +14,8 @@
 use std::ops::Deref;
 use std::ptr::NonNull;
 
-use foreign_types::{ForeignType, ForeignTypeRef};
+use foreign_types::{foreign_type, ForeignType, ForeignTypeRef};
+use log::trace;
 
 use super::{ConfigRef, ObjectSetRef, PatternRef};
 

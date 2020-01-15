@@ -23,6 +23,7 @@ use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use harfbuzz_rs::{Face as HbFace, Feature, Font, GlyphBuffer, Owned, Tag, UnicodeBuffer};
 use libc::c_uint;
+use log::{debug, trace};
 
 pub mod fc;
 

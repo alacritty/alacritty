@@ -16,7 +16,7 @@ use std::ptr::NonNull;
 use libc::c_char;
 
 use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
-use foreign_types::ForeignTypeRef;
+use foreign_types::{foreign_type, ForeignTypeRef};
 
 foreign_type! {
     pub unsafe type ObjectSet {
