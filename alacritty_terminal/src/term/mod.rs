@@ -56,9 +56,9 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the beginning of a potentially wrapped line.
+    /// Find the beginning of a line, following line wraps.
     fn line_search_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the end of a potentially wrapped line.
+    /// Find the end of a line, following line wraps.
     fn line_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest matching bracket.
     fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
