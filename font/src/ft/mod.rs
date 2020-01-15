@@ -22,6 +22,7 @@ use freetype::freetype_sys;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
+use log::{debug, trace};
 
 pub mod fc;
 

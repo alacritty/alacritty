@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::ptr::{self, NonNull};
 use std::str;
 
-use foreign_types::{ForeignType, ForeignTypeRef};
+use foreign_types::{foreign_type, ForeignType, ForeignTypeRef};
 use libc::{c_char, c_double, c_int};
 
 use super::ffi::FcResultMatch;

@@ -13,10 +13,7 @@
 // limitations under the License.
 //
 //! Rasterization powered by DirectWrite
-extern crate dwrote;
-use self::dwrote::{
-    FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis,
-};
+use dwrote::{FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis};
 
 use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,

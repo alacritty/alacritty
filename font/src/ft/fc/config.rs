@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use foreign_types::ForeignTypeRef;
+use foreign_types::{foreign_type, ForeignTypeRef};
 
 use super::ffi::{FcConfig, FcConfigDestroy, FcConfigGetCurrent, FcConfigGetFonts};
 use super::{FontSetRef, SetName};
