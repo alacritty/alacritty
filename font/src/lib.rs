@@ -20,31 +20,6 @@
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
-#[cfg(not(any(target_os = "macos", windows)))]
-extern crate fontconfig;
-#[cfg(not(any(target_os = "macos", windows)))]
-extern crate freetype;
-
-#[cfg(target_os = "macos")]
-extern crate core_foundation;
-#[cfg(target_os = "macos")]
-extern crate core_foundation_sys;
-#[cfg(target_os = "macos")]
-extern crate core_graphics;
-#[cfg(target_os = "macos")]
-extern crate core_text;
-#[cfg(target_os = "macos")]
-extern crate euclid;
-
-extern crate libc;
-
-#[cfg(not(any(target_os = "macos", windows)))]
-#[macro_use]
-extern crate foreign_types;
-
-#[cfg_attr(not(windows), macro_use)]
-extern crate log;
-
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
@@ -59,7 +34,7 @@ pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 #[cfg(windows)]
 pub mod directwrite;
 #[cfg(windows)]
-pub use crate::directwrite::{DirectWriteRasterizer as Rasterizer, Error};
+pub use directwrite::{DirectWriteRasterizer as Rasterizer, Error};
 
 // If target is macos, reexport everything from darwin
 #[cfg(target_os = "macos")]

@@ -45,7 +45,7 @@ use euclid::{Point2D, Rect, Size2D};
 use super::{BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
-use self::byte_order::kCGBitmapByteOrder32Host;
+use byte_order::kCGBitmapByteOrder32Host;
 
 use super::Size;
 

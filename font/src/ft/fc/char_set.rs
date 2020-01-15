@@ -13,7 +13,7 @@
 // limitations under the License.
 use std::ptr::NonNull;
 
-use foreign_types::ForeignTypeRef;
+use foreign_types::{foreign_type, ForeignTypeRef};
 
 use super::ffi::FcCharSetCreate;
 use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetDestroy};

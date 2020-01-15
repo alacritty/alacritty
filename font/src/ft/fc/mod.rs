@@ -19,29 +19,29 @@ use foreign_types::{ForeignType, ForeignTypeRef};
 
 use fontconfig::fontconfig as ffi;
 
-use self::ffi::FcResultNoMatch;
-use self::ffi::{FcFontList, FcFontMatch, FcFontSort};
-use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan};
-use self::ffi::{FcSetApplication, FcSetSystem};
-use self::ffi::{FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN};
-use self::ffi::{FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD};
-use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD};
-use self::ffi::{FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN};
+use ffi::FcResultNoMatch;
+use ffi::{FcFontList, FcFontMatch, FcFontSort};
+use ffi::{FcMatchFont, FcMatchPattern, FcMatchScan};
+use ffi::{FcSetApplication, FcSetSystem};
+use ffi::{FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN};
+use ffi::{FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD};
+use ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD};
+use ffi::{FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN};
 
 pub mod config;
-pub use self::config::{Config, ConfigRef};
+pub use config::{Config, ConfigRef};
 
 pub mod font_set;
-pub use self::font_set::{FontSet, FontSetRef};
+pub use font_set::{FontSet, FontSetRef};
 
 pub mod object_set;
-pub use self::object_set::{ObjectSet, ObjectSetRef};
+pub use object_set::{ObjectSet, ObjectSetRef};
 
 pub mod char_set;
-pub use self::char_set::{CharSet, CharSetRef};
+pub use char_set::{CharSet, CharSetRef};
 
 pub mod pattern;
-pub use self::pattern::{Pattern, PatternRef};
+pub use pattern::{Pattern, PatternRef};
 
 /// Find the font closest matching the provided pattern.
 ///
