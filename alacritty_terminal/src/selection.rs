@@ -317,14 +317,14 @@ impl Selection {
         Some(Span { start, end, is_block: false })
     }
 
-    fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
+    fn span_lines<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
     where
-        T: Dimensions,
+        T: Search,
     {
-        end.col = term.dimensions().col - 1;
-        start.col = Column(0);
+        let start = term.line_search_left(start.into());
+        let end = term.line_search_right(end.into());
 
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
+        Some(Span { start, end, is_block: false })
     }
 
     fn span_simple<T>(

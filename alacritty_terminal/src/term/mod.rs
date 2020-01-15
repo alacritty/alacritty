@@ -56,6 +56,10 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
+    /// Find the beginning of a line, following line wraps.
+    fn line_search_left(&self, _: Point<usize>) -> Point<usize>;
+    /// Find the end of a line, following line wraps.
+    fn line_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest matching bracket.
     fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
 }
@@ -105,6 +109,28 @@ impl<T> Search for Term<T> {
                 break; // cut off if on new line or hit escape char
             }
         }
+
+        point
+    }
+
+    fn line_search_left(&self, mut point: Point<usize>) -> Point<usize> {
+        while point.line + 1 < self.grid.len()
+            && self.grid[point.line + 1][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE)
+        {
+            point.line += 1;
+        }
+
+        point.col = Column(0);
+
+        point
+    }
+
+    fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
+        while self.grid[point.line][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE) {
+            point.line -= 1;
+        }
+
+        point.col = self.grid.num_cols() - 1;
 
         point
     }
@@ -973,7 +999,7 @@ impl<T> Term<T> {
                 tab_mode = true;
             }
 
-            if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+            if !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
                 // Push cells primary character
                 text.push(cell.c);
 
@@ -986,7 +1012,7 @@ impl<T> Term<T> {
 
         if cols.end >= self.cols() - 1
             && (line_end == Column(0)
-                || !self.grid[line][line_end - 1].flags.contains(cell::Flags::WRAPLINE))
+                || !self.grid[line][line_end - 1].flags.contains(Flags::WRAPLINE))
         {
             text.push('\n');
         }
