@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Font size resetting when Alacritty is moved between screens
 - Limited payload length in clipboard escape (used for Tmux copy/paste)
 - Alacritty not ignoring keyboard events for changing WM focus on X11
+- Regression which added a UNC path prefix to the working directory on Windows
 
 ## 0.4.1
 
