@@ -115,7 +115,7 @@ impl<T> Search for Term<T> {
 
     fn line_search_left(&self, mut point: Point<usize>) -> Point<usize> {
         while point.line + 1 < self.grid.len()
-            && self.grid[point.line + 1][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE)
+            && self.grid[point.line + 1][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE)
         {
             point.line += 1;
         }
@@ -126,7 +126,7 @@ impl<T> Search for Term<T> {
     }
 
     fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
-        while self.grid[point.line][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
+        while self.grid[point.line][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE) {
             point.line -= 1;
         }
 
@@ -999,7 +999,7 @@ impl<T> Term<T> {
                 tab_mode = true;
             }
 
-            if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+            if !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
                 // Push cells primary character
                 text.push(cell.c);
 
@@ -1012,7 +1012,7 @@ impl<T> Term<T> {
 
         if cols.end >= self.cols() - 1
             && (line_end == Column(0)
-                || !self.grid[line][line_end - 1].flags.contains(cell::Flags::WRAPLINE))
+                || !self.grid[line][line_end - 1].flags.contains(Flags::WRAPLINE))
         {
             text.push('\n');
         }
