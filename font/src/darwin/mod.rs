@@ -18,8 +18,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::ptr;
 
-use {Slant, Style, Weight};
-
 use core_foundation::array::{CFArray, CFIndex};
 use core_foundation::string::CFString;
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
@@ -42,12 +40,14 @@ use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
+use log::{trace, warn};
 
 pub mod byte_order;
 use byte_order::kCGBitmapByteOrder32Host;
 
-use super::Size;
+use super::{
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+};
 
 /// Font descriptor
 ///
@@ -124,7 +124,7 @@ impl ::std::fmt::Display for Error {
     }
 }
 
-impl ::Rasterize for Rasterizer {
+impl crate::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
