@@ -35,6 +35,7 @@ use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
 
+use crate::cli::Options;
 use crate::config;
 use crate::config::Config;
 use crate::display::Display;
@@ -482,6 +483,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.display_update_pending.message_buffer = Some(());
 
                     if let Ok(config) = config::reload_from(&path) {
+                        let options = Options::new();
+                        let config = options.into_config(config);
+
                         processor.ctx.terminal.update_config(&config);
 
                         if processor.ctx.config.font != config.font {
