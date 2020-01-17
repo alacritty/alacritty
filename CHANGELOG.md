@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limited payload length in clipboard escape (used for Tmux copy/paste)
 - Alacritty not ignoring keyboard events for changing WM focus on X11
 - Regression which added a UNC path prefix to the working directory on Windows
+- Blurred icons in KDE task switcher. The (Windows) alacritty.ico file is now 256x256
 
 ## 0.4.1
 
