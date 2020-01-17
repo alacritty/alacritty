@@ -338,8 +338,7 @@ impl Descriptor {
         let fallbacks = if load_fallbacks {
             descriptors_for_family("Menlo")
                 .into_iter()
-                .filter(|d| d.font_name == "Menlo-Regular")
-                .nth(0)
+                .find(|d| d.font_name == "Menlo-Regular")
                 .map(|descriptor| {
                     let menlo = ct_new_from_descriptor(&descriptor.ct_descriptor, size);
 

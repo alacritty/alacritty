@@ -518,7 +518,7 @@ impl PatternRef {
     }
 
     pub fn get_width(&self) -> Option<Width> {
-        unsafe { self.get_integer(b"width\0").nth(0).map(Width::from) }
+        unsafe { self.get_integer(b"width\0").next().map(Width::from) }
     }
 
     pub fn rgba(&self) -> RgbaPropertyIter {
