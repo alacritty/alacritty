@@ -251,7 +251,7 @@ impl FreeTypeRasterizer {
     }
 
     fn face_from_pattern(&mut self, pattern: &fc::Pattern) -> Result<Option<FontKey>, Error> {
-        if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().nth(0)) {
+        if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().next()) {
             if let Some(key) = self.keys.get(&path) {
                 return Ok(Some(*key));
             }
@@ -547,7 +547,7 @@ impl FreeTypeRasterizer {
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {
             Some(pattern) => {
-                if let (Some(path), Some(_)) = (pattern.file(0), pattern.index().nth(0)) {
+                if let (Some(path), Some(_)) = (pattern.file(0), pattern.index().next()) {
                     match self.keys.get(&path) {
                         // We've previously loaded this font, so don't
                         // load it again.
