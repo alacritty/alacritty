@@ -229,26 +229,42 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         mut cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
+        let num_cols = grid.num_cols();
+        let num_lines = grid.num_lines();
 
         let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
-        let selection_range = selection.map(|span| {
+        let selection_range = selection.and_then(|span| {
             let (limit_start, limit_end) = if span.is_block {
                 (span.start.col, span.end.col)
             } else {
-                (Column(0), term.cols() - 1)
+                (Column(0), num_cols - 1)
             };
 
             // Get on-screen lines of the selection's locations
-            let mut start = term.buffer_to_visible(span.start);
-            let mut end = term.buffer_to_visible(span.end);
+            let start = term.buffer_to_visible(span.start);
+            let end = term.buffer_to_visible(span.end);
+
+            // Clamp visible selection to the viewport
+            let (mut start, mut end) = match (start, end) {
+                (Some(start), Some(end)) => (start, end),
+                (Some(start), None) => {
+                    let end = Point::new(num_lines.0 - 1, num_cols - 1);
+                    (start, end)
+                },
+                (None, Some(end)) => {
+                    let start = Point::new(0, Column(0));
+                    (start, end)
+                },
+                (None, None) => return None,
+            };
 
             // Trim start/end with partially visible block selection
             start.col = max(limit_start, start.col);
             end.col = min(limit_end, end.col);
 
-            SelectionRange::new(start.into(), end.into(), span.is_block)
+            Some(SelectionRange::new(start.into(), end.into(), span.is_block))
         });
 
         // Load cursor glyph
@@ -256,7 +272,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
         let cursor_key = if cursor_visible {
             let is_wide =
-                grid[cursor].flags.contains(Flags::WIDE_CHAR) && (cursor.col + 1) < grid.num_cols();
+                grid[cursor].flags.contains(Flags::WIDE_CHAR) && (cursor.col + 1) < num_cols;
             Some(CursorKey { style: cursor_style, is_wide })
         } else {
             // Use hidden cursor so text will not get inverted
@@ -1019,7 +1035,7 @@ impl<T> Term<T> {
         self.grid.visible_to_buffer(point)
     }
 
-    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Point<usize> {
+    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
         self.grid.buffer_to_visible(point)
     }
 
