@@ -161,9 +161,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
         let mut point = point.into();
 
-        if point.line < self.display_offset
-            || point.line >= self.display_offset + *self.num_lines()
-        {
+        if point.line < self.display_offset || point.line >= self.display_offset + self.lines.0 {
             return None;
         }
 
