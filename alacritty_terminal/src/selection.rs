@@ -22,7 +22,7 @@ use std::convert::TryFrom;
 use std::mem;
 use std::ops::Range;
 
-use crate::index::{Column, Point, Side};
+use crate::index::{Line, Column, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
@@ -132,10 +132,50 @@ impl Selection {
         }
     }
 
-    pub fn rotate(&mut self, offset: isize) {
+    pub fn rotate(
+        mut self,
+        num_lines: usize,
+        scrolling_region: &Range<Line>,
+        offset: isize,
+    ) -> Option<Selection> {
+        // Only rotate selection inside of scrolling region
+        let region_start = num_lines - scrolling_region.start.0;
+        let region_end = num_lines - scrolling_region.end.0;
+
+        // Rotate start of selection
+        let (start, _) = self.points_mut();
+        if (start.line < region_start && start.line >= region_end)
+            // Always rotate selection in history
+            || (start.line >= region_start && region_start == num_lines)
+        {
+            start.line = usize::try_from(start.line as isize + offset).unwrap_or(0);
+
+            // Clamp selection to start of region
+            if start.line == region_start {
+                start.line = region_start - 1;
+                start.col = Column(0);
+
+                if let Some((side, _)) = self.sides_mut() {
+                    *side = Side::Left;
+                }
+            }
+        }
+
+        // Rotate end of selection
         let (start, end) = self.points_mut();
-        start.line = usize::try_from(start.line as isize + offset).unwrap_or(0);
-        end.line = usize::try_from(end.line as isize + offset).unwrap_or(0);
+        if (end.line < region_start && end.line >= region_end)
+            // Always rotate selection in history
+            || (end.line >= region_start && region_start == num_lines)
+        {
+            end.line = usize::try_from(end.line as isize + offset).unwrap_or(0);
+
+            // Delete selection as soon as end rotates out of visibility
+            if end.line > start.line {
+                return None;
+            }
+        }
+
+        Some(self)
     }
 
     pub fn is_empty(&self) -> bool {
