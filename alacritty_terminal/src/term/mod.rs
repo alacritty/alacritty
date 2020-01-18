@@ -32,7 +32,7 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
 use crate::index::{self, Column, IndexRange, Line, Point};
-use crate::selection::{self, Selection, SelectionRange};
+use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
@@ -176,17 +176,6 @@ impl<T> Search for Term<T> {
         }
 
         None
-    }
-}
-
-impl<T> selection::Dimensions for Term<T> {
-    fn dimensions(&self) -> Point {
-        let line = if self.mode.contains(TermMode::ALT_SCREEN) {
-            self.grid.num_lines()
-        } else {
-            Line(self.grid.len())
-        };
-        Point { col: self.grid.num_cols(), line }
     }
 }
 
