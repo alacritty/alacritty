@@ -182,11 +182,6 @@ impl Selection {
             std::mem::swap(&mut start, &mut end);
         }
 
-        // Clamp to visible region in grid/normal
-        let num_cols = term.dimensions().col;
-        let num_lines = term.dimensions().line.0 as isize;
-        let (start, end) = Selection::grid_clamp(start, end, num_lines, num_cols)?;
-
         let span = match *self {
             Selection::Simple { ref region } => {
                 let (start_side, end_side) = if needs_swap {
@@ -204,7 +199,7 @@ impl Selection {
                     (region.start.side, region.end.side)
                 };
 
-                self.span_block(start, end, start_side, end_side)
+                self.span_block(term, start, end, start_side, end_side)
             },
             Selection::Semantic { .. } => Selection::span_semantic(term, start, end),
             Selection::Lines { .. } => Selection::span_lines(term, start, end),
@@ -213,6 +208,7 @@ impl Selection {
         // Expand selection across double-width cells
         span.map(|mut span| {
             let grid = term.grid();
+            let num_cols = grid.num_cols();
 
             // Helper for checking if cell at `point` contains `flag`
             let flag_at = |point: Point<usize>, flag: Flags| -> bool {
@@ -268,63 +264,35 @@ impl Selection {
         start.line < end.line || start.line == end.line && start.col > end.col
     }
 
-    // Clamp selection inside the grid to prevent out of bounds errors
-    fn grid_clamp(
-        mut start: Point<isize>,
-        mut end: Point<isize>,
-        lines: isize,
-        cols: Column,
-    ) -> Option<(Point<isize>, Point<isize>)> {
-        if start.line >= lines {
-            // Don't show selection above visible region
-            if end.line >= lines {
-                return None;
-            }
-
-            // Clamp selection above viewport to visible region
-            start.line = lines - 1;
-            start.col = Column(0);
-        }
-
-        if end.line < 0 {
-            // Don't show selection below visible region
-            if start.line < 0 {
-                return None;
-            }
-
-            // Clamp selection below viewport to visible region
-            end.line = 0;
-            end.col = cols - 1;
-        }
-
-        Some((start, end))
-    }
-
     fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<SelectionRange>
     where
         T: Search + Dimensions,
     {
-        let (start, end) = if start == end {
-            if let Some(end) = term.bracket_search(start.into()) {
-                (start.into(), end)
-            } else {
-                (term.semantic_search_left(start.into()), term.semantic_search_right(end.into()))
-            }
-        } else {
-            (term.semantic_search_left(start.into()), term.semantic_search_right(end.into()))
-        };
+        let mut range = SelectionRange::new_clamped(term, start, end, false)?;
 
-        Some(SelectionRange { start, end, is_block: false })
+        if range.start == range.end {
+            if let Some(end) = term.bracket_search(range.start) {
+                range.end = end;
+                return Some(range);
+            }
+        }
+
+        range.start = term.semantic_search_left(range.start);
+        range.end = term.semantic_search_right(range.end);
+
+        Some(range)
     }
 
     fn span_lines<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<SelectionRange>
     where
-        T: Search,
+        T: Search + Dimensions,
     {
-        let start = term.line_search_left(start.into());
-        let end = term.line_search_right(end.into());
+        let mut range = SelectionRange::new_clamped(term, start, end, false)?;
 
-        Some(SelectionRange { start, end, is_block: false })
+        range.start = term.line_search_left(range.start);
+        range.end = term.line_search_right(range.end);
+
+        Some(range)
     }
 
     fn span_simple<T>(
@@ -358,17 +326,20 @@ impl Selection {
             start.col += 1;
         }
 
-        // Return the selection with all cells inclusive
-        Some(SelectionRange { start: start.into(), end: end.into(), is_block: false })
+        SelectionRange::new_clamped(term, start, end, false)
     }
 
-    fn span_block(
+    fn span_block<T>(
         &self,
+        term: &T,
         mut start: Point<isize>,
         mut end: Point<isize>,
         mut start_side: Side,
         mut end_side: Side,
-    ) -> Option<SelectionRange> {
+    ) -> Option<SelectionRange>
+    where
+        T: Dimensions,
+    {
         if self.is_empty() {
             return None;
         }
@@ -389,8 +360,7 @@ impl Selection {
             start.col += 1;
         }
 
-        // Return the selection with all cells inclusive
-        Some(SelectionRange { start: start.into(), end: end.into(), is_block: true })
+        SelectionRange::new_clamped(term, start, end, true)
     }
 }
 
@@ -418,6 +388,42 @@ impl<L> SelectionRange<L> {
             && self.end.line >= line
             && (self.start.col <= col || (self.start.line != line && !self.is_block))
             && (self.end.col >= col || (self.end.line != line && !self.is_block))
+    }
+}
+
+impl SelectionRange {
+    pub fn new_clamped<D>(dimensions: &D, start: Point<isize>, end: Point<isize>, is_block: bool) -> Option<Self>
+    where
+        D: Dimensions,
+    {
+        // Limit selection to grid
+        let num_lines = dimensions.dimensions().line.0 as isize;
+        let (start, end) = Self::grid_clamp(start, end, num_lines, is_block)?;
+
+        Some(Self { start, end, is_block })
+    }
+
+    /// Clamp selection inside of grid to prevent OOB.
+    fn grid_clamp(
+        mut start: Point<isize>,
+        end: Point<isize>,
+        lines: isize,
+        is_block: bool,
+    ) -> Option<(Point<usize>, Point<usize>)> {
+        if start.line >= lines {
+            // Remove selection if it is fully out of the grid
+            if end.line >= lines {
+                return None;
+            }
+
+            // Clamp to grid if it is still partially visible
+            if !is_block {
+                start.col = Column(0);
+            }
+            start.line = lines - 1;
+        }
+
+        Some((start.into(), end.into()))
     }
 }
 
