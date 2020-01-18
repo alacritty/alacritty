@@ -32,7 +32,7 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
 use crate::index::{self, Column, IndexRange, Line, Point};
-use crate::selection::{self, Selection, SelectionRange, Span};
+use crate::selection::{self, Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
@@ -214,7 +214,7 @@ pub struct RenderableCellsIter<'a, C> {
     cursor_style: CursorStyle,
     config: &'a Config<C>,
     colors: &'a color::List,
-    selection: Option<SelectionRange>,
+    selection: Option<SelectionRange<Line>>,
 }
 
 impl<'a, C> RenderableCellsIter<'a, C> {
@@ -225,7 +225,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     fn new<'b, T>(
         term: &'b Term<T>,
         config: &'b Config<C>,
-        selection: Option<Span>,
+        selection: Option<SelectionRange>,
         mut cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
@@ -938,7 +938,7 @@ impl<T> Term<T> {
     /// Convert the active selection to a String.
     pub fn selection_to_string(&self) -> Option<String> {
         let selection = self.grid.selection.clone()?;
-        let Span { start, end, is_block } = selection.to_span(self)?;
+        let SelectionRange { start, end, is_block } = selection.to_span(self)?;
 
         let mut res = String::new();
 

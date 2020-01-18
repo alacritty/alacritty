@@ -20,7 +20,7 @@
 //! also be cleared if the user clicks off of the selection.
 use std::ops::Range;
 
-use crate::index::{Column, Line, Point, Side};
+use crate::index::{Column, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
@@ -165,7 +165,7 @@ impl Selection {
         }
     }
 
-    pub fn to_span<T>(&self, term: &Term<T>) -> Option<Span> {
+    pub fn to_span<T>(&self, term: &Term<T>) -> Option<SelectionRange> {
         // Get both sides of the selection
         let (mut start, mut end) = match *self {
             Selection::Simple { ref region } | Selection::Block { ref region } => {
@@ -300,7 +300,7 @@ impl Selection {
         Some((start, end))
     }
 
-    fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
+    fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<SelectionRange>
     where
         T: Search + Dimensions,
     {
@@ -314,17 +314,17 @@ impl Selection {
             (term.semantic_search_left(start.into()), term.semantic_search_right(end.into()))
         };
 
-        Some(Span { start, end, is_block: false })
+        Some(SelectionRange { start, end, is_block: false })
     }
 
-    fn span_lines<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
+    fn span_lines<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<SelectionRange>
     where
         T: Search,
     {
         let start = term.line_search_left(start.into());
         let end = term.line_search_right(end.into());
 
-        Some(Span { start, end, is_block: false })
+        Some(SelectionRange { start, end, is_block: false })
     }
 
     fn span_simple<T>(
@@ -334,7 +334,7 @@ impl Selection {
         mut end: Point<isize>,
         start_side: Side,
         end_side: Side,
-    ) -> Option<Span>
+    ) -> Option<SelectionRange>
     where
         T: Dimensions,
     {
@@ -359,7 +359,7 @@ impl Selection {
         }
 
         // Return the selection with all cells inclusive
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
+        Some(SelectionRange { start: start.into(), end: end.into(), is_block: false })
     }
 
     fn span_block(
@@ -368,7 +368,7 @@ impl Selection {
         mut end: Point<isize>,
         mut start_side: Side,
         mut end_side: Side,
-    ) -> Option<Span> {
+    ) -> Option<SelectionRange> {
         if self.is_empty() {
             return None;
         }
@@ -390,33 +390,30 @@ impl Selection {
         }
 
         // Return the selection with all cells inclusive
-        Some(Span { start: start.into(), end: end.into(), is_block: true })
+        Some(SelectionRange { start: start.into(), end: end.into(), is_block: true })
     }
 }
 
-/// Represents a span of selected cells
+/// Represents a range of selected cells
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Span {
-    /// Start point from bottom of buffer
-    pub start: Point<usize>,
-    /// End point towards top of buffer
-    pub end: Point<usize>,
+pub struct SelectionRange<L = usize> {
+    /// Start point, top left of the selection
+    pub start: Point<L>,
+    /// End point, bottom right of the selection
+    pub end: Point<L>,
     /// Whether this selection is a block selection
     pub is_block: bool,
 }
 
-pub struct SelectionRange {
-    start: Point,
-    end: Point,
-    is_block: bool,
-}
-
-impl SelectionRange {
-    pub fn new(start: Point, end: Point, is_block: bool) -> Self {
+impl<L> SelectionRange<L> {
+    pub fn new(start: Point<L>, end: Point<L>, is_block: bool) -> Self {
         Self { start, end, is_block }
     }
 
-    pub fn contains(&self, col: Column, line: Line) -> bool {
+    pub fn contains(&self, col: Column, line: L) -> bool
+    where
+        L: PartialEq + PartialOrd,
+    {
         self.start.line <= line
             && self.end.line >= line
             && (self.start.col <= col || (self.start.line != line && !self.is_block))
@@ -437,7 +434,7 @@ impl SelectionRange {
 mod test {
     use std::mem;
 
-    use super::{Selection, Span};
+    use super::{Selection, SelectionRange};
     use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
@@ -475,7 +472,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false
@@ -493,7 +490,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false
@@ -540,7 +537,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(0, Column(1)), Side::Right);
 
-        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), SelectionRange {
             start: Point::new(1, Column(2)),
             end: Point::new(0, Column(1)),
             is_block: false,
@@ -564,7 +561,7 @@ mod test {
         selection.update(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(1, Column(0)), Side::Right);
 
-        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), SelectionRange {
             start: Point::new(1, Column(1)),
             end: Point::new(0, Column(1)),
             is_block: false,
@@ -577,7 +574,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), SelectionRange {
             start: Point::new(2, Column(0)),
             end: Point::new(0, Column(4)),
             is_block: false,
@@ -590,7 +587,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), SelectionRange {
             start: Point::new(2, Column(3)),
             end: Point::new(0, Column(4)),
             is_block: false,
@@ -603,7 +600,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), SelectionRange {
             start: Point::new(2, Column(4)),
             end: Point::new(0, Column(4)),
             is_block: false,
@@ -616,7 +613,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), SelectionRange {
             start: Point::new(2, Column(4)),
             end: Point::new(0, Column(4)),
             is_block: true
@@ -636,7 +633,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
         selection.update(Point::new(0, Column(8)), Side::Right);
 
-        assert_eq!(selection.to_span(&term).unwrap(), Span {
+        assert_eq!(selection.to_span(&term).unwrap(), SelectionRange {
             start: Point::new(0, Column(0)),
             end: Point::new(0, Column(9)),
             is_block: false,
