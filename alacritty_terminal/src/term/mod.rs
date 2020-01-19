@@ -943,7 +943,7 @@ impl<T> Term<T> {
     /// Convert the active selection to a String.
     pub fn selection_to_string(&self) -> Option<String> {
         let selection = self.grid.selection.clone()?;
-        let SelectionRange { start, end, is_block } = selection.to_span(self)?;
+        let SelectionRange { start, end, is_block } = selection.to_range(self)?;
 
         let mut res = String::new();
 
@@ -1048,7 +1048,7 @@ impl<T> Term<T> {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells<'b, C>(&'b self, config: &'b Config<C>) -> RenderableCellsIter<'_, C> {
-        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self));
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_range(self));
 
         let cursor = if self.is_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
