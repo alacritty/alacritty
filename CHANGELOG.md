@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consecutive builds failing on macOS due to preexisting `/Application` symlink
 - Block selection starting from first column after beginning leaves the scrollback
 - Incorrect selection status of the first cell when selection is off screen
+- Backwards bracket selection
 
 ### Removed
 

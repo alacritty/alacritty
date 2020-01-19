@@ -295,7 +295,13 @@ impl Selection {
         mut end: Point<usize>,
     ) -> Option<SelectionRange> {
         if start == end {
-            if let Some(end) = term.bracket_search(start) {
+            if let Some(matching) = term.bracket_search(start) {
+                if matching < start {
+                    start = matching;
+                } else {
+                    end = matching;
+                }
+
                 return Some(SelectionRange { start, end, is_block: false });
             }
         }
