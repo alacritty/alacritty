@@ -295,7 +295,9 @@ impl Selection {
     ) -> Option<SelectionRange> {
         if start == end {
             if let Some(matching) = term.bracket_search(start) {
-                if matching < start {
+                if (matching.line == start.line && matching.col < start.col)
+                    || (matching.line > start.line)
+                {
                     start = matching;
                 } else {
                     end = matching;
