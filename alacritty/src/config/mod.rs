@@ -208,8 +208,8 @@ fn print_deprecation_warnings(config: &Config) {
     if config.scrolling.auto_scroll.is_some() {
         warn!(
             target: LOG_TARGET_CONFIG,
-            "Config scrolling.auto_scroll was removed as well as the corresponding feature, there's \
-             no need to keep it anymore"
+            "Config scrolling.auto_scroll was removed as well as the corresponding feature, \
+             there's no need to keep it anymore"
         );
     }
 }
