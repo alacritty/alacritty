@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `auto_scroll` config option as well as behavior
+- Config option `auto_scroll` and its corresponding feature
 
 ## 0.4.1
 
