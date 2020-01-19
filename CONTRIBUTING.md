@@ -42,7 +42,7 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.36.0. All patches are expected
+Please note that the minimum supported version of Alacritty is Rust 1.37.0. All patches are expected
 to work with the minimum supported version.
 
 ### Testing
