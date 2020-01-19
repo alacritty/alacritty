@@ -12,7 +12,7 @@ pub struct Scrolling {
     #[serde(deserialize_with = "failure_default")]
     multiplier: ScrollingMultiplier,
 
-    // TODO: Removed
+    // TODO: REMOVED
     #[serde(deserialize_with = "failure_default")]
     pub auto_scroll: Option<bool>,
 
