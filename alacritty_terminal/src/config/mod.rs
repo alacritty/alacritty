@@ -60,7 +60,7 @@ pub struct Config<T> {
 
     /// Should draw bold text with brighter colors instead of bold font
     #[serde(default, deserialize_with = "failure_default")]
-    draw_bold_text_with_bright_colors: DefaultTrueBool,
+    draw_bold_text_with_bright_colors: bool,
 
     #[serde(default, deserialize_with = "failure_default")]
     pub colors: Colors,
@@ -149,7 +149,7 @@ impl<T> Config<T> {
 
     #[inline]
     pub fn draw_bold_text_with_bright_colors(&self) -> bool {
-        self.draw_bold_text_with_bright_colors.0
+        self.draw_bold_text_with_bright_colors
     }
 
     /// Should show render timer
