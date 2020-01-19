@@ -39,14 +39,14 @@ impl Anchor {
     }
 }
 
-/// Represents a range of selected cells
+/// Represents a range of selected cells.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SelectionRange<L = usize> {
-    /// Start point, top left of the selection
+    /// Start point, top left of the selection.
     pub start: Point<L>,
-    /// End point, bottom right of the selection
+    /// End point, bottom right of the selection.
     pub end: Point<L>,
-    /// Whether this selection is a block selection
+    /// Whether this selection is a block selection.
     pub is_block: bool,
 }
 
@@ -66,7 +66,7 @@ impl<L> SelectionRange<L> {
     }
 }
 
-/// Describes a region of a 2-dimensional area
+/// Describes a region of a 2-dimensional area.
 ///
 /// Used to track a text selection. There are three supported modes, each with its own constructor:
 /// [`simple`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which cells are
@@ -85,19 +85,19 @@ impl<L> SelectionRange<L> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
     Simple {
-        /// The region representing start and end of cursor movement
+        /// The region representing start and end of cursor movement.
         region: Range<Anchor>,
     },
     Block {
-        /// The region representing start and end of cursor movement
+        /// The region representing start and end of cursor movement.
         region: Range<Anchor>,
     },
     Semantic {
-        /// The region representing start and end of cursor movement
+        /// The region representing start and end of cursor movement.
         region: Range<Point<usize>>,
     },
     Lines {
-        /// The region representing start and end of cursor movement
+        /// The region representing start and end of cursor movement.
         region: Range<Point<usize>>,
     },
 }
@@ -127,8 +127,8 @@ impl Selection {
         let (_, end) = self.points_mut();
         *end = location;
 
-        if let Some((_, start_side)) = self.sides_mut() {
-            *start_side = side;
+        if let Some((_, end_side)) = self.sides_mut() {
+            *end_side = side;
         }
     }
 
@@ -192,8 +192,7 @@ impl Selection {
         }
 
         // Clamp to inside the grid buffer
-        let is_block = self.is_block();
-        Self::grid_clamp(&mut start, &mut end, &mut start_side, is_block, grid.len()).ok()?;
+        Self::grid_clamp(&mut start, &end, &mut start_side, self.is_block(), grid.len()).ok()?;
 
         let range = match self {
             Self::Simple { .. } => self.range_simple(start, end, start_side, end_side, num_cols),
@@ -432,7 +431,7 @@ impl Selection {
     }
 }
 
-/// Tests for selection
+/// Tests for selection.
 ///
 /// There are comments on all of the tests describing the selection. Pictograms
 /// are used to avoid ambiguity. Grid cells are represented by a [  ]. Only
@@ -472,7 +471,7 @@ mod test {
         Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
     }
 
-    /// Test case of single cell selection
+    /// Test case of single cell selection.
     ///
     /// 1. [  ]
     /// 2. [B ]
@@ -490,7 +489,7 @@ mod test {
         });
     }
 
-    /// Test case of single cell selection
+    /// Test case of single cell selection.
     ///
     /// 1. [  ]
     /// 2. [ B]
@@ -508,7 +507,7 @@ mod test {
         });
     }
 
-    /// Test adjacent cell selection from left to right
+    /// Test adjacent cell selection from left to right.
     ///
     /// 1. [  ][  ]
     /// 2. [ B][  ]
@@ -521,7 +520,7 @@ mod test {
         assert_eq!(selection.to_range(&term(2, 1)), None);
     }
 
-    /// Test adjacent cell selection from right to left
+    /// Test adjacent cell selection from right to left.
     ///
     /// 1. [  ][  ]
     /// 2. [  ][B ]
@@ -534,8 +533,7 @@ mod test {
         assert_eq!(selection.to_range(&term(2, 1)), None);
     }
 
-    /// Test selection across adjacent lines
-    ///
+    /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
@@ -555,8 +553,7 @@ mod test {
         });
     }
 
-    /// Test selection across adjacent lines
-    ///
+    /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
