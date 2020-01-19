@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.4.2-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.37.0
+
 ### Changed
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them

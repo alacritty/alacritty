@@ -16,7 +16,7 @@ os:
   - osx
 
 rust:
-  - 1.36.0
+  - 1.37.0
   - stable
   - nightly
 
@@ -43,9 +43,9 @@ matrix:
       os: linux
       env: RUSTFMT=true
       rust: nightly
-    - name: "Windows 1.36.0"
+    - name: "Windows 1.37.0"
       os: windows
-      rust: 1.36.0-x86_64-pc-windows-msvc
+      rust: 1.37.0-x86_64-pc-windows-msvc
     - name: "Windows Stable"
       os: windows
       rust: stable-x86_64-pc-windows-msvc
