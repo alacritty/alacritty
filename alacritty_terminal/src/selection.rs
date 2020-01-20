@@ -179,26 +179,27 @@ impl Selection {
 
         // Get selection boundaries
         let points = self.points();
-        let (mut start, mut end) = (*points.0, *points.1);
+        let (start, end) = (*points.0, *points.1);
 
         // Get selection sides, falling back to `Side::Left` if it will not be used
         let sides = self.sides().unwrap_or((&Side::Left, &Side::Left));
-        let (mut start_side, mut end_side) = (*sides.0, *sides.1);
+        let (start_side, end_side) = (*sides.0, *sides.1);
 
         // Order start above the end
-        if Self::points_need_swap(start, end) {
-            mem::swap(&mut start_side, &mut end_side);
-            mem::swap(&mut start, &mut end);
-        }
+        let (start, end) = if Self::points_need_swap(start, end) {
+            (Anchor { point: end, side: end_side }, Anchor { point: start, side: start_side })
+        } else {
+            (Anchor { point: start, side: start_side }, Anchor { point: end, side: end_side })
+        };
 
         // Clamp to inside the grid buffer
-        Self::grid_clamp(&mut start, &end, &mut start_side, self.is_block(), grid.len()).ok()?;
+        let (start, end) = Self::grid_clamp(start, end, self.is_block(), grid.len()).ok()?;
 
         let range = match self {
-            Self::Simple { .. } => self.range_simple(start, end, start_side, end_side, num_cols),
-            Self::Block { .. } => self.range_block(start, end, start_side, end_side),
-            Self::Semantic { .. } => Self::range_semantic(term, start, end),
-            Self::Lines { .. } => Self::range_lines(term, start, end),
+            Self::Simple { .. } => self.range_simple(start, end, num_cols),
+            Self::Block { .. } => self.range_block(start, end),
+            Self::Semantic { .. } => Self::range_semantic(term, start.point, end.point),
+            Self::Lines { .. } => Self::range_lines(term, start.point, end.point),
         };
 
         // Expand selection across fullwidth cells
@@ -264,28 +265,27 @@ impl Selection {
 
     /// Clamp selection inside grid to prevent OOB.
     fn grid_clamp(
-        start: &mut Point<usize>,
-        end: &Point<usize>,
-        start_side: &mut Side,
+        mut start: Anchor,
+        end: Anchor,
         is_block: bool,
         lines: usize,
-    ) -> Result<(), ()> {
+    ) -> Result<(Anchor, Anchor), ()> {
         // Clamp selection inside of grid to prevent OOB
-        if start.line >= lines {
+        if start.point.line >= lines {
             // Remove selection if it is fully out of the grid
-            if end.line >= lines {
+            if end.point.line >= lines {
                 return Err(());
             }
 
             // Clamp to grid if it is still partially visible
             if !is_block {
-                *start_side = Side::Left;
-                start.col = Column(0);
+                start.side = Side::Left;
+                start.point.col = Column(0);
             }
-            start.line = lines - 1;
+            start.point.line = lines - 1;
         }
 
-        Ok(())
+        Ok((start, end))
     }
 
     fn range_semantic<T>(
@@ -326,10 +326,8 @@ impl Selection {
 
     fn range_simple(
         &self,
-        mut start: Point<usize>,
-        mut end: Point<usize>,
-        start_side: Side,
-        end_side: Side,
+        mut start: Anchor,
+        mut end: Anchor,
         num_cols: Column,
     ) -> Option<SelectionRange> {
         if self.is_empty() {
@@ -337,52 +335,46 @@ impl Selection {
         }
 
         // Remove last cell if selection ends to the left of a cell
-        if end_side == Side::Left && start != end {
+        if end.side == Side::Left && start.point != end.point {
             // Special case when selection ends to left of first cell
-            if end.col == Column(0) {
-                end.col = num_cols;
-                end.line += 1;
+            if end.point.col == Column(0) {
+                end.point.col = num_cols;
+                end.point.line += 1;
             } else {
-                end.col -= 1;
+                end.point.col -= 1;
             }
         }
 
         // Remove first cell if selection starts at the right of a cell
-        if start_side == Side::Right && start != end {
-            start.col += 1;
+        if start.side == Side::Right && start.point != end.point {
+            start.point.col += 1;
         }
 
-        Some(SelectionRange { start, end, is_block: false })
+        Some(SelectionRange { start: start.point, end: end.point, is_block: false })
     }
 
-    fn range_block(
-        &self,
-        mut start: Point<usize>,
-        mut end: Point<usize>,
-        mut start_side: Side,
-        mut end_side: Side,
-    ) -> Option<SelectionRange> {
+    fn range_block(&self, mut start: Anchor, mut end: Anchor) -> Option<SelectionRange> {
         if self.is_empty() {
             return None;
         }
 
         // Always go top-left -> bottom-right
-        if start.col > end.col {
-            mem::swap(&mut start_side, &mut end_side);
-            mem::swap(&mut start.col, &mut end.col);
+        if start.point.col > end.point.col {
+            mem::swap(&mut start.side, &mut end.side);
+            mem::swap(&mut start.point.col, &mut end.point.col);
         }
 
         // Remove last cell if selection ends to the left of a cell
-        if end_side == Side::Left && start != end && end.col.0 > 0 {
-            end.col -= 1;
+        if end.side == Side::Left && start.point != end.point && end.point.col.0 > 0 {
+            end.point.col -= 1;
         }
 
         // Remove first cell if selection starts at the right of a cell
-        if start_side == Side::Right && start != end {
-            start.col += 1;
+        if start.side == Side::Right && start.point != end.point {
+            start.point.col += 1;
         }
 
-        Some(SelectionRange { start, end, is_block: true })
+        Some(SelectionRange { start: start.point, end: end.point, is_block: true })
     }
 
     fn points(&self) -> (&Point<usize>, &Point<usize>) {
