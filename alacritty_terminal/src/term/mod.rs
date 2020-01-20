@@ -32,7 +32,7 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
 use crate::index::{self, Column, IndexRange, Line, Point};
-use crate::selection::{self, Selection, SelectionRange, Span};
+use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
@@ -179,17 +179,6 @@ impl<T> Search for Term<T> {
     }
 }
 
-impl<T> selection::Dimensions for Term<T> {
-    fn dimensions(&self) -> Point {
-        let line = if self.mode.contains(TermMode::ALT_SCREEN) {
-            self.grid.num_lines()
-        } else {
-            Line(self.grid.len())
-        };
-        Point { col: self.grid.num_cols(), line }
-    }
-}
-
 /// A key for caching cursor glyphs
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub struct CursorKey {
@@ -214,7 +203,7 @@ pub struct RenderableCellsIter<'a, C> {
     cursor_style: CursorStyle,
     config: &'a Config<C>,
     colors: &'a color::List,
-    selection: Option<SelectionRange>,
+    selection: Option<SelectionRange<Line>>,
 }
 
 impl<'a, C> RenderableCellsIter<'a, C> {
@@ -225,30 +214,46 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     fn new<'b, T>(
         term: &'b Term<T>,
         config: &'b Config<C>,
-        selection: Option<Span>,
+        selection: Option<SelectionRange>,
         mut cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
+        let num_cols = grid.num_cols();
+        let num_lines = grid.num_lines();
 
         let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
-        let selection_range = selection.map(|span| {
+        let selection_range = selection.and_then(|span| {
             let (limit_start, limit_end) = if span.is_block {
                 (span.start.col, span.end.col)
             } else {
-                (Column(0), term.cols() - 1)
+                (Column(0), num_cols - 1)
             };
 
             // Get on-screen lines of the selection's locations
-            let mut start = term.buffer_to_visible(span.start);
-            let mut end = term.buffer_to_visible(span.end);
+            let start = term.buffer_to_visible(span.start);
+            let end = term.buffer_to_visible(span.end);
+
+            // Clamp visible selection to the viewport
+            let (mut start, mut end) = match (start, end) {
+                (Some(start), Some(end)) => (start, end),
+                (Some(start), None) => {
+                    let end = Point::new(num_lines.0 - 1, num_cols - 1);
+                    (start, end)
+                },
+                (None, Some(end)) => {
+                    let start = Point::new(0, Column(0));
+                    (start, end)
+                },
+                (None, None) => return None,
+            };
 
             // Trim start/end with partially visible block selection
             start.col = max(limit_start, start.col);
             end.col = min(limit_end, end.col);
 
-            SelectionRange::new(start.into(), end.into(), span.is_block)
+            Some(SelectionRange::new(start.into(), end.into(), span.is_block))
         });
 
         // Load cursor glyph
@@ -256,7 +261,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
         let cursor_key = if cursor_visible {
             let is_wide =
-                grid[cursor].flags.contains(Flags::WIDE_CHAR) && (cursor.col + 1) < grid.num_cols();
+                grid[cursor].flags.contains(Flags::WIDE_CHAR) && (cursor.col + 1) < num_cols;
             Some(CursorKey { style: cursor_style, is_wide })
         } else {
             // Use hidden cursor so text will not get inverted
@@ -938,7 +943,7 @@ impl<T> Term<T> {
     /// Convert the active selection to a String.
     pub fn selection_to_string(&self) -> Option<String> {
         let selection = self.grid.selection.clone()?;
-        let Span { start, end, is_block } = selection.to_span(self)?;
+        let SelectionRange { start, end, is_block } = selection.to_range(self)?;
 
         let mut res = String::new();
 
@@ -1019,7 +1024,7 @@ impl<T> Term<T> {
         self.grid.visible_to_buffer(point)
     }
 
-    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Point<usize> {
+    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
         self.grid.buffer_to_visible(point)
     }
 
@@ -1043,7 +1048,7 @@ impl<T> Term<T> {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells<'b, C>(&'b self, config: &'b Config<C>) -> RenderableCellsIter<'_, C> {
-        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self));
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_range(self));
 
         let cursor = if self.is_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
