@@ -177,7 +177,7 @@
   #use_thin_strokes: true
 
 # If `true`, bold text is drawn using the bright color variants.
-#draw_bold_text_with_bright_colors: true
+#draw_bold_text_with_bright_colors: false
 
 # Colors (Tomorrow Night Bright)
 #colors:
