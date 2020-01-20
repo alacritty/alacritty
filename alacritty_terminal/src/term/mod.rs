@@ -775,9 +775,6 @@ pub struct Term<T> {
     /// Number of spaces in one tab
     tabspaces: usize,
 
-    /// Automatically scroll to bottom when new lines are added
-    auto_scroll: bool,
-
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
 
@@ -911,7 +908,6 @@ impl<T> Term<T> {
             default_cursor_style: config.cursor.style,
             dynamic_title: config.dynamic_title(),
             tabspaces,
-            auto_scroll: config.scrolling.auto_scroll,
             clipboard,
             event_proxy,
             is_focused: true,
@@ -936,7 +932,6 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.auto_scroll = config.scrolling.auto_scroll;
         self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
     }
 
@@ -1299,11 +1294,6 @@ impl<T: EventListener> Handler for Term<T> {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        // If enabled, scroll to bottom when character is received
-        if self.auto_scroll {
-            self.scroll_display(Scroll::Bottom);
-        }
-
         // Number of cells the char will occupy
         let width = match c.width() {
             Some(width) => width,
