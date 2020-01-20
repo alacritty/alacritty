@@ -11,8 +11,10 @@ pub struct Scrolling {
     history: ScrollingHistory,
     #[serde(deserialize_with = "failure_default")]
     multiplier: ScrollingMultiplier,
+
+    // TODO: REMOVED
     #[serde(deserialize_with = "failure_default")]
-    pub auto_scroll: bool,
+    pub auto_scroll: Option<bool>,
 
     // TODO: DEPRECATED
     #[serde(deserialize_with = "failure_default")]
