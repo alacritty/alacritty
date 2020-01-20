@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blurred icons in KDE task switcher (alacritty.ico is now high-res)
 - Consecutive builds failing on macOS due to preexisting `/Application` symlink
 
+### Removed
+
+- Config option `auto_scroll`, which is now always disabled
+
 ## 0.4.1
 
 ### Packaging

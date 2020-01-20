@@ -87,9 +87,6 @@
   # scrollback is enabled (history > 0).
   #multiplier: 3
 
-  # Scroll to the bottom when new text is written to the terminal.
-  #auto_scroll: false
-
 # Spaces per Tab (changes require restart)
 #
 # This setting defines the width of a tab in cells.
