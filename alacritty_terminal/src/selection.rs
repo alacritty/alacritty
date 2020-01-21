@@ -338,7 +338,7 @@ impl Selection {
         if end.side == Side::Left && start.point != end.point {
             // Special case when selection ends to left of first cell
             if end.point.col == Column(0) {
-                end.point.col = num_cols;
+                end.point.col = num_cols - 1;
                 end.point.line += 1;
             } else {
                 end.point.col -= 1;
