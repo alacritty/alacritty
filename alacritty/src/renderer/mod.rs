@@ -88,7 +88,11 @@ impl std::error::Error for Error {
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "There was an error initializing the shaders: {}", self)
+        match self {
+            Error::ShaderCreation(err) => {
+                write!(f, "There was an error initializing the shaders: {}", err)
+            },
+        }
     }
 }
 
