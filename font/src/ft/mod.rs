@@ -108,8 +108,8 @@ impl Rasterize for FreeTypeRasterizer {
 
         // Fallback for bitmap fonts which do not provide underline metrics
         if underline_position == 0. {
-            underline_thickness = (descent / 5.).round();
-            underline_position = descent * 2.;
+            underline_thickness = (descent / 5.).round().max(1.0);
+            underline_position = descent / 2. - (underline_thickness / 2.).round();
         }
 
         // Get strikeout position and thickness in device pixels
