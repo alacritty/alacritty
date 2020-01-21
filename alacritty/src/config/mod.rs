@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 #[cfg(windows)]
 use dirs;
-use log::{error, warn};
+use log::{error, warn, debug};
 use serde_yaml;
 #[cfg(not(windows))]
 use xdg;
@@ -121,6 +121,8 @@ pub fn installed_config() -> Option<PathBuf> {
                     return Some(fallback);
                 }
             }
+
+            debug!(target: LOG_TARGET_CONFIG, "No configuration file found");
             None
         })
 }
