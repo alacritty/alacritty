@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrect selection status of the first cell when selection is off screen
 - Backwards bracket selection
 - Stack overflow when printing shader creation error
+- Underline position for bitmap fonts
 
 ### Removed
 
