@@ -78,7 +78,7 @@ impl RenderLine {
         height = height.max(1.);
         let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
-        let mut y = baseline - position - height / 2.;
+        let mut y = (baseline - position - height / 2.).ceil();
         let max_y = line_bottom - height;
         if y > max_y {
             y = max_y;
