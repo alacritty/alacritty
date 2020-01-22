@@ -121,7 +121,6 @@ pub fn installed_config() -> Option<PathBuf> {
                     return Some(fallback);
                 }
             }
-
             None
         })
 }
