@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI parameters discarded when config is reload
 - Blurred icons in KDE task switcher (alacritty.ico is now high-res)
 - Consecutive builds failing on macOS due to preexisting `/Application` symlink
+- Block selection starting from first column after beginning leaves the scrollback
 - Incorrect selection status of the first cell when selection is off screen
 - Backwards bracket selection
 - Stack overflow when printing shader creation error

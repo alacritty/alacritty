@@ -67,8 +67,8 @@ impl<L> SelectionRange<L> {
 }
 
 /// Different kinds of selection.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SelectionType {
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum SelectionType {
     Simple,
     Block,
     Semantic,
@@ -166,9 +166,11 @@ impl Selection {
 
             // Clamp selection to start of region
             if start.point.line >= region_start && region_start != num_lines {
+                if self.ty != SelectionType::Block {
+                    start.point.col = Column(0);
+                    start.side = Side::Left;
+                }
                 start.point.line = region_start - 1;
-                start.point.col = Column(0);
-                start.side = Side::Left;
             }
         }
 
@@ -185,9 +187,11 @@ impl Selection {
 
             // Clamp selection to end of region
             if end.point.line < region_end {
+                if self.ty != SelectionType::Block {
+                    end.point.col = Column(num_cols - 1);
+                    end.side = Side::Right;
+                }
                 end.point.line = region_end;
-                end.point.col = Column(num_cols - 1);
-                end.side = Side::Right;
             }
         }
 
@@ -706,6 +710,22 @@ mod test {
             start: Point::new(3, Column(1)),
             end: Point::new(1, Column(num_cols - 1)),
             is_block: false,
+        });
+    }
+
+    #[test]
+    fn rotate_in_region_up_block() {
+        let num_lines = 10;
+        let num_cols = 5;
+        let mut selection = Selection::block(Point::new(2, Column(3)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
+        selection =
+            selection.rotate(num_lines, num_cols, &(Line(1)..Line(num_lines - 1)), 4).unwrap();
+
+        assert_eq!(selection.to_range(&term(num_cols, num_lines)).unwrap(), SelectionRange {
+            start: Point::new(8, Column(2)),
+            end: Point::new(6, Column(3)),
+            is_block: true,
         });
     }
 }
