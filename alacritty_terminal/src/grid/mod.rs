@@ -492,6 +492,9 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<Line>, positions: Line, template: &T) {
+        let num_lines = self.num_lines().0;
+        let num_cols = self.num_cols().0;
+
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
@@ -501,9 +504,10 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate_up(*positions);
-            if let Some(ref mut selection) = self.selection {
-                selection.rotate(-(*positions as isize));
-            }
+            self.selection = self
+                .selection
+                .take()
+                .and_then(|s| s.rotate(num_lines, num_cols, region, -(*positions as isize)));
 
             self.decrease_scroll_limit(*positions);
 
@@ -518,6 +522,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 self.raw[i].reset(&template);
             }
         } else {
+            // Rotate selection to track content
+            self.selection = self
+                .selection
+                .take()
+                .and_then(|s| s.rotate(num_lines, num_cols, region, -(*positions as isize)));
+
             // Subregion rotation
             for line in IndexRange((region.start + positions)..region.end).rev() {
                 self.raw.swap_lines(line, line - positions);
@@ -533,11 +543,13 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     ///
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: &T) {
+        let num_lines = self.num_lines().0;
+        let num_cols = self.num_cols().0;
+
         if region.start == Line(0) {
             // Update display offset when not pinned to active area
             if self.display_offset != 0 {
-                self.display_offset =
-                    min(self.display_offset + *positions, self.len() - self.num_lines().0);
+                self.display_offset = min(self.display_offset + *positions, self.len() - num_lines);
             }
 
             self.increase_scroll_limit(*positions, template);
@@ -545,15 +557,16 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate(-(*positions as isize));
-            if let Some(ref mut selection) = self.selection {
-                selection.rotate(*positions as isize);
-            }
+            self.selection = self
+                .selection
+                .take()
+                .and_then(|s| s.rotate(num_lines, num_cols, region, *positions as isize));
 
             // This next loop swaps "fixed" lines outside of a scroll region
             // back into place after the rotation. The work is done in buffer-
             // space rather than terminal-space to avoid redundant
             // transformations.
-            let fixed_lines = *self.num_lines() - *region.end;
+            let fixed_lines = num_lines - *region.end;
 
             for i in 0..fixed_lines {
                 self.raw.swap(i, i + *positions);
@@ -566,6 +579,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 self.raw[i + fixed_lines].reset(&template);
             }
         } else {
+            // Rotate selection to track content
+            self.selection = self
+                .selection
+                .take()
+                .and_then(|s| s.rotate(num_lines, num_cols, region, *positions as isize));
+
             // Subregion rotation
             for line in IndexRange(region.start..(region.end - positions)) {
                 self.raw.swap_lines(line, line + positions);
