@@ -27,7 +27,7 @@ url = "2"
 copypasta = "0.6.1"
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.15.0"
+nix = "0.16.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]
