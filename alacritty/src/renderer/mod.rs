@@ -341,9 +341,7 @@ impl GlyphCache {
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
-        self.rasterizer
-            .metrics(self.font_key, self.font_size)
-            .expect("metrics load since font is loaded at glyph cache creation")
+        self.metrics
     }
 
     // Calculate font metrics without access to a glyph cache
