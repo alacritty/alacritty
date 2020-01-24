@@ -77,17 +77,19 @@ enum SelectionType {
 
 /// Describes a region of a 2-dimensional area.
 ///
-/// Used to track a text selection. There are three supported modes, each with its own constructor:
-/// [`simple`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which cells are
-/// selected without any expansion. [`semantic`] mode expands the initial selection to the nearest
-/// semantic escape char in either direction. [`lines`] will always select entire lines.
+/// Used to track a text selection. There are four supported modes, each with its own constructor:
+/// [`simple`], [`block`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which
+/// cells are selected without any expansion. [`block`] will select rectangular regions.
+/// [`semantic`] mode expands the initial selection to the nearest semantic escape char in either
+/// direction. [`lines`] will always select entire lines.
 ///
-/// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
-/// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
-/// semantic boundaries as the selection point changes. Similarly, [`lines`] will always expand the
-/// new point to encompass entire lines.
+/// Calls to [`update`] operate different based on the selection kind. The [`simple`] and [`block`]
+/// mode do nothing special, simply track points and sides. [`semantic`] will continue to expand
+/// out to semantic boundaries as the selection point changes. Similarly, [`lines`] will always
+/// expand the new point to encompass entire lines.
 ///
 /// [`simple`]: enum.Selection.html#method.simple
+/// [`block`]: enum.Selection.html#method.block
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
 /// [`update`]: enum.Selection.html#method.update
@@ -144,7 +146,7 @@ impl Selection {
         scrolling_region: &Range<Line>,
         offset: isize,
     ) -> Option<Selection> {
-        // Only rotate selection inside of scrolling region
+        // Convert scrolling region from viewport to buffer coordinates
         let region_start = num_lines - scrolling_region.start.0;
         let region_end = num_lines - scrolling_region.end.0;
 
