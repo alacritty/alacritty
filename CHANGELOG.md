@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backwards bracket selection
 - Stack overflow when printing shader creation error
 - Underline position for bitmap fonts
+- Selection rotating outside of scrolling region
 
 ### Removed
 
