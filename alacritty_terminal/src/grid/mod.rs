@@ -493,6 +493,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<Line>, positions: Line, template: &T) {
         let num_lines = self.num_lines().0;
+        let num_cols = self.num_cols().0;
 
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
@@ -506,7 +507,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             self.selection = self
                 .selection
                 .take()
-                .and_then(|s| s.rotate(num_lines, region, -(*positions as isize)));
+                .and_then(|s| s.rotate(num_lines, num_cols, region, -(*positions as isize)));
 
             self.decrease_scroll_limit(*positions);
 
@@ -525,7 +526,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             self.selection = self
                 .selection
                 .take()
-                .and_then(|s| s.rotate(num_lines, region, -(*positions as isize)));
+                .and_then(|s| s.rotate(num_lines, num_cols, region, -(*positions as isize)));
 
             // Subregion rotation
             for line in IndexRange((region.start + positions)..region.end).rev() {
@@ -543,6 +544,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: &T) {
         let num_lines = self.num_lines().0;
+        let num_cols = self.num_cols().0;
 
         if region.start == Line(0) {
             // Update display offset when not pinned to active area
@@ -558,7 +560,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             self.selection = self
                 .selection
                 .take()
-                .and_then(|s| s.rotate(num_lines, region, *positions as isize));
+                .and_then(|s| s.rotate(num_lines, num_cols, region, *positions as isize));
 
             // This next loop swaps "fixed" lines outside of a scroll region
             // back into place after the rotation. The work is done in buffer-
@@ -581,7 +583,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             self.selection = self
                 .selection
                 .take()
-                .and_then(|s| s.rotate(num_lines, region, *positions as isize));
+                .and_then(|s| s.rotate(num_lines, num_cols, region, *positions as isize));
 
             // Subregion rotation
             for line in IndexRange(region.start..(region.end - positions)) {
