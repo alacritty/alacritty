@@ -320,7 +320,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             last_row.append(&mut cells);
 
             if row.is_empty() {
-                if i + reversed.len() <= self.lines.0 {
+                if i + reversed.len() < self.lines.0 {
                     // Add new line and move lines up if we can't pull from history
                     cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                     new_empty_lines += 1;
