@@ -83,11 +83,11 @@ pub trait GridCell {
 /// │                         │
 /// │      UNINITIALIZED      │
 /// │                         │
-/// ├─────────────────────────┤  <-- raw.inner.len()
+/// ├─────────────────────────┤  <-- self.raw.inner.len()
 /// │                         │
 /// │      RESIZE BUFFER      │
 /// │                         │
-/// ├─────────────────────────┤  <-- self.history_size()
+/// ├─────────────────────────┤  <-- self.history_size() + lines
 /// │                         │
 /// │     SCROLLUP REGION     │
 /// │                         │
