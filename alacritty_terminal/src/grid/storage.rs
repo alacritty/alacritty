@@ -38,7 +38,7 @@ pub struct Storage<T> {
     /// ring buffer. It represents the bottommost line of the terminal.
     zero: usize,
 
-    /// An index separating the visible and scrollback regions.
+    /// Number of visible lines.
     visible_lines: Line,
 
     /// Total number of lines currently active in the terminal (scrollback + visible)
