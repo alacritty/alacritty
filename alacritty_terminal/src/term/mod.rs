@@ -1099,14 +1099,9 @@ impl<T> Term<T> {
         }
 
         // Move prompt down when growing if scrollback lines are available
-        if num_lines > old_lines {
-            if self.mode.contains(TermMode::ALT_SCREEN) {
-                let growage = min(num_lines - old_lines, Line(self.alt_grid.history_size()));
-                self.cursor_save.point.line += growage;
-            } else {
-                let growage = min(num_lines - old_lines, Line(self.grid.history_size()));
-                self.cursor.point.line += growage;
-            }
+        if num_lines > old_lines && !self.mode.contains(TermMode::ALT_SCREEN) {
+            let growage = min(num_lines - old_lines, Line(self.grid.history_size()));
+            self.cursor.point.line += growage;
         }
 
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);

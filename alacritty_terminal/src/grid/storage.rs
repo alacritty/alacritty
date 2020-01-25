@@ -7,11 +7,8 @@ use serde::{Deserialize, Serialize};
 use super::Row;
 use crate::index::Line;
 
-/// Maximum number of invisible lines before buffer is resized.
-const TRUNCATE_STEP: usize = 100;
-
-/// Minimum step for dynamic buffer growth.
-const MIN_INIT_SIZE: usize = 1_000;
+/// Maximum number of buffered lines outside of the grid for performance optimization.
+const MAX_CACHE_SIZE: usize = 1_000;
 
 /// A ring buffer for optimizing indexing and rotation.
 ///
@@ -55,7 +52,7 @@ pub struct Storage<T> {
 impl<T: PartialEq> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
         // Make sure length is equal
-        if self.inner.len() != other.inner.len() {
+        if self.inner.len() != other.inner.len() || self.len != other.len {
             return false;
         }
 
@@ -69,9 +66,9 @@ impl<T: PartialEq> PartialEq for Storage<T> {
 
         // Compare the slices in chunks
         // Chunks:
-        //   - Bigger zero to the end
-        //   - Remaining lines in smaller zero vec
-        //   - Beginning of smaller zero vec
+        //   - [C1] Bigger zero to the end
+        //   - [C2] Remaining lines in smaller zero vec
+        //   - [C3] Beginning of smaller zero vec
         //
         // Example:
         //   Bigger Zero (6):
@@ -170,7 +167,7 @@ impl<T> Storage<T> {
         self.len -= shrinkage;
 
         // Free memory
-        if self.inner.len() > self.len() + TRUNCATE_STEP {
+        if self.inner.len() > self.len + MAX_CACHE_SIZE {
             self.truncate();
         }
     }
@@ -190,7 +187,7 @@ impl<T> Storage<T> {
         T: Clone,
     {
         if self.len + additional_rows > self.inner.len() {
-            let realloc_size = max(additional_rows, MIN_INIT_SIZE);
+            let realloc_size = max(additional_rows, MAX_CACHE_SIZE);
             let mut new = vec![template_row; realloc_size];
             let mut split = self.inner.split_off(self.zero);
             self.inner.append(&mut new);
@@ -333,7 +330,7 @@ impl<T> IndexMut<Line> for Storage<T> {
 #[cfg(test)]
 mod test {
     use crate::grid::row::Row;
-    use crate::grid::storage::{Storage, MIN_INIT_SIZE};
+    use crate::grid::storage::{Storage, MAX_CACHE_SIZE};
     use crate::grid::GridCell;
     use crate::index::{Column, Line};
     use crate::term::cell::Flags;
@@ -826,7 +823,7 @@ mod test {
 
         // Make sure the lines are present and at the right location
 
-        let expected_init_size = std::cmp::max(init_size, MIN_INIT_SIZE);
+        let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
         let mut expected_inner = vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5')];
         expected_inner.append(&mut vec![Row::new(Column(1), &'-'); expected_init_size]);
         expected_inner.append(&mut vec![

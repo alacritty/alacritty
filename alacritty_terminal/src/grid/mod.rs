@@ -60,7 +60,6 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             && self.cols.eq(&other.cols)
             && self.lines.eq(&other.lines)
             && self.display_offset.eq(&other.display_offset)
-            && self.history_size().eq(&other.history_size())
             && self.selection.eq(&other.selection)
     }
 }
@@ -110,27 +109,24 @@ pub struct Grid<T> {
     /// columns in that row.
     raw: Storage<T>,
 
-    /// Number of columns
+    /// Number of columns.
     cols: Column,
 
     /// Number of visible lines.
     lines: Line,
 
-    /// Offset of displayed area
+    /// Offset of displayed area.
     ///
     /// If the displayed region isn't at the bottom of the screen, it stays
     /// stationary while more text is emitted. The scrolling implementation
     /// updates this offset accordingly.
     display_offset: usize,
 
-    /// Legacy value, however we can't remove it, since it's in all ref-tests
-    #[serde(skip)]
-    scroll_limit: usize,
-
-    /// Selected region
+    /// Selected region.
     #[serde(skip)]
     pub selection: Option<Selection>,
 
+    /// Maximum number of lines in history.
     max_scroll_limit: usize,
 }
 
@@ -151,7 +147,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             cols,
             lines,
             display_offset: 0,
-            scroll_limit: 0,
             selection: None,
             max_scroll_limit: scrollback,
         }
@@ -180,11 +175,8 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     /// Update the size of the scrollback history
     pub fn update_history(&mut self, history_size: usize, template: &T) {
         self.raw.update_history(history_size, Row::new(self.cols, &template));
-        self.max_scroll_limit = history_size;
-        if history_size < self.history_size() {
-            self.decrease_scroll_limit(self.history_size() - history_size);
-        }
         self.display_offset = min(self.display_offset, self.history_size());
+        self.max_scroll_limit = history_size;
     }
 
     pub fn scroll_display(&mut self, scroll: Scroll) {
@@ -238,7 +230,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
-        self.raw.shrink_lines(min(count, history_size));
+        self.raw.shrink_lines(min(count, self.history_size()));
     }
 
     /// Add lines to the visible area
