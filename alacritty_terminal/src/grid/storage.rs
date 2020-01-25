@@ -5,8 +5,8 @@ use std::vec::Drain;
 use serde::{Deserialize, Serialize};
 
 use super::Row;
-use crate::index::{Line, Column};
 use crate::grid::GridCell;
+use crate::index::{Column, Line};
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
@@ -52,39 +52,11 @@ pub struct Storage<T> {
 
 impl<T: PartialEq> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
-        // Make sure length is equal
-        if self.inner.len() != other.inner.len() || self.len != other.len {
-            return false;
-        }
+        // Both storage buffers need to be truncated and zeroed
+        assert_eq!(self.zero, 0);
+        assert_eq!(other.zero, 0);
 
-        // Check which vec has the bigger zero
-        let (ref bigger, ref smaller) =
-            if self.zero >= other.zero { (self, other) } else { (other, self) };
-
-        // Calculate the actual zero offset
-        let bigger_zero = bigger.zero;
-        let smaller_zero = smaller.zero;
-
-        // Compare the slices in chunks
-        // Chunks:
-        //   - [C1] Bigger zero to the end
-        //   - [C2] Remaining lines in smaller zero vec
-        //   - [C3] Beginning of smaller zero vec
-        //
-        // Example:
-        //   Bigger Zero (6):
-        //     4  5  6  | 7  8  9  | 0  1  2  3
-        //     C2 C2 C2 | C3 C3 C3 | C1 C1 C1 C1
-        //   Smaller Zero (3):
-        //     7  8  9  | 0  1  2  3  | 4  5  6
-        //     C3 C3 C3 | C1 C1 C1 C1 | C2 C2 C2
-        let len = self.inner.len();
-        bigger.inner[bigger_zero..]
-            == smaller.inner[smaller_zero..smaller_zero + (len - bigger_zero)]
-            && bigger.inner[..bigger_zero - smaller_zero]
-                == smaller.inner[smaller_zero + (len - bigger_zero)..]
-            && bigger.inner[bigger_zero - smaller_zero..bigger_zero]
-                == smaller.inner[..smaller_zero]
+        self.inner == other.inner && self.len == other.len
     }
 }
 

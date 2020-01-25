@@ -142,14 +142,7 @@ pub enum Scroll {
 impl<T: GridCell + PartialEq + Copy> Grid<T> {
     pub fn new(lines: Line, cols: Column, scrollback: usize, template: T) -> Grid<T> {
         let raw = Storage::with_capacity(lines, Row::new(cols, &template));
-        Grid {
-            raw,
-            cols,
-            lines,
-            display_offset: 0,
-            selection: None,
-            max_scroll_limit: scrollback,
-        }
+        Grid { raw, cols, lines, display_offset: 0, selection: None, max_scroll_limit: scrollback }
     }
 
     pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
@@ -619,6 +612,7 @@ impl<T> Grid<T> {
         self.lines
     }
 
+    #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
         DisplayIter::new(self)
     }
@@ -628,6 +622,7 @@ impl<T> Grid<T> {
         self.cols
     }
 
+    #[inline]
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history
         self.raw.shrink_lines(self.history_size());
@@ -645,19 +640,25 @@ impl<T> Grid<T> {
     }
 
     /// This is used only for initializing after loading ref-tests
+    #[inline]
     pub fn initialize_all(&mut self, template: &T)
     where
         T: Copy + GridCell,
     {
-        let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw.initialize(self.max_scroll_limit - history_size, template, self.cols);
+        // Remove all cached lines to clear them of any content
+        self.truncate();
+
+        // Initialize everything with empty new lines
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), template, self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests
+    #[inline]
     pub fn truncate(&mut self) {
         self.raw.truncate();
     }
 
+    #[inline]
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
         GridIterator { grid: self, cur: point }
     }

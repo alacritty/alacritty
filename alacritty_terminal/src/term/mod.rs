@@ -2293,6 +2293,11 @@ mod tests {
         // Make sure that scrolling does not change the grid
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
+
+        // Truncate grids for comparison
+        scrolled_grid.truncate();
+        term.grid.truncate();
+
         assert_eq!(term.grid, scrolled_grid);
     }
 
