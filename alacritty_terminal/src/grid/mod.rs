@@ -173,9 +173,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     /// Update the size of the scrollback history
-    pub fn update_history(&mut self, history_size: usize, template: &T) {
-        self.raw.update_history(history_size, Row::new(self.cols, &template));
-        self.display_offset = min(self.display_offset, self.history_size());
+    pub fn update_history(&mut self, history_size: usize) {
+        let current_history_size = self.history_size();
+        if current_history_size > history_size {
+            self.raw.shrink_lines(current_history_size - history_size);
+        }
+        self.display_offset = min(self.display_offset, history_size);
         self.max_scroll_limit = history_size;
     }
 

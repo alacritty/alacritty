@@ -937,7 +937,7 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
+        self.grid.update_history(config.scrolling.history() as usize);
     }
 
     /// Convert the active selection to a String.

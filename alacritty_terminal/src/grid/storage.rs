@@ -1,4 +1,4 @@
-use std::cmp::{max, Ordering, PartialEq};
+use std::cmp::{max, PartialEq};
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
@@ -97,19 +97,6 @@ impl<T> Storage<T> {
         let inner = vec![template; lines.0];
 
         Storage { inner, zero: 0, visible_lines: lines - 1, len: lines.0 }
-    }
-
-    /// Update the size of the scrollback history.
-    pub fn update_history(&mut self, history_size: usize, template_row: Row<T>)
-    where
-        T: Clone,
-    {
-        let current_history = self.len - (self.visible_lines.0 + 1);
-        match history_size.cmp(&current_history) {
-            Ordering::Greater => self.grow_lines(history_size - current_history, template_row),
-            Ordering::Less => self.shrink_lines(current_history - history_size),
-            _ => (),
-        }
     }
 
     /// Increase the number of lines in the buffer.
