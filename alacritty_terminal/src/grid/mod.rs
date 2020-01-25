@@ -274,7 +274,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         };
 
         let mut new_empty_lines = 0;
-        let mut history_size = self.history_size();
         let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
             // FIXME: Rust 1.39.0+ allows moving in pattern guard here
@@ -321,23 +320,13 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             last_row.append(&mut cells);
 
             if row.is_empty() {
-                let raw_len = i + 1 + reversed.len();
-                if raw_len < self.lines.0 || history_size == 0 {
+                if i + reversed.len() <= self.lines.0 {
                     // Add new line and move lines up if we can't pull from history
                     cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                     new_empty_lines += 1;
-                } else {
-                    // Make sure viewport doesn't move if line is outside of the visible
-                    // area
-                    if i < self.display_offset {
-                        self.display_offset = self.display_offset.saturating_sub(1);
-                    }
-
-                    // Remove one line from scrollback, since we just moved it to the
-                    // viewport
-                    // self.decrease_scroll_limit(1);
-                    history_size -= 1;
-                    self.display_offset = min(self.display_offset, history_size);
+                } else if i < self.display_offset {
+                    // Keep viewport in place if line is outside of the visible area
+                    self.display_offset = self.display_offset.saturating_sub(1);
                 }
 
                 // Don't push line into the new buffer
@@ -364,6 +353,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
         self.raw.replace_inner(new_raw);
 
+        self.display_offset = min(self.display_offset, self.history_size());
         self.cols = cols;
     }
 
@@ -371,7 +361,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     fn shrink_cols(&mut self, reflow: bool, cols: Column, template: &T) {
         let mut new_raw = Vec::with_capacity(self.raw.len());
         let mut buffered = None;
-        let mut history_size = self.history_size();
         for (i, mut row) in self.raw.drain().enumerate().rev() {
             // Append lines left over from previous row
             if let Some(buffered) = buffered.take() {
@@ -447,9 +436,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                         wrapped.append(&mut vec![*template; cols.0 - occ]);
                     }
                     row = Row::from_vec(wrapped, occ);
-
-                    // Increase scrollback history
-                    history_size = min(history_size + 1, self.max_scroll_limit);
                 }
             }
         }
