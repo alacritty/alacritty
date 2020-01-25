@@ -5,7 +5,8 @@ use std::vec::Drain;
 use serde::{Deserialize, Serialize};
 
 use super::Row;
-use crate::index::Line;
+use crate::index::{Line, Column};
+use crate::grid::GridCell;
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
@@ -169,13 +170,13 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize(&mut self, additional_rows: usize, template_row: Row<T>)
+    pub fn initialize(&mut self, additional_rows: usize, template: &T, cols: Column)
     where
-        T: Clone,
+        T: GridCell + Copy,
     {
         if self.len + additional_rows > self.inner.len() {
             let realloc_size = max(additional_rows, MAX_CACHE_SIZE);
-            let mut new = vec![template_row; realloc_size];
+            let mut new = vec![Row::new(cols, template); realloc_size];
             let mut split = self.inner.split_off(self.zero);
             self.inner.append(&mut new);
             self.inner.append(&mut split);
@@ -811,7 +812,7 @@ mod test {
 
         // Initialize additional lines
         let init_size = 3;
-        storage.initialize(init_size, Row::new(Column(1), &'-'));
+        storage.initialize(init_size, &'-', Column(1));
 
         // Make sure the lines are present and at the right location
 

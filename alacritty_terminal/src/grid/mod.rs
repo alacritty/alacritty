@@ -229,7 +229,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
     fn increase_scroll_limit(&mut self, count: usize, template: &T) {
         let new = min(count, self.max_scroll_limit - self.history_size());
-        self.raw.initialize(new, Row::new(self.cols, template));
+        self.raw.initialize(new, template, self.cols);
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
@@ -650,7 +650,7 @@ impl<T> Grid<T> {
         T: Copy + GridCell,
     {
         let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+        self.raw.initialize(self.max_scroll_limit - history_size, template, self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests
