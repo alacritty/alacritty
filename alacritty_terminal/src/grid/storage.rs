@@ -89,14 +89,14 @@ impl<T: PartialEq> PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(lines: Line, template: Row<T>) -> Storage<T>
+    pub fn with_capacity(visible_lines: Line, template: Row<T>) -> Storage<T>
     where
         T: Clone,
     {
         // Initialize visible lines, the scrollback buffer is initialized dynamically
-        let inner = vec![template; lines.0];
+        let inner = vec![template; visible_lines.0];
 
-        Storage { inner, zero: 0, visible_lines: lines - 1, len: lines.0 }
+        Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
     }
 
     /// Increase the number of lines in the buffer.
@@ -105,11 +105,11 @@ impl<T> Storage<T> {
         T: Clone,
     {
         // Number of lines the buffer needs to grow
-        let growage = (next - (self.visible_lines + 1)).0;
-        self.grow_lines(growage, template_row);
+        let growage = next - self.visible_lines;
+        self.grow_lines(growage.0, template_row);
 
         // Update visible lines
-        self.visible_lines = next - 1;
+        self.visible_lines = next;
     }
 
     /// Grow the number of lines in the buffer, filling new lines with the template.
@@ -142,11 +142,11 @@ impl<T> Storage<T> {
     /// Decrease the number of lines in the buffer.
     pub fn shrink_visible_lines(&mut self, next: Line) {
         // Shrink the size without removing any lines
-        let shrinkage = (self.visible_lines - (next - 1)).0;
-        self.shrink_lines(shrinkage);
+        let shrinkage = self.visible_lines - next;
+        self.shrink_lines(shrinkage.0);
 
         // Update visible lines
-        self.visible_lines = next - 1;
+        self.visible_lines = next;
     }
 
     // Shrink the number of lines in the buffer
@@ -209,7 +209,7 @@ impl<T> Storage<T> {
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
-        let offset = self.inner.len() + self.zero + *self.visible_lines;
+        let offset = self.inner.len() + self.zero + *self.visible_lines - 1;
         let a = (offset - *a) % self.inner.len();
         let b = (offset - *b) % self.inner.len();
         self.inner.swap(a, b);
@@ -301,7 +301,7 @@ impl<T> Index<Line> for Storage<T> {
 
     #[inline]
     fn index(&self, index: Line) -> &Self::Output {
-        let index = self.visible_lines - index;
+        let index = self.visible_lines - 1 - index;
         &self[*index]
     }
 }
@@ -309,7 +309,7 @@ impl<T> Index<Line> for Storage<T> {
 impl<T> IndexMut<Line> for Storage<T> {
     #[inline]
     fn index_mut(&mut self, index: Line) -> &mut Self::Output {
-        let index = self.visible_lines - index;
+        let index = self.visible_lines - 1 - index;
         &mut self[*index]
     }
 }
@@ -347,7 +347,7 @@ mod test {
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.len, 3);
         assert_eq!(storage.zero, 0);
-        assert_eq!(storage.visible_lines, Line(2));
+        assert_eq!(storage.visible_lines, Line(3));
     }
 
     #[test]
@@ -408,7 +408,7 @@ mod test {
                 Row::new(Column(1), &'-'),
             ],
             zero: 0,
-            visible_lines: Line(2),
+            visible_lines: Line(3),
             len: 3,
         };
 
@@ -424,9 +424,10 @@ mod test {
                 Row::new(Column(1), &'-'),
             ],
             zero: 1,
-            visible_lines: Line(0),
+            visible_lines: Line(4),
             len: 4,
         };
+        assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
         assert_eq!(storage.len, expected.len);
@@ -453,7 +454,7 @@ mod test {
                 Row::new(Column(1), &'1'),
             ],
             zero: 1,
-            visible_lines: Line(2),
+            visible_lines: Line(3),
             len: 3,
         };
 
@@ -469,9 +470,10 @@ mod test {
                 Row::new(Column(1), &'1'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: Line(4),
             len: 4,
         };
+        assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
         assert_eq!(storage.len, expected.len);
@@ -497,7 +499,7 @@ mod test {
                 Row::new(Column(1), &'1'),
             ],
             zero: 1,
-            visible_lines: Line(2),
+            visible_lines: Line(3),
             len: 3,
         };
 
@@ -512,9 +514,10 @@ mod test {
                 Row::new(Column(1), &'1'),
             ],
             zero: 1,
-            visible_lines: Line(0),
+            visible_lines: Line(2),
             len: 2,
         };
+        assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
         assert_eq!(storage.len, expected.len);
@@ -540,7 +543,7 @@ mod test {
                 Row::new(Column(1), &'2'),
             ],
             zero: 0,
-            visible_lines: Line(2),
+            visible_lines: Line(3),
             len: 3,
         };
 
@@ -555,9 +558,10 @@ mod test {
                 Row::new(Column(1), &'2'),
             ],
             zero: 0,
-            visible_lines: Line(0),
+            visible_lines: Line(2),
             len: 2,
         };
+        assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
         assert_eq!(storage.len, expected.len);
@@ -592,7 +596,7 @@ mod test {
                 Row::new(Column(1), &'3'),
             ],
             zero: 2,
-            visible_lines: Line(5),
+            visible_lines: Line(6),
             len: 6,
         };
 
@@ -610,9 +614,10 @@ mod test {
                 Row::new(Column(1), &'3'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: Line(2),
             len: 2,
         };
+        assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
         assert_eq!(storage.len, expected.len);
