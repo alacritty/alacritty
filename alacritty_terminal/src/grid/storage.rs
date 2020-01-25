@@ -184,6 +184,7 @@ impl<T> Storage<T> {
     }
 
     /// Dynamically grow the storage buffer at runtime.
+    #[inline]
     pub fn initialize(&mut self, additional_rows: usize, template_row: Row<T>)
     where
         T: Clone,

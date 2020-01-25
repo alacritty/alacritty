@@ -238,9 +238,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
-        let history_size = self.history_size();
-        let count = history_size - history_size.saturating_sub(count);
-        self.raw.shrink_lines(count);
+        self.raw.shrink_lines(min(count, history_size));
     }
 
     /// Add lines to the visible area
@@ -256,9 +254,9 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.lines = new_line_count;
 
         // Move existing lines up if there is no scrollback to fill new lines
-        if lines_added.0 > self.history_size() {
-            let scroll_lines = lines_added - self.history_size();
-            self.scroll_up(&(Line(0)..new_line_count), scroll_lines, template);
+        let history_size = self.history_size();
+        if lines_added.0 > history_size {
+            self.scroll_up(&(Line(0)..new_line_count), lines_added - history_size, template);
         }
 
         self.decrease_scroll_limit(*lines_added);
@@ -648,7 +646,7 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn history_size(&self) -> usize {
-        self.raw.len().saturating_sub(*self.lines)
+        self.raw.len() - *self.lines
     }
 
     /// This is used only for initializing after loading ref-tests
