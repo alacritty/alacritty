@@ -274,8 +274,7 @@ impl FreeTypeRasterizer {
                 };
 
                 if let Some(ff_key) = self.keys.get(&path) {
-                    // Our fallback font can be a primary font in some fallback list, so don't
-                    // remove it, since we will be reloading primary fonts all together
+                    // Skip primary fonts, since these are all reloaded later
                     if !self.fallback_lists.contains_key(&ff_key) {
                         self.faces.remove(ff_key);
                         self.keys.remove(&path);
@@ -289,14 +288,13 @@ impl FreeTypeRasterizer {
             None
         };
 
-        // Reuse the font_key, since chaning it can break library users
+        // Reuse the font_key, since changing it can break library users
         let font_key = self.face_from_pattern(&base_font, font_key).and_then(|pattern| {
             pattern.map(Ok).unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned())))
         })?;
 
         // Coverage for fallback fonts
         let coverage = CharSet::new();
-        // If we failing to get charset from some font, use an empty set
         let empty_charset = CharSet::new();
         // Load fallback list
         let list: Vec<Pattern> = font_iter
@@ -307,9 +305,7 @@ impl FreeTypeRasterizer {
             })
             .collect();
 
-        let fallback_list = FallbackList { list, coverage };
-
-        self.fallback_lists.insert(font_key, fallback_list);
+        self.fallback_lists.insert(font_key, FallbackList { list, coverage });
 
         Ok(font_key)
     }
@@ -353,9 +349,9 @@ impl FreeTypeRasterizer {
             let face = Face {
                 ft_face,
                 key,
-                load_flags: Self::ft_load_flags(&pattern),
-                render_mode: Self::ft_render_mode(&pattern),
-                lcd_filter: Self::ft_lcd_filter(&pattern),
+                load_flags: Self::ft_load_flags(pattern),
+                render_mode: Self::ft_render_mode(pattern),
+                lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
                 has_color,
                 pixelsize_fixup_factor,
@@ -648,6 +644,7 @@ impl FreeTypeRasterizer {
                     pattern.add_pixelsize(self.pixel_size as f64);
                     pattern.add_style(font_pattern.style().next().unwrap_or("Regular"));
                     pattern.add_family(font_pattern.family().next().unwrap_or("monospace"));
+
                     // Render pattern, otherwise most of its properties wont work
                     let config = fc::Config::get_current();
                     let pattern = pattern.render_prepare(config, font_pattern);
