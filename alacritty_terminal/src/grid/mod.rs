@@ -221,12 +221,17 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     fn increase_scroll_limit(&mut self, count: usize, template: &T) {
-        let new = min(count, self.max_scroll_limit - self.history_size());
-        self.raw.initialize(new, template, self.cols);
+        let count = min(count, self.max_scroll_limit - self.history_size());
+        if count != 0 {
+            self.raw.initialize(count, template, self.cols);
+        }
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
-        self.raw.shrink_lines(min(count, self.history_size()));
+        let count = min(count, self.history_size());
+        if count != 0 {
+            self.raw.shrink_lines(min(count, self.history_size()));
+        }
     }
 
     /// Add lines to the visible area
