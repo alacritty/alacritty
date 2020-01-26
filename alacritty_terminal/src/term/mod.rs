@@ -937,7 +937,7 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
+        self.grid.update_history(config.scrolling.history() as usize);
     }
 
     /// Convert the active selection to a String.
@@ -1099,14 +1099,9 @@ impl<T> Term<T> {
         }
 
         // Move prompt down when growing if scrollback lines are available
-        if num_lines > old_lines {
-            if self.mode.contains(TermMode::ALT_SCREEN) {
-                let growage = min(num_lines - old_lines, Line(self.alt_grid.scroll_limit()));
-                self.cursor_save.point.line += growage;
-            } else {
-                let growage = min(num_lines - old_lines, Line(self.grid.scroll_limit()));
-                self.cursor.point.line += growage;
-            }
+        if num_lines > old_lines && !self.mode.contains(TermMode::ALT_SCREEN) {
+            let growage = min(num_lines - old_lines, Line(self.grid.history_size()));
+            self.cursor.point.line += growage;
         }
 
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
@@ -2298,6 +2293,11 @@ mod tests {
         // Make sure that scrolling does not change the grid
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
+
+        // Truncate grids for comparison
+        scrolled_grid.truncate();
+        term.grid.truncate();
+
         assert_eq!(term.grid, scrolled_grid);
     }
 
