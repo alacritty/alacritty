@@ -646,7 +646,6 @@ impl FreeTypeRasterizer {
                         // Recreate a pattern
                         let mut pattern = Pattern::new();
                         pattern.add_pixelsize(self.pixel_size as f64);
-                        // Unwrap should be safe in general, however let's play safe here
                         pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
                         pattern.add_family(
                             font_pattern.family().next().unwrap_or_else(|| "monospace"),
