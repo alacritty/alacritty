@@ -32,8 +32,6 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
-const MIN_INIT_SIZE: usize = 1_000;
-
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
@@ -62,7 +60,6 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             && self.cols.eq(&other.cols)
             && self.lines.eq(&other.lines)
             && self.display_offset.eq(&other.display_offset)
-            && self.scroll_limit.eq(&other.scroll_limit)
             && self.selection.eq(&other.selection)
     }
 }
@@ -86,11 +83,11 @@ pub trait GridCell {
 /// │                         │
 /// │      UNINITIALIZED      │
 /// │                         │
-/// ├─────────────────────────┤  <-- raw.len()
+/// ├─────────────────────────┤  <-- self.raw.inner.len()
 /// │                         │
 /// │      RESIZE BUFFER      │
 /// │                         │
-/// ├─────────────────────────┤  <-- scroll_limit + lines
+/// ├─────────────────────────┤  <-- self.history_size() + lines
 /// │                         │
 /// │     SCROLLUP REGION     │
 /// │                         │
@@ -112,26 +109,24 @@ pub struct Grid<T> {
     /// columns in that row.
     raw: Storage<T>,
 
-    /// Number of columns
+    /// Number of columns.
     cols: Column,
 
     /// Number of visible lines.
     lines: Line,
 
-    /// Offset of displayed area
+    /// Offset of displayed area.
     ///
     /// If the displayed region isn't at the bottom of the screen, it stays
     /// stationary while more text is emitted. The scrolling implementation
     /// updates this offset accordingly.
     display_offset: usize,
 
-    /// An limit on how far back it's possible to scroll
-    scroll_limit: usize,
-
-    /// Selected region
+    /// Selected region.
     #[serde(skip)]
     pub selection: Option<Selection>,
 
+    /// Maximum number of lines in history.
     max_scroll_limit: usize,
 }
 
@@ -147,15 +142,7 @@ pub enum Scroll {
 impl<T: GridCell + PartialEq + Copy> Grid<T> {
     pub fn new(lines: Line, cols: Column, scrollback: usize, template: T) -> Grid<T> {
         let raw = Storage::with_capacity(lines, Row::new(cols, &template));
-        Grid {
-            raw,
-            cols,
-            lines,
-            display_offset: 0,
-            scroll_limit: 0,
-            selection: None,
-            max_scroll_limit: scrollback,
-        }
+        Grid { raw, cols, lines, display_offset: 0, selection: None, max_scroll_limit: scrollback }
     }
 
     pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
@@ -179,11 +166,13 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     /// Update the size of the scrollback history
-    pub fn update_history(&mut self, history_size: usize, template: &T) {
-        self.raw.update_history(history_size, Row::new(self.cols, &template));
+    pub fn update_history(&mut self, history_size: usize) {
+        let current_history_size = self.history_size();
+        if current_history_size > history_size {
+            self.raw.shrink_lines(current_history_size - history_size);
+        }
+        self.display_offset = min(self.display_offset, history_size);
         self.max_scroll_limit = history_size;
-        self.scroll_limit = min(self.scroll_limit, history_size);
-        self.display_offset = min(self.display_offset, self.scroll_limit);
     }
 
     pub fn scroll_display(&mut self, scroll: Scroll) {
@@ -191,16 +180,16 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             Scroll::Lines(count) => {
                 self.display_offset = min(
                     max((self.display_offset as isize) + count, 0isize) as usize,
-                    self.scroll_limit,
+                    self.history_size(),
                 );
             },
             Scroll::PageUp => {
-                self.display_offset = min(self.display_offset + self.lines.0, self.scroll_limit);
+                self.display_offset = min(self.display_offset + self.lines.0, self.history_size());
             },
             Scroll::PageDown => {
                 self.display_offset -= min(self.display_offset, self.lines.0);
             },
-            Scroll::Top => self.display_offset = self.scroll_limit,
+            Scroll::Top => self.display_offset = self.history_size(),
             Scroll::Bottom => self.display_offset = 0,
         }
     }
@@ -232,21 +221,17 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     }
 
     fn increase_scroll_limit(&mut self, count: usize, template: &T) {
-        self.scroll_limit = min(self.scroll_limit + count, self.max_scroll_limit);
-
-        // Initialize new lines when the history buffer is smaller than the scroll limit
-        let history_size = self.raw.len().saturating_sub(*self.lines);
-        if history_size < self.scroll_limit {
-            let new = min(
-                max(self.scroll_limit - history_size, MIN_INIT_SIZE),
-                self.max_scroll_limit - history_size,
-            );
-            self.raw.initialize(new, Row::new(self.cols, template));
+        let count = min(count, self.max_scroll_limit - self.history_size());
+        if count != 0 {
+            self.raw.initialize(count, template, self.cols);
         }
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
-        self.scroll_limit = self.scroll_limit.saturating_sub(count);
+        let count = min(count, self.history_size());
+        if count != 0 {
+            self.raw.shrink_lines(min(count, self.history_size()));
+        }
     }
 
     /// Add lines to the visible area
@@ -262,12 +247,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.lines = new_line_count;
 
         // Move existing lines up if there is no scrollback to fill new lines
-        if lines_added.0 > self.scroll_limit {
-            let scroll_lines = lines_added - self.scroll_limit;
-            self.scroll_up(&(Line(0)..new_line_count), scroll_lines, template);
+        let history_size = self.history_size();
+        if lines_added.0 > history_size {
+            self.scroll_up(&(Line(0)..new_line_count), lines_added - history_size, template);
         }
 
-        self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
+        self.decrease_scroll_limit(*lines_added);
         self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
@@ -326,22 +311,13 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             last_row.append(&mut cells);
 
             if row.is_empty() {
-                let raw_len = i + 1 + reversed.len();
-                if raw_len < self.lines.0 || self.scroll_limit == 0 {
+                if i + reversed.len() < self.lines.0 {
                     // Add new line and move lines up if we can't pull from history
                     cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                     new_empty_lines += 1;
-                } else {
-                    // Make sure viewport doesn't move if line is outside of the visible
-                    // area
-                    if i < self.display_offset {
-                        self.display_offset = self.display_offset.saturating_sub(1);
-                    }
-
-                    // Remove one line from scrollback, since we just moved it to the
-                    // viewport
-                    self.scroll_limit = self.scroll_limit.saturating_sub(1);
-                    self.display_offset = min(self.display_offset, self.scroll_limit);
+                } else if i < self.display_offset {
+                    // Keep viewport in place if line is outside of the visible area
+                    self.display_offset = self.display_offset.saturating_sub(1);
                 }
 
                 // Don't push line into the new buffer
@@ -368,6 +344,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
         self.raw.replace_inner(new_raw);
 
+        self.display_offset = min(self.display_offset, self.history_size());
         self.cols = cols;
     }
 
@@ -450,9 +427,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                         wrapped.append(&mut vec![*template; cols.0 - occ]);
                     }
                     row = Row::from_vec(wrapped, occ);
-
-                    // Increase scrollback history
-                    self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
                 }
             }
         }
@@ -643,6 +617,7 @@ impl<T> Grid<T> {
         self.lines
     }
 
+    #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
         DisplayIter::new(self)
     }
@@ -652,16 +627,10 @@ impl<T> Grid<T> {
         self.cols
     }
 
+    #[inline]
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history
-        let shrinkage = self.raw.len() - self.lines.0;
-        self.raw.shrink_lines(shrinkage);
-        self.scroll_limit = 0;
-    }
-
-    #[inline]
-    pub fn scroll_limit(&self) -> usize {
-        self.scroll_limit
+        self.raw.shrink_lines(self.history_size());
     }
 
     /// Total number of lines in the buffer, this includes scrollback + visible lines
@@ -672,23 +641,29 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn history_size(&self) -> usize {
-        self.raw.len().saturating_sub(*self.lines)
+        self.raw.len() - *self.lines
     }
 
     /// This is used only for initializing after loading ref-tests
+    #[inline]
     pub fn initialize_all(&mut self, template: &T)
     where
         T: Copy + GridCell,
     {
-        let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+        // Remove all cached lines to clear them of any content
+        self.truncate();
+
+        // Initialize everything with empty new lines
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), template, self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests
+    #[inline]
     pub fn truncate(&mut self) {
         self.raw.truncate();
     }
 
+    #[inline]
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
         GridIterator { grid: self, cur: point }
     }
