@@ -33,3 +33,7 @@ alacritty_*_source.tar.bz2
 *.msi
 *.wixobj
 *.wixpdb
+
+# Perf tools
+perf.data*
+flamegraph.svg
