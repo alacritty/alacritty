@@ -639,29 +639,26 @@ impl FreeTypeRasterizer {
                     }
                 },
                 None => {
-                    if let Some(charset) = font_pattern.get_charset() {
-                        if charset.has_char(glyph.c) {
-                            let config = fc::Config::get_current();
-
-                            // Recreate a pattern
-                            let mut pattern = Pattern::new();
-                            pattern.add_pixelsize(self.pixel_size as f64);
-                            pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
-                            pattern.add_family(
-                                font_pattern.family().next().unwrap_or_else(|| "monospace"),
-                            );
-                            // Render pattern, otherwise most of its properties wont work
-                            let pattern = pattern.render_prepare(config, font_pattern);
-
-                            let key = self.face_from_pattern(&pattern, None)?.unwrap();
-                            return Ok(key);
-                        }
+                    if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) == Some(false) {
+                        continue;
                     }
 
+                    // Recreate a pattern
+                    let mut pattern = Pattern::new();
+                    pattern.add_pixelsize(self.pixel_size as f64);
+                    pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
+                    pattern.add_family(font_pattern.family().next().unwrap_or_else(|| "monospace"));
+                    // Render pattern, otherwise most of its properties wont work
+                    let config = fc::Config::get_current();
+                    let pattern = pattern.render_prepare(config, font_pattern);
+
+                    let key = self.face_from_pattern(&pattern, None)?.unwrap();
+                    return Ok(key);
                 },
             }
         }
 
+        // You can hit this return, if you're failing to get charset from a pattern
         Ok(glyph.font_key)
     }
 }
