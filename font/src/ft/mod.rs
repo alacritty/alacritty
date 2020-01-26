@@ -296,10 +296,12 @@ impl FreeTypeRasterizer {
 
         // Coverage for fallback fonts
         let coverage = CharSet::new();
+        // If we failing to get charset from some font, use an empty set
+        let empty_charset = CharSet::new();
         // Load fallback list
         let list: Vec<Pattern> = font_iter
             .map(|font| {
-                let charset = font.get_charset();
+                let charset = font.get_charset().unwrap_or(&empty_charset);
                 let _ = coverage.merge(&charset);
                 font.to_owned()
             })
@@ -637,25 +639,25 @@ impl FreeTypeRasterizer {
                     }
                 },
                 None => {
-                    let pattern = font_pattern.clone();
-                    let charset = pattern.get_charset();
+                    if let Some(charset) = font_pattern.get_charset() {
+                        if charset.has_char(glyph.c) {
+                            let config = fc::Config::get_current();
 
-                    if charset.has_char(glyph.c) {
-                        let config = fc::Config::get_current();
+                            // Recreate a pattern
+                            let mut pattern = Pattern::new();
+                            pattern.add_pixelsize(self.pixel_size as f64);
+                            pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
+                            pattern.add_family(
+                                font_pattern.family().next().unwrap_or_else(|| "monospace"),
+                            );
+                            // Render pattern, otherwise most of its properties wont work
+                            let pattern = pattern.render_prepare(config, font_pattern);
 
-                        // Recreate a pattern
-                        let mut pattern = Pattern::new();
-                        pattern.add_pixelsize(self.pixel_size as f64);
-                        pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
-                        pattern.add_family(
-                            font_pattern.family().next().unwrap_or_else(|| "monospace"),
-                        );
-                        // Render pattern, otherwise most of its properties wont work
-                        let pattern = pattern.render_prepare(config, font_pattern);
-
-                        let key = self.face_from_pattern(&pattern, None)?.unwrap();
-                        return Ok(key);
+                            let key = self.face_from_pattern(&pattern, None)?.unwrap();
+                            return Ok(key);
+                        }
                     }
+
                 },
             }
         }

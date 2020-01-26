@@ -553,18 +553,22 @@ impl PatternRef {
         }
     }
 
-    pub fn get_charset(&self) -> &CharSetRef {
+    pub fn get_charset(&self) -> Option<&CharSetRef> {
         unsafe {
             let mut charset: *mut _ = ptr::null_mut();
-            // We should likely check the result
-            let _ = FcPatternGetCharSet(
+
+            let result = FcPatternGetCharSet(
                 self.as_ptr(),
                 b"charset\0".as_ptr() as *mut c_char,
                 0,
                 &mut charset,
             );
 
-            &*(charset as *const CharSetRef)
+            if result == FcResultMatch {
+                Some(&*(charset as *const CharSetRef))
+            } else {
+                None
+            }
         }
     }
 
