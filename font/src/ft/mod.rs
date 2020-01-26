@@ -646,8 +646,8 @@ impl FreeTypeRasterizer {
                     // Recreate a pattern
                     let mut pattern = Pattern::new();
                     pattern.add_pixelsize(self.pixel_size as f64);
-                    pattern.add_style(font_pattern.style().next().unwrap_or_else(|| "Regular"));
-                    pattern.add_family(font_pattern.family().next().unwrap_or_else(|| "monospace"));
+                    pattern.add_style(font_pattern.style().next().unwrap_or("Regular"));
+                    pattern.add_family(font_pattern.family().next().unwrap_or("monospace"));
                     // Render pattern, otherwise most of its properties wont work
                     let config = fc::Config::get_current();
                     let pattern = pattern.render_prepare(config, font_pattern);
