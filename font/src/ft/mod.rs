@@ -639,7 +639,7 @@ impl FreeTypeRasterizer {
                     }
                 },
                 None => {
-                    if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) == Some(false) {
+                    if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) != Some(true) {
                         continue;
                     }
 
