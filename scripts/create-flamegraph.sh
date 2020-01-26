@@ -19,7 +19,7 @@ if [ ! -x "$(command -v cargo-flamegraph)" ]; then
 fi
 
 # Create flamegraph
-cargo flamegraph --bin=alacritty -- -e true
+cargo flamegraph --bin=alacritty -- $@
 
 # Unintall cargo-flamegraph if it has been installed with this script
 if [ $installed_flamegraph == 1 ]; then
