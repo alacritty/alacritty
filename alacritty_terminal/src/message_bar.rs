@@ -173,7 +173,7 @@ impl MessageBuffer {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{Message, MessageBuffer, MIN_FREE_LINES};
     use crate::term::{color, SizeInfo};
 

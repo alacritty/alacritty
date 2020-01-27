@@ -215,7 +215,7 @@ fn print_deprecation_warnings(config: &Config) {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     static DEFAULT_ALACRITTY_CONFIG: &str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
 
