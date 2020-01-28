@@ -76,7 +76,7 @@ impl Drop for ChildExitWatcher {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::os::windows::io::AsRawHandle;
     use std::process::Command;
     use std::time::Duration;

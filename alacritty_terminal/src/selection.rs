@@ -442,7 +442,7 @@ impl Selection {
 /// and [EX] (at the start), or [BE] for a single cell. Partially selected cells
 /// look like [ B] and [E ].
 #[cfg(test)]
-mod test {
+mod tests {
     use std::mem;
 
     use super::{Selection, SelectionRange};

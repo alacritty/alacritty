@@ -219,16 +219,16 @@ impl Options {
         options.embed = matches.value_of("embed").map(ToOwned::to_owned);
 
         match matches.occurrences_of("q") {
-            0 => {},
+            0 => (),
             1 => options.log_level = LevelFilter::Error,
-            2 | _ => options.log_level = LevelFilter::Off,
+            _ => options.log_level = LevelFilter::Off,
         }
 
         match matches.occurrences_of("v") {
             0 if !options.print_events => options.log_level = LevelFilter::Warn,
             0 | 1 => options.log_level = LevelFilter::Info,
             2 => options.log_level = LevelFilter::Debug,
-            3 | _ => options.log_level = LevelFilter::Trace,
+            _ => options.log_level = LevelFilter::Trace,
         }
 
         if let Some(dir) = matches.value_of("working-directory") {
@@ -302,7 +302,7 @@ impl Options {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::cli::Options;
     use crate::config::Config;
 

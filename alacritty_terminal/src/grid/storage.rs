@@ -288,7 +288,7 @@ impl<T> IndexMut<Line> for Storage<T> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use crate::grid::row::Row;
     use crate::grid::storage::{Storage, MAX_CACHE_SIZE};
     use crate::grid::GridCell;

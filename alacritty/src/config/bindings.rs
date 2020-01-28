@@ -885,7 +885,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use glutin::event::ModifiersState;
 
     use alacritty_terminal::term::TermMode;
