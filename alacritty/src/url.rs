@@ -188,7 +188,7 @@ impl Urls {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     use alacritty_terminal::index::{Column, Line};
