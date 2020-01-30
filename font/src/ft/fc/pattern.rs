@@ -23,7 +23,7 @@ use libc::{c_char, c_double, c_int};
 
 use super::ffi::FcResultMatch;
 use super::ffi::{FcBool, FcFontRenderPrepare, FcPatternGetBool, FcPatternGetDouble};
-use super::ffi::{FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcPattern};
+use super::ffi::{FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcPattern, FcPatternHash};
 use super::ffi::{FcPatternAddCharSet, FcPatternDestroy, FcPatternDuplicate, FcPatternGetCharSet};
 use super::ffi::{FcPatternAddDouble, FcPatternAddString, FcPatternCreate, FcPatternGetString};
 use super::ffi::{FcPatternAddInteger, FcPatternGetInteger, FcPatternPrint};
@@ -353,6 +353,9 @@ macro_rules! string_accessor {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct PatternHash(u32);
+
 impl Pattern {
     pub fn new() -> Self {
         Self::default()
@@ -535,6 +538,10 @@ impl PatternRef {
             let ptr = FcFontRenderPrepare(config.as_ptr(), self.as_ptr(), request.as_ptr());
             Pattern::from_ptr(ptr)
         }
+    }
+
+    pub fn hash(&self) -> PatternHash {
+        unsafe { PatternHash(FcPatternHash(self.as_ptr())) }
     }
 
     /// Add charset to the pattern

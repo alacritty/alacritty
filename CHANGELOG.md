@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash when using bitmap font with `embeddedbitmap` set to `false`
 - Inconsistent fontconfig fallback
 - Backspace deleting characters while IME is open on macOS
+- Handling of OpenType variable fonts
 
 ### Removed
 
