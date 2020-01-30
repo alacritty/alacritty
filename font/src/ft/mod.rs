@@ -272,10 +272,8 @@ impl FreeTypeRasterizer {
         let base_font = font_iter.next().ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let base_font = pattern.render_prepare(config, base_font);
 
-        let font_hash = base_font.hash();
-
         // Reload already loaded faces and drop their fallback faces
-        let font_key = if let Some(font_key) = self.keys.remove(&font_hash) {
+        let font_key = if let Some(font_key) = self.keys.remove(&base_font.hash()) {
             let fallback_list = self.fallback_lists.remove(&font_key).unwrap_or_default();
 
             for fallback_font in &fallback_list.list {
