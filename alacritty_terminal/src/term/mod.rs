@@ -1739,12 +1739,18 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Write a foreground/background color escape sequence with the current color
     #[inline]
-    fn dynamic_color_sequence<W: io::Write>(&mut self, writer: &mut W, code: u8, index: usize) {
+    fn dynamic_color_sequence<W: io::Write>(
+        &mut self,
+        writer: &mut W,
+        code: u8,
+        index: usize,
+        terminator: &str,
+    ) {
         trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
         let color = self.colors[index];
         let response = format!(
-            "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}\x07",
-            code, color.r, color.g, color.b
+            "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
+            code, color.r, color.g, color.b, terminator
         );
         let _ = writer.write_all(response.as_bytes());
     }
@@ -1775,7 +1781,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Write clipboard data to child.
     #[inline]
-    fn write_clipboard<W: io::Write>(&mut self, clipboard: u8, writer: &mut W) {
+    fn write_clipboard<W: io::Write>(&mut self, clipboard: u8, writer: &mut W, terminator: &str) {
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
@@ -1784,7 +1790,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         let text = self.clipboard.load(clipboard_type);
         let base64 = base64::encode(&text);
-        let escape = format!("\x1b]52;{};{}\x07", clipboard as char, base64);
+        let escape = format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator);
         let _ = writer.write_all(escape.as_bytes());
     }
 
