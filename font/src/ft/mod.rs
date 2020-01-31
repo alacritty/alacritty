@@ -16,7 +16,6 @@
 use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::path::PathBuf;
 
 use freetype::freetype_sys;
 use freetype::tt_os2::TrueTypeOS2Table;
@@ -26,7 +25,7 @@ use log::{debug, trace};
 
 pub mod fc;
 
-use fc::{CharSet, Pattern, PatternRef};
+use fc::{CharSet, Pattern, PatternHash, PatternRef};
 
 use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph, Size, Slant,
@@ -37,9 +36,21 @@ struct FixedSize {
     pixelsize: f64,
 }
 
+struct FallbackFont {
+    pattern: Pattern,
+    hash: PatternHash,
+}
+
+impl FallbackFont {
+    fn new(pattern: Pattern) -> FallbackFont {
+        let hash = pattern.hash();
+        Self { pattern, hash }
+    }
+}
+
 #[derive(Default)]
 struct FallbackList {
-    list: Vec<Pattern>,
+    list: Vec<FallbackFont>,
     coverage: CharSet,
 }
 
@@ -77,7 +88,7 @@ impl fmt::Debug for Face {
 pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face>,
     library: Library,
-    keys: HashMap<PathBuf, FontKey>,
+    keys: HashMap<PatternHash, FontKey>,
     fallback_lists: HashMap<FontKey, FallbackList>,
     device_pixel_ratio: f32,
     pixel_size: f64,
@@ -261,23 +272,16 @@ impl FreeTypeRasterizer {
         let base_font = font_iter.next().ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let base_font = pattern.render_prepare(config, base_font);
 
-        let font_path = base_font.file(0).ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
-
         // Reload already loaded faces and drop their fallback faces
-        let font_key = if let Some(font_key) = self.keys.remove(&font_path) {
+        let font_key = if let Some(font_key) = self.keys.remove(&base_font.hash()) {
             let fallback_list = self.fallback_lists.remove(&font_key).unwrap_or_default();
 
-            for font_pattern in &fallback_list.list {
-                let path = match font_pattern.file(0) {
-                    Some(path) => path,
-                    None => continue,
-                };
-
-                if let Some(ff_key) = self.keys.get(&path) {
+            for fallback_font in &fallback_list.list {
+                if let Some(ff_key) = self.keys.get(&fallback_font.hash) {
                     // Skip primary fonts, since these are all reloaded later
                     if !self.fallback_lists.contains_key(&ff_key) {
                         self.faces.remove(ff_key);
-                        self.keys.remove(&path);
+                        self.keys.remove(&fallback_font.hash);
                     }
                 }
             }
@@ -297,11 +301,11 @@ impl FreeTypeRasterizer {
         let coverage = CharSet::new();
         let empty_charset = CharSet::new();
         // Load fallback list
-        let list: Vec<Pattern> = font_iter
+        let list: Vec<FallbackFont> = font_iter
             .map(|font| {
                 let charset = font.get_charset().unwrap_or(&empty_charset);
                 let _ = coverage.merge(&charset);
-                font.to_owned()
+                FallbackFont::new(font.to_owned())
             })
             .collect();
 
@@ -316,7 +320,8 @@ impl FreeTypeRasterizer {
         key: Option<FontKey>,
     ) -> Result<Option<FontKey>, Error> {
         if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().next()) {
-            if let Some(key) = self.keys.get(&path) {
+            let font_hash = pattern.hash();
+            if let Some(key) = self.keys.get(&font_hash) {
                 return Ok(Some(*key));
             }
 
@@ -361,7 +366,7 @@ impl FreeTypeRasterizer {
 
             let key = face.key;
             self.faces.insert(key, face);
-            self.keys.insert(path, key);
+            self.keys.insert(font_hash, key);
             Ok(Some(key))
         } else {
             Ok(None)
@@ -373,10 +378,8 @@ impl FreeTypeRasterizer {
         glyph_key: GlyphKey,
         have_recursed: bool,
     ) -> Result<FontKey, Error> {
-        let c = glyph_key.c;
-
         let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
-            let index = face.ft_face.get_char_index(c as usize);
+            let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
             index != 0 || have_recursed
         } else {
@@ -614,13 +617,9 @@ impl FreeTypeRasterizer {
             return Ok(glyph.font_key);
         }
 
-        for font_pattern in &fallback_list.list {
-            let path = match font_pattern.file(0) {
-                Some(path) => path,
-                None => continue,
-            };
-
-            match self.keys.get(&path) {
+        for fallback_font in &fallback_list.list {
+            let font_pattern = &fallback_font.pattern;
+            match self.keys.get(&fallback_font.hash) {
                 Some(&key) => {
                     let face = match self.faces.get(&key) {
                         Some(face) => face,
