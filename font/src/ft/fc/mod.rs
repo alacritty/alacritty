@@ -41,7 +41,7 @@ pub mod char_set;
 pub use char_set::{CharSet, CharSetRef};
 
 pub mod pattern;
-pub use pattern::{Pattern, PatternRef};
+pub use pattern::{Pattern, PatternHash, PatternRef};
 
 /// Find the font closest matching the provided pattern.
 ///
