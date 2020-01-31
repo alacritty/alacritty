@@ -190,13 +190,28 @@ installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.ht
 
 #### Clear Linux
 
-On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
-`swupd` command that should install all of them. If something is still found
-to be missing, please open an issue.
+On Clear Linux, a few extra steps are needed to build Alacritty. 
+
+1. Here's a `swupd` command that should install all missing dependencies. If something is still found to be missing, please open an issue.
 
 ```sh
-swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb
+swupd bundle-add devpkg-fontconfig devpkg-libxcb
 ```
+
+2. Clear Linux stores fonts.conf in a non-standard location due to its [stateless](https://github.com/clearlinux/clr-man-pages/blob/master/stateless.7.rst) design. 
+
+* Either set the FONTCONFIG_PATH environment variable as follows:
+
+```
+echo "FONTCONFIG_PATH=/usr/share/defaults/fonts" >> /etc/profile
+```
+
+* or create a symbolic link to the location of fonts.conf:
+
+```
+ln -s /usr/share/defaults/fonts /etc/fonts
+```
+
 
 #### Other
 
