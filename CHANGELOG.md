@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Print an error instead of crashing, when startup working directory is invalid
 - Line selection will now expand across wrapped lines
 - The default value for `draw_bold_text_with_bright_colors` is now `false`
+- Mirror OSC query terminators instead of always using BEL
 
 ### Fixed
 

@@ -16,7 +16,7 @@ font = { path = "../font" }
 parking_lot = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
-vte = { version = "0.5.0", default-features = false }
+vte = { version = "0.6.0", default-features = false }
 mio = "0.6.20"
 mio-extras = "2"
 log = "0.4"
