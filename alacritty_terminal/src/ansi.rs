@@ -317,7 +317,7 @@ pub trait Handler {
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
     /// Write a foreground/background color escape sequence with the current color
-    fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize) {}
+    fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize, _: &str) {}
 
     /// Reset an indexed color to original value
     fn reset_color(&mut self, _: usize) {}
@@ -326,7 +326,7 @@ pub trait Handler {
     fn set_clipboard(&mut self, _: u8, _: &[u8]) {}
 
     /// Write clipboard data to child.
-    fn write_clipboard<W: io::Write>(&mut self, _: u8, _: &mut W) {}
+    fn write_clipboard<W: io::Write>(&mut self, _: u8, _: &mut W, _: &str) {}
 
     /// Run the decaln routine.
     fn decaln(&mut self) {}
@@ -743,8 +743,9 @@ where
 
     // TODO replace OSC parsing with parser combinators
     #[inline]
-    fn osc_dispatch(&mut self, params: &[&[u8]]) {
+    fn osc_dispatch(&mut self, params: &[&[u8]], bell_terminated: bool) {
         let writer = &mut self.writer;
+        let terminator = if bell_terminated { "\x07" } else { "\x1b\\" };
 
         fn unhandled(params: &[&[u8]]) {
             let mut buf = String::new();
@@ -814,7 +815,12 @@ where
                             if let Some(color) = xparse_color(param) {
                                 self.handler.set_color(index, color);
                             } else if param == b"?" {
-                                self.handler.dynamic_color_sequence(writer, dynamic_code, index);
+                                self.handler.dynamic_color_sequence(
+                                    writer,
+                                    dynamic_code,
+                                    index,
+                                    terminator,
+                                );
                             } else {
                                 unhandled(params);
                             }
@@ -852,7 +858,7 @@ where
 
                 let clipboard = params[1].get(0).unwrap_or(&b'c');
                 match params[2] {
-                    b"?" => self.handler.write_clipboard(*clipboard, writer),
+                    b"?" => self.handler.write_clipboard(*clipboard, writer, terminator),
                     base64 => self.handler.set_clipboard(*clipboard, base64),
                 }
             },
