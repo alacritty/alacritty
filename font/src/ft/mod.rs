@@ -38,13 +38,22 @@ struct FixedSize {
 
 struct FallbackFont {
     pattern: Pattern,
-    hash: PatternHash,
+    hash: FontHash,
 }
 
 impl FallbackFont {
-    fn new(pattern: Pattern) -> FallbackFont {
-        let hash = pattern.hash();
+    fn new(pattern: Pattern, hash: FontHash) -> FallbackFont {
         Self { pattern, hash }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+struct FontHash(u64);
+
+impl FontHash {
+    fn new(high: PatternHash, low: PatternHash) -> Self {
+        let hash: u64 = low.0 as u64 | ((high.0 as u64) << 32);
+        Self(hash)
     }
 }
 
@@ -88,7 +97,7 @@ impl fmt::Debug for Face {
 pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face>,
     library: Library,
-    keys: HashMap<PatternHash, FontKey>,
+    keys: HashMap<FontHash, FontKey>,
     fallback_lists: HashMap<FontKey, FallbackList>,
     device_pixel_ratio: f32,
     pixel_size: f64,
@@ -213,16 +222,25 @@ impl FreeTypeRasterizer {
         let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
         self.pixel_size = f64::from(size.as_f32_pts());
 
+        let mut pattern = Pattern::new();
+        pattern.add_family(&desc.name);
+        pattern.add_pixelsize(self.pixel_size);
+
+        let hash = pattern.hash();
+
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
-                self.get_matching_face(&desc, slant, weight)
+                pattern.set_weight(weight.into_fontconfig_type());
+                pattern.set_slant(slant.into_fontconfig_type());
             },
             Style::Specific(ref style) => {
                 // If a name was specified, try and load specifically that font.
-                self.get_specific_face(&desc, &style)
+                pattern.add_style(style);
             },
         }
+
+        self.query_font(pattern, hash, desc)
     }
 
     fn full_metrics(&self, key: FontKey) -> Result<FullMetrics, Error> {
@@ -238,42 +256,25 @@ impl FreeTypeRasterizer {
         Ok(FullMetrics { size_metrics, cell_width: width })
     }
 
-    fn get_matching_face(
+    fn query_font(
         &mut self,
+        pattern: Pattern,
+        hash: PatternHash,
         desc: &FontDesc,
-        slant: Slant,
-        weight: Weight,
     ) -> Result<FontKey, Error> {
-        let mut pattern = Pattern::new();
-        pattern.add_family(&desc.name);
-        pattern.set_weight(weight.into_fontconfig_type());
-        pattern.set_slant(slant.into_fontconfig_type());
-        pattern.add_pixelsize(self.pixel_size);
-
-        self.query_font(pattern, desc)
-    }
-
-    fn get_specific_face(&mut self, desc: &FontDesc, style: &str) -> Result<FontKey, Error> {
-        let mut pattern = Pattern::new();
-        pattern.add_family(&desc.name);
-        pattern.add_style(style);
-        pattern.add_pixelsize(self.pixel_size);
-
-        self.query_font(pattern, desc)
-    }
-
-    fn query_font(&mut self, pattern: Pattern, desc: &FontDesc) -> Result<FontKey, Error> {
         let config = fc::Config::get_current();
-        let fonts = fc::font_sort(&config, &mut pattern.clone())
+        let patterns = fc::font_sort(&config, &mut pattern.clone())
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        let mut font_iter = fonts.into_iter();
+        let mut pattern_iter = patterns.into_iter();
 
-        let base_font = font_iter.next().ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
-        let base_font = pattern.render_prepare(config, base_font);
+        let base_pattern =
+            pattern_iter.next().ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+        let base_pattern = pattern.render_prepare(config, base_pattern);
+        let base_hash = FontHash::new(hash, base_pattern.hash());
 
         // Reload already loaded faces and drop their fallback faces
-        let font_key = if let Some(font_key) = self.keys.remove(&base_font.hash()) {
+        let font_key = if let Some(font_key) = self.keys.remove(&base_hash) {
             let fallback_list = self.fallback_lists.remove(&font_key).unwrap_or_default();
 
             for fallback_font in &fallback_list.list {
@@ -293,19 +294,22 @@ impl FreeTypeRasterizer {
         };
 
         // Reuse the font_key, since changing it can break library users
-        let font_key = self.face_from_pattern(&base_font, font_key).and_then(|pattern| {
-            pattern.map(Ok).unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned())))
-        })?;
+        let font_key =
+            self.face_from_pattern(&base_pattern, base_hash, font_key).and_then(|pattern| {
+                pattern.map(Ok).unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned())))
+            })?;
 
         // Coverage for fallback fonts
         let coverage = CharSet::new();
         let empty_charset = CharSet::new();
         // Load fallback list
-        let list: Vec<FallbackFont> = font_iter
-            .map(|font| {
-                let charset = font.get_charset().unwrap_or(&empty_charset);
+        let list: Vec<FallbackFont> = pattern_iter
+            .map(|fallback_pattern| {
+                let charset = fallback_pattern.get_charset().unwrap_or(&empty_charset);
+                let pattern = base_pattern.render_prepare(config, fallback_pattern);
+                let hash = FontHash::new(hash, pattern.hash());
                 let _ = coverage.merge(&charset);
-                FallbackFont::new(font.to_owned())
+                FallbackFont::new(pattern, hash)
             })
             .collect();
 
@@ -317,10 +321,10 @@ impl FreeTypeRasterizer {
     fn face_from_pattern(
         &mut self,
         pattern: &PatternRef,
+        font_hash: FontHash,
         key: Option<FontKey>,
     ) -> Result<Option<FontKey>, Error> {
         if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().next()) {
-            let font_hash = pattern.hash();
             if let Some(key) = self.keys.get(&font_hash) {
                 return Ok(Some(*key));
             }
@@ -618,8 +622,9 @@ impl FreeTypeRasterizer {
         }
 
         for fallback_font in &fallback_list.list {
+            let font_hash = fallback_font.hash;
             let font_pattern = &fallback_font.pattern;
-            match self.keys.get(&fallback_font.hash) {
+            match self.keys.get(&font_hash) {
                 Some(&key) => {
                     let face = match self.faces.get(&key) {
                         Some(face) => face,
@@ -648,7 +653,7 @@ impl FreeTypeRasterizer {
                     let config = fc::Config::get_current();
                     let pattern = pattern.render_prepare(config, font_pattern);
 
-                    let key = self.face_from_pattern(&pattern, None)?.unwrap();
+                    let key = self.face_from_pattern(&pattern, font_hash, None)?.unwrap();
                     return Ok(key);
                 },
             }
