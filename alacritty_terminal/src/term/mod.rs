@@ -1065,8 +1065,7 @@ impl<T> Term<T> {
         }
 
         // If wide char is not part of the selection, but leading spacer is, include it
-        if line_length >= Column(2)
-            && line_end == line_length
+        if line_end == self.grid.num_cols()
             && grid_line[line_end - 1].flags.contains(Flags::WIDE_CHAR_SPACER)
             && !grid_line[line_end - 2].flags.contains(Flags::WIDE_CHAR)
             && include_wrapped_wide
