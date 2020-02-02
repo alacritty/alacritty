@@ -253,13 +253,7 @@ impl FreeTypeRasterizer {
         // We should render patterns to get values like `pixelsizefixupfactor`
         let primary_font = pattern.render_prepare(config, primary_font);
 
-        // Compute ID for font identification, we're using hashes from requested pattern
-        // and a rendered one, and combining both with XOR to get a resulted ID. Some fonts
-        // always have the same size after pattern matching match, so if user requests pattern
-        // with size `X`, resulted font could always have `size = const`, which leads to
-        // constant result from e.g. `primary_font.hash()`, so we need to use requested
-        // `pixelsize` in the hash computation in addition to the hash of rendered pattern
-
+        // Hash pattern together with request pattern to include requested font size in the hash
         let primary_font_id = FontID::new(hash, primary_font.hash());
 
         // Reload already loaded faces and drop their fallback faces
@@ -283,9 +277,9 @@ impl FreeTypeRasterizer {
         };
 
         // Reuse the font_key, since changing it can break library users
-        let font_key = self.face_from_pattern(&primary_font, primary_font_id, font_key).and_then(
-            |pattern| pattern.map(Ok).unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned()))),
-        )?;
+        let font_key = self
+            .face_from_pattern(&primary_font, primary_font_id, font_key)
+            .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?;
 
         // Coverage for fallback fonts
         let coverage = CharSet::new();
@@ -293,9 +287,9 @@ impl FreeTypeRasterizer {
 
         // Build fallback list
         let list: Vec<FallbackFont> = matched_fonts
-            .map(|fallback_pattern| {
-                let charset = fallback_pattern.get_charset().unwrap_or(&empty_charset);
-                let fallback_font = primary_font.render_prepare(config, fallback_pattern);
+            .map(|fallback_font| {
+                let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
+                let fallback_font = primary_font.render_prepare(config, fallback_font);
                 let fallback_font_id = FontID::new(hash, fallback_font.hash());
 
                 let _ = coverage.merge(&charset);
@@ -381,10 +375,7 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn face_for_glyph(
-        &mut self,
-        glyph_key: GlyphKey,
-    ) -> Result<FontKey, Error> {
+    fn face_for_glyph(&mut self, glyph_key: GlyphKey) -> Result<FontKey, Error> {
         if let Some(face) = self.faces.get(&glyph_key.font_key) {
             let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
@@ -425,7 +416,6 @@ impl FreeTypeRasterizer {
                     if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) != Some(true) {
                         continue;
                     }
-
 
                     // Recreate a pattern
                     let mut pattern = Pattern::new();
