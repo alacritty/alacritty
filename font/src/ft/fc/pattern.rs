@@ -354,7 +354,7 @@ macro_rules! string_accessor {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct PatternHash(u32);
+pub struct PatternHash(pub u32);
 
 impl Pattern {
     pub fn new() -> Self {
