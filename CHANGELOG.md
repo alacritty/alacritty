@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inconsistent fontconfig fallback
 - Backspace deleting characters while IME is open on macOS
 - Handling of OpenType variable fonts
+- Expansion of block-selection with partially selected full-width glyphs
 
 ### Removed
 
