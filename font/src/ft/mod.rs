@@ -241,8 +241,7 @@ impl FreeTypeRasterizer {
             },
         }
 
-        // Match pattern and get a font list, use first font as a "primary" one and the rest for a
-        // font fallback
+        // Get font list using pattern. First font is the primary one while the rest are fallbacks
         let matched_fonts = fc::font_sort(&config, &mut pattern.clone())
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let mut matched_fonts = matched_fonts.into_iter();
