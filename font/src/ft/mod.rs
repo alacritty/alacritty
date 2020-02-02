@@ -253,10 +253,10 @@ impl FreeTypeRasterizer {
         // We should render patterns to get values like `pixelsizefixupfactor`
         let primary_font = pattern.render_prepare(config, primary_font);
 
-        // Compute some ID for font for identification, we're using hashes from requested pattern
-        // and a rendered one, and combining both with XOR to get a resulted hash. Some fonts
+        // Compute ID for font identification, we're using hashes from requested pattern
+        // and a rendered one, and combining both with XOR to get a resulted ID. Some fonts
         // always have the same size after pattern matching match, so if user requests pattern
-        // with size `X`, resulted font could always have `size` `Y = const`, which leads to
+        // with size `X`, resulted font could always have `size = const`, which leads to
         // constant result from e.g. `primary_font.hash()`, so we need to use requested
         // `pixelsize` in the hash computation in addition to the hash of rendered pattern
 
