@@ -53,7 +53,7 @@ struct FontID(u32);
 impl FontID {
     fn new(lhs: PatternHash, rhs: PatternHash) -> Self {
         // XOR two hashes to get a font ID
-        Self(((lhs.0 << 1) | (lhs.0 >> 31)) ^ rhs.0)
+        Self(lhs.0.rotate_left(1) ^ rhs.0)
     }
 }
 
@@ -425,6 +425,7 @@ impl FreeTypeRasterizer {
                     if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) != Some(true) {
                         continue;
                     }
+
 
                     // Recreate a pattern
                     let mut pattern = Pattern::new();
