@@ -630,7 +630,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.write_to_pty(bytes);
 
         *self.ctx.received_count() += 1;
-        self.ctx.terminal_mut().dirty = false;
     }
 
     /// Reset mouse cursor based on modifier and terminal state.
