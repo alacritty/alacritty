@@ -44,15 +44,13 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub(mut self, num_cols: usize, rhs: usize, absolute_indexing: bool) -> Point<L>
+    pub fn sub(mut self, num_cols: usize, rhs: usize) -> Point<L>
     where
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let line_changes =
             f32::ceil(rhs.saturating_sub(self.col.0) as f32 / num_cols as f32) as usize;
-        if absolute_indexing {
-            self.line = self.line + line_changes;
-        } else if self.line.into() > Line(line_changes) {
+        if self.line.into() > Line(line_changes) {
             self.line = self.line - line_changes;
         } else {
             self.line = Default::default();
@@ -63,18 +61,11 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add(mut self, num_cols: usize, rhs: usize, absolute_indexing: bool) -> Point<L>
+    pub fn add(mut self, num_cols: usize, rhs: usize) -> Point<L>
     where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes = (rhs + self.col.0) / num_cols;
-        if !absolute_indexing {
-            self.line = self.line + line_changes;
-        } else if self.line.into() > Line(line_changes) {
-            self.line = self.line - line_changes;
-        } else {
-            self.line = Default::default();
-        }
+        self.line = self.line + (rhs + self.col.0) / num_cols;
         self.col = Column((self.col.0 + rhs) % num_cols);
         self
     }

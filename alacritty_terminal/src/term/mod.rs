@@ -299,33 +299,30 @@ impl<'a, C> RenderableCellsIter<'a, C> {
 
         // Check if wide char's spacers are selected
         if cell.flags.contains(Flags::WIDE_CHAR) {
-            let prevprev = point.sub(num_cols, 2, false);
-            let prev = point.sub(num_cols, 1, false);
-            let next = point.add(num_cols, 1, false);
+            let prevprev = point.sub(num_cols, 2);
+            let prev = point.sub(num_cols, 1);
+            let next = point.add(num_cols, 1);
 
             // Check trailing spacer
-            return selection.contains(next.col, next.line)
+            selection.contains(next.col, next.line)
                 // Check line-wrapping, leading spacer
                 || (self.grid[&prev].flags.contains(Flags::WIDE_CHAR_SPACER)
                     && !self.grid[&prevprev].flags.contains(Flags::WIDE_CHAR)
-                    && selection.contains(prev.col, prev.line));
-        }
-
-        // Check if spacer's wide char is selected
-        if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-            let prev = point.sub(num_cols, 1, false);
+                    && selection.contains(prev.col, prev.line))
+        } else if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+            // Check if spacer's wide char is selected
+            let prev = point.sub(num_cols, 1);
 
             if self.grid[&prev].flags.contains(Flags::WIDE_CHAR) {
                 // Check previous cell for trailing spacer
-                return self.is_selected(prev);
+                self.is_selected(prev)
             } else {
                 // Check next cell for line-wrapping, leading spacer
-                let next = point.add(num_cols, 1, false);
-                return self.is_selected(next);
+                self.is_selected(point.add(num_cols, 1))
             }
+        } else {
+            false
         }
-
-        false
     }
 }
 
