@@ -1018,8 +1018,7 @@ impl<T> Term<T> {
         let mut text = String::new();
 
         let grid_line = &self.grid[line];
-        let line_length = grid_line.line_length();
-        let line_end = min(line_length, cols.end + 1);
+        let line_length = min(grid_line.line_length(), cols.end + 1);
 
         // Include wide char when trailing spacer is selected
         if grid_line[cols.start].flags.contains(Flags::WIDE_CHAR_SPACER) {
@@ -1027,7 +1026,7 @@ impl<T> Term<T> {
         }
 
         let mut tab_mode = false;
-        for col in IndexRange::from(cols.start..line_end) {
+        for col in IndexRange::from(cols.start..line_length) {
             let cell = grid_line[col];
 
             // Skip over cells until next tab-stop once a tab was found
@@ -1055,16 +1054,16 @@ impl<T> Term<T> {
         }
 
         if cols.end >= self.cols() - 1
-            && (line_end == Column(0)
-                || !self.grid[line][line_end - 1].flags.contains(Flags::WRAPLINE))
+            && (line_length.0 == 0
+                || !self.grid[line][line_length - 1].flags.contains(Flags::WRAPLINE))
         {
             text.push('\n');
         }
 
         // If wide char is not part of the selection, but leading spacer is, include it
-        if line_end == self.grid.num_cols()
-            && grid_line[line_end - 1].flags.contains(Flags::WIDE_CHAR_SPACER)
-            && !grid_line[line_end - 2].flags.contains(Flags::WIDE_CHAR)
+        if line_length == self.grid.num_cols()
+            && grid_line[line_length - 1].flags.contains(Flags::WIDE_CHAR_SPACER)
+            && !grid_line[line_length - 2].flags.contains(Flags::WIDE_CHAR)
             && include_wrapped_wide
         {
             text.push(self.grid[line - 1][Column(0)].c);
