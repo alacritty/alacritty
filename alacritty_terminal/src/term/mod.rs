@@ -984,7 +984,7 @@ impl<T> Term<T> {
 
         if is_block {
             for line in (end.line + 1..=start.line).rev() {
-                res += &(self.line_to_string(line, start.col..end.col, start.col.0 == 0) + "\n");
+                res += &(self.line_to_string(line, start.col..end.col, start.col.0 != 0) + "\n");
             }
             res += &self.line_to_string(end.line, start.col..end.col, true);
         } else {
