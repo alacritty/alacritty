@@ -27,7 +27,7 @@ use alacritty_terminal::event::{Event, EventListener, Notify};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{Message, MessageBuffer};
-use alacritty_terminal::selection::Selection;
+use alacritty_terminal::selection::{Anchor, Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
@@ -40,6 +40,7 @@ use crate::config;
 use crate::config::Config;
 use crate::display::Display;
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::url::{Url, Urls};
 use crate::window::Window;
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -68,6 +69,7 @@ pub struct ActionContext<'a, N, T> {
     pub display_update_pending: &'a mut DisplayUpdate,
     pub config: &'a mut Config,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
+    pub urls: &'a Urls,
     font_size: &'a mut Size,
 }
 
@@ -113,35 +115,31 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
-        if let Some(ref mut selection) = self.terminal.selection_mut() {
-            selection.update(point, side);
+        if let Some(selection) = self.terminal.selection_mut() {
+            *selection.end() = Anchor::new(point, side);
         }
 
         self.terminal.dirty = true;
     }
 
-    fn simple_selection(&mut self, point: Point, side: Side) {
+    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>) {
         let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
+        let side = side.unwrap_or(Side::Left);
+        *self.terminal.selection_mut() = Some(Selection::new(ty, point, side));
         self.terminal.dirty = true;
     }
 
-    fn block_selection(&mut self, point: Point, side: Side) {
-        let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::block(point, side));
-        self.terminal.dirty = true;
-    }
-
-    fn semantic_selection(&mut self, point: Point) {
-        let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::semantic(point));
-        self.terminal.dirty = true;
-    }
-
-    fn line_selection(&mut self, point: Point) {
-        let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::lines(point));
-        self.terminal.dirty = true;
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>) {
+        match self.terminal.selection_mut() {
+            Some(selection) if selection.ty == ty && !selection.is_empty() => {
+                self.clear_selection();
+            },
+            Some(selection) => {
+                selection.ty = ty;
+                self.terminal.dirty = true;
+            },
+            None => self.start_selection(ty, point, side),
+        }
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -254,8 +252,32 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
         self.event_loop
     }
+
+    fn urls(&self) -> &Urls {
+        self.urls
+    }
+
+    /// Spawn URL launcher when clicking on URLs.
+    fn launch_url(&self, url: Url) {
+        if self.mouse.block_url_launcher {
+            return;
+        }
+
+        if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
+            let mut args = launcher.args().to_vec();
+            let start = self.terminal.visible_to_buffer(url.start());
+            let end = self.terminal.visible_to_buffer(url.end());
+            args.push(self.terminal.bounds_to_string(start, end));
+
+            match start_daemon(launcher.program(), &args) {
+                Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
+                Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
+            }
+        }
+    }
 }
 
+#[derive(Debug)]
 pub enum ClickState {
     None,
     Click,
@@ -264,6 +286,7 @@ pub enum ClickState {
 }
 
 /// State of the mouse
+#[derive(Debug)]
 pub struct Mouse {
     pub x: usize,
     pub y: usize,
@@ -412,10 +435,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 window: &mut self.display.window,
                 font_size: &mut self.font_size,
                 config: &mut self.config,
+                urls: &self.display.urls,
                 event_loop,
             };
-            let mut processor =
-                input::Processor::new(context, &self.display.urls, &self.display.highlighted_url);
+            let mut processor = input::Processor::new(context, &self.display.highlighted_url);
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);

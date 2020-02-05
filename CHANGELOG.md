@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Minimum Rust version has been bumped to 1.37.0
 
+### Added
+
+- Modal keyboard cursor motion mode for copying text
+
 ### Changed
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them
@@ -19,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default value for `draw_bold_text_with_bright_colors` is now `false`
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
+- Block cursor is no longer inverted at the start/end of a selection
 
 ### Fixed
 

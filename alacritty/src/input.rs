@@ -39,8 +39,9 @@ use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
+use alacritty_terminal::keyboard_motion::KeyboardMotion;
 use alacritty_terminal::message_bar::{self, Message};
-use alacritty_terminal::selection::Selection;
+use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
@@ -59,7 +60,6 @@ pub const FONT_SIZE_STEP: f32 = 0.5;
 /// are activated.
 pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
-    pub urls: &'a Urls,
     pub highlighted_url: &'a Option<Url>,
     _phantom: PhantomData<T>,
 }
@@ -68,12 +68,10 @@ pub trait ActionContext<T: EventListener> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _: ClipboardType);
-    fn clear_selection(&mut self);
+    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
     fn update_selection(&mut self, point: Point, side: Side);
-    fn simple_selection(&mut self, point: Point, side: Side);
-    fn block_selection(&mut self, point: Point, side: Side);
-    fn semantic_selection(&mut self, point: Point);
-    fn line_selection(&mut self, point: Point);
+    fn clear_selection(&mut self);
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
@@ -93,6 +91,8 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
+    fn urls(&self) -> &Urls;
+    fn launch_url(&self, _: Url);
 }
 
 trait Execute<T: EventListener> {
@@ -118,6 +118,11 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Copy => {
                 ctx.copy_selection(ClipboardType::Clipboard);
+
+                // Clear selection in keyboard mode for better user feedback
+                if ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    ctx.clear_selection();
+                }
             },
             Action::Paste => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
@@ -135,6 +140,92 @@ impl<T: EventListener> Execute<T> for Action {
                     Err(err) => warn!("Couldn't run command {}", err),
                 }
             },
+            Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
+            Action::ToggleNormalSelection => {
+                // Only allow this mode while using keyboard motion
+                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    return;
+                }
+
+                let cursor_point = ctx.terminal().keyboard_cursor.point;
+                ctx.toggle_selection(SelectionType::Simple, cursor_point, None);
+
+                // Make sure initial selection is not empty
+                if let Some(selection) = ctx.terminal_mut().selection_mut() {
+                    selection.include_all();
+                }
+            },
+            Action::ToggleLineSelection => {
+                // Only allow this mode while using keyboard motion
+                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    return;
+                }
+
+                let cursor_point = ctx.terminal().keyboard_cursor.point;
+                ctx.toggle_selection(SelectionType::Lines, cursor_point, None);
+            },
+            Action::ToggleBlockSelection => {
+                // Only allow this mode while using keyboard motion
+                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    return;
+                }
+
+                let cursor_point = ctx.terminal().keyboard_cursor.point;
+                ctx.toggle_selection(SelectionType::Block, cursor_point, None);
+
+                // Make sure initial selection is not empty
+                if let Some(selection) = ctx.terminal_mut().selection_mut() {
+                    selection.include_all();
+                }
+            },
+            Action::KeyboardMotionClick => {
+                ctx.mouse_mut().block_url_launcher = false;
+                if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
+                    ctx.launch_url(url);
+                }
+            },
+            Action::KeyboardMotionUp => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Up),
+            Action::KeyboardMotionDown => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Down),
+            Action::KeyboardMotionLeft => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Left),
+            Action::KeyboardMotionRight => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Right)
+            },
+            Action::KeyboardMotionStart => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Start)
+            },
+            Action::KeyboardMotionEnd => ctx.terminal_mut().keyboard_motion(KeyboardMotion::End),
+            Action::KeyboardMotionHigh => ctx.terminal_mut().keyboard_motion(KeyboardMotion::High),
+            Action::KeyboardMotionMiddle => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Middle)
+            },
+            Action::KeyboardMotionLow => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Low),
+            Action::KeyboardMotionSemanticLeft => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticLeft)
+            },
+            Action::KeyboardMotionSemanticRight => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticRight)
+            },
+            Action::KeyboardMotionSemanticLeftEnd => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticLeftEnd)
+            },
+            Action::KeyboardMotionSemanticRightEnd => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticRightEnd)
+            },
+            Action::KeyboardMotionWordLeft => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordLeft)
+            },
+            Action::KeyboardMotionWordRight => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordRight)
+            },
+            Action::KeyboardMotionWordLeftEnd => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordLeftEnd)
+            },
+            Action::KeyboardMotionWordRightEnd => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordRightEnd)
+            },
+            Action::KeyboardMotionBracket => {
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Bracket)
+            },
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -149,10 +240,25 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp => ctx.scroll(Scroll::PageUp),
             Action::ScrollPageDown => ctx.scroll(Scroll::PageDown),
+            Action::ScrollHalfPageUp => {
+                let num_lines = ctx.terminal().grid().num_lines().0 as isize;
+                ctx.scroll(Scroll::Lines(num_lines / 2));
+            },
+            Action::ScrollHalfPageDown => {
+                let num_lines = ctx.terminal().grid().num_lines().0 as isize;
+                ctx.scroll(Scroll::Lines(-num_lines / 2));
+            },
             Action::ScrollLineUp => ctx.scroll(Scroll::Lines(1)),
             Action::ScrollLineDown => ctx.scroll(Scroll::Lines(-1)),
-            Action::ScrollToTop => ctx.scroll(Scroll::Top),
-            Action::ScrollToBottom => ctx.scroll(Scroll::Bottom),
+            Action::ScrollToTop => {
+                ctx.scroll(Scroll::Top);
+                ctx.terminal_mut().keyboard_cursor.point = Point::new(Line(0), Column(0));
+            },
+            Action::ScrollToBottom => {
+                ctx.scroll(Scroll::Bottom);
+                let num_lines = ctx.terminal().grid().num_lines();
+                ctx.terminal_mut().keyboard_cursor.point = Point::new(num_lines - 1, Column(0));
+            },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
@@ -197,8 +303,8 @@ impl From<MouseState> for CursorIcon {
 }
 
 impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
-    pub fn new(ctx: A, urls: &'a Urls, highlighted_url: &'a Option<Url>) -> Self {
-        Self { ctx, urls, highlighted_url, _phantom: Default::default() }
+    pub fn new(ctx: A, highlighted_url: &'a Option<Url>) -> Self {
+        Self { ctx, highlighted_url, _phantom: Default::default() }
     }
 
     #[inline]
@@ -245,6 +351,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             let line = min(point.line, last_term_line);
 
             self.ctx.update_selection(Point { line, col: point.col }, cell_side);
+
+            if self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                // Move keyboard motion cursor to mouse cursor position
+                self.ctx.terminal_mut().keyboard_cursor.point = point;
+
+                // Extend selection to include partially selected cells
+                if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
+                    selection.include_all();
+                }
+            }
         } else if inside_grid
             && cell_changed
             && point.line <= last_term_line
@@ -354,13 +470,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
-            self.ctx.semantic_selection(point);
+            self.ctx.start_selection(SelectionType::Semantic, point, None);
         }
     }
 
     fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
-            self.ctx.line_selection(point);
+            self.ctx.start_selection(SelectionType::Lines, point, None);
         }
     }
 
@@ -400,11 +516,17 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.ctx.clear_selection();
 
                 // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
+                let side = Some(self.ctx.mouse().cell_side);
                 if self.ctx.modifiers().ctrl() {
-                    self.ctx.block_selection(point, side);
+                    self.ctx.start_selection(SelectionType::Block, point, side);
                 } else {
-                    self.ctx.simple_selection(point, side);
+                    self.ctx.start_selection(SelectionType::Simple, point, side);
+                }
+
+                // Move keyboard motion cursor to mouse position
+                if self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    // Update keyboard motion cursor position on click
+                    self.ctx.terminal_mut().keyboard_cursor.point = point;
                 }
 
                 if !self.ctx.modifiers().shift()
@@ -440,29 +562,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.mouse_report(code, ElementState::Released);
             return;
         } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
-            self.launch_url(url);
+            self.ctx.launch_url(url);
         }
 
         self.copy_selection();
-    }
-
-    /// Spawn URL launcher when clicking on URLs.
-    fn launch_url(&self, url: Url) {
-        if self.ctx.mouse().block_url_launcher {
-            return;
-        }
-
-        if let Some(ref launcher) = self.ctx.config().ui_config.mouse.url.launcher {
-            let mut args = launcher.args().to_vec();
-            let start = self.ctx.terminal().visible_to_buffer(url.start());
-            let end = self.ctx.terminal().visible_to_buffer(url.end());
-            args.push(self.ctx.terminal().bounds_to_string(start, end));
-
-            match start_daemon(launcher.program(), &args) {
-                Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-                Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
-            }
-        }
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -613,7 +716,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
-        if *self.ctx.suppress_chars() {
+        if *self.ctx.suppress_chars()
+            || self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION)
+        {
             return;
         }
 
@@ -748,8 +853,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let selection =
             !self.ctx.terminal().selection().as_ref().map(Selection::is_empty).unwrap_or(true);
         let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
-        let highlighted_url =
-            self.urls.highlighted(self.ctx.config(), self.ctx.mouse(), mods, mouse_mode, selection);
+        let highlighted_url = self.ctx.urls().highlighted(
+            self.ctx.config(),
+            self.ctx.mouse(),
+            mods,
+            mouse_mode,
+            selection,
+        );
 
         if let Some(url) = highlighted_url {
             return MouseState::Url(url);
@@ -781,12 +891,12 @@ mod tests {
     use alacritty_terminal::grid::Scroll;
     use alacritty_terminal::index::{Point, Side};
     use alacritty_terminal::message_bar::{Message, MessageBuffer};
-    use alacritty_terminal::selection::Selection;
+    use alacritty_terminal::selection::{Selection, SelectionType};
     use alacritty_terminal::term::{SizeInfo, Term, TermMode};
 
     use crate::config::{ClickHandler, Config};
     use crate::event::{ClickState, Mouse};
-    use crate::url::Urls;
+    use crate::url::{Url, Urls};
     use crate::window::Window;
 
     use super::{Action, Binding, Processor};
@@ -799,7 +909,7 @@ mod tests {
         fn send_event(&self, _event: TerminalEvent) {}
     }
 
-    #[derive(PartialEq)]
+    #[derive(Debug, PartialEq)]
     enum MultiClick {
         DoubleClick,
         TripleClick,
@@ -824,9 +934,15 @@ mod tests {
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn simple_selection(&mut self, _point: Point, _side: Side) {}
+        fn start_selection(&mut self, ty: SelectionType, _point: Point, _side: Option<Side>) {
+            match ty {
+                SelectionType::Semantic => self.last_action = MultiClick::DoubleClick,
+                SelectionType::Lines => self.last_action = MultiClick::TripleClick,
+                _ => (),
+            }
+        }
 
-        fn block_selection(&mut self, _point: Point, _side: Side) {}
+        fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Option<Side>) {}
 
         fn copy_selection(&mut self, _: ClipboardType) {}
 
@@ -848,15 +964,6 @@ mod tests {
 
         fn size_info(&self) -> SizeInfo {
             *self.size_info
-        }
-
-        fn semantic_selection(&mut self, _point: Point) {
-            // set something that we can check for here
-            self.last_action = MultiClick::DoubleClick;
-        }
-
-        fn line_selection(&mut self, _point: Point) {
-            self.last_action = MultiClick::TripleClick;
         }
 
         fn selection_is_empty(&self) -> bool {
@@ -923,6 +1030,14 @@ mod tests {
         fn event_loop(&self) -> &EventLoopWindowTarget<TerminalEvent> {
             unimplemented!();
         }
+
+        fn urls(&self) -> &Urls {
+            unimplemented!();
+        }
+
+        fn launch_url(&self, _: Url) {
+            unimplemented!();
+        }
     }
 
     macro_rules! test_clickstate {
@@ -981,8 +1096,7 @@ mod tests {
                     config: &cfg,
                 };
 
-                let urls = Urls::new();
-                let mut processor = Processor::new(context, &urls, &None);
+                let mut processor = Processor::new(context, &None);
 
                 let event: Event::<'_, TerminalEvent> = $input;
                 if let Event::WindowEvent {

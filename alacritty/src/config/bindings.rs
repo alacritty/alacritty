@@ -141,6 +141,12 @@ pub enum Action {
     /// Scroll exactly one page down.
     ScrollPageDown,
 
+    /// Scroll half a page up.
+    ScrollHalfPageUp,
+
+    /// Scroll half a page down.
+    ScrollHalfPageDown,
+
     /// Scroll one line up.
     ScrollLineUp,
 
@@ -184,6 +190,75 @@ pub enum Action {
 
     /// Allow receiving char input.
     ReceiveChar,
+
+    /// Toggle keyboard motion mode.
+    ToggleKeyboardMode,
+
+    /// Toggle normal keyboard selection.
+    ToggleNormalSelection,
+
+    /// Toggle line keyboard selection.
+    ToggleLineSelection,
+
+    /// Toggle block keyboard selection.
+    ToggleBlockSelection,
+
+    /// Click at current keyboard motion cursor.
+    KeyboardMotionClick,
+
+    /// Move keyboard motion cursor up.
+    KeyboardMotionUp,
+
+    /// Move keyboard motion cursor down.
+    KeyboardMotionDown,
+
+    /// Move keyboard motion cursor left.
+    KeyboardMotionLeft,
+
+    /// Move keyboard motion cursor right.
+    KeyboardMotionRight,
+
+    /// Move keyboard motion cursor to start of line.
+    KeyboardMotionStart,
+
+    /// Move keyboard motion cursor to end of line.
+    KeyboardMotionEnd,
+
+    /// Move keyboard motion cursor to top of screen.
+    KeyboardMotionHigh,
+
+    /// Move keyboard motion cursor to center of screen.
+    KeyboardMotionMiddle,
+
+    /// Move keyboard motion cursor to bottom of screen.
+    KeyboardMotionLow,
+
+    /// Move keyboard motion cursor to start of semantically separated word.
+    KeyboardMotionSemanticLeft,
+
+    /// Move keyboard motion cursor to start of next semantically separated word.
+    KeyboardMotionSemanticRight,
+
+    /// Move keyboard motion cursor to end of previous semantically separated word.
+    KeyboardMotionSemanticLeftEnd,
+
+    /// Move keyboard motion cursor to end of semantically separated word.
+    KeyboardMotionSemanticRightEnd,
+
+    /// Move keyboard motion cursor to start of whitespace separated word.
+    KeyboardMotionWordRight,
+
+    /// Move keyboard motion cursor to start of next whitespace separated word.
+    KeyboardMotionWordLeft,
+
+    /// Move keyboard motion cursor to end of previous whitespace separated word.
+    KeyboardMotionWordRightEnd,
+
+    /// Move keyboard motion cursor to end of whitespace separated word.
+    KeyboardMotionWordLeftEnd,
+
+    /// Move keyboard motion cursor to opposing bracket.
+    KeyboardMotionBracket,
 
     /// No action.
     None,
@@ -241,9 +316,9 @@ macro_rules! bindings {
             let mut _mods = ModifiersState::empty();
             $(_mods = $mods;)*
             let mut _mode = TermMode::empty();
-            $(_mode = $mode;)*
+            $(_mode.insert($mode);)*
             let mut _notmode = TermMode::empty();
-            $(_notmode = $notmode;)*
+            $(_notmode.insert($notmode);)*
 
             v.push($ty {
                 trigger: $key,
@@ -271,55 +346,92 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Paste; Action::Paste;
         Copy;  Action::Copy;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
-        L, ModifiersState::CTRL; Action::Esc("\x0c".into());
-        PageUp,   ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
-        PageDown, ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
-        Home,     ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToTop;
-        End,      ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
-        Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
-        Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
-        Home, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
-        End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
-        End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
-        End,  ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
-        PageUp;   Action::Esc("\x1b[5~".into());
-        PageUp,   ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
-        PageDown; Action::Esc("\x1b[6~".into());
-        PageDown, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
-        Tab,  ModifiersState::SHIFT; Action::Esc("\x1b[Z".into());
-        Back; Action::Esc("\x7f".into());
-        Back, ModifiersState::ALT; Action::Esc("\x1b\x7f".into());
-        Insert; Action::Esc("\x1b[2~".into());
-        Delete; Action::Esc("\x1b[3~".into());
-        Up,    +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
-        Up,    ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
-        Down,  +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
-        Down,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
-        Right, +TermMode::APP_CURSOR; Action::Esc("\x1bOC".into());
-        Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
-        Left,  +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
-        Left,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
-        F1;  Action::Esc("\x1bOP".into());
-        F2;  Action::Esc("\x1bOQ".into());
-        F3;  Action::Esc("\x1bOR".into());
-        F4;  Action::Esc("\x1bOS".into());
-        F5;  Action::Esc("\x1b[15~".into());
-        F6;  Action::Esc("\x1b[17~".into());
-        F7;  Action::Esc("\x1b[18~".into());
-        F8;  Action::Esc("\x1b[19~".into());
-        F9;  Action::Esc("\x1b[20~".into());
-        F10; Action::Esc("\x1b[21~".into());
-        F11; Action::Esc("\x1b[23~".into());
-        F12; Action::Esc("\x1b[24~".into());
-        F13; Action::Esc("\x1b[25~".into());
-        F14; Action::Esc("\x1b[26~".into());
-        F15; Action::Esc("\x1b[28~".into());
-        F16; Action::Esc("\x1b[29~".into());
-        F17; Action::Esc("\x1b[31~".into());
-        F18; Action::Esc("\x1b[32~".into());
-        F19; Action::Esc("\x1b[33~".into());
-        F20; Action::Esc("\x1b[34~".into());
-        NumpadEnter; Action::Esc("\n".into());
+        L,        ModifiersState::CTRL,  ~TermMode::KEYBOARD_MOTION; Action::Esc("\x0c".into());
+        Tab,      ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[Z".into());
+        Back,     ModifiersState::ALT,   ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b\x7f".into());
+        Home,     ModifiersState::SHIFT, ~TermMode::ALT_SCREEN;      Action::ScrollToTop;
+        End,      ModifiersState::SHIFT, ~TermMode::ALT_SCREEN;      Action::ScrollToBottom;
+        PageUp,   ModifiersState::SHIFT, ~TermMode::ALT_SCREEN;      Action::ScrollPageUp;
+        PageDown, ModifiersState::SHIFT, ~TermMode::ALT_SCREEN;      Action::ScrollPageDown;
+        Home,     ModifiersState::SHIFT, +TermMode::ALT_SCREEN, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[1;2H".into());
+        End,      ModifiersState::SHIFT, +TermMode::ALT_SCREEN, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[1;2F".into());
+        PageUp,   ModifiersState::SHIFT, +TermMode::ALT_SCREEN, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[5;2~".into());
+        PageDown, ModifiersState::SHIFT, +TermMode::ALT_SCREEN, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[6;2~".into());
+        Home,  +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOH".into());
+        Home,  ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[H".into());
+        End,   +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOF".into());
+        End,   ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[F".into());
+        Up,    +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOA".into());
+        Up,    ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[A".into());
+        Down,  +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOB".into());
+        Down,  ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[B".into());
+        Right, +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOC".into());
+        Right, ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[C".into());
+        Left,  +TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOD".into());
+        Left,  ~TermMode::APP_CURSOR, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[D".into());
+        Back,        ~TermMode::KEYBOARD_MOTION; Action::Esc("\x7f".into());
+        Insert,      ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[2~".into());
+        Delete,      ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[3~".into());
+        PageUp,      ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[5~".into());
+        PageDown,    ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[6~".into());
+        F1,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOP".into());
+        F2,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOQ".into());
+        F3,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOR".into());
+        F4,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1bOS".into());
+        F5,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[15~".into());
+        F6,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[17~".into());
+        F7,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[18~".into());
+        F8,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[19~".into());
+        F9,          ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[20~".into());
+        F10,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[21~".into());
+        F11,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[23~".into());
+        F12,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[24~".into());
+        F13,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[25~".into());
+        F14,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[26~".into());
+        F15,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[28~".into());
+        F16,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[29~".into());
+        F17,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[31~".into());
+        F18,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[32~".into());
+        F19,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[33~".into());
+        F20,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[34~".into());
+        NumpadEnter, ~TermMode::KEYBOARD_MOTION; Action::Esc("\n".into());
+        Escape, ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
+        Escape, ModifiersState::CTRL;                              Action::ToggleKeyboardMode;
+        Escape,                        +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
+        Escape,                        +TermMode::KEYBOARD_MOTION; Action::ToggleKeyboardMode;
+        I,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
+        I,                             +TermMode::KEYBOARD_MOTION; Action::ToggleKeyboardMode;
+        V,                             +TermMode::KEYBOARD_MOTION; Action::ToggleNormalSelection;
+        V,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::ToggleLineSelection;
+        V,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ToggleBlockSelection;
+        G,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToTop;
+        G,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
+        B,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollPageUp;
+        F,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollPageDown;
+        U,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageUp;
+        D,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageDown;
+        Return,                        +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionClick;
+        K,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionUp;
+        J,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionDown;
+        H,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLeft;
+        L,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionRight;
+        Up,                            +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionUp;
+        Down,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionDown;
+        Left,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLeft;
+        Right,                         +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionRight;
+        Key0,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionStart;
+        Key4,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionEnd;
+        H,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionHigh;
+        M,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionMiddle;
+        L,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLow;
+        B,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticLeft;
+        W,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticRight;
+        E,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticRightEnd;
+        B,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordLeft;
+        W,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordRight;
+        E,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordRightEnd;
+        Key5,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionBracket;
+        Y,                             +TermMode::KEYBOARD_MOTION; Action::Copy;
     );
 
     //   Code     Modifiers
@@ -348,31 +460,31 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         let modifiers_code = index + 2;
         bindings.extend(bindings!(
             KeyBinding;
-            Delete, mods; Action::Esc(format!("\x1b[3;{}~", modifiers_code));
-            Up,     mods; Action::Esc(format!("\x1b[1;{}A", modifiers_code));
-            Down,   mods; Action::Esc(format!("\x1b[1;{}B", modifiers_code));
-            Right,  mods; Action::Esc(format!("\x1b[1;{}C", modifiers_code));
-            Left,   mods; Action::Esc(format!("\x1b[1;{}D", modifiers_code));
-            F1,     mods; Action::Esc(format!("\x1b[1;{}P", modifiers_code));
-            F2,     mods; Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
-            F3,     mods; Action::Esc(format!("\x1b[1;{}R", modifiers_code));
-            F4,     mods; Action::Esc(format!("\x1b[1;{}S", modifiers_code));
-            F5,     mods; Action::Esc(format!("\x1b[15;{}~", modifiers_code));
-            F6,     mods; Action::Esc(format!("\x1b[17;{}~", modifiers_code));
-            F7,     mods; Action::Esc(format!("\x1b[18;{}~", modifiers_code));
-            F8,     mods; Action::Esc(format!("\x1b[19;{}~", modifiers_code));
-            F9,     mods; Action::Esc(format!("\x1b[20;{}~", modifiers_code));
-            F10,    mods; Action::Esc(format!("\x1b[21;{}~", modifiers_code));
-            F11,    mods; Action::Esc(format!("\x1b[23;{}~", modifiers_code));
-            F12,    mods; Action::Esc(format!("\x1b[24;{}~", modifiers_code));
-            F13,    mods; Action::Esc(format!("\x1b[25;{}~", modifiers_code));
-            F14,    mods; Action::Esc(format!("\x1b[26;{}~", modifiers_code));
-            F15,    mods; Action::Esc(format!("\x1b[28;{}~", modifiers_code));
-            F16,    mods; Action::Esc(format!("\x1b[29;{}~", modifiers_code));
-            F17,    mods; Action::Esc(format!("\x1b[31;{}~", modifiers_code));
-            F18,    mods; Action::Esc(format!("\x1b[32;{}~", modifiers_code));
-            F19,    mods; Action::Esc(format!("\x1b[33;{}~", modifiers_code));
-            F20,    mods; Action::Esc(format!("\x1b[34;{}~", modifiers_code));
+            Delete, mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[3;{}~", modifiers_code));
+            Up,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}A", modifiers_code));
+            Down,   mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}B", modifiers_code));
+            Right,  mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}C", modifiers_code));
+            Left,   mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}D", modifiers_code));
+            F1,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}P", modifiers_code));
+            F2,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
+            F3,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}R", modifiers_code));
+            F4,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}S", modifiers_code));
+            F5,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[15;{}~", modifiers_code));
+            F6,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[17;{}~", modifiers_code));
+            F7,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[18;{}~", modifiers_code));
+            F8,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[19;{}~", modifiers_code));
+            F9,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[20;{}~", modifiers_code));
+            F10,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[21;{}~", modifiers_code));
+            F11,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[23;{}~", modifiers_code));
+            F12,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[24;{}~", modifiers_code));
+            F13,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[25;{}~", modifiers_code));
+            F14,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[26;{}~", modifiers_code));
+            F15,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[28;{}~", modifiers_code));
+            F16,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[29;{}~", modifiers_code));
+            F17,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[31;{}~", modifiers_code));
+            F18,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[32;{}~", modifiers_code));
+            F19,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[33;{}~", modifiers_code));
+            F20,    mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[34;{}~", modifiers_code));
         ));
 
         // We're adding the following bindings with `Shift` manually above, so skipping them here
@@ -380,11 +492,11 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
-                Insert,   mods; Action::Esc(format!("\x1b[2;{}~", modifiers_code));
-                PageUp,   mods; Action::Esc(format!("\x1b[5;{}~", modifiers_code));
-                PageDown, mods; Action::Esc(format!("\x1b[6;{}~", modifiers_code));
-                End,      mods; Action::Esc(format!("\x1b[1;{}F", modifiers_code));
-                Home,     mods; Action::Esc(format!("\x1b[1;{}H", modifiers_code));
+                Insert,   mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[2;{}~", modifiers_code));
+                PageUp,   mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[5;{}~", modifiers_code));
+                PageDown, mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[6;{}~", modifiers_code));
+                End,      mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}F", modifiers_code));
+                Home,     mods, ~TermMode::KEYBOARD_MOTION; Action::Esc(format!("\x1b[1;{}H", modifiers_code));
             ));
         }
     }
@@ -432,10 +544,10 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Equals, ModifiersState::LOGO;  Action::IncreaseFontSize;
         Add,    ModifiersState::LOGO;  Action::IncreaseFontSize;
         Minus,  ModifiersState::LOGO;  Action::DecreaseFontSize;
-        Insert, ModifiersState::SHIFT; Action::Esc("\x1b[2;2~".into());
+        Insert, ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[2;2~".into());
+        K, ModifiersState::LOGO, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x0c".into());
         F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
         K, ModifiersState::LOGO; Action::ClearHistory;
-        K, ModifiersState::LOGO; Action::Esc("\x0c".into());
         V, ModifiersState::LOGO; Action::Paste;
         C, ModifiersState::LOGO; Action::Copy;
         H, ModifiersState::LOGO; Action::Hide;
@@ -490,7 +602,8 @@ impl<'a> Deserialize<'a> for ModeWrapper {
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
-                    "Combination of AppCursor | AppKeypad | Alt, possibly with negation (~)",
+                    "Combination of AppCursor | AppKeypad | Alt | KeyboardMotion, possibly with \
+                     negation (~)",
                 )
             }
 
@@ -508,6 +621,8 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                         "~appkeypad" => res.not_mode |= TermMode::APP_KEYPAD,
                         "alt" => res.mode |= TermMode::ALT_SCREEN,
                         "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
+                        "keyboardmotion" => res.mode |= TermMode::KEYBOARD_MOTION,
+                        "~keyboardmotion" => res.not_mode |= TermMode::KEYBOARD_MOTION,
                         _ => error!(target: LOG_TARGET_CONFIG, "Unknown mode {:?}", modifier),
                     }
                 }
