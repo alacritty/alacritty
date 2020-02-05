@@ -530,6 +530,8 @@
 # binding with the same triggers is defined. To unset a default binding, it can
 # be mapped to the `ReceiveChar` action. Alternatively, you can use `None` for
 # a no-op if you do not wish to receive input characters for that binding.
+#
+# If the same trigger is assigned to multiple actions all of them are executed at once.
 #key_bindings:
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
