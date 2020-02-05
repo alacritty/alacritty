@@ -187,11 +187,13 @@
 
   # Cursor colors
   #
-  # Colors which should be used to draw the terminal cursor. If these are unset,
-  # the cursor color will be the inverse of the cell color.
+  # Colors which should be used to draw the terminal cursors. If these are
+  # unset, the cursor color will be the inverse of the cell color.
   #cursor:
   #  text: '#000000'
   #  cursor: '#ffffff'
+  #  keyboard_motion_text: '#000000'
+  #  keyboard_motion_cursor: '#ffffff'
 
   # Selection colors
   #
@@ -297,6 +299,14 @@
   #   - _ Underline
   #   - | Beam
   #style: Block
+
+  # Keyboard motion cursor style
+  #
+  # If the keyboard motion cursor style is `None` or not specified, it will fall
+  # back to the style of the active value of the normal cursor.
+  #
+  # See `cursor.style` for available options.
+  #keyboard_motion_style: None
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.
@@ -435,27 +445,24 @@
 #
 # - `action`: Execute a predefined action
 #
-#   - Copy
-#   - Paste
-#   - PasteSelection
-#   - IncreaseFontSize
-#   - DecreaseFontSize
-#   - ResetFontSize
-#   - ScrollPageUp
-#   - ScrollPageDown
-#   - ScrollLineUp
-#   - ScrollLineDown
-#   - ScrollToTop
-#   - ScrollToBottom
 #   - ClearHistory
-#   - Hide
-#   - Minimize
-#   - Quit
-#   - ToggleFullscreen
-#   - SpawnNewInstance
 #   - ClearLogNotice
-#   - ReceiveChar
-#   - None
+#   - SpawnNewInstance
+#   - None, ReceiveChar
+#   - Hide, Minimize, Quit, ToggleFullscreen
+#   - Copy, Paste, PasteSelection
+#   - IncreaseFontSize, DecreaseFontSize, ResetFontSize
+#   - ScrollPageUp, ScrollPageDown, ScrollHalfPageUp, ScrollHalfPageDown,
+#     ScrollLineUp, ScrollLineDown, ScrollToTop, ScrollToBottom
+#   - ToggleKeyboardMode, ToggleNormalSelection, ToggleLineSelection,
+#     ToggleBlockSelection, KeyboardMotionClick, KeyboardMotionUp,
+#     KeyboardMotionDown, KeyboardMotionLeft, KeyboardMotionRight,
+#     KeyboardMotionStart, KeyboardMotionEnd, KeyboardMotionHigh,
+#     KeyboardMotionMiddle, KeyboardMotionLow, KeyboardMotionSemanticLeft,
+#     KeyboardMotionSemanticRight, KeyboardMotionSemanticLeftEnd,
+#     KeyboardMotionSemanticRightEnd, KeyboardMotionWordRight,
+#     KeyboardMotionWordLeft, KeyboardMotionWordRightEnd,
+#     KeyboardMotionWordLeftEnd, KeyboardMotionBracket
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space

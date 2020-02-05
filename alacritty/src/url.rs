@@ -147,6 +147,7 @@ impl Urls {
         url.end_offset = end_offset;
     }
 
+    /// Find URL below the mouse cursor.
     pub fn highlighted(
         &self,
         config: &Config,
@@ -171,12 +172,16 @@ impl Urls {
             return None;
         }
 
+        self.find_at(Point::new(mouse.line, mouse.column))
+    }
+
+    /// Find URL at location.
+    pub fn find_at(&self, point: Point) -> Option<Url> {
         for url in &self.urls {
-            if (url.start()..=url.end()).contains(&Point::new(mouse.line, mouse.column)) {
+            if (url.start()..=url.end()).contains(&point) {
                 return Some(url.clone());
             }
         }
-
         None
     }
 

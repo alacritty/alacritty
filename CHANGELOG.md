@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Live config reload for `window.title`
 
+### Added
+
+- Modal keyboard cursor motion mode for copying text
+
 ### Changed
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them
@@ -32,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
 - Dynamic title is not disabled anymore when `window.title` is set in config
+- Block cursor is no longer inverted at the start/end of a selection
 
 ### Fixed
 

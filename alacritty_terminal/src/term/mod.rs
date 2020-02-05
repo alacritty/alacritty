@@ -31,8 +31,9 @@ use crate::event::{Event, EventListener};
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
-use crate::index::{self, Column, IndexRange, Line, Point};
-use crate::selection::{Selection, SelectionRange};
+use crate::index::{self, Column, IndexRange, Line, Point, Side};
+use crate::keyboard_motion::{KeyboardCursor, KeyboardMotion};
+use crate::selection::{Anchor, Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 
@@ -180,7 +181,17 @@ impl<T> Search for Term<T> {
     }
 }
 
-/// A key for caching cursor glyphs
+/// Cursor storing all information relevant for rendering.
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
+struct RenderableCursor {
+    text_color: Option<Rgb>,
+    cursor_color: Option<Rgb>,
+    key: CursorKey,
+    point: Point,
+    rendered: bool,
+}
+
+/// A key for caching cursor glyphs.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub struct CursorKey {
     pub style: CursorStyle,
@@ -198,10 +209,7 @@ pub struct CursorKey {
 pub struct RenderableCellsIter<'a, C> {
     inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
-    cursor: &'a Point,
-    cursor_offset: usize,
-    cursor_key: Option<CursorKey>,
-    cursor_style: CursorStyle,
+    cursor: RenderableCursor,
     config: &'a Config<C>,
     colors: &'a color::List,
     selection: Option<SelectionRange<Line>>,
@@ -216,12 +224,10 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         term: &'b Term<T>,
         config: &'b Config<C>,
         selection: Option<SelectionRange>,
-        mut cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
         let num_cols = grid.num_cols();
 
-        let cursor_offset = grid.num_lines().0 - term.cursor.point.line.0 - 1;
         let inner = grid.display_iter();
 
         let selection_range = selection.and_then(|span| {
@@ -242,29 +248,13 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             Some(SelectionRange::new(start, end, span.is_block))
         });
 
-        // Load cursor glyph
-        let cursor = &term.cursor.point;
-        let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
-        let cursor_key = if cursor_visible {
-            let is_wide =
-                grid[cursor].flags.contains(Flags::WIDE_CHAR) && (cursor.col + 1) < num_cols;
-            Some(CursorKey { style: cursor_style, is_wide })
-        } else {
-            // Use hidden cursor so text will not get inverted
-            cursor_style = CursorStyle::Hidden;
-            None
-        };
-
         RenderableCellsIter {
-            cursor,
-            cursor_offset,
+            cursor: term.renderable_cursor(config),
             grid,
             inner,
             selection: selection_range,
             config,
             colors: &term.colors,
-            cursor_key,
-            cursor_style,
         }
     }
 
@@ -274,6 +264,18 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             Some(selection) => selection,
             None => return false,
         };
+
+        // Do not invert block cursor at selection boundaries
+        if self.cursor.key.style == CursorStyle::Block
+            && self.cursor.point == point
+            && (selection.start == point
+                || selection.end == point
+                || (selection.is_block
+                    && ((selection.start.line == point.line && selection.end.col == point.col)
+                        || (selection.end.line == point.line && selection.start.col == point.col))))
+        {
+            return false;
+        }
 
         // Point itself is selected
         if selection.contains(point.col, point.line) {
@@ -442,15 +444,34 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
-                let selected = self.is_selected(Point::new(self.cursor.line, self.cursor.col));
+            if self.cursor.point.line == self.inner.line()
+                && self.cursor.point.col == self.inner.column()
+            {
+                let selected = self.is_selected(self.cursor.point);
 
-                // Handle cursor
-                if let Some(cursor_key) = self.cursor_key.take() {
+                // Handle cell below cursor
+                if self.cursor.rendered {
+                    let mut cell =
+                        RenderableCell::new(self.config, self.colors, self.inner.next()?, selected);
+
+                    if self.cursor.key.style == CursorStyle::Block {
+                        std::mem::swap(&mut cell.bg, &mut cell.fg);
+
+                        if let Some(color) = self.cursor.text_color {
+                            cell.fg = color;
+                        }
+                    }
+
+                    return Some(cell);
+                } else {
+                    // Handle cursor
+                    self.cursor.rendered = true;
+
+                    let buffer_point = self.grid.visible_to_buffer(self.cursor.point);
                     let cell = Indexed {
-                        inner: self.grid[self.cursor],
-                        column: self.cursor.col,
-                        // Using `self.cursor.line` leads to inconsitent cursor position when
+                        inner: self.grid[buffer_point.line][buffer_point.col],
+                        column: self.cursor.point.col,
+                        // Using `cursor.line` leads to inconsitent cursor position when
                         // scrolling. See https://github.com/alacritty/alacritty/issues/2570 for more
                         // info.
                         line: self.inner.line(),
@@ -459,26 +480,13 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut renderable_cell =
                         RenderableCell::new(self.config, self.colors, cell, selected);
 
-                    renderable_cell.inner = RenderableCellContent::Cursor(cursor_key);
+                    renderable_cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
-                    if let Some(color) = self.config.cursor_cursor_color() {
-                        renderable_cell.fg = RenderableCell::compute_bg_rgb(self.colors, color);
+                    if let Some(color) = self.cursor.cursor_color {
+                        renderable_cell.fg = color;
                     }
 
                     return Some(renderable_cell);
-                } else {
-                    let mut cell =
-                        RenderableCell::new(self.config, self.colors, self.inner.next()?, selected);
-
-                    if self.cursor_style == CursorStyle::Block {
-                        std::mem::swap(&mut cell.bg, &mut cell.fg);
-
-                        if let Some(color) = self.config.cursor_text_color() {
-                            cell.fg = color;
-                        }
-                    }
-
-                    return Some(cell);
                 }
             } else {
                 let cell = self.inner.next()?;
@@ -497,26 +505,27 @@ pub mod mode {
     use bitflags::bitflags;
 
     bitflags! {
-        pub struct TermMode: u16 {
-            const SHOW_CURSOR         = 0b0000_0000_0000_0001;
-            const APP_CURSOR          = 0b0000_0000_0000_0010;
-            const APP_KEYPAD          = 0b0000_0000_0000_0100;
-            const MOUSE_REPORT_CLICK  = 0b0000_0000_0000_1000;
-            const BRACKETED_PASTE     = 0b0000_0000_0001_0000;
-            const SGR_MOUSE           = 0b0000_0000_0010_0000;
-            const MOUSE_MOTION        = 0b0000_0000_0100_0000;
-            const LINE_WRAP           = 0b0000_0000_1000_0000;
-            const LINE_FEED_NEW_LINE  = 0b0000_0001_0000_0000;
-            const ORIGIN              = 0b0000_0010_0000_0000;
-            const INSERT              = 0b0000_0100_0000_0000;
-            const FOCUS_IN_OUT        = 0b0000_1000_0000_0000;
-            const ALT_SCREEN          = 0b0001_0000_0000_0000;
-            const MOUSE_DRAG          = 0b0010_0000_0000_0000;
-            const MOUSE_MODE          = 0b0010_0000_0100_1000;
-            const UTF8_MOUSE          = 0b0100_0000_0000_0000;
-            const ALTERNATE_SCROLL    = 0b1000_0000_0000_0000;
-            const ANY                 = 0b1111_1111_1111_1111;
+        pub struct TermMode: u32 {
             const NONE                = 0;
+            const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
+            const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
+            const APP_KEYPAD          = 0b0000_0000_0000_0000_0100;
+            const MOUSE_REPORT_CLICK  = 0b0000_0000_0000_0000_1000;
+            const BRACKETED_PASTE     = 0b0000_0000_0000_0001_0000;
+            const SGR_MOUSE           = 0b0000_0000_0000_0010_0000;
+            const MOUSE_MOTION        = 0b0000_0000_0000_0100_0000;
+            const LINE_WRAP           = 0b0000_0000_0000_1000_0000;
+            const LINE_FEED_NEW_LINE  = 0b0000_0000_0001_0000_0000;
+            const ORIGIN              = 0b0000_0000_0010_0000_0000;
+            const INSERT              = 0b0000_0000_0100_0000_0000;
+            const FOCUS_IN_OUT        = 0b0000_0000_1000_0000_0000;
+            const ALT_SCREEN          = 0b0000_0001_0000_0000_0000;
+            const MOUSE_DRAG          = 0b0000_0010_0000_0000_0000;
+            const MOUSE_MODE          = 0b0000_0010_0000_0100_1000;
+            const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
+            const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
+            const KEYBOARD_MOTION     = 0b0001_0000_0000_0000_0000;
+            const ANY                 = std::u32::MAX;
         }
     }
 
@@ -730,113 +739,28 @@ impl VisualBell {
     }
 }
 
-pub struct Term<T> {
-    /// Terminal focus
-    pub is_focused: bool,
-
-    /// The grid
-    grid: Grid<Cell>,
-
-    /// Tracks if the next call to input will need to first handle wrapping.
-    /// This is true after the last column is set with the input function. Any function that
-    /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
-    /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
-    /// arrays. Without it we would have to sanitize cursor.col every time we used it.
-    input_needs_wrap: bool,
-
-    /// Alternate grid
-    alt_grid: Grid<Cell>,
-
-    /// Alt is active
-    alt: bool,
-
-    /// The cursor
-    cursor: Cursor,
-
-    /// The graphic character set, out of `charsets`, which ASCII is currently
-    /// being mapped to
-    active_charset: CharsetIndex,
-
-    /// Tabstops
-    tabs: TabStops,
-
-    /// Mode flags
-    mode: TermMode,
-
-    /// Scroll region.
-    ///
-    /// Range going from top to bottom of the terminal, indexed from the top of the viewport.
-    scroll_region: Range<Line>,
-
-    pub dirty: bool,
-
-    pub visual_bell: VisualBell,
-
-    /// Saved cursor from main grid
-    cursor_save: Cursor,
-
-    /// Saved cursor from alt grid
-    cursor_save_alt: Cursor,
-
-    semantic_escape_chars: String,
-
-    /// Colors used for rendering
-    colors: color::List,
-
-    /// Is color in `colors` modified or not
-    color_modified: [bool; color::COUNT],
-
-    /// Original colors from config
-    original_colors: color::List,
-
-    /// Current style of the cursor
-    cursor_style: Option<CursorStyle>,
-
-    /// Default style for resetting the cursor
-    default_cursor_style: CursorStyle,
-
-    /// Clipboard access coupled to the active window
-    clipboard: Clipboard,
-
-    /// Proxy for sending events to the event loop
-    event_proxy: T,
-
-    /// Current title of the window.
-    title: Option<String>,
-
-    /// Default title for resetting it.
-    default_title: String,
-
-    /// Whether to permit updating the terminal title.
-    dynamic_title: bool,
-
-    /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
-    /// term is set, and the Glutin window's title attribute is changed through the event listener.
-    title_stack: Vec<Option<String>>,
-}
-
-/// Terminal size info
+/// Terminal size info.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
 pub struct SizeInfo {
-    /// Terminal window width
+    /// Terminal window width.
     pub width: f32,
 
-    /// Terminal window height
+    /// Terminal window height.
     pub height: f32,
 
-    /// Width of individual cell
+    /// Width of individual cell.
     pub cell_width: f32,
 
-    /// Height of individual cell
+    /// Height of individual cell.
     pub cell_height: f32,
 
-    /// Horizontal window padding
+    /// Horizontal window padding.
     pub padding_x: f32,
 
-    /// Horizontal window padding
+    /// Horizontal window padding.
     pub padding_y: f32,
 
-    /// DPI factor of the current window
+    /// DPI factor of the current window.
     #[serde(default)]
     pub dpr: f64,
 }
@@ -871,6 +795,96 @@ impl SizeInfo {
             col: min(col, Column(self.cols().saturating_sub(1))),
         }
     }
+}
+
+pub struct Term<T> {
+    /// Terminal focus.
+    pub is_focused: bool,
+
+    /// The grid.
+    grid: Grid<Cell>,
+
+    /// Tracks if the next call to input will need to first handle wrapping.
+    /// This is true after the last column is set with the input function. Any function that
+    /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
+    /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
+    /// arrays. Without it we would have to sanitize cursor.col every time we used it.
+    input_needs_wrap: bool,
+
+    /// Alternate grid.
+    alt_grid: Grid<Cell>,
+
+    /// Alt is active.
+    alt: bool,
+
+    /// The cursor.
+    cursor: Cursor,
+
+    /// Cursor location for keyboard-driven motion.
+    pub keyboard_cursor: KeyboardCursor,
+
+    /// Index into `charsets`, pointing to what ASCII is currently being mapped to.
+    active_charset: CharsetIndex,
+
+    /// Tabstops.
+    tabs: TabStops,
+
+    /// Mode flags.
+    mode: TermMode,
+
+    /// Scroll region.
+    ///
+    /// Range going from top to bottom of the terminal, indexed from the top of the viewport.
+    scroll_region: Range<Line>,
+
+    pub dirty: bool,
+
+    pub visual_bell: VisualBell,
+
+    /// Saved cursor from main grid.
+    cursor_save: Cursor,
+
+    /// Saved cursor from alt grid.
+    cursor_save_alt: Cursor,
+
+    semantic_escape_chars: String,
+
+    /// Colors used for rendering.
+    colors: color::List,
+
+    /// Is color in `colors` modified or not.
+    color_modified: [bool; color::COUNT],
+
+    /// Original colors from config.
+    original_colors: color::List,
+
+    /// Current style of the cursor.
+    cursor_style: Option<CursorStyle>,
+
+    /// Default style for resetting the cursor.
+    default_cursor_style: CursorStyle,
+
+    /// Style of the keyboard motion cursor.
+    keyboard_motion_cursor_style: Option<CursorStyle>,
+
+    /// Clipboard access coupled to the active window
+    clipboard: Clipboard,
+
+    /// Proxy for sending events to the event loop.
+    event_proxy: T,
+
+    /// Current title of the window.
+    title: Option<String>,
+
+    /// Default title for resetting it.
+    default_title: String,
+
+    /// Whether to permit updating the terminal title.
+    dynamic_title: bool,
+
+    /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
+    /// term is set, and the Glutin window's title attribute is changed through the event listener.
+    title_stack: Vec<Option<String>>,
 }
 
 impl<T> Term<T> {
@@ -920,6 +934,7 @@ impl<T> Term<T> {
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
+            keyboard_cursor: Default::default(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
             tabs,
@@ -931,6 +946,7 @@ impl<T> Term<T> {
             semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
             default_cursor_style: config.cursor.style,
+            keyboard_motion_cursor_style: config.cursor.keyboard_motion_style,
             dynamic_title: config.dynamic_title(),
             clipboard,
             event_proxy,
@@ -959,6 +975,7 @@ impl<T> Term<T> {
             self.mode.remove(TermMode::ALTERNATE_SCROLL);
         }
         self.default_cursor_style = config.cursor.style;
+        self.keyboard_motion_cursor_style = config.cursor.keyboard_motion_style;
 
         self.default_title = config.window.title.clone();
         self.dynamic_title = config.dynamic_title();
@@ -1105,13 +1122,7 @@ impl<T> Term<T> {
     pub fn renderable_cells<'b, C>(&'b self, config: &'b Config<C>) -> RenderableCellsIter<'_, C> {
         let selection = self.grid.selection.as_ref().and_then(|s| s.to_range(self));
 
-        let cursor = if self.is_focused || !config.cursor.unfocused_hollow() {
-            self.cursor_style.unwrap_or(self.default_cursor_style)
-        } else {
-            CursorStyle::HollowBlock
-        };
-
-        RenderableCellsIter::new(&self, config, selection, cursor)
+        RenderableCellsIter::new(&self, config, selection)
     }
 
     /// Resize terminal to new dimensions
@@ -1178,6 +1189,8 @@ impl<T> Term<T> {
         self.cursor_save.point.line = min(self.cursor_save.point.line, num_lines - 1);
         self.cursor_save_alt.point.col = min(self.cursor_save_alt.point.col, num_cols - 1);
         self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
+        self.keyboard_cursor.point.col = min(self.keyboard_cursor.point.col, num_cols - 1);
+        self.keyboard_cursor.point.line = min(self.keyboard_cursor.point.line, num_lines - 1);
 
         // Recreate tabs list
         self.tabs.resize(self.grid.num_cols());
@@ -1258,8 +1271,51 @@ impl<T> Term<T> {
         self.event_proxy.send_event(Event::Exit);
     }
 
+    #[inline]
     pub fn clipboard(&mut self) -> &mut Clipboard {
         &mut self.clipboard
+    }
+
+    /// Toggle the keyboard motion mode.
+    #[inline]
+    pub fn toggle_keyboard_mode(&mut self) {
+        self.mode ^= TermMode::KEYBOARD_MOTION;
+        self.grid.selection = None;
+
+        // Reset keyboard cursor position to match primary cursor
+        if self.mode.contains(TermMode::KEYBOARD_MOTION) {
+            let line = min(self.cursor.point.line + self.grid.display_offset(), self.lines() - 1);
+            self.keyboard_cursor = KeyboardCursor::new(Point::new(line, self.cursor.point.col));
+        }
+
+        self.dirty = true;
+    }
+
+    /// Move keyboard motion cursor.
+    #[inline]
+    pub fn keyboard_motion(&mut self, motion: KeyboardMotion)
+    where
+        T: EventListener,
+    {
+        // Move cursor
+        self.keyboard_cursor = self.keyboard_cursor.motion(self, motion);
+
+        // Update selection if one is active
+        let viewport_point = self.visible_to_buffer(self.keyboard_cursor.point);
+        if let Some(selection) = &mut self.grid.selection {
+            // Do not extend empty selections started by single mouse click
+            if !selection.is_empty() {
+                *selection.end() = Anchor::new(viewport_point, Side::Right);
+                selection.include_all();
+            }
+        }
+
+        self.dirty = true;
+    }
+
+    #[inline]
+    pub fn semantic_escape_chars(&self) -> &str {
+        &self.semantic_escape_chars
     }
 
     /// Insert a linebreak at the current cursor position.
@@ -1296,6 +1352,56 @@ impl<T> Term<T> {
         *cell = self.cursor.template;
         cell.c = self.cursor.charsets[self.active_charset].map(c);
         cell
+    }
+
+    /// Get render information about the active cursor.
+    fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
+        let keyboard_motion = self.mode.contains(TermMode::KEYBOARD_MOTION);
+
+        let mut point = if keyboard_motion {
+            self.keyboard_cursor.point
+        } else {
+            let mut point = self.cursor.point;
+            point.line += self.grid.display_offset();
+            point
+        };
+
+        let hidden = !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.lines();
+        let cursor_style = if hidden && !keyboard_motion {
+            point.line = Line(0);
+            CursorStyle::Hidden
+        } else if !self.is_focused && config.cursor.unfocused_hollow() {
+            CursorStyle::HollowBlock
+        } else {
+            let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
+
+            if keyboard_motion {
+                self.keyboard_motion_cursor_style.unwrap_or(cursor_style)
+            } else {
+                cursor_style
+            }
+        };
+
+        let (text_color, cursor_color) = if keyboard_motion {
+            (config.keyboard_motion_cursor_text_color(), config.keyboard_motion_cursor_cursor_color())
+        } else {
+            let cursor_cursor_color = config.cursor_cursor_color().map(|c| self.colors[c]);
+            (config.cursor_text_color(), cursor_cursor_color)
+        };
+
+        let is_wide =
+            self.grid[&point].flags.contains(Flags::WIDE_CHAR) && point.col + 1 < self.cols();
+
+        RenderableCursor {
+            text_color,
+            cursor_color,
+            key: CursorKey {
+                style: cursor_style,
+                is_wide,
+            },
+            point,
+            rendered: false,
+        }
     }
 }
 
@@ -2184,7 +2290,7 @@ mod tests {
     use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
-    use crate::selection::Selection;
+    use crate::selection::{Anchor, Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
     use crate::term::{SizeInfo, Term};
 
@@ -2222,17 +2328,29 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }));
+            *term.selection_mut() = Some(Selection::new(
+                SelectionType::Semantic,
+                Point { line: 2, col: Column(1) },
+                Side::Left,
+            ));
             assert_eq!(term.selection_to_string(), Some(String::from("aa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }));
+            *term.selection_mut() = Some(Selection::new(
+                SelectionType::Semantic,
+                Point { line: 2, col: Column(4) },
+                Side::Left,
+            ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }));
+            *term.selection_mut() = Some(Selection::new(
+                SelectionType::Semantic,
+                Point { line: 1, col: Column(1) },
+                Side::Left,
+            ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
     }
@@ -2258,7 +2376,11 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
+        *term.selection_mut() = Some(Selection::new(
+            SelectionType::Lines,
+            Point { line: 0, col: Column(3) },
+            Side::Left,
+        ));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
     }
 
@@ -2285,8 +2407,9 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let mut selection = Selection::simple(Point { line: 2, col: Column(0) }, Side::Left);
-        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
+        let mut selection =
+            Selection::new(SelectionType::Simple, Point { line: 2, col: Column(0) }, Side::Left);
+        *selection.end() = Anchor::new(Point { line: 0, col: Column(2) }, Side::Right);
         *term.selection_mut() = Some(selection);
         assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
