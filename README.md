@@ -158,7 +158,8 @@ executable and is available through the
 You can find the default configuration file with documentation for all available
 fields on the [GitHub releases page](https://github.com/alacritty/alacritty/releases) for each release.
 
-Alacritty looks for the configuration file at the following paths:
+Alacritty doesn't create config file for you, therefore you should put it in one
+of the following locations yourself:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
@@ -167,7 +168,7 @@ Alacritty looks for the configuration file at the following paths:
 
 ### Windows
 
-On Windows the config file is located at:
+On Windows the config file should be put in:
 
 `%APPDATA%\alacritty\alacritty.yml`
 
