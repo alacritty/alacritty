@@ -24,15 +24,19 @@ use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::time::Instant;
 
+use log::{debug, trace, warn};
+
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
 };
+use glutin::event_loop::EventLoopWindowTarget;
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
-use log::{debug, trace, warn};
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::clipboard::ClipboardType;
-use alacritty_terminal::event::EventListener;
+use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{self, Message};
@@ -88,6 +92,7 @@ pub trait ActionContext<T: EventListener> {
     fn pop_message(&mut self);
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
+    fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
 }
 
 trait Execute<T: EventListener> {
@@ -133,6 +138,9 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
+            #[cfg(target_os = "macos")]
+            Action::Hide => ctx.event_loop().hide_application(),
+            #[cfg(not(target_os = "macos"))]
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
@@ -766,6 +774,7 @@ mod tests {
     use glutin::event::{
         ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent,
     };
+    use glutin::event_loop::EventLoopWindowTarget;
 
     use alacritty_terminal::clipboard::{Clipboard, ClipboardType};
     use alacritty_terminal::event::{Event as TerminalEvent, EventListener};
@@ -909,6 +918,10 @@ mod tests {
 
         fn config(&self) -> &Config {
             self.config
+        }
+
+        fn event_loop(&self) -> &EventLoopWindowTarget<TerminalEvent> {
+            unimplemented!();
         }
     }
 
