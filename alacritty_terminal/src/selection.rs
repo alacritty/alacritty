@@ -23,7 +23,6 @@ use std::mem;
 use std::ops::Range;
 
 use crate::index::{Column, Line, Point, Side};
-use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
 /// A Point and side within that point.
@@ -249,67 +248,12 @@ impl Selection {
         let is_block = self.ty == SelectionType::Block;
         let (start, end) = Self::grid_clamp(start, end, is_block, grid.len()).ok()?;
 
-        let range = match self.ty {
+        match self.ty {
             SelectionType::Simple => self.range_simple(start, end, num_cols),
             SelectionType::Block => self.range_block(start, end),
             SelectionType::Semantic => Self::range_semantic(term, start.point, end.point),
             SelectionType::Lines => Self::range_lines(term, start.point, end.point),
-        };
-
-        // Expand selection across fullwidth cells
-        range.map(|range| Self::range_expand_fullwidth(term, range))
-    }
-
-    /// Expand the start/end of the selection range to account for fullwidth glyphs.
-    fn range_expand_fullwidth<T>(term: &Term<T>, mut range: SelectionRange) -> SelectionRange {
-        let grid = term.grid();
-        let num_cols = grid.num_cols();
-
-        // Helper for checking if cell at `point` contains `flag`
-        let flag_at = |point: Point<usize>, flag: Flags| -> bool {
-            grid[point.line][point.col].flags.contains(flag)
-        };
-
-        // Include all double-width cells and placeholders at top left of selection
-        if range.start.col < num_cols {
-            // Expand from wide char spacer to wide char
-            if range.start.line + 1 != grid.len() || range.start.col.0 != 0 {
-                let prev = range.start.sub(num_cols.0, 1, true);
-                if flag_at(range.start, Flags::WIDE_CHAR_SPACER) && flag_at(prev, Flags::WIDE_CHAR)
-                {
-                    range.start = prev;
-                }
-            }
-
-            // Expand from wide char to wide char spacer for linewrapping
-            if range.start.line + 1 != grid.len() || range.start.col.0 != 0 {
-                let prev = range.start.sub(num_cols.0, 1, true);
-                if (prev.line + 1 != grid.len() || prev.col.0 != 0)
-                    && flag_at(prev, Flags::WIDE_CHAR_SPACER)
-                    && !flag_at(prev.sub(num_cols.0, 1, true), Flags::WIDE_CHAR)
-                {
-                    range.start = prev;
-                }
-            }
         }
-
-        // Include all double-width cells and placeholders at bottom right of selection
-        if range.end.line != 0 || range.end.col < num_cols {
-            // Expand from wide char spacer for linewrapping to wide char
-            if (range.end.line + 1 != grid.len() || range.end.col.0 != 0)
-                && flag_at(range.end, Flags::WIDE_CHAR_SPACER)
-                && !flag_at(range.end.sub(num_cols.0, 1, true), Flags::WIDE_CHAR)
-            {
-                range.end = range.end.add(num_cols.0, 1, true);
-            }
-
-            // Expand from wide char to wide char spacer
-            if flag_at(range.end, Flags::WIDE_CHAR) {
-                range.end = range.end.add(num_cols.0, 1, true);
-            }
-        }
-
-        range
     }
 
     // Bring start and end points in the correct order
@@ -443,15 +387,11 @@ impl Selection {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod tests {
-    use std::mem;
-
     use super::{Selection, SelectionRange};
     use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
-    use crate::grid::Grid;
     use crate::index::{Column, Line, Point, Side};
-    use crate::term::cell::{Cell, Flags};
     use crate::term::{SizeInfo, Term};
 
     struct Mock;
@@ -634,26 +574,6 @@ mod tests {
             start: Point::new(9, Column(2)),
             end: Point::new(7, Column(3)),
             is_block: true
-        });
-    }
-
-    #[test]
-    fn double_width_expansion() {
-        let mut term = term(10, 1);
-        let mut grid = Grid::new(Line(1), Column(10), 0, Cell::default());
-        grid[Line(0)][Column(0)].flags.insert(Flags::WIDE_CHAR);
-        grid[Line(0)][Column(1)].flags.insert(Flags::WIDE_CHAR_SPACER);
-        grid[Line(0)][Column(8)].flags.insert(Flags::WIDE_CHAR);
-        grid[Line(0)][Column(9)].flags.insert(Flags::WIDE_CHAR_SPACER);
-        mem::swap(term.grid_mut(), &mut grid);
-
-        let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
-        selection.update(Point::new(0, Column(8)), Side::Right);
-
-        assert_eq!(selection.to_range(&term).unwrap(), SelectionRange {
-            start: Point::new(0, Column(0)),
-            end: Point::new(0, Column(9)),
-            is_block: false,
         });
     }
 

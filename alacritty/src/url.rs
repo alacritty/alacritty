@@ -42,7 +42,7 @@ impl Url {
     }
 
     pub fn end(&self) -> Point {
-        self.lines[self.lines.len() - 1].end.sub(self.num_cols, self.end_offset as usize, false)
+        self.lines[self.lines.len() - 1].end.sub(self.num_cols, self.end_offset as usize)
     }
 }
 
@@ -83,7 +83,7 @@ impl Urls {
         let end = point;
 
         // Reset URL when empty cells have been skipped
-        if point != Point::default() && Some(point.sub(num_cols, 1, false)) != self.last_point {
+        if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
             self.reset();
         }
 
