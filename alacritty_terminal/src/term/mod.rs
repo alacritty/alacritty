@@ -281,6 +281,49 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             cursor_style,
         }
     }
+
+    /// Check selection state of a cell.
+    fn is_selected(&self, point: Point) -> bool {
+        let selection = match self.selection {
+            Some(selection) => selection,
+            None => return false,
+        };
+
+        // Point itself is selected
+        if selection.contains(point.col, point.line) {
+            return true;
+        }
+
+        let num_cols = self.grid.num_cols().0;
+        let cell = self.grid[&point];
+
+        // Check if wide char's spacers are selected
+        if cell.flags.contains(Flags::WIDE_CHAR) {
+            let prevprev = point.sub(num_cols, 2);
+            let prev = point.sub(num_cols, 1);
+            let next = point.add(num_cols, 1);
+
+            // Check trailing spacer
+            selection.contains(next.col, next.line)
+                // Check line-wrapping, leading spacer
+                || (self.grid[&prev].flags.contains(Flags::WIDE_CHAR_SPACER)
+                    && !self.grid[&prevprev].flags.contains(Flags::WIDE_CHAR)
+                    && selection.contains(prev.col, prev.line))
+        } else if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+            // Check if spacer's wide char is selected
+            let prev = point.sub(num_cols, 1);
+
+            if self.grid[&prev].flags.contains(Flags::WIDE_CHAR) {
+                // Check previous cell for trailing spacer
+                self.is_selected(prev)
+            } else {
+                // Check next cell for line-wrapping, leading spacer
+                self.is_selected(point.add(num_cols, 1))
+            }
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -414,11 +457,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
-                let selected = self
-                    .selection
-                    .as_ref()
-                    .map(|range| range.contains(self.cursor.col, self.cursor.line))
-                    .unwrap_or(false);
+                let selected = self.is_selected(Point::new(self.cursor.line, self.cursor.col));
 
                 // Handle cursor
                 if let Some(cursor_key) = self.cursor_key.take() {
@@ -458,11 +497,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
             } else {
                 let cell = self.inner.next()?;
 
-                let selected = self
-                    .selection
-                    .as_ref()
-                    .map(|range| range.contains(cell.column, cell.line))
-                    .unwrap_or(false);
+                let selected = self.is_selected(Point::new(cell.line, cell.column));
 
                 if !cell.is_empty() || selected {
                     return Some(RenderableCell::new(self.config, self.colors, cell, selected));
@@ -949,9 +984,9 @@ impl<T> Term<T> {
 
         if is_block {
             for line in (end.line + 1..=start.line).rev() {
-                res += &(self.line_to_string(line, start.col..end.col) + "\n");
+                res += &(self.line_to_string(line, start.col..end.col, start.col.0 != 0) + "\n");
             }
-            res += &self.line_to_string(end.line, start.col..end.col);
+            res += &self.line_to_string(end.line, start.col..end.col, true);
         } else {
             res = self.bounds_to_string(start, end);
         }
@@ -967,23 +1002,31 @@ impl<T> Term<T> {
             let start_col = if line == start.line { start.col } else { Column(0) };
             let end_col = if line == end.line { end.col } else { self.cols() - 1 };
 
-            res += &self.line_to_string(line, start_col..end_col);
+            res += &self.line_to_string(line, start_col..end_col, line == end.line);
         }
 
         res
     }
 
     /// Convert a single line in the grid to a String.
-    fn line_to_string(&self, line: usize, cols: Range<Column>) -> String {
+    fn line_to_string(
+        &self,
+        line: usize,
+        mut cols: Range<Column>,
+        include_wrapped_wide: bool,
+    ) -> String {
         let mut text = String::new();
 
         let grid_line = &self.grid[line];
-        let line_length = grid_line.line_length();
-        let line_end = min(line_length, cols.end + 1);
+        let line_length = min(grid_line.line_length(), cols.end + 1);
+
+        // Include wide char when trailing spacer is selected
+        if grid_line[cols.start].flags.contains(Flags::WIDE_CHAR_SPACER) {
+            cols.start -= 1;
+        }
 
         let mut tab_mode = false;
-
-        for col in IndexRange::from(cols.start..line_end) {
+        for col in IndexRange::from(cols.start..line_length) {
             let cell = grid_line[col];
 
             // Skip over cells until next tab-stop once a tab was found
@@ -1011,10 +1054,20 @@ impl<T> Term<T> {
         }
 
         if cols.end >= self.cols() - 1
-            && (line_end == Column(0)
-                || !self.grid[line][line_end - 1].flags.contains(Flags::WRAPLINE))
+            && (line_length.0 == 0
+                || !self.grid[line][line_length - 1].flags.contains(Flags::WRAPLINE))
         {
             text.push('\n');
+        }
+
+        // If wide char is not part of the selection, but leading spacer is, include it
+        if line_length == self.grid.num_cols()
+            && line_length.0 >= 2
+            && grid_line[line_length - 1].flags.contains(Flags::WIDE_CHAR_SPACER)
+            && !grid_line[line_length - 2].flags.contains(Flags::WIDE_CHAR)
+            && include_wrapped_wide
+        {
+            text.push(self.grid[line - 1][Column(0)].c);
         }
 
         text

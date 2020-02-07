@@ -44,33 +44,29 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub(mut self, num_cols: usize, length: usize, absolute_indexing: bool) -> Point<L>
+    pub fn sub(mut self, num_cols: usize, rhs: usize) -> Point<L>
     where
-        L: Copy + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes = f32::ceil(length.saturating_sub(self.col.0) as f32 / num_cols as f32);
-        if absolute_indexing {
-            self.line = self.line + line_changes as usize;
+        let line_changes =
+            f32::ceil(rhs.saturating_sub(self.col.0) as f32 / num_cols as f32) as usize;
+        if self.line.into() > Line(line_changes) {
+            self.line = self.line - line_changes;
         } else {
-            self.line = self.line - line_changes as usize;
+            self.line = Default::default();
         }
-        self.col = Column((num_cols + self.col.0 - length % num_cols) % num_cols);
+        self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
         self
     }
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add(mut self, num_cols: usize, length: usize, absolute_indexing: bool) -> Point<L>
+    pub fn add(mut self, num_cols: usize, rhs: usize) -> Point<L>
     where
-        L: Copy + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes = (length + self.col.0) / num_cols;
-        if absolute_indexing {
-            self.line = self.line - line_changes;
-        } else {
-            self.line = self.line + line_changes;
-        }
-        self.col = Column((self.col.0 + length) % num_cols);
+        self.line = self.line + (rhs + self.col.0) / num_cols;
+        self.col = Column((self.col.0 + rhs) % num_cols);
         self
     }
 }
