@@ -168,7 +168,7 @@ of the following locations yourself:
 
 ### Windows
 
-On Windows the config file should be put in:
+On Windows the config file should be at:
 
 `%APPDATA%\alacritty\alacritty.yml`
 
