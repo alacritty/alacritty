@@ -28,6 +28,8 @@ use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
 };
 use glutin::event_loop::EventLoopWindowTarget;
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
 
 use log::{debug, trace, warn};
