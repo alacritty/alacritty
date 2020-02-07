@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backspace deleting characters while IME is open on macOS
 - Handling of OpenType variable fonts
 - Expansion of block-selection on partially selected full-width glyphs
+- Minimize action only works with decorations on macOS
+- Hiding the window behavior on macOS
+- Ctrl + q not working on macOS
 
 ### Removed
 
