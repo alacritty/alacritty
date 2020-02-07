@@ -24,6 +24,8 @@ use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::time::Instant;
 
+use log::{debug, trace, warn};
+
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
 };
@@ -31,8 +33,6 @@ use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
-
-use log::{debug, trace, warn};
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::clipboard::ClipboardType;

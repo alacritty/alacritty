@@ -176,6 +176,7 @@ impl Window {
         self.window().scale_factor()
     }
 
+    #[inline]
     pub fn set_visible(&self, visibility: bool) {
         self.window().set_visible(visibility);
     }

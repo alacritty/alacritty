@@ -47,8 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handling of OpenType variable fonts
 - Expansion of block-selection on partially selected full-width glyphs
 - Minimize action only works with decorations on macOS
-- Hiding the window behavior on macOS
-- Ctrl + q not working on macOS
+- Window permanently vanishing after hiding on macOS
+- Modifier key combinations like `Ctrl + Q` not generating characters on macOS
 
 ### Removed
 
