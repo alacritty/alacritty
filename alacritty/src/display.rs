@@ -142,6 +142,13 @@ impl Display {
         // Spawn window
         let mut window = Window::new(event_loop, &config, size)?;
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_wayland() {
+                window.set_wayland_theme(&config);
+            }
+        }
+
         let dpr = window.scale_factor();
         info!("Device pixel ratio: {}", dpr);
 

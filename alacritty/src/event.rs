@@ -14,6 +14,8 @@ use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
@@ -540,6 +542,13 @@ impl<N: Notify + OnResize> Processor<N> {
 
                             let font = config.font.clone().with_size(*processor.ctx.font_size);
                             processor.ctx.display_update_pending.font = Some(font);
+                        }
+
+                        #[cfg(not(any(target_os = "macos", windows)))]
+                        {
+                            if processor.ctx.event_loop.is_wayland() {
+                                processor.ctx.window.set_wayland_theme(&config);
+                            }
                         }
 
                         *processor.ctx.config = config;
