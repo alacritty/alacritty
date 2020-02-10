@@ -287,6 +287,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         PageDown; Action::Esc("\x1b[6~".into());
         PageDown, ModifiersState::SHIFT, +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
         Tab,  ModifiersState::SHIFT; Action::Esc("\x1b[Z".into());
+        Back; Action::Esc("\x7f".into());
         Back, ModifiersState::ALT; Action::Esc("\x1b\x7f".into());
         Insert; Action::Esc("\x1b[2~".into());
         Delete; Action::Esc("\x1b[3~".into());
@@ -405,7 +406,6 @@ fn common_keybindings() -> Vec<KeyBinding> {
         Add,      ModifiersState::CTRL;  Action::IncreaseFontSize;
         Subtract, ModifiersState::CTRL;  Action::DecreaseFontSize;
         Minus,    ModifiersState::CTRL;  Action::DecreaseFontSize;
-        Back; Action::Esc("\x7f".into());
     )
 }
 
