@@ -2201,8 +2201,6 @@ impl IndexMut<Column> for TabStops {
 mod tests {
     use std::mem;
 
-    use serde_json;
-
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
     use crate::clipboard::Clipboard;
     use crate::config::MockConfig;

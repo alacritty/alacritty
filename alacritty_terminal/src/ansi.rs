@@ -19,8 +19,6 @@ use std::str;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
-use vte;
-
 use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 

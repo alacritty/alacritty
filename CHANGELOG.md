@@ -43,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resize of bitmap fonts
 - Crash when using bitmap font with `embeddedbitmap` set to `false`
 - Inconsistent fontconfig fallback
-- Backspace deleting characters while IME is open on macOS
 - Handling of OpenType variable fonts
 - Expansion of block-selection on partially selected full-width glyphs
 - Minimize action only works with decorations on macOS

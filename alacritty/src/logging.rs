@@ -27,7 +27,6 @@ use std::sync::{Arc, Mutex};
 
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
-use time;
 
 use alacritty_terminal::event::Event;
 use alacritty_terminal::message_bar::Message;

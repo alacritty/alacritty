@@ -7,9 +7,6 @@ use std::path::PathBuf;
 #[cfg(windows)]
 use dirs;
 use log::{error, warn};
-use serde_yaml;
-#[cfg(not(windows))]
-use xdg;
 
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
