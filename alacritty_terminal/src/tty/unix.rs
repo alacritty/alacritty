@@ -18,7 +18,6 @@ use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
-use mio;
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;

@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 //! tty related functionality
-use mio;
 use std::{env, io};
 
 use terminfo::Database;
