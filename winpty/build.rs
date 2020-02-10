@@ -62,7 +62,7 @@ fn aquire_winpty_agent(out_path: &Path) {
 
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
-    let target = match env::var("TARGET").unwrap().split("-").next().unwrap() {
+    let target = match env::var("TARGET").unwrap().split('-').next().unwrap() {
         "x86_64" => "x64",
         "i386" => "ia32",
         _ => panic!("architecture has no winpty binary"),
