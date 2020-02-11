@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimize action only works with decorations on macOS
 - Window permanently vanishing after hiding on macOS
 - Modifier key combinations like `Ctrl + Q` not generating characters on macOS
+- Handling of URLs with single quotes
+- Parser reset between DCS escapes
 
 ### Removed
 
