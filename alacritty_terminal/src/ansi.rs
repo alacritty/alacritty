@@ -1097,12 +1097,12 @@ where
     }
 
     #[inline]
-    fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], _ignore: bool, byte: u8) {
+    fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
                 debug!(
-                    "[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
-                    params, intermediates, byte as char, byte
+                    "[unhandled] esc_dispatch ints={:?}, byte={:?} ({:02x})",
+                    intermediates, byte as char, byte
                 );
             }};
         }
