@@ -523,7 +523,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         if region.start == Line(0) {
             // Update display offset when not pinned to active area
             if self.display_offset != 0 {
-                self.display_offset = min(self.display_offset + *positions, self.len() - num_lines);
+                self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
             self.increase_scroll_limit(*positions, template);
