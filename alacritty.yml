@@ -305,6 +305,7 @@
   #   - ▇ Block
   #   - _ Underline
   #   - | Beam
+  #   - ◻ Glass, inner part is semi transparent
   #style: Block
 
   # If this is `true`, the cursor will be rendered as a hollow box when the

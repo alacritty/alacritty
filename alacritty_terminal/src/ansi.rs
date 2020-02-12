@@ -351,6 +351,9 @@ pub enum CursorStyle {
     /// Cursor is a box like `☐`
     HollowBlock,
 
+    /// Like HollowBlock but the interior is semi-transparent
+    Glass,
+
     /// Invisible cursor
     Hidden,
 }

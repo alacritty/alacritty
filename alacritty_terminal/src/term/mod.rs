@@ -484,7 +484,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut cell =
                         RenderableCell::new(self.config, self.colors, self.inner.next()?, selected);
 
-                    if self.cursor_style == CursorStyle::Block {
+                    if self.cursor_style == CursorStyle::Block ||
+                        self.cursor_style == CursorStyle::Glass {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
 
                         if let Some(color) = self.config.cursor_text_color() {

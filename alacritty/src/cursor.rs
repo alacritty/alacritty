@@ -41,10 +41,11 @@ pub fn get_cursor_glyph(
     }
 
     match cursor {
-        CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width),
+        CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width, 0),
         CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
         CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
         CursorStyle::Block => get_block_cursor_glyph(height, width),
+        CursorStyle::Glass => get_box_cursor_glyph(height, width, line_width, 150),
         CursorStyle::Hidden => RasterizedGlyph::default(),
     }
 }
@@ -82,7 +83,7 @@ pub fn get_beam_cursor_glyph(height: i32, line_width: i32) -> RasterizedGlyph {
 }
 
 // Returns a custom box cursor character
-pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32) -> RasterizedGlyph {
+pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32, fill: u8) -> RasterizedGlyph {
     // Create a new box outline rectangle
     let mut buf = Vec::with_capacity((width * height * 3) as usize);
     for y in 0..height {
@@ -94,7 +95,7 @@ pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32) -> Rasteri
             {
                 buf.append(&mut vec![255u8; 3]);
             } else {
-                buf.append(&mut vec![0u8; 3]);
+                buf.append(&mut vec![fill; 3]);
             }
         }
     }
