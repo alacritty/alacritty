@@ -21,7 +21,6 @@
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -97,7 +96,7 @@ impl fmt::Display for FontDesc {
 /// Identifier for a Font for use in maps/etc
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct FontKey {
-    token: u16,
+    token: u32,
 }
 
 impl FontKey {
@@ -111,37 +110,11 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct GlyphKey {
     pub c: char,
     pub font_key: FontKey,
     pub size: Size,
-}
-
-impl Hash for GlyphKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for hashing and has no fields (it's a u64)
-            ::std::mem::transmute::<GlyphKey, u64>(*self)
-        }
-        .hash(state);
-    }
-}
-
-impl PartialEq for GlyphKey {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for equality checking and has no fields (it's a u64)
-            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
-            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
-        }
-    }
 }
 
 /// Font size stored as integer
