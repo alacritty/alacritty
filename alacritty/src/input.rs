@@ -65,9 +65,9 @@ pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
 }
 
 pub trait ActionContext<T: EventListener> {
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, data: B);
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&mut self, _: ClipboardType);
+    fn copy_selection(&mut self, ty: ClipboardType);
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
     fn update_selection(&mut self, point: Point, side: Side);
@@ -92,7 +92,8 @@ pub trait ActionContext<T: EventListener> {
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn urls(&self) -> &Urls;
-    fn launch_url(&self, _: Url);
+    fn launch_url(&self, url: Url);
+    fn mouse_report(&mut self, button: u8, state: ElementState, line: Line, column: Column);
 }
 
 trait Execute<T: EventListener> {
@@ -180,8 +181,14 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::KeyboardMotionClick => {
                 ctx.mouse_mut().block_url_launcher = false;
-                if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
-                    ctx.launch_url(url);
+                let point = ctx.terminal().keyboard_cursor.point;
+                match ctx.urls().find_at(point) {
+                    Some(url) => ctx.launch_url(url),
+                    None if ctx.terminal().mode().intersects(TermMode::MOUSE_MODE) => {
+                        ctx.mouse_report(0, ElementState::Pressed, point.line, point.col);
+                        ctx.mouse_report(0, ElementState::Released, point.line, point.col);
+                    },
+                    _ => (),
                 }
             },
             Action::KeyboardMotionUp => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Up),
@@ -399,75 +406,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    fn normal_mouse_report(&mut self, button: u8) {
-        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
-        let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
-
-        let max_point = if utf8 { 2015 } else { 223 };
-
-        if line >= Line(max_point) || column >= Column(max_point) {
-            return;
-        }
-
-        let mut msg = vec![b'\x1b', b'[', b'M', 32 + button];
-
-        let mouse_pos_encode = |pos: usize| -> Vec<u8> {
-            let pos = 32 + 1 + pos;
-            let first = 0xC0 + pos / 64;
-            let second = 0x80 + (pos & 63);
-            vec![first as u8, second as u8]
-        };
-
-        if utf8 && column >= Column(95) {
-            msg.append(&mut mouse_pos_encode(column.0));
-        } else {
-            msg.push(32 + 1 + column.0 as u8);
-        }
-
-        if utf8 && line >= Line(95) {
-            msg.append(&mut mouse_pos_encode(line.0));
-        } else {
-            msg.push(32 + 1 + line.0 as u8);
-        }
-
-        self.ctx.write_to_pty(msg);
-    }
-
-    fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
-        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
-        let c = match state {
-            ElementState::Pressed => 'M',
-            ElementState::Released => 'm',
-        };
-
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
-        self.ctx.write_to_pty(msg.into_bytes());
-    }
-
-    fn mouse_report(&mut self, button: u8, state: ElementState) {
-        // Calculate modifiers value
-        let mut mods = 0;
-        let modifiers = self.ctx.modifiers();
-        if modifiers.shift() {
-            mods += 4;
-        }
-        if modifiers.alt() {
-            mods += 8;
-        }
-        if modifiers.ctrl() {
-            mods += 16;
-        }
-
-        // Report mouse events
-        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
-            self.sgr_mouse_report(button + mods, state);
-        } else if let ElementState::Released = state {
-            self.normal_mouse_report(3 + mods);
-        } else {
-            self.normal_mouse_report(button + mods);
-        }
-    }
-
     fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
             self.ctx.start_selection(SelectionType::Semantic, point, None);
@@ -566,6 +504,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         self.copy_selection();
+    }
+
+    fn mouse_report(&mut self, button: u8, state: ElementState) {
+        self.ctx.mouse_report(button, state, self.ctx.mouse().line, self.ctx.mouse().column);
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -889,7 +831,7 @@ mod tests {
     use alacritty_terminal::clipboard::{Clipboard, ClipboardType};
     use alacritty_terminal::event::{Event as TerminalEvent, EventListener};
     use alacritty_terminal::grid::Scroll;
-    use alacritty_terminal::index::{Point, Side};
+    use alacritty_terminal::index::{Column, Line, Point, Side};
     use alacritty_terminal::message_bar::{Message, MessageBuffer};
     use alacritty_terminal::selection::{Selection, SelectionType};
     use alacritty_terminal::term::{SizeInfo, Term, TermMode};
@@ -1036,6 +978,16 @@ mod tests {
         }
 
         fn launch_url(&self, _: Url) {
+            unimplemented!();
+        }
+
+        fn mouse_report(
+            &mut self,
+            _button: u8,
+            _state: ElementState,
+            _line: Line,
+            _column: Column,
+        ) {
             unimplemented!();
         }
     }
