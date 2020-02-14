@@ -407,6 +407,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         V,                             +TermMode::KEYBOARD_MOTION; Action::ToggleNormalSelection;
         V,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::ToggleLineSelection;
         V,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ToggleBlockSelection;
+        Y,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollLineUp;
+        E,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollLineDown;
         G,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToTop;
         G,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
         B,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollPageUp;
