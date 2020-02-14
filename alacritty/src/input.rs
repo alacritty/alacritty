@@ -179,6 +179,7 @@ impl<T: EventListener> Execute<T> for Action {
                     selection.include_all();
                 }
             },
+            Action::ClearSelection => ctx.clear_selection(),
             Action::KeyboardMotionClick => {
                 ctx.mouse_mut().block_url_launcher = false;
                 let point = ctx.terminal().keyboard_cursor.point;

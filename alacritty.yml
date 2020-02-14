@@ -455,14 +455,15 @@
 #   - ScrollPageUp, ScrollPageDown, ScrollHalfPageUp, ScrollHalfPageDown,
 #     ScrollLineUp, ScrollLineDown, ScrollToTop, ScrollToBottom
 #   - ToggleKeyboardMode, ToggleNormalSelection, ToggleLineSelection,
-#     ToggleBlockSelection, KeyboardMotionClick, KeyboardMotionUp,
-#     KeyboardMotionDown, KeyboardMotionLeft, KeyboardMotionRight,
-#     KeyboardMotionStart, KeyboardMotionEnd, KeyboardMotionHigh,
-#     KeyboardMotionMiddle, KeyboardMotionLow, KeyboardMotionSemanticLeft,
-#     KeyboardMotionSemanticRight, KeyboardMotionSemanticLeftEnd,
-#     KeyboardMotionSemanticRightEnd, KeyboardMotionWordRight,
-#     KeyboardMotionWordLeft, KeyboardMotionWordRightEnd,
-#     KeyboardMotionWordLeftEnd, KeyboardMotionBracket
+#     ToggleBlockSelection, ClearSelection, KeyboardMotionClick,
+#     KeyboardMotionUp, KeyboardMotionDown, KeyboardMotionLeft,
+#     KeyboardMotionRight, KeyboardMotionStart, KeyboardMotionEnd,
+#     KeyboardMotionHigh, KeyboardMotionMiddle, KeyboardMotionLow,
+#     KeyboardMotionSemanticLeft, KeyboardMotionSemanticRight,
+#     KeyboardMotionSemanticLeftEnd, KeyboardMotionSemanticRightEnd,
+#     KeyboardMotionWordRight, KeyboardMotionWordLeft,
+#     KeyboardMotionWordRightEnd, KeyboardMotionWordLeftEnd,
+#     KeyboardMotionBracket
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space

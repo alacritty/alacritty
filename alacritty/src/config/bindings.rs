@@ -203,6 +203,9 @@ pub enum Action {
     /// Toggle block keyboard selection.
     ToggleBlockSelection,
 
+    /// Clear active selection.
+    ClearSelection,
+
     /// Click at current keyboard motion cursor.
     KeyboardMotionClick,
 
