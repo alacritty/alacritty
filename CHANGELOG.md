@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modifier key combinations like `Ctrl + Q` not generating characters on macOS
 - Handling of URLs with single quotes
 - Parser reset between DCS escapes
+- Parser stopping at unknown DEC private modes/SGR character attributes
 
 ### Removed
 
