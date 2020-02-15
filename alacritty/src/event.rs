@@ -30,7 +30,7 @@ use alacritty_terminal::message_bar::{Message, MessageBuffer};
 use alacritty_terminal::selection::{Anchor, Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::{SizeInfo, Term, TermMode};
+use alacritty_terminal::term::{SizeInfo, Term};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
@@ -274,75 +274,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
             }
         }
-    }
-
-    /// Create a mouse report at a specific location.
-    fn mouse_report(&mut self, button: u8, state: ElementState, line: Line, column: Column) {
-        // Calculate modifiers value
-        let mut mods = 0;
-        if self.modifiers.shift() {
-            mods += 4;
-        }
-        if self.modifiers.alt() {
-            mods += 8;
-        }
-        if self.modifiers.ctrl() {
-            mods += 16;
-        }
-
-        // Report mouse events
-        if self.terminal.mode().contains(TermMode::SGR_MOUSE) {
-            self.sgr_mouse_report(button + mods, state, line, column);
-        } else if let ElementState::Released = state {
-            self.normal_mouse_report(3 + mods, line, column);
-        } else {
-            self.normal_mouse_report(button + mods, line, column);
-        }
-    }
-}
-
-impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
-    fn sgr_mouse_report(&mut self, button: u8, state: ElementState, line: Line, column: Column) {
-        let c = match state {
-            ElementState::Pressed => 'M',
-            ElementState::Released => 'm',
-        };
-
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
-        self.write_to_pty(msg.into_bytes());
-    }
-
-    fn normal_mouse_report(&mut self, button: u8, line: Line, column: Column) {
-        let utf8 = self.terminal.mode().contains(TermMode::UTF8_MOUSE);
-
-        let max_point = if utf8 { 2015 } else { 223 };
-
-        if line >= Line(max_point) || column >= Column(max_point) {
-            return;
-        }
-
-        let mut msg = vec![b'\x1b', b'[', b'M', 32 + button];
-
-        let mouse_pos_encode = |pos: usize| -> Vec<u8> {
-            let pos = 32 + 1 + pos;
-            let first = 0xC0 + pos / 64;
-            let second = 0x80 + (pos & 63);
-            vec![first as u8, second as u8]
-        };
-
-        if utf8 && column >= Column(95) {
-            msg.append(&mut mouse_pos_encode(column.0));
-        } else {
-            msg.push(32 + 1 + column.0 as u8);
-        }
-
-        if utf8 && line >= Line(95) {
-            msg.append(&mut mouse_pos_encode(line.0));
-        } else {
-            msg.push(32 + 1 + line.0 as u8);
-        }
-
-        self.write_to_pty(msg);
     }
 }
 
