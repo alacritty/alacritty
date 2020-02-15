@@ -893,6 +893,7 @@ where
         }
     }
 
+    #[allow(clippy::cognitive_complexity)]
     #[inline]
     fn csi_dispatch(
         &mut self,
@@ -1022,10 +1023,7 @@ where
                 for arg in args {
                     match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.unset_mode(mode),
-                        None => {
-                            unhandled!();
-                            return;
-                        },
+                        None => unhandled!(),
                     }
                 }
             },
@@ -1044,10 +1042,7 @@ where
                 for arg in args {
                     match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.set_mode(mode),
-                        None => {
-                            unhandled!();
-                            return;
-                        },
+                        None => unhandled!(),
                     }
                 }
             },
@@ -1058,10 +1053,7 @@ where
                     for attr in attrs_from_sgr_parameters(args) {
                         match attr {
                             Some(attr) => handler.terminal_attribute(attr),
-                            None => {
-                                unhandled!();
-                                return;
-                            },
+                            None => unhandled!(),
                         }
                     }
                 }
