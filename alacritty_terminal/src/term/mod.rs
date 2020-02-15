@@ -1297,6 +1297,11 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
+        // Require keyboard motion mode to be active
+        if !self.mode.contains(TermMode::KEYBOARD_MOTION) {
+            return;
+        }
+
         // Move cursor
         self.keyboard_cursor = self.keyboard_cursor.motion(self, motion);
 
