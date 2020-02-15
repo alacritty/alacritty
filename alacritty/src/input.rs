@@ -65,9 +65,9 @@ pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
 }
 
 pub trait ActionContext<T: EventListener> {
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, data: B);
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&mut self, _: ClipboardType);
+    fn copy_selection(&mut self, ty: ClipboardType);
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
     fn update_selection(&mut self, point: Point, side: Side);
@@ -92,7 +92,7 @@ pub trait ActionContext<T: EventListener> {
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn urls(&self) -> &Urls;
-    fn launch_url(&self, _: Url);
+    fn launch_url(&self, url: Url);
 }
 
 trait Execute<T: EventListener> {
