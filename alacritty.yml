@@ -455,7 +455,7 @@
 #   - ScrollPageUp, ScrollPageDown, ScrollHalfPageUp, ScrollHalfPageDown,
 #     ScrollLineUp, ScrollLineDown, ScrollToTop, ScrollToBottom
 #   - ToggleKeyboardMode, ToggleNormalSelection, ToggleLineSelection,
-#     ToggleBlockSelection, ClearSelection, KeyboardMotionClick,
+#     ToggleBlockSelection, ClearSelection, KeyboardMotionLaunchUrl,
 #     KeyboardMotionUp, KeyboardMotionDown, KeyboardMotionLeft,
 #     KeyboardMotionRight, KeyboardMotionStart, KeyboardMotionEnd,
 #     KeyboardMotionHigh, KeyboardMotionMiddle, KeyboardMotionLow,
