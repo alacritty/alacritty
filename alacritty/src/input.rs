@@ -142,7 +142,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
             Action::ToggleNormalSelection => {
-                // Only allow this mode while using keyboard motion
+                // Only allow this action while using keyboard motion
                 if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
                     return;
                 }
@@ -156,7 +156,7 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ToggleLineSelection => {
-                // Only allow this mode while using keyboard motion
+                // Only allow this action while using keyboard motion
                 if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
                     return;
                 }
@@ -165,7 +165,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.toggle_selection(SelectionType::Lines, cursor_point, None);
             },
             Action::ToggleBlockSelection => {
-                // Only allow this mode while using keyboard motion
+                // Only allow this action while using keyboard motion
                 if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
                     return;
                 }
@@ -180,6 +180,11 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ClearSelection => ctx.clear_selection(),
             Action::KeyboardMotionClick => {
+                // Only allow this action while using keyboard motion
+                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                    return;
+                }
+
                 ctx.mouse_mut().block_url_launcher = false;
                 if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
                     ctx.launch_url(url);
