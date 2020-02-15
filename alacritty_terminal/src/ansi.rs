@@ -893,6 +893,7 @@ where
         }
     }
 
+    #[allow(clippy::cognitive_complexity)]
     #[inline]
     fn csi_dispatch(
         &mut self,
