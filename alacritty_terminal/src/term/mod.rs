@@ -1383,10 +1383,7 @@ impl<T> Term<T> {
         };
 
         let (text_color, cursor_color) = if keyboard_motion {
-            (
-                config.keyboard_motion_cursor_text_color(),
-                config.keyboard_motion_cursor_cursor_color(),
-            )
+            (config.keyboard_motion_cursor_text_color(), config.keyboard_motion_cursor_cursor_color())
         } else {
             let cursor_cursor_color = config.cursor_cursor_color().map(|c| self.colors[c]);
             (config.cursor_text_color(), cursor_cursor_color)
@@ -1398,7 +1395,10 @@ impl<T> Term<T> {
         RenderableCursor {
             text_color,
             cursor_color,
-            key: CursorKey { style: cursor_style, is_wide },
+            key: CursorKey {
+                style: cursor_style,
+                is_wide,
+            },
             point,
             rendered: false,
         }
