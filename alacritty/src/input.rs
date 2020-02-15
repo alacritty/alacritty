@@ -179,7 +179,7 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ClearSelection => ctx.clear_selection(),
-            Action::KeyboardMotionClick => {
+            Action::KeyboardMotionLaunchUrl => {
                 // Only allow this action while using keyboard motion
                 if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
                     return;

@@ -206,8 +206,8 @@ pub enum Action {
     /// Clear active selection.
     ClearSelection,
 
-    /// Click at current keyboard motion cursor.
-    KeyboardMotionClick,
+    /// Launch the URL below the keyboard motion cursor.
+    KeyboardMotionLaunchUrl,
 
     /// Move keyboard motion cursor up.
     KeyboardMotionUp,
@@ -415,7 +415,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         F,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollPageDown;
         U,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageUp;
         D,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageDown;
-        Return,                        +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionClick;
+        Return,                        +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLaunchUrl;
         K,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionUp;
         J,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionDown;
         H,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLeft;
