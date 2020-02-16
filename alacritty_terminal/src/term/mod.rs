@@ -1140,12 +1140,12 @@ impl<T> Term<T> {
         self.grid.selection = None;
         self.alt_grid.selection = None;
 
-        // Should not allow less than 1 col, causes all sorts of checks to be required.
+        // Should not allow less than 2 cols, causes all sorts of checks to be required.
         if num_cols <= Column(1) {
             num_cols = Column(2);
         }
 
-        // Should not allow less than 1 line, causes all sorts of checks to be required.
+        // Should not allow less than 2 lines, causes all sorts of checks to be required.
         if num_lines <= Line(1) {
             num_lines = Line(2);
         }
@@ -1397,8 +1397,15 @@ impl<T> Term<T> {
             (config.cursor_text_color(), cursor_cursor_color)
         };
 
-        let is_wide =
-            self.grid[&point].flags.contains(Flags::WIDE_CHAR) && point.col + 1 < self.cols();
+        let cell = self.grid[&point];
+        let prev = point.sub(self.cols().0, 1);
+        let prev_cell = self.grid[&prev];
+        let is_wide = cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER);
+        if cell.flags.contains(Flags::WIDE_CHAR_SPACER)
+            && prev_cell.flags.contains(Flags::WIDE_CHAR)
+        {
+            point = prev;
+        }
 
         RenderableCursor {
             text_color,
