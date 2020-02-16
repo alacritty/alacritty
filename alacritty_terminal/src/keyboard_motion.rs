@@ -62,13 +62,17 @@ impl KeyboardCursor {
                 }
             },
             KeyboardMotion::Left => {
-                self.point = expand_wide(term, self.point, true);
-                self.point.col = Column(self.point.col.saturating_sub(1));
-            }
+                let mut buffer_point = term.visible_to_buffer(self.point);
+                buffer_point = expand_wide(term, buffer_point, true);
+                buffer_point.col = Column(buffer_point.col.saturating_sub(1));
+                self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
+            },
             KeyboardMotion::Right => {
-                self.point = expand_wide(term, self.point, false);
-                self.point.col = min(self.point.col + 1, cols - 1);
-            }
+                let mut buffer_point = term.visible_to_buffer(self.point);
+                buffer_point = expand_wide(term, buffer_point, false);
+                buffer_point.col = min(buffer_point.col + 1, cols - 1);
+                self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
+            },
             KeyboardMotion::Start => self.point.col = Column(0),
             KeyboardMotion::End => self.point.col = cols - 1,
             KeyboardMotion::High => self.point = Point::new(Line(0), Column(0)),
@@ -101,7 +105,7 @@ impl KeyboardCursor {
                     // Scroll viewport if necessary
                     scroll(term, p);
 
-                    self.point = term.buffer_to_visible(p).unwrap_or_else(Point::default).into();
+                    self.point = term.buffer_to_visible(p).unwrap_or_default().into();
                 }
             },
         }
@@ -131,10 +135,10 @@ impl KeyboardCursor {
             }
         };
 
-        // Make sure we jump above wide chars
-        let point = expand_wide(term, point, left);
-
         let mut buffer_point = term.visible_to_buffer(point);
+
+        // Make sure we jump above wide chars
+        buffer_point = expand_wide(term, buffer_point, left);
 
         // Move to word boundary
         if !is_boundary(term, buffer_point, left) && left != start {
@@ -161,7 +165,7 @@ impl KeyboardCursor {
         // Scroll viewport if necessary
         scroll(term, buffer_point);
 
-        term.buffer_to_visible(buffer_point).unwrap_or_else(Point::default).into()
+        term.buffer_to_visible(buffer_point).unwrap_or_default().into()
     }
 
     /// Move by whitespace separated word, like W/B/E/gE in vi.
@@ -171,10 +175,10 @@ impl KeyboardCursor {
         left: bool,
         start: bool,
     ) -> Point {
-        // Make sure we jump above wide chars
-        let point = expand_wide(term, point, left);
-
         let mut buffer_point = term.visible_to_buffer(point);
+
+        // Make sure we jump above wide chars
+        buffer_point = expand_wide(term, buffer_point, left);
 
         // Skip whitespace until right before a word
         if left == start {
@@ -209,7 +213,7 @@ impl KeyboardCursor {
         // Scroll viewport if necessary
         scroll(term, buffer_point);
 
-        term.buffer_to_visible(buffer_point).unwrap_or_else(Point::default).into()
+        term.buffer_to_visible(buffer_point).unwrap_or_default().into()
     }
 }
 
@@ -229,7 +233,11 @@ fn scroll<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
 }
 
 /// Jump to the end of a wide cell.
-fn expand_wide<T>(term: &Term<T>, mut point: Point, left: bool) -> Point {
+fn expand_wide<T, P>(term: &Term<T>, point: P, left: bool) -> Point<usize>
+where
+    P: Into<Point<usize>>,
+{
+    let mut point = point.into();
     let cell = term.grid()[point.line][point.col];
 
     if cell.flags.contains(Flags::WIDE_CHAR) && !left {

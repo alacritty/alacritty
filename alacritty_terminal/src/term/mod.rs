@@ -1405,15 +1405,17 @@ impl<T> Term<T> {
             (config.cursor_text_color(), cursor_cursor_color)
         };
 
-        let cell = self.grid[&point];
-        let prev = point.sub(self.cols().0, 1);
-        let prev_cell = self.grid[&prev];
-        let is_wide = cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER);
-        if cell.flags.contains(Flags::WIDE_CHAR_SPACER)
-            && prev_cell.flags.contains(Flags::WIDE_CHAR)
+        // Expand across wide cell when inside wide char or spacer
+        let buffer_point = self.visible_to_buffer(point);
+        let cell = self.grid[buffer_point.line][buffer_point.col];
+        let is_wide = if cell.flags.contains(Flags::WIDE_CHAR_SPACER)
+            && self.grid[buffer_point.line][buffer_point.col - 1].flags.contains(Flags::WIDE_CHAR)
         {
-            point = prev;
-        }
+            point.col -= 1;
+            true
+        } else {
+            cell.flags.contains(Flags::WIDE_CHAR)
+        };
 
         RenderableCursor {
             text_color,
