@@ -107,6 +107,27 @@ impl<T, U: EventListener> Execute<U> for Binding<T> {
     }
 }
 
+impl Action {
+    fn toggle_selection<T, A>(ctx: &mut A, ty: SelectionType)
+    where
+        T: EventListener,
+        A: ActionContext<T>,
+    {
+        // Only allow this action while using keyboard motion
+        if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+            return;
+        }
+
+        let cursor_point = ctx.terminal().keyboard_cursor.point;
+        ctx.toggle_selection(ty, cursor_point, None);
+
+        // Make sure initial selection is not empty
+        if let Some(selection) = ctx.terminal_mut().selection_mut() {
+            selection.include_all();
+        }
+    }
+}
+
 impl<T: EventListener> Execute<T> for Action {
     #[inline]
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
@@ -141,43 +162,10 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
-            Action::ToggleNormalSelection => {
-                // Only allow this action while using keyboard motion
-                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                    return;
-                }
-
-                let cursor_point = ctx.terminal().keyboard_cursor.point;
-                ctx.toggle_selection(SelectionType::Simple, cursor_point, None);
-
-                // Make sure initial selection is not empty
-                if let Some(selection) = ctx.terminal_mut().selection_mut() {
-                    selection.include_all();
-                }
-            },
-            Action::ToggleLineSelection => {
-                // Only allow this action while using keyboard motion
-                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                    return;
-                }
-
-                let cursor_point = ctx.terminal().keyboard_cursor.point;
-                ctx.toggle_selection(SelectionType::Lines, cursor_point, None);
-            },
-            Action::ToggleBlockSelection => {
-                // Only allow this action while using keyboard motion
-                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                    return;
-                }
-
-                let cursor_point = ctx.terminal().keyboard_cursor.point;
-                ctx.toggle_selection(SelectionType::Block, cursor_point, None);
-
-                // Make sure initial selection is not empty
-                if let Some(selection) = ctx.terminal_mut().selection_mut() {
-                    selection.include_all();
-                }
-            },
+            Action::ToggleNormalSelection => Self::toggle_selection(ctx, SelectionType::Simple),
+            Action::ToggleLineSelection => Self::toggle_selection(ctx, SelectionType::Lines),
+            Action::ToggleBlockSelection => Self::toggle_selection(ctx, SelectionType::Block),
+            Action::ToggleSemanticSelection => Self::toggle_selection(ctx, SelectionType::Semantic),
             Action::ClearSelection => ctx.clear_selection(),
             Action::KeyboardMotionLaunchUrl => {
                 // Only allow this action while using keyboard motion
