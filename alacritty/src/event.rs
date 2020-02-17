@@ -30,7 +30,7 @@ use alacritty_terminal::message_bar::{Message, MessageBuffer};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::{SizeInfo, Term};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
@@ -85,7 +85,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn scroll(&mut self, scroll: Scroll) {
         self.terminal.scroll_display(scroll);
 
-        if let ElementState::Pressed = self.mouse().left_button_state {
+        // Update selection
+        if self.terminal.mode().contains(TermMode::KEYBOARD_MOTION) {
+            self.update_selection(self.terminal.keyboard_cursor.point, Side::Right);
+
+            if let Some(selection) = self.terminal.selection_mut() {
+                selection.include_all();
+            }
+        } else if ElementState::Pressed == self.mouse().left_button_state {
             let (x, y) = (self.mouse().x, self.mouse().y);
             let size_info = self.size_info();
             let point = size_info.pixels_to_coords(x, y);
