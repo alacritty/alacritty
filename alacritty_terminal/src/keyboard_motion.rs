@@ -1,5 +1,7 @@
 use std::cmp::min;
 
+use serde::Deserialize;
+
 use crate::event::EventListener;
 use crate::grid::{GridCell, Scroll};
 use crate::index::{Column, Line, Point};
@@ -7,24 +9,43 @@ use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
 /// Possible keyboard motion movements.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
 pub enum KeyboardMotion {
+    /// Move up.
     Up,
+    /// Move down.
     Down,
+    /// Move left.
     Left,
+    /// Move right.
     Right,
+    /// Move to start of line.
     Start,
+    /// Move to end of line.
     End,
+    /// Move to top of screen.
     High,
+    /// Move to center of screen.
     Middle,
+    /// Move to bottom of screen.
     Low,
+    /// Move to start of semantically separated word.
     SemanticLeft,
+    /// Move to start of next semantically separated word.
     SemanticRight,
+    /// Move to end of previous semantically separated word.
     SemanticLeftEnd,
+    /// Move to end of semantically separated word.
     SemanticRightEnd,
+    /// Move to start of whitespace separated word.
     WordLeft,
+    /// Move to start of next whitespace separated word.
     WordRight,
+    /// Move to end of previous whitespace separated word.
     WordLeftEnd,
+    /// Move to end of whitespace separated word.
     WordRightEnd,
+    /// Move to opposing bracket.
     Bracket,
 }
 

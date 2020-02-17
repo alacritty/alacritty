@@ -24,6 +24,7 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
+use alacritty_terminal::keyboard_motion::KeyboardMotion;
 use alacritty_terminal::term::TermMode;
 
 /// Describes a state and action to take in that state
@@ -117,6 +118,14 @@ pub enum Action {
     #[serde(skip)]
     Esc(String),
 
+    /// Move keyboard motion cursor.
+    #[serde(skip)]
+    KeyboardMotion(KeyboardMotion),
+
+    /// Keyboard motion mode specific action.
+    #[serde(skip)]
+    KeyboardMotionAction(KeyboardMotionAction),
+
     /// Paste contents of system clipboard.
     Paste,
 
@@ -188,86 +197,84 @@ pub enum Action {
     #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
 
-    /// Allow receiving char input.
-    ReceiveChar,
+    /// Clear active selection.
+    ClearSelection,
 
     /// Toggle keyboard motion mode.
     ToggleKeyboardMode,
 
-    /// Toggle normal keyboard selection.
-    ToggleNormalSelection,
-
-    /// Toggle line keyboard selection.
-    ToggleLineSelection,
-
-    /// Toggle block keyboard selection.
-    ToggleBlockSelection,
-
-    /// Toggle semantic keyboard selection.
-    ToggleSemanticSelection,
-
-    /// Clear active selection.
-    ClearSelection,
-
-    /// Launch the URL below the keyboard motion cursor.
-    KeyboardMotionLaunchUrl,
-
-    /// Move keyboard motion cursor up.
-    KeyboardMotionUp,
-
-    /// Move keyboard motion cursor down.
-    KeyboardMotionDown,
-
-    /// Move keyboard motion cursor left.
-    KeyboardMotionLeft,
-
-    /// Move keyboard motion cursor right.
-    KeyboardMotionRight,
-
-    /// Move keyboard motion cursor to start of line.
-    KeyboardMotionStart,
-
-    /// Move keyboard motion cursor to end of line.
-    KeyboardMotionEnd,
-
-    /// Move keyboard motion cursor to top of screen.
-    KeyboardMotionHigh,
-
-    /// Move keyboard motion cursor to center of screen.
-    KeyboardMotionMiddle,
-
-    /// Move keyboard motion cursor to bottom of screen.
-    KeyboardMotionLow,
-
-    /// Move keyboard motion cursor to start of semantically separated word.
-    KeyboardMotionSemanticLeft,
-
-    /// Move keyboard motion cursor to start of next semantically separated word.
-    KeyboardMotionSemanticRight,
-
-    /// Move keyboard motion cursor to end of previous semantically separated word.
-    KeyboardMotionSemanticLeftEnd,
-
-    /// Move keyboard motion cursor to end of semantically separated word.
-    KeyboardMotionSemanticRightEnd,
-
-    /// Move keyboard motion cursor to start of whitespace separated word.
-    KeyboardMotionWordRight,
-
-    /// Move keyboard motion cursor to start of next whitespace separated word.
-    KeyboardMotionWordLeft,
-
-    /// Move keyboard motion cursor to end of previous whitespace separated word.
-    KeyboardMotionWordRightEnd,
-
-    /// Move keyboard motion cursor to end of whitespace separated word.
-    KeyboardMotionWordLeftEnd,
-
-    /// Move keyboard motion cursor to opposing bracket.
-    KeyboardMotionBracket,
+    /// Allow receiving char input.
+    ReceiveChar,
 
     /// No action.
     None,
+}
+
+/// Helper for deserializing keyboard motion bindings.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum KeyboardMotionWrapper {
+    Motion(KeyboardMotion),
+    Action(KeyboardMotionAction),
+}
+
+impl<'a> Deserialize<'a> for KeyboardMotionWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let value = serde_yaml::Value::deserialize(deserializer)?;
+
+        if let Ok(action) = KeyboardMotionAction::deserialize(value.clone()) {
+            return Ok(Self::Action(action));
+        }
+
+        match KeyboardMotion::deserialize(value) {
+            Ok(motion) => Ok(Self::Motion(motion)),
+            Err(error) => {
+                // Manually append all `KeyboardMotionAction` options
+                let error_message = error.to_string()
+                    + ", `ToggleNormalSelection`, `ToggleLineSelection`, `ToggleBlockSelection`, \
+                       `ToggleSemanticSelection`, `LaunchUrl`";
+                Err(D::Error::custom(error_message))
+            },
+        }
+    }
+}
+
+impl From<KeyboardMotionWrapper> for Action {
+    fn from(wrapper: KeyboardMotionWrapper) -> Self {
+        match wrapper {
+            KeyboardMotionWrapper::Action(action) => action.into(),
+            KeyboardMotionWrapper::Motion(motion) => motion.into(),
+        }
+    }
+}
+
+/// Keyboard motion mode specific actions.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum KeyboardMotionAction {
+    /// Toggle normal keyboard selection.
+    ToggleNormalSelection,
+    /// Toggle line keyboard selection.
+    ToggleLineSelection,
+    /// Toggle block keyboard selection.
+    ToggleBlockSelection,
+    /// Toggle semantic keyboard selection.
+    ToggleSemanticSelection,
+    /// Launch the URL below the keyboard motion cursor.
+    LaunchUrl,
+}
+
+impl From<KeyboardMotionAction> for Action {
+    fn from(action: KeyboardMotionAction) -> Self {
+        Self::KeyboardMotionAction(action)
+    }
+}
+
+impl From<KeyboardMotion> for Action {
+    fn from(motion: KeyboardMotion) -> Self {
+        Self::KeyboardMotion(motion)
+    }
 }
 
 impl Default for Action {
@@ -331,7 +338,7 @@ macro_rules! bindings {
                 mods: _mods,
                 mode: _mode,
                 notmode: _notmode,
-                action: $action,
+                action: $action.into(),
             });
         )*
 
@@ -407,10 +414,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Escape,                        +TermMode::KEYBOARD_MOTION; Action::ToggleKeyboardMode;
         I,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
         I,                             +TermMode::KEYBOARD_MOTION; Action::ToggleKeyboardMode;
-        V,                             +TermMode::KEYBOARD_MOTION; Action::ToggleNormalSelection;
-        V,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::ToggleLineSelection;
-        V,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ToggleBlockSelection;
-        V,      ModifiersState::ALT,   +TermMode::KEYBOARD_MOTION; Action::ToggleSemanticSelection;
         Y,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollLineUp;
         E,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollLineDown;
         G,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToTop;
@@ -419,28 +422,32 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         F,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollPageDown;
         U,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageUp;
         D,      ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollHalfPageDown;
-        Return,                        +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLaunchUrl;
-        K,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionUp;
-        J,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionDown;
-        H,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLeft;
-        L,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionRight;
-        Up,                            +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionUp;
-        Down,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionDown;
-        Left,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLeft;
-        Right,                         +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionRight;
-        Key0,                          +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionStart;
-        Key4,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionEnd;
-        H,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionHigh;
-        M,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionMiddle;
-        L,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionLow;
-        B,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticLeft;
-        W,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticRight;
-        E,                             +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionSemanticRightEnd;
-        B,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordLeft;
-        W,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordRight;
-        E,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionWordRightEnd;
-        Key5,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; Action::KeyboardMotionBracket;
         Y,                             +TermMode::KEYBOARD_MOTION; Action::Copy;
+        V,                        +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleNormalSelection;
+        V, ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleLineSelection;
+        V, ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleBlockSelection;
+        V, ModifiersState::ALT,   +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleSemanticSelection;
+        Return,                   +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::LaunchUrl;
+        K,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Up;
+        J,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Down;
+        H,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Left;
+        L,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Right;
+        Up,                            +TermMode::KEYBOARD_MOTION; KeyboardMotion::Up;
+        Down,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Down;
+        Left,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Left;
+        Right,                         +TermMode::KEYBOARD_MOTION; KeyboardMotion::Right;
+        Key0,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Start;
+        Key4,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::End;
+        H,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::High;
+        M,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Middle;
+        L,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Low;
+        B,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::SemanticLeft;
+        W,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::SemanticRight;
+        E,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::SemanticRightEnd;
+        B,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::WordLeft;
+        W,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::WordRight;
+        E,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::WordRightEnd;
+        Key5,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Bracket;
     );
 
     //   Code     Modifiers
@@ -736,6 +743,9 @@ impl<'a> Deserialize<'a> for RawBinding {
     where
         D: Deserializer<'a>,
     {
+        const FIELDS: &[&str] =
+            &["key", "mods", "mode", "action", "chars", "mouse", "command", "keyboard_motion"];
+
         enum Field {
             Key,
             Mods,
@@ -744,6 +754,7 @@ impl<'a> Deserialize<'a> for RawBinding {
             Chars,
             Mouse,
             Command,
+            KeyboardMotion,
         }
 
         impl<'a> Deserialize<'a> for Field {
@@ -752,9 +763,6 @@ impl<'a> Deserialize<'a> for RawBinding {
                 D: Deserializer<'a>,
             {
                 struct FieldVisitor;
-
-                static FIELDS: &[&str] =
-                    &["key", "mods", "mode", "action", "chars", "mouse", "command"];
 
                 impl<'a> Visitor<'a> for FieldVisitor {
                     type Value = Field;
@@ -775,6 +783,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
                             "command" => Ok(Field::Command),
+                            "keyboard_motion" => Ok(Field::KeyboardMotion),
                             _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
@@ -804,6 +813,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
                 let mut command: Option<CommandWrapper> = None;
+                let mut keyboard_motion: Option<Action> = None;
 
                 use ::serde::de::Error;
 
@@ -873,29 +883,47 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             command = Some(map.next_value::<CommandWrapper>()?);
                         },
+                        Field::KeyboardMotion => {
+                            if keyboard_motion.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field(
+                                    "keyboard_motion",
+                                ));
+                            }
+
+                            let action = map.next_value::<KeyboardMotionWrapper>()?.into();
+                            keyboard_motion = Some(action);
+                        },
                     }
                 }
 
-                let action = match (action, chars, command) {
-                    (Some(action), None, None) => action,
-                    (None, Some(chars), None) => Action::Esc(chars),
-                    (None, None, Some(cmd)) => match cmd {
+                let mut mode = mode.unwrap_or_else(TermMode::empty);
+                let not_mode = not_mode.unwrap_or_else(TermMode::empty);
+                let mods = mods.unwrap_or_else(ModifiersState::default);
+
+                let action = match (action, chars, command, keyboard_motion) {
+                    (Some(action), None, None, None) => action,
+                    (None, Some(chars), None, None) => Action::Esc(chars),
+                    (None, None, Some(cmd), None) => match cmd {
                         CommandWrapper::Just(program) => Action::Command(program, vec![]),
                         CommandWrapper::WithArgs { program, args } => {
                             Action::Command(program, args)
                         },
                     },
-                    (None, None, None) => {
-                        return Err(V::Error::custom("must specify chars, action or command"));
+                    (None, None, None, Some(motion_action)) => {
+                        mode.insert(TermMode::KEYBOARD_MOTION);
+                        motion_action
+                    },
+                    (None, None, None, None) => {
+                        return Err(V::Error::custom(
+                            "must specify chars, action, command or keyboard_motion",
+                        ));
                     },
                     _ => {
-                        return Err(V::Error::custom("must specify only chars, action or command"))
+                        return Err(V::Error::custom(
+                            "must specify only chars, action, command or keyboard_motion",
+                        ))
                     },
                 };
-
-                let mode = mode.unwrap_or_else(TermMode::empty);
-                let not_mode = not_mode.unwrap_or_else(TermMode::empty);
-                let mods = mods.unwrap_or_else(ModifiersState::default);
 
                 if mouse.is_none() && key.is_none() {
                     return Err(V::Error::custom("bindings require mouse button or key"));
@@ -904,8 +932,6 @@ impl<'a> Deserialize<'a> for RawBinding {
                 Ok(RawBinding { mode, notmode: not_mode, action, key, mouse, mods })
             }
         }
-
-        const FIELDS: &[&str] = &["key", "mods", "mode", "action", "chars", "mouse", "command"];
 
         deserializer.deserialize_struct("RawBinding", FIELDS, RawBindingVisitor)
     }
