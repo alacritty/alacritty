@@ -40,6 +40,12 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 Some operating systems already provide binaries for Alacritty, for everyone
 else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
+### Alpine Linux
+
+```sh
+apk add alacritty
+```
+
 ### Arch Linux
 
 ```sh
@@ -63,11 +69,6 @@ If you want to help test pre-releases, you can additionally enable
 
 ```sh
 emerge x11-terms/alacritty
-```
-### Alpine Linux
-
-```sh
-apk add alacritty
 ```
 
 ### Mageia
