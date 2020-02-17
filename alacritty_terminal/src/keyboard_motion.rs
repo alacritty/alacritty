@@ -103,7 +103,7 @@ impl KeyboardCursor {
             KeyboardMotion::Bracket => {
                 if let Some(p) = term.bracket_search(term.visible_to_buffer(self.point)) {
                     // Scroll viewport if necessary
-                    scroll(term, p);
+                    scroll_to_point(term, p);
 
                     self.point = term.buffer_to_visible(p).unwrap_or_default().into();
                 }
@@ -113,7 +113,7 @@ impl KeyboardCursor {
         self
     }
 
-    /// Move by semanticuation separated word, like w/b/e/ge in vi.
+    /// Move by semantically separated word, like w/b/e/ge in vi.
     fn semantic_move<T: EventListener>(
         term: &mut Term<T>,
         point: Point,
@@ -121,8 +121,8 @@ impl KeyboardCursor {
         start: bool,
     ) -> Point {
         // Expand semantically based on movement direction
-        let semantic = |point: Point<usize>| {
-            // Do not expand when currently on an escape char
+        let expand_semantic = |point: Point<usize>| {
+            // Do not expand when currently on a semantic escape char
             let cell = term.grid()[point.line][point.col];
             if term.semantic_escape_chars().contains(cell.c)
                 && !cell.flags.contains(Flags::WIDE_CHAR_SPACER)
@@ -141,8 +141,8 @@ impl KeyboardCursor {
         buffer_point = expand_wide(term, buffer_point, left);
 
         // Move to word boundary
-        if !is_boundary(term, buffer_point, left) && left != start {
-            buffer_point = semantic(buffer_point);
+        if left != start && !is_boundary(term, buffer_point, left) {
+            buffer_point = expand_semantic(buffer_point);
         }
 
         // Skip whitespace
@@ -158,12 +158,12 @@ impl KeyboardCursor {
         }
 
         // Move to word boundary
-        if !is_boundary(term, buffer_point, left) && left == start {
-            buffer_point = semantic(buffer_point);
+        if left == start && !is_boundary(term, buffer_point, left) {
+            buffer_point = expand_semantic(buffer_point);
         }
 
         // Scroll viewport if necessary
-        scroll(term, buffer_point);
+        scroll_to_point(term, buffer_point);
 
         term.buffer_to_visible(buffer_point).unwrap_or_default().into()
     }
@@ -180,45 +180,43 @@ impl KeyboardCursor {
         // Make sure we jump above wide chars
         buffer_point = expand_wide(term, buffer_point, left);
 
-        // Skip whitespace until right before a word
         if left == start {
+            // Skip whitespace until right before a word
             let mut point = advance(term, buffer_point, left);
             while !is_boundary(term, buffer_point, left) && is_space(term, point) {
                 buffer_point = point;
                 point = advance(term, point, left);
             }
-        }
 
-        if left == start {
             // Skip non-whitespace until right inside word boundary
             let mut point = advance(term, buffer_point, left);
             while !is_boundary(term, buffer_point, left) && !is_space(term, point) {
                 buffer_point = point;
                 point = advance(term, buffer_point, left);
             }
-        } else {
+        }
+
+        if left != start {
             // Skip non-whitespace until just beyond word
             while !is_boundary(term, buffer_point, left) && !is_space(term, buffer_point) {
                 buffer_point = advance(term, buffer_point, left);
             }
-        };
 
-        // Skip whitespace until right inside word boundary
-        if left != start {
+            // Skip whitespace until right inside word boundary
             while !is_boundary(term, buffer_point, left) && is_space(term, buffer_point) {
                 buffer_point = advance(term, buffer_point, left);
             }
         }
 
         // Scroll viewport if necessary
-        scroll(term, buffer_point);
+        scroll_to_point(term, buffer_point);
 
         term.buffer_to_visible(buffer_point).unwrap_or_default().into()
     }
 }
 
 /// Scroll display if point is outside of viewport.
-fn scroll<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
+fn scroll_to_point<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
     let display_offset = term.grid().display_offset();
     let lines = term.grid().num_lines();
 
