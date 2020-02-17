@@ -510,6 +510,57 @@
 # If the same trigger is assigned to multiple actions, all of them are executed
 # at once.
 #key_bindings:
+  #- { key: Paste,                    action: Paste                            }
+  #- { key: Copy,                     action: Copy                             }
+  #- { key: L,         mods: Control, action: ClearLogNotice                   }
+  #- { key: L,         mods: Control, chars: "\x0c"                            }
+  #- { key: PageUp,    mods: Shift,   action: ScrollPageUp,   mode: ~Alt       }
+  #- { key: PageDown,  mods: Shift,   action: ScrollPageDown, mode: ~Alt       }
+  #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt       }
+  #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
+
+  # Keyboard Motion
+  #- { key: Escape, Control, mode: KeyboardMotion, ScrollToBottom                 }
+  #- { key: Escape, Control                        ToggleKeyboardMode             }
+  #- { key: Escape           mode: KeyboardMotion, ScrollToBottom                 }
+  #- { key: Escape           mode: KeyboardMotion, ToggleKeyboardMode             }
+  #- { key: I                mode: KeyboardMotion, ScrollToBottom                 }
+  #- { key: I                mode: KeyboardMotion, ToggleKeyboardMode             }
+  #- { key: V                mode: KeyboardMotion, ToggleNormalSelection          }
+  #- { key: V,      Shift,   mode: KeyboardMotion, ToggleLineSelection            }
+  #- { key: V,      Control, mode: KeyboardMotion, ToggleBlockSelection           }
+  #- { key: V,      Alt,     mode: KeyboardMotion, ToggleSemanticSelection        }
+  #- { key: Y,      Control, mode: KeyboardMotion, ScrollLineUp                   }
+  #- { key: E,      Control, mode: KeyboardMotion, ScrollLineDown                 }
+  #- { key: G                mode: KeyboardMotion, ScrollToTop                    }
+  #- { key: G,      Shift,   mode: KeyboardMotion, ScrollToBottom                 }
+  #- { key: B,      Control, mode: KeyboardMotion, ScrollPageUp                   }
+  #- { key: F,      Control, mode: KeyboardMotion, ScrollPageDown                 }
+  #- { key: U,      Control, mode: KeyboardMotion, ScrollHalfPageUp               }
+  #- { key: D,      Control, mode: KeyboardMotion, ScrollHalfPageDown             }
+  #- { key: Return           mode: KeyboardMotion, KeyboardMotionLaunchUrl        }
+  #- { key: K                mode: KeyboardMotion, KeyboardMotionUp               }
+  #- { key: J                mode: KeyboardMotion, KeyboardMotionDown             }
+  #- { key: H                mode: KeyboardMotion, KeyboardMotionLeft             }
+  #- { key: L                mode: KeyboardMotion, KeyboardMotionRight            }
+  #- { key: Up               mode: KeyboardMotion, KeyboardMotionUp               }
+  #- { key: Down             mode: KeyboardMotion, KeyboardMotionDown             }
+  #- { key: Left             mode: KeyboardMotion, KeyboardMotionLeft             }
+  #- { key: Right            mode: KeyboardMotion, KeyboardMotionRight            }
+  #- { key: Key0             mode: KeyboardMotion, KeyboardMotionStart            }
+  #- { key: Key4,   Shift,   mode: KeyboardMotion, KeyboardMotionEnd              }
+  #- { key: H,      Shift,   mode: KeyboardMotion, KeyboardMotionHigh             }
+  #- { key: M,      Shift,   mode: KeyboardMotion, KeyboardMotionMiddle           }
+  #- { key: L,      Shift,   mode: KeyboardMotion, KeyboardMotionLow              }
+  #- { key: B                mode: KeyboardMotion, KeyboardMotionSemanticLeft     }
+  #- { key: W                mode: KeyboardMotion, KeyboardMotionSemanticRight    }
+  #- { key: E                mode: KeyboardMotion, KeyboardMotionSemanticRightEnd }
+  #- { key: B,      Shift,   mode: KeyboardMotion, KeyboardMotionWordLeft         }
+  #- { key: W,      Shift,   mode: KeyboardMotion, KeyboardMotionWordRight        }
+  #- { key: E,      Shift,   mode: KeyboardMotion, KeyboardMotionWordRightEnd     }
+  #- { key: Key5,   Shift,   mode: KeyboardMotion, KeyboardMotionBracket          }
+  #- { key: Y                mode: KeyboardMotion, Copy                           }
+
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }
@@ -538,6 +589,7 @@
   #- { key: W,      mods: Command,         action: Quit             }
   #- { key: N,      mods: Command,         action: SpawnNewInstance }
   #- { key: F,      mods: Command|Control, action: ToggleFullscreen }
+<<<<<<< HEAD
 
   #- { key: Paste,                    action: Paste                            }
   #- { key: Copy,                     action: Copy                             }
