@@ -33,7 +33,7 @@ use crate::grid::{
 };
 use crate::index::{self, Column, IndexRange, Line, Point, Side};
 use crate::keyboard_motion::{KeyboardCursor, KeyboardMotion};
-use crate::selection::{Anchor, Selection, SelectionRange};
+use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
@@ -1318,7 +1318,7 @@ impl<T> Term<T> {
         if let Some(selection) = &mut self.grid.selection {
             // Do not extend empty selections started by single mouse click
             if !selection.is_empty() {
-                *selection.end() = Anchor::new(viewport_point, Side::Right);
+                selection.update(viewport_point, Side::Right);
                 selection.include_all();
             }
         }
@@ -2317,7 +2317,7 @@ mod tests {
     use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
-    use crate::selection::{Anchor, Selection, SelectionType};
+    use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
     use crate::term::{SizeInfo, Term};
 
@@ -2436,7 +2436,7 @@ mod tests {
 
         let mut selection =
             Selection::new(SelectionType::Simple, Point { line: 2, col: Column(0) }, Side::Left);
-        *selection.end() = Anchor::new(Point { line: 0, col: Column(2) }, Side::Right);
+        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
         *term.selection_mut() = Some(selection);
         assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
