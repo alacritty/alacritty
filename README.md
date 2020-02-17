@@ -64,6 +64,11 @@ If you want to help test pre-releases, you can additionally enable
 ```sh
 emerge x11-terms/alacritty
 ```
+### Alpine Linux
+
+```sh
+apk add alacritty
+```
 
 ### Mageia
 
