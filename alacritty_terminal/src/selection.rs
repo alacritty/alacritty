@@ -27,7 +27,7 @@ use crate::term::{Search, Term};
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Anchor {
+struct Anchor {
     pub point: Point<usize>,
     pub side: Side,
 }
@@ -94,8 +94,8 @@ pub enum SelectionType {
 /// [`update`]: enum.Selection.html#method.update
 #[derive(Debug, Clone, PartialEq)]
 pub struct Selection {
-    region: Range<Anchor>,
     pub ty: SelectionType,
+    region: Range<Anchor>,
 }
 
 impl Selection {
@@ -106,12 +106,8 @@ impl Selection {
         }
     }
 
-    pub fn start(&mut self) -> &mut Anchor {
-        &mut self.region.start
-    }
-
-    pub fn end(&mut self) -> &mut Anchor {
-        &mut self.region.end
+    pub fn update(&mut self, point: Point<usize>, side: Side) {
+        self.region.end = Anchor::new(point, side);
     }
 
     pub fn rotate(
@@ -421,7 +417,7 @@ mod tests {
     fn single_cell_left_to_right() {
         let location = Point { line: 0, col: Column(0) };
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Left);
-        *selection.end() = Anchor::new(location, Side::Right);
+        selection.update(location, Side::Right);
 
         assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
             start: location,
@@ -439,7 +435,7 @@ mod tests {
     fn single_cell_right_to_left() {
         let location = Point { line: 0, col: Column(0) };
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Right);
-        *selection.end() = Anchor::new(location, Side::Left);
+        selection.update(location, Side::Left);
 
         assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
             start: location,
@@ -457,7 +453,7 @@ mod tests {
     fn between_adjacent_cells_left_to_right() {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(0, Column(0)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(0, Column(1)), Side::Left);
+        selection.update(Point::new(0, Column(1)), Side::Left);
 
         assert_eq!(selection.to_range(&term(2, 1)), None);
     }
@@ -471,7 +467,7 @@ mod tests {
     fn between_adjacent_cells_right_to_left() {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(0, Column(1)), Side::Left);
-        *selection.end() = Anchor::new(Point::new(0, Column(0)), Side::Right);
+        selection.update(Point::new(0, Column(0)), Side::Right);
 
         assert_eq!(selection.to_range(&term(2, 1)), None);
     }
@@ -488,7 +484,7 @@ mod tests {
     fn across_adjacent_lines_upward_final_cell_exclusive() {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(1, Column(1)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(0, Column(1)), Side::Right);
+        selection.update(Point::new(0, Column(1)), Side::Right);
 
         assert_eq!(selection.to_range(&term(5, 2)).unwrap(), SelectionRange {
             start: Point::new(1, Column(2)),
@@ -511,8 +507,8 @@ mod tests {
     fn selection_bigger_then_smaller() {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(0, Column(1)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(1, Column(1)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(1, Column(0)), Side::Right);
+        selection.update(Point::new(1, Column(1)), Side::Right);
+        selection.update(Point::new(1, Column(0)), Side::Right);
 
         assert_eq!(selection.to_range(&term(5, 2)).unwrap(), SelectionRange {
             start: Point::new(1, Column(1)),
@@ -527,7 +523,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Lines, Point::new(0, Column(1)), Side::Left);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection = selection.rotate(num_lines, num_cols, &(Line(0)..Line(num_lines)), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(num_cols, num_lines)).unwrap(), SelectionRange {
@@ -543,7 +539,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Semantic, Point::new(0, Column(3)), Side::Left);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection = selection.rotate(num_lines, num_cols, &(Line(0)..Line(num_lines)), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(num_cols, num_lines)).unwrap(), SelectionRange {
@@ -559,7 +555,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(0, Column(3)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection = selection.rotate(num_lines, num_cols, &(Line(0)..Line(num_lines)), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(num_cols, num_lines)).unwrap(), SelectionRange {
@@ -575,7 +571,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Block, Point::new(0, Column(3)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection = selection.rotate(num_lines, num_cols, &(Line(0)..Line(num_lines)), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(num_cols, num_lines)).unwrap(), SelectionRange {
@@ -590,9 +586,9 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(0, Column(0)), Side::Right);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(0, Column(1)), Side::Left);
+        selection.update(Point::new(0, Column(1)), Side::Left);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(1, Column(0)), Side::Right);
+        selection.update(Point::new(1, Column(0)), Side::Right);
         assert!(!selection.is_empty());
     }
 
@@ -601,15 +597,15 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Block, Point::new(0, Column(0)), Side::Right);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(0, Column(1)), Side::Left);
+        selection.update(Point::new(0, Column(1)), Side::Left);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(0, Column(1)), Side::Right);
+        selection.update(Point::new(0, Column(1)), Side::Right);
         assert!(!selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(1, Column(0)), Side::Right);
+        selection.update(Point::new(1, Column(0)), Side::Right);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(1, Column(1)), Side::Left);
+        selection.update(Point::new(1, Column(1)), Side::Left);
         assert!(selection.is_empty());
-        *selection.end() = Anchor::new(Point::new(1, Column(1)), Side::Right);
+        selection.update(Point::new(1, Column(1)), Side::Right);
         assert!(!selection.is_empty());
     }
 
@@ -619,7 +615,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(2, Column(3)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection =
             selection.rotate(num_lines, num_cols, &(Line(1)..Line(num_lines - 1)), 4).unwrap();
 
@@ -636,7 +632,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(5, Column(3)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(8, Column(1)), Side::Left);
+        selection.update(Point::new(8, Column(1)), Side::Left);
         selection =
             selection.rotate(num_lines, num_cols, &(Line(1)..Line(num_lines - 1)), -5).unwrap();
 
@@ -653,7 +649,7 @@ mod tests {
         let num_cols = 5;
         let mut selection =
             Selection::new(SelectionType::Block, Point::new(2, Column(3)), Side::Right);
-        *selection.end() = Anchor::new(Point::new(5, Column(1)), Side::Right);
+        selection.update(Point::new(5, Column(1)), Side::Right);
         selection =
             selection.rotate(num_lines, num_cols, &(Line(1)..Line(num_lines - 1)), 4).unwrap();
 

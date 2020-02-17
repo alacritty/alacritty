@@ -27,7 +27,7 @@ use alacritty_terminal::event::{Event, EventListener, Notify};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{Message, MessageBuffer};
-use alacritty_terminal::selection::{Anchor, Selection, SelectionType};
+use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
@@ -116,7 +116,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Update selection if one exists
         if let Some(selection) = self.terminal.selection_mut() {
-            *selection.end() = Anchor::new(point, side);
+            selection.update(point, side);
         }
 
         self.terminal.dirty = true;
