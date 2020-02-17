@@ -201,13 +201,13 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollLineUp => ctx.scroll(Scroll::Lines(1)),
             Action::ScrollLineDown => ctx.scroll(Scroll::Lines(-1)),
             Action::ScrollToTop => {
-                ctx.scroll(Scroll::Top);
                 ctx.terminal_mut().keyboard_cursor.point = Point::new(Line(0), Column(0));
+                ctx.scroll(Scroll::Top);
             },
             Action::ScrollToBottom => {
-                ctx.scroll(Scroll::Bottom);
                 let num_lines = ctx.terminal().grid().num_lines();
                 ctx.terminal_mut().keyboard_cursor.point = Point::new(num_lines - 1, Column(0));
+                ctx.scroll(Scroll::Bottom);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
