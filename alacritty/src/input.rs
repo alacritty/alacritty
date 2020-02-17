@@ -39,14 +39,13 @@ use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
-use alacritty_terminal::keyboard_motion::KeyboardMotion;
 use alacritty_terminal::message_bar::{self, Message};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
 
-use crate::config::{Action, Binding, Config, Key};
+use crate::config::{Action, Binding, Config, Key, KeyboardMotionAction};
 use crate::event::{ClickState, Mouse};
 use crate::url::{Url, Urls};
 use crate::window::Window;
@@ -113,11 +112,6 @@ impl Action {
         T: EventListener,
         A: ActionContext<T>,
     {
-        // Only allow this action while using keyboard motion
-        if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-            return;
-        }
-
         let cursor_point = ctx.terminal().keyboard_cursor.point;
         ctx.toggle_selection(ty, cursor_point, None);
 
@@ -161,65 +155,27 @@ impl<T: EventListener> Execute<T> for Action {
                     Err(err) => warn!("Couldn't run command {}", err),
                 }
             },
-            Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
-            Action::ToggleNormalSelection => Self::toggle_selection(ctx, SelectionType::Simple),
-            Action::ToggleLineSelection => Self::toggle_selection(ctx, SelectionType::Lines),
-            Action::ToggleBlockSelection => Self::toggle_selection(ctx, SelectionType::Block),
-            Action::ToggleSemanticSelection => Self::toggle_selection(ctx, SelectionType::Semantic),
             Action::ClearSelection => ctx.clear_selection(),
-            Action::KeyboardMotionLaunchUrl => {
-                // Only allow this action while using keyboard motion
-                if !ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                    return;
-                }
-
+            Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
+            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleNormalSelection) => {
+                Self::toggle_selection(ctx, SelectionType::Simple)
+            },
+            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleLineSelection) => {
+                Self::toggle_selection(ctx, SelectionType::Lines)
+            },
+            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleBlockSelection) => {
+                Self::toggle_selection(ctx, SelectionType::Block)
+            },
+            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleSemanticSelection) => {
+                Self::toggle_selection(ctx, SelectionType::Semantic)
+            },
+            Action::KeyboardMotionAction(KeyboardMotionAction::LaunchUrl) => {
                 ctx.mouse_mut().block_url_launcher = false;
                 if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
                     ctx.launch_url(url);
                 }
             },
-            Action::KeyboardMotionUp => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Up),
-            Action::KeyboardMotionDown => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Down),
-            Action::KeyboardMotionLeft => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Left),
-            Action::KeyboardMotionRight => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Right)
-            },
-            Action::KeyboardMotionStart => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Start)
-            },
-            Action::KeyboardMotionEnd => ctx.terminal_mut().keyboard_motion(KeyboardMotion::End),
-            Action::KeyboardMotionHigh => ctx.terminal_mut().keyboard_motion(KeyboardMotion::High),
-            Action::KeyboardMotionMiddle => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Middle)
-            },
-            Action::KeyboardMotionLow => ctx.terminal_mut().keyboard_motion(KeyboardMotion::Low),
-            Action::KeyboardMotionSemanticLeft => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticLeft)
-            },
-            Action::KeyboardMotionSemanticRight => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticRight)
-            },
-            Action::KeyboardMotionSemanticLeftEnd => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticLeftEnd)
-            },
-            Action::KeyboardMotionSemanticRightEnd => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::SemanticRightEnd)
-            },
-            Action::KeyboardMotionWordLeft => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordLeft)
-            },
-            Action::KeyboardMotionWordRight => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordRight)
-            },
-            Action::KeyboardMotionWordLeftEnd => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordLeftEnd)
-            },
-            Action::KeyboardMotionWordRightEnd => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::WordRightEnd)
-            },
-            Action::KeyboardMotionBracket => {
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::Bracket)
-            },
+            Action::KeyboardMotion(motion) => ctx.terminal_mut().keyboard_motion(motion),
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),

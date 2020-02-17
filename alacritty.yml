@@ -479,28 +479,58 @@
 #
 # - `action`: Execute a predefined action
 #
+#   - ToggleKeyboardMode
+#   - Copy
+#   - Paste
+#   - PasteSelection
+#   - IncreaseFontSize
+#   - DecreaseFontSize
+#   - ResetFontSize
+#   - ScrollPageUp
+#   - ScrollPageDown
+#   - ScrollLineUp
+#   - ScrollLineDown
+#   - ScrollToTop
+#   - ScrollToBottom
 #   - ClearHistory
-#   - ClearLogNotice
+#   - Hide
+#   - Minimize
+#   - Quit
+#   - ToggleFullscreen
 #   - SpawnNewInstance
-#   - None, ReceiveChar
-#   - Hide, Minimize, Quit, ToggleFullscreen
-#   - Copy, Paste, PasteSelection
-#   - IncreaseFontSize, DecreaseFontSize, ResetFontSize
-#   - ScrollPageUp, ScrollPageDown, ScrollHalfPageUp, ScrollHalfPageDown,
-#     ScrollLineUp, ScrollLineDown, ScrollToTop, ScrollToBottom
-#   - ToggleKeyboardMode, ToggleNormalSelection, ToggleLineSelection,
-#     ToggleBlockSelection, ToggleSemanticSelection, ClearSelection,
-#     KeyboardMotionLaunchUrl, KeyboardMotionUp, KeyboardMotionDown,
-#     KeyboardMotionLeft, KeyboardMotionRight, KeyboardMotionStart,
-#     KeyboardMotionEnd, KeyboardMotionHigh, KeyboardMotionMiddle,
-#     KeyboardMotionLow, KeyboardMotionSemanticLeft,
-#     KeyboardMotionSemanticRight, KeyboardMotionSemanticLeftEnd,
-#     KeyboardMotionSemanticRightEnd, KeyboardMotionWordRight,
-#     KeyboardMotionWordLeft, KeyboardMotionWordRightEnd,
-#     KeyboardMotionWordLeftEnd, KeyboardMotionBracket
+#   - ClearLogNotice
+#   - ReceiveChar
+#   - None
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
+#
+# - `keyboard_motion`: Execute a keyboard motion mode command
+#
+#   - ToggleNormalSelection
+#   - ToggleLineSelection,
+#   - ToggleBlockSelection
+#   - ToggleSemanticSelection
+#   - ClearSelection,
+#   - LaunchUrl
+#   - Up
+#   - Down,
+#   - Left
+#   - Right
+#   - Start,
+#   - End
+#   - High
+#   - Middle,
+#   - Low
+#   - SemanticLeft,
+#   - SemanticRight
+#   - SemanticLeftEnd,
+#   - SemanticRightEnd
+#   - WordRight,
+#   - WordLeft
+#   - WordRightEnd,
+#   - WordLeftEnd
+#   - Bracket
 #
 # - `command`: Fork and execute a specified command plus arguments
 #
@@ -553,46 +583,46 @@
   #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
 
   # Keyboard Motion
-  #- { key: Escape, Control, mode: KeyboardMotion, ScrollToBottom                 }
-  #- { key: Escape, Control                        ToggleKeyboardMode             }
-  #- { key: Escape           mode: KeyboardMotion, ScrollToBottom                 }
-  #- { key: Escape           mode: KeyboardMotion, ToggleKeyboardMode             }
-  #- { key: I                mode: KeyboardMotion, ScrollToBottom                 }
-  #- { key: I                mode: KeyboardMotion, ToggleKeyboardMode             }
-  #- { key: V                mode: KeyboardMotion, ToggleNormalSelection          }
-  #- { key: V,      Shift,   mode: KeyboardMotion, ToggleLineSelection            }
-  #- { key: V,      Control, mode: KeyboardMotion, ToggleBlockSelection           }
-  #- { key: V,      Alt,     mode: KeyboardMotion, ToggleSemanticSelection        }
-  #- { key: Y,      Control, mode: KeyboardMotion, ScrollLineUp                   }
-  #- { key: E,      Control, mode: KeyboardMotion, ScrollLineDown                 }
-  #- { key: G                mode: KeyboardMotion, ScrollToTop                    }
-  #- { key: G,      Shift,   mode: KeyboardMotion, ScrollToBottom                 }
-  #- { key: B,      Control, mode: KeyboardMotion, ScrollPageUp                   }
-  #- { key: F,      Control, mode: KeyboardMotion, ScrollPageDown                 }
-  #- { key: U,      Control, mode: KeyboardMotion, ScrollHalfPageUp               }
-  #- { key: D,      Control, mode: KeyboardMotion, ScrollHalfPageDown             }
-  #- { key: Return           mode: KeyboardMotion, KeyboardMotionLaunchUrl        }
-  #- { key: K                mode: KeyboardMotion, KeyboardMotionUp               }
-  #- { key: J                mode: KeyboardMotion, KeyboardMotionDown             }
-  #- { key: H                mode: KeyboardMotion, KeyboardMotionLeft             }
-  #- { key: L                mode: KeyboardMotion, KeyboardMotionRight            }
-  #- { key: Up               mode: KeyboardMotion, KeyboardMotionUp               }
-  #- { key: Down             mode: KeyboardMotion, KeyboardMotionDown             }
-  #- { key: Left             mode: KeyboardMotion, KeyboardMotionLeft             }
-  #- { key: Right            mode: KeyboardMotion, KeyboardMotionRight            }
-  #- { key: Key0             mode: KeyboardMotion, KeyboardMotionStart            }
-  #- { key: Key4,   Shift,   mode: KeyboardMotion, KeyboardMotionEnd              }
-  #- { key: H,      Shift,   mode: KeyboardMotion, KeyboardMotionHigh             }
-  #- { key: M,      Shift,   mode: KeyboardMotion, KeyboardMotionMiddle           }
-  #- { key: L,      Shift,   mode: KeyboardMotion, KeyboardMotionLow              }
-  #- { key: B                mode: KeyboardMotion, KeyboardMotionSemanticLeft     }
-  #- { key: W                mode: KeyboardMotion, KeyboardMotionSemanticRight    }
-  #- { key: E                mode: KeyboardMotion, KeyboardMotionSemanticRightEnd }
-  #- { key: B,      Shift,   mode: KeyboardMotion, KeyboardMotionWordLeft         }
-  #- { key: W,      Shift,   mode: KeyboardMotion, KeyboardMotionWordRight        }
-  #- { key: E,      Shift,   mode: KeyboardMotion, KeyboardMotionWordRightEnd     }
-  #- { key: Key5,   Shift,   mode: KeyboardMotion, KeyboardMotionBracket          }
-  #- { key: Y                mode: KeyboardMotion, Copy                           }
+  #- { key: Escape, mods: Control, mode: KeyboardMotion, action: ScrollToBottom     }
+  #- { key: Escape, mods: Control,                       action: ToggleKeyboardMode }
+  #- { key: Escape,                mode: KeyboardMotion, action: ScrollToBottom     }
+  #- { key: Escape,                mode: KeyboardMotion, action: ToggleKeyboardMode }
+  #- { key: I,                     mode: KeyboardMotion, action: ScrollToBottom     }
+  #- { key: I,                     mode: KeyboardMotion, action: ToggleKeyboardMode }
+  #- { key: Y,      mods: Control, mode: KeyboardMotion, action: ScrollLineUp       }
+  #- { key: E,      mods: Control, mode: KeyboardMotion, action: ScrollLineDown     }
+  #- { key: G,                     mode: KeyboardMotion, action: ScrollToTop        }
+  #- { key: G,      mods: Shift,   mode: KeyboardMotion, action: ScrollToBottom     }
+  #- { key: B,      mods: Control, mode: KeyboardMotion, action: ScrollPageUp       }
+  #- { key: F,      mods: Control, mode: KeyboardMotion, action: ScrollPageDown     }
+  #- { key: U,      mods: Control, mode: KeyboardMotion, action: ScrollHalfPageUp   }
+  #- { key: D,      mods: Control, mode: KeyboardMotion, action: ScrollHalfPageDown }
+  #- { key: Y,                     mode: KeyboardMotion, action: Copy               }
+  #- { key: V,                     keyboard_motion: ToggleNormalSelection   }
+  #- { key: V,      mods: Shift,   keyboard_motion: ToggleLineSelection     }
+  #- { key: V,      mods: Control, keyboard_motion: ToggleBlockSelection    }
+  #- { key: V,      mods: Alt,     keyboard_motion: ToggleSemanticSelection }
+  #- { key: Return,                keyboard_motion: LaunchUrl               }
+  #- { key: K,                     keyboard_motion: Up                      }
+  #- { key: J,                     keyboard_motion: Down                    }
+  #- { key: H,                     keyboard_motion: Left                    }
+  #- { key: L,                     keyboard_motion: Right                   }
+  #- { key: Up,                    keyboard_motion: Up                      }
+  #- { key: Down,                  keyboard_motion: Down                    }
+  #- { key: Left,                  keyboard_motion: Left                    }
+  #- { key: Right,                 keyboard_motion: Right                   }
+  #- { key: Key0,                  keyboard_motion: Start                   }
+  #- { key: Key4,   mods: Shift,   keyboard_motion: End                     }
+  #- { key: H,      mods: Shift,   keyboard_motion: High                    }
+  #- { key: M,      mods: Shift,   keyboard_motion: Middle                  }
+  #- { key: L,      mods: Shift,   keyboard_motion: Low                     }
+  #- { key: B,                     keyboard_motion: SemanticLeft            }
+  #- { key: W,                     keyboard_motion: SemanticRight           }
+  #- { key: E,                     keyboard_motion: SemanticRightEnd        }
+  #- { key: B,      mods: Shift,   keyboard_motion: WordLeft                }
+  #- { key: W,      mods: Shift,   keyboard_motion: WordRight               }
+  #- { key: E,      mods: Shift,   keyboard_motion: WordRightEnd            }
+  #- { key: Key5,   mods: Shift,   keyboard_motion: Bracket                 }
 
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
