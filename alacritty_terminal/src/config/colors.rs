@@ -12,6 +12,8 @@ pub struct Colors {
     #[serde(deserialize_with = "failure_default")]
     pub cursor: CursorColors,
     #[serde(deserialize_with = "failure_default")]
+    pub keyboard_motion_cursor: CursorColors,
+    #[serde(deserialize_with = "failure_default")]
     pub selection: SelectionColors,
     #[serde(deserialize_with = "failure_default")]
     normal: NormalColors,
@@ -79,10 +81,6 @@ pub struct CursorColors {
     pub text: Option<Rgb>,
     #[serde(deserialize_with = "failure_default")]
     pub cursor: Option<Rgb>,
-    #[serde(deserialize_with = "failure_default")]
-    pub keyboard_motion_text: Option<Rgb>,
-    #[serde(deserialize_with = "failure_default")]
-    pub keyboard_motion_cursor: Option<Rgb>,
 }
 
 #[serde(default)]

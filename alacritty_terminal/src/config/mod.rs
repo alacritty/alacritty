@@ -189,13 +189,13 @@ impl<T> Config<T> {
     /// Keyboard motion cursor foreground color.
     #[inline]
     pub fn keyboard_motion_cursor_text_color(&self) -> Option<Rgb> {
-        self.colors.cursor.keyboard_motion_text
+        self.colors.keyboard_motion_cursor.text
     }
 
     /// Keyboard motion cursor background color.
     #[inline]
     pub fn keyboard_motion_cursor_cursor_color(&self) -> Option<Rgb> {
-        self.colors.cursor.keyboard_motion_cursor
+        self.colors.keyboard_motion_cursor.cursor
     }
 
     #[inline]

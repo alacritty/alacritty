@@ -201,8 +201,9 @@
   #cursor:
   #  text: '0x000000'
   #  cursor: '0xffffff'
-  #  keyboard_motion_text: '0x000000'
-  #  keyboard_motion_cursor: '0xffffff'
+  #keyboard_motion_cursor:
+  #  text: '0x000000'
+  #  cursor: '0xffffff'
 
   # Selection colors
   #
@@ -488,15 +489,15 @@
 #   - ScrollPageUp, ScrollPageDown, ScrollHalfPageUp, ScrollHalfPageDown,
 #     ScrollLineUp, ScrollLineDown, ScrollToTop, ScrollToBottom
 #   - ToggleKeyboardMode, ToggleNormalSelection, ToggleLineSelection,
-#     ToggleBlockSelection, ClearSelection, KeyboardMotionLaunchUrl,
-#     KeyboardMotionUp, KeyboardMotionDown, KeyboardMotionLeft,
-#     KeyboardMotionRight, KeyboardMotionStart, KeyboardMotionEnd,
-#     KeyboardMotionHigh, KeyboardMotionMiddle, KeyboardMotionLow,
-#     KeyboardMotionSemanticLeft, KeyboardMotionSemanticRight,
-#     KeyboardMotionSemanticLeftEnd, KeyboardMotionSemanticRightEnd,
-#     KeyboardMotionWordRight, KeyboardMotionWordLeft,
-#     KeyboardMotionWordRightEnd, KeyboardMotionWordLeftEnd,
-#     KeyboardMotionBracket
+#     ToggleBlockSelection, ToggleSemanticSelection, ClearSelection,
+#     KeyboardMotionLaunchUrl, KeyboardMotionUp, KeyboardMotionDown,
+#     KeyboardMotionLeft, KeyboardMotionRight, KeyboardMotionStart,
+#     KeyboardMotionEnd, KeyboardMotionHigh, KeyboardMotionMiddle,
+#     KeyboardMotionLow, KeyboardMotionSemanticLeft,
+#     KeyboardMotionSemanticRight, KeyboardMotionSemanticLeftEnd,
+#     KeyboardMotionSemanticRightEnd, KeyboardMotionWordRight,
+#     KeyboardMotionWordLeft, KeyboardMotionWordRightEnd,
+#     KeyboardMotionWordLeftEnd, KeyboardMotionBracket
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
