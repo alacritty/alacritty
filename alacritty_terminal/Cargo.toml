@@ -31,7 +31,7 @@ nix = "0.16.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]
-winpty = { path = "../winpty" }
+winpty = "0.2.0"
 mio-named-pipes = "0.1"
 miow = "0.3"
 winapi = { version = "0.3.7", features = [
