@@ -196,11 +196,16 @@
 
   # Cursor colors
   #
-  # Colors which should be used to draw the terminal cursors. If these are
+  # Colors which should be used to draw the terminal cursor. If these are
   # unset, the cursor color will be the inverse of the cell color.
   #cursor:
   #  text: '0x000000'
   #  cursor: '0xffffff'
+
+  # Keyboard motion cursor colors
+  #
+  # Colors for the cursor when the keyboard motion mode is active.  If these are
+  # unset, the cursor color will be the inverse of the cell color.
   #keyboard_motion_cursor:
   #  text: '0x000000'
   #  cursor: '0xffffff'
