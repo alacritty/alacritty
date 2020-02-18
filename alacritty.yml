@@ -499,6 +499,7 @@
 #   - ToggleFullscreen
 #   - SpawnNewInstance
 #   - ClearLogNotice
+#   - ClearSelection
 #   - ReceiveChar
 #   - None
 #
@@ -507,30 +508,29 @@
 #
 # - `keyboard_motion`: Execute a keyboard motion mode command
 #
-#   - ToggleNormalSelection
-#   - ToggleLineSelection,
-#   - ToggleBlockSelection
-#   - ToggleSemanticSelection
-#   - ClearSelection,
-#   - LaunchUrl
+#   - Open
 #   - Up
-#   - Down,
+#   - Down
 #   - Left
 #   - Right
-#   - Start,
+#   - Start
 #   - End
 #   - High
-#   - Middle,
+#   - Middle
 #   - Low
-#   - SemanticLeft,
+#   - SemanticLeft
 #   - SemanticRight
-#   - SemanticLeftEnd,
+#   - SemanticLeftEnd
 #   - SemanticRightEnd
-#   - WordRight,
+#   - WordRight
 #   - WordLeft
-#   - WordRightEnd,
+#   - WordRightEnd
 #   - WordLeftEnd
 #   - Bracket
+#   - ToggleNormalSelection
+#   - ToggleLineSelection
+#   - ToggleBlockSelection
+#   - ToggleSemanticSelection
 #
 # - `command`: Fork and execute a specified command plus arguments
 #
@@ -602,7 +602,7 @@
   #- { key: V,      mods: Shift,   keyboard_motion: ToggleLineSelection     }
   #- { key: V,      mods: Control, keyboard_motion: ToggleBlockSelection    }
   #- { key: V,      mods: Alt,     keyboard_motion: ToggleSemanticSelection }
-  #- { key: Return,                keyboard_motion: LaunchUrl               }
+  #- { key: Return,                keyboard_motion: Open                    }
   #- { key: K,                     keyboard_motion: Up                      }
   #- { key: J,                     keyboard_motion: Down                    }
   #- { key: H,                     keyboard_motion: Left                    }
