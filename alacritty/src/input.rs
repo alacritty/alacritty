@@ -169,7 +169,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::KeyboardMotionAction(KeyboardMotionAction::ToggleSemanticSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Semantic)
             },
-            Action::KeyboardMotionAction(KeyboardMotionAction::LaunchUrl) => {
+            Action::KeyboardMotionAction(KeyboardMotionAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
                 if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
                     ctx.launch_url(url);

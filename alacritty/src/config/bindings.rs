@@ -234,7 +234,7 @@ impl<'a> Deserialize<'a> for KeyboardMotionWrapper {
                 // Manually append all `KeyboardMotionAction` options
                 let error_message = error.to_string()
                     + ", `ToggleNormalSelection`, `ToggleLineSelection`, `ToggleBlockSelection`, \
-                       `ToggleSemanticSelection`, `LaunchUrl`";
+                       `ToggleSemanticSelection`, `Open`";
                 Err(D::Error::custom(error_message))
             },
         }
@@ -262,7 +262,7 @@ pub enum KeyboardMotionAction {
     /// Toggle semantic keyboard selection.
     ToggleSemanticSelection,
     /// Launch the URL below the keyboard motion cursor.
-    LaunchUrl,
+    Open,
 }
 
 impl From<KeyboardMotionAction> for Action {
@@ -427,7 +427,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         V, ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleLineSelection;
         V, ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleBlockSelection;
         V, ModifiersState::ALT,   +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::ToggleSemanticSelection;
-        Return,                   +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::LaunchUrl;
+        Return,                   +TermMode::KEYBOARD_MOTION; KeyboardMotionAction::Open;
         K,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Up;
         J,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Down;
         H,                             +TermMode::KEYBOARD_MOTION; KeyboardMotion::Left;
