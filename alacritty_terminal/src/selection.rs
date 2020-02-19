@@ -28,12 +28,12 @@ use crate::term::{Search, Term};
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
 struct Anchor {
-    pub point: Point<usize>,
-    pub side: Side,
+    point: Point<usize>,
+    side: Side,
 }
 
 impl Anchor {
-    pub fn new(point: Point<usize>, side: Side) -> Anchor {
+    fn new(point: Point<usize>, side: Side) -> Anchor {
         Anchor { point, side }
     }
 }
