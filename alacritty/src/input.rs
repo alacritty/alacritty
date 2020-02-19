@@ -67,8 +67,8 @@ pub trait ActionContext<T: EventListener> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, data: B);
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, ty: ClipboardType);
-    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
-    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>);
+    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side);
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side);
     fn update_selection(&mut self, point: Point, side: Side);
     fn clear_selection(&mut self);
     fn selection_is_empty(&self) -> bool;
@@ -113,7 +113,7 @@ impl Action {
         A: ActionContext<T>,
     {
         let cursor_point = ctx.terminal().keyboard_cursor.point;
-        ctx.toggle_selection(ty, cursor_point, None);
+        ctx.toggle_selection(ty, cursor_point, Side::Left);
 
         // Make sure initial selection is not empty
         if let Some(selection) = ctx.terminal_mut().selection_mut() {
@@ -420,13 +420,15 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
-            self.ctx.start_selection(SelectionType::Semantic, point, None);
+            let side = self.ctx.mouse().cell_side;
+            self.ctx.start_selection(SelectionType::Semantic, point, side);
         }
     }
 
     fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
-            self.ctx.start_selection(SelectionType::Lines, point, None);
+            let side = self.ctx.mouse().cell_side;
+            self.ctx.start_selection(SelectionType::Lines, point, side);
         }
     }
 
@@ -466,7 +468,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.ctx.clear_selection();
 
                 // Start new empty selection
-                let side = Some(self.ctx.mouse().cell_side);
+                let side = self.ctx.mouse().cell_side;
                 if self.ctx.modifiers().ctrl() {
                     self.ctx.start_selection(SelectionType::Block, point, side);
                 } else {
@@ -884,7 +886,7 @@ mod tests {
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn start_selection(&mut self, ty: SelectionType, _point: Point, _side: Option<Side>) {
+        fn start_selection(&mut self, ty: SelectionType, _point: Point, _side: Side) {
             match ty {
                 SelectionType::Semantic => self.last_action = MultiClick::DoubleClick,
                 SelectionType::Lines => self.last_action = MultiClick::TripleClick,
@@ -892,7 +894,7 @@ mod tests {
             }
         }
 
-        fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Option<Side>) {}
+        fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
 
         fn copy_selection(&mut self, _: ClipboardType) {}
 

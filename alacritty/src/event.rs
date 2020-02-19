@@ -129,14 +129,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.dirty = true;
     }
 
-    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>) {
+    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         let point = self.terminal.visible_to_buffer(point);
-        let side = side.unwrap_or(Side::Left);
         *self.terminal.selection_mut() = Some(Selection::new(ty, point, side));
         self.terminal.dirty = true;
     }
 
-    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Option<Side>) {
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         match self.terminal.selection_mut() {
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
