@@ -469,7 +469,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                         RenderableCell::new(self.config, self.colors, self.inner.next()?, selected);
 
                     if self.cursor.key.style == CursorStyle::Block {
-                        std::mem::swap(&mut cell.bg, &mut cell.fg);
+                        mem::swap(&mut cell.bg, &mut cell.fg);
 
                         if let Some(color) = self.cursor.text_color {
                             cell.fg = color;
@@ -485,10 +485,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let cell = Indexed {
                         inner: self.grid[buffer_point.line][buffer_point.col],
                         column: self.cursor.point.col,
-                        // Using `cursor.line` leads to inconsitent cursor position when
-                        // scrolling. See https://github.com/alacritty/alacritty/issues/2570 for more
-                        // info.
-                        line: self.inner.line(),
+                        line: self.cursor.point.line,
                     };
 
                     let mut renderable_cell =
@@ -1221,7 +1218,7 @@ impl<T> Term<T> {
         }
 
         self.alt = !self.alt;
-        std::mem::swap(&mut self.grid, &mut self.alt_grid);
+        mem::swap(&mut self.grid, &mut self.alt_grid);
     }
 
     /// Scroll screen down
@@ -1318,7 +1315,7 @@ impl<T> Term<T> {
         if let Some(selection) = &mut self.grid.selection {
             // Do not extend empty selections started by single mouse click
             if !selection.is_empty() {
-                selection.update(viewport_point, Side::Right);
+                selection.update(viewport_point, Side::Left);
                 selection.include_all();
             }
         }
@@ -1371,6 +1368,7 @@ impl<T> Term<T> {
     fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
         let keyboard_motion = self.mode.contains(TermMode::KEYBOARD_MOTION);
 
+        // Cursor position
         let mut point = if keyboard_motion {
             self.keyboard_cursor.point
         } else {
@@ -1379,6 +1377,7 @@ impl<T> Term<T> {
             point
         };
 
+        // Cursor shape
         let hidden = !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.lines();
         let cursor_style = if hidden && !keyboard_motion {
             point.line = Line(0);
@@ -1395,6 +1394,7 @@ impl<T> Term<T> {
             }
         };
 
+        // Cursor colors
         let (text_color, cursor_color) = if keyboard_motion {
             (
                 config.keyboard_motion_cursor_text_color(),
