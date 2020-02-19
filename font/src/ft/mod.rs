@@ -245,8 +245,8 @@ impl FreeTypeRasterizer {
         pattern.default_substitute();
 
         // Get font list using pattern. First font is the primary one while the rest are fallbacks
-        let matched_fonts = fc::font_sort(&config, &pattern)
-            .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+        let matched_fonts =
+            fc::font_sort(&config, &pattern).ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let mut matched_fonts = matched_fonts.into_iter();
 
         let primary_font =
@@ -420,16 +420,7 @@ impl FreeTypeRasterizer {
                         continue;
                     }
 
-                    // Recreate a pattern
-                    let mut pattern = Pattern::new();
-                    pattern.add_pixelsize(self.pixel_size as f64);
-                    pattern.add_style(font_pattern.style().next().unwrap_or("Regular"));
-                    pattern.add_family(font_pattern.family().next().unwrap_or("monospace"));
-
-                    // Render pattern, otherwise most of its properties wont work
-                    let config = fc::Config::get_current();
-                    let pattern = pattern.render_prepare(config, font_pattern);
-
+                    let pattern = font_pattern.clone();
                     let key = self.face_from_pattern(&pattern, font_id, None)?.unwrap();
                     return Ok(key);
                 },

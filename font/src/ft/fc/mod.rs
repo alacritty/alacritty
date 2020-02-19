@@ -47,7 +47,6 @@ pub use pattern::{Pattern, PatternHash, PatternRef};
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
 pub fn font_match(config: &ConfigRef, pattern: &PatternRef) -> Option<Pattern> {
-
     unsafe {
         // What is this result actually used for? Seems redundant with
         // return type.
@@ -64,7 +63,6 @@ pub fn font_match(config: &ConfigRef, pattern: &PatternRef) -> Option<Pattern> {
 
 /// List fonts by closeness to the pattern.
 pub fn font_sort(config: &ConfigRef, pattern: &PatternRef) -> Option<FontSet> {
-
     unsafe {
         // What is this result actually used for? Seems redundant with
         // return type.
@@ -93,7 +91,6 @@ pub fn font_list(
     pattern: &PatternRef,
     objects: &ObjectSetRef,
 ) -> Option<FontSet> {
-
     unsafe {
         let ptr = FcFontList(config.as_ptr(), pattern.as_ptr(), objects.as_ptr());
 
