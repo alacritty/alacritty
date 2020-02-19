@@ -46,9 +46,7 @@ pub use pattern::{Pattern, PatternHash, PatternRef};
 /// Find the font closest matching the provided pattern.
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
-pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Pattern> {
-    pattern.config_substitute(config, MatchKind::Pattern);
-    pattern.default_substitute();
+pub fn font_match(config: &ConfigRef, pattern: &PatternRef) -> Option<Pattern> {
 
     unsafe {
         // What is this result actually used for? Seems redundant with
@@ -64,10 +62,8 @@ pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Patter
     }
 }
 
-/// list fonts by closeness to the pattern
-pub fn font_sort(config: &ConfigRef, pattern: &mut PatternRef) -> Option<FontSet> {
-    pattern.config_substitute(config, MatchKind::Pattern);
-    pattern.default_substitute();
+/// List fonts by closeness to the pattern.
+pub fn font_sort(config: &ConfigRef, pattern: &PatternRef) -> Option<FontSet> {
 
     unsafe {
         // What is this result actually used for? Seems redundant with
@@ -91,14 +87,12 @@ pub fn font_sort(config: &ConfigRef, pattern: &mut PatternRef) -> Option<FontSet
     }
 }
 
-/// List fonts matching pattern
+/// List fonts matching pattern.
 pub fn font_list(
     config: &ConfigRef,
-    pattern: &mut PatternRef,
+    pattern: &PatternRef,
     objects: &ObjectSetRef,
 ) -> Option<FontSet> {
-    pattern.config_substitute(config, MatchKind::Pattern);
-    pattern.default_substitute();
 
     unsafe {
         let ptr = FcFontList(config.as_ptr(), pattern.as_ptr(), objects.as_ptr());
@@ -198,6 +192,7 @@ impl From<isize> for Width {
 }
 
 /// Subpixel geometry
+#[derive(Debug)]
 pub enum Rgba {
     Unknown,
     Rgb,
@@ -297,7 +292,9 @@ mod tests {
         pattern.add_style("regular");
 
         let config = Config::get_current();
-        let font = super::font_match(config, &mut pattern).expect("match font monospace");
+        pattern.config_substitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+        let font = super::font_match(config, &pattern).expect("match font monospace");
 
         print!("index={:?}; ", font.index());
         print!("family={:?}; ", font.family());
@@ -319,7 +316,9 @@ mod tests {
         pattern.set_slant(Slant::Italic);
 
         let config = Config::get_current();
-        let fonts = super::font_sort(config, &mut pattern).expect("sort font monospace");
+        pattern.config_substitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+        let fonts = super::font_sort(config, &pattern).expect("sort font monospace");
 
         for font in fonts.into_iter().take(10) {
             let font = pattern.render_prepare(&config, &font);
@@ -341,7 +340,9 @@ mod tests {
         drop(charset);
 
         let config = Config::get_current();
-        let fonts = super::font_sort(config, &mut pattern).expect("font_sort");
+        pattern.config_substitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+        let fonts = super::font_sort(config, &pattern).expect("font_sort");
 
         for font in fonts.into_iter().take(10) {
             let font = pattern.render_prepare(&config, &font);

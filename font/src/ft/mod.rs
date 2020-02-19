@@ -241,8 +241,11 @@ impl FreeTypeRasterizer {
             },
         }
 
+        pattern.config_substitute(config, fc::MatchKind::Pattern);
+        pattern.default_substitute();
+
         // Get font list using pattern. First font is the primary one while the rest are fallbacks
-        let matched_fonts = fc::font_sort(&config, &mut pattern.clone())
+        let matched_fonts = fc::font_sort(&config, &pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let mut matched_fonts = matched_fonts.into_iter();
 
@@ -288,7 +291,8 @@ impl FreeTypeRasterizer {
         let list: Vec<FallbackFont> = matched_fonts
             .map(|fallback_font| {
                 let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
-                let fallback_font = primary_font.render_prepare(config, fallback_font);
+                // Use original pattern to preserve loading flags
+                let fallback_font = pattern.render_prepare(config, fallback_font);
                 let fallback_font_id = FontID::new(hash, fallback_font.hash());
 
                 let _ = coverage.merge(&charset);
