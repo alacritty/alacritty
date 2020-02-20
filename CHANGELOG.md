@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser reset between DCS escapes
 - Parser stopping at unknown DEC private modes/SGR character attributes
 - Block selection appending duplicate newlines when last column is selected
+- Glyphs being too tighten up to the top in some cases on Linux/BSD
 
 ### Removed
 
