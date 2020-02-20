@@ -438,7 +438,7 @@ impl FreeTypeRasterizer {
 
         let size =
             face.non_scalable.as_ref().map(|v| v.pixelsize as f32).unwrap_or_else(|| {
-                Size::new(glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.).as_f32_pts()
+                glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
             });
 
         if !face.has_color {
