@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::event::EventListener;
 use crate::grid::{GridCell, Scroll};
-use crate::index::{Column, Line, Point};
+use crate::index::{Column, Point};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
@@ -20,9 +20,11 @@ pub enum KeyboardMotion {
     /// Move right.
     Right,
     /// Move to start of line.
-    Start,
+    First,
     /// Move to end of line.
-    End,
+    Last,
+    /// Move to the first non-empty cell.
+    FirstOccupied,
     /// Move to top of screen.
     High,
     /// Move to center of screen.
@@ -63,176 +65,80 @@ impl KeyboardCursor {
     /// Move keyboard motion cursor.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: KeyboardMotion) -> Self {
+        let display_offset = term.grid().display_offset();
         let lines = term.grid().num_lines();
         let cols = term.grid().num_cols();
 
+        let mut buffer_point = term.visible_to_buffer(self.point);
+
         // Advance keyboard cursor
         match motion {
-            KeyboardMotion::Up => {
-                if self.point.line.0 == 0 {
-                    term.scroll_display(Scroll::Lines(1));
-                } else {
-                    self.point.line -= 1;
-                }
-            },
-            KeyboardMotion::Down => {
-                if self.point.line >= lines - 1 {
-                    term.scroll_display(Scroll::Lines(-1));
-                } else {
-                    self.point.line += 1;
-                }
-            },
+            KeyboardMotion::Up => buffer_point.line += 1,
+            KeyboardMotion::Down => buffer_point.line = buffer_point.line.saturating_sub(1),
             KeyboardMotion::Left => {
-                let mut buffer_point = term.visible_to_buffer(self.point);
                 buffer_point = expand_wide(term, buffer_point, true);
-                buffer_point.col = Column(buffer_point.col.saturating_sub(1));
-                self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
+                let wrap_point = Point::new(buffer_point.line + 1, cols - 1);
+                if buffer_point.col.0 == 0
+                    && buffer_point.line + 1 < term.grid().len()
+                    && is_wrap(term, wrap_point)
+                {
+                    buffer_point = wrap_point;
+                } else {
+                    buffer_point.col = Column(buffer_point.col.saturating_sub(1));
+                }
             },
             KeyboardMotion::Right => {
-                let mut buffer_point = term.visible_to_buffer(self.point);
                 buffer_point = expand_wide(term, buffer_point, false);
-                buffer_point.col = min(buffer_point.col + 1, cols - 1);
-                self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
-            },
-            KeyboardMotion::Start => self.point.col = Column(0),
-            KeyboardMotion::End => self.point.col = cols - 1,
-            KeyboardMotion::High => self.point = Point::new(Line(0), Column(0)),
-            KeyboardMotion::Middle => self.point = Point::new(Line((lines.0 - 1) / 2), Column(0)),
-            KeyboardMotion::Low => self.point = Point::new(lines - 1, Column(0)),
-            KeyboardMotion::SemanticLeft => {
-                self.point = Self::semantic_move(term, self.point, true, true)
-            },
-            KeyboardMotion::SemanticRight => {
-                self.point = Self::semantic_move(term, self.point, false, true)
-            },
-            KeyboardMotion::SemanticLeftEnd => {
-                self.point = Self::semantic_move(term, self.point, true, false)
-            },
-            KeyboardMotion::SemanticRightEnd => {
-                self.point = Self::semantic_move(term, self.point, false, false)
-            },
-            KeyboardMotion::WordLeft => self.point = Self::word_move(term, self.point, true, true),
-            KeyboardMotion::WordRight => {
-                self.point = Self::word_move(term, self.point, false, true)
-            },
-            KeyboardMotion::WordLeftEnd => {
-                self.point = Self::word_move(term, self.point, true, false)
-            },
-            KeyboardMotion::WordRightEnd => {
-                self.point = Self::word_move(term, self.point, false, false)
-            },
-            KeyboardMotion::Bracket => {
-                if let Some(p) = term.bracket_search(term.visible_to_buffer(self.point)) {
-                    // Scroll viewport if necessary
-                    scroll_to_point(term, p);
-
-                    self.point = term.buffer_to_visible(p).unwrap_or_default().into();
+                if is_wrap(term, buffer_point) {
+                    buffer_point = Point::new(buffer_point.line - 1, Column(0));
+                } else {
+                    buffer_point.col = min(buffer_point.col + 1, cols - 1);
                 }
             },
+            KeyboardMotion::First => {
+                buffer_point = expand_wide(term, buffer_point, true);
+                while buffer_point.col.0 == 0
+                    && buffer_point.line + 1 < term.grid().len()
+                    && is_wrap(term, Point::new(buffer_point.line + 1, cols - 1))
+                {
+                    buffer_point.line += 1;
+                }
+                buffer_point.col = Column(0);
+            },
+            KeyboardMotion::Last => buffer_point = last(term, buffer_point),
+            KeyboardMotion::FirstOccupied => buffer_point = first_occupied(term, buffer_point),
+            KeyboardMotion::High => {
+                let line = display_offset + lines.0 - 1;
+                buffer_point = Point::new(line, Column(0));
+            },
+            KeyboardMotion::Middle => {
+                let line = display_offset + lines.0 / 2;
+                buffer_point = Point::new(line, Column(0));
+            },
+            KeyboardMotion::Low => buffer_point = Point::new(display_offset, Column(0)),
+            KeyboardMotion::SemanticLeft => buffer_point = semantic(term, buffer_point, true, true),
+            KeyboardMotion::SemanticRight => {
+                buffer_point = semantic(term, buffer_point, false, true)
+            },
+            KeyboardMotion::SemanticLeftEnd => {
+                buffer_point = semantic(term, buffer_point, true, false)
+            },
+            KeyboardMotion::SemanticRightEnd => {
+                buffer_point = semantic(term, buffer_point, false, false)
+            },
+            KeyboardMotion::WordLeft => buffer_point = word(term, buffer_point, true, true),
+            KeyboardMotion::WordRight => buffer_point = word(term, buffer_point, false, true),
+            KeyboardMotion::WordLeftEnd => buffer_point = word(term, buffer_point, true, false),
+            KeyboardMotion::WordRightEnd => buffer_point = word(term, buffer_point, false, false),
+            KeyboardMotion::Bracket => {
+                buffer_point = term.bracket_search(buffer_point).unwrap_or(buffer_point);
+            },
         }
+
+        scroll_to_point(term, buffer_point);
+        self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
 
         self
-    }
-
-    /// Move by semantically separated word, like w/b/e/ge in vi.
-    fn semantic_move<T: EventListener>(
-        term: &mut Term<T>,
-        point: Point,
-        left: bool,
-        start: bool,
-    ) -> Point {
-        // Expand semantically based on movement direction
-        let expand_semantic = |point: Point<usize>| {
-            // Do not expand when currently on a semantic escape char
-            let cell = term.grid()[point.line][point.col];
-            if term.semantic_escape_chars().contains(cell.c)
-                && !cell.flags.contains(Flags::WIDE_CHAR_SPACER)
-            {
-                point
-            } else if left {
-                term.semantic_search_left(point)
-            } else {
-                term.semantic_search_right(point)
-            }
-        };
-
-        let mut buffer_point = term.visible_to_buffer(point);
-
-        // Make sure we jump above wide chars
-        buffer_point = expand_wide(term, buffer_point, left);
-
-        // Move to word boundary
-        if left != start && !is_boundary(term, buffer_point, left) {
-            buffer_point = expand_semantic(buffer_point);
-        }
-
-        // Skip whitespace
-        let mut point = advance(term, buffer_point, left);
-        while !is_boundary(term, buffer_point, left) && is_space(term, point) {
-            buffer_point = point;
-            point = advance(term, buffer_point, left);
-        }
-
-        // Assure minimum movement of one cell
-        if !is_boundary(term, buffer_point, left) {
-            buffer_point = advance(term, buffer_point, left);
-        }
-
-        // Move to word boundary
-        if left == start && !is_boundary(term, buffer_point, left) {
-            buffer_point = expand_semantic(buffer_point);
-        }
-
-        // Scroll viewport if necessary
-        scroll_to_point(term, buffer_point);
-
-        term.buffer_to_visible(buffer_point).unwrap_or_default().into()
-    }
-
-    /// Move by whitespace separated word, like W/B/E/gE in vi.
-    fn word_move<T: EventListener>(
-        term: &mut Term<T>,
-        point: Point,
-        left: bool,
-        start: bool,
-    ) -> Point {
-        let mut buffer_point = term.visible_to_buffer(point);
-
-        // Make sure we jump above wide chars
-        buffer_point = expand_wide(term, buffer_point, left);
-
-        if left == start {
-            // Skip whitespace until right before a word
-            let mut point = advance(term, buffer_point, left);
-            while !is_boundary(term, buffer_point, left) && is_space(term, point) {
-                buffer_point = point;
-                point = advance(term, point, left);
-            }
-
-            // Skip non-whitespace until right inside word boundary
-            let mut point = advance(term, buffer_point, left);
-            while !is_boundary(term, buffer_point, left) && !is_space(term, point) {
-                buffer_point = point;
-                point = advance(term, buffer_point, left);
-            }
-        }
-
-        if left != start {
-            // Skip non-whitespace until just beyond word
-            while !is_boundary(term, buffer_point, left) && !is_space(term, buffer_point) {
-                buffer_point = advance(term, buffer_point, left);
-            }
-
-            // Skip whitespace until right inside word boundary
-            while !is_boundary(term, buffer_point, left) && is_space(term, buffer_point) {
-                buffer_point = advance(term, buffer_point, left);
-            }
-        }
-
-        // Scroll viewport if necessary
-        scroll_to_point(term, buffer_point);
-
-        term.buffer_to_visible(buffer_point).unwrap_or_default().into()
     }
 }
 
@@ -249,6 +155,166 @@ fn scroll_to_point<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
         let lines = display_offset.saturating_sub(point.line);
         term.scroll_display(Scroll::Lines(-(lines as isize)));
     };
+}
+
+/// Find next end of line to move to.
+fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
+    let cols = term.grid().num_cols();
+
+    // Expand across wide cells.
+    point = expand_wide(term, point, false);
+
+    // Find last non-empty cell in the current line
+    let occupied = last_occupied_in_line(term, point.line).unwrap_or_default();
+
+    if point.col < occupied.col {
+        // Jump to last occupied cell when not already at or beyond it
+        occupied
+    } else if is_wrap(term, point) {
+        // Jump to last occupied cell across linewraps
+        while point.line > 0 && is_wrap(term, point) {
+            point.line -= 1;
+        }
+
+        last_occupied_in_line(term, point.line).unwrap_or(point)
+    } else {
+        // Jump to last column when beyond the last occupied cell
+        Point::new(point.line, cols - 1)
+    }
+}
+
+/// Find next non-empty cell to move to.
+fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
+    let cols = term.grid().num_cols();
+
+    // Expand left across wide chars, since we're searching lines left to right
+    point = expand_wide(term, point, true);
+
+    // Find first non-empty cell in current line
+    let occupied = first_occupied_in_line(term, point.line)
+        .unwrap_or_else(|| Point::new(point.line, cols - 1));
+
+    // Jump acress wrapped lines if we're already at this lines first occupied cell
+    if point == occupied {
+        let mut occupied = None;
+
+        // Search for non-empty cell in previous lines
+        for line in (point.line + 1)..term.grid().len() {
+            if !is_wrap(term, Point::new(line, cols - 1)) {
+                break;
+            }
+
+            occupied = first_occupied_in_line(term, line).or(occupied);
+        }
+
+        // Fallback to the next non-empty cell
+        let mut line = point.line;
+        occupied.unwrap_or_else(|| loop {
+            if let Some(occupied) = first_occupied_in_line(term, line) {
+                break occupied;
+            }
+
+            let last_cell = Point::new(line, cols - 1);
+            if line == 0 || !is_wrap(term, last_cell) {
+                break last_cell;
+            }
+
+            line -= 1;
+        })
+    } else {
+        occupied
+    }
+}
+
+/// Move by semantically separated word, like w/b/e/ge in vi.
+fn semantic<T: EventListener>(
+    term: &mut Term<T>,
+    mut point: Point<usize>,
+    left: bool,
+    start: bool,
+) -> Point<usize> {
+    // Expand semantically based on movement direction
+    let expand_semantic = |point: Point<usize>| {
+        // Do not expand when currently on a semantic escape char
+        let cell = term.grid()[point.line][point.col];
+        if term.semantic_escape_chars().contains(cell.c)
+            && !cell.flags.contains(Flags::WIDE_CHAR_SPACER)
+        {
+            point
+        } else if left {
+            term.semantic_search_left(point)
+        } else {
+            term.semantic_search_right(point)
+        }
+    };
+
+    // Make sure we jump above wide chars
+    point = expand_wide(term, point, left);
+
+    // Move to word boundary
+    if left != start && !is_boundary(term, point, left) {
+        point = expand_semantic(point);
+    }
+
+    // Skip whitespace
+    let mut next_point = advance(term, point, left);
+    while !is_boundary(term, point, left) && is_space(term, next_point) {
+        point = next_point;
+        next_point = advance(term, point, left);
+    }
+
+    // Assure minimum movement of one cell
+    if !is_boundary(term, point, left) {
+        point = advance(term, point, left);
+    }
+
+    // Move to word boundary
+    if left == start && !is_boundary(term, point, left) {
+        point = expand_semantic(point);
+    }
+
+    point
+}
+
+/// Move by whitespace separated word, like W/B/E/gE in vi.
+fn word<T: EventListener>(
+    term: &mut Term<T>,
+    mut point: Point<usize>,
+    left: bool,
+    start: bool,
+) -> Point<usize> {
+    // Make sure we jump above wide chars
+    point = expand_wide(term, point, left);
+
+    if left == start {
+        // Skip whitespace until right before a word
+        let mut next_point = advance(term, point, left);
+        while !is_boundary(term, point, left) && is_space(term, next_point) {
+            point = next_point;
+            next_point = advance(term, point, left);
+        }
+
+        // Skip non-whitespace until right inside word boundary
+        let mut next_point = advance(term, point, left);
+        while !is_boundary(term, point, left) && !is_space(term, next_point) {
+            point = next_point;
+            next_point = advance(term, point, left);
+        }
+    }
+
+    if left != start {
+        // Skip non-whitespace until just beyond word
+        while !is_boundary(term, point, left) && !is_space(term, point) {
+            point = advance(term, point, left);
+        }
+
+        // Skip whitespace until right inside word boundary
+        while !is_boundary(term, point, left) && is_space(term, point) {
+            point = advance(term, point, left);
+        }
+    }
+
+    point
 }
 
 /// Jump to the end of a wide cell.
@@ -271,16 +337,18 @@ where
     point
 }
 
-/// Check if cell at point contains whitespace.
-fn is_space<T>(term: &Term<T>, point: Point<usize>) -> bool {
-    let cell = term.grid()[point.line][point.col];
-    cell.c == ' ' && !cell.flags().contains(Flags::WIDE_CHAR_SPACER)
+/// Find first non-empty cell in line.
+fn first_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
+    (0..term.grid().num_cols().0)
+        .map(|col| Point::new(line, Column(col)))
+        .find(|&point| !is_space(term, point))
 }
 
-/// Check if point is at screen boundary.
-fn is_boundary<T>(term: &Term<T>, point: Point<usize>, left: bool) -> bool {
-    (point.line == 0 && point.col + 1 >= term.grid().num_cols() && !left)
-        || (point.line + 1 >= term.grid().len() && point.col.0 == 0 && left)
+/// Find last non-empty cell in line.
+fn last_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
+    (0..term.grid().num_cols().0)
+        .map(|col| Point::new(line, Column(col)))
+        .rfind(|&point| !is_space(term, point))
 }
 
 /// Advance point based on direction.
@@ -291,6 +359,22 @@ fn advance<T>(term: &Term<T>, point: Point<usize>, left: bool) -> Point<usize> {
     } else {
         point.add_absolute(cols.0, 1)
     }
+}
+
+/// Check if cell at point contains whitespace.
+fn is_space<T>(term: &Term<T>, point: Point<usize>) -> bool {
+    let cell = term.grid()[point.line][point.col];
+    cell.c == ' ' && !cell.flags().contains(Flags::WIDE_CHAR_SPACER)
+}
+
+fn is_wrap<T>(term: &Term<T>, point: Point<usize>) -> bool {
+    term.grid()[point.line][point.col].flags.contains(Flags::WRAPLINE)
+}
+
+/// Check if point is at screen boundary.
+fn is_boundary<T>(term: &Term<T>, point: Point<usize>, left: bool) -> bool {
+    (point.line == 0 && point.col + 1 >= term.grid().num_cols() && !left)
+        || (point.line + 1 >= term.grid().len() && point.col.0 == 0 && left)
 }
 
 #[cfg(test)]
@@ -365,11 +449,32 @@ mod tests {
 
         let mut cursor = KeyboardCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, KeyboardMotion::End);
+        cursor = cursor.motion(&mut term, KeyboardMotion::Last);
         assert_eq!(cursor.point, Point::new(Line(0), Column(19)));
 
-        cursor = cursor.motion(&mut term, KeyboardMotion::Start);
+        cursor = cursor.motion(&mut term, KeyboardMotion::First);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+    }
+
+    #[test]
+    fn motion_first_occupied() {
+        let mut term = term();
+        term.grid_mut()[Line(0)][Column(0)].c = ' ';
+        term.grid_mut()[Line(0)][Column(1)].c = 'x';
+        term.grid_mut()[Line(0)][Column(2)].c = ' ';
+        term.grid_mut()[Line(0)][Column(3)].c = 'y';
+        term.grid_mut()[Line(0)][Column(19)].flags.insert(Flags::WRAPLINE);
+        term.grid_mut()[Line(1)][Column(19)].flags.insert(Flags::WRAPLINE);
+        term.grid_mut()[Line(2)][Column(0)].c = 'z';
+        term.grid_mut()[Line(2)][Column(1)].c = ' ';
+
+        let mut cursor = KeyboardCursor::new(Point::new(Line(2), Column(1)));
+
+        cursor = cursor.motion(&mut term, KeyboardMotion::FirstOccupied);
+        assert_eq!(cursor.point, Point::new(Line(2), Column(0)));
+
+        cursor = cursor.motion(&mut term, KeyboardMotion::FirstOccupied);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
     }
 
     #[test]

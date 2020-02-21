@@ -436,8 +436,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Down,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Down;
         Left,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Left;
         Right,                         +TermMode::KEYBOARD_MOTION; KeyboardMotion::Right;
-        Key0,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::Start;
-        Key4,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::End;
+        Key0,                          +TermMode::KEYBOARD_MOTION; KeyboardMotion::First;
+        Key4,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Last;
+        Key6,   ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::FirstOccupied;
         H,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::High;
         M,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Middle;
         L,      ModifiersState::SHIFT, +TermMode::KEYBOARD_MOTION; KeyboardMotion::Low;
