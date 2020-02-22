@@ -545,11 +545,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ClickState::Click
             },
         };
-
-        // Mark selection as ongoing while mouse is pressed
-        if let Some(selection) = &mut self.ctx.terminal_mut().selection_mut() {
-            selection.active = true;
-        }
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
@@ -570,8 +565,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         // Mark selection as finished
-        if let Some(selection) = &mut self.ctx.terminal_mut().selection_mut() {
-            selection.active = false;
+        if !self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+            if let Some(selection) = &mut self.ctx.terminal_mut().selection_mut() {
+                selection.active = false;
+            }
         }
 
         self.copy_selection();

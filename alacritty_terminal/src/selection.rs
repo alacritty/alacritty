@@ -103,7 +103,7 @@ impl Selection {
     pub fn new(ty: SelectionType, location: Point<usize>, side: Side) -> Selection {
         Self {
             region: Range { start: Anchor::new(location, side), end: Anchor::new(location, side) },
-            active: false,
+            active: true,
             ty,
         }
     }
