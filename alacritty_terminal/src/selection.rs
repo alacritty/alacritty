@@ -95,6 +95,7 @@ pub enum SelectionType {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Selection {
     pub ty: SelectionType,
+    pub active: bool,
     region: Range<Anchor>,
 }
 
@@ -102,6 +103,7 @@ impl Selection {
     pub fn new(ty: SelectionType, location: Point<usize>, side: Side) -> Selection {
         Self {
             region: Range { start: Anchor::new(location, side), end: Anchor::new(location, side) },
+            active: false,
             ty,
         }
     }
@@ -122,13 +124,15 @@ impl Selection {
         let region_end = num_lines - scrolling_region.end.0;
 
         let (mut start, mut end) = (&mut self.region.start, &mut self.region.end);
-        if Self::points_need_swap(start.point, end.point) {
+        let points_swapped = Self::points_need_swap(start.point, end.point);
+        if points_swapped {
             mem::swap(&mut start, &mut end);
         }
 
         // Rotate start of selection
         if (start.point.line < region_start || region_start == num_lines)
             && start.point.line >= region_end
+            && (!self.active || !points_swapped)
         {
             start.point.line = usize::try_from(start.point.line as isize + offset).unwrap_or(0);
 
@@ -150,6 +154,7 @@ impl Selection {
         // Rotate end of selection
         if (end.point.line < region_start || region_start == num_lines)
             && end.point.line >= region_end
+            && (!self.active || points_swapped)
         {
             end.point.line = usize::try_from(end.point.line as isize + offset).unwrap_or(0);
 

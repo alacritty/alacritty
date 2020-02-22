@@ -545,6 +545,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ClickState::Click
             },
         };
+
+        // Mark selection as ongoing while mouse is pressed
+        if let Some(selection) = &mut self.ctx.terminal_mut().selection_mut() {
+            selection.active = true;
+        }
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
@@ -562,6 +567,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return;
         } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
             self.ctx.launch_url(url);
+        }
+
+        // Mark selection as finished
+        if let Some(selection) = &mut self.ctx.terminal_mut().selection_mut() {
+            selection.active = false;
         }
 
         self.copy_selection();
