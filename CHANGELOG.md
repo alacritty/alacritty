@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handling of URLs with single quotes
 - Parser reset between DCS escapes
 - Parser stopping at unknown DEC private modes/SGR character attributes
+- Block selection appending duplicate newlines when last column is selected
 
 ### Removed
 
