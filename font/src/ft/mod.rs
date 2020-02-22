@@ -321,14 +321,9 @@ impl FreeTypeRasterizer {
 
             trace!("Got font path={:?}", path);
 
-            let ft_face = if let Some(face) = self.ft_faces.get(&path) {
-                if let Some(ft_face) = face.upgrade() {
-                    ft_face
-                } else {
-                    self.load_ft_face(path, index)?
-                }
-            } else {
-                self.load_ft_face(path, index)?
+            let ft_face = match self.ft_faces.get(&path).and_then(|ft_face| ft_face.upgrade()) {
+                Some(ft_face) => ft_face,
+                None => self.load_ft_face(path, index)?,
             };
 
             // Get available pixel sizes if font isn't scalable.
