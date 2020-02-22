@@ -100,7 +100,6 @@ pub struct FreeTypeRasterizer {
     keys: HashMap<FontID, FontKey>,
     fallback_lists: HashMap<FontKey, FallbackList>,
     device_pixel_ratio: f32,
-    pixel_size: f64,
 }
 
 #[inline]
@@ -120,7 +119,6 @@ impl Rasterize for FreeTypeRasterizer {
             fallback_lists: HashMap::new(),
             library,
             device_pixel_ratio,
-            pixel_size: 0.0,
         })
     }
 
@@ -219,13 +217,12 @@ impl FreeTypeRasterizer {
     /// Load a font face according to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
         // Adjust for DPI
-        let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
-        self.pixel_size = f64::from(size.as_f32_pts());
+        let size = f64::from(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         let config = fc::Config::get_current();
         let mut pattern = Pattern::new();
         pattern.add_family(&desc.name);
-        pattern.add_pixelsize(self.pixel_size);
+        pattern.add_pixelsize(size);
         let hash = pattern.hash();
 
         // Add style to a pattern
@@ -473,7 +470,7 @@ impl FreeTypeRasterizer {
             } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
-                self.pixel_size as f64 / metrics.y_ppem as f64
+                size as f64 / metrics.y_ppem as f64
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
