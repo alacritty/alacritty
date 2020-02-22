@@ -34,11 +34,6 @@ use super::{
     Style, Weight,
 };
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-struct FixedSize {
-    pixelsize: f64,
-}
-
 struct FallbackFont {
     pattern: Pattern,
     key: FontKey,
@@ -53,9 +48,7 @@ impl FallbackFont {
 impl FontKey {
     fn from_pattern_hashes(lhs: PatternHash, rhs: PatternHash) -> Self {
         // XOR two hashes to get a font ID
-        Self {
-            token: lhs.0.rotate_left(1) ^ rhs.0,
-        }
+        Self { token: lhs.0.rotate_left(1) ^ rhs.0 }
     }
 }
 
@@ -69,7 +62,7 @@ struct FaceLoadingProperties {
     load_flags: freetype::face::LoadFlag,
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
-    non_scalable: Option<FixedSize>,
+    non_scalable: Option<f64>,
     has_color: bool,
     pixelsize_fixup_factor: Option<f64>,
     ft_face: Rc<FTFace>,
@@ -255,16 +248,9 @@ impl FreeTypeRasterizer {
         // Hash pattern together with request pattern to include requested font size in the hash
         let primary_font_key = FontKey::from_pattern_hashes(hash, primary_font.hash());
 
-        // Reload already loaded faces and drop their fallback faces
-        if self.faces.remove(&primary_font_key).is_some() {
-            let fallback_list = self.fallback_lists.remove(&primary_font_key).unwrap_or_default();
-
-            for fallback_font in &fallback_list.list {
-                // Skip primary fonts, since these are all reloaded later
-                if !self.fallback_lists.contains_key(&fallback_font.key) {
-                    self.faces.remove(&fallback_font.key);
-                }
-            }
+        // Return font if we already loaded it
+        if self.faces.get(&primary_font_key).is_some() {
+            return Ok(primary_font_key);
         }
 
         // Reuse the font_key, since changing it can break library users
@@ -297,14 +283,13 @@ impl FreeTypeRasterizer {
     }
 
     fn full_metrics(&self, face_load_props: &FaceLoadingProperties) -> Result<FullMetrics, Error> {
-        let size_metrics =
-            face_load_props.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
+        let ft_face = &face_load_props.ft_face;
+        let size_metrics = ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
 
-        let width =
-            match face_load_props.ft_face.load_char('0' as usize, face_load_props.load_flags) {
-                Ok(_) => face_load_props.ft_face.glyph().metrics().horiAdvance / 64,
-                Err(_) => size_metrics.max_advance / 64,
-            } as f64;
+        let width = match ft_face.load_char('0' as usize, face_load_props.load_flags) {
+            Ok(_) => ft_face.glyph().metrics().horiAdvance / 64,
+            Err(_) => size_metrics.max_advance / 64,
+        } as f64;
 
         Ok(FullMetrics { size_metrics, cell_width: width })
     }
@@ -353,7 +338,7 @@ impl FreeTypeRasterizer {
                 let mut pixelsize = pattern.pixelsize();
                 debug!("pixelsizes: {:?}", pixelsize);
 
-                Some(FixedSize { pixelsize: pixelsize.next().expect("has 1+ pixelsize") })
+                Some(pixelsize.next().expect("has 1+ pixelsize"))
             };
 
             let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
@@ -433,10 +418,10 @@ impl FreeTypeRasterizer {
         let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
-        let size =
-            face.non_scalable.as_ref().map(|v| v.pixelsize as f32).unwrap_or_else(|| {
-                glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
-            });
+        let size = face
+            .non_scalable
+            .map(|pixel_size| pixel_size as f32)
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         if !face.has_color {
             face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
