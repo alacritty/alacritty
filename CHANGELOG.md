@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser reset between DCS escapes
 - Parser stopping at unknown DEC private modes/SGR character attributes
 - Block selection appending duplicate newlines when last column is selected
-- Emoji bitmaps being a bit smaller compared to scaled font in some cases
+- Bitmap fonts being a bit smaller than they should in some cases
 
 ### Removed
 
