@@ -972,7 +972,12 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.grid.update_history(config.scrolling.history() as usize);
+
+        if self.alt {
+            self.alt_grid.update_history(config.scrolling.history() as usize);
+        } else {
+            self.grid.update_history(config.scrolling.history() as usize);
+        }
     }
 
     /// Convert the active selection to a String.
