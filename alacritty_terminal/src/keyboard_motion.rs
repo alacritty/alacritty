@@ -73,7 +73,11 @@ impl KeyboardCursor {
 
         // Advance keyboard cursor
         match motion {
-            KeyboardMotion::Up => buffer_point.line += 1,
+            KeyboardMotion::Up => {
+                if buffer_point.line + 1 < term.grid().len() {
+                    buffer_point.line += 1;
+                }
+            },
             KeyboardMotion::Down => buffer_point.line = buffer_point.line.saturating_sub(1),
             KeyboardMotion::Left => {
                 buffer_point = expand_wide(term, buffer_point, true);
