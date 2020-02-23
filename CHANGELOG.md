@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser stopping at unknown DEC private modes/SGR character attributes
 - Block selection appending duplicate newlines when last column is selected
 - Bitmap fonts being a bit smaller than they should be in some cases
+- Config reload creating alternate screen history instead of updating scrollback
 
 ### Removed
 
