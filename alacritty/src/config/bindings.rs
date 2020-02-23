@@ -349,15 +349,15 @@ macro_rules! bindings {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
-        MouseButton::Middle; Action::PasteSelection;
+        MouseButton::Middle, ~TermMode::KEYBOARD_MOTION; Action::PasteSelection;
     )
 }
 
 pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
-        Paste; Action::Paste;
         Copy;  Action::Copy;
+        Paste, ~TermMode::KEYBOARD_MOTION; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
         L,        ModifiersState::CTRL,  ~TermMode::KEYBOARD_MOTION; Action::Esc("\x0c".into());
         Tab,      ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[Z".into());
@@ -527,9 +527,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
-        V,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Paste;
+        V,        ModifiersState::CTRL | ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::Paste;
         C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
-        Insert,   ModifiersState::SHIFT; Action::PasteSelection;
+        Insert,   ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::PasteSelection;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
         Add,      ModifiersState::CTRL;  Action::IncreaseFontSize;
@@ -563,10 +563,10 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Minus,  ModifiersState::LOGO;  Action::DecreaseFontSize;
         Insert, ModifiersState::SHIFT, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[2;2~".into());
         K, ModifiersState::LOGO, ~TermMode::KEYBOARD_MOTION; Action::Esc("\x0c".into());
+        V, ModifiersState::LOGO, ~TermMode::KEYBOARD_MOTION; Action::Paste;
         N, ModifiersState::LOGO; Action::SpawnNewInstance;
         F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
         K, ModifiersState::LOGO; Action::ClearHistory;
-        V, ModifiersState::LOGO; Action::Paste;
         C, ModifiersState::LOGO; Action::Copy;
         H, ModifiersState::LOGO; Action::Hide;
         M, ModifiersState::LOGO; Action::Minimize;
