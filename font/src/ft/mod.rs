@@ -17,7 +17,7 @@ use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
@@ -90,7 +90,7 @@ impl fmt::Debug for FaceLoadingProperties {
 pub struct FreeTypeRasterizer {
     library: Library,
     faces: HashMap<FontKey, FaceLoadingProperties>,
-    ft_faces: HashMap<PathBuf, Weak<FTFace>>,
+    ft_faces: HashMap<PathBuf, Rc<FTFace>>,
     fallback_lists: HashMap<FontKey, FallbackList>,
     device_pixel_ratio: f32,
 }
@@ -248,21 +248,16 @@ impl FreeTypeRasterizer {
         // Hash pattern together with request pattern to include requested font size in the hash
         let primary_font_key = FontKey::from_pattern_hashes(hash, primary_font.hash());
 
-        // Return font if we already loaded it
-        if self.faces.get(&primary_font_key).is_some() {
-            return Ok(primary_font_key);
-        }
-
-        // Don't load font if we already loaded one
-        let primary_font_key = if self.faces.get(&primary_font_key).is_some() {
-            primary_font_key
-        } else {
-            self.face_from_pattern(&primary_font, primary_font_key)
-                .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?
-        };
-
-        // Build fallback list if we don't have one for a given font key
+        // Load font if we haven't loaded one
         if self.fallback_lists.get(&primary_font_key).is_none() {
+
+            // Load font if we haven't loaded one
+            if !self.faces.contains_key(&primary_font_key) {
+                self.face_from_pattern(&primary_font, primary_font_key).and_then(|pattern| {
+                    pattern.ok_or_else(|| Error::MissingFont(desc.to_owned()))
+                })?;
+            }
+
             // Coverage for fallback fonts
             let coverage = CharSet::new();
             let empty_charset = CharSet::new();
@@ -283,6 +278,7 @@ impl FreeTypeRasterizer {
                 .collect();
 
             self.fallback_lists.insert(primary_font_key, FallbackList { list, coverage });
+
         }
 
         Ok(primary_font_key)
@@ -310,7 +306,7 @@ impl FreeTypeRasterizer {
         }
 
         let ft_face = Rc::new(ft_face);
-        self.ft_faces.insert(path, Rc::downgrade(&ft_face));
+        self.ft_faces.insert(path, Rc::clone(&ft_face));
 
         Ok(ft_face)
     }
@@ -327,8 +323,8 @@ impl FreeTypeRasterizer {
 
             trace!("Got font path={:?}", path);
 
-            let ft_face = match self.ft_faces.get(&path).and_then(|ft_face| ft_face.upgrade()) {
-                Some(ft_face) => ft_face,
+            let ft_face = match self.ft_faces.get(&path) {
+                Some(ft_face) => Rc::clone(ft_face),
                 None => self.load_ft_face(path, index)?,
             };
 
