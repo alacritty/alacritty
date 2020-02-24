@@ -253,33 +253,39 @@ impl FreeTypeRasterizer {
             return Ok(primary_font_key);
         }
 
-        // Reuse the font_key, since changing it can break library users
-        let font_key = self
-            .face_from_pattern(&primary_font, primary_font_key)
-            .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?;
+        // Don't load font if we already loaded one
+        let primary_font_key = if self.faces.get(&primary_font_key).is_some() {
+            primary_font_key
+        } else {
+            self.face_from_pattern(&primary_font, primary_font_key)
+                .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?
+        };
 
-        // Coverage for fallback fonts
-        let coverage = CharSet::new();
-        let empty_charset = CharSet::new();
+        // Build fallback list if we don't have one for a given font key
+        if self.fallback_lists.get(&primary_font_key).is_none() {
+            // Coverage for fallback fonts
+            let coverage = CharSet::new();
+            let empty_charset = CharSet::new();
 
-        // Build fallback list
-        let list: Vec<FallbackFont> = matched_fonts
-            .map(|fallback_font| {
-                let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
+            let list: Vec<FallbackFont> = matched_fonts
+                .map(|fallback_font| {
+                    let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
 
-                // Use original pattern to preserve loading flags
-                let fallback_font = pattern.render_prepare(config, fallback_font);
-                let fallback_font_key = FontKey::from_pattern_hashes(hash, fallback_font.hash());
+                    // Use original pattern to preserve loading flags
+                    let fallback_font = pattern.render_prepare(config, fallback_font);
+                    let fallback_font_key =
+                        FontKey::from_pattern_hashes(hash, fallback_font.hash());
 
-                let _ = coverage.merge(&charset);
+                    let _ = coverage.merge(&charset);
 
-                FallbackFont::new(fallback_font, fallback_font_key)
-            })
-            .collect();
+                    FallbackFont::new(fallback_font, fallback_font_key)
+                })
+                .collect();
 
-        self.fallback_lists.insert(font_key, FallbackList { list, coverage });
+            self.fallback_lists.insert(primary_font_key, FallbackList { list, coverage });
+        }
 
-        Ok(font_key)
+        Ok(primary_font_key)
     }
 
     fn full_metrics(&self, face_load_props: &FaceLoadingProperties) -> Result<FullMetrics, Error> {
