@@ -1356,7 +1356,7 @@ impl<T> Term<T> {
         cell
     }
 
-    /// Get render information about the active cursor.
+    /// Get rendering information about the active cursor.
     fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
         let keyboard_motion = self.mode.contains(TermMode::KEYBOARD_MOTION);
 
