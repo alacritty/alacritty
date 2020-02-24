@@ -19,8 +19,7 @@
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
-use std::cmp::min;
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -188,18 +187,59 @@ impl<T: EventListener> Execute<T> for Action {
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
-            Action::ScrollPageUp => ctx.scroll(Scroll::PageUp),
-            Action::ScrollPageDown => ctx.scroll(Scroll::PageDown),
+            Action::ScrollPageUp => {
+                // Move keyboard cursor
+                let term = ctx.terminal_mut();
+                let scroll_lines = term.grid().num_lines().0 as isize;
+                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+
+                ctx.scroll(Scroll::PageUp);
+            },
+            Action::ScrollPageDown => {
+                // Move keyboard cursor
+                let term = ctx.terminal_mut();
+                let scroll_lines = -(term.grid().num_lines().0 as isize);
+                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+
+                ctx.scroll(Scroll::PageDown);
+            },
             Action::ScrollHalfPageUp => {
-                let num_lines = ctx.terminal().grid().num_lines().0 as isize;
-                ctx.scroll(Scroll::Lines(num_lines / 2));
+                // Move keyboard cursor
+                let term = ctx.terminal_mut();
+                let scroll_lines = term.grid().num_lines().0 as isize / 2;
+                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+
+                ctx.scroll(Scroll::Lines(scroll_lines));
             },
             Action::ScrollHalfPageDown => {
-                let num_lines = ctx.terminal().grid().num_lines().0 as isize;
-                ctx.scroll(Scroll::Lines(-num_lines / 2));
+                // Move keyboard cursor
+                let term = ctx.terminal_mut();
+                let scroll_lines = -(term.grid().num_lines().0 as isize / 2);
+                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+
+                ctx.scroll(Scroll::Lines(scroll_lines));
             },
-            Action::ScrollLineUp => ctx.scroll(Scroll::Lines(1)),
-            Action::ScrollLineDown => ctx.scroll(Scroll::Lines(-1)),
+            Action::ScrollLineUp => {
+                // Move keyboard cursor
+                let term = ctx.terminal();
+                if term.grid().display_offset() != term.grid().history_size()
+                    && term.keyboard_cursor.point.line + 1 != term.grid().num_lines()
+                {
+                    ctx.terminal_mut().keyboard_cursor.point.line += 1;
+                }
+
+                ctx.scroll(Scroll::Lines(1));
+            },
+            Action::ScrollLineDown => {
+                // Move keyboard cursor
+                if ctx.terminal().grid().display_offset() != 0
+                    && ctx.terminal().keyboard_cursor.point.line.0 != 0
+                {
+                    ctx.terminal_mut().keyboard_cursor.point.line -= 1;
+                }
+
+                ctx.scroll(Scroll::Lines(-1));
+            },
             Action::ScrollToTop => {
                 ctx.terminal_mut().keyboard_cursor.point = Point::new(Line(0), Column(0));
                 ctx.scroll(Scroll::Top);

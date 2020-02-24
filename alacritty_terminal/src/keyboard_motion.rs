@@ -1,10 +1,10 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 
 use serde::Deserialize;
 
 use crate::event::EventListener;
 use crate::grid::{GridCell, Scroll};
-use crate::index::{Column, Point};
+use crate::index::{Column, Line, Point};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
@@ -141,6 +141,29 @@ impl KeyboardCursor {
 
         scroll_to_point(term, buffer_point);
         self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
+
+        self
+    }
+
+    /// Get target cursor point for vim-like page movement.
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: isize) -> Self {
+        // Check number of lines the cursor needs to be moved
+        let overscroll = if lines > 0 {
+            let max_scroll = term.grid().history_size() - term.grid().display_offset();
+            max(0, lines - max_scroll as isize)
+        } else {
+            let max_scroll = term.grid().display_offset();
+            min(0, lines + max_scroll as isize)
+        };
+
+        // Clamp movement to within visible region
+        let mut line = self.point.line.0 as isize;
+        line -= overscroll;
+        line = max(0, min(term.grid().num_lines().0 as isize - 1, line));
+
+        // Move cursor
+        self.point = Point::new(Line(line as usize), Column(0));
 
         self
     }
