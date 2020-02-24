@@ -403,7 +403,7 @@ fn advance<T>(term: &Term<T>, point: Point<usize>, left: bool) -> Point<usize> {
 /// Check if cell at point contains whitespace.
 fn is_space<T>(term: &Term<T>, point: Point<usize>) -> bool {
     let cell = term.grid()[point.line][point.col];
-    cell.c == ' ' && !cell.flags().contains(Flags::WIDE_CHAR_SPACER)
+    cell.c == ' ' || cell.c == '\t' && !cell.flags().contains(Flags::WIDE_CHAR_SPACER)
 }
 
 fn is_wrap<T>(term: &Term<T>, point: Point<usize>) -> bool {
