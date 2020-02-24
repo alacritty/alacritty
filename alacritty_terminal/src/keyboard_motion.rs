@@ -188,7 +188,7 @@ fn scroll_to_point<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
 fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let cols = term.grid().num_cols();
 
-    // Expand across wide cells.
+    // Expand across wide cells
     point = expand_wide(term, point, false);
 
     // Find last non-empty cell in the current line
@@ -221,7 +221,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let occupied = first_occupied_in_line(term, point.line)
         .unwrap_or_else(|| Point::new(point.line, cols - 1));
 
-    // Jump acress wrapped lines if we're already at this lines first occupied cell
+    // Jump across wrapped lines if we're already at this line's first occupied cell
     if point == occupied {
         let mut occupied = None;
 

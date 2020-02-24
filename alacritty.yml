@@ -204,7 +204,7 @@
 
   # Keyboard motion cursor colors
   #
-  # Colors for the cursor when the keyboard motion mode is active.  If these are
+  # Colors for the cursor when the keyboard motion mode is active. If these are
   # unset, the cursor color will be the inverse of the cell color.
   #keyboard_motion_cursor:
   #  text: '0x000000'
@@ -518,8 +518,9 @@
 #   - Down
 #   - Left
 #   - Right
-#   - Start
-#   - End
+#   - First
+#   - Last
+#   - FirstOccupied
 #   - High
 #   - Middle
 #   - Low
@@ -587,7 +588,7 @@
   #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt       }
   #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
 
-  # Keyboard Motion
+  # Keyboard Motion Mode
   #- { key: Escape, mods: Control, mode: KeyboardMotion, action: ScrollToBottom     }
   #- { key: Escape, mods: Control,                       action: ToggleKeyboardMode }
   #- { key: Escape,                mode: KeyboardMotion, action: ScrollToBottom     }
@@ -616,8 +617,9 @@
   #- { key: Down,                  keyboard_motion: Down                    }
   #- { key: Left,                  keyboard_motion: Left                    }
   #- { key: Right,                 keyboard_motion: Right                   }
-  #- { key: Key0,                  keyboard_motion: Start                   }
-  #- { key: Key4,   mods: Shift,   keyboard_motion: End                     }
+  #- { key: Key0,                  keyboard_motion: First                   }
+  #- { key: Key4,   mods: Shift,   keyboard_motion: Last                    }
+  #- { key: Key6,   mods: Shift,   keyboard_motion: FirstOccupied           }
   #- { key: H,      mods: Shift,   keyboard_motion: High                    }
   #- { key: M,      mods: Shift,   keyboard_motion: Middle                  }
   #- { key: L,      mods: Shift,   keyboard_motion: Low                     }
