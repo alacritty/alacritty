@@ -113,13 +113,19 @@ impl KeyboardCursor {
             KeyboardMotion::FirstOccupied => buffer_point = first_occupied(term, buffer_point),
             KeyboardMotion::High => {
                 let line = display_offset + lines.0 - 1;
-                buffer_point = Point::new(line, Column(0));
+                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                buffer_point = Point::new(line, col);
             },
             KeyboardMotion::Middle => {
                 let line = display_offset + lines.0 / 2;
-                buffer_point = Point::new(line, Column(0));
+                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                buffer_point = Point::new(line, col);
             },
-            KeyboardMotion::Low => buffer_point = Point::new(display_offset, Column(0)),
+            KeyboardMotion::Low => {
+                let line = display_offset;
+                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                buffer_point = Point::new(line, col);
+            }
             KeyboardMotion::SemanticLeft => buffer_point = semantic(term, buffer_point, true, true),
             KeyboardMotion::SemanticRight => {
                 buffer_point = semantic(term, buffer_point, false, true)
@@ -162,8 +168,14 @@ impl KeyboardCursor {
         line -= overscroll;
         line = max(0, min(term.grid().num_lines().0 as isize - 1, line));
 
+        // Find the first occupied cell after scrolling has been performed
+        let buffer_point = term.visible_to_buffer(self.point);
+        let mut target_line = buffer_point.line as isize + lines;
+        target_line = max(0, min(term.grid().len() as isize - 1, target_line));
+        let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().col;
+
         // Move cursor
-        self.point = Point::new(Line(line as usize), Column(0));
+        self.point = Point::new(Line(line as usize), col);
 
         self
     }

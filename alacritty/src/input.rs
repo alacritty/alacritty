@@ -43,6 +43,7 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
+use alacritty_terminal::keyboard_motion::KeyboardMotion;
 
 use crate::config::{Action, Binding, Config, Key, KeyboardMotionAction};
 use crate::event::{ClickState, Mouse};
@@ -241,13 +242,19 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Lines(-1));
             },
             Action::ScrollToTop => {
-                ctx.terminal_mut().keyboard_cursor.point = Point::new(Line(0), Column(0));
                 ctx.scroll(Scroll::Top);
+
+                // Move keyboard cursor
+                ctx.terminal_mut().keyboard_cursor.point.line = Line(0);
+                ctx.terminal_mut().keyboard_motion(KeyboardMotion::FirstOccupied);
             },
             Action::ScrollToBottom => {
-                let num_lines = ctx.terminal().grid().num_lines();
-                ctx.terminal_mut().keyboard_cursor.point = Point::new(num_lines - 1, Column(0));
                 ctx.scroll(Scroll::Bottom);
+
+                // Move keyboard cursor
+                let term = ctx.terminal_mut();
+                term.keyboard_cursor.point.line = term.grid().num_lines() - 1;
+                term.keyboard_motion(KeyboardMotion::FirstOccupied);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
