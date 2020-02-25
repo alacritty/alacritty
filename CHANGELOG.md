@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Modal keyboard cursor motion mode for copying text
+- Keyboard cursor motion mode for copying text and opening links
 
 ### Changed
 
