@@ -62,8 +62,8 @@ struct FaceLoadingProperties {
     load_flags: freetype::face::LoadFlag,
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
-    non_scalable: Option<f64>,
-    has_color: bool,
+    pixelsize: f64,
+    colored: bool,
     pixelsize_fixup_factor: Option<f64>,
     ft_face: Rc<FTFace>,
 }
@@ -248,38 +248,36 @@ impl FreeTypeRasterizer {
         // Hash pattern together with request pattern to include requested font size in the hash
         let primary_font_key = FontKey::from_pattern_hashes(hash, primary_font.hash());
 
-        // Load font if we haven't loaded one
-        if self.fallback_lists.get(&primary_font_key).is_none() {
-
-            // Load font if we haven't loaded one
-            if !self.faces.contains_key(&primary_font_key) {
-                self.face_from_pattern(&primary_font, primary_font_key).and_then(|pattern| {
-                    pattern.ok_or_else(|| Error::MissingFont(desc.to_owned()))
-                })?;
-            }
-
-            // Coverage for fallback fonts
-            let coverage = CharSet::new();
-            let empty_charset = CharSet::new();
-
-            let list: Vec<FallbackFont> = matched_fonts
-                .map(|fallback_font| {
-                    let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
-
-                    // Use original pattern to preserve loading flags
-                    let fallback_font = pattern.render_prepare(config, fallback_font);
-                    let fallback_font_key =
-                        FontKey::from_pattern_hashes(hash, fallback_font.hash());
-
-                    let _ = coverage.merge(&charset);
-
-                    FallbackFont::new(fallback_font, fallback_font_key)
-                })
-                .collect();
-
-            self.fallback_lists.insert(primary_font_key, FallbackList { list, coverage });
-
+        // Return if we already have the same primary font
+        if self.fallback_lists.contains_key(&primary_font_key) {
+            return Ok(primary_font_key);
         }
+
+        // Load font if we haven't loaded one
+        if !self.faces.contains_key(&primary_font_key) {
+            self.face_from_pattern(&primary_font, primary_font_key)
+                .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?;
+        }
+
+        // Coverage for fallback fonts
+        let coverage = CharSet::new();
+        let empty_charset = CharSet::new();
+
+        let list: Vec<FallbackFont> = matched_fonts
+            .map(|fallback_font| {
+                let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
+
+                // Use original pattern to preserve loading flags
+                let fallback_font = pattern.render_prepare(config, fallback_font);
+                let fallback_font_key = FontKey::from_pattern_hashes(hash, fallback_font.hash());
+
+                let _ = coverage.merge(&charset);
+
+                FallbackFont::new(fallback_font, fallback_font_key)
+            })
+            .collect();
+
+        self.fallback_lists.insert(primary_font_key, FallbackList { list, coverage });
 
         Ok(primary_font_key)
     }
@@ -329,14 +327,8 @@ impl FreeTypeRasterizer {
             };
 
             // Get available pixel sizes if font isn't scalable.
-            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
-                None
-            } else {
-                let mut pixelsize = pattern.pixelsize();
-                debug!("pixelsizes: {:?}", pixelsize);
-
-                Some(pixelsize.next().expect("has 1+ pixelsize"))
-            };
+            let pixelsize =
+                pattern.pixelsize().next().expect("Font is missing pixelsize information.");
 
             let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
 
@@ -344,8 +336,8 @@ impl FreeTypeRasterizer {
                 load_flags: Self::ft_load_flags(pattern),
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
-                non_scalable,
-                has_color: ft_face.has_color(),
+                pixelsize,
+                colored: ft_face.has_color(),
                 pixelsize_fixup_factor,
                 ft_face,
             };
@@ -415,13 +407,8 @@ impl FreeTypeRasterizer {
         let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
-        let size = face
-            .non_scalable
-            .map(|pixel_size| pixel_size as f32)
-            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
-
-        if !face.has_color {
-            face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        if !face.colored {
+            face.ft_face.set_char_size(to_freetype_26_6(face.pixelsize as f32), 0, 0, 0)?;
         }
 
         unsafe {
@@ -445,13 +432,13 @@ impl FreeTypeRasterizer {
             buf,
         };
 
-        if face.has_color {
+        if face.colored {
             let fixup_factor = if let Some(pixelsize_fixup_factor) = face.pixelsize_fixup_factor {
                 pixelsize_fixup_factor
             } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
-                size as f64 / metrics.y_ppem as f64
+                face.pixelsize / metrics.y_ppem as f64
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
