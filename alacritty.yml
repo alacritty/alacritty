@@ -556,8 +556,8 @@
   #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
 
   # Keyboard Motion Mode
-  #- { key: Escape, mods: Control, mode: KeyboardMotion, action: ScrollToBottom     }
-  #- { key: Escape, mods: Control,                       action: ToggleKeyboardMode }
+  #- { key: Space,  mods: Shift|Control, mode: KeyboardMotion, action: ScrollToBottom     }
+  #- { key: Space,  mods: Shift|Control,                       action: ToggleKeyboardMode }
   #- { key: Escape,                mode: KeyboardMotion, action: ScrollToBottom     }
   #- { key: Escape,                mode: KeyboardMotion, action: ToggleKeyboardMode }
   #- { key: I,                     mode: KeyboardMotion, action: ScrollToBottom     }

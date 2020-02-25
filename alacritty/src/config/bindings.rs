@@ -408,8 +408,10 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         F19,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[33~".into());
         F20,         ~TermMode::KEYBOARD_MOTION; Action::Esc("\x1b[34~".into());
         NumpadEnter, ~TermMode::KEYBOARD_MOTION; Action::Esc("\n".into());
-        Escape, ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
-        Escape, ModifiersState::CTRL;                              Action::ToggleKeyboardMode;
+        Space,  ModifiersState::SHIFT | ModifiersState::CTRL,  +TermMode::KEYBOARD_MOTION;
+            Action::ScrollToBottom;
+        Space,  ModifiersState::SHIFT | ModifiersState::CTRL;
+            Action::ToggleKeyboardMode;
         Escape,                        +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
         Escape,                        +TermMode::KEYBOARD_MOTION; Action::ToggleKeyboardMode;
         I,                             +TermMode::KEYBOARD_MOTION; Action::ScrollToBottom;
