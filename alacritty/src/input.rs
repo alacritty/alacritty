@@ -469,31 +469,30 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
-                self.scroll_terminal(new_scroll_px as i32);
+                self.scroll_terminal(new_scroll_px);
             },
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
-                        self.ctx.mouse_mut().scroll_px = 0;
+                        self.ctx.mouse_mut().scroll_px = 0.0;
                     },
                     TouchPhase::Moved => {
-                        self.scroll_terminal(lpos.y as i32);
+                        self.scroll_terminal(lpos.y as f32);
                     },
                     _ => (),
                 }
             },
         }
     }
-
-    fn scroll_terminal(&mut self, new_scroll_px: i32) {
-        let height = self.ctx.size_info().cell_height as i32;
+    fn scroll_terminal(&mut self, new_scroll_px: f32) {
+        let height = self.ctx.size_info().cell_height as f32;
 
         if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE) {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
 
-            let code = if new_scroll_px > 0 { 64 } else { 65 };
-            let lines = (self.ctx.mouse().scroll_px / height).abs();
+            let code = if new_scroll_px > 0.0 { 64 } else { 65 };
+            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
 
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed);
@@ -505,7 +504,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().shift()
         {
-            let multiplier = i32::from(
+            let multiplier = f32::from(
                 self.ctx
                     .config()
                     .scrolling
@@ -514,8 +513,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             );
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
-            let cmd = if new_scroll_px > 0 { b'A' } else { b'B' };
-            let lines = (self.ctx.mouse().scroll_px / height).abs();
+            let cmd = if new_scroll_px > 0.0 { b'A' } else { b'B' };
+            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
 
             let mut content = Vec::with_capacity(lines as usize * 3);
             for _ in 0..lines {
@@ -525,7 +524,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = i32::from(self.ctx.config().scrolling.multiplier());
+            let multiplier = f32::from(self.ctx.config().scrolling.multiplier());
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
