@@ -548,11 +548,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     ReceivedCharacter(c) => processor.received_char(c),
                     MouseInput { state, button, .. } => {
-                        if !cfg!(target_os = "macos") || processor.ctx.terminal.is_focused {
-                            processor.ctx.window.set_mouse_visible(true);
-                            processor.mouse_input(state, button);
-                            processor.ctx.terminal.dirty = true;
-                        }
+                        processor.ctx.window.set_mouse_visible(true);
+                        processor.mouse_input(state, button);
+                        processor.ctx.terminal.dirty = true;
                     },
                     CursorMoved { position, .. } => {
                         let (x, y) = position.into();
