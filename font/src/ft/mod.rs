@@ -253,7 +253,7 @@ impl FreeTypeRasterizer {
             return Ok(primary_font_key);
         }
 
-        // Load font if we haven't loaded one
+        // Load font if we haven't loaded it yet
         if !self.faces.contains_key(&primary_font_key) {
             self.face_from_pattern(&primary_font, primary_font_key)
                 .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?;
