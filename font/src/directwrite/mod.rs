@@ -113,7 +113,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
         let face = font.create_font_face();
         self.fonts.push(face);
 
-        Ok(FontKey { token: (self.fonts.len() - 1) as u16 })
+        Ok(FontKey { token: (self.fonts.len() - 1) as u32 })
     }
 
     fn get_glyph(&mut self, glyph: GlyphKey) -> Result<RasterizedGlyph, Error> {

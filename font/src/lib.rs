@@ -21,7 +21,6 @@
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -100,7 +99,7 @@ impl fmt::Display for FontDesc {
 /// Identifier for a Font for use in maps/etc
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct FontKey {
-    token: u16,
+    token: u32,
 }
 
 impl FontKey {
@@ -114,40 +113,9 @@ impl FontKey {
     }
 }
 
-/// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`.
-/// If shaping failed or did not occur, `Fallback` will be returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum KeyType {
-    /// A valid glyph index from Font face to be rasterized to a glyph
-    GlyphIndex(u32),
-    /// A character that has not been converted to an index before rasterizing
-    Char(char),
-    /// Placeholder glyph useful when we need a glyph but it shouldn't ever render as anything
-    /// (cursors, wide_char_spacers, etc.)
-    Placeholder,
-}
-
-impl Default for KeyType {
-    fn default() -> Self {
-        PLACEHOLDER_GLYPH
-    }
-}
-
-impl From<u32> for KeyType {
-    fn from(val: u32) -> Self {
-        KeyType::GlyphIndex(val)
-    }
-}
-
-impl From<char> for KeyType {
-    fn from(val: char) -> Self {
-        KeyType::Char(val)
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub struct GlyphKey {
-    pub id: KeyType,
+    pub c: char,
     pub font_key: FontKey,
     pub size: Size,
 }
