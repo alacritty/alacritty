@@ -478,13 +478,43 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                         self.ctx.mouse_mut().scroll_px = 0.0;
                     },
                     TouchPhase::Moved => {
+                        // adapt for setting trackpad speed using 60.0 as fps factor...
+                        let multiplier = 60.0
+                            * f64::from(
+                                self.ctx
+                                    .config()
+                                    .scrolling
+                                    .faux_multiplier()
+                                    .unwrap_or_else(|| self.ctx.config().scrolling.multiplier()),
+                            );
                         self.scroll_terminal(lpos.y as f32);
+                        self.ctx.mouse_mut().scroll_velocity = lpos.y * multiplier;
+                        self.ctx.mouse_mut().scroll_last_moved = Instant::now();
+                    },
+                    TouchPhase::Ended => {
+                        self.ctx.mouse_mut().scroll_velocity = lpos.y;
                     },
                     _ => (),
                 }
             },
         }
     }
+
+    pub fn scroll_terminal_kinetic(&mut self) {
+        let velocity = self.ctx.mouse_mut().scroll_velocity;
+        let delta_time = self.ctx.mouse_mut().scroll_velocity_update_delta.elapsed().as_secs_f64();
+        self.ctx.mouse_mut().scroll_velocity_update_delta = Instant::now();
+
+        let friction = f64::from(self.ctx.config().scrolling.kinetic_friction());
+        let v = self.ctx.mouse_mut().scroll_velocity;
+        let a = friction * delta_time * v;
+        self.ctx.mouse_mut().scroll_velocity =
+            if velocity.abs() <= 1.0 { 0.0 } else { self.ctx.mouse_mut().scroll_velocity - a };
+        if self.ctx.mouse_mut().scroll_last_moved.elapsed().as_secs_f64() > 0.02 {
+            self.scroll_terminal((velocity * delta_time) as f32);
+        }
+    }
+
     fn scroll_terminal(&mut self, new_scroll_px: f32) {
         let height = self.ctx.size_info().cell_height as f32;
 

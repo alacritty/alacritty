@@ -11,7 +11,8 @@ pub struct Scrolling {
     history: ScrollingHistory,
     #[serde(deserialize_with = "failure_default")]
     multiplier: ScrollingMultiplier,
-
+    #[serde(deserialize_with = "failure_default")]
+    kinetic_friction: ScrollingKineticFriction,
     // TODO: REMOVED
     #[serde(deserialize_with = "failure_default")]
     pub auto_scroll: Option<bool>,
@@ -24,6 +25,10 @@ pub struct Scrolling {
 impl Scrolling {
     pub fn history(self) -> u32 {
         self.history.0
+    }
+
+    pub fn kinetic_friction(self) -> u8 {
+        self.kinetic_friction.0
     }
 
     pub fn multiplier(self) -> u8 {
@@ -46,6 +51,15 @@ struct ScrollingMultiplier(u8);
 impl Default for ScrollingMultiplier {
     fn default() -> Self {
         ScrollingMultiplier(3)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+struct ScrollingKineticFriction(u8);
+
+impl Default for ScrollingKineticFriction {
+    fn default() -> Self {
+        ScrollingKineticFriction(0)
     }
 }
 

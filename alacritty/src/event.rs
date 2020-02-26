@@ -273,6 +273,9 @@ pub struct Mouse {
     pub last_click_timestamp: Instant,
     pub click_state: ClickState,
     pub scroll_px: f32,
+    pub scroll_velocity: f64,
+    pub scroll_last_moved: Instant,
+    pub scroll_velocity_update_delta: Instant,
     pub line: Line,
     pub column: Column,
     pub cell_side: Side,
@@ -293,6 +296,9 @@ impl Default for Mouse {
             right_button_state: ElementState::Released,
             click_state: ClickState::None,
             scroll_px: 0.0,
+            scroll_velocity: 0.0,
+            scroll_last_moved: Instant::now(),
+            scroll_velocity_update_delta: Instant::now(),
             line: Line(0),
             column: Column(0),
             cell_side: Side::Left,
@@ -419,6 +425,12 @@ impl<N: Notify + OnResize> Processor<N> {
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
+            }
+            if processor.ctx.mouse().scroll_velocity != 0.0
+                && 0.0 != f32::from(processor.ctx.config().scrolling.kinetic_friction())
+            {
+                event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
+                processor.scroll_terminal_kinetic();
             }
 
             // Process DisplayUpdate events
