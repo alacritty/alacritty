@@ -66,10 +66,14 @@ impl<'de> Deserialize<'de> for Rgb {
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
             where
-                E: ::serde::de::Error,
+                E: serde::de::Error,
             {
-                Rgb::from_str(&value[..])
-                    .map_err(|_| E::custom("failed to parse rgb; expected hex color like #ff00ff"))
+                Rgb::from_str(&value[..]).map_err(|_| {
+                    E::custom(format!(
+                        "failed to parse rgb color {}; expected hex color like #ff00ff",
+                        value
+                    ))
+                })
             }
         }
 
@@ -98,7 +102,7 @@ impl<'de> Deserialize<'de> for Rgb {
 impl FromStr for Rgb {
     type Err = ();
 
-    fn from_str(s: &str) -> ::std::result::Result<Rgb, ()> {
+    fn from_str(s: &str) -> std::result::Result<Rgb, ()> {
         let mut chars = s.chars();
         let mut rgb = Rgb::default();
 
@@ -130,7 +134,12 @@ impl FromStr for Rgb {
 
         component!(r, g, b);
 
-        Ok(rgb)
+        if chars.as_str().is_empty() {
+            Ok(rgb)
+        } else {
+            // We still have something to parse, so throw an error
+            Err(())
+        }
     }
 }
 
