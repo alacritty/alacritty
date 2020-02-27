@@ -62,7 +62,7 @@ struct FaceLoadingProperties {
     load_flags: freetype::face::LoadFlag,
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
-    pixelsize: f64,
+    non_scalable: Option<f32>,
     colored: bool,
     pixelsize_fixup_factor: Option<f64>,
     ft_face: Rc<FTFace>,
@@ -326,9 +326,11 @@ impl FreeTypeRasterizer {
                 None => self.load_ft_face(path, index)?,
             };
 
-            // Get available pixel sizes if font isn't scalable.
-            let pixelsize =
-                pattern.pixelsize().next().expect("Font is missing pixelsize information.");
+            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
+                None
+            } else {
+                Some(pattern.pixelsize().next().expect("has 1+ pixelsize") as f32)
+            };
 
             let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
 
@@ -336,7 +338,7 @@ impl FreeTypeRasterizer {
                 load_flags: Self::ft_load_flags(pattern),
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
-                pixelsize,
+                non_scalable,
                 colored: ft_face.has_color(),
                 pixelsize_fixup_factor,
                 ft_face,
@@ -406,9 +408,12 @@ impl FreeTypeRasterizer {
         let font_key = self.face_for_glyph(glyph_key)?;
         let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
+        let pixelsize = face
+            .non_scalable
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         if !face.colored {
-            face.ft_face.set_char_size(to_freetype_26_6(face.pixelsize as f32), 0, 0, 0)?;
+            face.ft_face.set_char_size(to_freetype_26_6(pixelsize), 0, 0, 0)?;
         }
 
         unsafe {
@@ -438,7 +443,7 @@ impl FreeTypeRasterizer {
             } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
-                face.pixelsize / metrics.y_ppem as f64
+                pixelsize as f64 / metrics.y_ppem as f64
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
