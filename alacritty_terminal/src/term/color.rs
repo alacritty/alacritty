@@ -61,7 +61,7 @@ impl<'de> Deserialize<'de> for Rgb {
             type Value = Rgb;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("hex color like 0xff00ff")
+                f.write_str("hex color like #ff00ff")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
@@ -69,7 +69,7 @@ impl<'de> Deserialize<'de> for Rgb {
                 E: ::serde::de::Error,
             {
                 Rgb::from_str(&value[..])
-                    .map_err(|_| E::custom("failed to parse rgb; expected hex color like 0xff00ff"))
+                    .map_err(|_| E::custom("failed to parse rgb; expected hex color like #ff00ff"))
             }
         }
 
