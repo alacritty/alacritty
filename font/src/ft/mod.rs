@@ -408,9 +408,9 @@ impl FreeTypeRasterizer {
         let font_key = self.face_for_glyph(glyph_key)?;
         let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
-        let pixelsize = face.non_scalable.unwrap_or_else(|| {
-            glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
-        });
+        let pixelsize = face
+            .non_scalable
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         if !face.colored {
             face.ft_face.set_char_size(to_freetype_26_6(pixelsize), 0, 0, 0)?;
