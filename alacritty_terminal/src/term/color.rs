@@ -7,7 +7,7 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
-use crate::config::Colors;
+use crate::config::{Colors, LOG_TARGET_CONFIG};
 
 pub const COUNT: usize = 269;
 
@@ -85,7 +85,10 @@ impl<'de> Deserialize<'de> for Rgb {
         match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
-                error!("Problem with config: {}; using color #000000", err);
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using color #000000", err
+                );
                 Ok(Rgb::default())
             },
         }
