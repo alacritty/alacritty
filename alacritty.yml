@@ -181,8 +181,7 @@
 
 # Colors (Tomorrow Night Bright)
 #
-# Color's value could be specified either with '0xrrggbb' or with '#rrggbb'
-# notation.
+# Colors can be specified using either '0xrrggbb' or '#rrggbb` notation.
 #
 #colors:
   # Default colors
