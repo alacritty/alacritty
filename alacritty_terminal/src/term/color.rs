@@ -103,42 +103,24 @@ impl FromStr for Rgb {
     type Err = ();
 
     fn from_str(s: &str) -> std::result::Result<Rgb, ()> {
-        let mut chars = s.chars();
-        let mut rgb = Rgb::default();
-
-        macro_rules! component {
-            ($($c:ident),*) => {
-                $(
-                    match chars.next().and_then(|c| c.to_digit(16)) {
-                        Some(val) => rgb.$c = (val as u8) << 4,
-                        None => return Err(())
-                    }
-
-                    match chars.next().and_then(|c| c.to_digit(16)) {
-                        Some(val) => rgb.$c |= val as u8,
-                        None => return Err(())
-                    }
-                )*
-            }
-        }
-
-        match chars.next() {
-            Some('0') => {
-                if chars.next() != Some('x') {
-                    return Err(());
-                }
-            },
-            Some('#') => (),
-            _ => return Err(()),
-        }
-
-        component!(r, g, b);
-
-        if chars.as_str().is_empty() {
-            Ok(rgb)
+        let chars =  if s.starts_with("0x") && s.len() == 8 {
+            &s[2..]
+        } else if s.starts_with('#') && s.len() == 7 {
+            &s[1..]
         } else {
-            // We still have something to parse, so throw an error
-            Err(())
+            return Err(());
+        };
+
+        match u32::from_str_radix(chars, 16) {
+            Ok(mut color) => {
+                let b = (color & 0xff) as u8;
+                color >>= 8;
+                let g = (color & 0xff) as u8;
+                color >>= 8;
+                let r = color as u8;
+                Ok(Rgb { r, g, b })
+            },
+            Err(_) => Err(()),
         }
     }
 }
