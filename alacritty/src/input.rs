@@ -43,9 +43,9 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
-use alacritty_terminal::keyboard_motion::KeyboardMotion;
+use alacritty_terminal::vi_mode::ViMotion;
 
-use crate::config::{Action, Binding, Config, Key, KeyboardMotionAction};
+use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::event::{ClickState, Mouse};
 use crate::url::{Url, Urls};
 use crate::window::Window;
@@ -112,7 +112,7 @@ impl Action {
         T: EventListener,
         A: ActionContext<T>,
     {
-        let cursor_point = ctx.terminal().keyboard_cursor.point;
+        let cursor_point = ctx.terminal().vi_cursor.point;
         ctx.toggle_selection(ty, cursor_point, Side::Left);
 
         // Make sure initial selection is not empty
@@ -134,8 +134,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Copy => {
                 ctx.copy_selection(ClipboardType::Clipboard);
 
-                // Clear selection in keyboard mode for better user feedback
-                if ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
+                // Clear selection in vi mode for better user feedback
+                if ctx.terminal().mode().contains(TermMode::VI) {
                     ctx.clear_selection();
                 }
             },
@@ -156,26 +156,26 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ClearSelection => ctx.clear_selection(),
-            Action::ToggleKeyboardMode => ctx.terminal_mut().toggle_keyboard_mode(),
-            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleNormalSelection) => {
+            Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),
+            Action::ViAction(ViAction::ToggleNormalSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Simple)
             },
-            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleLineSelection) => {
+            Action::ViAction(ViAction::ToggleLineSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Lines)
             },
-            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleBlockSelection) => {
+            Action::ViAction(ViAction::ToggleBlockSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Block)
             },
-            Action::KeyboardMotionAction(KeyboardMotionAction::ToggleSemanticSelection) => {
+            Action::ViAction(ViAction::ToggleSemanticSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Semantic)
             },
-            Action::KeyboardMotionAction(KeyboardMotionAction::Open) => {
+            Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
-                if let Some(url) = ctx.urls().find_at(ctx.terminal().keyboard_cursor.point) {
+                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_cursor.point) {
                     ctx.launch_url(url);
                 }
             },
-            Action::KeyboardMotion(motion) => ctx.terminal_mut().keyboard_motion(motion),
+            Action::ViMotion(motion) => ctx.terminal_mut().vi_motion(motion),
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -189,54 +189,54 @@ impl<T: EventListener> Execute<T> for Action {
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp => {
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = term.grid().num_lines().0 as isize;
-                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
             },
             Action::ScrollPageDown => {
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = -(term.grid().num_lines().0 as isize);
-                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
             },
             Action::ScrollHalfPageUp => {
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = term.grid().num_lines().0 as isize / 2;
-                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Lines(scroll_lines));
             },
             Action::ScrollHalfPageDown => {
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = -(term.grid().num_lines().0 as isize / 2);
-                term.keyboard_cursor = term.keyboard_cursor.scroll(term, scroll_lines);
+                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Lines(scroll_lines));
             },
             Action::ScrollLineUp => {
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal();
                 if term.grid().display_offset() != term.grid().history_size()
-                    && term.keyboard_cursor.point.line + 1 != term.grid().num_lines()
+                    && term.vi_cursor.point.line + 1 != term.grid().num_lines()
                 {
-                    ctx.terminal_mut().keyboard_cursor.point.line += 1;
+                    ctx.terminal_mut().vi_cursor.point.line += 1;
                 }
 
                 ctx.scroll(Scroll::Lines(1));
             },
             Action::ScrollLineDown => {
-                // Move keyboard cursor
+                // Move vi cursor
                 if ctx.terminal().grid().display_offset() != 0
-                    && ctx.terminal().keyboard_cursor.point.line.0 != 0
+                    && ctx.terminal().vi_cursor.point.line.0 != 0
                 {
-                    ctx.terminal_mut().keyboard_cursor.point.line -= 1;
+                    ctx.terminal_mut().vi_cursor.point.line -= 1;
                 }
 
                 ctx.scroll(Scroll::Lines(-1));
@@ -244,17 +244,17 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);
 
-                // Move keyboard cursor
-                ctx.terminal_mut().keyboard_cursor.point.line = Line(0);
-                ctx.terminal_mut().keyboard_motion(KeyboardMotion::FirstOccupied);
+                // Move vi cursor
+                ctx.terminal_mut().vi_cursor.point.line = Line(0);
+                ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
             },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
 
-                // Move keyboard cursor
+                // Move vi cursor
                 let term = ctx.terminal_mut();
-                term.keyboard_cursor.point.line = term.grid().num_lines() - 1;
-                term.keyboard_motion(KeyboardMotion::FirstOccupied);
+                term.vi_cursor.point.line = term.grid().num_lines() - 1;
+                term.vi_motion(ViMotion::FirstOccupied);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
@@ -349,9 +349,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             self.ctx.update_selection(Point { line, col: point.col }, cell_side);
 
-            if self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                // Move keyboard motion cursor to mouse cursor position
-                self.ctx.terminal_mut().keyboard_cursor.point = point;
+            if self.ctx.terminal().mode().contains(TermMode::VI) {
+                // Move vi motion cursor to mouse cursor position
+                self.ctx.terminal_mut().vi_cursor.point = point;
 
                 // Extend selection to include partially selected cells
                 if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
@@ -522,10 +522,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.start_selection(SelectionType::Simple, point, side);
                 }
 
-                // Move keyboard motion cursor to mouse position
-                if self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION) {
-                    // Update keyboard motion cursor position on click
-                    self.ctx.terminal_mut().keyboard_cursor.point = point;
+                // Move vi motion cursor to mouse position
+                if self.ctx.terminal().mode().contains(TermMode::VI) {
+                    // Update vi motion cursor position on click
+                    self.ctx.terminal_mut().vi_cursor.point = point;
                 }
 
                 if !self.ctx.modifiers().shift()
@@ -716,7 +716,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         if *self.ctx.suppress_chars()
-            || self.ctx.terminal().mode().contains(TermMode::KEYBOARD_MOTION)
+            || self.ctx.terminal().mode().contains(TermMode::VI)
         {
             return;
         }

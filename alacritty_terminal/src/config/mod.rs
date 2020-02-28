@@ -182,16 +182,16 @@ impl<T> Config<T> {
         self.colors.cursor.cursor.map(|_| NamedColor::Cursor)
     }
 
-    /// Keyboard motion cursor foreground color.
+    /// Vi mode cursor foreground color.
     #[inline]
-    pub fn keyboard_motion_cursor_text_color(&self) -> Option<Rgb> {
-        self.colors.keyboard_motion_cursor.text
+    pub fn vi_mode_cursor_text_color(&self) -> Option<Rgb> {
+        self.colors.vi_mode_cursor.text
     }
 
-    /// Keyboard motion cursor background color.
+    /// Vi mode cursor background color.
     #[inline]
-    pub fn keyboard_motion_cursor_cursor_color(&self) -> Option<Rgb> {
-        self.colors.keyboard_motion_cursor.cursor
+    pub fn vi_mode_cursor_cursor_color(&self) -> Option<Rgb> {
+        self.colors.vi_mode_cursor.cursor
     }
 
     #[inline]
@@ -247,7 +247,7 @@ pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
     pub style: CursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
-    pub keyboard_motion_style: Option<CursorStyle>,
+    pub vi_mode_style: Option<CursorStyle>,
     #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
 }

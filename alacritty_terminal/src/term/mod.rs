@@ -32,7 +32,7 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
 use crate::index::{self, Column, IndexRange, Line, Point, Side};
-use crate::keyboard_motion::{KeyboardCursor, KeyboardMotion};
+use crate::vi_mode::{ViCursor, ViMotion};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
@@ -521,7 +521,7 @@ pub mod mode {
             const MOUSE_MODE          = 0b0000_0010_0000_0100_1000;
             const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
             const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
-            const KEYBOARD_MOTION     = 0b0001_0000_0000_0000_0000;
+            const VI                  = 0b0001_0000_0000_0000_0000;
             const ANY                 = std::u32::MAX;
         }
     }
@@ -817,8 +817,8 @@ pub struct Term<T> {
     /// The cursor.
     cursor: Cursor,
 
-    /// Cursor location for keyboard-driven motion.
-    pub keyboard_cursor: KeyboardCursor,
+    /// Cursor location for vi mode.
+    pub vi_cursor: ViCursor,
 
     /// Index into `charsets`, pointing to what ASCII is currently being mapped to.
     active_charset: CharsetIndex,
@@ -862,7 +862,7 @@ pub struct Term<T> {
     default_cursor_style: CursorStyle,
 
     /// Style of the keyboard motion cursor.
-    keyboard_motion_cursor_style: Option<CursorStyle>,
+    vi_mode_cursor_style: Option<CursorStyle>,
 
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
@@ -931,7 +931,7 @@ impl<T> Term<T> {
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
-            keyboard_cursor: Default::default(),
+            vi_cursor: Default::default(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
             tabs,
@@ -943,7 +943,7 @@ impl<T> Term<T> {
             semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
             default_cursor_style: config.cursor.style,
-            keyboard_motion_cursor_style: config.cursor.keyboard_motion_style,
+            vi_mode_cursor_style: config.cursor.vi_mode_style,
             dynamic_title: config.dynamic_title(),
             clipboard,
             event_proxy,
@@ -972,7 +972,7 @@ impl<T> Term<T> {
             self.mode.remove(TermMode::ALTERNATE_SCROLL);
         }
         self.default_cursor_style = config.cursor.style;
-        self.keyboard_motion_cursor_style = config.cursor.keyboard_motion_style;
+        self.vi_mode_cursor_style = config.cursor.vi_mode_style;
 
         self.default_title = config.window.title.clone();
         self.dynamic_title = config.dynamic_title();
@@ -1186,8 +1186,8 @@ impl<T> Term<T> {
         self.cursor_save.point.line = min(self.cursor_save.point.line, num_lines - 1);
         self.cursor_save_alt.point.col = min(self.cursor_save_alt.point.col, num_cols - 1);
         self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
-        self.keyboard_cursor.point.col = min(self.keyboard_cursor.point.col, num_cols - 1);
-        self.keyboard_cursor.point.line = min(self.keyboard_cursor.point.line, num_lines - 1);
+        self.vi_cursor.point.col = min(self.vi_cursor.point.col, num_cols - 1);
+        self.vi_cursor.point.line = min(self.vi_cursor.point.line, num_lines - 1);
 
         // Recreate tabs list
         self.tabs.resize(self.grid.num_cols());
@@ -1273,37 +1273,37 @@ impl<T> Term<T> {
         &mut self.clipboard
     }
 
-    /// Toggle the keyboard motion mode.
+    /// Toggle the vi mode.
     #[inline]
-    pub fn toggle_keyboard_mode(&mut self) {
-        self.mode ^= TermMode::KEYBOARD_MOTION;
+    pub fn toggle_vi_mode(&mut self) {
+        self.mode ^= TermMode::VI;
         self.grid.selection = None;
 
-        // Reset keyboard cursor position to match primary cursor
-        if self.mode.contains(TermMode::KEYBOARD_MOTION) {
+        // Reset vi cursor position to match primary cursor
+        if self.mode.contains(TermMode::VI) {
             let line = min(self.cursor.point.line + self.grid.display_offset(), self.lines() - 1);
-            self.keyboard_cursor = KeyboardCursor::new(Point::new(line, self.cursor.point.col));
+            self.vi_cursor = ViCursor::new(Point::new(line, self.cursor.point.col));
         }
 
         self.dirty = true;
     }
 
-    /// Move keyboard motion cursor.
+    /// Move vi mode cursor.
     #[inline]
-    pub fn keyboard_motion(&mut self, motion: KeyboardMotion)
+    pub fn vi_motion(&mut self, motion: ViMotion)
     where
         T: EventListener,
     {
-        // Require keyboard motion mode to be active
-        if !self.mode.contains(TermMode::KEYBOARD_MOTION) {
+        // Require vi mode to be active
+        if !self.mode.contains(TermMode::VI) {
             return;
         }
 
         // Move cursor
-        self.keyboard_cursor = self.keyboard_cursor.motion(self, motion);
+        self.vi_cursor = self.vi_cursor.motion(self, motion);
 
         // Update selection if one is active
-        let viewport_point = self.visible_to_buffer(self.keyboard_cursor.point);
+        let viewport_point = self.visible_to_buffer(self.vi_cursor.point);
         if let Some(selection) = &mut self.grid.selection {
             // Do not extend empty selections started by single mouse click
             if !selection.is_empty() {
@@ -1358,11 +1358,11 @@ impl<T> Term<T> {
 
     /// Get rendering information about the active cursor.
     fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
-        let keyboard_motion = self.mode.contains(TermMode::KEYBOARD_MOTION);
+        let vi_mode = self.mode.contains(TermMode::VI);
 
         // Cursor position
-        let mut point = if keyboard_motion {
-            self.keyboard_cursor.point
+        let mut point = if vi_mode {
+            self.vi_cursor.point
         } else {
             let mut point = self.cursor.point;
             point.line += self.grid.display_offset();
@@ -1371,7 +1371,7 @@ impl<T> Term<T> {
 
         // Cursor shape
         let hidden = !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.lines();
-        let cursor_style = if hidden && !keyboard_motion {
+        let cursor_style = if hidden && !vi_mode {
             point.line = Line(0);
             CursorStyle::Hidden
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
@@ -1379,18 +1379,18 @@ impl<T> Term<T> {
         } else {
             let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
 
-            if keyboard_motion {
-                self.keyboard_motion_cursor_style.unwrap_or(cursor_style)
+            if vi_mode {
+                self.vi_mode_cursor_style.unwrap_or(cursor_style)
             } else {
                 cursor_style
             }
         };
 
         // Cursor colors
-        let (text_color, cursor_color) = if keyboard_motion {
+        let (text_color, cursor_color) = if vi_mode {
             (
-                config.keyboard_motion_cursor_text_color(),
-                config.keyboard_motion_cursor_cursor_color(),
+                config.vi_mode_cursor_text_color(),
+                config.vi_mode_cursor_cursor_color(),
             )
         } else {
             let cursor_cursor_color = config.cursor_cursor_color().map(|c| self.colors[c]);

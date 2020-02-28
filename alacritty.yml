@@ -193,11 +193,11 @@
   #  text: '#000000'
   #  cursor: '#ffffff'
 
-  # Keyboard motion cursor colors
+  # Vi mode cursor colors
   #
-  # Colors for the cursor when the keyboard motion mode is active. If these are
-  # unset, the cursor color will be the inverse of the cell color.
-  #keyboard_motion_cursor:
+  # Colors for the cursor when the vi mode is active. If these are unset, the
+  # cursor color will be the inverse of the cell color.
+  #vi_mode_cursor:
   #  text: '#000000'
   #  cursor: '#ffffff'
 
@@ -306,13 +306,13 @@
   #   - | Beam
   #style: Block
 
-  # Keyboard motion cursor style
+  # Vi mode cursor style
   #
-  # If the keyboard motion cursor style is `None` or not specified, it will fall
-  # back to the style of the active value of the normal cursor.
+  # If the vi mode cursor style is `None` or not specified, it will fall back to
+  # the style of the active value of the normal cursor.
   #
   # See `cursor.style` for available options.
-  #keyboard_motion_style: None
+  #vi_mode_style: None
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.
@@ -451,7 +451,7 @@
 #
 # - `action`: Execute a predefined action
 #
-#   - ToggleKeyboardMode
+#   - ToggleViMode
 #   - Copy
 #   - Paste
 #   - PasteSelection
@@ -478,7 +478,7 @@
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
 #
-# - `keyboard_motion`: Execute a keyboard motion mode command
+# - `vi_mode`: Execute a vi mode command
 #
 #   - Open
 #   - Up
@@ -555,48 +555,48 @@
   #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt       }
   #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
 
-  # Keyboard Motion Mode
-  #- { key: Space,  mods: Shift|Control, mode: KeyboardMotion, action: ScrollToBottom     }
-  #- { key: Space,  mods: Shift|Control,                       action: ToggleKeyboardMode }
-  #- { key: Escape,                mode: KeyboardMotion, action: ScrollToBottom     }
-  #- { key: Escape,                mode: KeyboardMotion, action: ToggleKeyboardMode }
-  #- { key: I,                     mode: KeyboardMotion, action: ScrollToBottom     }
-  #- { key: I,                     mode: KeyboardMotion, action: ToggleKeyboardMode }
-  #- { key: Y,      mods: Control, mode: KeyboardMotion, action: ScrollLineUp       }
-  #- { key: E,      mods: Control, mode: KeyboardMotion, action: ScrollLineDown     }
-  #- { key: G,                     mode: KeyboardMotion, action: ScrollToTop        }
-  #- { key: G,      mods: Shift,   mode: KeyboardMotion, action: ScrollToBottom     }
-  #- { key: B,      mods: Control, mode: KeyboardMotion, action: ScrollPageUp       }
-  #- { key: F,      mods: Control, mode: KeyboardMotion, action: ScrollPageDown     }
-  #- { key: U,      mods: Control, mode: KeyboardMotion, action: ScrollHalfPageUp   }
-  #- { key: D,      mods: Control, mode: KeyboardMotion, action: ScrollHalfPageDown }
-  #- { key: Y,                     mode: KeyboardMotion, action: Copy               }
-  #- { key: V,                     keyboard_motion: ToggleNormalSelection   }
-  #- { key: V,      mods: Shift,   keyboard_motion: ToggleLineSelection     }
-  #- { key: V,      mods: Control, keyboard_motion: ToggleBlockSelection    }
-  #- { key: V,      mods: Alt,     keyboard_motion: ToggleSemanticSelection }
-  #- { key: Return,                keyboard_motion: Open                    }
-  #- { key: K,                     keyboard_motion: Up                      }
-  #- { key: J,                     keyboard_motion: Down                    }
-  #- { key: H,                     keyboard_motion: Left                    }
-  #- { key: L,                     keyboard_motion: Right                   }
-  #- { key: Up,                    keyboard_motion: Up                      }
-  #- { key: Down,                  keyboard_motion: Down                    }
-  #- { key: Left,                  keyboard_motion: Left                    }
-  #- { key: Right,                 keyboard_motion: Right                   }
-  #- { key: Key0,                  keyboard_motion: First                   }
-  #- { key: Key4,   mods: Shift,   keyboard_motion: Last                    }
-  #- { key: Key6,   mods: Shift,   keyboard_motion: FirstOccupied           }
-  #- { key: H,      mods: Shift,   keyboard_motion: High                    }
-  #- { key: M,      mods: Shift,   keyboard_motion: Middle                  }
-  #- { key: L,      mods: Shift,   keyboard_motion: Low                     }
-  #- { key: B,                     keyboard_motion: SemanticLeft            }
-  #- { key: W,                     keyboard_motion: SemanticRight           }
-  #- { key: E,                     keyboard_motion: SemanticRightEnd        }
-  #- { key: B,      mods: Shift,   keyboard_motion: WordLeft                }
-  #- { key: W,      mods: Shift,   keyboard_motion: WordRight               }
-  #- { key: E,      mods: Shift,   keyboard_motion: WordRightEnd            }
-  #- { key: Key5,   mods: Shift,   keyboard_motion: Bracket                 }
+  # Vi Mode
+  #- { key: Space,  mods: Shift|Control, mode: ViMode, action: ScrollToBottom     }
+  #- { key: Space,  mods: Shift|Control,               action: ToggleViMode       }
+  #- { key: Escape,                      mode: ViMode, action: ScrollToBottom     }
+  #- { key: Escape,                      mode: ViMode, action: ToggleViMode       }
+  #- { key: I,                           mode: ViMode, action: ScrollToBottom     }
+  #- { key: I,                           mode: ViMode, action: ToggleViMode       }
+  #- { key: Y,      mods: Control,       mode: ViMode, action: ScrollLineUp       }
+  #- { key: E,      mods: Control,       mode: ViMode, action: ScrollLineDown     }
+  #- { key: G,                           mode: ViMode, action: ScrollToTop        }
+  #- { key: G,      mods: Shift,         mode: ViMode, action: ScrollToBottom     }
+  #- { key: B,      mods: Control,       mode: ViMode, action: ScrollPageUp       }
+  #- { key: F,      mods: Control,       mode: ViMode, action: ScrollPageDown     }
+  #- { key: U,      mods: Control,       mode: ViMode, action: ScrollHalfPageUp   }
+  #- { key: D,      mods: Control,       mode: ViMode, action: ScrollHalfPageDown }
+  #- { key: Y,                           mode: ViMode, action: Copy               }
+  #- { key: V,                     vi_mode: ToggleNormalSelection   }
+  #- { key: V,      mods: Shift,   vi_mode: ToggleLineSelection     }
+  #- { key: V,      mods: Control, vi_mode: ToggleBlockSelection    }
+  #- { key: V,      mods: Alt,     vi_mode: ToggleSemanticSelection }
+  #- { key: Return,                vi_mode: Open                    }
+  #- { key: K,                     vi_mode: Up                      }
+  #- { key: J,                     vi_mode: Down                    }
+  #- { key: H,                     vi_mode: Left                    }
+  #- { key: L,                     vi_mode: Right                   }
+  #- { key: Up,                    vi_mode: Up                      }
+  #- { key: Down,                  vi_mode: Down                    }
+  #- { key: Left,                  vi_mode: Left                    }
+  #- { key: Right,                 vi_mode: Right                   }
+  #- { key: Key0,                  vi_mode: First                   }
+  #- { key: Key4,   mods: Shift,   vi_mode: Last                    }
+  #- { key: Key6,   mods: Shift,   vi_mode: FirstOccupied           }
+  #- { key: H,      mods: Shift,   vi_mode: High                    }
+  #- { key: M,      mods: Shift,   vi_mode: Middle                  }
+  #- { key: L,      mods: Shift,   vi_mode: Low                     }
+  #- { key: B,                     vi_mode: SemanticLeft            }
+  #- { key: W,                     vi_mode: SemanticRight           }
+  #- { key: E,                     vi_mode: SemanticRightEnd        }
+  #- { key: B,      mods: Shift,   vi_mode: WordLeft                }
+  #- { key: W,      mods: Shift,   vi_mode: WordRight               }
+  #- { key: E,      mods: Shift,   vi_mode: WordRightEnd            }
+  #- { key: Key5,   mods: Shift,   vi_mode: Bracket                 }
 
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }

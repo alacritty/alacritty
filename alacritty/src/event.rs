@@ -86,8 +86,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.scroll_display(scroll);
 
         // Update selection
-        if self.terminal.mode().contains(TermMode::KEYBOARD_MOTION) {
-            self.update_selection(self.terminal.keyboard_cursor.point, Side::Right);
+        if self.terminal.mode().contains(TermMode::VI) {
+            self.update_selection(self.terminal.vi_cursor.point, Side::Right);
 
             if let Some(selection) = self.terminal.selection_mut() {
                 selection.include_all();
