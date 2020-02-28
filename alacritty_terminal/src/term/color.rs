@@ -7,7 +7,7 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
-use crate::config::Colors;
+use crate::config::{Colors, LOG_TARGET_CONFIG};
 
 pub const COUNT: usize = 269;
 
@@ -66,10 +66,14 @@ impl<'de> Deserialize<'de> for Rgb {
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
             where
-                E: ::serde::de::Error,
+                E: serde::de::Error,
             {
-                Rgb::from_str(&value[..])
-                    .map_err(|_| E::custom("failed to parse rgb; expected hex color like #ff00ff"))
+                Rgb::from_str(&value[..]).map_err(|_| {
+                    E::custom(format!(
+                        "failed to parse rgb color {}; expected hex color like #ff00ff",
+                        value
+                    ))
+                })
             }
         }
 
@@ -85,7 +89,10 @@ impl<'de> Deserialize<'de> for Rgb {
         match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
-                error!("Problem with config: {}; using color #000000", err);
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using color #000000", err
+                );
                 Ok(Rgb::default())
             },
         }
@@ -95,39 +102,26 @@ impl<'de> Deserialize<'de> for Rgb {
 impl FromStr for Rgb {
     type Err = ();
 
-    fn from_str(s: &str) -> ::std::result::Result<Rgb, ()> {
-        let mut chars = s.chars();
-        let mut rgb = Rgb::default();
+    fn from_str(s: &str) -> std::result::Result<Rgb, ()> {
+        let chars = if s.starts_with("0x") && s.len() == 8 {
+            &s[2..]
+        } else if s.starts_with('#') && s.len() == 7 {
+            &s[1..]
+        } else {
+            return Err(());
+        };
 
-        macro_rules! component {
-            ($($c:ident),*) => {
-                $(
-                    match chars.next().and_then(|c| c.to_digit(16)) {
-                        Some(val) => rgb.$c = (val as u8) << 4,
-                        None => return Err(())
-                    }
-
-                    match chars.next().and_then(|c| c.to_digit(16)) {
-                        Some(val) => rgb.$c |= val as u8,
-                        None => return Err(())
-                    }
-                )*
-            }
-        }
-
-        match chars.next() {
-            Some('0') => {
-                if chars.next() != Some('x') {
-                    return Err(());
-                }
+        match u32::from_str_radix(chars, 16) {
+            Ok(mut color) => {
+                let b = (color & 0xff) as u8;
+                color >>= 8;
+                let g = (color & 0xff) as u8;
+                color >>= 8;
+                let r = color as u8;
+                Ok(Rgb { r, g, b })
             },
-            Some('#') => (),
-            _ => return Err(()),
+            Err(_) => Err(()),
         }
-
-        component!(r, g, b);
-
-        Ok(rgb)
     }
 }
 
