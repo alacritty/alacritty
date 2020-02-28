@@ -103,7 +103,7 @@ impl FromStr for Rgb {
     type Err = ();
 
     fn from_str(s: &str) -> std::result::Result<Rgb, ()> {
-        let chars =  if s.starts_with("0x") && s.len() == 8 {
+        let chars = if s.starts_with("0x") && s.len() == 8 {
             &s[2..]
         } else if s.starts_with('#') && s.len() == 7 {
             &s[1..]
