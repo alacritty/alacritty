@@ -28,7 +28,6 @@ pub mod event;
 pub mod event_loop;
 pub mod grid;
 pub mod index;
-pub mod vi_mode;
 pub mod locale;
 pub mod message_bar;
 pub mod meter;
@@ -38,6 +37,7 @@ pub mod sync;
 pub mod term;
 pub mod tty;
 pub mod util;
+pub mod vi_mode;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;

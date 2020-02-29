@@ -87,7 +87,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Update selection
         if self.terminal.mode().contains(TermMode::VI) {
-            self.update_selection(self.terminal.vi_cursor.point, Side::Right);
+            self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
 
             if let Some(selection) = self.terminal.selection_mut() {
                 selection.include_all();

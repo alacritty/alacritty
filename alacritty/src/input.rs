@@ -112,7 +112,7 @@ impl Action {
         T: EventListener,
         A: ActionContext<T>,
     {
-        let cursor_point = ctx.terminal().vi_cursor.point;
+        let cursor_point = ctx.terminal().vi_mode_cursor.point;
         ctx.toggle_selection(ty, cursor_point, Side::Left);
 
         // Make sure initial selection is not empty
@@ -171,7 +171,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
-                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_cursor.point) {
+                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_mode_cursor.point) {
                     ctx.launch_url(url);
                 }
             },
@@ -189,54 +189,54 @@ impl<T: EventListener> Execute<T> for Action {
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp => {
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = term.grid().num_lines().0 as isize;
-                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
+                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
             },
             Action::ScrollPageDown => {
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = -(term.grid().num_lines().0 as isize);
-                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
+                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
             },
             Action::ScrollHalfPageUp => {
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = term.grid().num_lines().0 as isize / 2;
-                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
+                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Lines(scroll_lines));
             },
             Action::ScrollHalfPageDown => {
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal_mut();
                 let scroll_lines = -(term.grid().num_lines().0 as isize / 2);
-                term.vi_cursor = term.vi_cursor.scroll(term, scroll_lines);
+                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Lines(scroll_lines));
             },
             Action::ScrollLineUp => {
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal();
                 if term.grid().display_offset() != term.grid().history_size()
-                    && term.vi_cursor.point.line + 1 != term.grid().num_lines()
+                    && term.vi_mode_cursor.point.line + 1 != term.grid().num_lines()
                 {
-                    ctx.terminal_mut().vi_cursor.point.line += 1;
+                    ctx.terminal_mut().vi_mode_cursor.point.line += 1;
                 }
 
                 ctx.scroll(Scroll::Lines(1));
             },
             Action::ScrollLineDown => {
-                // Move vi cursor
+                // Move vi mode cursor
                 if ctx.terminal().grid().display_offset() != 0
-                    && ctx.terminal().vi_cursor.point.line.0 != 0
+                    && ctx.terminal().vi_mode_cursor.point.line.0 != 0
                 {
-                    ctx.terminal_mut().vi_cursor.point.line -= 1;
+                    ctx.terminal_mut().vi_mode_cursor.point.line -= 1;
                 }
 
                 ctx.scroll(Scroll::Lines(-1));
@@ -244,16 +244,16 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);
 
-                // Move vi cursor
-                ctx.terminal_mut().vi_cursor.point.line = Line(0);
+                // Move vi mode cursor
+                ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
             },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
 
-                // Move vi cursor
+                // Move vi mode cursor
                 let term = ctx.terminal_mut();
-                term.vi_cursor.point.line = term.grid().num_lines() - 1;
+                term.vi_mode_cursor.point.line = term.grid().num_lines() - 1;
                 term.vi_motion(ViMotion::FirstOccupied);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
@@ -350,8 +350,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.ctx.update_selection(Point { line, col: point.col }, cell_side);
 
             if self.ctx.terminal().mode().contains(TermMode::VI) {
-                // Move vi motion cursor to mouse cursor position
-                self.ctx.terminal_mut().vi_cursor.point = point;
+                // Move vi mode cursor to mouse cursor position
+                self.ctx.terminal_mut().vi_mode_cursor.point = point;
 
                 // Extend selection to include partially selected cells
                 if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
@@ -522,10 +522,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.start_selection(SelectionType::Simple, point, side);
                 }
 
-                // Move vi motion cursor to mouse position
+                // Move vi mode cursor to mouse position
                 if self.ctx.terminal().mode().contains(TermMode::VI) {
-                    // Update vi motion cursor position on click
-                    self.ctx.terminal_mut().vi_cursor.point = point;
+                    // Update vi mode cursor position on click
+                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
                 }
 
                 if !self.ctx.modifiers().shift()
@@ -715,9 +715,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
-        if *self.ctx.suppress_chars()
-            || self.ctx.terminal().mode().contains(TermMode::VI)
-        {
+        if *self.ctx.suppress_chars() || self.ctx.terminal().mode().contains(TermMode::VI) {
             return;
         }
 

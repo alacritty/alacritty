@@ -24,8 +24,8 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::term::TermMode;
+use alacritty_terminal::vi_mode::ViMotion;
 
 /// Describes a state and action to take in that state
 ///
@@ -624,8 +624,8 @@ impl<'a> Deserialize<'a> for ModeWrapper {
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
-                    "Combination of AppCursor | AppKeypad | Alt | ViMode, possibly with \
-                     negation (~)",
+                    "Combination of AppCursor | AppKeypad | Alt | ViMode, possibly with negation \
+                     (~)",
                 )
             }
 
@@ -890,9 +890,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                         },
                         Field::ViMode => {
                             if vi_mode.is_some() {
-                                return Err(<V::Error as Error>::duplicate_field(
-                                    "vi_mode",
-                                ));
+                                return Err(<V::Error as Error>::duplicate_field("vi_mode"));
                             }
 
                             let action = map.next_value::<ViModeWrapper>()?.into();

@@ -32,10 +32,10 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
 };
 use crate::index::{self, Column, IndexRange, Line, Point, Side};
-use crate::vi_mode::{ViCursor, ViMotion};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
+use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
 pub mod color;
@@ -818,7 +818,7 @@ pub struct Term<T> {
     cursor: Cursor,
 
     /// Cursor location for vi mode.
-    pub vi_cursor: ViCursor,
+    pub vi_mode_cursor: ViModeCursor,
 
     /// Index into `charsets`, pointing to what ASCII is currently being mapped to.
     active_charset: CharsetIndex,
@@ -861,7 +861,7 @@ pub struct Term<T> {
     /// Default style for resetting the cursor.
     default_cursor_style: CursorStyle,
 
-    /// Style of the keyboard motion cursor.
+    /// Style of the vi mode cursor.
     vi_mode_cursor_style: Option<CursorStyle>,
 
     /// Clipboard access coupled to the active window
@@ -931,7 +931,7 @@ impl<T> Term<T> {
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
-            vi_cursor: Default::default(),
+            vi_mode_cursor: Default::default(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
             tabs,
@@ -1186,8 +1186,8 @@ impl<T> Term<T> {
         self.cursor_save.point.line = min(self.cursor_save.point.line, num_lines - 1);
         self.cursor_save_alt.point.col = min(self.cursor_save_alt.point.col, num_cols - 1);
         self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
-        self.vi_cursor.point.col = min(self.vi_cursor.point.col, num_cols - 1);
-        self.vi_cursor.point.line = min(self.vi_cursor.point.line, num_lines - 1);
+        self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
+        self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
 
         // Recreate tabs list
         self.tabs.resize(self.grid.num_cols());
@@ -1279,10 +1279,10 @@ impl<T> Term<T> {
         self.mode ^= TermMode::VI;
         self.grid.selection = None;
 
-        // Reset vi cursor position to match primary cursor
+        // Reset vi mode cursor position to match primary cursor
         if self.mode.contains(TermMode::VI) {
             let line = min(self.cursor.point.line + self.grid.display_offset(), self.lines() - 1);
-            self.vi_cursor = ViCursor::new(Point::new(line, self.cursor.point.col));
+            self.vi_mode_cursor = ViModeCursor::new(Point::new(line, self.cursor.point.col));
         }
 
         self.dirty = true;
@@ -1300,10 +1300,10 @@ impl<T> Term<T> {
         }
 
         // Move cursor
-        self.vi_cursor = self.vi_cursor.motion(self, motion);
+        self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
 
         // Update selection if one is active
-        let viewport_point = self.visible_to_buffer(self.vi_cursor.point);
+        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
         if let Some(selection) = &mut self.grid.selection {
             // Do not extend empty selections started by single mouse click
             if !selection.is_empty() {
@@ -1362,7 +1362,7 @@ impl<T> Term<T> {
 
         // Cursor position
         let mut point = if vi_mode {
-            self.vi_cursor.point
+            self.vi_mode_cursor.point
         } else {
             let mut point = self.cursor.point;
             point.line += self.grid.display_offset();
@@ -1388,10 +1388,7 @@ impl<T> Term<T> {
 
         // Cursor colors
         let (text_color, cursor_color) = if vi_mode {
-            (
-                config.vi_mode_cursor_text_color(),
-                config.vi_mode_cursor_cursor_color(),
-            )
+            (config.vi_mode_cursor_text_color(), config.vi_mode_cursor_cursor_color())
         } else {
             let cursor_cursor_color = config.cursor_cursor_color().map(|c| self.colors[c]);
             (config.cursor_text_color(), cursor_cursor_color)
