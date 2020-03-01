@@ -44,7 +44,7 @@ pub mod color;
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
-/// Max size of the window title stack
+/// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
 /// A type that can expand a given point to a region
@@ -812,9 +812,6 @@ pub struct Term<T> {
     /// Whether to permit updating the terminal title
     dynamic_title: bool,
 
-    /// Number of spaces in one tab
-    tabspaces: usize,
-
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
 
@@ -947,7 +944,6 @@ impl<T> Term<T> {
             cursor_style: None,
             default_cursor_style: config.cursor.style,
             dynamic_title: config.dynamic_title(),
-            tabspaces,
             clipboard,
             event_proxy,
             is_focused: true,
@@ -1188,7 +1184,7 @@ impl<T> Term<T> {
         self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
 
         // Recreate tabs list
-        self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
+        self.tabs.resize(self.grid.num_cols());
     }
 
     #[inline]
@@ -1542,9 +1538,14 @@ impl<T: EventListener> Handler for Term<T> {
         self.goto(move_to, Column(0))
     }
 
+    /// Insert tab at cursor position.
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
-        trace!("Putting tab: {}", count);
+        // A tab after the last column is the same as a linebreak
+        if self.input_needs_wrap {
+            self.wrapline();
+            return;
+        }
 
         while self.cursor.point.col < self.grid.num_cols() && count != 0 {
             count -= 1;
@@ -1566,8 +1567,6 @@ impl<T: EventListener> Handler for Term<T> {
                 }
             }
         }
-
-        self.input_needs_wrap = false;
     }
 
     /// Backspace `count` characters
@@ -2155,21 +2154,38 @@ impl<T: EventListener> Handler for Term<T> {
 
 struct TabStops {
     tabs: Vec<bool>,
+    tabspaces: usize,
 }
 
 impl TabStops {
+    #[inline]
     fn new(num_cols: Column, tabspaces: usize) -> TabStops {
         TabStops {
+            tabspaces,
             tabs: IndexRange::from(Column(0)..num_cols)
                 .map(|i| (*i as usize) % tabspaces == 0)
                 .collect::<Vec<bool>>(),
         }
     }
 
+    /// Remove all tabstops.
+    #[inline]
     fn clear_all(&mut self) {
         unsafe {
             ptr::write_bytes(self.tabs.as_mut_ptr(), 0, self.tabs.len());
         }
+    }
+
+    /// Increase tabstop capacity.
+    #[inline]
+    fn resize(&mut self, num_cols: Column) {
+        let tabspaces = self.tabspaces;
+        let mut index = self.tabs.len();
+        self.tabs.resize_with(num_cols.0, || {
+            let is_tabstop = index % tabspaces == 0;
+            index += 1;
+            is_tabstop
+        });
     }
 }
 
