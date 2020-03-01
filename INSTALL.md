@@ -183,6 +183,15 @@ please open an issue.
 emerge --onlydeps x11-terms/alacritty
 ```
 
+#### GNU Guix
+
+Run following command to enter a shell with all development dependencies
+on [GNU Guix](https://guix.gnu.org/).
+
+```sh
+guix environment alacritty
+```
+
 #### Windows
 
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
