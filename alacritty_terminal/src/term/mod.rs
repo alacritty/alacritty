@@ -49,6 +49,9 @@ const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
+/// Default tab interval, corresponding to terminfo `it` value.
+const INITIAL_TABSTOPS: usize = 8;
+
 /// A type that can expand a given point to a region
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -918,8 +921,7 @@ impl<T> Term<T> {
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
         let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
 
-        let tabspaces = config.tabspaces();
-        let tabs = TabStops::new(grid.num_cols(), tabspaces);
+        let tabs = TabStops::new(grid.num_cols());
 
         let scroll_region = Line(0)..grid.num_lines();
 
@@ -2174,16 +2176,14 @@ impl<T: EventListener> Handler for Term<T> {
 
 struct TabStops {
     tabs: Vec<bool>,
-    tabspaces: usize,
 }
 
 impl TabStops {
     #[inline]
-    fn new(num_cols: Column, tabspaces: usize) -> TabStops {
+    fn new(num_cols: Column) -> TabStops {
         TabStops {
-            tabspaces,
             tabs: IndexRange::from(Column(0)..num_cols)
-                .map(|i| (*i as usize) % tabspaces == 0)
+                .map(|i| (*i as usize) % INITIAL_TABSTOPS == 0)
                 .collect::<Vec<bool>>(),
         }
     }
@@ -2199,10 +2199,9 @@ impl TabStops {
     /// Increase tabstop capacity.
     #[inline]
     fn resize(&mut self, num_cols: Column) {
-        let tabspaces = self.tabspaces;
         let mut index = self.tabs.len();
         self.tabs.resize_with(num_cols.0, || {
-            let is_tabstop = index % tabspaces == 0;
+            let is_tabstop = index % INITIAL_TABSTOPS == 0;
             index += 1;
             is_tabstop
         });

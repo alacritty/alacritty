@@ -209,6 +209,14 @@ fn print_deprecation_warnings(config: &Config) {
              safely removed from the config"
         );
     }
+
+    if config.tabspaces.is_some() {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config tabspaces has been removed and is now always 8, it can be safely removed from \
+             the config"
+        );
+    }
 }
 
 #[cfg(test)]
