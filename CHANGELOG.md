@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Config option `auto_scroll`, which is now always disabled
+- Config option `tabspaces`, which is now fixed at `8`
 
 ## 0.4.1
 

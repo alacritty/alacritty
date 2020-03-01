@@ -96,10 +96,6 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     live_config_reload: DefaultTrueBool,
 
-    /// Number of spaces in one tab
-    #[serde(default, deserialize_with = "failure_default")]
-    tabspaces: Tabspaces,
-
     /// How much scrolling history to keep
     #[serde(default, deserialize_with = "failure_default")]
     pub scrolling: Scrolling,
@@ -133,6 +129,10 @@ pub struct Config<T> {
     #[serde(skip)]
     pub hold: bool,
 
+    // TODO: REMOVED
+    #[serde(default, deserialize_with = "failure_default")]
+    pub tabspaces: Option<usize>,
+
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub render_timer: Option<bool>,
@@ -143,10 +143,6 @@ pub struct Config<T> {
 }
 
 impl<T> Config<T> {
-    pub fn tabspaces(&self) -> usize {
-        self.tabspaces.0
-    }
-
     #[inline]
     pub fn draw_bold_text_with_bright_colors(&self) -> bool {
         self.draw_bold_text_with_bright_colors
@@ -324,15 +320,6 @@ impl<'a> Deserialize<'a> for Alpha {
         D: Deserializer<'a>,
     {
         Ok(Alpha::new(f32::deserialize(deserializer)?))
-    }
-}
-
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
-struct Tabspaces(usize);
-
-impl Default for Tabspaces {
-    fn default() -> Self {
-        Tabspaces(8)
     }
 }
 
