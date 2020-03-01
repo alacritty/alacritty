@@ -57,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config reload creating alternate screen history instead of updating scrollback
 - Crash on Wayland compositors supporting `wl_seat` version 7+
 - Message bar not hiding after fixing wrong color value in config
+- Tabstops cleared on resize
+- Tabstops not breaking across lines
 
 ### Removed
 
