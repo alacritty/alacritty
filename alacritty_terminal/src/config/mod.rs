@@ -129,7 +129,7 @@ pub struct Config<T> {
     #[serde(skip)]
     pub hold: bool,
 
-    // TODO: DEPRECATED
+    // TODO: REMOVED
     #[serde(default, deserialize_with = "failure_default")]
     pub tabspaces: Option<usize>,
 
