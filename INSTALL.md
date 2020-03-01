@@ -185,8 +185,8 @@ emerge --onlydeps x11-terms/alacritty
 
 #### GNU Guix
 
-Run following command to enter a shell with all development dependencies
-on [GNU Guix](https://guix.gnu.org/).
+The following command can be used to get a shell with all development
+dependencies on [GNU Guix](https://guix.gnu.org/).
 
 ```sh
 guix environment alacritty
