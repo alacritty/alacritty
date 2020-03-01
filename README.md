@@ -71,6 +71,12 @@ If you want to help test pre-releases, you can additionally enable
 emerge x11-terms/alacritty
 ```
 
+### GNU Guix
+
+```sh
+guix package -i alacritty
+```
+
 ### Mageia
 
 ```sh
