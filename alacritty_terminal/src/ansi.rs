@@ -349,9 +349,11 @@ pub enum CursorStyle {
     Beam,
 
     /// Cursor is a box like `☐`
+    #[serde(skip)]
     HollowBlock,
 
     /// Invisible cursor
+    #[serde(skip)]
     Hidden,
 }
 
