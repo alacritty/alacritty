@@ -20,7 +20,7 @@ dependencies = [
  "alacritty_terminal 0.4.2-dev",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "embed-resource 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embed-resource 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "font 0.1.0",
@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "embed-resource"
-version = "1.3.2"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "vswhom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2258,7 +2258,7 @@ dependencies = [
 "checksum downcast-rs 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
 "checksum dtoa 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)" = "4358a9e11b9a09cf52383b451b49a169e8d797b68aa02301ff586d70d9661ea3"
 "checksum dwrote 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0bd1369e02db5e9b842a9b67bce8a2fcc043beafb2ae8a799dd482d46ea1ff0d"
-"checksum embed-resource 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "8398b939acbb266ade6939090e9f634147e7b426a33054a833d9ec935d814882"
+"checksum embed-resource 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "bbaba4684ab0af1cbb3ef0b1f540ddc4b57b31940c920ea594efe09ab86e2a6c"
 "checksum env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 "checksum euclid 0.20.7 (registry+https://github.com/rust-lang/crates.io-index)" = "3f852d320142e1cceb15dccef32ed72a9970b83109d8a4e24b1ab04d579f485d"
 "checksum expat-sys 2.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "658f19728920138342f68408b7cf7644d90d4784353d8ebc32e7e8663dbe45fa"
