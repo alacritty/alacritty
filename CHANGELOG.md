@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Message bar not hiding after fixing wrong color value in config
 - Tabstops cleared on resize
 - Tabstops not breaking across lines
+- Crash when parsing DCS escape with more than 16 parameters
 
 ### Removed
 
