@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tabstops cleared on resize
 - Tabstops not breaking across lines
 - Crash when parsing DCS escape with more than 16 parameters
+- Ignoring of slow touchpad scrolling
 
 ### Removed
 
