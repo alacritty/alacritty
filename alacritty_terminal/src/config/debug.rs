@@ -22,7 +22,7 @@ pub struct Debug {
     pub render_timer: bool,
 
     /// Record ref test
-    #[serde(deserialize_with = "failure_default")]
+    #[serde(skip)]
     pub ref_test: bool,
 }
 
