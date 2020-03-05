@@ -16,7 +16,6 @@
 use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use freetype::tt_os2::TrueTypeOS2Table;
@@ -27,7 +26,7 @@ use log::{debug, trace};
 
 pub mod fc;
 
-use fc::{CharSet, Pattern, PatternHash, PatternRef};
+use fc::{CharSet, FTFaceLocation, Pattern, PatternHash, PatternRef};
 
 use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph, Size, Slant,
@@ -206,18 +205,6 @@ struct FullMetrics {
     cell_width: f64,
 }
 
-#[derive(Hash, Eq, PartialEq, Debug)]
-struct FTFaceLocation {
-    path: PathBuf,
-    index: isize,
-}
-
-impl FTFaceLocation {
-    fn new(path: PathBuf, index: isize) -> Self {
-        Self { path, index }
-    }
-}
-
 impl FreeTypeRasterizer {
     /// Load a font face according to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
@@ -326,14 +313,12 @@ impl FreeTypeRasterizer {
         pattern: &PatternRef,
         font_key: FontKey,
     ) -> Result<Option<FontKey>, Error> {
-        if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().next()) {
+        if let Some(ft_face_location) = pattern.ft_face_location(0) {
             if self.faces.get(&font_key).is_some() {
                 return Ok(Some(font_key));
             }
 
-            trace!("Got font path={:?}", path);
-
-            let ft_face_location = FTFaceLocation::new(path, index);
+            trace!("Got font path={:?}", ft_face_location.path);
 
             let ft_face = match self.ft_faces.get(&ft_face_location) {
                 Some(ft_face) => Rc::clone(ft_face),

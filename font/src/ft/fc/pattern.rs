@@ -356,6 +356,18 @@ macro_rules! string_accessor {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PatternHash(pub u32);
 
+#[derive(Hash, Eq, PartialEq, Debug)]
+pub struct FTFaceLocation {
+    pub path: PathBuf,
+    pub index: isize,
+}
+
+impl FTFaceLocation {
+    pub fn new(path: PathBuf, index: isize) -> Self {
+        Self { path, index }
+    }
+}
+
 impl Pattern {
     pub fn new() -> Self {
         Self::default()
@@ -581,6 +593,14 @@ impl PatternRef {
 
     pub fn file(&self, index: usize) -> Option<PathBuf> {
         unsafe { self.get_string(b"file\0").nth(index) }.map(From::from)
+    }
+
+    pub fn ft_face_location(&self, index: usize) -> Option<FTFaceLocation> {
+        if let (Some(path), Some(index)) = (self.file(index), self.index().next()) {
+            Some(FTFaceLocation::new(path, index))
+        } else {
+            None
+        }
     }
 
     pub fn config_substitute(&mut self, config: &ConfigRef, kind: MatchKind) {
