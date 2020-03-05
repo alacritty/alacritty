@@ -41,8 +41,6 @@ use crate::term::color::Rgb;
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
-pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
-
 /// Top-level config type
 #[derive(Debug, PartialEq, Default, Deserialize)]
 pub struct Config<T> {

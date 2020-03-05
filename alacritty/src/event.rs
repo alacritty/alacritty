@@ -7,6 +7,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::mem;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -16,6 +17,7 @@ use glutin::event::{
 };
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
+use glutin::window::CursorIcon;
 use log::{debug, info, warn};
 use serde_json as json;
 
@@ -28,11 +30,11 @@ use alacritty_terminal::event::OnResize;
 use alacritty_terminal::event::{Event, EventListener, Notify};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
-use alacritty_terminal::message_bar::{Message, MessageBuffer};
+use alacritty_terminal::message_bar::{self, Message, MessageBuffer};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::{SizeInfo, Term};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
@@ -42,6 +44,7 @@ use crate::config;
 use crate::config::Config;
 use crate::display::Display;
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::url;
 use crate::window::Window;
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -352,6 +355,7 @@ impl<N: Notify + OnResize> Processor<N> {
         T: EventListener,
     {
         let mut event_queue = Vec::new();
+        let mut url_highlighted = false;
 
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {
@@ -416,8 +420,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 config: &mut self.config,
                 event_loop,
             };
-            let mut processor =
-                input::Processor::new(context, &self.display.urls, &self.display.highlighted_url);
+            let mut processor = input::Processor::new(context);
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
@@ -434,6 +437,16 @@ impl<N: Notify + OnResize> Processor<N> {
                 );
             }
 
+            // Check for URL below cursor
+            let highlighted_url = self.highlighted_url(&terminal);
+
+            // Check for URL highlight change
+            let prev_highlighted = mem::replace(&mut url_highlighted, highlighted_url.is_some());
+            terminal.dirty |= prev_highlighted != url_highlighted;
+
+            // Update mouse cursor shape
+            self.display.window.set_mouse_cursor(self.mouse_cursor(&terminal, url_highlighted));
+
             if terminal.dirty {
                 terminal.dirty = false;
 
@@ -443,13 +456,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 }
 
                 // Redraw screen
-                self.display.draw(
-                    terminal,
-                    &self.message_buffer,
-                    &self.config,
-                    &self.mouse,
-                    self.modifiers,
-                );
+                self.display.draw(terminal, &self.config, &self.message_buffer, highlighted_url);
             }
         });
 
@@ -516,7 +523,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.display_update_pending.message_buffer = Some(());
                     processor.ctx.terminal.dirty = true;
                 },
-                Event::MouseCursorDirty => processor.reset_mouse_cursor(),
                 Event::Exit => (),
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,
@@ -583,13 +589,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    WindowEvent::CursorLeft { .. } => {
-                        processor.ctx.mouse.inside_grid = false;
-
-                        if processor.highlighted_url.is_some() {
-                            processor.ctx.terminal.dirty = true;
-                        }
-                    },
+                    WindowEvent::CursorLeft { .. } => processor.ctx.mouse.inside_grid = false,
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::ScaleFactorChanged { .. }
@@ -605,7 +605,7 @@ impl<N: Notify + OnResize> Processor<N> {
             },
             GlutinEvent::DeviceEvent { event, .. } => {
                 if let DeviceEvent::ModifiersChanged(modifiers) = event {
-                    processor.modifiers_input(modifiers);
+                    *processor.ctx.modifiers() = modifiers;
                 }
             },
             GlutinEvent::Suspended { .. }
@@ -637,6 +637,49 @@ impl<N: Notify + OnResize> Processor<N> {
             | GlutinEvent::MainEventsCleared
             | GlutinEvent::LoopDestroyed => true,
             _ => false,
+        }
+    }
+
+    /// Check for URL below mouse cursor.
+    fn highlighted_url<T>(&self, term: &Term<T>) -> Option<RangeInclusive<Point>> {
+        let mouse_mode = term.mode().intersects(TermMode::MOUSE_MODE);
+        let mut required_mods = self.config.ui_config.mouse.url.mods();
+        if mouse_mode {
+            required_mods |= ModifiersState::SHIFT;
+        }
+
+        if self.mouse.inside_grid
+            && self.mouse.left_button_state != ElementState::Pressed
+            && required_mods == self.modifiers
+            && self.config.ui_config.mouse.url.launcher.is_some()
+            && term.selection().as_ref().map(Selection::is_empty) != Some(false)
+        {
+            let url = url::url_at_point(term, Point::new(self.mouse.line, self.mouse.column))?;
+            let start = term.grid().clamp_buffer_to_visible(*url.start());
+            let end = term.grid().clamp_buffer_to_visible(*url.end());
+            Some(start..=end)
+        } else {
+            None
+        }
+    }
+
+    /// Check which mouse cursor should be in use.
+    fn mouse_cursor<T>(&self, term: &Term<T>, url_highlighted: bool) -> CursorIcon {
+        let num_lines = term.grid().num_lines();
+        let num_cols = term.grid().num_cols();
+
+        if url_highlighted
+            || (self.mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= num_cols
+                && self.mouse.line == num_lines)
+        {
+            // URL and Message bar close button
+            CursorIcon::Hand
+        } else if self.mouse.line >= num_lines || term.mode().intersects(TermMode::MOUSE_MODE) {
+            // Message bar and mouse mode
+            CursorIcon::Default
+        } else {
+            // Default cursor shape
+            CursorIcon::Text
         }
     }
 

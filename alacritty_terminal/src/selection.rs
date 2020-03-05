@@ -389,17 +389,11 @@ impl Selection {
 mod tests {
     use super::{Selection, SelectionRange};
     use crate::clipboard::Clipboard;
-    use crate::config::MockConfig;
-    use crate::event::{Event, EventListener};
+    use crate::config::Config;
     use crate::index::{Column, Line, Point, Side};
     use crate::term::{SizeInfo, Term};
 
-    struct Mock;
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
-    fn term(width: usize, height: usize) -> Term<Mock> {
+    fn term(width: usize, height: usize) -> Term<()> {
         let size = SizeInfo {
             width: width as f32,
             height: height as f32,
@@ -409,7 +403,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
+        Term::new(&Config::<()>::default(), &size, Clipboard::new_nop(), ())
     }
 
     /// Test case of single cell selection.

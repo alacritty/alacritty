@@ -1,190 +1,65 @@
 use std::cmp::min;
-use std::mem;
+use std::ops::RangeInclusive;
 
-use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
-use font::Metrics;
-
-use alacritty_terminal::index::Point;
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::term::Term;
 
-use crate::config::Config;
-use crate::event::Mouse;
-use crate::renderer::rects::{RenderLine, RenderRect};
+/// Maximum number of lines checked for URL parsing.
+const MAX_URL_LINES: usize = 100;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Url {
-    lines: Vec<RenderLine>,
-    end_offset: u16,
-    num_cols: usize,
-}
+// TODO: Do we need url.rs?
+//  -> Maybe something more like search.rs?
+pub fn url_at_point<T>(term: &Term<T>, point: Point) -> Option<RangeInclusive<Point<usize>>> {
+    let num_cols = term.grid().num_cols();
 
-impl Url {
-    pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
-        let end = self.end();
-        self.lines
-            .iter()
-            .filter(|line| line.start <= end)
-            .map(|line| {
-                let mut rect_line = *line;
-                rect_line.end = min(line.end, end);
-                rect_line.rects(Flags::UNDERLINE, metrics, size)
-            })
-            .flatten()
-            .collect()
-    }
+    let buffer_point = term.visible_to_buffer(point);
+    let mut first_line = term.grid().wrapped_line_start(Line(buffer_point.line)).0;
+    first_line = min(buffer_point.line + MAX_URL_LINES, first_line);
+    let search_start = Point::new(first_line, Column(0));
 
-    pub fn start(&self) -> Point {
-        self.lines[0].start
-    }
+    let mut iter = term.grid().iter_from(search_start);
 
-    pub fn end(&self) -> Point {
-        self.lines[self.lines.len() - 1].end.sub(self.num_cols, self.end_offset as usize)
-    }
-}
+    let mut locator = UrlLocator::new();
+    locator.advance(iter.cell().c);
+    let mut url = None;
 
-pub struct Urls {
-    locator: UrlLocator,
-    urls: Vec<Url>,
-    scheme_buffer: Vec<RenderableCell>,
-    last_point: Option<Point>,
-    state: UrlLocation,
-}
+    while let Some(cell) = iter.next() {
+        let point = iter.point();
 
-impl Default for Urls {
-    fn default() -> Self {
-        Self {
-            locator: UrlLocator::new(),
-            scheme_buffer: Vec::new(),
-            urls: Vec::new(),
-            state: UrlLocation::Reset,
-            last_point: None,
-        }
-    }
-}
-
-impl Urls {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    // Update tracked URLs
-    pub fn update(&mut self, num_cols: usize, cell: RenderableCell) {
-        // Convert cell to character
-        let c = match cell.inner {
-            RenderableCellContent::Chars(chars) => chars[0],
-            RenderableCellContent::Cursor(_) => return,
-        };
-
-        let point: Point = cell.into();
-        let end = point;
-
-        // Reset URL when empty cells have been skipped
-        if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
-            self.reset();
-        }
-
-        self.last_point = Some(end);
-
-        // Extend current state if a wide char spacer is encountered
-        if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-            if let UrlLocation::Url(_, mut end_offset) = self.state {
-                if end_offset != 0 {
-                    end_offset += 1;
-                }
-
-                self.extend_url(point, end, cell.fg, end_offset);
-            }
-
-            return;
-        }
-
-        // Advance parser
-        let last_state = mem::replace(&mut self.state, self.locator.advance(c));
-        match (self.state, last_state) {
-            (UrlLocation::Url(_length, end_offset), UrlLocation::Scheme) => {
-                // Create empty URL
-                self.urls.push(Url { lines: Vec::new(), end_offset, num_cols });
-
-                // Push schemes into URL
-                for scheme_cell in self.scheme_buffer.split_off(0) {
-                    let point = scheme_cell.into();
-                    self.extend_url(point, point, scheme_cell.fg, end_offset);
-                }
-
-                // Push the new cell into URL
-                self.extend_url(point, end, cell.fg, end_offset);
+        match (locator.advance(cell.c), url) {
+            (UrlLocation::Url(length, end_offset), _) => {
+                let end = point.sub_absolute(num_cols.0, end_offset as usize);
+                let start = end.sub_absolute(num_cols.0, length as usize - 1);
+                url = Some((start, end));
             },
-            (UrlLocation::Url(_length, end_offset), UrlLocation::Url(..)) => {
-                self.extend_url(point, end, cell.fg, end_offset);
+            (UrlLocation::Reset, Some((start, end))) => {
+                // Skip URLs unless we've reached the original point
+                if end.line < buffer_point.line
+                    || (end.line == buffer_point.line && end.col >= buffer_point.col)
+                {
+                    // Check if the original point is within the URL
+                    if start.line > buffer_point.line
+                        || (start.line == buffer_point.line && start.col <= buffer_point.col)
+                    {
+                        return Some(start..=end);
+                    } else {
+                        return None;
+                    }
+                }
             },
-            (UrlLocation::Scheme, _) => self.scheme_buffer.push(cell),
-            (UrlLocation::Reset, _) => self.reset(),
             _ => (),
         }
 
-        // Reset at un-wrapped linebreak
-        if cell.column.0 + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
-            self.reset();
+        // Reached the end of the line
+        if point.col + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
+            break;
         }
     }
 
-    // Extend the last URL
-    fn extend_url(&mut self, start: Point, end: Point, color: Rgb, end_offset: u16) {
-        let url = self.urls.last_mut().unwrap();
-
-        // If color changed, we need to insert a new line
-        if url.lines.last().map(|last| last.color) == Some(color) {
-            url.lines.last_mut().unwrap().end = end;
-        } else {
-            url.lines.push(RenderLine { color, start, end });
-        }
-
-        // Update excluded cells at the end of the URL
-        url.end_offset = end_offset;
-    }
-
-    pub fn highlighted(
-        &self,
-        config: &Config,
-        mouse: &Mouse,
-        mods: ModifiersState,
-        mouse_mode: bool,
-        selection: bool,
-    ) -> Option<Url> {
-        // Require additional shift in mouse mode
-        let mut required_mods = config.ui_config.mouse.url.mods();
-        if mouse_mode {
-            required_mods |= ModifiersState::SHIFT;
-        }
-
-        // Make sure all prerequisites for highlighting are met
-        if selection
-            || !mouse.inside_grid
-            || config.ui_config.mouse.url.launcher.is_none()
-            || required_mods != mods
-            || mouse.left_button_state == ElementState::Pressed
-        {
-            return None;
-        }
-
-        for url in &self.urls {
-            if (url.start()..=url.end()).contains(&Point::new(mouse.line, mouse.column)) {
-                return Some(url.clone());
-            }
-        }
-
-        None
-    }
-
-    fn reset(&mut self) {
-        self.locator = UrlLocator::new();
-        self.state = UrlLocation::Reset;
-        self.scheme_buffer.clear();
-    }
+    None
 }
 
 #[cfg(test)]
@@ -192,61 +67,40 @@ mod tests {
     use super::*;
 
     use alacritty_terminal::index::{Column, Line};
-    use alacritty_terminal::term::cell::MAX_ZEROWIDTH_CHARS;
+    use alacritty_terminal::term::test::mock_term;
 
-    fn text_to_cells(text: &str) -> Vec<RenderableCell> {
-        text.chars()
-            .enumerate()
-            .map(|(i, c)| RenderableCell {
-                inner: RenderableCellContent::Chars([c; MAX_ZEROWIDTH_CHARS + 1]),
-                line: Line(0),
-                column: Column(i),
-                fg: Default::default(),
-                bg: Default::default(),
-                bg_alpha: 0.,
-                flags: Flags::empty(),
-            })
-            .collect()
+    #[test]
+    fn no_url() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            testing a long thing without URL\n\
+            huh https://example.org 134\n\
+            test short\
+        ");
+
+        assert_eq!(url_at_point(&term, Point::new(Line(2), Column(22))), None);
+        assert_eq!(url_at_point(&term, Point::new(Line(1), Column(3))), None);
+        assert_eq!(url_at_point(&term, Point::new(Line(1), Column(23))), None);
+        assert_eq!(url_at_point(&term, Point::new(Line(0), Column(4))), None);
     }
 
     #[test]
-    fn multi_color_url() {
-        let mut input = text_to_cells("test https://example.org ing");
-        let num_cols = input.len();
+    fn urls() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            testing\n\
+            huh https://example.org/1 https://example.org/2 134\n\
+            test\
+        ");
 
-        input[10].fg = Rgb { r: 0xff, g: 0x00, b: 0xff };
+        let start = Point::new(1, Column(4));
+        let end = Point::new(1, Column(24));
+        assert_eq!(url_at_point(&term, start), Some(start..=end));
+        assert_eq!(url_at_point(&term, end), Some(start..=end));
 
-        let mut urls = Urls::new();
-
-        for cell in input {
-            urls.update(num_cols, cell);
-        }
-
-        let url = urls.urls.first().unwrap();
-        assert_eq!(url.start().col, Column(5));
-        assert_eq!(url.end().col, Column(23));
-    }
-
-    #[test]
-    fn multiple_urls() {
-        let input = text_to_cells("test git:a git:b git:c ing");
-        let num_cols = input.len();
-
-        let mut urls = Urls::new();
-
-        for cell in input {
-            urls.update(num_cols, cell);
-        }
-
-        assert_eq!(urls.urls.len(), 3);
-
-        assert_eq!(urls.urls[0].start().col, Column(5));
-        assert_eq!(urls.urls[0].end().col, Column(9));
-
-        assert_eq!(urls.urls[1].start().col, Column(11));
-        assert_eq!(urls.urls[1].end().col, Column(15));
-
-        assert_eq!(urls.urls[2].start().col, Column(17));
-        assert_eq!(urls.urls[2].end().col, Column(21));
+        let start = Point::new(1, Column(26));
+        let end = Point::new(1, Column(46));
+        assert_eq!(url_at_point(&term, start), Some(start..=end));
+        assert_eq!(url_at_point(&term, end), Some(start..=end));
     }
 }
