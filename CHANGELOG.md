@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tabstops not breaking across lines
 - Crash when parsing DCS escape with more than 16 parameters
 - Ignoring of slow touchpad scrolling
+- Selection invisible when starting above viewport and ending below it
 
 ### Removed
 
