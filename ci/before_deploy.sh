@@ -4,7 +4,7 @@
 aux_files=("extra/completions/alacritty.bash"
            "extra/completions/alacritty.fish"
            "extra/completions/_alacritty"
-           "extra/linux/alacritty.desktop"
+           "extra/linux/Alacritty.desktop"
            "extra/alacritty.info"
            "alacritty.yml")
 
