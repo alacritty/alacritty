@@ -155,18 +155,17 @@ pub enum Width {
 
 impl Width {
     fn to_isize(self) -> isize {
-        use self::Width::*;
         match self {
-            Ultracondensed => 50,
-            Extracondensed => 63,
-            Condensed => 75,
-            Semicondensed => 87,
-            Normal => 100,
-            Semiexpanded => 113,
-            Expanded => 125,
-            Extraexpanded => 150,
-            Ultraexpanded => 200,
-            Other(value) => value as isize,
+            Width::Ultracondensed => 50,
+            Width::Extracondensed => 63,
+            Width::Condensed => 75,
+            Width::Semicondensed => 87,
+            Width::Normal => 100,
+            Width::Semiexpanded => 113,
+            Width::Expanded => 125,
+            Width::Extraexpanded => 150,
+            Width::Ultraexpanded => 200,
+            Width::Other(value) => value as isize,
         }
     }
 }
@@ -214,14 +213,13 @@ impl Rgba {
 
 impl fmt::Display for Rgba {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Rgba::*;
         f.write_str(match *self {
-            Unknown => "unknown",
-            Rgb => "rgb",
-            Bgr => "bgr",
-            Vrgb => "vrgb",
-            Vbgr => "vbgr",
-            None => "none",
+            Rgba::Unknown => "unknown",
+            Rgba::Rgb => "rgb",
+            Rgba::Bgr => "bgr",
+            Rgba::Vrgb => "vrgb",
+            Rgba::Vbgr => "vbgr",
+            Rgba::None => "none",
         })
     }
 }

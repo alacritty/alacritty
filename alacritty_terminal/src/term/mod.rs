@@ -241,7 +241,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             start.col = max(limit_start, start.col);
             end.col = min(limit_end, end.col);
 
-            Some(SelectionRange::new(start.into(), end.into(), span.is_block))
+            Some(SelectionRange::new(start, end, span.is_block))
         });
 
         // Load cursor glyph

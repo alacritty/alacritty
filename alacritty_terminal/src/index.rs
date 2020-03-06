@@ -73,12 +73,11 @@ impl<L> Point<L> {
 
 impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
-        use std::cmp::Ordering::*;
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
-            (Equal, Equal) => Equal,
-            (Equal, ord) | (ord, Equal) => ord,
-            (Less, _) => Less,
-            (Greater, _) => Greater,
+            (Ordering::Equal, Ordering::Equal) => Ordering::Equal,
+            (Ordering::Equal, ord) | (ord, Ordering::Equal) => ord,
+            (Ordering::Less, _) => Ordering::Less,
+            (Ordering::Greater, _) => Ordering::Greater,
         }
     }
 }
