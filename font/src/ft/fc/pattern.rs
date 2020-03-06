@@ -596,10 +596,9 @@ impl PatternRef {
     }
 
     pub fn ft_face_location(&self, index: usize) -> Option<FTFaceLocation> {
-        if let (Some(path), Some(index)) = (self.file(index), self.index().next()) {
-            Some(FTFaceLocation::new(path, index))
-        } else {
-            None
+        match (self.file(index), self.index().next()) {
+            (Some(path), Some(index)) => Some(FTFaceLocation::new(path, index)),
+            _ => None,
         }
     }
 

@@ -318,7 +318,7 @@ impl FreeTypeRasterizer {
                 return Ok(Some(font_key));
             }
 
-            trace!("Got font path={:?}", ft_face_location.path);
+            trace!("Got font path={:?}, index={:?}", ft_face_location.path, ft_face_location.index);
 
             let ft_face = match self.ft_faces.get(&ft_face_location) {
                 Some(ft_face) => Rc::clone(ft_face),
