@@ -626,7 +626,6 @@
   #- { key: W,      mods: Command,         action: Quit             }
   #- { key: N,      mods: Command,         action: SpawnNewInstance }
   #- { key: F,      mods: Command|Control, action: ToggleFullscreen }
-<<<<<<< HEAD
 
   #- { key: Paste,                    action: Paste                            }
   #- { key: Copy,                     action: Copy                             }
