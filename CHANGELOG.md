@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Minimum Rust version has been bumped to 1.37.0
 - Added Rust features `x11` and `wayland` to pick backends, with both enabled by default
+- Capitalized the default Alacritty.desktop file
 
 ### Changed
 
@@ -20,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default value for `draw_bold_text_with_bright_colors` is now `false`
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
-- Capitalized the default Alacritty.desktop file
 
 ### Fixed
 
