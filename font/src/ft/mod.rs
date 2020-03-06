@@ -16,7 +16,6 @@
 use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use freetype::tt_os2::TrueTypeOS2Table;
@@ -27,7 +26,7 @@ use log::{debug, trace};
 
 pub mod fc;
 
-use fc::{CharSet, Pattern, PatternHash, PatternRef};
+use fc::{CharSet, FTFaceLocation, Pattern, PatternHash, PatternRef};
 
 use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph, Size, Slant,
@@ -90,7 +89,7 @@ impl fmt::Debug for FaceLoadingProperties {
 pub struct FreeTypeRasterizer {
     library: Library,
     faces: HashMap<FontKey, FaceLoadingProperties>,
-    ft_faces: HashMap<PathBuf, Rc<FTFace>>,
+    ft_faces: HashMap<FTFaceLocation, Rc<FTFace>>,
     fallback_lists: HashMap<FontKey, FallbackList>,
     device_pixel_ratio: f32,
 }
@@ -294,8 +293,8 @@ impl FreeTypeRasterizer {
         Ok(FullMetrics { size_metrics, cell_width: width })
     }
 
-    fn load_ft_face(&mut self, path: PathBuf, index: isize) -> Result<Rc<FTFace>, Error> {
-        let mut ft_face = self.library.new_face(&path, index)?;
+    fn load_ft_face(&mut self, ft_face_location: FTFaceLocation) -> Result<Rc<FTFace>, Error> {
+        let mut ft_face = self.library.new_face(&ft_face_location.path, ft_face_location.index)?;
         if ft_face.has_color() {
             unsafe {
                 // Select the colored bitmap size to use from the array of available sizes
@@ -304,7 +303,7 @@ impl FreeTypeRasterizer {
         }
 
         let ft_face = Rc::new(ft_face);
-        self.ft_faces.insert(path, Rc::clone(&ft_face));
+        self.ft_faces.insert(ft_face_location, Rc::clone(&ft_face));
 
         Ok(ft_face)
     }
@@ -314,16 +313,16 @@ impl FreeTypeRasterizer {
         pattern: &PatternRef,
         font_key: FontKey,
     ) -> Result<Option<FontKey>, Error> {
-        if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().next()) {
+        if let Some(ft_face_location) = pattern.ft_face_location(0) {
             if self.faces.get(&font_key).is_some() {
                 return Ok(Some(font_key));
             }
 
-            trace!("Got font path={:?}", path);
+            trace!("Got font path={:?}, index={:?}", ft_face_location.path, ft_face_location.index);
 
-            let ft_face = match self.ft_faces.get(&path) {
+            let ft_face = match self.ft_faces.get(&ft_face_location) {
                 Some(ft_face) => Rc::clone(ft_face),
-                None => self.load_ft_face(path, index)?,
+                None => self.load_ft_face(ft_face_location)?,
             };
 
             let non_scalable = if pattern.scalable().next().unwrap_or(true) {
