@@ -145,24 +145,21 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         Grid { raw, cols, lines, display_offset: 0, selection: None, max_scroll_limit: scrollback }
     }
 
-    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
-        let mut point = point.into();
-
-        if point.line < self.display_offset || point.line >= self.display_offset + self.lines.0 {
-            return None;
+    /// Clamp a buffer point to the visible region.
+    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
+        if point.line < self.display_offset {
+            Point::new(self.lines - 1, self.cols - 1)
+        } else if point.line >= self.display_offset + self.lines.0 {
+            Point::new(Line(0), Column(0))
+        } else {
+            // Since edgecases are handled, conversion is identical as visible to buffer
+            self.visible_to_buffer(point.into()).into()
         }
-
-        point.line = self.lines.0 + self.display_offset - point.line - 1;
-
-        Some(point)
     }
 
+    /// Convert viewport relative point to global buffer indexing.
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        Point { line: self.visible_line_to_buffer(point.line), col: point.col }
-    }
-
-    fn visible_line_to_buffer(&self, line: Line) -> usize {
-        self.line_to_offset(line) + self.display_offset
+        Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
     }
 
     /// Update the size of the scrollback history
@@ -451,17 +448,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.raw.rotate(*prev as isize - *target as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
-    }
-
-    /// Convert a Line index (active region) to a buffer offset
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if `Line` is larger than the grid dimensions
-    pub fn line_to_offset(&self, line: Line) -> usize {
-        assert!(line < self.num_lines());
-
-        *(self.num_lines() - line - 1)
     }
 
     #[inline]

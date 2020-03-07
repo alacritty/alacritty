@@ -37,6 +37,40 @@ impl GridCell for usize {
     }
 }
 
+#[test]
+fn grid_clamp_buffer_point() {
+    let mut grid = Grid::new(Line(10), Column(10), 1_000, 0);
+    grid.display_offset = 5;
+
+    let point = grid.clamp_buffer_to_visible(Point::new(10, Column(3)));
+    assert_eq!(point, Point::new(Line(4), Column(3)));
+
+    let point = grid.clamp_buffer_to_visible(Point::new(15, Column(3)));
+    assert_eq!(point, Point::new(Line(0), Column(0)));
+
+    let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
+    assert_eq!(point, Point::new(Line(9), Column(9)));
+
+    grid.display_offset = 0;
+
+    let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
+    assert_eq!(point, Point::new(Line(5), Column(3)));
+}
+
+#[test]
+fn visible_to_buffer() {
+    let mut grid = Grid::new(Line(10), Column(10), 1_000, 0);
+    grid.display_offset = 5;
+
+    let point = grid.visible_to_buffer(Point::new(Line(4), Column(3)));
+    assert_eq!(point, Point::new(10, Column(3)));
+
+    grid.display_offset = 0;
+
+    let point = grid.visible_to_buffer(Point::new(Line(5), Column(3)));
+    assert_eq!(point, Point::new(4, Column(3)));
+}
+
 // Scroll up moves lines upwards
 #[test]
 fn scroll_up() {

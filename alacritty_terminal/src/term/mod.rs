@@ -222,9 +222,8 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
         let num_cols = grid.num_cols();
-        let num_lines = grid.num_lines();
 
-        let cursor_offset = grid.line_to_offset(term.cursor.point.line);
+        let cursor_offset = grid.num_lines().0 - term.cursor.point.line.0 - 1;
         let inner = grid.display_iter();
 
         let selection_range = selection.and_then(|span| {
@@ -235,28 +234,14 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             };
 
             // Get on-screen lines of the selection's locations
-            let start = term.buffer_to_visible(span.start);
-            let end = term.buffer_to_visible(span.end);
-
-            // Clamp visible selection to the viewport
-            let (mut start, mut end) = match (start, end) {
-                (Some(start), Some(end)) => (start, end),
-                (Some(start), None) => {
-                    let end = Point::new(num_lines.0 - 1, num_cols - 1);
-                    (start, end)
-                },
-                (None, Some(end)) => {
-                    let start = Point::new(0, Column(0));
-                    (start, end)
-                },
-                (None, None) => return None,
-            };
+            let mut start = grid.clamp_buffer_to_visible(span.start);
+            let mut end = grid.clamp_buffer_to_visible(span.end);
 
             // Trim start/end with partially visible block selection
             start.col = max(limit_start, start.col);
             end.col = min(limit_end, end.col);
 
-            Some(SelectionRange::new(start.into(), end.into(), span.is_block))
+            Some(SelectionRange::new(start, end, span.is_block))
         });
 
         // Load cursor glyph
@@ -1083,10 +1068,6 @@ impl<T> Term<T> {
 
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         self.grid.visible_to_buffer(point)
-    }
-
-    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Option<Point<usize>> {
-        self.grid.buffer_to_visible(point)
     }
 
     /// Access to the raw grid data structure
