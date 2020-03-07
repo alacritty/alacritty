@@ -152,13 +152,14 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         } else if point.line >= self.display_offset + self.lines.0 {
             Point::new(Line(0), Column(0))
         } else {
-            Point::new(self.lines + self.display_offset - point.line - 1, point.col)
+            // Since edgecases are handled, conversion is identical as visible to buffer
+            self.visible_to_buffer(point.into()).into()
         }
     }
 
     /// Convert viewport relative point to global buffer indexing.
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        Point { line: self.display_offset + self.lines.0 - point.line.0 - 1, col: point.col }
+        Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
     }
 
     /// Update the size of the scrollback history
