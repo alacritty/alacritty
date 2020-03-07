@@ -11,7 +11,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
+use glutin::event::{
+    DeviceEvent, ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent,
+};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
 use log::{debug, info, warn};
@@ -519,10 +521,9 @@ impl<N: Notify + OnResize> Processor<N> {
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,
             GlutinEvent::WindowEvent { event, window_id, .. } => {
-                use glutin::event::WindowEvent::*;
                 match event {
-                    CloseRequested => processor.ctx.terminal.exit(),
-                    Resized(size) => {
+                    WindowEvent::CloseRequested => processor.ctx.terminal.exit(),
+                    WindowEvent::Resized(size) => {
                         #[cfg(windows)]
                         {
                             // Minimizing the window sends a Resize event with zero width and
@@ -537,7 +538,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.display_update_pending.dimensions = Some(size);
                         processor.ctx.terminal.dirty = true;
                     },
-                    KeyboardInput { input, is_synthetic: false, .. } => {
+                    WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
@@ -546,13 +547,13 @@ impl<N: Notify + OnResize> Processor<N> {
                             }
                         }
                     },
-                    ReceivedCharacter(c) => processor.received_char(c),
-                    MouseInput { state, button, .. } => {
+                    WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
+                    WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
-                    CursorMoved { position, .. } => {
+                    WindowEvent::CursorMoved { position, .. } => {
                         let (x, y) = position.into();
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y = limit(y, 0, processor.ctx.size_info.height as i32);
@@ -560,11 +561,11 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_moved(x as usize, y as usize);
                     },
-                    MouseWheel { delta, phase, .. } => {
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
-                    Focused(is_focused) => {
+                    WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
                             processor.ctx.terminal.dirty = true;
@@ -578,33 +579,32 @@ impl<N: Notify + OnResize> Processor<N> {
                             processor.on_focus_change(is_focused);
                         }
                     },
-                    DroppedFile(path) => {
+                    WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    CursorLeft { .. } => {
+                    WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_grid = false;
 
                         if processor.highlighted_url.is_some() {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    KeyboardInput { is_synthetic: true, .. }
-                    | TouchpadPressure { .. }
-                    | ScaleFactorChanged { .. }
-                    | CursorEntered { .. }
-                    | AxisMotion { .. }
-                    | HoveredFileCancelled
-                    | Destroyed
-                    | ThemeChanged(_)
-                    | HoveredFile(_)
-                    | Touch(_)
-                    | Moved(_) => (),
+                    WindowEvent::KeyboardInput { is_synthetic: true, .. }
+                    | WindowEvent::TouchpadPressure { .. }
+                    | WindowEvent::ScaleFactorChanged { .. }
+                    | WindowEvent::CursorEntered { .. }
+                    | WindowEvent::AxisMotion { .. }
+                    | WindowEvent::HoveredFileCancelled
+                    | WindowEvent::Destroyed
+                    | WindowEvent::ThemeChanged(_)
+                    | WindowEvent::HoveredFile(_)
+                    | WindowEvent::Touch(_)
+                    | WindowEvent::Moved(_) => (),
                 }
             },
             GlutinEvent::DeviceEvent { event, .. } => {
-                use glutin::event::DeviceEvent::*;
-                if let ModifiersChanged(modifiers) = event {
+                if let DeviceEvent::ModifiersChanged(modifiers) = event {
                     processor.modifiers_input(modifiers);
                 }
             },
@@ -620,20 +620,17 @@ impl<N: Notify + OnResize> Processor<N> {
     /// Check if an event is irrelevant and can be skipped
     fn skip_event(event: &GlutinEvent<Event>) -> bool {
         match event {
-            GlutinEvent::WindowEvent { event, .. } => {
-                use glutin::event::WindowEvent::*;
-                match event {
-                    KeyboardInput { is_synthetic: true, .. }
-                    | TouchpadPressure { .. }
-                    | CursorEntered { .. }
-                    | AxisMotion { .. }
-                    | HoveredFileCancelled
-                    | Destroyed
-                    | HoveredFile(_)
-                    | Touch(_)
-                    | Moved(_) => true,
-                    _ => false,
-                }
+            GlutinEvent::WindowEvent { event, .. } => match event {
+                WindowEvent::KeyboardInput { is_synthetic: true, .. }
+                | WindowEvent::TouchpadPressure { .. }
+                | WindowEvent::CursorEntered { .. }
+                | WindowEvent::AxisMotion { .. }
+                | WindowEvent::HoveredFileCancelled
+                | WindowEvent::Destroyed
+                | WindowEvent::HoveredFile(_)
+                | WindowEvent::Touch(_)
+                | WindowEvent::Moved(_) => true,
+                _ => false,
             },
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
