@@ -18,10 +18,10 @@ use std::ffi::c_void;
 use log::{debug, warn};
 
 use copypasta::nop_clipboard::NopClipboardContext;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[cfg(feature = "wayland")]
 use copypasta::wayland_clipboard;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[cfg(feature = "x11")]
 use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
 #[cfg(any(feature = "x11", target_os = "macos", windows))]
@@ -34,12 +34,12 @@ pub struct Clipboard {
 }
 
 impl Clipboard {
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(any(target_os = "macos", windows))]
     pub fn new() -> Self {
         Self::default()
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn new(_display: Option<*mut c_void>) -> Self {
         #[cfg(feature = "wayland")]
         {
