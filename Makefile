@@ -1,13 +1,12 @@
 TARGET = alacritty
 
-APP_NAME = Alacritty.app
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
-
 EXTRAS = $(ASSETS_DIR)/alacritty.info $(ASSETS_DIR)/alacritty.man
 COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty $(COMPLETIONS_DIR)/alacritty.bash $(COMPLETIONS_DIR)/alacritty.fish
 
+APP_NAME = Alacritty.app
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
 APP_DIR = $(RELEASE_DIR)/osx
 APP_BINARY = $(RELEASE_DIR)/$(TARGET)
