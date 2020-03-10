@@ -385,6 +385,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 if !self.ctx.modifiers().shift()
                     && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
                 {
+                    // 2 is the right button code
                     self.mouse_report(2, ElementState::Pressed);
                     return;
                 }
