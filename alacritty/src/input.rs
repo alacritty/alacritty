@@ -377,13 +377,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            // Do nothing if clicked with the right mouse button
+            // Don't clear selection if right mouse button is pressed
             ClickState::Click
                 if mouse.right_button_state == ElementState::Pressed
                     && mouse.left_button_state == ElementState::Released =>
             {
+                if !self.ctx.modifiers().shift()
+                    && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
+                {
+                    self.mouse_report(2, ElementState::Pressed);
+                    return;
+                }
                 ClickState::Click
-            },
+            }
             ClickState::Click
                 if !button_changed
                     && elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
