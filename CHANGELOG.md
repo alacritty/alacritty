@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Live config reload for `window.title`
+- Added manpage, terminfo, and completions to macOS application bundle.
 
 ### Changed
 
