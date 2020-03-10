@@ -377,20 +377,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            // Don't clear selection if right mouse button is pressed
-            ClickState::Click
-                if mouse.right_button_state == ElementState::Pressed
-                    && mouse.left_button_state == ElementState::Released =>
-            {
-                if !self.ctx.modifiers().shift()
-                    && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
-                {
-                    // 2 is the right button code
-                    self.mouse_report(2, ElementState::Pressed);
-                    return;
-                }
-                ClickState::Click
-            }
             ClickState::Click
                 if !button_changed
                     && elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
@@ -408,17 +394,22 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ClickState::TripleClick
             }
             _ => {
-                // Don't launch URLs if this click cleared the selection
-                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+                // Only clear selection if left or middle button are pressed
+                if mouse.left_button_state == ElementState::Pressed
+                    || mouse.middle_button_state == ElementState::Pressed
+                {
+                    // Don't launch URLs if this click cleared the selection
+                    self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                self.ctx.clear_selection();
+                    self.ctx.clear_selection();
 
-                // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
-                if self.ctx.modifiers().ctrl() {
-                    self.ctx.block_selection(point, side);
-                } else {
-                    self.ctx.simple_selection(point, side);
+                    // Start new empty selection
+                    let side = self.ctx.mouse().cell_side;
+                    if self.ctx.modifiers().ctrl() {
+                        self.ctx.block_selection(point, side);
+                    } else {
+                        self.ctx.simple_selection(point, side);
+                    }
                 }
 
                 if !self.ctx.modifiers().shift()
