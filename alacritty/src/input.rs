@@ -115,18 +115,18 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
-            },
+            }
             Action::Copy => {
                 ctx.copy_selection(ClipboardType::Clipboard);
-            },
+            }
             Action::Paste => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
                 paste(ctx, &text);
-            },
+            }
             Action::PasteSelection => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
                 paste(ctx, &text);
-            },
+            }
             Action::Command(ref program, ref args) => {
                 trace!("Running command {} with args {:?}", program, args);
 
@@ -134,7 +134,7 @@ impl<T: EventListener> Execute<T> for Action {
                     Ok(_) => debug!("Spawned new proc"),
                     Err(err) => warn!("Couldn't run command {}", err),
                 }
-            },
+            }
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -377,6 +377,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
+            // Do nothing if clicked with the right mouse button
+            ClickState::Click
+                if mouse.right_button_state == ElementState::Pressed
+                    && mouse.left_button_state == ElementState::Released =>
+            {
+                ClickState::Click
+            }
             ClickState::Click
                 if !button_changed
                     && elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
@@ -422,7 +429,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 }
 
                 ClickState::Click
-            },
+            }
         };
     }
 
@@ -470,19 +477,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
                 self.scroll_terminal(new_scroll_px as f64);
-            },
+            }
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
                         self.ctx.mouse_mut().scroll_px = 0.;
-                    },
+                    }
                     TouchPhase::Moved => {
                         self.scroll_terminal(lpos.y);
-                    },
+                    }
                     _ => (),
                 }
-            },
+            }
         }
     }
 
@@ -573,7 +580,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     } else {
                         CursorIcon::Text
                     }
-                },
+                }
             };
 
             self.ctx.window_mut().set_mouse_cursor(new_icon);
@@ -582,7 +589,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ElementState::Pressed => {
                     self.process_mouse_bindings(button);
                     self.on_mouse_press(button);
-                },
+                }
                 ElementState::Released => self.on_mouse_release(button),
             }
         }
@@ -596,7 +603,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             ElementState::Pressed => {
                 *self.ctx.received_count() = 0;
                 self.process_key_bindings(input);
-            },
+            }
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
