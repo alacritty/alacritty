@@ -25,7 +25,7 @@ dependencies = [
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "font 0.1.0",
  "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glutin 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.22.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -682,7 +682,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "glutin"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "android_glue 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -703,7 +703,7 @@ dependencies = [
  "parking_lot 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winit 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2085,7 +2085,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "winit"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "android_glue 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2280,7 +2280,7 @@ dependencies = [
 "checksum gl_generator 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ca98bbde17256e02d17336a6bdb5a50f7d0ccacee502e191d3e3d0ec2f96f84a"
 "checksum gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1a95dfc23a2b4a9a2f5ab41d194f8bfda3cabec42af4e39f08c339eb2a0c124d"
 "checksum glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
-"checksum glutin 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf22d4e90c55d9be9f2ad52410e7a2c0d7e9c99d93a13df73a672e7ef4e8c7f7"
+"checksum glutin 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)" = "611023dea5047f3e9047aecb9e361852dcfd0881129daf5d110106ca2b14f3f3"
 "checksum glutin_egl_sys 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "772edef3b28b8ad41e4ea202748e65eefe8e5ffd1f4535f1219793dbb20b3d4c"
 "checksum glutin_emscripten_sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "80de4146df76e8a6c32b03007bc764ff3249dcaeb4f675d68a06caf1bac363f1"
 "checksum glutin_gles2_sys 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "07e853d96bebcb8e53e445225c3009758c6f5960d44f2543245f6f07b567dae0"
@@ -2446,7 +2446,7 @@ dependencies = [
 "checksum winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 "checksum winapi-util 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "4ccfbf554c6ad11084fb7517daca16cfdcaccbdadba4fc336f032a8b12c2ad80"
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-"checksum winit 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "65a5c1a5ef76ac31cc97ad29489acdbed2178f3fc12ca00ee6cb11d60adb5a3a"
+"checksum winit 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)" = "02e9092b71b48ad6a0d98835a786308d10760cc09369d02e4a166608327f1f26"
 "checksum winpty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "92c5a39bb2408a307dd5ab774039ec3f2c68d052970ae4dacc346101abe202b2"
 "checksum winpty-sys 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ed8a179a59760dc51d30b5e6eaf1bd6da88461f72f2616e962ddebef7e413210"
 "checksum winreg 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
