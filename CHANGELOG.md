@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selection invisible when starting above viewport and ending below it
 - Clipboard not working after TTY switch on Wayland
 - Crash when pasting non UTF-8 string advertised as UTF-8 string on Wayland
-- Incorrect modifiers tracking on macOS, leading to 'sticky' modifiers
+- Incorrect modifiers tracking on X11 and macOS, leading to 'sticky' modifiers
 - Crash when starting on Windows with missing dark mode support
 - Variables `XCURSOR_THEME` and `XCURSOR_SIZE` ignored on Wayland
 - Low resolution mouse cursor and decorations on HiDPI Wayland outputs
