@@ -25,6 +25,7 @@ fn main() {
     if cfg!(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows))) {
         panic!("Please select at least one Linux/BSD backend!");
     }
+
     let hash = rustc_tools_util::get_commit_hash().unwrap_or_default();
     println!("cargo:rustc-env=GIT_HASH={}", hash);
 

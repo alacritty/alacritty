@@ -18,11 +18,9 @@ use std::ffi::c_void;
 use log::{debug, warn};
 
 use copypasta::nop_clipboard::NopClipboardContext;
-#[cfg(not(any(target_os = "macos", windows)))]
-#[cfg(feature = "wayland")]
+#[cfg(all(not(any(target_os = "macos", windows)), feature = "wayland"))]
 use copypasta::wayland_clipboard;
-#[cfg(not(any(target_os = "macos", windows)))]
-#[cfg(feature = "x11")]
+#[cfg(all(not(any(target_os = "macos", windows)), feature = "x11"))]
 use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
 #[cfg(any(feature = "x11", target_os = "macos", windows))]
 use copypasta::ClipboardContext;
