@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Low resolution mouse cursor and decorations on HiDPI Wayland outputs
 - Decorations visible when in fullscreen on Wayland
 - Window size not persisted correctly after fullscreening on macOS
+- Crash on startup with some locales on X11
 
 ### Removed
 
