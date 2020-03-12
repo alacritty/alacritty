@@ -962,12 +962,15 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
 
+        // Update title
+        self.default_title = config.window.title.clone();
         self.dynamic_title = config.dynamic_title();
-        if self.title.is_none() && self.default_title != config.window.title {
-            self.set_title(&config.window.title);
+        if !self.dynamic_title
+            || (self.title.is_none() && self.default_title != config.window.title)
+        {
+            self.event_proxy.send_event(Event::Title(self.default_title.clone()));
             self.title = None;
         }
-        self.default_title = config.window.title.clone();
 
         if self.alt {
             self.alt_grid.update_history(config.scrolling.history() as usize);
@@ -2089,33 +2092,11 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    #[cfg(not(windows))]
     fn set_title(&mut self, title: &str) {
         if self.dynamic_title {
+            let title = title.trim().to_owned();
+
             trace!("Setting window title to '{}'", title);
-
-            self.title = Some(title.into());
-            self.event_proxy.send_event(Event::Title(title.to_owned()));
-        }
-    }
-
-    #[inline]
-    #[cfg(windows)]
-    fn set_title(&mut self, title: &str) {
-        if self.dynamic_title {
-            // cmd.exe in winpty: winpty incorrectly sets the title to ' ' instead of
-            // 'Alacritty' - thus we have to substitute this back to get equivalent
-            // behaviour as conpty.
-            //
-            // The starts_with check is necessary because other shells e.g. bash set a
-            // different title and don't need Alacritty prepended.
-            trace!("Setting window title to '{}'", title);
-
-            let title = if !tty::is_conpty() && title.starts_with(' ') {
-                format!("Alacritty {}", title.trim())
-            } else {
-                title.to_owned()
-            };
 
             self.title = Some(title.clone());
             self.event_proxy.send_event(Event::Title(title));
