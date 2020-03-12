@@ -57,7 +57,7 @@ impl Clipboard {
             selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap())),
         };
 
-        #[cfg(not(any(feature = "x11")))]
+        #[cfg(not(feature = "x11"))]
         return Self::new_nop();
     }
 
