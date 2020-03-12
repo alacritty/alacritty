@@ -442,7 +442,7 @@ impl FreeTypeRasterizer {
             } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
-                pixelsize as f64 / metrics.y_ppem as f64
+                f64::from(pixelsize) / f64::from(metrics.y_ppem)
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
@@ -659,10 +659,10 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
 
                 for source_column in source_column_start..source_column_end {
                     let offset = (source_pixel_index + source_column) * 4;
-                    r += bitmap_buffer[offset] as u32;
-                    g += bitmap_buffer[offset + 1] as u32;
-                    b += bitmap_buffer[offset + 2] as u32;
-                    a += bitmap_buffer[offset + 3] as u32;
+                    r += u32::from(bitmap_buffer[offset]);
+                    g += u32::from(bitmap_buffer[offset + 1]);
+                    b += u32::from(bitmap_buffer[offset + 2]);
+                    a += u32::from(bitmap_buffer[offset + 3]);
                     pixels_picked += 1;
                 }
             }
@@ -678,8 +678,8 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     bitmap_glyph.buf = BitmapBuffer::RGBA(downsampled_buffer);
 
     // Downscale the metrics
-    bitmap_glyph.top = (bitmap_glyph.top as f64 * fixup_factor) as i32;
-    bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
+    bitmap_glyph.top = (f64::from(bitmap_glyph.top) * fixup_factor) as i32;
+    bitmap_glyph.left = (f64::from(bitmap_glyph.left) * fixup_factor) as i32;
     bitmap_glyph.width = target_width as i32;
     bitmap_glyph.height = target_height as i32;
 
