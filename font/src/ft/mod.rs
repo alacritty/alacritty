@@ -442,7 +442,7 @@ impl FreeTypeRasterizer {
             } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
-                f64::from(pixelsize) /  f64::from(metrics.y_ppem)
+                f64::from(pixelsize) / f64::from(metrics.y_ppem)
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
