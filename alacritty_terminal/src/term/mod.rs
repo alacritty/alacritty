@@ -35,8 +35,6 @@ use crate::index::{self, Column, IndexRange, Line, Point};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
-#[cfg(windows)]
-use crate::tty;
 
 pub mod cell;
 pub mod color;
