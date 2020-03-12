@@ -346,6 +346,11 @@ impl Selection {
         // Remove first cell if selection starts at the right of a cell
         if start.side == Side::Right && start.point != end.point {
             start.point.col += 1;
+
+            // Wrap to next line when selection starts to the right of last column
+            if start.point.col == num_cols {
+                start.point = Point::new(start.point.line.saturating_sub(1), Column(0));
+            }
         }
 
         Some(SelectionRange { start: start.point, end: end.point, is_block: false })
