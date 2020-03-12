@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
 - Dynamic title is not disabled anymore when `window.title` is set in config
+- Live config reload for `window.title`
 
 ### Fixed
 
@@ -74,7 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Decorations visible when in fullscreen on Wayland
 - Window size not persisted correctly after fullscreening on macOS
 - Crash on startup with some locales on X11
-- Live config reload for `window.title`
 
 ### Removed
 
