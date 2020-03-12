@@ -23,7 +23,7 @@ use embed_resource;
 
 fn main() {
     if cfg!(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows))) {
-        panic!("At least one of the \"x11\"/\"wayland\" features must be enabled");
+        panic!("at least one of the \"x11\"/\"wayland\" features must be enabled");
     }
 
     let hash = rustc_tools_util::get_commit_hash().unwrap_or_default();
