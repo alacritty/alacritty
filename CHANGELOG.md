@@ -158,6 +158,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum Rust version has been bumped to 1.36.0
 - Config is not generated anymore, please consider distributing the alacritty.yml as documentation
 - Removed Alacritty terminfo from .deb in favor of ncurses provided one
+- Minimum Rust version has been bumped to 1.36.0
+- Config is not generated anymore, please consider distributing the alacritty.yml as documentation
 
 ### Added
 
@@ -167,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completions for `--class` and `-t` (short title)
 - Change the mouse cursor when hovering over the message bar and its close button
 - Support combined bold and italic text (with `font.bold_italic` to customize it)
+- Font Ligatures on Linux/BSD
 - Extra bindings for F13-F20
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
@@ -179,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UTF-8 mouse mode escape sequence (`CSI ? 1005 h` / `CSI ? 1005 l`)
 - Escape for reading clipboard (`OSC 52 ; <s / p / c> ; ? BEL`)
 - Set selection clipboard (`OSC 52 ; <s / p> ; <BASE64> BEL`)
+- Live reload font size from config
 
 ### Changed
 

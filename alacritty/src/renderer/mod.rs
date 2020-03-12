@@ -22,16 +22,30 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use fnv::FnvHasher;
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
 use font::{
     self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer,
+=======
+#[cfg(not(any(target_os = "macos", windows)))]
+use font::HbFtExt;
+use font::{
+    self, FontDesc, FontKey, GlyphKey, KeyType, Rasterize, RasterizedGlyph, Rasterizer,
+    PLACEHOLDER_GLYPH,
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
 };
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
 use crate::cursor;
+=======
+use crate::config::{self, Config, Delta, Font, StartupMode};
+use crate::cursor::{get_cursor_glyph, CursorKey};
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
 use alacritty_terminal::config::{self, Config, Delta, Font, StartupMode};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{self, Flags};
@@ -39,6 +53,14 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::util;
 use std::fmt::{self, Display, Formatter};
+=======
+use crate::term::cell::{Flags, MAX_ZEROWIDTH_CHARS};
+use crate::term::color::Rgb;
+use crate::term::SizeInfo;
+use crate::term::{self, RenderableCell};
+use crate::text_run::{TextRun, TextRunContent};
+use crate::util;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
 
 pub mod rects;
 
@@ -133,7 +155,7 @@ pub struct RectShaderProgram {
     u_color: GLint,
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Glyph {
     tex_id: GLuint,
     colored: bool,
@@ -194,9 +216,12 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
-        // The glyph requested here ('m' at the time of writing) has no special
-        // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        // The glyph requested here has no special meaning.
+        rasterizer.get_glyph(GlyphKey {
+            id: PLACEHOLDER_GLYPH,
+            font_key: regular,
+            size: font.size,
+        })?;
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
@@ -220,8 +245,13 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         for i in 32u8..=126u8 {
             self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
+=======
+        for i in 32..=126 {
+            self.get(GlyphKey { font_key: font, id: KeyType::GlyphIndex(i), size }, loader);
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         }
     }
 
@@ -280,6 +310,78 @@ impl GlyphCache {
         FontDesc::new(desc.family.clone(), style)
     }
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
+=======
+    //pub fn font_metrics(&self) -> font::Metrics {
+    //    self.rasterizer
+    //        .metrics(self.font_key, self.font_size)
+    //        .expect("metrics load since font is loaded at glyph cache creation")
+    //}
+
+    // Since shaping is not available on Windows/Mac OSX, text run glyphs are rasterized one by one
+    // as characters
+    #[cfg(any(target_os = "macos", windows))]
+    fn shape_run<'a, L>(
+        &'a mut self,
+        text_run: &str,
+        font_key: FontKey,
+        loader: &'a mut L,
+    ) -> Vec<Glyph>
+    where
+        L: LoadGlyph,
+    {
+        text_run
+            .chars()
+            .map(|c| {
+                let glyph_key = GlyphKey { id: c.into(), font_key, size: self.font_size };
+                *self.get(glyph_key, loader)
+            })
+            .collect()
+    }
+
+    // Shape using harfbuzz
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn shape_run<'a, L>(
+        &'a mut self,
+        text_run: &'a str,
+        font_key: FontKey,
+        loader: &'a mut L,
+    ) -> Vec<Glyph>
+    where
+        L: LoadGlyph,
+    {
+        self.rasterizer
+            .shape(text_run, font_key)
+            .get_glyph_infos()
+            .iter()
+            .map(move |glyph_info| {
+                let codepoint = glyph_info.codepoint;
+
+                // Codepoint of 0 indicates a missing or undefined glyph
+                let id: font::KeyType = if codepoint == 0 {
+                    Self::find_fallback_char(text_run, glyph_info.cluster as usize)
+                } else {
+                    codepoint.into()
+                };
+
+                let glyph_key = GlyphKey { id, font_key, size: self.font_size };
+                *self.get(glyph_key, loader)
+            })
+            .collect()
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn find_fallback_char(text_run: &str, index: usize) -> font::KeyType {
+        // TODO: this is a linear scan over text_run for each missing glyph.
+        // Try to find all missing glyphs first and only scan over text_run once.
+        text_run
+            .char_indices()
+            .find_map(|(i, c)| if i == index { Some(c) } else { None })
+            .unwrap_or_else(|| panic!("Could not find cluster {} in run {}", index, text_run))
+            .into()
+    }
+
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
     pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L) -> &Glyph
     where
         L: LoadGlyph,
@@ -321,7 +423,15 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+=======
+        self.rasterizer.get_glyph(GlyphKey {
+            id: PLACEHOLDER_GLYPH,
+            font_key: regular,
+            size: font.size,
+        })?;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         let metrics = self.rasterizer.metrics(regular, font.size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -339,7 +449,13 @@ impl GlyphCache {
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         self.metrics
+=======
+        self.rasterizer
+            .metrics(self.font_key, self.font_size)
+            .expect("metrics load since font is loaded at glyph cache creation")
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
     }
 
     /// Prefetch glyphs that are almost guaranteed to be loaded anyways.
@@ -352,11 +468,19 @@ impl GlyphCache {
 
     // Calculate font metrics without access to a glyph cache
     pub fn static_metrics(font: Font, dpr: f64) -> Result<font::Metrics, font::Error> {
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         let mut rasterizer = font::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
+=======
+        let mut rasterizer = font::Rasterizer::new(dpr as f32, font.use_thin_strokes(), font.ligatures())?;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
         let regular = rasterizer.load_font(&regular_desc, font.size)?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        rasterizer.get_glyph(GlyphKey {
+            id: PLACEHOLDER_GLYPH,
+            font_key: regular,
+            size: font.size,
+        })?;
 
         rasterizer.metrics(regular, font.size)
     }
@@ -366,7 +490,11 @@ impl GlyphCache {
         dpr: f64,
         cell_width: f32,
         cell_height: f32,
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
     ) -> Option<(u32, u32)> {
+=======
+    ) -> Option<(f64, f64)> {
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         let dimensions = config.window.dimensions;
 
         if dimensions.columns_u32() == 0
@@ -383,10 +511,17 @@ impl GlyphCache {
         let grid_width = cell_width as u32 * dimensions.columns_u32();
         let grid_height = cell_height as u32 * dimensions.lines_u32();
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         let width = padding_x.mul_add(2., f64::from(grid_width)).floor();
         let height = padding_y.mul_add(2., f64::from(grid_height)).floor();
 
         Some((width as u32, height as u32))
+=======
+        let width = (f64::from(grid_width) + 2. * padding_x).floor();
+        let height = (f64::from(grid_height) + 2. * padding_y).floor();
+
+        Some((width, height))
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
     }
 }
 
@@ -464,7 +599,11 @@ impl Batch {
         Self { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
     pub fn add_item(&mut self, mut cell: RenderableCell, glyph: &Glyph) {
+=======
+    pub fn add_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
@@ -667,7 +806,11 @@ impl QuadRenderer {
 
         if cfg!(feature = "live-shader-reload") {
             util::thread::spawn_named("live shader reload", move || {
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
                 let (tx, rx) = std::sync::mpsc::channel();
+=======
+                let (tx, rx) = ::std::sync::mpsc::channel();
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
                 // The Duration argument is a debouncing period.
                 let mut watcher =
                     watcher(tx, Duration::from_millis(10)).expect("create file watcher");
@@ -716,7 +859,17 @@ impl QuadRenderer {
     }
 
     // Draw all rectangles simultaneously to prevent excessive program swaps
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
     pub fn draw_rects(&mut self, props: &term::SizeInfo, rects: Vec<RenderRect>) {
+=======
+    pub fn draw_rects(
+        &mut self,
+        props: &term::SizeInfo,
+        visual_bell_color: Rgb,
+        visual_bell_intensity: f64,
+        cell_line_rects: Vec<RenderRect>,
+    ) {
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         // Swap to rectangle rendering program
         unsafe {
             // Swap program
@@ -744,9 +897,19 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(0);
         }
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         // Draw all the rects
         for rect in rects {
             self.render_rect(&rect, props);
+=======
+        // Draw visual bell
+        let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
+        self.render_rect(&rect, visual_bell_intensity as f32, props);
+
+        // Draw underlines and strikeouts
+        for cell_line_rect in cell_line_rects {
+            self.render_rect(&cell_line_rect, 255., props);
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         }
 
         // Deactivate rectangle program again
@@ -973,8 +1136,8 @@ impl<'a, C> RenderApi<'a, C> {
         color: Option<Rgb>,
     ) {
         let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
-        let col = Column(0);
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         let cells = string
             .chars()
             .enumerate()
@@ -992,10 +1155,23 @@ impl<'a, C> RenderApi<'a, C> {
                 bg_alpha,
             })
             .collect::<Vec<_>>();
+=======
+        let str_length: usize = string.chars().map(|_| 1).sum();
+        let text_run = TextRun {
+            line,
+            span: (Column(0), Column(str_length - 1)),
+            content: TextRunContent::CharRun(string.to_owned(), vec![
+                [' '; MAX_ZEROWIDTH_CHARS];
+                str_length
+            ]),
+            fg: Rgb { r: 0, g: 0, b: 0 },
+            bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
+            flags: Flags::empty(),
+            bg_alpha,
+        };
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
 
-        for cell in cells {
-            self.render_cell(cell, glyph_cache);
-        }
+        self.render_text_run(text_run, glyph_cache);
     }
 
     #[inline]
@@ -1013,6 +1189,7 @@ impl<'a, C> RenderApi<'a, C> {
         }
     }
 
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         let chars = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
@@ -1052,8 +1229,39 @@ impl<'a, C> RenderApi<'a, C> {
         // Render tabs as spaces in case the font doesn't support it
         if chars[0] == '\t' {
             chars[0] = ' ';
-        }
+=======
+    fn render_cursor(
+        &mut self,
+        start_cell: RenderableCell,
+        cursor_key: CursorKey,
+        glyph_cache: &mut GlyphCache,
+    ) {
+        // Raw cell pixel buffers like cursors don't need to go through font lookup
+        let metrics = glyph_cache.metrics;
+        let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
+            self.load_glyph(&get_cursor_glyph(
+                cursor_key.style,
+                metrics,
+                self.config.font.offset.x,
+                self.config.font.offset.y,
+                cursor_key.is_wide,
+            ))
+        });
+        self.add_render_item(start_cell, &glyph);
+    }
 
+    fn determine_font_key(flags: Flags, glyph_cache: &GlyphCache) -> FontKey {
+        // FIXME this is super inefficient.
+        match flags & Flags::BOLD_ITALIC {
+            Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
+            Flags::BOLD => glyph_cache.bold_key,
+            Flags::ITALIC => glyph_cache.italic_key,
+            _ => glyph_cache.font_key,
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
+        }
+    }
+
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
         let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: chars[0] };
 
         // Add cell to batch
@@ -1063,6 +1271,20 @@ impl<'a, C> RenderApi<'a, C> {
         // Render zero-width characters
         for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
             glyph_key.c = *c;
+=======
+    fn render_zero_widths<'r, I>(
+        &mut self,
+        zero_width_chars: I,
+        cell: RenderableCell,
+        font_key: FontKey,
+        glyph_cache: &mut GlyphCache,
+    ) where
+        I: Iterator<Item = &'r char>,
+    {
+        for c in zero_width_chars {
+            let glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, id: (*c).into() };
+            let average_advance = glyph_cache.metrics.average_advance as f32;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
             let mut glyph = *glyph_cache.get(glyph_key, self);
 
             // The metrics of zero-width characters are based on rendering
@@ -1070,9 +1292,72 @@ impl<'a, C> RenderApi<'a, C> {
             // right side of the preceding character. Since we render the
             // zero-width characters inside the preceding character, the
             // anchor has been moved to the right by one cell.
-            glyph.left += glyph_cache.metrics.average_advance as f32;
+            glyph.left += average_advance;
 
             self.add_render_item(cell, &glyph);
+        }
+    }
+
+    pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
+        match &text_run.content {
+            TextRunContent::Cursor(cursor_key) => {
+                self.render_cursor(text_run.start_cell(), *cursor_key, glyph_cache)
+            },
+            TextRunContent::CharRun(run, zero_widths) => {
+                // Get font key for cell
+                let font_key = Self::determine_font_key(text_run.flags, glyph_cache);
+
+                let shaped_glyphs = if text_run.flags.contains(Flags::HIDDEN) {
+                    GlyphIter::Hidden
+                } else {
+                    GlyphIter::Shaped(glyph_cache.shape_run(&run, font_key, self).into_iter())
+                };
+
+                for ((cell, glyph), zero_width_chars) in
+                    text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
+                {
+                    self.add_render_item(cell, &glyph);
+                    // Add empty spacer for full width characters
+                    if text_run.flags.contains(Flags::WIDE_CHAR) {
+                        self.add_render_item(
+                            RenderableCell { column: cell.column + 1, ..cell },
+                            &Glyph::default(),
+                        );
+                    }
+                    self.render_zero_widths(
+                        zero_width_chars.iter().filter(|c| **c != ' '),
+                        cell,
+                        font_key,
+                        glyph_cache,
+                    );
+                }
+            },
+        };
+    }
+}
+
+/// Abstracts iteration over a run of hidden glyphs or shaped glyphs.
+enum GlyphIter<I> {
+    /// Our run was not hidden and our glyphs were shaped
+    Shaped(I),
+    /// Our run is hidden and was not shaped
+    Hidden,
+}
+
+impl<I> Iterator for GlyphIter<I>
+where
+    I: Iterator<Item = Glyph>,
+{
+    type Item = Glyph;
+
+<<<<<<< HEAD:alacritty/src/renderer/mod.rs
+            self.add_render_item(cell, &glyph);
+=======
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            GlyphIter::Shaped(inner) => inner.next(),
+            GlyphIter::Hidden => Some(Glyph::default()),
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/mod.rs
         }
     }
 }

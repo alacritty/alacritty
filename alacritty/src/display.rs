@@ -34,9 +34,11 @@ use alacritty_terminal::event::{Event, OnResize};
 use alacritty_terminal::index::Line;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
+use alacritty_terminal::renderer::rects::{RenderRect};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
+use alacritty_terminal::term::{cell::Flags, SizeInfo, Term};
+use alacritty_terminal::text_run::TextRun;
 
 use crate::config::Config;
 use crate::event::{DisplayUpdate, Mouse};
@@ -246,7 +248,7 @@ impl Display {
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.font.clone();
-        let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes(), config.font.ligatures())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -366,7 +368,7 @@ impl Display {
         mouse: &Mouse,
         mods: ModifiersState,
     ) {
-        let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
+        let grid_text_runs: Vec<TextRun> = terminal.text_runs(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
         let metrics = self.glyph_cache.font_metrics();
@@ -394,8 +396,8 @@ impl Display {
             api.clear(background_color);
         });
 
-        let mut lines = RenderLines::new();
         let mut urls = Urls::new();
+        let mut rects: Vec<RenderRect> = Vec::new();
 
         // Draw grid
         {
@@ -403,59 +405,22 @@ impl Display {
 
             self.renderer.with_api(&config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid
-                for cell in grid_cells {
-                    // Update URL underlines
-                    urls.update(size_info.cols().0, cell);
-
+                for text_run in grid_text_runs {
                     // Update underline/strikeout
-                    lines.update(cell);
+                    if text_run.flags.contains(Flags::UNDERLINE) {
+                        let underline_metrics = (metrics.descent, metrics.underline_position, metrics.underline_thickness);
+                        rects.push(RenderRect::from_text_run(&text_run, underline_metrics, &size_info));
+                    }
+                    if text_run.flags.contains(Flags::STRIKEOUT) {
+                        let strikeout_metrics = (metrics.descent, metrics.strikeout_position, metrics.strikeout_thickness);
+                        rects.push(RenderRect::from_text_run(&text_run, strikeout_metrics, &size_info));
+                    }
 
                     // Draw the cell
-                    api.render_cell(cell, glyph_cache);
+                    api.render_text_run(text_run, glyph_cache);
                 }
             });
         }
-
-        let mut rects = lines.rects(&metrics, &size_info);
-
-        // Update visible URLs
-        self.urls = urls;
-        if let Some(url) = self.urls.highlighted(config, mouse, mods, mouse_mode, selection) {
-            rects.append(&mut url.rects(&metrics, &size_info));
-
-            self.window.set_mouse_cursor(CursorIcon::Hand);
-
-            self.highlighted_url = Some(url);
-        } else if self.highlighted_url.is_some() {
-            self.highlighted_url = None;
-
-            if mouse_mode {
-                self.window.set_mouse_cursor(CursorIcon::Default);
-            } else {
-                self.window.set_mouse_cursor(CursorIcon::Text);
-            }
-        }
-
-        // Highlight URLs at the vi mode cursor position
-        if let Some(vi_mode_cursor) = vi_mode_cursor {
-            if let Some(url) = self.urls.find_at(vi_mode_cursor.point) {
-                rects.append(&mut url.rects(&metrics, &size_info));
-            }
-        }
-
-        // Push visual bell after url/underline/strikeout rects
-        if visual_bell_intensity != 0. {
-            let visual_bell_rect = RenderRect::new(
-                0.,
-                0.,
-                size_info.width,
-                size_info.height,
-                config.visual_bell.color,
-                visual_bell_intensity as f32,
-            );
-            rects.push(visual_bell_rect);
-        }
-
         if let Some(message) = message_buffer.message() {
             let text = message.text(&size_info);
 

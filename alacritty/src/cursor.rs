@@ -18,7 +18,7 @@ use std::cmp;
 
 use alacritty_terminal::ansi::CursorStyle;
 
-use font::{BitmapBuffer, Metrics, RasterizedGlyph};
+use font::{BitmapBuffer, Metrics, RasterizedGlyph, PLACEHOLDER_GLYPH};
 
 pub fn get_cursor_glyph(
     cursor: CursorStyle,
@@ -55,7 +55,7 @@ pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyp
 
     // Create a custom glyph with the rectangle data attached to it
     RasterizedGlyph {
-        c: ' ',
+        c: PLACEHOLDER_GLYPH,
         top: line_width,
         left: 0,
         height: line_width,
@@ -71,7 +71,7 @@ pub fn get_beam_cursor_glyph(height: i32, line_width: i32) -> RasterizedGlyph {
 
     // Create a custom glyph with the rectangle data attached to it
     RasterizedGlyph {
-        c: ' ',
+        c: PLACEHOLDER_GLYPH,
         top: height,
         left: 0,
         height,
@@ -99,7 +99,7 @@ pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32) -> Rasteri
     }
 
     // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph { c: ' ', top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
+    RasterizedGlyph { c: PLACEHOLDER_GLYPH, top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
 }
 
 // Returns a custom block cursor character
@@ -108,5 +108,5 @@ pub fn get_block_cursor_glyph(height: i32, width: i32) -> RasterizedGlyph {
     let buf = vec![255u8; (width * height * 3) as usize];
 
     // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph { c: ' ', top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
+    RasterizedGlyph { c: PLACEHOLDER_GLYPH, top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
 }

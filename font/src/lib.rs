@@ -21,6 +21,10 @@
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 use std::fmt;
+
+#[cfg(not(any(target_os = "macos", windows)))]
+extern crate harfbuzz_rs;
+
 use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -40,6 +44,9 @@ pub use directwrite::{DirectWriteRasterizer as Rasterizer, Error};
 mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
+
+/// Placeholder glyph key that represents a blank gylph
+pub const PLACEHOLDER_GLYPH: KeyType = KeyType::Placeholder;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -110,11 +117,23 @@ impl FontKey {
     }
 }
 
+/// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`.
+/// If shaping failed or did not occur, `Fallback` will be returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct GlyphKey {
-    pub c: char,
-    pub font_key: FontKey,
-    pub size: Size,
+pub enum KeyType {
+    /// A valid glyph index from Font face to be rasterized to a glyph
+    GlyphIndex(u32),
+    /// A character that has not been converted to an index before rasterizing
+    Char(char),
+    /// Placeholder glyph useful when we need a glyph but it shouldn't ever render as anything
+    /// (cursors, wide_char_spacers, etc.)
+    Placeholder,
+}
+
+impl Default for KeyType {
+    fn default() -> Self {
+        PLACEHOLDER_GLYPH
+    }
 }
 
 /// Font size stored as integer
@@ -161,9 +180,9 @@ impl From<f32> for Size {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RasterizedGlyph {
-    pub c: char,
+    pub c: KeyType,
     pub width: i32,
     pub height: i32,
     pub top: i32,
@@ -171,22 +190,11 @@ pub struct RasterizedGlyph {
     pub buf: BitmapBuffer,
 }
 
-#[derive(Clone, Debug)]
-pub enum BitmapBuffer {
-    RGB(Vec<u8>),
-    RGBA(Vec<u8>),
-}
+struct BufDebugger<'a>(&'a [u8]);
 
-impl Default for RasterizedGlyph {
-    fn default() -> RasterizedGlyph {
-        RasterizedGlyph {
-            c: ' ',
-            width: 0,
-            height: 0,
-            top: 0,
-            left: 0,
-            buf: BitmapBuffer::RGB(Vec::new()),
-        }
+impl<'a> fmt::Debug for BufDebugger<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("GlyphBuffer").field("len", &self.0.len()).field("bytes", &self.0).finish()
     }
 }
 
@@ -218,8 +226,11 @@ pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    /// Create a new Rasterizer
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(
+        device_pixel_ratio: f32,
+        use_thin_strokes: bool,
+        ligatures: bool,
+    ) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
@@ -234,4 +245,11 @@ pub trait Rasterize {
 
     /// Update the Rasterizer's DPI factor
     fn update_dpr(&mut self, device_pixel_ratio: f32);
+}
+
+/// Extends the Rasterizer with Harfbuzz specific functionality.
+#[cfg(not(any(target_os = "macos", windows)))]
+pub trait HbFtExt {
+    /// Shape the provided text into a set of glyphs.
+    fn shape(&mut self, text: &str, font_key: FontKey) -> harfbuzz_rs::GlyphBuffer;
 }

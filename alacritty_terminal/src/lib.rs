@@ -35,6 +35,7 @@ pub mod panic;
 pub mod selection;
 pub mod sync;
 pub mod term;
+pub mod text_run;
 pub mod tty;
 pub mod util;
 pub mod vi_mode;

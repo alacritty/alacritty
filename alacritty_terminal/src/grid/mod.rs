@@ -19,7 +19,11 @@ use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD
 use crate::index::{Column, IndexRange, Line, Point};
+=======
+use crate::index::{self, Column, IndexRange, Line, Point};
+>>>>>>> Squashed commit of the following:
 use crate::selection::Selection;
 use crate::term::cell::Flags;
 
@@ -283,6 +287,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 cell.flags_mut().remove(Flags::WRAPLINE);
             }
 
+<<<<<<< HEAD
             // Remove leading spacers when reflowing wide char to the previous line
             let last_len = last_row.len();
             if last_len >= 2
@@ -318,6 +323,38 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 } else if i < self.display_offset {
                     // Keep viewport in place if line is outside of the visible area
                     self.display_offset = self.display_offset.saturating_sub(1);
+=======
+                    // Append as many cells from the next line as possible
+                    let len = min(row.len(), cols.0 - last_row.len());
+                    let mut cells = row.front_split_off(len);
+                    last_row.append(&mut cells);
+
+                    if row.is_empty() {
+                        let raw_len = i + 1 + new_raw.len();
+                        if raw_len < self.lines.0 || self.scroll_limit == 0 {
+                            // Add new line and move lines up if we can't pull from history
+                            cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
+                            new_empty_lines += 1;
+                        } else {
+                            // Make sure viewport doesn't move if line is outside of the visible
+                            // area
+                            if i < self.display_offset {
+                                self.display_offset = self.display_offset.saturating_sub(1);
+                            }
+
+                            // Remove one line from scrollback, since we just moved it to the
+                            // viewport
+                            self.scroll_limit = self.scroll_limit.saturating_sub(1);
+                            self.display_offset = min(self.display_offset, self.scroll_limit);
+                        }
+
+                        // Don't push line into the new buffer
+                        continue;
+                    } else if let Some(cell) = last_row.last_mut() {
+                        // Set wrap flag if next line still has cells
+                        cell.set_wrap(true);
+                    }
+>>>>>>> Squashed commit of the following:
                 }
 
                 // Don't push line into the new buffer

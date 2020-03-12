@@ -13,7 +13,10 @@ use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
 use crate::ansi;
+<<<<<<< HEAD
 use crate::config::Config;
+=======
+>>>>>>> Squashed commit of the following:
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::{SizeInfo, Term};
@@ -47,7 +50,10 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
+<<<<<<< HEAD
     hold: bool,
+=======
+>>>>>>> Squashed commit of the following:
     ref_test: bool,
 }
 
@@ -149,6 +155,7 @@ impl Writing {
 
 impl<T, U> EventLoop<T, U>
 where
+<<<<<<< HEAD
     T: tty::EventedPty + event::OnResize + Send + 'static,
     U: EventListener + Send + 'static,
 {
@@ -158,6 +165,17 @@ where
         event_proxy: U,
         pty: T,
         config: &Config<V>,
+=======
+    T: tty::EventedPty + Send + 'static,
+    U: EventListener + Send + 'static,
+{
+    /// Create a new event loop
+    pub fn new(
+        terminal: Arc<FairMutex<Term<U>>>,
+        event_proxy: U,
+        pty: T,
+        ref_test: bool,
+>>>>>>> Squashed commit of the following:
     ) -> EventLoop<T, U> {
         let (tx, rx) = channel::channel();
         EventLoop {
@@ -167,8 +185,12 @@ where
             rx,
             terminal,
             event_proxy,
+<<<<<<< HEAD
             hold: config.hold,
             ref_test: config.debug.ref_test,
+=======
+            ref_test,
+>>>>>>> Squashed commit of the following:
         }
     }
 
@@ -179,12 +201,19 @@ where
     // Drain the channel
     //
     // Returns `false` when a shutdown message was received.
+<<<<<<< HEAD
     fn drain_recv_channel(&mut self, state: &mut State) -> bool {
+=======
+    fn drain_recv_channel(&self, state: &mut State) -> bool {
+>>>>>>> Squashed commit of the following:
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Input(input) => state.write_list.push_back(input),
                 Msg::Shutdown => return false,
+<<<<<<< HEAD
                 Msg::Resize(size) => self.pty.on_resize(&size),
+=======
+>>>>>>> Squashed commit of the following:
             }
         }
 
@@ -259,10 +288,15 @@ where
             }
         }
 
+<<<<<<< HEAD
         if processed > 0 {
             // Queue terminal redraw
             self.event_proxy.send_event(Event::Wakeup);
         }
+=======
+        // Queue terminal redraw
+        self.event_proxy.send_event(Event::Wakeup);
+>>>>>>> Squashed commit of the following:
 
         Ok(())
     }
@@ -340,9 +374,13 @@ where
 
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
+<<<<<<< HEAD
                                 if !self.hold {
                                     self.terminal.lock().exit();
                                 }
+=======
+                                self.terminal.lock().exit();
+>>>>>>> Squashed commit of the following:
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }

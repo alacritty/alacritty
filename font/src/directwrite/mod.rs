@@ -29,7 +29,7 @@ use winapi::um::dwrite;
 use winapi::um::winnls::GetUserDefaultLocaleName;
 
 use super::{
-    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
 /// Cached DirectWrite font.

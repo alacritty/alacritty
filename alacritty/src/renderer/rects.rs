@@ -11,14 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::collections::HashMap;
 
+<<<<<<< HEAD:alacritty/src/renderer/rects.rs
 use font::Metrics;
 
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo};
+=======
+use crate::term::color::Rgb;
+use crate::term::SizeInfo;
+use crate::text_run::TextRun;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/rects.rs
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {
@@ -34,6 +39,7 @@ impl RenderRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
         RenderRect { x, y, width, height, color, alpha }
     }
+<<<<<<< HEAD:alacritty/src/renderer/rects.rs
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -72,22 +78,35 @@ impl RenderLine {
     ) -> RenderRect {
         let start_x = start.col.0 as f32 * size.cell_width;
         let end_x = (end.col.0 + 1) as f32 * size.cell_width;
+=======
+
+    pub fn from_text_run(
+        text_run: &TextRun,
+        (descent, position, thickness): (f32, f32, f32),
+        size: &SizeInfo,
+    ) -> Self {
+        let start_point = text_run.start_point();
+        let start_x = start_point.col.0 as f32 * size.cell_width;
+        let end_x = (text_run.end_point().col.0 + 1) as f32 * size.cell_width;
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/rects.rs
         let width = end_x - start_x;
 
-        let (position, mut height) = match flag {
-            Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
-            Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
-            _ => unimplemented!("Invalid flag for cell line drawing specified"),
-        };
+        let line_bottom = (start_point.line.0 as f32 + 1.) * size.cell_height;
+        let baseline = line_bottom + descent;
 
         // Make sure lines are always visible
+<<<<<<< HEAD:alacritty/src/renderer/rects.rs
         height = height.max(1.);
 
         let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
+=======
+        let height = thickness.max(1.);
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/rects.rs
 
         let mut y = (baseline - position - height / 2.).ceil();
         let max_y = line_bottom - height;
+<<<<<<< HEAD:alacritty/src/renderer/rects.rs
         if y > max_y {
             y = max_y;
         }
@@ -135,15 +154,10 @@ impl RenderLines {
                     continue;
                 }
             }
+=======
+        y = y.min(max_y);
+>>>>>>> Squashed commit of the following::alacritty_terminal/src/renderer/rects.rs
 
-            // Start new line if there currently is none
-            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
-            match self.inner.get_mut(flag) {
-                Some(lines) => lines.push(line),
-                None => {
-                    self.inner.insert(*flag, vec![line]);
-                },
-            }
-        }
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, text_run.fg)
     }
 }

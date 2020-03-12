@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
 
 use log::{debug, trace};
+use rfind_url::{Parser, ParserState};
 use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
@@ -27,6 +28,7 @@ use crate::ansi::{
 };
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
+use crate::cursor::CursorKey;
 use crate::event::{Event, EventListener};
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
@@ -36,6 +38,11 @@ use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::vi_mode::{ViModeCursor, ViMotion};
+use crate::text_run::{TextRun, TextRunIter};
+
+#[cfg(windows)]
+use crate::tty;
+use crate::url::Url;
 
 pub mod cell;
 pub mod color;
@@ -381,6 +388,13 @@ impl RenderableCell {
             bg: bg_rgb,
             bg_alpha,
             flags: cell.flags,
+        }
+    }
+
+    pub fn is_cursor(&self) -> bool {
+        match &self.inner {
+            RenderableCellContent::Cursor(_) => true,
+            _ => false,
         }
     }
 
@@ -804,7 +818,7 @@ pub struct Term<T> {
     /// Terminal focus.
     pub is_focused: bool,
 
-    /// The grid.
+    /// The grid
     grid: Grid<Cell>,
 
     /// Tracks if the next call to input will need to first handle wrapping.
@@ -829,7 +843,7 @@ pub struct Term<T> {
     /// Index into `charsets`, pointing to what ASCII is currently being mapped to.
     active_charset: CharsetIndex,
 
-    /// Tabstops.
+    // Tabstops.
     tabs: TabStops,
 
     /// Mode flags.
@@ -878,7 +892,7 @@ pub struct Term<T> {
 
     /// Current title of the window.
     title: Option<String>,
-
+    
     /// Default title for resetting it.
     default_title: String,
 
@@ -1126,6 +1140,25 @@ impl<T> Term<T> {
         let selection = self.grid.selection.as_ref().and_then(|s| s.to_range(self));
 
         RenderableCellsIter::new(&self, config, selection)
+    }
+
+    /// Iterate over the text runs in the terminal
+    ///
+    /// A text run is a continuous line of cells that all share the same rendering properties
+    /// (background color, foreground color, etc.).
+    pub fn text_runs<'b, C>(
+        &'b self,
+        config: &'b Config<C>,
+    ) -> impl Iterator<Item = TextRun> + 'b {
+        // Logic for WIDE_CHAR is handled internally by TextRun
+        // So we no longer need WIDE_CHAR_SPACER at this point.
+        let filtered_cells: std::iter::Filter<
+            RenderableCellsIter<'b, C>,
+            fn(&RenderableCell) -> bool,
+        > = self
+            .renderable_cells(config)
+            .filter(|cell| !cell.flags.contains(Flags::WIDE_CHAR_SPACER));
+        TextRunIter::new(filtered_cells)
     }
 
     /// Resize terminal to new dimensions
@@ -2293,6 +2326,11 @@ mod tests {
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
+
+    struct Mock;
+    impl EventListener for Mock {
+        fn send_event(&self, _event: Event) {}
+    }
 
     struct Mock;
     impl EventListener for Mock {

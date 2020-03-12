@@ -24,8 +24,16 @@ use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use mio_named_pipes::NamedPipe;
 
 use log::info;
+<<<<<<< HEAD
 
 use crate::config::{Config, Shell};
+=======
+use winapi::shared::winerror::WAIT_TIMEOUT;
+use winapi::um::synchapi::WaitForSingleObject;
+use winapi::um::winbase::WAIT_OBJECT_0;
+
+use crate::config::Config;
+>>>>>>> Squashed commit of the following:
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -62,7 +70,17 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
+<<<<<<< HEAD
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
+=======
+impl<'a> Pty<'a> {
+    pub fn resize_handle(&self) -> impl OnResize + 'a {
+        self.handle.clone()
+    }
+}
+
+pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
+>>>>>>> Squashed commit of the following:
     if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using ConPTY backend");
         IS_CONPTY.store(true, Ordering::Relaxed);
