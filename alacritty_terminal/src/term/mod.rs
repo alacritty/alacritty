@@ -963,14 +963,14 @@ impl<T> Term<T> {
         self.default_cursor_style = config.cursor.style;
 
         // Update title
-        self.default_title = config.window.title.clone();
         self.dynamic_title = config.dynamic_title();
         if !self.dynamic_title
             || (self.title.is_none() && self.default_title != config.window.title)
         {
-            self.event_proxy.send_event(Event::Title(self.default_title.clone()));
+            self.event_proxy.send_event(Event::Title(config.window.title.clone()));
             self.title = None;
         }
+        self.default_title = config.window.title.clone();
 
         if self.alt {
             self.alt_grid.update_history(config.scrolling.history() as usize);
