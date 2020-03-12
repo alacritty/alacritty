@@ -469,7 +469,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
-                self.scroll_terminal(new_scroll_px as f64);
+                self.scroll_terminal(f64::from(new_scroll_px));
             },
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
@@ -487,7 +487,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     fn scroll_terminal(&mut self, new_scroll_px: f64) {
-        let height = self.ctx.size_info().cell_height as f64;
+        let height = f64::from(self.ctx.size_info().cell_height);
 
         if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE) {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
