@@ -30,15 +30,15 @@ matrix:
     - name: "Clippy Linux"
       os: linux
       env: CLIPPY=true
-      rust: stable
+      rust: 1.37.0
     - name: "Clippy OSX"
       os: osx
       env: CLIPPY=true
-      rust: stable
+      rust: 1.37.0
     - name: "Clippy Windows"
       os: windows
       env: CLIPPY=true
-      rust: stable-x86_64-pc-windows-msvc
+      rust: 1.37.0-x86_64-pc-windows-msvc
     - name: "Rustfmt"
       os: linux
       env: RUSTFMT=true
