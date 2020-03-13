@@ -31,7 +31,7 @@ cargo build --release
 
 %install
 install -p -D -m755 target/release/alacritty         %{buildroot}%{_bindir}/alacritty
-install -p -D -m644 extra/linux/alacritty.desktop    %{buildroot}%{_datadir}/applications/alacritty.desktop
+install -p -D -m644 extra/linux/Alacritty.desktop    %{buildroot}%{_datadir}/applications/Alacritty.desktop
 install -p -D -m644 extra/logo/alacritty-term.svg    %{buildroot}%{_datadir}/pixmaps/Alacritty.svg
 install -p -D -m644 alacritty.yml                    %{buildroot}%{_datadir}/alacritty/alacritty.yml
 tic     -xe alacritty,alacritty-direct \
@@ -42,11 +42,11 @@ install -p -D -m644 extra/completions/alacritty.fish %{buildroot}%{_datadir}/fis
 install -p -D -m644 extra/alacritty.man              %{buildroot}%{_mandir}/man1/alacritty.1
 
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/alacritty.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/Alacritty.desktop
 
 %files
 %{_bindir}/alacritty
-%{_datadir}/applications/alacritty.desktop
+%{_datadir}/applications/Alacritty.desktop
 %{_datadir}/pixmaps/Alacritty.svg
 %{_datadir}/alacritty/alacritty.yml
 %{_datadir}/terminfo/a/alacritty*
