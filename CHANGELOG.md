@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.37.0
+- Added Rust features `x11` and `wayland` to pick backends, with both enabled by default
 
 ### Changed
 
