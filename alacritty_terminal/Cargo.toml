@@ -24,7 +24,7 @@ unicode-width = "0.1"
 base64 = "0.11.0"
 terminfo = "0.7.1"
 url = "2"
-copypasta = "0.6.1"
+copypasta = { version = "0.6.3", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.16.1"
@@ -44,7 +44,9 @@ mio-anonymous-pipes = "0.1"
 objc = "0.2.2"
 
 [features]
-default = []
+default = ["x11", "wayland"]
+x11 = ["copypasta/x11"]
+wayland = ["copypasta/wayland"]
 nightly = []
 bench = []
 

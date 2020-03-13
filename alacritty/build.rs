@@ -22,6 +22,10 @@ use std::path::Path;
 use embed_resource;
 
 fn main() {
+    if cfg!(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows))) {
+        panic!("at least one of the \"x11\"/\"wayland\" features must be enabled");
+    }
+
     let hash = rustc_tools_util::get_commit_hash().unwrap_or_default();
     println!("cargo:rustc-env=GIT_HASH={}", hash);
 
