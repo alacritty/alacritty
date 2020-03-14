@@ -964,8 +964,7 @@ impl<T> Term<T> {
         self.dynamic_title = config.dynamic_title();
 
         if self.dynamic_title {
-            let title = self.title.as_ref().unwrap_or(&self.default_title).clone();
-            self.set_title(title);
+            self.set_title(self.title.clone());
         } else {
             self.event_proxy.send_event(Event::Title(self.default_title.clone()));
         }
@@ -2090,14 +2089,13 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_title(&mut self, title: impl Into<String>) {
-        let title = title.into();
+    fn set_title(&mut self, title: Option<String>) {
+        trace!("Setting title to '{:?}'", title);
 
-        trace!("Setting title to '{}'", title);
-
-        self.title = Some(title.clone());
+        self.title = title.clone();
 
         if self.dynamic_title {
+            let title = title.unwrap_or_else(|| self.default_title.clone());
             self.event_proxy.send_event(Event::Title(title));
         }
     }
@@ -2123,9 +2121,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         if let Some(popped) = self.title_stack.pop() {
             trace!("Title '{:?}' popped from stack", popped);
-
-            self.set_title(popped.as_ref().unwrap_or(&self.default_title).clone());
-            self.title = popped;
+            self.set_title(popped);
         }
     }
 }
@@ -2376,12 +2372,12 @@ mod tests {
         assert_eq!(term.title, None);
 
         // Title can be set
-        term.set_title("Test");
+        term.set_title(Some("Test".into()));
         assert_eq!(term.title, Some("Test".into()));
 
         // Title can be pushed onto stack
         term.push_title();
-        term.set_title("Next");
+        term.set_title(Some("Next".into()));
         assert_eq!(term.title, Some("Next".into()));
         assert_eq!(term.title_stack.get(0).unwrap(), &Some("Test".into()));
 
@@ -2405,8 +2401,13 @@ mod tests {
         // Title stack pops back to default
         term.title = None;
         term.push_title();
-        term.set_title("Test");
+        term.set_title(Some("Test".into()));
         term.pop_title();
+        assert_eq!(term.title, None);
+
+        // Title can be reset to default
+        term.title = Some("Test".into());
+        term.set_title(None);
         assert_eq!(term.title, None);
     }
 }

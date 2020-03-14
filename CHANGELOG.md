@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Capitalized the default Alacritty.desktop file
 - Capitalized the Alacritty.desktop file
 
+### Added
+
+- Live config reload for `window.title`
+
 ### Changed
 
 - Pressing additional modifiers for mouse bindings will no longer trigger them
@@ -23,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
 - Dynamic title is not disabled anymore when `window.title` is set in config
-- Live config reload for `window.title`
 
 ### Fixed
 
