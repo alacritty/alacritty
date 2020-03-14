@@ -145,7 +145,7 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             if event_loop.is_wayland() {
-                window.set_wayland_theme(&config);
+                window.set_wayland_theme(&config.colors);
             }
         }
 

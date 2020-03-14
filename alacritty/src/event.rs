@@ -547,7 +547,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         #[cfg(not(any(target_os = "macos", windows)))]
                         {
                             if processor.ctx.event_loop.is_wayland() {
-                                processor.ctx.window.set_wayland_theme(&config);
+                                processor.ctx.window.set_wayland_theme(&config.colors);
                             }
                         }
 

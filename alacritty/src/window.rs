@@ -23,10 +23,7 @@ use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(not(any(target_os = "macos", windows)))]
-use glutin::platform::unix::{
-    ButtonState as WaylandThemeButtonState, EventLoopWindowTargetExtUnix, Theme as WaylandTheme,
-    WindowBuilderExtUnix, WindowExtUnix,
-};
+use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
@@ -36,15 +33,16 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
+use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig, Colors as TerminalColors};
 use alacritty_terminal::event::Event;
-#[cfg(not(any(target_os = "macos", windows)))]
-use alacritty_terminal::term::color::Rgb;
 #[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
 use crate::gl;
+
+#[cfg(not(any(target_os = "macos", windows)))]
+use crate::wayland_theme::AlacrittyWaylandTheme;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
@@ -367,14 +365,13 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn set_wayland_theme(&mut self, config: &Config) {
-        let hovered_close_icon = config.colors.normal().red;
-        let hovered_maximize_icon = config.colors.normal().green;
-        let hovered_minimize_icon = config.colors.normal().yellow;
-        let foreground = config.colors.primary.foreground;
-        let background = config.colors.primary.background;
-        let dim_foreground =
-            config.colors.primary.dim_foreground.unwrap_or_else(|| foreground * 0.66);
+    pub fn set_wayland_theme(&mut self, colors: &TerminalColors) {
+        let hovered_close_icon = colors.normal().red;
+        let hovered_maximize_icon = colors.normal().green;
+        let hovered_minimize_icon = colors.normal().yellow;
+        let foreground = colors.primary.foreground;
+        let background = colors.primary.background;
+        let dim_foreground = colors.primary.dim_foreground.unwrap_or_else(|| foreground * 0.66);
 
         let theme = AlacrittyWaylandTheme {
             foreground,
@@ -409,95 +406,6 @@ impl Window {
 
     fn window(&self) -> &GlutinWindow {
         self.windowed_context.window()
-    }
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-#[derive(Debug, Clone)]
-struct AlacrittyWaylandTheme {
-    background: Rgb,
-    foreground: Rgb,
-    dim_foreground: Rgb,
-    hovered_close_icon: Rgb,
-    hovered_maximize_icon: Rgb,
-    hovered_minimize_icon: Rgb,
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-impl WaylandTheme for AlacrittyWaylandTheme {
-    fn primary_color(&self, _window_active: bool) -> [u8; 4] {
-        [0xff, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn secondary_color(&self, window_active: bool) -> [u8; 4] {
-        if window_active {
-            [0xff, self.foreground.r, self.foreground.g, self.foreground.b]
-        } else {
-            [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-        }
-    }
-
-    fn close_button_color(&self, _status: WaylandThemeButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn close_button_icon_color(&self, status: WaylandThemeButtonState) -> [u8; 4] {
-        match status {
-            WaylandThemeButtonState::Hovered => [
-                0xff,
-                self.hovered_close_icon.r,
-                self.hovered_close_icon.g,
-                self.hovered_close_icon.b,
-            ],
-            WaylandThemeButtonState::Idle => {
-                [0xff, self.foreground.r, self.foreground.g, self.foreground.b]
-            },
-            WaylandThemeButtonState::Disabled => {
-                [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-            },
-        }
-    }
-
-    fn maximize_button_color(&self, _status: WaylandThemeButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn maximize_button_icon_color(&self, status: WaylandThemeButtonState) -> [u8; 4] {
-        match status {
-            WaylandThemeButtonState::Hovered => [
-                0xff,
-                self.hovered_maximize_icon.r,
-                self.hovered_maximize_icon.g,
-                self.hovered_maximize_icon.b,
-            ],
-            WaylandThemeButtonState::Idle => {
-                [0xff, self.foreground.r, self.foreground.g, self.foreground.b]
-            },
-            WaylandThemeButtonState::Disabled => {
-                [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-            },
-        }
-    }
-
-    fn minimize_button_color(&self, _status: WaylandThemeButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn minimize_button_icon_color(&self, status: WaylandThemeButtonState) -> [u8; 4] {
-        match status {
-            WaylandThemeButtonState::Hovered => [
-                0xff,
-                self.hovered_minimize_icon.r,
-                self.hovered_minimize_icon.g,
-                self.hovered_minimize_icon.b,
-            ],
-            WaylandThemeButtonState::Idle => {
-                [0xff, self.foreground.r, self.foreground.g, self.foreground.b]
-            },
-            WaylandThemeButtonState::Disabled => {
-                [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-            },
-        }
     }
 }
 
