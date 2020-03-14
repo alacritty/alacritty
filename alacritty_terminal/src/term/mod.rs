@@ -960,15 +960,15 @@ impl<T> Term<T> {
         }
         self.default_cursor_style = config.cursor.style;
 
-        // Update title
-        self.dynamic_title = config.dynamic_title();
-        if !self.dynamic_title
-            || (self.title.is_none() && self.default_title != config.window.title)
-        {
-            self.event_proxy.send_event(Event::Title(config.window.title.clone()));
-            self.title = None;
-        }
         self.default_title = config.window.title.clone();
+        self.dynamic_title = config.dynamic_title();
+
+        if self.dynamic_title {
+            let title = self.title.as_ref().unwrap_or(&self.default_title).clone();
+            self.set_title(title);
+        } else {
+            self.event_proxy.send_event(Event::Title(self.default_title.clone()));
+        }
 
         if self.alt {
             self.alt_grid.update_history(config.scrolling.history() as usize);
@@ -1896,7 +1896,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.grid.reset(&Cell::default());
         self.alt_grid.reset(&Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
-        self.title_stack.clear();
+        self.title_stack = Vec::new();
         self.title = None;
     }
 
@@ -2090,13 +2090,14 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_title(&mut self, title: &str) {
+    fn set_title(&mut self, title: impl Into<String>) {
+        let title = title.into();
+
+        trace!("Setting title to '{}'", title);
+
+        self.title = Some(title.clone());
+
         if self.dynamic_title {
-            let title = title.trim().to_owned();
-
-            trace!("Setting window title to '{}'", title);
-
-            self.title = Some(title.clone());
             self.event_proxy.send_event(Event::Title(title));
         }
     }
@@ -2122,7 +2123,8 @@ impl<T: EventListener> Handler for Term<T> {
 
         if let Some(popped) = self.title_stack.pop() {
             trace!("Title '{:?}' popped from stack", popped);
-            self.set_title(&popped.as_ref().unwrap_or(&self.default_title).clone());
+
+            self.set_title(popped.as_ref().unwrap_or(&self.default_title).clone());
             self.title = popped;
         }
     }
