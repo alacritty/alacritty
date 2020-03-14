@@ -412,6 +412,7 @@ impl Window {
     }
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 #[derive(Debug, Clone)]
 struct AlacrittyWaylandTheme {
     background: Rgb,
@@ -422,6 +423,7 @@ struct AlacrittyWaylandTheme {
     hovered_minimize_icon: Rgb,
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl WaylandTheme for AlacrittyWaylandTheme {
     fn primary_color(&self, _window_active: bool) -> [u8; 4] {
         [0xff, self.background.r, self.background.g, self.background.b]
