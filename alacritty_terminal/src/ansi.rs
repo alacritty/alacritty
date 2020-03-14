@@ -16,20 +16,10 @@
 use std::io;
 use std::str;
 
-<<<<<<< HEAD
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::index::{Column, Line};
-=======
-use base64;
-use log::{debug, trace};
-use serde::{Deserialize, Serialize};
-
-use vte;
-
-use crate::index::{Column, Contains, Line};
->>>>>>> Squashed commit of the following:
 use crate::term::color::Rgb;
 
 // Parse colors in XParseColor format

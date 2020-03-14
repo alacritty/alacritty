@@ -17,22 +17,21 @@ use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
+use std::path::PathBuf;
 
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use harfbuzz_rs::{Face as HbFace, Feature, Font, GlyphBuffer, Owned, Tag, UnicodeBuffer};
+use freetype::{freetype_sys, Face as FTFace};
 use libc::c_uint;
 use log::{debug, trace};
 
 pub mod fc;
 
-use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
-};
+use fc::{CharSet, FTFaceLocation, Pattern, PatternHash, PatternRef};
 
 use super::{
-    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph, Size, Slant,
-    Style, Weight,
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, KeyType, Metrics, Rasterize, RasterizedGlyph, Size, Slant,Style, Weight,
 };
 
 struct FallbackFont {
@@ -95,6 +94,7 @@ pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, FaceLoadingProperties>,
     ft_faces: HashMap<FTFaceLocation, Rc<FTFace>>,
     fallback_lists: HashMap<FontKey, FallbackList>,
+    keys: HashMap<PathBuf, FontKey>,
     device_pixel_ratio: f32,
     use_font_ligatures: bool,
 }
@@ -112,6 +112,7 @@ impl Rasterize for FreeTypeRasterizer {
 
         Ok(FreeTypeRasterizer {
             faces: HashMap::new(),
+            keys: HashMap::new(),
             ft_faces: HashMap::new(),
             fallback_lists: HashMap::new(),
             library,
@@ -341,21 +342,11 @@ impl FreeTypeRasterizer {
 
             trace!("Got font path={:?}, index={:?}", ft_face_location.path, ft_face_location.index);
 
-            trace!("Got font path={:?}", path);
-            let mut ft_face = self.library.new_face(&path, index)?;
-
             // This will be different for each font so we can't use a constant but we don't want to
             // look it up every time so we cache it on font load.
-            let placeholder_glyph_index = ft_face.get_char_index(' ' as usize);
-
-            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
-                None
-            } else {
-                Some(pattern.pixelsize().next().expect("has 1+ pixelsize") as f32)
-            };
 
             // Construct harfbuzz font
-            let hb_font = Font::new(HbFace::from_file(&path, index as u32)?);
+            let hb_font = Font::new(HbFace::from_file(&ft_face_location.path, ft_face_location.index as u32)?);
             //let hb_font = unsafe {
             //    // Cast here is done to convert a C struct from the freetype-rs Rust type to the
             //    // freetype Rust type that harfbuzz accepts.
@@ -366,14 +357,27 @@ impl FreeTypeRasterizer {
             //    harfbuzz_rs::Owned::from_raw(hb_font_raw)
             //};
 
-            let face = Face {
+            let ft_face = match self.ft_faces.get(&ft_face_location) {
+                Some(ft_face) => Rc::clone(ft_face),
+                None => self.load_ft_face(ft_face_location)?,
+            };
+
+            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
+                None
+            } else {
+                Some(pattern.pixelsize().next().expect("has 1+ pixelsize") as f32)
+            };
+
+            let placeholder_glyph_index = ft_face.get_char_index(' ' as usize);
+            let colored = ft_face.has_color();
+            let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
+            let face = FaceLoadingProperties {
                 ft_face,
-                key: FontKey::next(),
                 load_flags: Self::ft_load_flags(pattern),
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
-                colored: ft_face.has_color(),
+                colored,
                 pixelsize_fixup_factor,
                 hb_font,
                 placeholder_glyph_index,
@@ -394,36 +398,8 @@ impl FreeTypeRasterizer {
             // We already found a glyph index, use current font
             KeyType::GlyphIndex(_) | KeyType::Placeholder => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
-            KeyType::Char(c) => self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key),
+            KeyType::Char(_) => self.load_face_with_glyph(glyph_key).unwrap_or(glyph_key.font_key),
         }
-
-        for fallback_font in &fallback_list.list {
-            let font_key = fallback_font.key;
-            let font_pattern = &fallback_font.pattern;
-            match self.faces.get(&font_key) {
-                Some(face) => {
-                    let index = face.ft_face.get_char_index(glyph.c as usize);
-
-                    // We found something in a current face, so let's use it
-                    if index != 0 {
-                        return Ok(font_key);
-                    }
-                },
-                None => {
-                    if font_pattern.get_charset().map(|cs| cs.has_char(glyph.c)) != Some(true) {
-                        continue;
-                    }
-
-                    let pattern = font_pattern.clone();
-                    let key = self.face_from_pattern(&pattern, font_key)?.unwrap();
-
-                    return Ok(key);
-                },
-            }
-        }
-
-        // You can hit this return, if you're failing to get charset from a pattern
-        Ok(glyph.font_key)
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
@@ -435,6 +411,10 @@ impl FreeTypeRasterizer {
             KeyType::Char(c) => face.ft_face.get_char_index(c as usize),
             KeyType::Placeholder => face.placeholder_glyph_index,
         };
+
+        let pixelsize = face
+            .non_scalable
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         if !face.colored {
             face.ft_face.set_char_size(to_freetype_26_6(pixelsize), 0, 0, 0)?;
@@ -474,6 +454,7 @@ impl FreeTypeRasterizer {
             Ok(rasterized_glyph)
         }
     }
+
 
     fn ft_load_flags(pattern: &PatternRef) -> freetype::face::LoadFlag {
         let antialias = pattern.antialias().next().unwrap_or(true);
@@ -638,6 +619,49 @@ impl FreeTypeRasterizer {
             },
             mode => panic!("unhandled pixel mode: {:?}", mode),
         }
+    }
+     
+    fn load_face_with_glyph(&mut self, glyph: GlyphKey) -> Result<FontKey, Error> {
+        let _x: Result<FontKey, Error> = match glyph.id {
+            // We already found a glyph index, use current font
+            KeyType::GlyphIndex(_) | KeyType::Placeholder => Ok(glyph.font_key),
+            // Harfbuzz failed to find a glyph index, try to load a font for c
+            KeyType::Char(c) => {
+                let fallback_list = self.fallback_lists.get(&glyph.font_key).unwrap();
+
+                // Check whether glyph is presented in any fallback font
+                if !fallback_list.coverage.has_char(c) {
+                    return Ok(glyph.font_key);
+                }
+
+                for fallback_font in &fallback_list.list {
+                    let font_key = fallback_font.key;
+                    let font_pattern = &fallback_font.pattern;
+                    match self.faces.get(&font_key) {
+                        Some(face) => {
+                            let index = face.ft_face.get_char_index(c as usize);
+
+                            // We found something in a current face, so let's use it
+                            if index != 0 {
+                                return Ok(font_key);
+                            }
+                        },
+                        None => {
+                            if font_pattern.get_charset().map(|cs| cs.has_char(c)) != Some(true) {
+                                continue;
+                            }
+
+                            let pattern = font_pattern.clone();
+                            let key = self.face_from_pattern(&pattern, font_key)?.unwrap();
+
+                            return Ok(key);
+                        },
+                    }
+                }
+                Ok(glyph.font_key)
+            },
+        };
+        Ok(glyph.font_key)
     }
 }
 

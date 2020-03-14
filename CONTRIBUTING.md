@@ -43,6 +43,7 @@ and
 issues.
 
 Please note that the minimum supported version of Alacritty is Rust 1.39.0. All patches are expected
+to work with the minimum supported version.
 
 ### Testing
 

@@ -42,7 +42,6 @@ use crate::text_run::{TextRun, TextRunIter};
 
 #[cfg(windows)]
 use crate::tty;
-use crate::url::Url;
 
 pub mod cell;
 pub mod color;

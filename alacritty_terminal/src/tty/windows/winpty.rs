@@ -17,20 +17,12 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::u16;
 
-<<<<<<< HEAD
-=======
-use dunce::canonicalize;
->>>>>>> Squashed commit of the following:
 use log::info;
 use mio_named_pipes::NamedPipe;
 use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
 use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
-<<<<<<< HEAD
 use crate::config::Config;
-=======
-use crate::config::{Config, Shell};
->>>>>>> Squashed commit of the following:
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -38,31 +30,7 @@ use crate::tty::windows::{cmdline, Pty};
 
 pub use winpty::Winpty as Agent;
 
-<<<<<<< HEAD
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
-=======
-    pub fn resize(&self, size: &SizeInfo) {
-        // This is safe since Winpty uses a mutex internally.
-        unsafe {
-            (&mut *self.winpty).on_resize(size);
-        }
-    }
-}
-
-impl<'a> Drop for Agent<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            Box::from_raw(self.winpty);
-        }
-    }
-}
-
-/// How long the winpty agent should wait for any RPC request
-/// This is a placeholder value until we see how often long responses happen
-const AGENT_TIMEOUT: u32 = 10000;
-
-pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
->>>>>>> Squashed commit of the following:
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 

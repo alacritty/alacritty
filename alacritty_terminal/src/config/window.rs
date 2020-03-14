@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 use std::os::raw::c_ulong;
 
-=======
->>>>>>> Squashed commit of the following:
 use serde::Deserialize;
 
 use crate::config::{
@@ -50,11 +47,7 @@ pub struct WindowConfig {
 
     /// XEmbed parent
     #[serde(skip)]
-<<<<<<< HEAD
     pub embed: Option<c_ulong>,
-=======
-    pub embed: Option<u64>,
->>>>>>> Squashed commit of the following:
 
     /// GTK theme variant
     #[serde(deserialize_with = "option_explicit_none")]

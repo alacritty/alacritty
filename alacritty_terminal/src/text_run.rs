@@ -1,9 +1,8 @@
-use crate::cursor::CursorKey;
 use crate::index::{Column, Line, Point};
 use crate::term::{
     cell::{Flags, MAX_ZEROWIDTH_CHARS},
     color::Rgb,
-    RenderableCell, RenderableCellContent,
+    RenderableCell, RenderableCellContent, CursorKey
 };
 
 #[derive(Debug)]

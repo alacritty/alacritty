@@ -3,10 +3,6 @@ use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
 use serde::{Deserialize, Serialize};
-<<<<<<< HEAD
-=======
-use static_assertions::assert_eq_size;
->>>>>>> Squashed commit of the following:
 
 use super::Row;
 use crate::grid::GridCell;

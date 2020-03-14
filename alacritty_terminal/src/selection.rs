@@ -25,45 +25,6 @@ use std::ops::Range;
 use crate::index::{Column, Line, Point, Side};
 use crate::term::{Search, Term};
 
-<<<<<<< HEAD
-=======
-/// Describes a region of a 2-dimensional area
-///
-/// Used to track a text selection. There are three supported modes, each with its own constructor:
-/// [`simple`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which cells are
-/// selected without any expansion. [`semantic`] mode expands the initial selection to the nearest
-/// semantic escape char in either direction. [`lines`] will always select entire lines.
-///
-/// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
-/// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
-/// semantic boundaries as the selection point changes. Similarly, [`lines`] will always expand the
-/// new point to encompass entire lines.
-///
-/// [`simple`]: enum.Selection.html#method.simple
-/// [`semantic`]: enum.Selection.html#method.semantic
-/// [`lines`]: enum.Selection.html#method.lines
-/// [`update`]: enum.Selection.html#method.update
-#[derive(Debug, Clone, PartialEq)]
-pub enum Selection {
-    Simple {
-        /// The region representing start and end of cursor movement
-        region: Range<Anchor>,
-    },
-    Block {
-        /// The region representing start and end of cursor movement
-        region: Range<Anchor>,
-    },
-    Semantic {
-        /// The region representing start and end of cursor movement
-        region: Range<Point<isize>>,
-    },
-    Lines {
-        /// The region representing start and end of cursor movement
-        region: Range<Point<isize>>,
-    },
-}
-
->>>>>>> Squashed commit of the following:
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
 struct Anchor {
@@ -149,7 +110,6 @@ impl Selection {
         self.region.end = Anchor::new(point, side);
     }
 
-<<<<<<< HEAD
     pub fn rotate(
         mut self,
         num_lines: usize,
@@ -164,59 +124,13 @@ impl Selection {
         let (mut start, mut end) = (&mut self.region.start, &mut self.region.end);
         if Self::points_need_swap(start.point, end.point) {
             mem::swap(&mut start, &mut end);
-=======
-    pub fn is_empty(&self) -> bool {
-        match *self {
-            Selection::Simple { ref region } => {
-                let (start, end) =
-                    if Selection::points_need_swap(region.start.point, region.end.point) {
-                        (&region.end, &region.start)
-                    } else {
-                        (&region.start, &region.end)
-                    };
-
-                // Simple selection is empty when the points are identical
-                // or two adjacent cells have the sides right -> left
-                start == end
-                    || (start.side == Side::Left
-                        && end.side == Side::Right
-                        && (start.point.line == end.point.line)
-                        && start.point.col == end.point.col + 1)
-            },
-            Selection::Block { region: Range { ref start, ref end } } => {
-                // Block selection is empty when the points' columns and sides are identical
-                // or two cells with adjacent columns have the sides right -> left,
-                // regardless of their lines
-                (start.point.col == end.point.col && start.side == end.side)
-                    || (start.point.col == end.point.col + 1
-                        && start.side == Side::Left
-                        && end.side == Side::Right)
-                    || (end.point.col == start.point.col + 1
-                        && end.side == Side::Left
-                        && start.side == Side::Right)
-            },
-            Selection::Semantic { .. } | Selection::Lines { .. } => false,
->>>>>>> Squashed commit of the following:
         }
 
-<<<<<<< HEAD
         // Rotate start of selection
         if (start.point.line < region_start || region_start == num_lines)
             && start.point.line >= region_end
         {
             start.point.line = usize::try_from(start.point.line as isize + offset).unwrap_or(0);
-=======
-    pub fn to_span<T>(&self, term: &Term<T>) -> Option<Span> {
-        // Get both sides of the selection
-        let (mut start, mut end) = match *self {
-            Selection::Simple { ref region } | Selection::Block { ref region } => {
-                (region.start.point, region.end.point)
-            },
-            Selection::Semantic { ref region } | Selection::Lines { ref region } => {
-                (region.start, region.end)
-            },
-        };
->>>>>>> Squashed commit of the following:
 
             // If end is within the same region, delete selection once start rotates out
             if start.point.line < region_end && end.point.line >= region_end {
@@ -473,13 +387,7 @@ mod tests {
     use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
-<<<<<<< HEAD
     use crate::index::{Column, Line, Point, Side};
-=======
-    use crate::grid::Grid;
-    use crate::index::{Column, Line, Point, Side};
-    use crate::term::cell::{Cell, Flags};
->>>>>>> Squashed commit of the following:
     use crate::term::{SizeInfo, Term};
 
     struct Mock;
@@ -736,7 +644,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
     fn rotate_in_region_up_block() {
         let num_lines = 10;
         let num_cols = 5;
@@ -751,30 +658,5 @@ mod tests {
             end: Point::new(6, Column(3)),
             is_block: true,
         });
-=======
-    fn simple_is_empty() {
-        let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
-        assert!(selection.is_empty());
-        selection.update(Point::new(0, Column(1)), Side::Left);
-        assert!(selection.is_empty());
-        selection.update(Point::new(1, Column(0)), Side::Right);
-        assert!(!selection.is_empty());
-    }
-
-    #[test]
-    fn block_is_empty() {
-        let mut selection = Selection::block(Point::new(0, Column(0)), Side::Right);
-        assert!(selection.is_empty());
-        selection.update(Point::new(0, Column(1)), Side::Left);
-        assert!(selection.is_empty());
-        selection.update(Point::new(0, Column(1)), Side::Right);
-        assert!(!selection.is_empty());
-        selection.update(Point::new(1, Column(0)), Side::Right);
-        assert!(selection.is_empty());
-        selection.update(Point::new(1, Column(1)), Side::Left);
-        assert!(selection.is_empty());
-        selection.update(Point::new(1, Column(1)), Side::Right);
-        assert!(!selection.is_empty());
->>>>>>> Squashed commit of the following:
     }
 }

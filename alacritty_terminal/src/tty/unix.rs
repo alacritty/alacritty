@@ -232,17 +232,10 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
                 signals,
                 signals_token: mio::Token::from(0),
             };
-<<<<<<< HEAD
             pty.on_resize(size);
             pty
         },
         Err(err) => die!("Failed to spawn command '{}': {}", shell.program, err),
-=======
-            pty.fd.as_raw_fd().on_resize(size);
-            pty
-        },
-        Err(err) => die!("Failed to spawn command: {}", err),
->>>>>>> Squashed commit of the following:
     }
 }
 
@@ -356,11 +349,7 @@ impl<'a> ToWinsize for &'a SizeInfo {
     }
 }
 
-<<<<<<< HEAD
 impl OnResize for Pty {
-=======
-impl OnResize for i32 {
->>>>>>> Squashed commit of the following:
     /// Resize the pty
     ///
     /// Tells the kernel that the window size changed with the new pixel

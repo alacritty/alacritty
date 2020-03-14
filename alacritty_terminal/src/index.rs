@@ -21,8 +21,6 @@ use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
-use serde::{Deserialize, Serialize};
-
 use crate::term::RenderableCell;
 
 /// The side of a cell

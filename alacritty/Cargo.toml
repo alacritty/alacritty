@@ -42,9 +42,6 @@ dirs = "2.0.2"
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = "2"
 
-[target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
-x11-dl = "2"
-
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
 

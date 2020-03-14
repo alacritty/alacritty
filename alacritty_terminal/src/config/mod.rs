@@ -126,7 +126,6 @@ pub struct Config<T> {
     #[serde(flatten)]
     pub ui_config: T,
 
-<<<<<<< HEAD
     /// Remain open after child process exits
     #[serde(skip)]
     pub hold: bool,
@@ -135,8 +134,6 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub tabspaces: Option<usize>,
 
-=======
->>>>>>> Squashed commit of the following:
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub render_timer: Option<bool>,
@@ -147,13 +144,6 @@ pub struct Config<T> {
 }
 
 impl<T> Config<T> {
-<<<<<<< HEAD
-=======
-    pub fn tabspaces(&self) -> usize {
-        self.tabspaces.0
-    }
-
->>>>>>> Squashed commit of the following:
     #[inline]
     pub fn draw_bold_text_with_bright_colors(&self) -> bool {
         self.draw_bold_text_with_bright_colors
@@ -226,19 +216,6 @@ impl<T> Config<T> {
     pub fn background_opacity(&self) -> f32 {
         self.background_opacity.0 as f32
     }
-<<<<<<< HEAD
-=======
-
-    #[inline]
-    pub fn working_directory(&self) -> &Option<PathBuf> {
-        &self.working_directory
-    }
-
-    #[inline]
-    pub fn set_working_directory(&mut self, working_directory: Option<PathBuf>) {
-        self.working_directory = working_directory;
-    }
->>>>>>> Squashed commit of the following:
 }
 
 #[serde(default)]
@@ -382,18 +359,6 @@ impl<'a> Deserialize<'a> for Percentage {
     }
 }
 
-<<<<<<< HEAD
-=======
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
-struct Tabspaces(usize);
-
-impl Default for Tabspaces {
-    fn default() -> Self {
-        Tabspaces(8)
-    }
-}
-
->>>>>>> Squashed commit of the following:
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 struct DefaultTrueBool(bool);
 

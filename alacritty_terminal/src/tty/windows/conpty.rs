@@ -18,11 +18,6 @@ use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 
-<<<<<<< HEAD
-=======
-use dunce::canonicalize;
-use log::info;
->>>>>>> Squashed commit of the following:
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
@@ -37,11 +32,7 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-<<<<<<< HEAD
 use crate::config::Config;
-=======
-use crate::config::{Config, Shell};
->>>>>>> Squashed commit of the following:
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -108,17 +99,8 @@ impl Drop for Conpty {
 // The Conpty handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-<<<<<<< HEAD
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
     if config.winpty_backend {
-=======
-pub fn new<'a, C>(
-    config: &Config<C>,
-    size: &SizeInfo,
-    _window_id: Option<usize>,
-) -> Option<Pty<'a>> {
-    if !config.enable_experimental_conpty_backend {
->>>>>>> Squashed commit of the following:
         return None;
     }
 

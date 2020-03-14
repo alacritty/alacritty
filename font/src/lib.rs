@@ -117,6 +117,13 @@ impl FontKey {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct GlyphKey {
+    pub id: KeyType,
+    pub font_key: FontKey,
+    pub size: Size,
+}
+
 /// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`.
 /// If shaping failed or did not occur, `Fallback` will be returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -133,6 +140,18 @@ pub enum KeyType {
 impl Default for KeyType {
     fn default() -> Self {
         PLACEHOLDER_GLYPH
+    }
+}
+
+impl From<u32> for KeyType {
+    fn from(val: u32) -> Self {
+        KeyType::GlyphIndex(val)
+    }
+}
+
+impl From<char> for KeyType {
+    fn from(val: char) -> Self {
+        KeyType::Char(val)
     }
 }
 
@@ -180,7 +199,7 @@ impl From<f32> for Size {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RasterizedGlyph {
     pub c: KeyType,
     pub width: i32,
@@ -188,6 +207,25 @@ pub struct RasterizedGlyph {
     pub top: i32,
     pub left: i32,
     pub buf: BitmapBuffer,
+}
+
+impl Default for RasterizedGlyph {
+    fn default() -> RasterizedGlyph {
+        RasterizedGlyph {
+            c: KeyType::Placeholder,
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            buf: BitmapBuffer::RGB(Vec::new()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum BitmapBuffer {
+    RGB(Vec<u8>),
+    RGBA(Vec<u8>),
 }
 
 struct BufDebugger<'a>(&'a [u8]);
