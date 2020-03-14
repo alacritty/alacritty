@@ -154,7 +154,7 @@ pub trait TermInfo {
 /// writing specific handler impls for tests far easier.
 pub trait Handler {
     /// OSC to set window title
-    fn set_title(&mut self, _: &str) {}
+    fn set_title(&mut self, _: Option<String>) {}
 
     /// Set the cursor style
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
@@ -771,8 +771,10 @@ where
                         .iter()
                         .flat_map(|x| str::from_utf8(x))
                         .collect::<Vec<&str>>()
-                        .join(";");
-                    self.handler.set_title(&title);
+                        .join(";")
+                        .trim()
+                        .to_owned();
+                    self.handler.set_title(Some(title));
                     return;
                 }
                 unhandled(params);
