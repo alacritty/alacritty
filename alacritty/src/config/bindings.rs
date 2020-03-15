@@ -812,7 +812,11 @@ impl<'a> Deserialize<'a> for RawBinding {
                                     Err(err) => {
                                         let value = match value {
                                             SerdeValue::String(string) => string,
-                                            SerdeValue::Mapping(map) if map.len() == 1 => {
+                                            SerdeValue::Mapping(map) => {
+                                                if map.len() != 1 {
+                                                    return Err(err).map_err(V::Error::custom);
+                                                }
+
                                                 match map.into_iter().next() {
                                                     Some((
                                                         SerdeValue::String(string),
