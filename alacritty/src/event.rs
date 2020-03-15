@@ -163,6 +163,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
+    fn mouse_mode(&self) -> bool {
+        self.terminal.mode().intersects(TermMode::MOUSE_MODE)
+            && !self.terminal.mode().contains(TermMode::VI)
+    }
+
+    #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
         self.mouse
     }

@@ -39,7 +39,7 @@ use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{self, Message};
-use alacritty_terminal::selection::{Selection, SelectionType};
+use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
@@ -92,6 +92,7 @@ pub trait ActionContext<T: EventListener> {
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn urls(&self) -> &Urls;
     fn launch_url(&self, url: Url);
+    fn mouse_mode(&self) -> bool;
 }
 
 trait Execute<T: EventListener> {
@@ -341,8 +342,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
         if self.ctx.mouse().left_button_state == ElementState::Pressed
-            && (self.ctx.modifiers().shift()
-                || !self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
+            && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
             // Treat motion over message bar like motion over the last line
             let line = min(point.line, last_term_line);
@@ -523,9 +523,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.terminal_mut().vi_mode_cursor.point = point;
                 }
 
-                if !self.ctx.modifiers().shift()
-                    && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
-                {
+                if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
                     let code = match button {
                         MouseButton::Left => 0,
                         MouseButton::Middle => 1,
@@ -543,9 +541,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
-        if !self.ctx.modifiers().shift()
-            && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
-        {
+        if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
             let code = match button {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
@@ -586,7 +582,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     fn scroll_terminal(&mut self, new_scroll_px: f64) {
         let height = f64::from(self.ctx.size_info().cell_height);
 
-        if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE) {
+        if self.ctx.mouse_mode() {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
 
             let code = if new_scroll_px > 0. { 64 } else { 65 };
@@ -672,7 +668,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             // Reset cursor when message bar height changed or all messages are gone
             let size = self.ctx.size_info();
-            let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
             let current_lines = (size.lines() - self.ctx.terminal().grid().num_lines()).0;
             let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
 
@@ -680,7 +675,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 Ordering::Less => CursorIcon::Default,
                 Ordering::Equal => CursorIcon::Hand,
                 Ordering::Greater => {
-                    if mouse_mode {
+                    if self.ctx.mouse_mode() {
                         CursorIcon::Default
                     } else {
                         CursorIcon::Text
@@ -797,7 +792,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     fn process_mouse_bindings(&mut self, button: MouseButton) {
         let mods = *self.ctx.modifiers();
         let mode = *self.ctx.terminal().mode();
-        let mouse_mode = mode.intersects(TermMode::MOUSE_MODE);
+        let mouse_mode = self.ctx.mouse_mode();
 
         for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {
             let mut binding = self.ctx.config().ui_config.mouse_bindings[i].clone();
@@ -855,17 +850,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return MouseState::MessageBar;
         }
 
+        let mouse_mode = self.ctx.mouse_mode();
+
         // Check for URL at mouse cursor
         let mods = *self.ctx.modifiers();
-        let selection =
-            !self.ctx.terminal().selection().as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
         let highlighted_url = self.ctx.urls().highlighted(
             self.ctx.config(),
             self.ctx.mouse(),
             mods,
             mouse_mode,
-            selection,
+            !self.ctx.selection_is_empty(),
         );
 
         if let Some(url) = highlighted_url {
@@ -873,9 +867,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         // Check mouse mode if location is not special
-        if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
-            && !self.ctx.modifiers().shift()
-        {
+        if !self.ctx.modifiers().shift() && mouse_mode {
             MouseState::Mouse
         } else {
             MouseState::Text
@@ -990,6 +982,10 @@ mod tests {
             } else {
                 None
             }
+        }
+
+        fn mouse_mode(&self) -> bool {
+            false
         }
 
         #[inline]
