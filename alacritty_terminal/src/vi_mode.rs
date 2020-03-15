@@ -139,7 +139,7 @@ impl ViModeCursor {
         }
 
         scroll_to_point(term, buffer_point);
-        self.point = term.buffer_to_visible(buffer_point).unwrap_or_default().into();
+        self.point = term.grid().clamp_buffer_to_visible(buffer_point);
 
         self
     }
