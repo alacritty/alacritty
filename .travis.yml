@@ -16,7 +16,7 @@ os:
   - osx
 
 rust:
-  - 1.37.0
+  - 1.39.0
   - stable
   - nightly
 
@@ -30,22 +30,22 @@ matrix:
     - name: "Clippy Linux"
       os: linux
       env: CLIPPY=true
-      rust: 1.37.0
+      rust: 1.39.0
     - name: "Clippy OSX"
       os: osx
       env: CLIPPY=true
-      rust: 1.37.0
+      rust: 1.39.0
     - name: "Clippy Windows"
       os: windows
       env: CLIPPY=true
-      rust: 1.37.0-x86_64-pc-windows-msvc
+      rust: 1.39.0-x86_64-pc-windows-msvc
     - name: "Rustfmt"
       os: linux
       env: RUSTFMT=true
       rust: nightly
-    - name: "Windows 1.37.0"
+    - name: "Windows 1.39.0"
       os: windows
-      rust: 1.37.0-x86_64-pc-windows-msvc
+      rust: 1.39.0-x86_64-pc-windows-msvc
     - name: "Windows Stable"
       os: windows
       rust: stable-x86_64-pc-windows-msvc

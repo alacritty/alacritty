@@ -807,25 +807,21 @@ impl<'a> Deserialize<'a> for RawBinding {
                             } else if let Ok(vi_motion) = ViMotion::deserialize(value.clone()) {
                                 Some(vi_motion.into())
                             } else {
-                                match Action::deserialize(value.clone()) {
+                                match Action::deserialize(value.clone()).map_err(V::Error::custom) {
                                     Ok(action) => Some(action),
                                     Err(err) => {
                                         let value = match value {
                                             SerdeValue::String(string) => string,
-                                            SerdeValue::Mapping(map) => {
-                                                if map.len() != 1 {
-                                                    return Err(err).map_err(V::Error::custom);
-                                                }
-
+                                            SerdeValue::Mapping(map) if map.len() == 1 => {
                                                 match map.into_iter().next() {
                                                     Some((
                                                         SerdeValue::String(string),
                                                         SerdeValue::Null,
                                                     )) => string,
-                                                    _ => return Err(err).map_err(V::Error::custom),
+                                                    _ => return Err(err),
                                                 }
                                             },
-                                            _ => return Err(err).map_err(V::Error::custom),
+                                            _ => return Err(err),
                                         };
                                         return Err(V::Error::custom(format!(
                                             "unknown keyboard action `{}`",
