@@ -19,7 +19,7 @@
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
-use std::cmp::{min, max, Ordering};
+use std::cmp::{min, Ordering};
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -642,6 +642,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             let term = self.ctx.terminal_mut();
             term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible(absolute);
             term.vi_mode_cursor.point.col = absolute.col;
+
+            // Update selection
+            let point = term.vi_mode_cursor.point;
+            self.ctx.update_selection(point, Side::Right);
+            if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
+                selection.include_all();
+            }
         }
 
         self.ctx.mouse_mut().scroll_px %= height;
