@@ -86,7 +86,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.scroll_display(scroll);
 
         // Update selection
-        if self.terminal.mode().contains(TermMode::VI) {
+        if self.terminal.mode().contains(TermMode::VI)
+            && self.terminal.selection().as_ref().map(|s| s.is_empty()) != Some(true)
+        {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
 
             if let Some(selection) = self.terminal.selection_mut() {
