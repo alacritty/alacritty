@@ -90,10 +90,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             && self.terminal.selection().as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
-
-            if let Some(selection) = self.terminal.selection_mut() {
-                selection.include_all();
-            }
         } else if ElementState::Pressed == self.mouse().left_button_state {
             let (x, y) = (self.mouse().x, self.mouse().y);
             let size_info = self.size_info();
@@ -124,11 +120,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
         if let Some(selection) = self.terminal.selection_mut() {
             selection.update(point, side);
-        }
 
-        self.terminal.dirty = true;
+            if vi_mode {
+                selection.include_all();
+            }
+
+            self.terminal.dirty = true;
+        }
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -142,11 +143,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
             },
-            Some(selection) => {
+            Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
                 self.terminal.dirty = true;
             },
-            None => self.start_selection(ty, point, side),
+            _ => self.start_selection(ty, point, side),
         }
     }
 

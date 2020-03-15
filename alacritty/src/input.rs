@@ -347,17 +347,12 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             // Treat motion over message bar like motion over the last line
             let line = min(point.line, last_term_line);
 
-            self.ctx.update_selection(Point { line, col: point.col }, cell_side);
-
+            // Move vi mode cursor to mouse cursor position
             if self.ctx.terminal().mode().contains(TermMode::VI) {
-                // Move vi mode cursor to mouse cursor position
                 self.ctx.terminal_mut().vi_mode_cursor.point = point;
-
-                // Extend selection to include partially selected cells
-                if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
-                    selection.include_all();
-                }
             }
+
+            self.ctx.update_selection(Point { line, col: point.col }, cell_side);
         } else if inside_grid
             && cell_changed
             && point.line <= last_term_line
@@ -645,9 +640,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             // Update selection
             let point = term.vi_mode_cursor.point;
-            self.ctx.update_selection(point, Side::Right);
-            if let Some(selection) = self.ctx.terminal_mut().selection_mut() {
-                selection.include_all();
+            if !self.ctx.selection_is_empty() {
+                self.ctx.update_selection(point, Side::Right);
             }
         }
 
