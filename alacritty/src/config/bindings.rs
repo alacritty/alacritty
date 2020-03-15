@@ -13,17 +13,16 @@
 // limitations under the License.
 #![allow(clippy::enum_glob_use)]
 
-use std::fmt;
+use std::fmt::{self, Debug, Display};
 use std::str::FromStr;
 
 use glutin::event::VirtualKeyCode::*;
 use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
-use log::error;
 use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
+use serde_yaml::Value as SerdeValue;
 
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
@@ -55,30 +54,6 @@ pub type KeyBinding = Binding<Key>;
 
 /// Bindings that are triggered by a mouse button
 pub type MouseBinding = Binding<MouseButton>;
-
-impl Default for KeyBinding {
-    fn default() -> KeyBinding {
-        KeyBinding {
-            mods: Default::default(),
-            action: Action::Esc(String::new()),
-            mode: TermMode::NONE,
-            notmode: TermMode::NONE,
-            trigger: Key::Keycode(A),
-        }
-    }
-}
-
-impl Default for MouseBinding {
-    fn default() -> MouseBinding {
-        MouseBinding {
-            mods: Default::default(),
-            action: Action::Esc(String::new()),
-            mode: TermMode::NONE,
-            notmode: TermMode::NONE,
-            trigger: MouseButton::Left,
-        }
-    }
-}
 
 impl<T: Eq> Binding<T> {
     #[inline]
@@ -117,6 +92,10 @@ pub enum Action {
     /// Write an escape sequence.
     #[serde(skip)]
     Esc(String),
+
+    /// Run given command.
+    #[serde(skip)]
+    Command(String, Vec<String>),
 
     /// Move vi mode cursor.
     #[serde(skip)]
@@ -171,10 +150,6 @@ pub enum Action {
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
-    /// Run given command.
-    #[serde(skip)]
-    Command(String, Vec<String>),
-
     /// Hide the Alacritty window.
     Hide,
 
@@ -210,48 +185,25 @@ pub enum Action {
     None,
 }
 
-/// Helper for deserializing vi mode bindings.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum ViModeWrapper {
-    Motion(ViMotion),
-    Action(ViAction),
-}
-
-impl<'a> Deserialize<'a> for ViModeWrapper {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        let value = serde_yaml::Value::deserialize(deserializer)?;
-
-        if let Ok(action) = ViAction::deserialize(value.clone()) {
-            return Ok(Self::Action(action));
-        }
-
-        match ViMotion::deserialize(value) {
-            Ok(motion) => Ok(Self::Motion(motion)),
-            Err(error) => {
-                // Manually append all `ViAction` options
-                let error_message = error.to_string()
-                    + ", `ToggleNormalSelection`, `ToggleLineSelection`, `ToggleBlockSelection`, \
-                       `ToggleSemanticSelection`, `Open`";
-                Err(D::Error::custom(error_message))
-            },
-        }
+impl From<&'static str> for Action {
+    fn from(s: &'static str) -> Action {
+        Action::Esc(s.into())
     }
 }
 
-impl From<ViModeWrapper> for Action {
-    fn from(wrapper: ViModeWrapper) -> Self {
-        match wrapper {
-            ViModeWrapper::Action(action) => action.into(),
-            ViModeWrapper::Motion(motion) => motion.into(),
+/// Display trait used for error logging.
+impl Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Action::ViMotion(motion) => motion.fmt(f),
+            Action::ViAction(action) => action.fmt(f),
+            _ => write!(f, "{:?}", self),
         }
     }
 }
 
 /// Vi mode specific actions.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ViAction {
     /// Toggle normal vi selection.
     ToggleNormalSelection,
@@ -274,18 +226,6 @@ impl From<ViAction> for Action {
 impl From<ViMotion> for Action {
     fn from(motion: ViMotion) -> Self {
         Self::ViMotion(motion)
-    }
-}
-
-impl Default for Action {
-    fn default() -> Action {
-        Action::None
-    }
-}
-
-impl From<&'static str> for Action {
-    fn from(s: &'static str) -> Action {
-        Action::Esc(s.into())
     }
 }
 
@@ -596,7 +536,7 @@ impl<'a> Deserialize<'a> for Key {
     where
         D: Deserializer<'a>,
     {
-        let value = serde_yaml::Value::deserialize(deserializer)?;
+        let value = SerdeValue::deserialize(deserializer)?;
         match u32::deserialize(value.clone()) {
             Ok(scancode) => Ok(Key::Scancode(scancode)),
             Err(_) => {
@@ -624,8 +564,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
-                    "Combination of AppCursor | AppKeypad | Alt | ViMode, possibly with negation \
-                     (~)",
+                    "a combination of AppCursor | AppKeypad | Alt | Vi, possibly with negation (~)",
                 )
             }
 
@@ -643,9 +582,9 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                         "~appkeypad" => res.not_mode |= TermMode::APP_KEYPAD,
                         "alt" => res.mode |= TermMode::ALT_SCREEN,
                         "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
-                        "vimode" => res.mode |= TermMode::VI,
-                        "~vimode" => res.not_mode |= TermMode::VI,
-                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown mode {:?}", modifier),
+                        "vi" => res.mode |= TermMode::VI,
+                        "~vi" => res.not_mode |= TermMode::VI,
+                        _ => return Err(E::invalid_value(Unexpected::Str(modifier), &self)),
                     }
                 }
 
@@ -748,8 +687,7 @@ impl<'a> Deserialize<'a> for RawBinding {
     where
         D: Deserializer<'a>,
     {
-        const FIELDS: &[&str] =
-            &["key", "mods", "mode", "action", "chars", "mouse", "command", "vi_mode"];
+        const FIELDS: &[&str] = &["key", "mods", "mode", "action", "chars", "mouse", "command"];
 
         enum Field {
             Key,
@@ -759,7 +697,6 @@ impl<'a> Deserialize<'a> for RawBinding {
             Chars,
             Mouse,
             Command,
-            ViMode,
         }
 
         impl<'a> Deserialize<'a> for Field {
@@ -788,7 +725,6 @@ impl<'a> Deserialize<'a> for RawBinding {
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
                             "command" => Ok(Field::Command),
-                            "vi_mode" => Ok(Field::ViMode),
                             _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
@@ -818,9 +754,8 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
                 let mut command: Option<CommandWrapper> = None;
-                let mut vi_mode: Option<Action> = None;
 
-                use ::serde::de::Error;
+                use de::Error;
 
                 while let Some(struct_key) = map.next_key::<Field>()? {
                     match struct_key {
@@ -829,10 +764,10 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("key"));
                             }
 
-                            let val = map.next_value::<serde_yaml::Value>()?;
+                            let val = map.next_value::<SerdeValue>()?;
                             if val.is_u64() {
                                 let scancode = val.as_u64().unwrap();
-                                if scancode > u64::from(::std::u32::MAX) {
+                                if scancode > u64::from(std::u32::MAX) {
                                     return Err(<V::Error as Error>::custom(format!(
                                         "Invalid key binding, scancode too big: {}",
                                         scancode
@@ -865,7 +800,36 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("action"));
                             }
 
-                            action = Some(map.next_value::<Action>()?);
+                            let value = map.next_value::<SerdeValue>()?;
+
+                            action = if let Ok(vi_action) = ViAction::deserialize(value.clone()) {
+                                Some(vi_action.into())
+                            } else if let Ok(vi_motion) = ViMotion::deserialize(value.clone()) {
+                                Some(vi_motion.into())
+                            } else {
+                                match Action::deserialize(value.clone()) {
+                                    Ok(action) => Some(action),
+                                    Err(err) => {
+                                        let value = match value {
+                                            SerdeValue::String(string) => string,
+                                            SerdeValue::Mapping(map) if map.len() == 1 => {
+                                                match map.into_iter().next() {
+                                                    Some((
+                                                        SerdeValue::String(string),
+                                                        SerdeValue::Null,
+                                                    )) => string,
+                                                    _ => return Err(err).map_err(V::Error::custom),
+                                                }
+                                            },
+                                            _ => return Err(err).map_err(V::Error::custom),
+                                        };
+                                        return Err(V::Error::custom(format!(
+                                            "unknown keyboard action `{}`",
+                                            value
+                                        )));
+                                    },
+                                }
+                            };
                         },
                         Field::Chars => {
                             if chars.is_some() {
@@ -888,42 +852,35 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             command = Some(map.next_value::<CommandWrapper>()?);
                         },
-                        Field::ViMode => {
-                            if vi_mode.is_some() {
-                                return Err(<V::Error as Error>::duplicate_field("vi_mode"));
-                            }
-
-                            let action = map.next_value::<ViModeWrapper>()?.into();
-                            vi_mode = Some(action);
-                        },
                     }
                 }
 
-                let mut mode = mode.unwrap_or_else(TermMode::empty);
+                let mode = mode.unwrap_or_else(TermMode::empty);
                 let not_mode = not_mode.unwrap_or_else(TermMode::empty);
                 let mods = mods.unwrap_or_else(ModifiersState::default);
 
-                let action = match (action, chars, command, vi_mode) {
-                    (Some(action), None, None, None) => action,
-                    (None, Some(chars), None, None) => Action::Esc(chars),
-                    (None, None, Some(cmd), None) => match cmd {
+                let action = match (action, chars, command) {
+                    (Some(action @ Action::ViMotion(_)), None, None)
+                    | (Some(action @ Action::ViAction(_)), None, None) => {
+                        if !mode.intersects(TermMode::VI) || not_mode.intersects(TermMode::VI) {
+                            return Err(V::Error::custom(format!(
+                                "action `{}` is only available in vi mode, try adding `mode: Vi`",
+                                action,
+                            )));
+                        }
+                        action
+                    },
+                    (Some(action), None, None) => action,
+                    (None, Some(chars), None) => Action::Esc(chars),
+                    (None, None, Some(cmd)) => match cmd {
                         CommandWrapper::Just(program) => Action::Command(program, vec![]),
                         CommandWrapper::WithArgs { program, args } => {
                             Action::Command(program, args)
                         },
                     },
-                    (None, None, None, Some(motion_action)) => {
-                        mode.insert(TermMode::VI);
-                        motion_action
-                    },
-                    (None, None, None, None) => {
-                        return Err(V::Error::custom(
-                            "must specify chars, action, command or vi_mode",
-                        ));
-                    },
                     _ => {
                         return Err(V::Error::custom(
-                            "must specify only chars, action, command or vi_mode",
+                            "must specify exactly one of chars, action or command",
                         ))
                     },
                 };
@@ -946,7 +903,8 @@ impl<'a> Deserialize<'a> for MouseBinding {
         D: Deserializer<'a>,
     {
         let raw = RawBinding::deserialize(deserializer)?;
-        raw.into_mouse_binding().map_err(|_| D::Error::custom("expected mouse binding"))
+        raw.into_mouse_binding()
+            .map_err(|_| D::Error::custom("expected mouse binding, got key binding"))
     }
 }
 
@@ -956,7 +914,8 @@ impl<'a> Deserialize<'a> for KeyBinding {
         D: Deserializer<'a>,
     {
         let raw = RawBinding::deserialize(deserializer)?;
-        raw.into_key_binding().map_err(|_| D::Error::custom("expected key binding"))
+        raw.into_key_binding()
+            .map_err(|_| D::Error::custom("expected key binding, got mouse binding"))
     }
 }
 
@@ -1011,7 +970,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
             type Value = ModsWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Some subset of Command|Shift|Super|Alt|Option|Control")
+                f.write_str("a subset of Shift|Control|Super|Command|Alt|Option")
             }
 
             fn visit_str<E>(self, value: &str) -> Result<ModsWrapper, E>
@@ -1026,7 +985,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "alt" | "option" => res.insert(ModifiersState::ALT),
                         "control" => res.insert(ModifiersState::CTRL),
                         "none" => (),
-                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown modifier {:?}", modifier),
+                        _ => return Err(E::invalid_value(Unexpected::Str(modifier), &self)),
                     }
                 }
 
@@ -1052,7 +1011,7 @@ mod tests {
         fn default() -> Self {
             Self {
                 mods: Default::default(),
-                action: Default::default(),
+                action: Action::None,
                 mode: TermMode::empty(),
                 notmode: TermMode::empty(),
                 trigger: Default::default(),
