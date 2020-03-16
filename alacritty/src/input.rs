@@ -394,9 +394,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ClickState::TripleClick
             }
             _ => {
-                // Only clear selection if left or middle button are pressed
-                if mouse.left_button_state == ElementState::Pressed
-                    || mouse.middle_button_state == ElementState::Pressed
+                // Only clear selection if the button pressed isn't RMB
+                // and if in mouse mode now pressing shift
+                if button != MouseButton::Right
+                    || (!self.ctx.modifiers().shift()
+                        && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
                 {
                     // Don't launch URLs if this click cleared the selection
                     self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
