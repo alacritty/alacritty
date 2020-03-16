@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.4.2-dev"
+version = "0.5.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
@@ -9,7 +9,7 @@ homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
 [dependencies]
-alacritty_terminal = { path = "../alacritty_terminal" }
+alacritty_terminal = { path = "../alacritty_terminal", default-features = false }
 clap = "2"
 log = "0.4"
 time = "0.1.40"
@@ -18,7 +18,7 @@ fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.23.0", features = ["serde"] }
+glutin = { version = "0.24.0", features = ["serde"] }
 notify = "4"
 libc = "0.2"
 unicode-width = "0.1"
@@ -49,7 +49,9 @@ winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
 embed-resource = "1.3"
 
 [features]
-default = []
+default = ["wayland", "x11"]
+x11 = ["alacritty_terminal/x11"]
+wayland = ["alacritty_terminal/wayland"]
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
 nightly = []
@@ -66,7 +68,7 @@ section = "rust"
 priority = "optional"
 assets = [
     ["../target/release/alacritty", "usr/bin/", "755"],
-    ["../extra/linux/alacritty.desktop", "usr/share/applications/", "644"],
+    ["../extra/linux/Alacritty.desktop", "usr/share/applications/", "644"],
     ["../extra/logo/alacritty-term.svg", "usr/share/pixmaps/Alacritty.svg", "644"],
     ["../extra/completions/alacritty.bash", "usr/share/bash-completion/completions/alacritty", "644"],
     ["../extra/completions/alacritty.fish", "usr/share/fish/completions/alacritty.fish", "644"],

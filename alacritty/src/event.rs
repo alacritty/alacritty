@@ -11,9 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{
-    DeviceEvent, ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent,
-};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
 use log::{debug, info, warn};
@@ -553,6 +551,9 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
+                    WindowEvent::ModifiersChanged(modifiers) => {
+                        processor.modifiers_input(modifiers)
+                    },
                     WindowEvent::CursorMoved { position, .. } => {
                         let (x, y) = position.into();
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
@@ -603,13 +604,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::Moved(_) => (),
                 }
             },
-            GlutinEvent::DeviceEvent { event, .. } => {
-                if let DeviceEvent::ModifiersChanged(modifiers) = event {
-                    processor.modifiers_input(modifiers);
-                }
-            },
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
+            | GlutinEvent::DeviceEvent { .. }
             | GlutinEvent::MainEventsCleared
             | GlutinEvent::RedrawEventsCleared
             | GlutinEvent::Resumed
