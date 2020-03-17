@@ -1,5 +1,5 @@
 name: alacritty
-version: '0.4.2-dev'
+version: '0.5.0-dev'
 summary: Modern, GPU accelerated terminal emulator
 description: |
   Alacritty is a terminal emulator with a strong focus on simplicity and
@@ -24,8 +24,8 @@ parts:
     plugin: dump
     source: .
     stage:
-      - extra/linux/alacritty.desktop
+      - extra/linux/Alacritty.desktop
 apps:
   alacritty:
     command: env XDG_RUNTIME_DIR= XDG_CONFIG_HOME=$SNAP_USER_DATA XDG_DATA_DIRS=$SNAP_DATA PATH=$SNAP/bin:$PATH SNAP= alacritty
-    desktop: alacritty.desktop
+    desktop: Alacritty.desktop

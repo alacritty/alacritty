@@ -4,11 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.5.0-dev
+
 ## 0.4.2-dev
 
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.37.0
+- Added Rust features `x11` and `wayland` to pick backends, with both enabled by default
+- Capitalized the Alacritty.desktop file
+
+### Added
+
+- Live config reload for `window.title`
 
 ### Changed
 
@@ -20,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
 - Right clicking no longer clears a selection
+- Dynamic title is not disabled anymore when `window.title` is set in config
 
 ### Fixed
 
@@ -49,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expansion of block-selection on partially selected full-width glyphs
 - Minimize action only works with decorations on macOS
 - Window permanently vanishing after hiding on macOS
-- Modifier key combinations like `Ctrl + Q` not generating characters on macOS
 - Handling of URLs with single quotes
 - Parser reset between DCS escapes
 - Parser stopping at unknown DEC private modes/SGR character attributes
@@ -65,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selection invisible when starting above viewport and ending below it
 - Clipboard not working after TTY switch on Wayland
 - Crash when pasting non UTF-8 string advertised as UTF-8 string on Wayland
+- Incorrect modifiers tracking on X11 and macOS, leading to 'sticky' modifiers
+- Crash when starting on Windows with missing dark mode support
+- Variables `XCURSOR_THEME` and `XCURSOR_SIZE` ignored on Wayland
+- Low resolution mouse cursor and decorations on HiDPI Wayland outputs
+- Decorations visible when in fullscreen on Wayland
+- Window size not persisted correctly after fullscreening on macOS
+- Crash on startup with some locales on X11
 
 ### Removed
 

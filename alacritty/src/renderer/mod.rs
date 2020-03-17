@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs;
 use std::hash::BuildHasherDefault;
-use std::io::{self, Read};
+use std::io;
 use std::mem::size_of;
 use std::path::PathBuf;
 use std::ptr;
@@ -1321,7 +1321,7 @@ fn create_shader(
     let source = if let Some(src) = source {
         src
     } else {
-        from_disk = read_file(path)?;
+        from_disk = fs::read_to_string(path)?;
         &from_disk[..]
     };
 
@@ -1398,14 +1398,6 @@ fn get_shader_info_log(shader: GLuint) -> String {
 
     // XXX should we expect opengl to return garbage?
     String::from_utf8(buf).unwrap()
-}
-
-fn read_file(path: &str) -> Result<String, io::Error> {
-    let mut f = File::open(path)?;
-    let mut buf = String::new();
-    f.read_to_string(&mut buf)?;
-
-    Ok(buf)
 }
 
 #[derive(Debug)]

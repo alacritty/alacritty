@@ -33,7 +33,7 @@ pub fn get_cursor_glyph(
     // Calculate the cell metrics
     let height = metrics.line_height as i32 + i32::from(offset_y);
     let mut width = metrics.average_advance as i32 + i32::from(offset_x);
-    let line_width = cmp::max((width as f64 * CURSOR_WIDTH_PERCENTAGE).round() as i32, 1);
+    let line_width = cmp::max((f64::from(width) * CURSOR_WIDTH_PERCENTAGE).round() as i32, 1);
 
     // Double the cursor width if it's above a double-width glyph
     if is_wide {
