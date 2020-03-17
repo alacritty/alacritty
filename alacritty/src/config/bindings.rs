@@ -354,8 +354,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         NumpadEnter, ~TermMode::VI; Action::Esc("\n".into());
         Space, ModifiersState::SHIFT | ModifiersState::CTRL, +TermMode::VI; Action::ScrollToBottom;
         Space, ModifiersState::SHIFT | ModifiersState::CTRL; Action::ToggleViMode;
-        Escape,                        +TermMode::VI; Action::ScrollToBottom;
-        Escape,                        +TermMode::VI; Action::ToggleViMode;
+        Escape,                        +TermMode::VI; Action::ClearSelection;
         I,                             +TermMode::VI; Action::ScrollToBottom;
         I,                             +TermMode::VI; Action::ToggleViMode;
         Y,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollLineUp;
