@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.5.0-dev
 
+### Added
+
+- Default Command+N keybinding for SpawnNewInstance on macOS
+
 ## 0.4.2-dev
 
 ### Packaging

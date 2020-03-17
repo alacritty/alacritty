@@ -433,6 +433,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Add,    ModifiersState::LOGO;  Action::IncreaseFontSize;
         Minus,  ModifiersState::LOGO;  Action::DecreaseFontSize;
         Insert, ModifiersState::SHIFT; Action::Esc("\x1b[2;2~".into());
+        N, ModifiersState::LOGO; Action::SpawnNewInstance;
         F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
         K, ModifiersState::LOGO; Action::ClearHistory;
         K, ModifiersState::LOGO; Action::Esc("\x0c".into());
