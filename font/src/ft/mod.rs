@@ -228,7 +228,6 @@ impl FreeTypeRasterizer {
         let mut pattern = Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_pixelsize(size);
-        let hash = pattern.hash();
 
         // Add style to a pattern
         match desc.style {
@@ -242,6 +241,9 @@ impl FreeTypeRasterizer {
                 pattern.add_style(style);
             },
         }
+
+        // Hash requested pattern
+        let hash = pattern.hash();
 
         pattern.config_substitute(config, fc::MatchKind::Pattern);
         pattern.default_substitute();
