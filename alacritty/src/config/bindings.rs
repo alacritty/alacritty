@@ -111,6 +111,10 @@ pub enum Action {
     /// Store current selection into clipboard.
     Copy,
 
+    #[cfg(not(any(target_os = "macos", windows)))]
+    /// Store current selection into primary clipboard.
+    CopyPrimary,
+
     /// Paste contents of selection buffer.
     PasteSelection,
 

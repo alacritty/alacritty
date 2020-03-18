@@ -504,6 +504,9 @@
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
 #
+#   (Linux/BSD only):
+#   - CopyPrimary: Copies into primary selection buffer
+#
 # - `command`: Fork and execute a specified command plus arguments
 #
 #    The `command` field must be a map containing a `program` string and an
