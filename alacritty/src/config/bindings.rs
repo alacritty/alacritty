@@ -1063,6 +1063,28 @@ mod tests {
     }
 
     #[test]
+    fn binding_matches_when_only_notmode_matches() {
+        let mut b1 = MockBinding::default();
+        b1.notmode = TermMode::ALT_SCREEN;
+        b1.mode = TermMode::VI;
+        let mut b2 = MockBinding::default();
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_when_only_mode_matches() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        b1.notmode = TermMode::VI;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
     fn binding_without_mode_matches_any_mode() {
         let b1 = MockBinding::default();
         let mut b2 = MockBinding::default();
