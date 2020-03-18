@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.5.0-dev
 
+### Changed
+
+- Right clicking no longer clears a selection
+
 ## 0.4.2-dev
 
 ### Packaging
@@ -27,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default value for `draw_bold_text_with_bright_colors` is now `false`
 - Mirror OSC query terminators instead of always using BEL
 - Increased Beam, Underline, and Hollow Block cursors' line widths
-- Right clicking no longer clears a selection
 - Dynamic title is not disabled anymore when `window.title` is set in config
 
 ### Fixed
