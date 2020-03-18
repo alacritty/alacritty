@@ -187,9 +187,17 @@
 
   # Cursor colors
   #
-  # Colors which should be used to draw the terminal cursor. If these are unset,
-  # the cursor color will be the inverse of the cell color.
+  # Colors which should be used to draw the terminal cursor. If these are
+  # unset, the cursor color will be the inverse of the cell color.
   #cursor:
+  #  text: '#000000'
+  #  cursor: '#ffffff'
+
+  # Vi mode cursor colors
+  #
+  # Colors for the cursor when the vi mode is active. If these are unset, the
+  # cursor color will be the inverse of the cell color.
+  #vi_mode_cursor:
   #  text: '#000000'
   #  cursor: '#ffffff'
 
@@ -297,6 +305,14 @@
   #   - _ Underline
   #   - | Beam
   #style: Block
+
+  # Vi mode cursor style
+  #
+  # If the vi mode cursor style is `None` or not specified, it will fall back to
+  # the style of the active value of the normal cursor.
+  #
+  # See `cursor.style` for available options.
+  #vi_mode_style: None
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.
@@ -435,6 +451,7 @@
 #
 # - `action`: Execute a predefined action
 #
+#   - ToggleViMode
 #   - Copy
 #   - Paste
 #   - PasteSelection
@@ -454,8 +471,35 @@
 #   - ToggleFullscreen
 #   - SpawnNewInstance
 #   - ClearLogNotice
+#   - ClearSelection
 #   - ReceiveChar
 #   - None
+#
+#   (`mode: Vi` only):
+#   - Open
+#   - Up
+#   - Down
+#   - Left
+#   - Right
+#   - First
+#   - Last
+#   - FirstOccupied
+#   - High
+#   - Middle
+#   - Low
+#   - SemanticLeft
+#   - SemanticRight
+#   - SemanticLeftEnd
+#   - SemanticRightEnd
+#   - WordRight
+#   - WordLeft
+#   - WordRightEnd
+#   - WordLeftEnd
+#   - Bracket
+#   - ToggleNormalSelection
+#   - ToggleLineSelection
+#   - ToggleBlockSelection
+#   - ToggleSemanticSelection
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
@@ -501,6 +545,57 @@
 # If the same trigger is assigned to multiple actions, all of them are executed
 # at once.
 #key_bindings:
+  #- { key: Paste,                    action: Paste                      }
+  #- { key: Copy,                     action: Copy                       }
+  #- { key: L,         mods: Control, action: ClearLogNotice             }
+  #- { key: L,         mods: Control, chars: "\x0c"                      }
+  #- { key: PageUp,    mods: Shift,   action: ScrollPageUp,   mode: ~Alt }
+  #- { key: PageDown,  mods: Shift,   action: ScrollPageDown, mode: ~Alt }
+  #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt }
+  #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt }
+
+  # Vi Mode
+  #- { key: Space,  mods: Shift|Control, mode: Vi, action: ScrollToBottom          }
+  #- { key: Space,  mods: Shift|Control,           action: ToggleViMode            }
+  #- { key: Escape,                      mode: Vi, action: ClearSelection          }
+  #- { key: I,                           mode: Vi, action: ScrollToBottom          }
+  #- { key: I,                           mode: Vi, action: ToggleViMode            }
+  #- { key: Y,      mods: Control,       mode: Vi, action: ScrollLineUp            }
+  #- { key: E,      mods: Control,       mode: Vi, action: ScrollLineDown          }
+  #- { key: G,                           mode: Vi, action: ScrollToTop             }
+  #- { key: G,      mods: Shift,         mode: Vi, action: ScrollToBottom          }
+  #- { key: B,      mods: Control,       mode: Vi, action: ScrollPageUp            }
+  #- { key: F,      mods: Control,       mode: Vi, action: ScrollPageDown          }
+  #- { key: U,      mods: Control,       mode: Vi, action: ScrollHalfPageUp        }
+  #- { key: D,      mods: Control,       mode: Vi, action: ScrollHalfPageDown      }
+  #- { key: Y,                           mode: Vi, action: Copy                    }
+  #- { key: V,                           mode: Vi, action: ToggleNormalSelection   }
+  #- { key: V,      mods: Shift,         mode: Vi, action: ToggleLineSelection     }
+  #- { key: V,      mods: Control,       mode: Vi, action: ToggleBlockSelection    }
+  #- { key: V,      mods: Alt,           mode: Vi, action: ToggleSemanticSelection }
+  #- { key: Return,                      mode: Vi, action: Open                    }
+  #- { key: K,                           mode: Vi, action: Up                      }
+  #- { key: J,                           mode: Vi, action: Down                    }
+  #- { key: H,                           mode: Vi, action: Left                    }
+  #- { key: L,                           mode: Vi, action: Right                   }
+  #- { key: Up,                          mode: Vi, action: Up                      }
+  #- { key: Down,                        mode: Vi, action: Down                    }
+  #- { key: Left,                        mode: Vi, action: Left                    }
+  #- { key: Right,                       mode: Vi, action: Right                   }
+  #- { key: Key0,                        mode: Vi, action: First                   }
+  #- { key: Key4,   mods: Shift,         mode: Vi, action: Last                    }
+  #- { key: Key6,   mods: Shift,         mode: Vi, action: FirstOccupied           }
+  #- { key: H,      mods: Shift,         mode: Vi, action: High                    }
+  #- { key: M,      mods: Shift,         mode: Vi, action: Middle                  }
+  #- { key: L,      mods: Shift,         mode: Vi, action: Low                     }
+  #- { key: B,                           mode: Vi, action: SemanticLeft            }
+  #- { key: W,                           mode: Vi, action: SemanticRight           }
+  #- { key: E,                           mode: Vi, action: SemanticRightEnd        }
+  #- { key: B,      mods: Shift,         mode: Vi, action: WordLeft                }
+  #- { key: W,      mods: Shift,         mode: Vi, action: WordRight               }
+  #- { key: E,      mods: Shift,         mode: Vi, action: WordRightEnd            }
+  #- { key: Key5,   mods: Shift,         mode: Vi, action: Bracket                 }
+
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }
@@ -530,14 +625,14 @@
   #- { key: N,      mods: Command,         action: SpawnNewInstance }
   #- { key: F,      mods: Command|Control, action: ToggleFullscreen }
 
-  #- { key: Paste,                    action: Paste                            }
-  #- { key: Copy,                     action: Copy                             }
-  #- { key: L,         mods: Control, action: ClearLogNotice                   }
-  #- { key: L,         mods: Control, chars: "\x0c"                            }
-  #- { key: PageUp,    mods: Shift,   action: ScrollPageUp,   mode: ~Alt       }
-  #- { key: PageDown,  mods: Shift,   action: ScrollPageDown, mode: ~Alt       }
-  #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt       }
-  #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
+  #- { key: Paste,                    action: Paste                      }
+  #- { key: Copy,                     action: Copy                       }
+  #- { key: L,         mods: Control, action: ClearLogNotice             }
+  #- { key: L,         mods: Control, chars: "\x0c"                      }
+  #- { key: PageUp,    mods: Shift,   action: ScrollPageUp,   mode: ~Alt }
+  #- { key: PageDown,  mods: Shift,   action: ScrollPageDown, mode: ~Alt }
+  #- { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt }
+  #- { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt }
 
 #debug:
   # Display the time it takes to redraw each frame.

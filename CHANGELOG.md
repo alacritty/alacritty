@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Default Command+N keybinding for SpawnNewInstance on macOS
+- Vi mode for copying text and opening links
+
+### Changed
+
+- Block cursor is no longer inverted at the start/end of a selection
 
 ## 0.4.2-dev
 

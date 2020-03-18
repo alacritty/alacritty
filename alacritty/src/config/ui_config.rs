@@ -1,6 +1,7 @@
+use log::error;
 use serde::{Deserialize, Deserializer};
 
-use alacritty_terminal::config::failure_default;
+use alacritty_terminal::config::{failure_default, LOG_TARGET_CONFIG};
 
 use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding};
 use crate::config::mouse::Mouse;
@@ -60,7 +61,18 @@ where
     T: Copy + Eq,
     Binding<T>: Deserialize<'a>,
 {
-    let mut bindings: Vec<Binding<T>> = failure_default(deserializer)?;
+    let values = Vec::<serde_yaml::Value>::deserialize(deserializer)?;
+
+    // Skip all invalid values
+    let mut bindings = Vec::with_capacity(values.len());
+    for value in values {
+        match Binding::<T>::deserialize(value) {
+            Ok(binding) => bindings.push(binding),
+            Err(err) => {
+                error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring binding", err);
+            },
+        }
+    }
 
     // Remove matching default bindings
     for binding in bindings.iter() {

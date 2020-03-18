@@ -38,6 +38,7 @@ pub mod term;
 pub mod text_run;
 pub mod tty;
 pub mod util;
+pub mod vi_mode;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;
