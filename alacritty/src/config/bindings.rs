@@ -82,8 +82,12 @@ impl<T: Eq> Binding<T> {
         }
 
         // Check for intersection (equality is required since empty does not intersect itself)
-        (self.mode == binding.mode || self.mode.intersects(binding.mode))
-            && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode))
+        let mode_match = !self.mode.is_empty()
+            && (self.mode == binding.mode || self.mode.intersects(binding.mode));
+        let notmode_match = !self.notmode.is_empty()
+            && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode));
+
+        mode_match || notmode_match
     }
 }
 
