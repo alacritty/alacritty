@@ -28,7 +28,7 @@ mod scrolling;
 mod visual_bell;
 mod window;
 
-use crate::ansi::{Color, CursorStyle, NamedColor};
+use crate::ansi::{CursorStyle, NamedColor};
 
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
@@ -170,16 +170,28 @@ impl<T> Config<T> {
         self.dynamic_title.0
     }
 
-    /// Cursor foreground color
+    /// Cursor foreground color.
     #[inline]
     pub fn cursor_text_color(&self) -> Option<Rgb> {
         self.colors.cursor.text
     }
 
-    /// Cursor background color
+    /// Cursor background color.
     #[inline]
-    pub fn cursor_cursor_color(&self) -> Option<Color> {
-        self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
+    pub fn cursor_cursor_color(&self) -> Option<NamedColor> {
+        self.colors.cursor.cursor.map(|_| NamedColor::Cursor)
+    }
+
+    /// Vi mode cursor foreground color.
+    #[inline]
+    pub fn vi_mode_cursor_text_color(&self) -> Option<Rgb> {
+        self.colors.vi_mode_cursor.text
+    }
+
+    /// Vi mode cursor background color.
+    #[inline]
+    pub fn vi_mode_cursor_cursor_color(&self) -> Option<Rgb> {
+        self.colors.vi_mode_cursor.cursor
     }
 
     #[inline]
@@ -230,18 +242,14 @@ impl Default for EscapeChars {
 }
 
 #[serde(default)]
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Deserialize, Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
     pub style: CursorStyle,
+    #[serde(deserialize_with = "option_explicit_none")]
+    pub vi_mode_style: Option<CursorStyle>,
     #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self { style: Default::default(), unfocused_hollow: Default::default() }
-    }
 }
 
 impl Cursor {

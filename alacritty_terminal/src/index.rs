@@ -30,6 +30,15 @@ pub enum Side {
     Right,
 }
 
+impl Side {
+    pub fn opposite(self) -> Self {
+        match self {
+            Side::Right => Side::Left,
+            Side::Left => Side::Right,
+        }
+    }
+}
+
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
 pub struct Point<L = Line> {
@@ -49,7 +58,7 @@ impl<L> Point<L> {
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let line_changes =
-            f32::ceil(rhs.saturating_sub(self.col.0) as f32 / num_cols as f32) as usize;
+            (rhs.saturating_sub(self.col.0) as f32 / num_cols as f32).ceil() as usize;
         if self.line.into() > Line(line_changes) {
             self.line = self.line - line_changes;
         } else {
@@ -63,9 +72,37 @@ impl<L> Point<L> {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn add(mut self, num_cols: usize, rhs: usize) -> Point<L>
     where
-        L: Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         self.line = self.line + (rhs + self.col.0) / num_cols;
+        self.col = Column((self.col.0 + rhs) % num_cols);
+        self
+    }
+
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn sub_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    where
+        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+    {
+        self.line =
+            self.line + (rhs.saturating_sub(self.col.0) as f32 / num_cols as f32).ceil() as usize;
+        self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
+        self
+    }
+
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn add_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    where
+        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+    {
+        let line_changes = (rhs + self.col.0) / num_cols;
+        if self.line.into() > Line(line_changes) {
+            self.line = self.line - line_changes;
+        } else {
+            self.line = Default::default();
+        }
         self.col = Column((self.col.0 + rhs) % num_cols);
         self
     }
