@@ -12,6 +12,8 @@ pub struct Colors {
     #[serde(deserialize_with = "failure_default")]
     pub cursor: CursorColors,
     #[serde(deserialize_with = "failure_default")]
+    pub vi_mode_cursor: CursorColors,
+    #[serde(deserialize_with = "failure_default")]
     pub selection: SelectionColors,
     #[serde(deserialize_with = "failure_default")]
     normal: NormalColors,

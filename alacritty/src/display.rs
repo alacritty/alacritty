@@ -366,6 +366,12 @@ impl Display {
         let selection = !terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true);
         let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE);
 
+        let vi_mode_cursor = if terminal.mode().contains(TermMode::VI) {
+            Some(terminal.vi_mode_cursor)
+        } else {
+            None
+        };
+
         // Update IME position
         #[cfg(not(windows))]
         self.window.update_ime_position(&terminal, &self.size_info);
@@ -416,6 +422,13 @@ impl Display {
                 self.window.set_mouse_cursor(CursorIcon::Default);
             } else {
                 self.window.set_mouse_cursor(CursorIcon::Text);
+            }
+        }
+
+        // Highlight URLs at the vi mode cursor position
+        if let Some(vi_mode_cursor) = vi_mode_cursor {
+            if let Some(url) = self.urls.find_at(vi_mode_cursor.point) {
+                rects.append(&mut url.rects(&metrics, &size_info));
             }
         }
 
