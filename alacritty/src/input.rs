@@ -134,20 +134,10 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Copy => {
                 ctx.copy_selection(ClipboardType::Clipboard);
-
-                // Clear selection in vi mode for better user feedback
-                if ctx.terminal().mode().contains(TermMode::VI) {
-                    ctx.clear_selection();
-                }
             },
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopyPrimary => {
                 ctx.copy_selection(ClipboardType::Selection);
-
-                // Clear selection in vi mode for better user feedback
-                if ctx.terminal().mode().contains(TermMode::VI) {
-                    ctx.clear_selection();
-                }
             },
             Action::Paste => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
