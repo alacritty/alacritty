@@ -635,9 +635,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             term.vi_mode_cursor.point.col = absolute.col;
 
             // Update selection
-            let point = term.vi_mode_cursor.point;
-            if !self.ctx.selection_is_empty() {
-                self.ctx.update_selection(point, Side::Right);
+            if term.mode().contains(TermMode::VI) {
+                let point = term.vi_mode_cursor.point;
+                if !self.ctx.selection_is_empty() {
+                    self.ctx.update_selection(point, Side::Right);
+                }
             }
         }
 
