@@ -504,23 +504,28 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ClickState::TripleClick
             }
             _ => {
-                // Don't launch URLs if this click cleared the selection
-                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+                if button == MouseButton::Left
+                    && (self.ctx.modifiers().shift()
+                        || !self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
+                {
+                    // Don't launch URLs if this click cleared the selection
+                    self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                self.ctx.clear_selection();
+                    self.ctx.clear_selection();
 
-                // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
-                if self.ctx.modifiers().ctrl() {
-                    self.ctx.start_selection(SelectionType::Block, point, side);
-                } else {
-                    self.ctx.start_selection(SelectionType::Simple, point, side);
-                }
+                    // Start new empty selection
+                    let side = self.ctx.mouse().cell_side;
+                    if self.ctx.modifiers().ctrl() {
+                        self.ctx.start_selection(SelectionType::Block, point, side);
+                    } else {
+                        self.ctx.start_selection(SelectionType::Simple, point, side);
+                    }
 
-                // Move vi mode cursor to mouse position
-                if self.ctx.terminal().mode().contains(TermMode::VI) {
-                    // Update vi mode cursor position on click
-                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
+                    // Move vi mode cursor to mouse position
+                    if self.ctx.terminal().mode().contains(TermMode::VI) {
+                        // Update vi mode cursor position on click
+                        self.ctx.terminal_mut().vi_mode_cursor.point = point;
+                    }
                 }
 
                 if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
