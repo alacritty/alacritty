@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Block cursor is no longer inverted at the start/end of a selection
+- Preserve selection on non-LMB or mouse mode clicks
 
 ## 0.4.2-dev
 
