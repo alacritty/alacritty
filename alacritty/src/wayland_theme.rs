@@ -1,5 +1,8 @@
-use alacritty_terminal::term::color::Rgb;
 use glutin::platform::unix::{ButtonState, Theme as WaylandTheme};
+
+use alacritty_terminal::config::Colors;
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::color::DIM_FACTOR;
 
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
@@ -12,7 +15,25 @@ pub struct AlacrittyWaylandTheme {
 }
 
 impl AlacrittyWaylandTheme {
-    pub fn color_icon_color(&self, color: Rgb, status: ButtonState) -> [u8; 4] {
+    pub fn new(colors: &Colors) -> Self {
+        let hovered_close_icon = colors.normal().red;
+        let hovered_maximize_icon = colors.normal().green;
+        let hovered_minimize_icon = colors.normal().yellow;
+        let foreground = colors.primary.foreground;
+        let background = colors.primary.background;
+        let dim_foreground = colors.primary.dim_foreground.unwrap_or(foreground * DIM_FACTOR);
+
+        Self {
+            foreground,
+            background,
+            dim_foreground,
+            hovered_close_icon,
+            hovered_minimize_icon,
+            hovered_maximize_icon,
+        }
+    }
+
+    fn color_icon_color(&self, color: Rgb, status: ButtonState) -> [u8; 4] {
         match status {
             ButtonState::Hovered => [0xff, color.r, color.g, color.b],
             ButtonState::Idle => [0xff, self.foreground.r, self.foreground.g, self.foreground.b],

@@ -33,12 +33,8 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-use alacritty_terminal::config::{
-    Colors as TerminalColors, Decorations, StartupMode, WindowConfig,
-};
+use alacritty_terminal::config::{Colors, Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
-#[cfg(not(any(target_os = "macos", windows)))]
-use alacritty_terminal::term::color::DIM_FACTOR;
 #[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
@@ -369,22 +365,9 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn set_wayland_theme(&mut self, colors: &TerminalColors) {
-        let hovered_close_icon = colors.normal().red;
-        let hovered_maximize_icon = colors.normal().green;
-        let hovered_minimize_icon = colors.normal().yellow;
-        let foreground = colors.primary.foreground;
-        let background = colors.primary.background;
-        let dim_foreground = colors.primary.dim_foreground.unwrap_or(foreground * DIM_FACTOR);
+    pub fn set_wayland_theme(&mut self, colors: &Colors) {
+        let theme = AlacrittyWaylandTheme::new(colors);
 
-        let theme = AlacrittyWaylandTheme {
-            foreground,
-            background,
-            dim_foreground,
-            hovered_close_icon,
-            hovered_minimize_icon,
-            hovered_maximize_icon,
-        };
         self.window().set_wayland_theme(theme);
     }
 

@@ -1248,11 +1248,6 @@ impl<T> Term<T> {
     }
 
     #[inline]
-    pub fn dim_foreground_color(&self) -> Rgb {
-        self.colors[NamedColor::DimForeground]
-    }
-
-    #[inline]
     pub fn exit(&mut self)
     where
         T: EventListener,
