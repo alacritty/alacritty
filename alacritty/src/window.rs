@@ -33,8 +33,12 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig, Colors as TerminalColors};
+use alacritty_terminal::config::{
+    Colors as TerminalColors, Decorations, StartupMode, WindowConfig,
+};
 use alacritty_terminal::event::Event;
+#[cfg(not(any(target_os = "macos", windows)))]
+use alacritty_terminal::term::color::DIM_FACTOR;
 #[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
@@ -371,7 +375,7 @@ impl Window {
         let hovered_minimize_icon = colors.normal().yellow;
         let foreground = colors.primary.foreground;
         let background = colors.primary.background;
-        let dim_foreground = colors.primary.dim_foreground.unwrap_or_else(|| foreground * 0.66);
+        let dim_foreground = colors.primary.dim_foreground.unwrap_or(foreground * DIM_FACTOR);
 
         let theme = AlacrittyWaylandTheme {
             foreground,

@@ -11,6 +11,9 @@ use crate::config::{Colors, LOG_TARGET_CONFIG};
 
 pub const COUNT: usize = 269;
 
+/// Factor for automatic computation of dim colors used by terminal.
+pub const DIM_FACTOR: f32 = 0.66;
+
 pub const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
 pub const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
 
@@ -181,7 +184,7 @@ impl List {
 
         // Dims
         self[ansi::NamedColor::DimForeground] =
-            colors.primary.dim_foreground.unwrap_or(colors.primary.foreground * 0.66);
+            colors.primary.dim_foreground.unwrap_or(colors.primary.foreground * DIM_FACTOR);
         match colors.dim {
             Some(ref dim) => {
                 trace!("Using config-provided dim colors");
@@ -196,14 +199,14 @@ impl List {
             },
             None => {
                 trace!("Deriving dim colors from normal colors");
-                self[ansi::NamedColor::DimBlack] = colors.normal().black * 0.66;
-                self[ansi::NamedColor::DimRed] = colors.normal().red * 0.66;
-                self[ansi::NamedColor::DimGreen] = colors.normal().green * 0.66;
-                self[ansi::NamedColor::DimYellow] = colors.normal().yellow * 0.66;
-                self[ansi::NamedColor::DimBlue] = colors.normal().blue * 0.66;
-                self[ansi::NamedColor::DimMagenta] = colors.normal().magenta * 0.66;
-                self[ansi::NamedColor::DimCyan] = colors.normal().cyan * 0.66;
-                self[ansi::NamedColor::DimWhite] = colors.normal().white * 0.66;
+                self[ansi::NamedColor::DimBlack] = colors.normal().black * DIM_FACTOR;
+                self[ansi::NamedColor::DimRed] = colors.normal().red * DIM_FACTOR;
+                self[ansi::NamedColor::DimGreen] = colors.normal().green * DIM_FACTOR;
+                self[ansi::NamedColor::DimYellow] = colors.normal().yellow * DIM_FACTOR;
+                self[ansi::NamedColor::DimBlue] = colors.normal().blue * DIM_FACTOR;
+                self[ansi::NamedColor::DimMagenta] = colors.normal().magenta * DIM_FACTOR;
+                self[ansi::NamedColor::DimCyan] = colors.normal().cyan * DIM_FACTOR;
+                self[ansi::NamedColor::DimWhite] = colors.normal().white * DIM_FACTOR;
             },
         }
     }
