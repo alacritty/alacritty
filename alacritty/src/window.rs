@@ -33,6 +33,8 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
+#[cfg(not(any(target_os = "macos", windows)))]
+use alacritty_terminal::config::Colors;
 use alacritty_terminal::config::{Colors, Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
 #[cfg(not(windows))]
