@@ -239,9 +239,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             // Do not render completely offscreen selection
             let viewport_start = grid.display_offset();
             let viewport_end = viewport_start + grid.num_lines().0;
-            if (span.start.line >= viewport_end && span.end.line >= viewport_end)
-                || (span.start.line < viewport_start && span.end.line < viewport_start)
-            {
+            if span.end.line >= viewport_end || span.start.line < viewport_start {
                 return None;
             }
 
