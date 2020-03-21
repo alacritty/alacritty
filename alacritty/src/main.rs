@@ -55,7 +55,6 @@ mod event;
 mod input;
 mod logging;
 mod renderer;
-mod url;
 mod window;
 
 mod gl {

@@ -23,7 +23,7 @@ use std::mem;
 use std::ops::Range;
 
 use crate::index::{Column, Line, Point, Side};
-use crate::term::{Search, Term};
+use crate::term::Term;
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]

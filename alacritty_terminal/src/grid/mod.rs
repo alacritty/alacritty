@@ -594,17 +594,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.display_offset = 0;
         self.selection = None;
     }
-
-    // TODO: RENAME
-    /// Find first line of a potentially wrapped line.
-    pub fn wrapped_line_start(&self, mut line: Line) -> Line {
-        let last_col = self.num_cols() - 1;
-        while line.0 + 1 < self.len() && self[line.0 + 1][last_col].flags().contains(Flags::WRAPLINE)
-        {
-            line += 1;
-        }
-        line
-    }
 }
 
 #[allow(clippy::len_without_is_empty)]

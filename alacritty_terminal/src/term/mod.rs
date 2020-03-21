@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::cmp::{max, min};
-use std::ops::{Index, IndexMut, Range};
+use std::cmp::min;
+use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
 
@@ -28,159 +28,24 @@ use crate::ansi::{
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation, DEFAULT_NAME};
 use crate::event::{Event, EventListener};
-use crate::grid::{
-    BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
-};
+use crate::grid::{DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll};
 use crate::index::{self, Column, IndexRange, Line, Point};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
+use crate::term::search::RegexSearch;
 #[cfg(windows)]
 use crate::tty;
 
 pub mod cell;
 pub mod color;
-
-/// Used to match equal brackets, when performing a bracket-pair selection.
-const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+mod search;
 
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
-
-/// A type that can expand a given point to a region
-///
-/// Usually this is implemented for some 2-D array type since
-/// points are two dimensional indices.
-pub trait Search {
-    /// Find the nearest semantic boundary _to the left_ of provided point.
-    fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest semantic boundary _to the point_ of provided point.
-    fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the beginning of a line, following line wraps.
-    fn line_search_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the end of a line, following line wraps.
-    fn line_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest matching bracket.
-    fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
-}
-
-impl<T> Search for Term<T> {
-    fn semantic_search_left(&self, mut point: Point<usize>) -> Point<usize> {
-        // Limit the starting point to the last line in the history
-        point.line = min(point.line, self.grid.len() - 1);
-
-        let mut iter = self.grid.iter_from(point);
-        let last_col = self.grid.num_cols() - Column(1);
-
-        while let Some(cell) = iter.prev() {
-            if !cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER)
-                && self.semantic_escape_chars.contains(cell.c)
-            {
-                break;
-            }
-
-            if iter.point().col == last_col && !cell.flags.contains(Flags::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
-            }
-
-            point = iter.point();
-        }
-
-        point
-    }
-
-    fn semantic_search_right(&self, mut point: Point<usize>) -> Point<usize> {
-        // Limit the starting point to the last line in the history
-        point.line = min(point.line, self.grid.len() - 1);
-
-        let mut iter = self.grid.iter_from(point);
-        let last_col = self.grid.num_cols() - 1;
-
-        while let Some(cell) = iter.next() {
-            if !cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER)
-                && self.semantic_escape_chars.contains(cell.c)
-            {
-                break;
-            }
-
-            point = iter.point();
-
-            if point.col == last_col && !cell.flags.contains(Flags::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
-            }
-        }
-
-        point
-    }
-
-    fn line_search_left(&self, mut point: Point<usize>) -> Point<usize> {
-        while point.line + 1 < self.grid.len()
-            && self.grid[point.line + 1][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE)
-        {
-            point.line += 1;
-        }
-
-        point.col = Column(0);
-
-        point
-    }
-
-    fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
-        while self.grid[point.line][self.grid.num_cols() - 1].flags.contains(Flags::WRAPLINE) {
-            point.line -= 1;
-        }
-
-        point.col = self.grid.num_cols() - 1;
-
-        point
-    }
-
-    fn bracket_search(&self, point: Point<usize>) -> Option<Point<usize>> {
-        let start_char = self.grid[point.line][point.col].c;
-
-        // Find the matching bracket we're looking for
-        let (forwards, end_char) = BRACKET_PAIRS.iter().find_map(|(open, close)| {
-            if open == &start_char {
-                Some((true, *close))
-            } else if close == &start_char {
-                Some((false, *open))
-            } else {
-                None
-            }
-        })?;
-
-        let mut iter = self.grid.iter_from(point);
-
-        // For every character match that equals the starting bracket, we
-        // ignore one bracket of the opposite type.
-        let mut skip_pairs = 0;
-
-        loop {
-            // Check the next cell
-            let cell = if forwards { iter.next() } else { iter.prev() };
-
-            // Break if there are no more cells
-            let c = match cell {
-                Some(cell) => cell.c,
-                None => break,
-            };
-
-            // Check if the bracket matches
-            if c == end_char && skip_pairs == 0 {
-                return Some(iter.point());
-            } else if c == start_char {
-                skip_pairs += 1;
-            } else if c == end_char {
-                skip_pairs -= 1;
-            }
-        }
-
-        None
-    }
-}
 
 /// A key for caching cursor glyphs
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
@@ -207,6 +72,7 @@ pub struct RenderableCellsIter<'a, C> {
     config: &'a Config<C>,
     colors: &'a color::List,
     selection: Option<SelectionRange<Line>>,
+    regex_search: Option<RangeInclusive<Point>>,
 }
 
 impl<'a, C> RenderableCellsIter<'a, C> {
@@ -218,6 +84,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         term: &'b Term<T>,
         config: &'b Config<C>,
         selection: Option<SelectionRange>,
+        regex_search: Option<&RangeInclusive<Point<usize>>>,
         mut cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
@@ -226,22 +93,12 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cursor_offset = grid.num_lines().0 - term.cursor.point.line.0 - 1;
         let inner = grid.display_iter();
 
-        let selection_range = selection.and_then(|span| {
-            let (limit_start, limit_end) = if span.is_block {
-                (span.start.col, span.end.col)
-            } else {
-                (Column(0), num_cols - 1)
-            };
-
+        let selection_range = selection.map(|span| {
             // Get on-screen lines of the selection's locations
-            let mut start = grid.clamp_buffer_to_visible(span.start);
-            let mut end = grid.clamp_buffer_to_visible(span.end);
+            let start = grid.clamp_buffer_to_visible(span.start);
+            let end = grid.clamp_buffer_to_visible(span.end);
 
-            // Trim start/end with partially visible block selection
-            start.col = max(limit_start, start.col);
-            end.col = min(limit_end, end.col);
-
-            Some(SelectionRange::new(start, end, span.is_block))
+            SelectionRange::new(start, end, span.is_block)
         });
 
         // Load cursor glyph
@@ -257,6 +114,13 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             None
         };
 
+        // Convert search from buffer to visible
+        let regex_search = regex_search.map(|rs| {
+            let buffer_start = grid.clamp_buffer_to_visible(*rs.start());
+            let buffer_end = grid.clamp_buffer_to_visible(*rs.end());
+            buffer_start..=buffer_end
+        });
+
         RenderableCellsIter {
             cursor,
             cursor_offset,
@@ -267,6 +131,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             colors: &term.colors,
             cursor_key,
             cursor_style,
+            regex_search,
         }
     }
 
@@ -445,7 +310,9 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
-                let selected = self.is_selected(Point::new(self.cursor.line, self.cursor.col));
+                let point = Point::new(self.cursor.line, self.cursor.col);
+                let selected = self.is_selected(point)
+                    || self.regex_search.as_ref().map(|rs| rs.contains(&point)) == Some(true);
 
                 // Handle cursor
                 if let Some(cursor_key) = self.cursor_key.take() {
@@ -485,7 +352,9 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
             } else {
                 let cell = self.inner.next()?;
 
-                let selected = self.is_selected(Point::new(cell.line, cell.column));
+                let point = Point::new(cell.line, cell.column);
+                let selected = self.is_selected(point)
+                    || self.regex_search.as_ref().map(|rs| rs.contains(&point)) == Some(true);
 
                 if !cell.is_empty() || selected {
                     return Some(RenderableCell::new(self.config, self.colors, cell, selected));
@@ -812,6 +681,10 @@ pub struct Term<T> {
     /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
     /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
+
+    // TODO: UNPUB
+    /// Current buffer search state.
+    pub regex_search: Option<RegexSearch>,
 }
 
 /// Terminal size info
@@ -935,6 +808,7 @@ impl<T> Term<T> {
             is_focused: true,
             title: config.window.title.clone(),
             title_stack: Vec::new(),
+            regex_search: None,
         }
     }
 
@@ -1083,6 +957,7 @@ impl<T> Term<T> {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells<'b, C>(&'b self, config: &'b Config<C>) -> RenderableCellsIter<'_, C> {
+        let regex_search = self.regex_search.as_ref().and_then(|rs| rs.current_match());
         let selection = self.grid.selection.as_ref().and_then(|s| s.to_range(self));
 
         let cursor = if self.is_focused || !config.cursor.unfocused_hollow() {
@@ -1091,7 +966,7 @@ impl<T> Term<T> {
             CursorStyle::HollowBlock
         };
 
-        RenderableCellsIter::new(&self, config, selection, cursor)
+        RenderableCellsIter::new(&self, config, selection, regex_search, cursor)
     }
 
     /// Resize terminal to new dimensions
@@ -1238,6 +1113,44 @@ impl<T> Term<T> {
         self.event_proxy.send_event(Event::Exit);
     }
 
+    /// Enter terminal buffer search mode.
+    #[inline]
+    pub fn search(&mut self, search: &str) {
+        if let Ok(mut regex_search) = RegexSearch::new(search) {
+            regex_search.next(&self);
+            self.regex_search = Some(regex_search);
+            self.dirty = true;
+        }
+    }
+
+    /// Quit terminal buffer search mode.
+    #[inline]
+    pub fn cancel_search(&mut self) {
+        self.regex_search = None;
+        self.dirty = true;
+    }
+
+    /// Jump to next search match.
+    #[inline]
+    pub fn search_next(&mut self) {
+        if let Some(mut regex_search) = self.regex_search.take() {
+            regex_search.next(&self);
+            self.regex_search = Some(regex_search);
+            self.dirty = true;
+        }
+    }
+
+    /// Jump to previous search match.
+    #[inline]
+    pub fn search_previous(&mut self) {
+        if let Some(mut regex_search) = self.regex_search.take() {
+            regex_search.previous(&self);
+            self.regex_search = Some(regex_search);
+            self.dirty = true;
+        }
+    }
+
+    #[inline]
     pub fn clipboard(&mut self) -> &mut Clipboard {
         &mut self.clipboard
     }

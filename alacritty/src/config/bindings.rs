@@ -185,6 +185,18 @@ pub enum Action {
     /// Allow receiving char input.
     ReceiveChar,
 
+    /// Start a buffer search.
+    Search,
+
+    /// Stop active buffer search.
+    CancelSearch,
+
+    /// Jump to the next match for the current search.
+    SearchNext,
+
+    /// Jump to the previous match for the current search.
+    SearchPrevious,
+
     /// No action.
     None,
 }

@@ -45,7 +45,6 @@ use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key};
 use crate::event::{ClickState, Mouse};
-use crate::url;
 use crate::window::Window;
 
 /// Font size change interval
@@ -89,6 +88,10 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
+    fn start_search(&mut self);
+    fn cancel_search(&mut self);
+    fn push_search(&mut self, c: char);
+    fn search_active(&self) -> bool;
 }
 
 trait Execute<T: EventListener> {
@@ -131,6 +134,10 @@ impl<T: EventListener> Execute<T> for Action {
                     Err(err) => warn!("Couldn't run command {}", err),
                 }
             },
+            Action::Search => ctx.start_search(),
+            Action::CancelSearch => ctx.cancel_search(),
+            Action::SearchNext => ctx.terminal_mut().search_next(),
+            Action::SearchPrevious => ctx.terminal_mut().search_previous(),
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -414,7 +421,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else if button == MouseButton::Left {
             let term = self.ctx.terminal();
             let mouse_coords = self.ctx.mouse_coords();
-            if let Some(url) = mouse_coords.and_then(|point| url::url_at_point(term, point)) {
+            if let Some(url) = mouse_coords.and_then(|point| term.url_at_point(point)) {
                 self.launch_url(url);
             }
         }
@@ -558,6 +565,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         if *self.ctx.suppress_chars() {
+            return;
+        }
+
+        // TODO: Should maybe be combined? Potentially even with suppress_chars. Super ugly!
+        self.ctx.push_search(c);
+        if self.ctx.search_active() {
             return;
         }
 

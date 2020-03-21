@@ -44,7 +44,6 @@ use crate::config;
 use crate::config::Config;
 use crate::display::Display;
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-use crate::url;
 use crate::window::Window;
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -73,6 +72,7 @@ pub struct ActionContext<'a, N, T> {
     pub display_update_pending: &'a mut DisplayUpdate,
     pub config: &'a mut Config,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
+    pub search_regex: &'a mut Option<String>,
     font_size: &'a mut Size,
 }
 
@@ -248,6 +248,33 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.message_buffer.pop();
     }
 
+    #[inline]
+    fn start_search(&mut self) {
+        *self.search_regex = Some(String::new());
+    }
+
+    #[inline]
+    fn cancel_search(&mut self) {
+        self.terminal.cancel_search();
+        *self.search_regex = None;
+    }
+
+    #[inline]
+    fn push_search(&mut self, c: char) {
+        if let Some(search_regex) = self.search_regex {
+            search_regex.push(c);
+
+            // TODO: This could mean we search multiple times per draw
+            //  -> Is this an issue at all?
+            self.terminal.search(search_regex);
+        }
+    }
+
+    #[inline]
+    fn search_active(&self) -> bool {
+        self.search_regex.is_some()
+    }
+
     fn message(&self) -> Option<&Message> {
         self.message_buffer.message()
     }
@@ -323,6 +350,7 @@ pub struct Processor<N> {
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
+    search_regex: Option<String>,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -346,6 +374,7 @@ impl<N: Notify + OnResize> Processor<N> {
             config,
             message_buffer,
             display,
+            search_regex: None,
         }
     }
 
@@ -418,6 +447,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 window: &mut self.display.window,
                 font_size: &mut self.font_size,
                 config: &mut self.config,
+                search_regex: &mut self.search_regex,
                 event_loop,
             };
             let mut processor = input::Processor::new(context);
@@ -448,6 +478,8 @@ impl<N: Notify + OnResize> Processor<N> {
             self.display.window.set_mouse_cursor(self.mouse_cursor(&terminal, url_highlighted));
 
             if terminal.dirty {
+                println!("SEARCH: {:?}", self.search_regex);
+
                 terminal.dirty = false;
 
                 // Request immediate re-draw if visual bell animation is not finished yet
@@ -641,6 +673,7 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Check for URL below mouse cursor.
+    #[inline]
     fn highlighted_url<T>(&self, term: &Term<T>) -> Option<RangeInclusive<Point>> {
         let mouse_mode = term.mode().intersects(TermMode::MOUSE_MODE);
         let mut required_mods = self.config.ui_config.mouse.url.mods();
@@ -654,7 +687,7 @@ impl<N: Notify + OnResize> Processor<N> {
             && self.config.ui_config.mouse.url.launcher.is_some()
             && term.selection().as_ref().map(Selection::is_empty) != Some(false)
         {
-            let url = url::url_at_point(term, Point::new(self.mouse.line, self.mouse.column))?;
+            let url = term.url_at_point(Point::new(self.mouse.line, self.mouse.column))?;
             let start = term.grid().clamp_buffer_to_visible(*url.start());
             let end = term.grid().clamp_buffer_to_visible(*url.end());
             Some(start..=end)
@@ -664,6 +697,7 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Check which mouse cursor should be in use.
+    #[inline]
     fn mouse_cursor<T>(&self, term: &Term<T>, url_highlighted: bool) -> CursorIcon {
         let num_lines = term.grid().num_lines();
         let num_cols = term.grid().num_cols();
