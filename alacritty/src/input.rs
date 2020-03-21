@@ -20,8 +20,8 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::cmp::min;
+use std::cmp::Ordering;
 use std::marker::PhantomData;
-use std::ops::RangeInclusive;
 use std::time::Instant;
 
 use log::{debug, trace, warn};
@@ -32,6 +32,7 @@ use glutin::event::{
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
+use glutin::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::clipboard::ClipboardType;
@@ -39,12 +40,14 @@ use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{self, Message};
+use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key};
 use crate::event::{ClickState, Mouse};
+use crate::url::{Url, Urls};
 use crate::window::Window;
 
 /// Font size change interval
@@ -54,8 +57,10 @@ pub const FONT_SIZE_STEP: f32 = 0.5;
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
 /// are activated.
-pub struct Processor<T: EventListener, A: ActionContext<T>> {
+pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
+    pub urls: &'a Urls,
+    pub highlighted_url: &'a Option<Url>,
     _phantom: PhantomData<T>,
 }
 
@@ -180,9 +185,28 @@ fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {
     }
 }
 
-impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
-    pub fn new(ctx: A) -> Self {
-        Self { ctx, _phantom: Default::default() }
+#[derive(Debug, Clone, PartialEq)]
+pub enum MouseState {
+    Url(Url),
+    MessageBar,
+    MessageBarButton,
+    Mouse,
+    Text,
+}
+
+impl From<MouseState> for CursorIcon {
+    fn from(mouse_state: MouseState) -> CursorIcon {
+        match mouse_state {
+            MouseState::Url(_) | MouseState::MessageBarButton => CursorIcon::Hand,
+            MouseState::Text => CursorIcon::Text,
+            _ => CursorIcon::Default,
+        }
+    }
+}
+
+impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
+    pub fn new(ctx: A, urls: &'a Urls, highlighted_url: &'a Option<Url>) -> Self {
+        Self { ctx, urls, highlighted_url, _phantom: Default::default() }
     }
 
     #[inline]
@@ -214,6 +238,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
+
+        // Update mouse state and check for URL change
+        let mouse_state = self.mouse_state();
+        self.update_url_state(&mouse_state);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -418,26 +447,24 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
             self.mouse_report(code, ElementState::Released);
             return;
-        } else if button == MouseButton::Left {
-            let term = self.ctx.terminal();
-            let mouse_coords = self.ctx.mouse_coords();
-            if let Some(url) = mouse_coords.and_then(|point| term.url_at_point(point)) {
-                self.launch_url(url);
-            }
+        } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
+            self.launch_url(url);
         }
 
         self.copy_selection();
     }
 
     /// Spawn URL launcher when clicking on URLs.
-    fn launch_url(&self, url: RangeInclusive<Point<usize>>) {
+    fn launch_url(&self, url: Url) {
         if self.ctx.mouse().block_url_launcher {
             return;
         }
 
         if let Some(ref launcher) = self.ctx.config().ui_config.mouse.url.launcher {
             let mut args = launcher.args().to_vec();
-            args.push(self.ctx.terminal().bounds_to_string(*url.start(), *url.end()));
+            let start = self.ctx.terminal().visible_to_buffer(url.start());
+            let end = self.ctx.terminal().visible_to_buffer(url.end());
+            args.push(self.ctx.terminal().bounds_to_string(start, end));
 
             match start_daemon(launcher.program(), &args) {
                 Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
@@ -538,6 +565,26 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.message_close_at_cursor() && state == ElementState::Pressed {
             self.ctx.clear_selection();
             self.ctx.pop_message();
+
+            // Reset cursor when message bar height changed or all messages are gone
+            let size = self.ctx.size_info();
+            let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
+            let current_lines = (size.lines() - self.ctx.terminal().grid().num_lines()).0;
+            let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+
+            let new_icon = match current_lines.cmp(&new_lines) {
+                Ordering::Less => CursorIcon::Default,
+                Ordering::Equal => CursorIcon::Hand,
+                Ordering::Greater => {
+                    if mouse_mode {
+                        CursorIcon::Default
+                    } else {
+                        CursorIcon::Text
+                    }
+                },
+            };
+
+            self.ctx.window_mut().set_mouse_cursor(new_icon);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -560,6 +607,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             },
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
+    }
+
+    /// Modifier state change.
+    pub fn modifiers_input(&mut self, modifiers: ModifiersState) {
+        *self.ctx.modifiers() = modifiers;
+
+        // Update mouse state and check for URL change
+        let mouse_state = self.mouse_state();
+        self.update_url_state(&mouse_state);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
     /// Process a received character.
@@ -595,6 +652,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         self.ctx.write_to_pty(bytes);
 
         *self.ctx.received_count() += 1;
+    }
+
+    /// Reset mouse cursor based on modifier and terminal state.
+    #[inline]
+    pub fn reset_mouse_cursor(&mut self) {
+        let mouse_state = self.mouse_state();
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
     /// Attempt to find a binding and execute its action.
@@ -651,6 +715,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
+    /// Check if the cursor is hovering above the message bar.
+    fn message_at_cursor(&mut self) -> bool {
+        self.ctx.mouse().line >= self.ctx.terminal().grid().num_lines()
+    }
+
     /// Whether the point is over the message bar's close button
     fn message_close_at_cursor(&self) -> bool {
         let mouse = self.ctx.mouse();
@@ -665,6 +734,49 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.ctx.copy_selection(ClipboardType::Clipboard);
         }
         self.ctx.copy_selection(ClipboardType::Selection);
+    }
+
+    /// Trigger redraw when URL highlight changed.
+    #[inline]
+    fn update_url_state(&mut self, mouse_state: &MouseState) {
+        if let MouseState::Url(url) = mouse_state {
+            if Some(url) != self.highlighted_url.as_ref() {
+                self.ctx.terminal_mut().dirty = true;
+            }
+        } else if self.highlighted_url.is_some() {
+            self.ctx.terminal_mut().dirty = true;
+        }
+    }
+
+    /// Location of the mouse cursor.
+    fn mouse_state(&mut self) -> MouseState {
+        // Check message bar before URL to ignore URLs in the message bar
+        if self.message_close_at_cursor() {
+            return MouseState::MessageBarButton;
+        } else if self.message_at_cursor() {
+            return MouseState::MessageBar;
+        }
+
+        // Check for URL at mouse cursor
+        let mods = *self.ctx.modifiers();
+        let selection =
+            !self.ctx.terminal().selection().as_ref().map(Selection::is_empty).unwrap_or(true);
+        let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
+        let highlighted_url =
+            self.urls.highlighted(self.ctx.config(), self.ctx.mouse(), mods, mouse_mode, selection);
+
+        if let Some(url) = highlighted_url {
+            return MouseState::Url(url);
+        }
+
+        // Check mouse mode if location is not special
+        if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
+            && !self.ctx.modifiers().shift()
+        {
+            MouseState::Mouse
+        } else {
+            MouseState::Text
+        }
     }
 }
 
@@ -688,6 +800,7 @@ mod tests {
 
     use crate::config::{ClickHandler, Config};
     use crate::event::{ClickState, Mouse};
+    use crate::url::Urls;
     use crate::window::Window;
 
     use super::{Action, Binding, Processor};
@@ -882,7 +995,8 @@ mod tests {
                     config: &cfg,
                 };
 
-                let mut processor = Processor::new(context);
+                let urls = Urls::new();
+                let mut processor = Processor::new(context, &urls, &None);
 
                 let event: Event::<'_, TerminalEvent> = $input;
                 if let Event::WindowEvent {

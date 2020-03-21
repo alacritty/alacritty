@@ -69,34 +69,6 @@ impl<L> Point<L> {
         self.col = Column((self.col.0 + rhs) % num_cols);
         self
     }
-
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
-    where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
-    {
-        self.line =
-            self.line + (rhs.saturating_sub(self.col.0) as f32 / num_cols as f32).ceil() as usize;
-        self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
-        self
-    }
-
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
-    where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
-    {
-        let line_changes = (rhs + self.col.0) / num_cols;
-        if self.line.into() > Line(line_changes) {
-            self.line = self.line - line_changes;
-        } else {
-            self.line = Default::default();
-        }
-        self.col = Column((self.col.0 + rhs) % num_cols);
-        self
-    }
 }
 
 impl Ord for Point {

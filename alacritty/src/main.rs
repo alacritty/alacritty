@@ -56,6 +56,7 @@ mod input;
 mod logging;
 mod renderer;
 mod window;
+mod url;
 
 mod gl {
     #![allow(clippy::all)]

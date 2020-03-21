@@ -16,13 +16,14 @@
 //! GPU drawing.
 use std::f64;
 use std::fmt::{self, Formatter};
-use std::ops::RangeInclusive;
 use std::time::Instant;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
+use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
 
@@ -30,17 +31,18 @@ use font::{self, Rasterize};
 
 use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{Event, OnResize};
-use alacritty_terminal::index::{Line, Point};
+use alacritty_terminal::index::Line;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
-use alacritty_terminal::term::cell::Flags;
+use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{RenderableCell, SizeInfo, Term};
+use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
-use crate::event::DisplayUpdate;
+use crate::event::{DisplayUpdate, Mouse};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::url::{Url, Urls};
 use crate::window::{self, Window};
 
 #[derive(Debug)]
@@ -108,6 +110,10 @@ impl From<glutin::ContextError> for Error {
 pub struct Display {
     pub size_info: SizeInfo,
     pub window: Window,
+    pub urls: Urls,
+
+    /// Currently highlighted URL.
+    pub highlighted_url: Option<Url>,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -223,7 +229,15 @@ impl Display {
             _ => (),
         }
 
-        Ok(Self { window, renderer, glyph_cache, meter: Meter::new(), size_info })
+        Ok(Self {
+            window,
+            renderer,
+            glyph_cache,
+            meter: Meter::new(),
+            size_info,
+            urls: Urls::new(),
+            highlighted_url: None,
+        })
     }
 
     fn new_glyph_cache(
@@ -337,9 +351,10 @@ impl Display {
     pub fn draw<T>(
         &mut self,
         terminal: MutexGuard<'_, Term<T>>,
-        config: &Config,
         message_buffer: &MessageBuffer,
-        url: Option<RangeInclusive<Point>>,
+        config: &Config,
+        mouse: &Mouse,
+        mods: ModifiersState,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -347,6 +362,9 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
         let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
+
+        let selection = !terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true);
+        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE);
 
         // Update IME position
         #[cfg(not(windows))]
@@ -360,6 +378,7 @@ impl Display {
         });
 
         let mut lines = RenderLines::new();
+        let mut urls = Urls::new();
 
         // Draw grid
         {
@@ -367,13 +386,9 @@ impl Display {
 
             self.renderer.with_api(&config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid
-                for mut cell in grid_cells {
-                    // Underline URLs below the mouse cursor
-                    if let Some(url) = &url {
-                        if url.contains(&Point::new(cell.line, cell.column)) {
-                            cell.flags.insert(Flags::UNDERLINE);
-                        }
-                    }
+                for cell in grid_cells {
+                    // Update URL underlines
+                    urls.update(size_info.cols().0, cell);
 
                     // Update underline/strikeout
                     lines.update(cell);
@@ -385,6 +400,24 @@ impl Display {
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
+
+        // Update visible URLs
+        self.urls = urls;
+        if let Some(url) = self.urls.highlighted(config, mouse, mods, mouse_mode, selection) {
+            rects.append(&mut url.rects(&metrics, &size_info));
+
+            self.window.set_mouse_cursor(CursorIcon::Hand);
+
+            self.highlighted_url = Some(url);
+        } else if self.highlighted_url.is_some() {
+            self.highlighted_url = None;
+
+            if mouse_mode {
+                self.window.set_mouse_cursor(CursorIcon::Default);
+            } else {
+                self.window.set_mouse_cursor(CursorIcon::Text);
+            }
+        }
 
         // Push visual bell after url/underline/strikeout rects
         if visual_bell_intensity != 0. {

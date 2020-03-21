@@ -759,6 +759,7 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
+        self.event_proxy.send_event(Event::MouseCursorDirty);
         self.grid.scroll_display(scroll);
         self.dirty = true;
     }
@@ -949,6 +950,12 @@ impl<T> Term<T> {
     /// serializes the grid state to a file.
     pub fn grid(&self) -> &Grid<Cell> {
         &self.grid
+    }
+
+    /// Mutable access for swapping out the grid during tests
+    #[cfg(test)]
+    pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
+        &mut self.grid
     }
 
     /// Iterate over the *renderable* cells in the terminal
@@ -1887,14 +1894,17 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::ReportMouseClicks => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_REPORT_CLICK);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportCellMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_DRAG);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_MOTION);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
@@ -1933,9 +1943,18 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(TermMode::APP_CURSOR),
-            ansi::Mode::ReportMouseClicks => self.mode.remove(TermMode::MOUSE_REPORT_CLICK),
-            ansi::Mode::ReportCellMouseMotion => self.mode.remove(TermMode::MOUSE_DRAG),
-            ansi::Mode::ReportAllMouseMotion => self.mode.remove(TermMode::MOUSE_MOTION),
+            ansi::Mode::ReportMouseClicks => {
+                self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
+            ansi::Mode::ReportCellMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_DRAG);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
+            ansi::Mode::ReportAllMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_MOTION);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
             ansi::Mode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
@@ -2077,110 +2096,116 @@ impl IndexMut<Column> for TabStops {
     }
 }
 
-/// Terminal test helpers.
-pub mod test {
-    use super::*;
-
-    use crate::config::Config;
-    use crate::index::Column;
-
-    /// Construct a terminal from its content as string.
-    ///
-    /// A `\n` will break line and `\r\n` will break line without wrapping.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use alacritty_terminal::term::test::mock_term;
-    ///
-    /// // Create a terminal with the following cells:
-    /// //
-    /// // [h][e][l][l][o] <- WRAPLINE flag set
-    /// // [:][)][ ][ ][ ]
-    /// // [t][e][s][t][ ]
-    /// mock_term(
-    ///     "\
-    ///     hello\n:)\r\ntest",
-    /// );
-    /// ```
-    pub fn mock_term(content: &str) -> Term<()> {
-        let lines: Vec<&str> = content.split('\n').collect();
-        let num_cols =
-            lines.iter().map(|line| line.chars().filter(|c| *c != '\r').count()).max().unwrap_or(0);
-
-        // Create term with appropriate dimensions
-        let size = SizeInfo {
-            width: num_cols as f32,
-            height: lines.len() as f32,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 1.,
-        };
-        let mut term = Term::new(&Config::<()>::default(), &size, Clipboard::new_nop(), ());
-
-        // Fill terminal with content
-        for (line, text) in lines.iter().rev().enumerate() {
-            if !text.ends_with('\r') && line != 0 {
-                term.grid[line][Column(num_cols - 1)].flags.insert(Flags::WRAPLINE);
-            }
-
-            for (i, c) in text.chars().filter(|c| *c != '\r').enumerate() {
-                term.grid[line][Column(i)].c = c;
-            }
-        }
-
-        term
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::mem;
+
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
-    use crate::grid::Grid;
+    use crate::clipboard::Clipboard;
+    use crate::config::MockConfig;
+    use crate::event::{Event, EventListener};
+    use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::Selection;
-    use crate::term::cell::Cell;
-    use crate::term::test::mock_term;
+    use crate::term::cell::{Cell, Flags};
+    use crate::term::{SizeInfo, Term};
+
+    struct Mock;
+    impl EventListener for Mock {
+        fn send_event(&self, _event: Event) {}
+    }
 
     #[test]
     fn semantic_selection_works() {
-        #[rustfmt::skip]
-        let mut term = mock_term("\
-            'aa'a\n\
-            aa'aa\
-        ");
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
+        for i in 0..5 {
+            for j in 0..2 {
+                grid[Line(j)][Column(i)].c = 'a';
+            }
+        }
+        grid[Line(0)][Column(0)].c = '"';
+        grid[Line(0)][Column(3)].c = '"';
+        grid[Line(1)][Column(2)].c = '"';
+        grid[Line(0)][Column(4)].flags.insert(Flags::WRAPLINE);
 
-        // Expansion to next semantic boundaries
-        *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }));
-        assert_eq!(term.selection_to_string(), Some(String::from("aa")));
+        let mut escape_chars = String::from("\"");
 
-        // Expansion across line boundaries to right
-        *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(4) }));
-        assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
+        mem::swap(&mut term.grid, &mut grid);
+        mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
-        // Expansion across line boundaries to left
-        *term.selection_mut() = Some(Selection::semantic(Point { line: 0, col: Column(1) }));
-        assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
+        {
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }));
+            assert_eq!(term.selection_to_string(), Some(String::from("aa")));
+        }
+
+        {
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }));
+            assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
+        }
+
+        {
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }));
+            assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
+        }
     }
 
     #[test]
     fn line_selection_works() {
-        let mut term = mock_term("'aa'a");
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
+        for i in 0..5 {
+            grid[Line(0)][Column(i)].c = 'a';
+        }
+        grid[Line(0)][Column(0)].c = '"';
+        grid[Line(0)][Column(3)].c = '"';
+
+        mem::swap(&mut term.grid, &mut grid);
 
         *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
-        assert_eq!(term.selection_to_string(), Some(String::from("'aa'a\n")));
+        assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
     }
 
     #[test]
     fn selecting_empty_line() {
-        #[rustfmt::skip]
-        let mut term = mock_term("\
-            aaa\r\n\
-               \r\n\
-            aaa\
-        ");
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
+        for l in 0..3 {
+            if l != 1 {
+                for c in 0..3 {
+                    grid[Line(l)][Column(c)].c = 'a';
+                }
+            }
+        }
+
+        mem::swap(&mut term.grid, &mut grid);
 
         let mut selection = Selection::simple(Point { line: 2, col: Column(0) }, Side::Left);
         selection.update(Point { line: 0, col: Column(2) }, Side::Right);
@@ -2205,8 +2230,16 @@ mod tests {
 
     #[test]
     fn input_line_drawing_character() {
-        let mut term = mock_term("x");
-
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2216,23 +2249,46 @@ mod tests {
 
     #[test]
     fn clear_saved_lines() {
-        let mut term = mock_term("123");
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
-        assert_eq!(term.grid()[1][Column(0)].c, '1');
-        assert_eq!(term.grid().history_size(), 1);
 
         // Clear the history
         term.clear_screen(ansi::ClearMode::Saved);
 
-        assert_eq!(term.grid().history_size(), 0);
-        assert_eq!(term.grid()[0][Column(0)].c, ' ');
+        // Make sure that scrolling does not change the grid
+        let mut scrolled_grid = term.grid.clone();
+        scrolled_grid.scroll_display(Scroll::Top);
+
+        // Truncate grids for comparison
+        scrolled_grid.truncate();
+        term.grid.truncate();
+
+        assert_eq!(term.grid, scrolled_grid);
     }
 
     #[test]
     fn window_title() {
-        let mut term = mock_term("x");
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
 
         // Title can be set
         {
@@ -2284,7 +2340,7 @@ mod benches {
     use std::path::Path;
 
     use crate::clipboard::Clipboard;
-    use crate::config::Config;
+    use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
     use crate::grid::Grid;
 
@@ -2330,7 +2386,7 @@ mod benches {
         let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();
 
-        let config = Config::<()>::default();
+        let config = MockConfig::default();
 
         let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
         mem::swap(&mut terminal.grid, &mut grid);
