@@ -226,7 +226,6 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         selection: Option<SelectionRange>,
     ) -> RenderableCellsIter<'b, C> {
         let grid = &term.grid;
-        let num_cols = grid.num_cols();
 
         let inner = grid.display_iter();
 
@@ -234,8 +233,15 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             let (limit_start, limit_end) = if span.is_block {
                 (span.start.col, span.end.col)
             } else {
-                (Column(0), num_cols - 1)
+                (Column(0), grid.num_cols() - 1)
             };
+
+            // Do not render completely offscreen selection
+            let viewport_start = grid.display_offset();
+            let viewport_end = viewport_start + grid.num_lines().0;
+            if span.end.line >= viewport_end || span.start.line < viewport_start {
+                return None;
+            }
 
             // Get on-screen lines of the selection's locations
             let mut start = grid.clamp_buffer_to_visible(span.start);
