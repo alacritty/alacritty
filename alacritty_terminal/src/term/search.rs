@@ -3,7 +3,6 @@ use std::mem;
 use std::ops::RangeInclusive;
 
 use regex_automata::{Regex, DFA, Error as RegexError};
-use urlocator::{UrlLocation, UrlLocator};
 
 use crate::grid::{BidirectionalIterator, GridIterator};
 use crate::index::{Column, Point};
@@ -12,9 +11,6 @@ use crate::term::Term;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
-
-/// Maximum number of lines checked for URL parsing.
-const MAX_URL_LINES: usize = 100;
 
 #[derive(Debug)]
 pub struct RegexSearch {
@@ -284,55 +280,6 @@ impl<T> Term<T> {
                 skip_pairs += 1;
             } else if c == end_char {
                 skip_pairs -= 1;
-            }
-        }
-
-        None
-    }
-
-    pub fn url_at_point(&self, point: Point) -> Option<RangeInclusive<Point<usize>>> {
-        let num_cols = self.grid().num_cols();
-
-        let buffer_point = self.visible_to_buffer(point);
-        let mut search_start = self.line_search_left(buffer_point);
-        search_start.line = min(buffer_point.line + MAX_URL_LINES, search_start.line);
-
-        let mut iter = self.grid().iter_from(search_start);
-
-        let mut locator = UrlLocator::new();
-        locator.advance(iter.cell().c);
-        let mut url = None;
-
-        while let Some(cell) = iter.next() {
-            let point = iter.point();
-
-            match (locator.advance(cell.c), url) {
-                (UrlLocation::Url(length, end_offset), _) => {
-                    let end = point.sub_absolute(num_cols.0, end_offset as usize);
-                    let start = end.sub_absolute(num_cols.0, length as usize - 1);
-                    url = Some((start, end));
-                },
-                (UrlLocation::Reset, Some((start, end))) => {
-                    // Skip URLs unless we've reached the original point
-                    if end.line < buffer_point.line
-                        || (end.line == buffer_point.line && end.col >= buffer_point.col)
-                    {
-                        // Check if the original point is within the URL
-                        if start.line > buffer_point.line
-                            || (start.line == buffer_point.line && start.col <= buffer_point.col)
-                        {
-                            return Some(start..=end);
-                        } else {
-                            return None;
-                        }
-                    }
-                },
-                _ => (),
-            }
-
-            // Reached the end of the line
-            if point.col + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
-                break;
             }
         }
 
