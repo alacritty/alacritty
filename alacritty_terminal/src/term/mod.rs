@@ -1833,6 +1833,9 @@ impl<T: EventListener> Handler for Term<T> {
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("Clearing line: {:?}", mode);
 
+        // Remove active selections
+        self.grid.selection = None;
+
         let col = self.cursor.point.col;
 
         match mode {
