@@ -624,7 +624,7 @@
   #- { key: K,      mods: Command,            action: ClearHistory     }
   #- { key: V,      mods: Command,            action: Paste            }
   #- { key: C,      mods: Command,            action: Copy             }
-  #- { key: C,      mods: Command, mode: Vi   action: ClearSelection   }
+  #- { key: C,      mods: Command, mode: Vi,  action: ClearSelection   }
   #- { key: H,      mods: Command,            action: Hide             }
   #- { key: M,      mods: Command,            action: Minimize         }
   #- { key: Q,      mods: Command,            action: Quit             }
