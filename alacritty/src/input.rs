@@ -132,13 +132,9 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
-            Action::Copy => {
-                ctx.copy_selection(ClipboardType::Clipboard);
-            },
+            Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
-            Action::CopySelection => {
-                ctx.copy_selection(ClipboardType::Selection);
-            },
+            Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::Paste => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
                 paste(ctx, &text);

@@ -550,7 +550,6 @@
 #key_bindings:
   #- { key: Paste,                                action: Paste          }
   #- { key: Copy,                                 action: Copy           }
-  #- { key: Copy,                     mode: Vi,   action: ClearSelection }
   #- { key: L,         mods: Control,             action: ClearLogNotice }
   #- { key: L,         mods: Control, mode: ~Vi,  chars: "\x0c"          }
   #- { key: PageUp,    mods: Shift,   mode: ~Alt, action: ScrollPageUp,  }
@@ -574,6 +573,7 @@
   #- { key: D,      mods: Control,       mode: Vi, action: ScrollHalfPageDown      }
   #- { key: Y,                           mode: Vi, action: Copy                    }
   #- { key: Y,                           mode: Vi, action: ClearSelection          }
+  #- { key: Copy,                        mode: Vi, action: ClearSelection          }
   #- { key: V,                           mode: Vi, action: ToggleNormalSelection   }
   #- { key: V,      mods: Shift,         mode: Vi, action: ToggleLineSelection     }
   #- { key: V,      mods: Control,       mode: Vi, action: ToggleBlockSelection    }
