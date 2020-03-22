@@ -136,7 +136,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.copy_selection(ClipboardType::Clipboard);
             },
             #[cfg(not(any(target_os = "macos", windows)))]
-            Action::CopyPrimary => {
+            Action::CopySelection => {
                 ctx.copy_selection(ClipboardType::Selection);
             },
             Action::Paste => {

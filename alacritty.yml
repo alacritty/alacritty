@@ -505,7 +505,7 @@
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
 #
 #   (Linux/BSD only):
-#   - CopyPrimary: Copies into primary selection buffer
+#   - CopySelection: Copies into selection buffer
 #
 # - `command`: Fork and execute a specified command plus arguments
 #
