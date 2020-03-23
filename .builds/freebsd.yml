@@ -11,7 +11,7 @@ sources:
   - https://github.com/alacritty/alacritty
 tasks:
   - rustup: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
   - 1-39-0: |
       $HOME/.cargo/bin/rustup toolchain install --profile minimal 1.39.0
       cd alacritty
