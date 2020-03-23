@@ -301,7 +301,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
         Copy;  Action::Copy;
-        Copy,  +TermMode::VI; Action::Copy;
+        Copy,  +TermMode::VI; Action::ClearSelection;
         Paste, ~TermMode::VI; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
         L,    ModifiersState::CTRL,  ~TermMode::VI; Action::Esc("\x0c".into());
