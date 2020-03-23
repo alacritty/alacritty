@@ -42,7 +42,6 @@ use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
 use crate::gl;
-
 #[cfg(not(any(target_os = "macos", windows)))]
 use crate::wayland_theme::AlacrittyWaylandTheme;
 
@@ -372,9 +371,7 @@ impl Window {
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn set_wayland_theme(&mut self, colors: &Colors) {
-        let theme = AlacrittyWaylandTheme::new(colors);
-
-        self.window().set_wayland_theme(theme);
+        self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
     }
 
     /// Adjust the IME editor position according to the new location of the cursor
