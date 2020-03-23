@@ -1167,12 +1167,6 @@ impl<T> Term<T> {
             self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &template);
         }
 
-        // Move prompt down when growing if scrollback lines are available
-        if num_lines > old_lines && !self.mode.contains(TermMode::ALT_SCREEN) {
-            let growage = min(num_lines - old_lines, Line(self.grid.history_size()));
-            self.cursor.point.line += growage;
-        }
-
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
