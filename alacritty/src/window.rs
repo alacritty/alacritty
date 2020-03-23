@@ -163,6 +163,10 @@ impl Window {
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
+            } else {
+                let theme = AlacrittyWaylandTheme::new(&config.colors);
+
+                windowed_context.window().set_wayland_theme(theme);
             }
         }
 
