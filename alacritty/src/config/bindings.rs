@@ -111,6 +111,10 @@ pub enum Action {
     /// Store current selection into clipboard.
     Copy,
 
+    #[cfg(not(any(target_os = "macos", windows)))]
+    /// Store current selection into selection buffer.
+    CopySelection,
+
     /// Paste contents of selection buffer.
     PasteSelection,
 
@@ -297,6 +301,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
         Copy;  Action::Copy;
+        Copy,  +TermMode::VI; Action::ClearSelection;
         Paste, ~TermMode::VI; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
         L,    ModifiersState::CTRL,  ~TermMode::VI; Action::Esc("\x0c".into());
@@ -366,6 +371,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         U,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollHalfPageUp;
         D,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollHalfPageDown;
         Y,                             +TermMode::VI; Action::Copy;
+        Y,                             +TermMode::VI; Action::ClearSelection;
         V,                             +TermMode::VI; ViAction::ToggleNormalSelection;
         V,      ModifiersState::SHIFT, +TermMode::VI; ViAction::ToggleLineSelection;
         V,      ModifiersState::CTRL,  +TermMode::VI; ViAction::ToggleBlockSelection;
@@ -472,6 +478,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
         KeyBinding;
         V,        ModifiersState::CTRL | ModifiersState::SHIFT, ~TermMode::VI; Action::Paste;
         C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
+        C,        ModifiersState::CTRL | ModifiersState::SHIFT, +TermMode::VI; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~TermMode::VI; Action::PasteSelection;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
@@ -511,6 +518,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
         K, ModifiersState::LOGO; Action::ClearHistory;
         C, ModifiersState::LOGO; Action::Copy;
+        C, ModifiersState::LOGO, +TermMode::VI; Action::ClearSelection;
         H, ModifiersState::LOGO; Action::Hide;
         M, ModifiersState::LOGO; Action::Minimize;
         Q, ModifiersState::LOGO; Action::Quit;
