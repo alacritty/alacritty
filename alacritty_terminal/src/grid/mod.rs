@@ -206,7 +206,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
         match self.lines.cmp(&lines) {
             Ordering::Less => self.grow_lines(lines, cursor_pos, template),
-            Ordering::Greater => self.shrink_lines(lines),
+            Ordering::Greater => self.shrink_lines(lines, cursor_pos, template),
             Ordering::Equal => (),
         }
 
@@ -442,11 +442,15 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines(&mut self, target: Line) {
-        let prev = self.lines;
+    fn shrink_lines(&mut self, target: Line, cursor_pos: &mut Point, template: &T) {
+        // Scroll up to keep cursor inside the window
+        let required_scrolling = (cursor_pos.line + 1).saturating_sub(target.0);
+        if required_scrolling > 0 {
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), template);
+        }
 
         self.selection = None;
-        self.raw.rotate(*prev as isize - *target as isize);
+        self.raw.rotate((self.lines - target).0 as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
     }
