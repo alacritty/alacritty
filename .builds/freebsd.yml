@@ -1,0 +1,21 @@
+image: freebsd/latest
+packages:
+  - devel/cmake
+  - devel/pkgconf
+  - lang/python3
+  - print/freetype2
+  - x11-fonts/fontconfig
+  - x11-fonts/dejavu
+  - x11/libxcb
+sources:
+  - https://github.com/alacritty/alacritty
+tasks:
+  - rustup: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
+  - 1-39-0: |
+      $HOME/.cargo/bin/rustup toolchain install --profile minimal 1.39.0
+      cd alacritty
+      $HOME/.cargo/bin/cargo +1.39.0 test
+  - stable: |
+      cd alacritty
+      $HOME/.cargo/bin/cargo +stable test
