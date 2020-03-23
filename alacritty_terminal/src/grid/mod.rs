@@ -244,12 +244,14 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.lines = new_line_count;
 
         let history_size = self.history_size();
-        if lines_added.0 > history_size {
-            // Move existing lines up if there is no scrollback to fill new lines
-            self.scroll_up(&(Line(0)..new_line_count), lines_added - history_size, template);
-        } else {
-            // Move cursor down for all lines pulled from history
-            cursor_pos.line = cursor_pos.line + lines_added.0;
+        let from_history = min(history_size, lines_added.0);
+
+        // Move cursor down for all lines pulled from history
+        cursor_pos.line = cursor_pos.line + from_history;
+
+        if from_history != lines_added.0 {
+            // Move existing lines up for every line that couldn't be pulled from history
+            self.scroll_up(&(Line(0)..new_line_count), lines_added - from_history, template);
         }
 
         self.decrease_scroll_limit(*lines_added);

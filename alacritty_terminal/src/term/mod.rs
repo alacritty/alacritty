@@ -2293,6 +2293,8 @@ impl IndexMut<Column> for TabStops {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use std::mem;
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
@@ -2303,7 +2305,6 @@ mod tests {
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
-    use crate::term::{SizeInfo, Term};
 
     struct Mock;
     impl EventListener for Mock {
@@ -2487,6 +2488,68 @@ mod tests {
         term.grid.truncate();
 
         assert_eq!(term.grid, scrolled_grid);
+    }
+
+    #[test]
+    fn resize_updates_active_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Increase visible lines
+        size.height = 30.;
+        term.resize(&size);
+
+        assert_eq!(term.grid.history_size(), 0);
+        assert_eq!(term.cursor.point, Point::new(Line(19), Column(0)));
+    }
+
+    #[test]
+    fn resize_updates_inactive_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Enter alt screen
+        term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        // Increase visible lines
+        size.height = 30.;
+        term.resize(&size);
+
+        // Leave alt screen
+        term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        assert_eq!(term.grid().history_size(), 0);
+        assert_eq!(term.cursor.point, Point::new(Line(19), Column(0)));
     }
 
     #[test]
