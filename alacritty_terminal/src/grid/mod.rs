@@ -247,7 +247,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let from_history = min(history_size, lines_added.0);
 
         // Move cursor down for all lines pulled from history
-        cursor_pos.line = cursor_pos.line + from_history;
+        cursor_pos.line += from_history;
 
         if from_history != lines_added.0 {
             // Move existing lines up for every line that couldn't be pulled from history
