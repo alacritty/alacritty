@@ -1153,32 +1153,13 @@ impl<T> Term<T> {
             num_lines = Line(2);
         }
 
-        // Scroll up to keep cursor in terminal
-        if self.cursor.point.line >= num_lines {
-            let lines = self.cursor.point.line - num_lines + 1;
-            let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
-            self.grid.scroll_up(&(Line(0)..old_lines), lines, &template);
-        }
-
-        // Scroll up alt grid as well
-        if self.cursor_save_alt.point.line >= num_lines {
-            let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            let template = Cell { bg: self.cursor_save_alt.template.bg, ..Cell::default() };
-            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &template);
-        }
-
-        // Move prompt down when growing if scrollback lines are available
-        if num_lines > old_lines && !self.mode.contains(TermMode::ALT_SCREEN) {
-            let growage = min(num_lines - old_lines, Line(self.grid.history_size()));
-            self.cursor.point.line += growage;
-        }
-
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
-        // Resize grids to new size
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
         let alt_cursor_point =
             if is_alt { &mut self.cursor_save.point } else { &mut self.cursor_save_alt.point };
+
+        // Resize grids to new size
         self.grid.resize(!is_alt, num_lines, num_cols, &mut self.cursor.point, &Cell::default());
         self.alt_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
 
@@ -2299,6 +2280,8 @@ impl IndexMut<Column> for TabStops {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use std::mem;
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
@@ -2309,7 +2292,6 @@ mod tests {
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
-    use crate::term::{SizeInfo, Term};
 
     struct Mock;
     impl EventListener for Mock {
@@ -2493,6 +2475,130 @@ mod tests {
         term.grid.truncate();
 
         assert_eq!(term.grid, scrolled_grid);
+    }
+
+    #[test]
+    fn grow_lines_updates_active_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Increase visible lines
+        size.height = 30.;
+        term.resize(&size);
+
+        assert_eq!(term.grid.history_size(), 0);
+        assert_eq!(term.cursor.point, Point::new(Line(19), Column(0)));
+    }
+
+    #[test]
+    fn grow_lines_updates_inactive_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Enter alt screen
+        term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        // Increase visible lines
+        size.height = 30.;
+        term.resize(&size);
+
+        // Leave alt screen
+        term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        assert_eq!(term.grid().history_size(), 0);
+        assert_eq!(term.cursor.point, Point::new(Line(19), Column(0)));
+    }
+
+    #[test]
+    fn shrink_lines_updates_active_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Increase visible lines
+        size.height = 5.;
+        term.resize(&size);
+
+        assert_eq!(term.grid().history_size(), 15);
+        assert_eq!(term.cursor.point, Point::new(Line(4), Column(0)));
+    }
+
+    #[test]
+    fn shrink_lines_updates_inactive_cursor_pos() {
+        let mut size = SizeInfo {
+            width: 100.0,
+            height: 10.0,
+            cell_width: 1.0,
+            cell_height: 1.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Create 10 lines of scrollback
+        for _ in 0..19 {
+            term.newline();
+        }
+        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.cursor.point, Point::new(Line(9), Column(0)));
+
+        // Enter alt screen
+        term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        // Increase visible lines
+        size.height = 5.;
+        term.resize(&size);
+
+        // Leave alt screen
+        term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+
+        assert_eq!(term.grid().history_size(), 15);
+        assert_eq!(term.cursor.point, Point::new(Line(4), Column(0)));
     }
 
     #[test]
