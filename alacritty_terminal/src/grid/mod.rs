@@ -562,6 +562,15 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         }
     }
 
+    /// Clear the entire selection if it's contained within the given line/column
+    /// region.
+    pub fn clear_selection(&mut self, line: Range<Line>, column: Range<Column>) {
+        // if selection.contains(point.col, point.line) {
+        //     self.grid.selection = None;
+        // }
+        unimplemented!()
+    }
+
     pub fn clear_viewport(&mut self, template: &T) {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.num_cols() };

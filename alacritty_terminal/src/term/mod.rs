@@ -1930,11 +1930,10 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let template = self.cursor.template;
 
-        // Remove active selections
-        self.grid.selection = None;
-
         match mode {
             ansi::ClearMode::Above => {
+                self.grid.selection = None;
+
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
                     // Fully clear all lines before the current line
@@ -1949,6 +1948,8 @@ impl<T: EventListener> Handler for Term<T> {
                 }
             },
             ansi::ClearMode::Below => {
+                self.grid.selection = None;
+
                 for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
                     cell.reset(&template);
                 }
@@ -1959,6 +1960,8 @@ impl<T: EventListener> Handler for Term<T> {
                 }
             },
             ansi::ClearMode::All => {
+                self.grid.selection = None;
+
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.region_mut(..).each(|c| c.reset(&template));
                 } else {

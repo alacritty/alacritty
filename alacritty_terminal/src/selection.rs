@@ -63,6 +63,13 @@ impl<L> SelectionRange<L> {
             && (self.start.col <= col || (self.start.line != line && !self.is_block))
             && (self.end.col >= col || (self.end.line != line && !self.is_block))
     }
+
+    pub fn intersects(&self, col: Range<Column>, line: Range<L>) -> bool
+    where
+        L: PartialEq + PartialOrd,
+    {
+        unimplemented!()
+    }
 }
 
 /// Different kinds of selection.
