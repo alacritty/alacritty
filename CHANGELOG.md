@@ -94,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Decorations visible when in fullscreen on Wayland
 - Window size not persisted correctly after fullscreening on macOS
 - Crash on startup with some locales on X11
+- Shrinking terminal height in alt screen deleting primary screen content
 
 ### Removed
 
