@@ -205,8 +205,8 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         }
 
         match self.lines.cmp(&lines) {
-            Ordering::Less => self.grow_lines(lines, template),
-            Ordering::Greater => self.shrink_lines(lines),
+            Ordering::Less => self.grow_lines(lines, cursor_pos, template),
+            Ordering::Greater => self.shrink_lines(lines, cursor_pos, template),
             Ordering::Equal => (),
         }
 
@@ -236,17 +236,22 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
     /// simply added to the bottom of the screen.
-    fn grow_lines(&mut self, new_line_count: Line, template: &T) {
+    fn grow_lines(&mut self, new_line_count: Line, cursor_pos: &mut Point, template: &T) {
         let lines_added = new_line_count - self.lines;
 
         // Need to "resize" before updating buffer
         self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, template));
         self.lines = new_line_count;
 
-        // Move existing lines up if there is no scrollback to fill new lines
         let history_size = self.history_size();
-        if lines_added.0 > history_size {
-            self.scroll_up(&(Line(0)..new_line_count), lines_added - history_size, template);
+        let from_history = min(history_size, lines_added.0);
+
+        // Move cursor down for all lines pulled from history
+        cursor_pos.line += from_history;
+
+        if from_history != lines_added.0 {
+            // Move existing lines up for every line that couldn't be pulled from history
+            self.scroll_up(&(Line(0)..new_line_count), lines_added - from_history, template);
         }
 
         self.decrease_scroll_limit(*lines_added);
@@ -441,11 +446,15 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines(&mut self, target: Line) {
-        let prev = self.lines;
+    fn shrink_lines(&mut self, target: Line, cursor_pos: &mut Point, template: &T) {
+        // Scroll up to keep cursor inside the window
+        let required_scrolling = (cursor_pos.line + 1).saturating_sub(target.0);
+        if required_scrolling > 0 {
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), template);
+        }
 
         self.selection = None;
-        self.raw.rotate(*prev as isize - *target as isize);
+        self.raw.rotate((self.lines - target).0 as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
     }
