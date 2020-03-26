@@ -2663,8 +2663,7 @@ mod benches {
     extern crate serde_json as json;
     extern crate test;
 
-    use std::fs::File;
-    use std::io::Read;
+    use std::fs;
     use std::mem;
     use std::path::Path;
 
@@ -2681,16 +2680,6 @@ mod benches {
         fn send_event(&self, _event: Event) {}
     }
 
-    fn read_string<P>(path: P) -> String
-    where
-        P: AsRef<Path>,
-    {
-        let mut res = String::new();
-        File::open(path.as_ref()).unwrap().read_to_string(&mut res).unwrap();
-
-        res
-    }
-
     /// Benchmark for the renderable cells iterator
     ///
     /// The renderable cells iterator yields cells that require work to be
@@ -2703,14 +2692,16 @@ mod benches {
     #[bench]
     fn render_iter(b: &mut test::Bencher) {
         // Need some realistic grid state; using one of the ref files.
-        let serialized_grid = read_string(concat!(
+        let serialized_grid = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/ref/vim_large_window_scroll/grid.json"
-        ));
-        let serialized_size = read_string(concat!(
+        ))
+        .unwrap();
+        let serialized_size = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/ref/vim_large_window_scroll/size.json"
-        ));
+        ))
+        .unwrap();
 
         let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();
