@@ -2695,11 +2695,13 @@ mod benches {
         let serialized_grid = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/ref/vim_large_window_scroll/grid.json"
-        )).unwrap();
+        ))
+        .unwrap();
         let serialized_size = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/ref/vim_large_window_scroll/size.json"
-        )).unwrap();
+        ))
+        .unwrap();
 
         let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json as json;
 
-use std::fs::{read_to_string, File};
+use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::Path;
 
@@ -87,9 +87,9 @@ impl EventListener for Mock {
 
 fn ref_test(dir: &Path) {
     let recording = read_u8(dir.join("alacritty.recording"));
-    let serialized_size = read_to_string(dir.join("size.json")).unwrap();
-    let serialized_grid = read_to_string(dir.join("grid.json")).unwrap();
-    let serialized_cfg = read_to_string(dir.join("config.json")).unwrap();
+    let serialized_size = fs::read_to_string(dir.join("size.json")).unwrap();
+    let serialized_grid = fs::read_to_string(dir.join("grid.json")).unwrap();
+    let serialized_cfg = fs::read_to_string(dir.join("config.json")).unwrap();
 
     let size: SizeInfo = json::from_str(&serialized_size).unwrap();
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
