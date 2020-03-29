@@ -1196,6 +1196,9 @@ impl<T> Term<T> {
 
         self.alt = !self.alt;
         mem::swap(&mut self.grid, &mut self.inactive_grid);
+        mem::swap(&mut self.cursor, &mut self.inactive_cursor);
+        self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
+        self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
     }
 
     /// Scroll screen down
@@ -1811,16 +1814,12 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        trace!("Saving cursor position");
-        mem::swap(&mut self.cursor, &mut self.inactive_cursor);
+        unimplemented!()
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        trace!("Restoring cursor position");
-        mem::swap(&mut self.cursor, &mut self.inactive_cursor);
-        self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
-        self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
+        unimplemented!()
     }
 
     #[inline]
@@ -2046,9 +2045,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if !self.alt {
                     self.mode.insert(TermMode::ALT_SCREEN);
-                    // self.save_cursor_position();
                     self.swap_alt();
-                    self.save_cursor_position();
                 }
             },
             ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
@@ -2099,9 +2096,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if self.alt {
                     self.mode.remove(TermMode::ALT_SCREEN);
-                    // self.restore_cursor_position();
                     self.swap_alt();
-                    self.restore_cursor_position();
                 }
             },
             ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
