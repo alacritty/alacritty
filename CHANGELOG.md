@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
 - Resize lag on launch under some X11 wms
 - Increased input latency due to vsync behavior on X11
+- Freeze when application is invisible on Wayland
 
 ## 0.4.2
 

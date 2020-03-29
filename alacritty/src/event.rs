@@ -8,6 +8,8 @@ use std::fs::File;
 use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -411,8 +413,32 @@ impl<N: Notify + OnResize> Processor<N> {
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
-                    if event_queue.is_empty() {
-                        return;
+                    let event_queue_empty = event_queue.is_empty();
+
+                    #[cfg(not(any(target_os = "macos", windows)))]
+                    {
+                        let wayland_queue_empty = if event_loop.is_wayland() {
+                            let num_dispatched = self
+                                .display
+                                .wayland_event_queue
+                                .as_mut()
+                                .unwrap()
+                                .dispatch_pending(&mut (), |_, _, _| {})
+                                .unwrap();
+                            num_dispatched == 0
+                        } else {
+                            true
+                        };
+
+                        if event_queue_empty && wayland_queue_empty {
+                            return;
+                        }
+                    }
+                    #[cfg(any(target_os = "macos", windows))]
+                    {
+                        if event_queue_empty {
+                            return;
+                        }
                     }
                 },
                 // Remap DPR change event to remove lifetime
@@ -470,6 +496,15 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     display_update_pending,
                 );
+            }
+
+            #[cfg(not(any(target_os = "macos", windows)))]
+            {
+                if event_loop.is_wayland()
+                    && !self.display.window.should_draw.load(Ordering::Relaxed)
+                {
+                    return;
+                }
             }
 
             if terminal.dirty {

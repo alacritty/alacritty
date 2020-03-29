@@ -17,6 +17,10 @@ use std::ffi::c_void;
 use std::fmt::{self, Display, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::os::raw::c_ulong;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::atomic::AtomicBool;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::Arc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
@@ -117,6 +121,7 @@ fn create_gl_window(
     mut window: WindowBuilder,
     event_loop: &EventLoop<Event>,
     srgb: bool,
+    vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
     if let Some(dimensions) = dimensions {
@@ -125,7 +130,7 @@ fn create_gl_window(
 
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
-        .with_vsync(true)
+        .with_vsync(vsync)
         .with_hardware_acceleration(None)
         .build_windowed(window, event_loop)?;
 
@@ -142,6 +147,9 @@ pub struct Window {
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+    /// Wayland setting to control redrawing of the window, according to the frame callbacks
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub should_draw: Arc<AtomicBool>,
 }
 
 impl Window {
@@ -154,9 +162,14 @@ impl Window {
         size: Option<PhysicalSize<u32>>,
     ) -> Result<Window> {
         let window_builder = Window::get_platform_window(&config.window.title, &config.window);
+        // Disable vsync on Wayland
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let vsync = !event_loop.is_wayland();
+        #[cfg(any(target_os = "macos", windows))]
+        let vsync = true;
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, size)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, size))?;
+            create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, vsync, size))?;
 
         // Text cursor
         let current_mouse_cursor = CursorIcon::Text;
@@ -178,7 +191,13 @@ impl Window {
             }
         }
 
-        Ok(Self { current_mouse_cursor, mouse_visible: true, windowed_context })
+        Ok(Self {
+            current_mouse_cursor,
+            mouse_visible: true,
+            windowed_context,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            should_draw: Arc::new(AtomicBool::new(true)),
+        })
     }
 
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
@@ -361,6 +380,11 @@ impl Window {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn wayland_display(&self) -> Option<*mut c_void> {
         self.window().wayland_display()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    pub fn wayland_surface(&self) -> Option<*mut c_void> {
+        self.window().wayland_surface()
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

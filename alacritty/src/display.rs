@@ -16,6 +16,8 @@
 //! GPU drawing.
 use std::f64;
 use std::fmt::{self, Formatter};
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
@@ -26,6 +28,10 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::protocol::wl_surface::WlSurface;
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::{Display as WaylandDisplay, EventQueue, Proxy};
 
 use font::{self, Rasterize};
 
@@ -106,7 +112,7 @@ impl From<glutin::ContextError> for Error {
     }
 }
 
-/// The display wraps a window, font rasterizer, and GPU renderer
+/// The display wraps a window, font rasterizer, and GPU renderer.
 pub struct Display {
     pub size_info: SizeInfo,
     pub window: Window,
@@ -120,6 +126,9 @@ pub struct Display {
     meter: Meter,
     #[cfg(not(any(target_os = "macos", windows)))]
     is_x11: bool,
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub wayland_event_queue: Option<EventQueue>,
 }
 
 impl Display {
@@ -202,6 +211,8 @@ impl Display {
 
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut wayland_event_queue = None;
 
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
@@ -214,6 +225,11 @@ impl Display {
                 renderer.with_api(&config, &size_info, |api| {
                     api.finish();
                 });
+            } else {
+                // Initialize Wayland event queue, to handle various Wayland related routines.
+                let display = window.wayland_display().unwrap();
+                let display = unsafe { WaylandDisplay::from_external_display(display as _) };
+                wayland_event_queue = Some(display.create_event_queue());
             }
         }
 
@@ -247,6 +263,8 @@ impl Display {
             highlighted_url: None,
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            wayland_event_queue,
         })
     }
 
@@ -506,6 +524,21 @@ impl Display {
             self.renderer.with_api(&config, &size_info, |mut api| {
                 api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
             });
+        }
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            // Register wayland frame callback
+            if let Some(surface) = self.window.wayland_surface() {
+                let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
+                let attached = proxy.attach(self.wayland_event_queue.as_ref().unwrap().token());
+                let should_draw = self.window.should_draw.clone();
+                // Mark that window was drawn
+                should_draw.store(false, Ordering::Relaxed);
+                attached.frame().quick_assign(move |_, _, _| {
+                    should_draw.store(true, Ordering::Relaxed);
+                });
+            }
         }
 
         self.window.swap_buffers();
