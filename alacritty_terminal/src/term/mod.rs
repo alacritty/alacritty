@@ -823,6 +823,9 @@ pub struct Term<T> {
     /// The cursor.
     cursor: Cursor,
 
+    /// The inactive cursor.
+    inactive_cursor: Cursor,
+
     /// Cursor location for vi mode.
     pub vi_mode_cursor: ViModeCursor,
 
@@ -843,12 +846,6 @@ pub struct Term<T> {
     pub dirty: bool,
 
     pub visual_bell: VisualBell,
-
-    /// Saved cursor from main grid.
-    cursor_save: Cursor,
-
-    /// Saved cursor from alt grid.
-    cursor_save_alt: Cursor,
 
     semantic_escape_chars: String,
 
@@ -937,9 +934,8 @@ impl<T> Term<T> {
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
+            inactive_cursor: Default::default(),
             vi_mode_cursor: Default::default(),
-            cursor_save: Default::default(),
-            cursor_save_alt: Default::default(),
             tabs,
             mode: Default::default(),
             scroll_region,
@@ -1156,12 +1152,16 @@ impl<T> Term<T> {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
-        let alt_cursor_point =
-            if is_alt { &mut self.cursor_save.point } else { &mut self.cursor_save_alt.point };
 
         // Resize grids to new size
         self.grid.resize(!is_alt, num_lines, num_cols, &mut self.cursor.point, &Cell::default());
-        self.inactive_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
+        self.inactive_grid.resize(
+            is_alt,
+            num_lines,
+            num_cols,
+            &mut self.inactive_cursor.point,
+            &Cell::default(),
+        );
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1169,10 +1169,8 @@ impl<T> Term<T> {
         // Ensure cursors are in-bounds.
         self.cursor.point.col = min(self.cursor.point.col, num_cols - 1);
         self.cursor.point.line = min(self.cursor.point.line, num_lines - 1);
-        self.cursor_save.point.col = min(self.cursor_save.point.col, num_cols - 1);
-        self.cursor_save.point.line = min(self.cursor_save.point.line, num_lines - 1);
-        self.cursor_save_alt.point.col = min(self.cursor_save_alt.point.col, num_cols - 1);
-        self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
+        self.inactive_cursor.point.col = min(self.inactive_cursor.point.col, num_cols - 1);
+        self.inactive_cursor.point.line = min(self.inactive_cursor.point.line, num_lines - 1);
         self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
         self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
 
@@ -1814,17 +1812,13 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn save_cursor_position(&mut self) {
         trace!("Saving cursor position");
-        let cursor = if self.alt { &mut self.cursor_save_alt } else { &mut self.cursor_save };
-
-        *cursor = self.cursor;
+        mem::swap(&mut self.cursor, &mut self.inactive_cursor);
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
         trace!("Restoring cursor position");
-        let source = if self.alt { &self.cursor_save_alt } else { &self.cursor_save };
-
-        self.cursor = *source;
+        mem::swap(&mut self.cursor, &mut self.inactive_cursor);
         self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
         self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
     }
@@ -1989,10 +1983,9 @@ impl<T: EventListener> Handler for Term<T> {
         }
         self.input_needs_wrap = false;
         self.cursor = Default::default();
+        self.inactive_cursor = Default::default();
         self.active_charset = Default::default();
         self.mode = Default::default();
-        self.cursor_save = Default::default();
-        self.cursor_save_alt = Default::default();
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
@@ -2053,7 +2046,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if !self.alt {
                     self.mode.insert(TermMode::ALT_SCREEN);
-                    self.save_cursor_position();
+                    // self.save_cursor_position();
                     self.swap_alt();
                     self.save_cursor_position();
                 }
@@ -2106,7 +2099,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if self.alt {
                     self.mode.remove(TermMode::ALT_SCREEN);
-                    self.restore_cursor_position();
+                    // self.restore_cursor_position();
                     self.swap_alt();
                     self.restore_cursor_position();
                 }
