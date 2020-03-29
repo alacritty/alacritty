@@ -815,7 +815,7 @@ pub struct Term<T> {
     input_needs_wrap: bool,
 
     /// Alternate grid.
-    alt_grid: Grid<Cell>,
+    inactive_grid: Grid<Cell>,
 
     /// Alt is active.
     alt: bool,
@@ -920,7 +920,7 @@ impl<T> Term<T> {
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
-        let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
+        let alt_grid = Grid::new(num_lines, num_cols, 0, Cell::default());
 
         let tabs = TabStops::new(grid.num_cols());
 
@@ -933,7 +933,7 @@ impl<T> Term<T> {
             visual_bell: VisualBell::new(config),
             input_needs_wrap: false,
             grid,
-            alt_grid: alt,
+            inactive_grid: alt_grid,
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
@@ -990,7 +990,7 @@ impl<T> Term<T> {
         }
 
         if self.alt {
-            self.alt_grid.update_history(config.scrolling.history() as usize);
+            self.inactive_grid.update_history(config.scrolling.history() as usize);
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
@@ -1141,7 +1141,7 @@ impl<T> Term<T> {
         }
 
         self.grid.selection = None;
-        self.alt_grid.selection = None;
+        self.inactive_grid.selection = None;
 
         // Should not allow less than 2 cols, causes all sorts of checks to be required.
         if num_cols <= Column(1) {
@@ -1161,7 +1161,7 @@ impl<T> Term<T> {
 
         // Resize grids to new size
         self.grid.resize(!is_alt, num_lines, num_cols, &mut self.cursor.point, &Cell::default());
-        self.alt_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
+        self.inactive_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1197,7 +1197,7 @@ impl<T> Term<T> {
         }
 
         self.alt = !self.alt;
-        mem::swap(&mut self.grid, &mut self.alt_grid);
+        mem::swap(&mut self.grid, &mut self.inactive_grid);
     }
 
     /// Scroll screen down
@@ -1997,7 +1997,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
         self.grid.reset(&Cell::default());
-        self.alt_grid.reset(&Cell::default());
+        self.inactive_grid.reset(&Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
         self.title_stack = Vec::new();
         self.title = None;
