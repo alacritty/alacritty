@@ -481,6 +481,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
+        // Reset click state in mouse mode
+        if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
+            self.ctx.mouse_mut().click_state = ClickState::None;
+        }
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if !button_changed
@@ -488,6 +493,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
+                // Move vi mode cursor to mouse position
+                if self.ctx.terminal().mode().contains(TermMode::VI) {
+                    // Update vi mode cursor position on double click
+                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
+                }
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
@@ -496,12 +506,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
+                // Move vi mode cursor to mouse position
+                if self.ctx.terminal().mode().contains(TermMode::VI) {
+                    // Update vi mode cursor position on triple click
+                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
+                }
                 ClickState::TripleClick
             }
             _ => {
                 if button == MouseButton::Left
-                    && (self.ctx.modifiers().shift()
-                        || !self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
+                    && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
                 {
                     // Don't launch URLs if this click cleared the selection
                     self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
