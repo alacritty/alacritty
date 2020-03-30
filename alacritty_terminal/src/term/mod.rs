@@ -1883,6 +1883,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.grid.reset(&Cell::default());
         self.alt_grid.reset(&Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
+        self.tabs = TabStops::new(self.grid.num_cols());
         self.title_stack = Vec::new();
         self.title = None;
     }
