@@ -288,6 +288,12 @@
 # The value `0.0` is completely transparent and `1.0` is opaque.
 #background_opacity: 1.0
 
+# Background blur
+#
+# Request transcluent parts of window's background to be blurred.
+# Currently this only affects KWin and X11.
+#background_blur: false
+
 #selection:
   #semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
 

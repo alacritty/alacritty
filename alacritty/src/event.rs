@@ -48,6 +48,7 @@ pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize<u32>>,
     pub message_buffer: Option<()>,
     pub font: Option<Font>,
+    pub background_blur: Option<bool>,
 }
 
 impl DisplayUpdate {
@@ -540,6 +541,11 @@ impl<N: Notify + OnResize> Processor<N> {
 
                             let font = config.font.clone().with_size(*processor.ctx.font_size);
                             processor.ctx.display_update_pending.font = Some(font);
+                        }
+
+                        if processor.ctx.config.background_blur() != config.background_blur() {
+                            processor.ctx.display_update_pending.background_blur =
+                                Some(config.background_blur());
                         }
 
                         *processor.ctx.config = config;

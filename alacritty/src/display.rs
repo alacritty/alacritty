@@ -300,6 +300,11 @@ impl Display {
             self.update_glyph_cache(config, font);
         }
 
+        // Update background blur state
+        if let Some(background_blur) = update_pending.background_blur {
+            self.window.set_background_blur(background_blur);
+        }
+
         let cell_width = self.size_info.cell_width;
         let cell_height = self.size_info.cell_height;
 

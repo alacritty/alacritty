@@ -23,7 +23,9 @@ use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(not(any(target_os = "macos", windows)))]
-use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
+use glutin::platform::unix::{
+    self, EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix,
+};
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
@@ -161,7 +163,11 @@ impl Window {
             }
         }
 
-        Ok(Self { current_mouse_cursor, mouse_visible: true, windowed_context })
+        let window = Self { current_mouse_cursor, mouse_visible: true, windowed_context };
+
+        window.set_background_blur(config.background_blur());
+
+        Ok(window)
     }
 
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
@@ -298,6 +304,42 @@ impl Window {
 
     #[cfg(windows)]
     pub fn set_urgent(&self, _is_urgent: bool) {}
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn set_background_blur(&self, background_blur: bool) {
+        let (xlib_display, xlib_window) =
+            match (self.window().xlib_display(), self.window().xlib_window()) {
+                (Some(display), Some(window)) => (display, window),
+                _ => return,
+            };
+
+        let xlib = Xlib::open().expect("get xlib");
+
+        unsafe {
+            let atom = (xlib.XInternAtom)(
+                xlib_display as *mut _,
+                "_KDE_NET_WM_BLUR_BEHIND_REGION\0".as_ptr() as *const _,
+                0,
+            );
+            if background_blur {
+                (xlib.XChangeProperty)(
+                    xlib_display as _,
+                    xlib_window as _,
+                    atom,
+                    unix::x11::ffi::XA_CARDINAL,
+                    32,
+                    PropModeReplace,
+                    [0 as u32].as_ptr() as *const u8,
+                    1,
+                );
+            } else {
+                (xlib.XDeleteProperty)(xlib_display as _, xlib_window as _, atom);
+            }
+        }
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
+    pub fn set_background_blur(&self, background_blur: bool) {}
 
     pub fn set_outer_position(&self, pos: PhysicalPosition<u32>) {
         self.window().set_outer_position(pos);

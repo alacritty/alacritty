@@ -69,6 +69,10 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     background_opacity: Alpha,
 
+    /// Background blur
+    #[serde(default, deserialize_with = "failure_default")]
+    background_blur: bool,
+
     /// Window configuration
     #[serde(default, deserialize_with = "failure_default")]
     pub window: WindowConfig,
@@ -146,6 +150,11 @@ impl<T> Config<T> {
     #[inline]
     pub fn draw_bold_text_with_bright_colors(&self) -> bool {
         self.draw_bold_text_with_bright_colors
+    }
+
+    #[inline]
+    pub fn background_blur(&self) -> bool {
+        self.background_blur
     }
 
     /// Should show render timer
