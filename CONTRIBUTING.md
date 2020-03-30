@@ -125,7 +125,7 @@ The exact steps for an exemplary `1.2.3` release might look like this:
  11. A GitHub release is created for the `v1.2.3` tag
  12. The changelog since the last stable release (**not** RC)
         is added to the GitHub release description
- 13. The `-dev` is stripped from previous change log entries
+ 13. The `-dev` is stripped from previous changelog entries
 
 # Contact
 
