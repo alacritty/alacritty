@@ -49,8 +49,8 @@ pub struct Options {
 }
 
 impl Default for Options {
-    fn default() -> Options {
-        Options {
+    fn default() -> Self {
+        Self {
             live_config_reload: None,
             print_events: false,
             ref_test: false,
@@ -78,7 +78,7 @@ impl Options {
             version = format!("{} ({})", version, commit_hash);
         }
 
-        let mut options = Options::default();
+        let mut options = Self::default();
 
         let matches = App::new(crate_name!())
             .version(version.as_str())

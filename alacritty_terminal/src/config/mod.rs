@@ -143,7 +143,7 @@ pub struct Config<T> {
 
 impl<T> Config<T> {
     #[inline]
-    pub fn draw_bold_text_with_bright_colors(&self) -> bool {
+    pub const fn draw_bold_text_with_bright_colors(&self) -> bool {
         self.draw_bold_text_with_bright_colors
     }
 
@@ -155,7 +155,7 @@ impl<T> Config<T> {
 
     /// Live config reload
     #[inline]
-    pub fn live_config_reload(&self) -> bool {
+    pub const fn live_config_reload(&self) -> bool {
         self.live_config_reload.0
     }
 
@@ -165,13 +165,13 @@ impl<T> Config<T> {
     }
 
     #[inline]
-    pub fn dynamic_title(&self) -> bool {
+    pub const fn dynamic_title(&self) -> bool {
         self.dynamic_title.0
     }
 
     /// Cursor foreground color.
     #[inline]
-    pub fn cursor_text_color(&self) -> Option<Rgb> {
+    pub const fn cursor_text_color(&self) -> Option<Rgb> {
         self.colors.cursor.text
     }
 
@@ -183,13 +183,13 @@ impl<T> Config<T> {
 
     /// Vi mode cursor foreground color.
     #[inline]
-    pub fn vi_mode_cursor_text_color(&self) -> Option<Rgb> {
+    pub const fn vi_mode_cursor_text_color(&self) -> Option<Rgb> {
         self.colors.vi_mode_cursor.text
     }
 
     /// Vi mode cursor background color.
     #[inline]
-    pub fn vi_mode_cursor_cursor_color(&self) -> Option<Rgb> {
+    pub const fn vi_mode_cursor_cursor_color(&self) -> Option<Rgb> {
         self.colors.vi_mode_cursor.cursor
     }
 
@@ -200,7 +200,7 @@ impl<T> Config<T> {
 
     /// Send escape sequences using the alt key
     #[inline]
-    pub fn alt_send_esc(&self) -> bool {
+    pub const fn alt_send_esc(&self) -> bool {
         self.alt_send_esc.0
     }
 
@@ -211,7 +211,7 @@ impl<T> Config<T> {
     }
 
     #[inline]
-    pub fn background_opacity(&self) -> f32 {
+    pub const fn background_opacity(&self) -> f32 {
         self.background_opacity.0
     }
 }
@@ -236,7 +236,7 @@ struct EscapeChars(String);
 
 impl Default for EscapeChars {
     fn default() -> Self {
-        EscapeChars(String::from(",│`|:\"' ()[]{}<>\t"))
+        Self(String::from(",│`|:\"' ()[]{}<>\t"))
     }
 }
 
@@ -252,7 +252,7 @@ pub struct Cursor {
 }
 
 impl Cursor {
-    pub fn unfocused_hollow(self) -> bool {
+    pub const fn unfocused_hollow(self) -> bool {
         self.unfocused_hollow.0
     }
 }
@@ -293,7 +293,7 @@ pub struct Alpha(f32);
 
 impl Alpha {
     pub fn new(value: f32) -> Self {
-        Alpha(if value < 0.0 {
+        Self(if value < 0.0 {
             0.0
         } else if value > 1.0 {
             1.0
@@ -305,7 +305,7 @@ impl Alpha {
 
 impl Default for Alpha {
     fn default() -> Self {
-        Alpha(1.0)
+        Self(1.0)
     }
 }
 
@@ -314,7 +314,7 @@ impl<'a> Deserialize<'a> for Alpha {
     where
         D: Deserializer<'a>,
     {
-        Ok(Alpha::new(f32::deserialize(deserializer)?))
+        Ok(Self::new(f32::deserialize(deserializer)?))
     }
 }
 
@@ -323,7 +323,7 @@ struct DefaultTrueBool(bool);
 
 impl Default for DefaultTrueBool {
     fn default() -> Self {
-        DefaultTrueBool(true)
+        Self(true)
     }
 }
 
