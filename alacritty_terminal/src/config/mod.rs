@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -77,8 +76,8 @@ pub struct Config<T> {
     pub selection: Selection,
 
     /// Path to a shell program to run on startup
-    #[serde(default, deserialize_with = "from_string_or_deserialize")]
-    pub shell: Option<Shell<'static>>,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub shell: Option<Shell>,
 
     /// Path where config was loaded from
     #[serde(default, deserialize_with = "failure_default")]
@@ -259,32 +258,20 @@ impl Cursor {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-pub struct Shell<'a> {
-    pub program: Cow<'a, str>,
+pub struct Shell {
+    pub program: String,
 
     #[serde(default, deserialize_with = "failure_default")]
     pub args: Vec<String>,
 }
 
-impl<'a> Shell<'a> {
-    pub fn new<S>(program: S) -> Shell<'a>
-    where
-        S: Into<Cow<'a, str>>,
-    {
-        Shell { program: program.into(), args: Vec::new() }
+impl Shell {
+    pub fn new(program: &str) -> Self {
+        Self { program: program.into(), args: Vec::new() }
     }
 
-    pub fn new_with_args<S>(program: S, args: Vec<String>) -> Shell<'a>
-    where
-        S: Into<Cow<'a, str>>,
-    {
-        Shell { program: program.into(), args }
-    }
-}
-
-impl FromString for Option<Shell<'_>> {
-    fn from(input: String) -> Self {
-        Some(Shell::new(input))
+    pub fn new_with_args(program: &str, args: Vec<String>) -> Self {
+        Self { program: program.into(), args }
     }
 }
 
