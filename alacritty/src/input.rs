@@ -470,8 +470,25 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
+        // Handle mouse mode
+        if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
+            self.ctx.mouse_mut().click_state = ClickState::None;
+
+            let code = match button {
+                MouseButton::Left => 0,
+                MouseButton::Middle => 1,
+                MouseButton::Right => 2,
+                // Can't properly report more than three buttons.
+                MouseButton::Other(_) => return,
+            };
+
+            self.mouse_report(code, ElementState::Pressed);
+            return;
+        }
+
+        // Calculate time since the last click to handle double/triple clicks in normal mode
         let now = Instant::now();
-        let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
+        let elapsed = now - self.ctx.mouse().last_click_timestamp;
         self.ctx.mouse_mut().last_click_timestamp = now;
 
         let button_changed = self.ctx.mouse().last_button != button;
@@ -481,11 +498,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
-        // Reset click state in mouse mode
-        if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
-            self.ctx.mouse_mut().click_state = ClickState::None;
-        }
-
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if !button_changed
@@ -493,11 +505,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
-                // Move vi mode cursor to mouse position
-                if self.ctx.terminal().mode().contains(TermMode::VI) {
-                    // Update vi mode cursor position on double click
-                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
-                }
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
@@ -506,52 +513,33 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
-                // Move vi mode cursor to mouse position
-                if self.ctx.terminal().mode().contains(TermMode::VI) {
-                    // Update vi mode cursor position on triple click
-                    self.ctx.terminal_mut().vi_mode_cursor.point = point;
-                }
                 ClickState::TripleClick
             }
-            _ => {
-                if button == MouseButton::Left
-                    && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
-                {
-                    // Don't launch URLs if this click cleared the selection
-                    self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+            _ if button == MouseButton::Left => {
+                // Don't launch URLs if this click cleared the selection
+                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                    self.ctx.clear_selection();
+                self.ctx.clear_selection();
 
-                    // Start new empty selection
-                    let side = self.ctx.mouse().cell_side;
-                    if self.ctx.modifiers().ctrl() {
-                        self.ctx.start_selection(SelectionType::Block, point, side);
-                    } else {
-                        self.ctx.start_selection(SelectionType::Simple, point, side);
-                    }
-
-                    // Move vi mode cursor to mouse position
-                    if self.ctx.terminal().mode().contains(TermMode::VI) {
-                        // Update vi mode cursor position on click
-                        self.ctx.terminal_mut().vi_mode_cursor.point = point;
-                    }
-                }
-
-                if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
-                    let code = match button {
-                        MouseButton::Left => 0,
-                        MouseButton::Middle => 1,
-                        MouseButton::Right => 2,
-                        // Can't properly report more than three buttons.
-                        MouseButton::Other(_) => return,
-                    };
-                    self.mouse_report(code, ElementState::Pressed);
-                    return;
+                // Start new empty selection
+                let side = self.ctx.mouse().cell_side;
+                if self.ctx.modifiers().ctrl() {
+                    self.ctx.start_selection(SelectionType::Block, point, side);
+                } else {
+                    self.ctx.start_selection(SelectionType::Simple, point, side);
                 }
 
                 ClickState::Click
             },
+            // Do nothing when using buttons other than LMB
+            _ => ClickState::None,
         };
+
+        // Move vi mode cursor to mouse position
+        if button == MouseButton::Left && self.ctx.terminal().mode().contains(TermMode::VI) {
+            // Update Vi mode cursor position on click
+            self.ctx.terminal_mut().vi_mode_cursor.point = point;
+        }
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
@@ -924,20 +912,12 @@ mod tests {
         fn send_event(&self, _event: TerminalEvent) {}
     }
 
-    #[derive(Debug, PartialEq)]
-    enum MultiClick {
-        DoubleClick,
-        TripleClick,
-        None,
-    }
-
     struct ActionContext<'a, T> {
         pub terminal: &'a mut Term<T>,
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub message_buffer: &'a mut MessageBuffer,
-        pub last_action: MultiClick,
         pub received_count: usize,
         pub suppress_chars: bool,
         pub modifiers: ModifiersState,
@@ -949,13 +929,7 @@ mod tests {
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn start_selection(&mut self, ty: SelectionType, _point: Point, _side: Side) {
-            match ty {
-                SelectionType::Semantic => self.last_action = MultiClick::DoubleClick,
-                SelectionType::Lines => self.last_action = MultiClick::TripleClick,
-                _ => (),
-            }
-        }
+        fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
 
         fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
 
@@ -1065,8 +1039,7 @@ mod tests {
             initial_state: $initial_state:expr,
             initial_button: $initial_button:expr,
             input: $input:expr,
-            end_state: $end_state:pat,
-            last_action: $last_action:expr
+            end_state: $end_state:expr,
         } => {
             #[test]
             fn $name() {
@@ -1107,7 +1080,6 @@ mod tests {
                     selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
-                    last_action: MultiClick::None,
                     received_count: 0,
                     suppress_chars: false,
                     modifiers: Default::default(),
@@ -1130,10 +1102,7 @@ mod tests {
                     processor.mouse_input(state, button);
                 };
 
-                assert!(match processor.ctx.mouse.click_state {
-                    $end_state => processor.ctx.last_action == $last_action,
-                    _ => false
-                });
+                assert_eq!(processor.ctx.mouse.click_state, $end_state);
             }
         }
     }
@@ -1165,13 +1134,44 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                device_id: unsafe { std::mem::transmute_copy(&0) },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::Click,
-        last_action: MultiClick::None
+    }
+
+    test_clickstate! {
+        name: single_right_click,
+        initial_state: ClickState::None,
+        initial_button: MouseButton::Other(0),
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                device_id: unsafe { std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
+        },
+        end_state: ClickState::None,
+    }
+
+    test_clickstate! {
+        name: single_middle_click,
+        initial_state: ClickState::None,
+        initial_button: MouseButton::Other(0),
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Middle,
+                device_id: unsafe { std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
+        },
+        end_state: ClickState::None,
     }
 
     test_clickstate! {
@@ -1182,13 +1182,12 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                device_id: unsafe { std::mem::transmute_copy(&0) },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::DoubleClick,
-        last_action: MultiClick::DoubleClick
     }
 
     test_clickstate! {
@@ -1199,13 +1198,12 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                device_id: unsafe { std::mem::transmute_copy(&0) },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::TripleClick,
-        last_action: MultiClick::TripleClick
     }
 
     test_clickstate! {
@@ -1216,13 +1214,12 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
-                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                device_id: unsafe { std::mem::transmute_copy(&0) },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+            window_id: unsafe { std::mem::transmute_copy(&0) },
         },
-        end_state: ClickState::Click,
-        last_action: MultiClick::None
+        end_state: ClickState::None,
     }
 
     test_process_binding! {
