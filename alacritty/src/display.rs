@@ -296,8 +296,12 @@ impl Display {
         update_pending: DisplayUpdate,
     ) {
         // Update font size and cell dimensions
-        if let Some(font) = update_pending.font {
-            self.update_glyph_cache(config, font);
+        if update_pending.font.is_some() || update_pending.cursor.is_some() {
+            if let Some(font) = update_pending.font {
+                self.update_glyph_cache(config, font);
+            } else if update_pending.cursor.is_some() {
+                self.update_glyph_cache(config, config.font.clone());
+            }
         }
 
         let cell_width = self.size_info.cell_width;

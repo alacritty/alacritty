@@ -51,11 +51,15 @@ pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize<u32>>,
     pub message_buffer: Option<()>,
     pub font: Option<Font>,
+    pub cursor: Option<()>,
 }
 
 impl DisplayUpdate {
     fn is_empty(&self) -> bool {
-        self.dimensions.is_none() && self.font.is_none() && self.message_buffer.is_none()
+        self.dimensions.is_none()
+            && self.font.is_none()
+            && self.message_buffer.is_none()
+            && self.cursor.is_none()
     }
 }
 
@@ -670,6 +674,13 @@ impl<N: Notify + OnResize> Processor<N> {
         let config = options.into_config(config);
 
         processor.ctx.terminal.update_config(&config);
+
+        // Reload cursor if we've changed it's thickness
+        if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
+            > std::f32::EPSILON
+        {
+            processor.ctx.display_update_pending.cursor = Some(());
+        }
 
         if processor.ctx.config.font != config.font {
             // Do not update font size if it has been changed at runtime

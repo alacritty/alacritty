@@ -242,19 +242,57 @@ impl Default for EscapeChars {
 }
 
 #[serde(default)]
-#[derive(Deserialize, Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Copy, Clone, Debug, Default, PartialEq)]
 pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
     pub style: CursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<CursorStyle>,
     #[serde(deserialize_with = "failure_default")]
+    thickness: CursorThickness,
+    #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
 }
 
 impl Cursor {
+    #[inline]
     pub fn unfocused_hollow(self) -> bool {
         self.unfocused_hollow.0
+    }
+
+    #[inline]
+    pub fn thickness(self) -> f32 {
+        self.thickness.0
+    }
+}
+/// Wrapper around f32 that represents a cursor thickness between 0.0 and 1.0
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct CursorThickness(f32);
+
+impl CursorThickness {
+    pub fn new(value: f32) -> Self {
+        CursorThickness(if value < 0.0 {
+            0.0
+        } else if value > 1.0 {
+            1.0
+        } else {
+            value
+        })
+    }
+}
+
+impl Default for CursorThickness {
+    fn default() -> Self {
+        Self(0.15)
+    }
+}
+
+impl<'de> Deserialize<'de> for CursorThickness {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(CursorThickness::new(f32::deserialize(deserializer)?))
     }
 }
 
