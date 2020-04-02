@@ -245,7 +245,7 @@ impl Options {
             // Arg::min_values(1) is set.
             let command = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
-            options.command = Some(Shell::new_with_args(&command, args));
+            options.command = Some(Shell::new_with_args(command, args));
         }
 
         if matches.is_present("hold") {

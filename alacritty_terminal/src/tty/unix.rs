@@ -152,9 +152,9 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
         let shell_name = pw.shell.rsplit('/').next().unwrap();
         let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
 
-        Shell::new_with_args("/bin/bash", argv)
+        Shell::new_with_args(String::from("/bin/bash"), argv)
     } else {
-        Shell::new(pw.shell)
+        Shell::new(String::from(pw.shell))
     };
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 

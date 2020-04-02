@@ -266,12 +266,12 @@ pub struct Shell {
 }
 
 impl Shell {
-    pub fn new(program: &str) -> Self {
-        Self { program: program.into(), args: Vec::new() }
+    pub const fn new(program: String) -> Self {
+        Self { program, args: Vec::new() }
     }
 
-    pub fn new_with_args(program: &str, args: Vec<String>) -> Self {
-        Self { program: program.into(), args }
+    pub const fn new_with_args(program: String, args: Vec<String>) -> Self {
+        Self { program, args }
     }
 }
 

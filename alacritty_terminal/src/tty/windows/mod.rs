@@ -303,7 +303,7 @@ impl OnResize for Pty {
 }
 
 fn cmdline<C>(config: &Config<C>) -> String {
-    let default_shell = Shell::new("powershell");
+    let default_shell = Shell::new(String::from("powershell"));
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_ref())
