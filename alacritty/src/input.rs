@@ -455,20 +455,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
-            let side = self.ctx.mouse().cell_side;
-            self.ctx.start_selection(SelectionType::Semantic, point, side);
-        }
-    }
-
-    fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
-            let side = self.ctx.mouse().cell_side;
-            self.ctx.start_selection(SelectionType::Lines, point, side);
-        }
-    }
-
     fn on_mouse_press(&mut self, button: MouseButton) {
         // Handle mouse mode
         if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
@@ -486,43 +472,46 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return;
         }
 
+        // Do nothing when using buttons other than LMB
+        if button != MouseButton::Left {
+            self.ctx.mouse_mut().click_state = ClickState::None;
+            return;
+        }
+
         // Calculate time since the last click to handle double/triple clicks in normal mode
         let now = Instant::now();
         let elapsed = now - self.ctx.mouse().last_click_timestamp;
         self.ctx.mouse_mut().last_click_timestamp = now;
-
-        let button_changed = self.ctx.mouse().last_button != button;
 
         // Load mouse point, treating message bar and padding as closest cell
         let mouse = self.ctx.mouse();
         let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
+        let side = self.ctx.mouse().cell_side;
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
-                if !button_changed
-                    && elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
+                if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_double_click(button, point);
+                self.ctx.start_selection(SelectionType::Semantic, point, side);
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
-                if !button_changed
-                    && elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
+                if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_triple_click(button, point);
+                self.ctx.start_selection(SelectionType::Lines, point, side);
                 ClickState::TripleClick
             }
-            _ if button == MouseButton::Left => {
+            _ => {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
                 self.ctx.clear_selection();
 
                 // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
                 if self.ctx.modifiers().ctrl() {
                     self.ctx.start_selection(SelectionType::Block, point, side);
                 } else {
@@ -531,12 +520,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
                 ClickState::Click
             },
-            // Do nothing when using buttons other than LMB
-            _ => ClickState::None,
         };
 
         // Move vi mode cursor to mouse position
-        if button == MouseButton::Left && self.ctx.terminal().mode().contains(TermMode::VI) {
+        if self.ctx.terminal().mode().contains(TermMode::VI) {
             // Update Vi mode cursor position on click
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
@@ -697,8 +684,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 ElementState::Released => self.on_mouse_release(button),
             }
         }
-
-        self.ctx.mouse_mut().last_button = button;
     }
 
     /// Process key input.
@@ -1069,7 +1054,6 @@ mod tests {
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
-                mouse.last_button = $initial_button;
 
                 let mut selection = None;
 
