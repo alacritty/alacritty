@@ -7,6 +7,9 @@ use crate::term::color::Rgb;
 #[serde(default)]
 #[derive(Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Colors {
+    /// Use xrdb Values
+    #[serde(deserialize_with = "failure_default")]
+    pub use_xrdb: bool,
     #[serde(deserialize_with = "failure_default")]
     pub primary: PrimaryColors,
     #[serde(deserialize_with = "failure_default")]

@@ -29,6 +29,7 @@ copypasta = { version = "0.6.3", default-features = false }
 [target.'cfg(unix)'.dependencies]
 nix = "0.16.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
+xrdb = "0.1.1"
 
 [target.'cfg(windows)'.dependencies]
 winpty = "0.2.0"

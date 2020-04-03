@@ -172,6 +172,8 @@
 
 # Colors (Tomorrow Night Bright)
 #colors:
+  # Use xrdb colors (Linux/BSD only):
+  # use_xrdb: false
   # Default colors
   #primary:
   #  background: '#000000'

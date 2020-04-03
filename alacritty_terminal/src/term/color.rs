@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
 use crate::config::{Colors, LOG_TARGET_CONFIG};
+extern crate xrdb;
 
 pub const COUNT: usize = 269;
 
@@ -149,32 +150,104 @@ impl<'a> From<&'a Colors> for List {
 }
 
 impl List {
+    fn xrdb_colors(&mut self, colors: &Colors) -> bool {
+        // If xrdb is defined
+        if colors.use_xrdb {
+            // Get xrdb colors
+            let colors_xterm = xrdb::Colors::new("xterm");
+            let colors_xterm = match colors_xterm {
+                Some(x) => x,
+                _ => { return false; }
+            };
+            // Get fg from xrdb
+            let fg = match colors_xterm.fg {
+                Some(x) => x,
+                _ => { return false; }
+            };
+            let fg = match  Rgb::from_str(&fg) {
+                Ok(x) => x,
+                _ => { return false; }
+            };
+            // Get bg from xrdb
+            let bg = match colors_xterm.bg {
+                Some(x) => x,
+                _ => { return false; }
+            };
+            let bg = match  Rgb::from_str(&bg) {
+                Ok(x) => x,
+                _ => { return false; }
+            };
+
+            // Foreground and Background
+            self[ansi::NamedColor::Foreground] = fg;
+            self[ansi::NamedColor::Background] = bg;
+
+            // XTERM Colors from 0 to 15
+            let mut xrdb_color: Vec<Rgb> = Vec::new();
+            for co in colors_xterm.colors.iter() {
+                if let Some(x) = co {
+                    if let Ok(y) = Rgb::from_str(&x) {
+                        xrdb_color.push(y);
+                    }
+                };
+            }
+
+            // Normals Colors
+            self[ansi::NamedColor::Black] = if let Some(c) = xrdb_color.get(0) { *c } else { colors.normal().black };
+            self[ansi::NamedColor::Red] = if let Some(c) = xrdb_color.get(1) { *c } else { colors.normal().red };
+            self[ansi::NamedColor::Green] = if let Some(c) = xrdb_color.get(2) { *c } else { colors.normal().green };
+            self[ansi::NamedColor::Yellow] = if let Some(c) = xrdb_color.get(3) { *c } else { colors.normal().yellow };
+            self[ansi::NamedColor::Blue] = if let Some(c) = xrdb_color.get(4) { *c } else { colors.normal().blue };
+            self[ansi::NamedColor::Magenta] = if let Some(c) = xrdb_color.get(5) { *c } else { colors.normal().magenta };
+            self[ansi::NamedColor::Cyan] = if let Some(c) = xrdb_color.get(6) { *c } else { colors.normal().cyan };
+            self[ansi::NamedColor::White] = if let Some(c) = xrdb_color.get(7) { *c } else { colors.normal().white };
+
+            // Brights
+            self[ansi::NamedColor::BrightBlack] = if let Some(c) = xrdb_color.get(8) { *c } else { colors.bright().black };
+            self[ansi::NamedColor::BrightRed] = if let Some(c) = xrdb_color.get(9) { *c } else { colors.bright().red };
+            self[ansi::NamedColor::BrightGreen] = if let Some(c) = xrdb_color.get(10) { *c } else { colors.bright().green };
+            self[ansi::NamedColor::BrightYellow] = if let Some(c) = xrdb_color.get(11) { *c } else { colors.bright().yellow };
+            self[ansi::NamedColor::BrightBlue] = if let Some(c) = xrdb_color.get(12) { *c } else { colors.bright().blue };
+            self[ansi::NamedColor::BrightMagenta] = if let Some(c) = xrdb_color.get(13) { *c } else { colors.bright().magenta };
+            self[ansi::NamedColor::BrightCyan] = if let Some(c) = xrdb_color.get(14) { *c } else { colors.bright().cyan };
+            self[ansi::NamedColor::BrightWhite] = if let Some(c) = xrdb_color.get(15) { *c } else { colors.bright().white };
+            self[ansi::NamedColor::BrightForeground] =
+                colors.primary.bright_foreground.unwrap_or(fg);
+            true
+        } else {
+            false
+        }
+
+    }
+
     pub fn fill_named(&mut self, colors: &Colors) {
-        // Normals
-        self[ansi::NamedColor::Black] = colors.normal().black;
-        self[ansi::NamedColor::Red] = colors.normal().red;
-        self[ansi::NamedColor::Green] = colors.normal().green;
-        self[ansi::NamedColor::Yellow] = colors.normal().yellow;
-        self[ansi::NamedColor::Blue] = colors.normal().blue;
-        self[ansi::NamedColor::Magenta] = colors.normal().magenta;
-        self[ansi::NamedColor::Cyan] = colors.normal().cyan;
-        self[ansi::NamedColor::White] = colors.normal().white;
+        if !self.xrdb_colors(colors) {
+            // Normals
+            self[ansi::NamedColor::Black] = colors.normal().black;
+            self[ansi::NamedColor::Red] = colors.normal().red;
+            self[ansi::NamedColor::Green] = colors.normal().green;
+            self[ansi::NamedColor::Yellow] = colors.normal().yellow;
+            self[ansi::NamedColor::Blue] = colors.normal().blue;
+            self[ansi::NamedColor::Magenta] = colors.normal().magenta;
+            self[ansi::NamedColor::Cyan] = colors.normal().cyan;
+            self[ansi::NamedColor::White] = colors.normal().white;
 
-        // Brights
-        self[ansi::NamedColor::BrightBlack] = colors.bright().black;
-        self[ansi::NamedColor::BrightRed] = colors.bright().red;
-        self[ansi::NamedColor::BrightGreen] = colors.bright().green;
-        self[ansi::NamedColor::BrightYellow] = colors.bright().yellow;
-        self[ansi::NamedColor::BrightBlue] = colors.bright().blue;
-        self[ansi::NamedColor::BrightMagenta] = colors.bright().magenta;
-        self[ansi::NamedColor::BrightCyan] = colors.bright().cyan;
-        self[ansi::NamedColor::BrightWhite] = colors.bright().white;
-        self[ansi::NamedColor::BrightForeground] =
-            colors.primary.bright_foreground.unwrap_or(colors.primary.foreground);
+            // Brights
+            self[ansi::NamedColor::BrightBlack] = colors.bright().black;
+            self[ansi::NamedColor::BrightRed] = colors.bright().red;
+            self[ansi::NamedColor::BrightGreen] = colors.bright().green;
+            self[ansi::NamedColor::BrightYellow] = colors.bright().yellow;
+            self[ansi::NamedColor::BrightBlue] = colors.bright().blue;
+            self[ansi::NamedColor::BrightMagenta] = colors.bright().magenta;
+            self[ansi::NamedColor::BrightCyan] = colors.bright().cyan;
+            self[ansi::NamedColor::BrightWhite] = colors.bright().white;
+            self[ansi::NamedColor::BrightForeground] =
+                colors.primary.bright_foreground.unwrap_or(colors.primary.foreground);
 
-        // Foreground and background
-        self[ansi::NamedColor::Foreground] = colors.primary.foreground;
-        self[ansi::NamedColor::Background] = colors.primary.background;
+            // Foreground and background
+            self[ansi::NamedColor::Foreground] = colors.primary.foreground;
+            self[ansi::NamedColor::Background] = colors.primary.background;
+        }
 
         // Background for custom cursor colors
         self[ansi::NamedColor::Cursor] = colors.cursor.cursor.unwrap_or_else(Rgb::default);
