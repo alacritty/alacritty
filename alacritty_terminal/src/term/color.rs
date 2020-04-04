@@ -8,7 +8,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
 use crate::config::{Colors, LOG_TARGET_CONFIG};
-extern crate xrdb;
+
+#[cfg(unix)]
+use xrdb;
 
 pub const COUNT: usize = 269;
 
@@ -151,6 +153,10 @@ impl<'a> From<&'a Colors> for List {
 
 impl List {
     fn xrdb_colors(&mut self, colors: &Colors) -> bool {
+        // If not on unix, return without trying to read xrdb
+        #[cfg(not(unix))]
+        return false;
+
         // If xrdb is defined
         if colors.use_xrdb {
             // Get xrdb colors
