@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Default Command+N keybinding for SpawnNewInstance on macOS
+- Add keybinding to open "Emoji & Symbols" input dialog on macOS
 - Vi mode for copying text and opening links
 - `CopySelection` action which copies into selection buffer on Linux/BSD
 

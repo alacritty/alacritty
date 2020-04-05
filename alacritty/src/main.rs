@@ -23,6 +23,10 @@
 #![windows_subsystem = "windows"]
 
 #[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
+#[cfg(target_os = "macos")]
 use std::env;
 use std::error::Error;
 use std::fs;

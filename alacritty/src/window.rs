@@ -41,6 +41,9 @@ use alacritty_terminal::term::{SizeInfo, Term};
 use crate::config::Config;
 use crate::gl;
 
+#[cfg(target_os = "macos")]
+use cocoa::{appkit::NSApp, base::nil};
+
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
@@ -354,6 +357,15 @@ impl Window {
         }
 
         self.window().set_simple_fullscreen(simple_fullscreen);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn show_emoji_and_symbols(&self) {
+        unsafe {
+            let app = NSApp();
+            assert_ne!(app, nil);
+            let () = msg_send![app, orderFrontCharacterPalette: nil];
+        }
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
