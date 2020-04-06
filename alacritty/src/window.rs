@@ -164,7 +164,6 @@ impl Window {
                 }
             } else {
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
-
                 windowed_context.window().set_wayland_theme(theme);
             }
         }

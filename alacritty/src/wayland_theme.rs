@@ -1,8 +1,7 @@
 use glutin::platform::unix::{ButtonState, Theme as WaylandTheme};
 
 use alacritty_terminal::config::Colors;
-use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::color::DIM_FACTOR;
+use alacritty_terminal::term::color::{Rgb, DIM_FACTOR};
 
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
