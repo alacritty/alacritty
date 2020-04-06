@@ -663,33 +663,36 @@ impl<N: Notify + OnResize> Processor<N> {
         processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
         processor.ctx.display_update_pending.message_buffer = Some(());
 
-        if let Ok(config) = config::reload_from(&path) {
-            let options = Options::new();
-            let config = options.into_config(config);
+        let config = match config::reload_from(&path) {
+            Ok(config) => config,
+            Err(_) => return,
+        };
 
-            processor.ctx.terminal.update_config(&config);
+        let options = Options::new();
+        let config = options.into_config(config);
 
-            if processor.ctx.config.font != config.font {
-                // Do not update font size if it has been changed at runtime
-                if *processor.ctx.font_size == processor.ctx.config.font.size {
-                    *processor.ctx.font_size = config.font.size;
-                }
+        processor.ctx.terminal.update_config(&config);
 
-                let font = config.font.clone().with_size(*processor.ctx.font_size);
-                processor.ctx.display_update_pending.font = Some(font);
+        if processor.ctx.config.font != config.font {
+            // Do not update font size if it has been changed at runtime
+            if *processor.ctx.font_size == processor.ctx.config.font.size {
+                *processor.ctx.font_size = config.font.size;
             }
 
-            #[cfg(not(any(target_os = "macos", windows)))]
-            {
-                if processor.ctx.event_loop.is_wayland() {
-                    processor.ctx.window.set_wayland_theme(&config.colors);
-                }
-            }
-
-            *processor.ctx.config = config;
-
-            processor.ctx.terminal.dirty = true;
+            let font = config.font.clone().with_size(*processor.ctx.font_size);
+            processor.ctx.display_update_pending.font = Some(font);
         }
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if processor.ctx.event_loop.is_wayland() {
+                processor.ctx.window.set_wayland_theme(&config.colors);
+            }
+        }
+
+        *processor.ctx.config = config;
+
+        processor.ctx.terminal.dirty = true;
     }
 
     // Write the ref test results to the disk
