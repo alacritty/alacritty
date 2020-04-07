@@ -188,10 +188,75 @@ fn cmdline<C>(config: &Config<C>) -> String {
 
     once(shell.program().as_ref())
         .chain(shell.args().iter().map(|a| a.as_ref()))
-        .map(|arg| arg.replace("\"", "\\\""))
-        .map(|arg| format!("\"{}\"", arg))
+        .map(|arg| quote_argument(arg))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+// Quote an argument for a Windows command line. The full rules are described in the link below,
+// but the basic idea is that we need to add quotes around the argument, and escape any quotes
+// inside the argument.
+//
+// https://docs.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments?view=vs-2019
+//
+// The escaping rules are a bit insane. Each quote must be escaped with a leading backslash.
+// Backslashes must *only* be escaped if they are in a run of backslashes preceding a quote. In
+// that case, each backslash in the run must be escaped with its own backslash. All other
+// backslashes must *not* be escaped and will be interpreted literally.
+//
+// Examples:
+//
+//   * abc -> "abc"
+//   * a b c -> "a b c"
+//   * a"bc -> "a\"bc"
+//   * a\"bc -> "a\\\"bc"
+//   * a\\"bc -> "a\\\\\"bc"
+//   * \abc -> "\abc"
+//   * a\\bc -> "a\\bc"
+//   * a\b"c -> "a\b\"c"
+//   * abc\ -> "abc\\"
+fn quote_argument(arg: &str) -> String {
+    // Allocate the output string, which will require *at least* as much space as the input.
+    let mut output = String::with_capacity(arg.len());
+    // Keep track of the number of backslashes we've seen in the current run of backslashes. If
+    // zero, then we're not currently in a run of backslashes.
+    let mut backslash_count: usize = 0;
+
+    // Push the opening quote.
+    output.push('"');
+
+    for (i, c) in arg.chars().enumerate() {
+        if c == '\\' {
+            backslash_count += 1;
+        } else if c == '"' {
+            // If we have a backslash run, it was actually preceding a quote, so action is
+            // required. We need to double the run, plus add an extra backslash to actually escape
+            // the quote.
+            for _ in 0..(backslash_count + 1) {
+                output.push('\\');
+            }
+            // And now we're not in a run anymore.
+            backslash_count = 0;
+        } else {
+            backslash_count = 0;
+        }
+
+        output.push(c);
+    }
+
+    if backslash_count > 0 {
+        // If we made it out of the loop in a backslash run, we need to double it because it's
+        // going to be preceding a quote once we add the closing quote. This time we *do not* add
+        // an extra backslash, because we do not want to escape the closing quote.
+        for _ in 0..backslash_count {
+            output.push('\\');
+        }
+    }
+
+    // Push the closing quote.
+    output.push('"');
+
+    output
 }
 
 /// Converts the string slice into a Windows-standard representation for "W"-
