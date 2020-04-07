@@ -188,6 +188,8 @@ fn cmdline<C>(config: &Config<C>) -> String {
 
     once(shell.program().as_ref())
         .chain(shell.args().iter().map(|a| a.as_ref()))
+        .map(|arg| arg.replace("\"", "\\\""))
+        .map(|arg| format!("\"{}\"", arg))
         .collect::<Vec<_>>()
         .join(" ")
 }
