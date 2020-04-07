@@ -225,7 +225,7 @@ fn quote_argument(arg: &str) -> String {
     // Push the opening quote.
     output.push('"');
 
-    for (i, c) in arg.chars().enumerate() {
+    for c in arg.chars() {
         if c == '\\' {
             backslash_count += 1;
         } else if c == '"' {
