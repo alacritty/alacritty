@@ -7,6 +7,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::mem;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -14,6 +15,8 @@ use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
@@ -522,31 +525,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::Urgent => {
                     processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused)
                 },
-                Event::ConfigReload(path) => {
-                    processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
-                    processor.ctx.display_update_pending.message_buffer = Some(());
-
-                    if let Ok(config) = config::reload_from(&path) {
-                        let options = Options::new();
-                        let config = options.into_config(config);
-
-                        processor.ctx.terminal.update_config(&config);
-
-                        if processor.ctx.config.font != config.font {
-                            // Do not update font size if it has been changed at runtime
-                            if *processor.ctx.font_size == processor.ctx.config.font.size {
-                                *processor.ctx.font_size = config.font.size;
-                            }
-
-                            let font = config.font.clone().with_size(*processor.ctx.font_size);
-                            processor.ctx.display_update_pending.font = Some(font);
-                        }
-
-                        *processor.ctx.config = config;
-
-                        processor.ctx.terminal.dirty = true;
-                    }
-                },
+                Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
                     processor.ctx.display_update_pending.message_buffer = Some(());
@@ -673,6 +652,47 @@ impl<N: Notify + OnResize> Processor<N> {
             | GlutinEvent::LoopDestroyed => true,
             _ => false,
         }
+    }
+
+    pub fn reload_config<T>(
+        path: &PathBuf,
+        processor: &mut input::Processor<T, ActionContext<N, T>>,
+    ) where
+        T: EventListener,
+    {
+        processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
+        processor.ctx.display_update_pending.message_buffer = Some(());
+
+        let config = match config::reload_from(&path) {
+            Ok(config) => config,
+            Err(_) => return,
+        };
+
+        let options = Options::new();
+        let config = options.into_config(config);
+
+        processor.ctx.terminal.update_config(&config);
+
+        if processor.ctx.config.font != config.font {
+            // Do not update font size if it has been changed at runtime
+            if *processor.ctx.font_size == processor.ctx.config.font.size {
+                *processor.ctx.font_size = config.font.size;
+            }
+
+            let font = config.font.clone().with_size(*processor.ctx.font_size);
+            processor.ctx.display_update_pending.font = Some(font);
+        }
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if processor.ctx.event_loop.is_wayland() {
+                processor.ctx.window.set_wayland_theme(&config.colors);
+            }
+        }
+
+        *processor.ctx.config = config;
+
+        processor.ctx.terminal.dirty = true;
     }
 
     // Write the ref test results to the disk
