@@ -33,6 +33,8 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
+#[cfg(not(any(target_os = "macos", windows)))]
+use alacritty_terminal::config::Colors;
 use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
 #[cfg(not(windows))]
@@ -40,6 +42,8 @@ use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
 use crate::gl;
+#[cfg(not(any(target_os = "macos", windows)))]
+use crate::wayland_theme::AlacrittyWaylandTheme;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
@@ -158,6 +162,9 @@ impl Window {
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
+            } else {
+                let theme = AlacrittyWaylandTheme::new(&config.colors);
+                windowed_context.window().set_wayland_theme(theme);
             }
         }
 
@@ -359,6 +366,11 @@ impl Window {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn wayland_display(&self) -> Option<*mut c_void> {
         self.window().wayland_display()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    pub fn set_wayland_theme(&mut self, colors: &Colors) {
+        self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
     }
 
     /// Adjust the IME editor position according to the new location of the cursor
