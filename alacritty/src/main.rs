@@ -58,6 +58,9 @@ mod renderer;
 mod url;
 mod window;
 
+#[cfg(not(any(target_os = "macos", windows)))]
+mod wayland_theme;
+
 mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
