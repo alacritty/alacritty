@@ -470,14 +470,15 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             self.mouse_report(code, ElementState::Pressed);
         } else if button == MouseButton::Left {
-            self.handle_lmb_click();
+            self.on_left_click();
         } else {
             // Do nothing when using buttons other than LMB
             self.ctx.mouse_mut().click_state = ClickState::None;
         }
     }
 
-    fn handle_lmb_click(&mut self) {
+    /// Handle left click selection and vi mode cursor movement.
+    fn on_left_click(&mut self) {
         // Calculate time since the last click to handle double/triple clicks in normal mode
         let now = Instant::now();
         let elapsed = now - self.ctx.mouse().last_click_timestamp;
