@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -295,7 +295,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum ClickState {
     None,
     Click,
@@ -319,7 +319,6 @@ pub struct Mouse {
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
-    pub last_button: MouseButton,
     pub inside_grid: bool,
 }
 
@@ -339,7 +338,6 @@ impl Default for Mouse {
             cell_side: Side::Left,
             lines_scrolled: 0.,
             block_url_launcher: false,
-            last_button: MouseButton::Other(0),
             inside_grid: false,
         }
     }
