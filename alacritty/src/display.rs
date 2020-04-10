@@ -364,7 +364,8 @@ impl Display {
         let size_info = self.size_info;
 
         let selection = !terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE);
+        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE)
+            && !terminal.mode().contains(TermMode::VI);
 
         let vi_mode_cursor = if terminal.mode().contains(TermMode::VI) {
             Some(terminal.vi_mode_cursor)
