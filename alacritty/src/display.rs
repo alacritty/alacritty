@@ -286,7 +286,15 @@ impl Display {
         size_info.cell_height = cell_height;
     }
 
-    /// Process update events
+    /// Clear glyph cache.
+    fn clear_glyph_cache(&mut self) {
+        let cache = &mut self.glyph_cache;
+        self.renderer.with_loader(|mut api| {
+            cache.clear_glyph_cache(&mut api);
+        });
+    }
+
+    /// Process update events.
     pub fn handle_update<T>(
         &mut self,
         terminal: &mut Term<T>,
@@ -300,7 +308,7 @@ impl Display {
             if let Some(font) = update_pending.font {
                 self.update_glyph_cache(config, font);
             } else if update_pending.cursor.is_some() {
-                self.update_glyph_cache(config, config.font.clone());
+                self.clear_glyph_cache();
             }
         }
 

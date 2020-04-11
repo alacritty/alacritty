@@ -265,7 +265,8 @@ impl Cursor {
         self.thickness.0
     }
 }
-/// Wrapper around f32 that represents a cursor thickness between 0.0 and 1.0
+
+/// Wrapper around f32 that represents a cursor thickness between 0.0 and 1.0.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct CursorThickness(f32);
 

@@ -675,7 +675,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         processor.ctx.terminal.update_config(&config);
 
-        // Reload cursor if we've changed it's thickness
+        // Reload cursor if we've changed its thickness
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f32::EPSILON
         {
