@@ -8,6 +8,8 @@ APP_DIR = $(RELEASE_DIR)/osx
 APP_BINARY = $(RELEASE_DIR)/$(TARGET)
 APP_BINARY_DIR  = $(APP_DIR)/$(APP_NAME)/Contents/MacOS
 
+PWD = $(pwd)
+
 DMG_NAME = Alacritty.dmg
 DMG_DIR = $(RELEASE_DIR)/osx
 
@@ -45,6 +47,10 @@ $(DMG_NAME): $(APP_NAME)
 
 install: $(DMG_NAME) ## Mount disk image
 	@open $(DMG_DIR)/$(DMG_NAME)
+
+docker:
+	docker build -t alacritty .
+	docker run -it -v $(PWD):/out alacritty cp release/alacritty /out/alacritty
 
 .PHONY: app binary clean dmg install $(TARGET)
 
