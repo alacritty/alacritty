@@ -40,6 +40,7 @@ use crate::term::color::Rgb;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
+const DEFAULT_CURSOR_THICKNESS: f32 = 0.15;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
@@ -67,7 +68,7 @@ pub struct Config<T> {
 
     /// Background opacity from 0.0 to 1.0
     #[serde(default, deserialize_with = "failure_default")]
-    background_opacity: Alpha,
+    background_opacity: Percentage,
 
     /// Window configuration
     #[serde(default, deserialize_with = "failure_default")]
@@ -213,7 +214,7 @@ impl<T> Config<T> {
 
     #[inline]
     pub fn background_opacity(&self) -> f32 {
-        self.background_opacity.0
+        self.background_opacity.0 as f32
     }
 }
 
@@ -242,14 +243,14 @@ impl Default for EscapeChars {
 }
 
 #[serde(default)]
-#[derive(Deserialize, Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
 pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
     pub style: CursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<CursorStyle>,
-    #[serde(deserialize_with = "failure_default")]
-    thickness: CursorThickness,
+    #[serde(deserialize_with = "default_thickness")]
+    thickness: Percentage,
     #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
 }
@@ -261,40 +262,28 @@ impl Cursor {
     }
 
     #[inline]
-    pub fn thickness(self) -> f32 {
-        self.thickness.0
+    pub fn thickness(self) -> f64 {
+        self.thickness.0 as f64
     }
 }
 
-/// Wrapper around f32 that represents a cursor thickness between 0.0 and 1.0.
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct CursorThickness(f32);
-
-impl CursorThickness {
-    pub fn new(value: f32) -> Self {
-        CursorThickness(if value < 0.0 {
-            0.0
-        } else if value > 1.0 {
-            1.0
-        } else {
-            value
-        })
-    }
-}
-
-impl Default for CursorThickness {
+impl Default for Cursor {
     fn default() -> Self {
-        Self(0.15)
+        Self {
+            style: Default::default(),
+            vi_mode_style: Default::default(),
+            thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
+            unfocused_hollow: Default::default(),
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for CursorThickness {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(CursorThickness::new(f32::deserialize(deserializer)?))
-    }
+pub fn default_thickness<'a, D>(deserializer: D) -> Result<Percentage, D::Error>
+where
+    D: Deserializer<'a>,
+{
+    Ok(Percentage::deserialize(Value::deserialize(deserializer)?)
+        .unwrap_or_else(|_| Percentage::new(DEFAULT_CURSOR_THICKNESS)))
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -339,13 +328,13 @@ pub struct Delta<T: Default + PartialEq + Eq> {
     pub y: T,
 }
 
-/// Wrapper around f32 that represents an alpha value between 0.0 and 1.0
+/// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Alpha(f32);
+pub struct Percentage(f32);
 
-impl Alpha {
+impl Percentage {
     pub fn new(value: f32) -> Self {
-        Alpha(if value < 0.0 {
+        Percentage(if value < 0.0 {
             0.0
         } else if value > 1.0 {
             1.0
@@ -355,18 +344,18 @@ impl Alpha {
     }
 }
 
-impl Default for Alpha {
+impl Default for Percentage {
     fn default() -> Self {
-        Alpha(1.0)
+        Percentage(1.0)
     }
 }
 
-impl<'a> Deserialize<'a> for Alpha {
+impl<'a> Deserialize<'a> for Percentage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'a>,
     {
-        Ok(Alpha::new(f32::deserialize(deserializer)?))
+        Ok(Percentage::new(f32::deserialize(deserializer)?))
     }
 }
 

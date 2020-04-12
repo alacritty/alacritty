@@ -314,8 +314,6 @@ impl GlyphCache {
         dpr: f64,
         loader: &mut L,
     ) -> Result<(), font::Error> {
-        self.clear_glyph_cache(loader);
-
         // Update dpi scaling
         self.rasterizer.update_dpr(dpr as f32);
 
@@ -335,7 +333,7 @@ impl GlyphCache {
         self.bold_italic_key = bold_italic;
         self.metrics = metrics;
 
-        self.load_common_glyphs(loader);
+        self.clear_glyph_cache(loader);
 
         Ok(())
     }
