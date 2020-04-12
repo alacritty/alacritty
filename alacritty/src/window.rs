@@ -30,6 +30,7 @@ use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuild
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
+use log::error;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
@@ -434,6 +435,6 @@ fn x_embed_window(window: &GlutinWindow, parent_id: c_ulong) {
 
 #[cfg(not(any(target_os = "macos", windows)))]
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
-    println!("Could not embed into specified window.");
+    error!("Could not embed into specified window.");
     std::process::exit(1);
 }
