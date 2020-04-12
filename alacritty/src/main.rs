@@ -32,7 +32,7 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use dirs;
 use glutin::event_loop::EventLoop as GlutinEventLoop;
-use log::info;
+use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
@@ -113,7 +113,7 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(window_event_loop, config) {
-        println!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
+        error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
         std::process::exit(1);
     }
 
