@@ -53,27 +53,28 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    pub fn sub(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes =
-            (rhs.saturating_sub(self.col.0) as f32 / num_cols as f32).ceil() as usize;
-        if self.line.into() > Line(line_changes) {
+        let num_cols = num_cols.0;
+        let line_changes = (rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols;
+        if self.line.into() >= Line(line_changes) {
             self.line = self.line - line_changes;
+            self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
+            self
         } else {
-            self.line = Default::default();
+            Point::new(L::default(), Column(0))
         }
-        self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
-        self
     }
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    pub fn add(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
+        let num_cols = num_cols.0;
         self.line = self.line + (rhs + self.col.0) / num_cols;
         self.col = Column((self.col.0 + rhs) % num_cols);
         self
@@ -81,30 +82,30 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    pub fn sub_absolute(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        self.line =
-            self.line + (rhs.saturating_sub(self.col.0) as f32 / num_cols as f32).ceil() as usize;
+        let num_cols = num_cols.0;
+        self.line = self.line + ((rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols);
         self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
         self
     }
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add_absolute(mut self, num_cols: usize, rhs: usize) -> Point<L>
+    pub fn add_absolute(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
-        let line_changes = (rhs + self.col.0) / num_cols;
-        if self.line.into() > Line(line_changes) {
+        let line_changes = (rhs + self.col.0) / num_cols.0;
+        if self.line.into() >= Line(line_changes) {
             self.line = self.line - line_changes;
+            self.col = Column((self.col.0 + rhs) % num_cols.0);
+            self
         } else {
-            self.line = Default::default();
+            Point::new(L::default(), num_cols - 1)
         }
-        self.col = Column((self.col.0 + rhs) % num_cols);
-        self
     }
 }
 
@@ -452,5 +453,105 @@ mod tests {
         assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(0)));
         assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(1)));
         assert!(Point::new(Line(1), Column(1)) > Point::new(Line(1), Column(0)));
+    }
+
+    #[test]
+    fn sub() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(13));
+
+        let result = point.sub(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, point.col - 1));
+    }
+
+    #[test]
+    fn sub_wrap() {
+        let num_cols = Column(42);
+        let point = Point::new(1, Column(0));
+
+        let result = point.sub(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, num_cols - 1));
+    }
+
+    #[test]
+    fn sub_clamp() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(0));
+
+        let result = point.sub(num_cols, 1);
+
+        assert_eq!(result, point);
+    }
+
+    #[test]
+    fn add() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(13));
+
+        let result = point.add(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, point.col + 1));
+    }
+
+    #[test]
+    fn add_wrap() {
+        let num_cols = Column(42);
+        let point = Point::new(0, num_cols - 1);
+
+        let result = point.add(num_cols, 1);
+
+        assert_eq!(result, Point::new(1, Column(0)));
+    }
+
+    #[test]
+    fn add_absolute() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(13));
+
+        let result = point.add_absolute(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, point.col + 1));
+    }
+
+    #[test]
+    fn add_absolute_wrap() {
+        let num_cols = Column(42);
+        let point = Point::new(1, num_cols - 1);
+
+        let result = point.add_absolute(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, Column(0)));
+    }
+
+    #[test]
+    fn add_absolute_clamp() {
+        let num_cols = Column(42);
+        let point = Point::new(0, num_cols - 1);
+
+        let result = point.add_absolute(num_cols, 1);
+
+        assert_eq!(result, point);
+    }
+
+    #[test]
+    fn sub_absolute() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(13));
+
+        let result = point.sub_absolute(num_cols, 1);
+
+        assert_eq!(result, Point::new(0, point.col - 1));
+    }
+
+    #[test]
+    fn sub_absolute_wrap() {
+        let num_cols = Column(42);
+        let point = Point::new(0, Column(0));
+
+        let result = point.sub_absolute(num_cols, 1);
+
+        assert_eq!(result, Point::new(1, num_cols - 1));
     }
 }

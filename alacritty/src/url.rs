@@ -6,7 +6,7 @@ use urlocator::{UrlLocation, UrlLocator};
 
 use font::Metrics;
 
-use alacritty_terminal::index::Point;
+use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
@@ -19,7 +19,7 @@ use crate::renderer::rects::{RenderLine, RenderRect};
 pub struct Url {
     lines: Vec<RenderLine>,
     end_offset: u16,
-    num_cols: usize,
+    num_cols: Column,
 }
 
 impl Url {
@@ -71,8 +71,8 @@ impl Urls {
         Self::default()
     }
 
-    /// Update tracked URLs.
-    pub fn update(&mut self, num_cols: usize, cell: RenderableCell) {
+    // Update tracked URLs.
+    pub fn update(&mut self, num_cols: Column, cell: RenderableCell) {
         // Convert cell to character.
         let c = match cell.inner {
             RenderableCellContent::Chars(chars) => chars[0],
@@ -127,7 +127,7 @@ impl Urls {
         }
 
         // Reset at un-wrapped linebreak.
-        if cell.column.0 + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
+        if cell.column + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
             self.reset();
         }
     }
@@ -224,7 +224,7 @@ mod tests {
         let mut urls = Urls::new();
 
         for cell in input {
-            urls.update(num_cols, cell);
+            urls.update(Column(num_cols), cell);
         }
 
         let url = urls.urls.first().unwrap();
@@ -240,7 +240,7 @@ mod tests {
         let mut urls = Urls::new();
 
         for cell in input {
-            urls.update(num_cols, cell);
+            urls.update(Column(num_cols), cell);
         }
 
         assert_eq!(urls.urls.len(), 3);

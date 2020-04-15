@@ -414,7 +414,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
 
-        let selection = !terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true);
+        let selection = !terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true);
         let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE)
             && !terminal.mode().contains(TermMode::VI);
 
@@ -446,7 +446,7 @@ impl Display {
                 // Iterate over all non-empty cells in the grid.
                 for cell in grid_cells {
                     // Update URL underlines.
-                    urls.update(size_info.cols().0, cell);
+                    urls.update(size_info.cols(), cell);
 
                     // Update underline/strikeout.
                     lines.update(cell);
