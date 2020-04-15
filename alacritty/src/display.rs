@@ -304,10 +304,10 @@ impl Display {
         update_pending: DisplayUpdate,
     ) {
         // Update font size and cell dimensions
-        if update_pending.font.is_some() || update_pending.cursor.is_some() {
+        if update_pending.font.is_some() || update_pending.cursor {
             if let Some(font) = update_pending.font {
                 self.update_glyph_cache(config, font);
-            } else if update_pending.cursor.is_some() {
+            } else if update_pending.cursor {
                 self.clear_glyph_cache();
             }
         }

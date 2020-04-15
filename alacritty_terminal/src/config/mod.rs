@@ -249,7 +249,7 @@ pub struct Cursor {
     pub style: CursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<CursorStyle>,
-    #[serde(deserialize_with = "default_thickness")]
+    #[serde(deserialize_with = "deserialize_cursor_thickness")]
     thickness: Percentage,
     #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
@@ -278,7 +278,7 @@ impl Default for Cursor {
     }
 }
 
-pub fn default_thickness<'a, D>(deserializer: D) -> Result<Percentage, D::Error>
+pub fn deserialize_cursor_thickness<'a, D>(deserializer: D) -> Result<Percentage, D::Error>
 where
     D: Deserializer<'a>,
 {

@@ -49,17 +49,14 @@ use crate::window::Window;
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize<u32>>,
-    pub message_buffer: Option<()>,
+    pub message_buffer: bool,
     pub font: Option<Font>,
-    pub cursor: Option<()>,
+    pub cursor: bool,
 }
 
 impl DisplayUpdate {
     fn is_empty(&self) -> bool {
-        self.dimensions.is_none()
-            && self.font.is_none()
-            && self.message_buffer.is_none()
-            && self.cursor.is_none()
+        self.dimensions.is_none() && self.font.is_none() && !self.message_buffer && !self.cursor
     }
 }
 
@@ -259,7 +256,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn pop_message(&mut self) {
-        self.display_update_pending.message_buffer = Some(());
+        self.display_update_pending.message_buffer = true;
         self.message_buffer.pop();
     }
 
@@ -530,7 +527,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
-                    processor.ctx.display_update_pending.message_buffer = Some(());
+                    processor.ctx.display_update_pending.message_buffer = true;
                     processor.ctx.terminal.dirty = true;
                 },
                 Event::MouseCursorDirty => processor.reset_mouse_cursor(),
@@ -663,7 +660,7 @@ impl<N: Notify + OnResize> Processor<N> {
         T: EventListener,
     {
         processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
-        processor.ctx.display_update_pending.message_buffer = Some(());
+        processor.ctx.display_update_pending.message_buffer = true;
 
         let config = match config::reload_from(&path) {
             Ok(config) => config,
@@ -679,7 +676,7 @@ impl<N: Notify + OnResize> Processor<N> {
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f64::EPSILON
         {
-            processor.ctx.display_update_pending.cursor = Some(());
+            processor.ctx.display_update_pending.cursor = true;
         }
 
         if processor.ctx.config.font != config.font {
