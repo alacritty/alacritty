@@ -45,7 +45,7 @@ struct ScrollingMultiplier(u8);
 
 impl Default for ScrollingMultiplier {
     fn default() -> Self {
-        ScrollingMultiplier(3)
+        Self(3)
     }
 }
 
@@ -54,7 +54,7 @@ struct ScrollingHistory(u32);
 
 impl Default for ScrollingHistory {
     fn default() -> Self {
-        ScrollingHistory(10_000)
+        Self(10_000)
     }
 }
 

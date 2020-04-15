@@ -213,10 +213,7 @@ impl GlyphCache {
             metrics,
         };
 
-        cache.load_glyphs_for_font(regular, loader);
-        cache.load_glyphs_for_font(bold, loader);
-        cache.load_glyphs_for_font(italic, loader);
-        cache.load_glyphs_for_font(bold_italic, loader);
+        cache.load_common_glyphs(loader);
 
         Ok(cache)
     }
@@ -302,17 +299,21 @@ impl GlyphCache {
         })
     }
 
+    /// Clear currently cached data in both GL and the registry.
+    pub fn clear_glyph_cache<L: LoadGlyph>(&mut self, loader: &mut L) {
+        loader.clear();
+        self.cache = HashMap::default();
+        self.cursor_cache = HashMap::default();
+
+        self.load_common_glyphs(loader);
+    }
+
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
         font: config::Font,
         dpr: f64,
         loader: &mut L,
     ) -> Result<(), font::Error> {
-        // Clear currently cached data in both GL and the registry
-        loader.clear();
-        self.cache = HashMap::default();
-        self.cursor_cache = HashMap::default();
-
         // Update dpi scaling
         self.rasterizer.update_dpr(dpr as f32);
 
@@ -332,16 +333,21 @@ impl GlyphCache {
         self.bold_italic_key = bold_italic;
         self.metrics = metrics;
 
-        self.load_glyphs_for_font(regular, loader);
-        self.load_glyphs_for_font(bold, loader);
-        self.load_glyphs_for_font(italic, loader);
-        self.load_glyphs_for_font(bold_italic, loader);
+        self.clear_glyph_cache(loader);
 
         Ok(())
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
         self.metrics
+    }
+
+    /// Prefetch glyphs that are almost guaranteed to be loaded anyways.
+    fn load_common_glyphs<L: LoadGlyph>(&mut self, loader: &mut L) {
+        self.load_glyphs_for_font(self.font_key, loader);
+        self.load_glyphs_for_font(self.bold_italic_key, loader);
+        self.load_glyphs_for_font(self.italic_key, loader);
+        self.load_glyphs_for_font(self.bold_italic_key, loader);
     }
 
     // Calculate font metrics without access to a glyph cache
@@ -1019,6 +1025,7 @@ impl<'a, C> RenderApi<'a, C> {
                         self.config.font.offset.x,
                         self.config.font.offset.y,
                         cursor_key.is_wide,
+                        self.config.cursor.thickness(),
                     ))
                 });
                 self.add_render_item(cell, glyph);

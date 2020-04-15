@@ -20,20 +20,19 @@ use alacritty_terminal::ansi::CursorStyle;
 
 use font::{BitmapBuffer, Metrics, RasterizedGlyph};
 
-/// Width/Height of the cursor relative to the font width
-pub const CURSOR_WIDTH_PERCENTAGE: f64 = 0.15;
-
 pub fn get_cursor_glyph(
     cursor: CursorStyle,
     metrics: Metrics,
     offset_x: i8,
     offset_y: i8,
     is_wide: bool,
+    cursor_thickness: f64,
 ) -> RasterizedGlyph {
     // Calculate the cell metrics
     let height = metrics.line_height as i32 + i32::from(offset_y);
     let mut width = metrics.average_advance as i32 + i32::from(offset_x);
-    let line_width = cmp::max((f64::from(width) * CURSOR_WIDTH_PERCENTAGE).round() as i32, 1);
+
+    let line_width = cmp::max((cursor_thickness * f64::from(width)).round() as i32, 1);
 
     // Double the cursor width if it's above a double-width glyph
     if is_wide {
