@@ -23,4 +23,5 @@ core-graphics = "0.17"
 core-foundation-sys = "0.6"
 
 [target.'cfg(windows)'.dependencies]
-dwrote = { version = "0.9.0" }
+dwrote = { version = "0.11" }
+winapi = { version = "0.3", features = ["impl-default"] }
