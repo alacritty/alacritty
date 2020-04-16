@@ -32,11 +32,7 @@ use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
-/// This struct contains the properties from dwrote::Font needed in the rest of this module.
-///
-/// We use this struct rather than dwrote::Font for performance reasons: the getter methods on
-/// dwrote::Font need to do things like String conversion from C++ widestrings to Rust's
-/// UTF-8 strings.
+/// Cached DirectWrite font.
 pub struct Font {
     face: FontFace,
     family_name: String,
@@ -139,7 +135,7 @@ impl DirectWriteRasterizer {
         let text_analysis_source_data = TextAnalysisSourceData { locale: &locale, length };
         let text_analysis_source = TextAnalysisSource::from_text(
             Box::new(text_analysis_source_data),
-            Cow::Borrowed(&utf16_codepoints),
+            Cow::Borrowed(utf16_codepoints),
         );
 
         let fallback_result = fallback.map_characters(
@@ -210,7 +206,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        // Fast path if face already loaded
+        // Fast path if face is already loaded
         if let Some(key) = self.keys.get(desc) {
             return Ok(*key);
         }
@@ -257,12 +253,11 @@ impl crate::Rasterize for DirectWriteRasterizer {
         let loaded_font = self.get_loaded_font(glyph.font_key)?;
 
         match self.rasterize_glyph(&loaded_font.face, glyph.size, glyph.c) {
-            Ok(glyph) => Ok(glyph),
             Err(err @ Error::MissingGlyph(_)) => {
                 let fallback_font = self.get_fallback_font(&loaded_font, glyph.c).ok_or(err)?;
                 self.rasterize_glyph(&fallback_font.create_font_face(), glyph.size, glyph.c)
-            }
-            Err(err) => Err(err),
+            },
+            result => result,
         }
     }
 
@@ -338,12 +333,11 @@ fn get_current_locale() -> String {
     let mut buf = vec![0u16; LOCALE_NAME_MAX_LENGTH];
     let len = unsafe { GetUserDefaultLocaleName(buf.as_mut_ptr(), buf.len() as i32) as usize };
 
-    // len includes null byte, we don't need that in Rust strings
+    // `len` includes null byte, which we don't need in Rust
     OsString::from_wide(&buf[..len - 1]).into_string().expect("Locale not valid unicode")
 }
 
-/// Information needed by dwrote's TextAnalysisSource to find a fallback font
-/// for a run of text. See `get_fallback_font`.
+/// Font fallback information for dwrote's TextAnalysisSource.
 struct TextAnalysisSourceData<'a> {
     locale: &'a str,
     length: u32,
