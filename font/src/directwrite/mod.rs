@@ -33,7 +33,7 @@ use super::{
 };
 
 /// Cached DirectWrite font.
-pub struct Font {
+struct Font {
     face: FontFace,
     family_name: String,
     weight: FontWeight,
@@ -184,8 +184,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let line_height = f64::from(ascent - descent + line_gap);
 
-        // We assume that all monospace characters have the same width
-        // Because of this we take '!', the first drawable character, for horizontal metrics
+        // Since all monospace characters have the same width, we use `!` for horizontal metrics
         let c = '!';
         let glyph_index = self.get_glyph_index(face, c)?;
 
@@ -345,7 +344,7 @@ struct TextAnalysisSourceData<'a> {
 
 impl TextAnalysisSourceMethods for TextAnalysisSourceData<'_> {
     fn get_locale_name(&self, _text_position: u32) -> (Cow<str>, u32) {
-        (Cow::Borrowed(&self.locale), self.length)
+        (Cow::Borrowed(self.locale), self.length)
     }
 
     fn get_paragraph_reading_direction(&self) -> dwrite::DWRITE_READING_DIRECTION {
