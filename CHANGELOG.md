@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Vi mode for copying text and opening links
 - `CopySelection` action which copies into selection buffer on Linux/BSD
 - Option `cursor.thickness` to set terminal cursor thickness
+- Font fallback on Windows
 
 ### Changed
 
