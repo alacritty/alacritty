@@ -45,8 +45,8 @@ pub struct DirectWriteRasterizer {
     fonts: HashMap<FontKey, Font>,
     keys: HashMap<FontDesc, FontKey>,
     device_pixel_ratio: f32,
-    collection: FontCollection,
-    fallback: Option<FontFallback>,
+    available_fonts: FontCollection,
+    fallback_sequence: Option<FontFallback>,
 }
 
 impl DirectWriteRasterizer {
@@ -122,7 +122,7 @@ impl DirectWriteRasterizer {
     }
 
     fn get_fallback_font(&self, loaded_font: &Font, c: char) -> Option<dwrote::Font> {
-        let fallback = self.fallback.as_ref()?;
+        let fallback = self.fallback_sequence.as_ref()?;
 
         let mut buf = [0u16; 2];
         c.encode_utf16(&mut buf);
@@ -142,7 +142,7 @@ impl DirectWriteRasterizer {
             &text_analysis_source,
             0,
             length,
-            &self.collection,
+            &self.available_fonts,
             Some(&loaded_font.family_name),
             loaded_font.weight,
             loaded_font.style,
@@ -161,8 +161,8 @@ impl crate::Rasterize for DirectWriteRasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            collection: FontCollection::system(),
-            fallback: FontFallback::get_system_fallback(),
+            available_fonts: FontCollection::system(),
+            fallback_sequence: FontFallback::get_system_fallback(),
         })
     }
 
@@ -211,7 +211,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
         }
 
         let family = self
-            .collection
+            .available_fonts
             .get_font_family_by_name(&desc.name)
             .ok_or_else(|| Error::MissingFont(desc.clone()))?;
 
