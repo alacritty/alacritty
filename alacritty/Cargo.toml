@@ -22,7 +22,7 @@ glutin = { version = "0.24.0", features = ["serde"] }
 notify = "4"
 libc = "0.2"
 unicode-width = "0.1"
-parking_lot = "0.9"
+parking_lot = "0.10.2"
 font = { path = "../font" }
 urlocator = "0.1.3"
 
