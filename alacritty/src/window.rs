@@ -210,7 +210,7 @@ impl Window {
             _ => true,
         };
 
-        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::ICO)
+        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
             .expect("loading icon")
             .to_rgba();
         let (width, height) = image.dimensions();
@@ -244,7 +244,7 @@ impl Window {
             _ => true,
         };
 
-        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::ICO)
+        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
             .expect("loading icon")
             .to_rgba();
         let (width, height) = image.dimensions();
