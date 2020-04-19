@@ -217,6 +217,13 @@ fn print_deprecation_warnings(config: &Config) {
              the config"
         );
     }
+
+    if config.env.contains_key("WINIT_HIDPI_FACTOR") {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "WINIT_HIDPI_FACTOR has been renamed to WINIT_X11_SCALE_FACTOR"
+        );
+    }
 }
 
 #[cfg(test)]
