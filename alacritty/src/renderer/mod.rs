@@ -30,7 +30,7 @@ use font::HbFtExt;
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::cursor::{get_cursor_glyph};
+use crate::cursor::get_cursor_glyph;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
@@ -287,12 +287,6 @@ impl GlyphCache {
         };
         FontDesc::new(desc.family.clone(), style)
     }
-
-    //pub fn font_metrics(&self) -> font::Metrics {
-    //    self.rasterizer
-    //        .metrics(self.font_key, self.font_size)
-    //        .expect("metrics load since font is loaded at glyph cache creation")
-    //}
 
     // Since shaping is not available on Windows/Mac OSX, text run glyphs are rasterized one by one
     // as characters

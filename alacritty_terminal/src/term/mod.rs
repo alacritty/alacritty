@@ -2331,11 +2331,6 @@ mod tests {
         fn send_event(&self, _event: Event) {}
     }
 
-    struct Mock;
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
     #[test]
     fn semantic_selection_works() {
         let size = SizeInfo {
