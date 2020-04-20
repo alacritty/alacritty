@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Tabstops not being reset with `reset`
+- Selection not cleared when switching between main and alt grid
 
 ## 0.4.2
 
