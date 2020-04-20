@@ -1213,6 +1213,7 @@ impl<T> Term<T> {
             let template = self.cursor.template;
             self.grid.region_mut(..).each(|c| c.reset(&template));
         }
+        self.grid.selection = None;
 
         self.alt = !self.alt;
         mem::swap(&mut self.grid, &mut self.alt_grid);
