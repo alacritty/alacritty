@@ -220,7 +220,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
                 // This searches for the "best" font - should mean we don't have to worry about
                 // fallbacks if our exact desired weight/style isn't available
                 Ok(family.get_first_matching_font(weight.into(), FontStretch::Normal, slant.into()))
-            }
+            },
             Style::Specific(ref style) => {
                 let mut idx = 0;
                 let count = family.get_font_count();
@@ -238,7 +238,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
                     idx += 1;
                 }
-            }
+            },
         }?;
 
         let key = FontKey::next();
@@ -288,7 +288,7 @@ impl Display for Error {
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
             Error::DirectWriteError(hresult) => {
                 write!(f, "A DirectWrite rendering error occurred: {:#X}", hresult)
-            }
+            },
         }
     }
 }
