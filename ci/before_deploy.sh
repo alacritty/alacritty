@@ -36,40 +36,8 @@ function osx {
         && mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
 }
 
-function debian {
-    arch=$1
-
-    docker pull "undeadleech/alacritty-ubuntu-${arch}" \
-        && docker_tar "alacritty-ubuntu-${arch}" "ubuntu_18_04_${arch}" \
-        && docker_deb "alacritty-ubuntu-${arch}" "ubuntu_18_04_${arch}" \
-        && sudo chown -R $USER:$USER "./target"
-}
-
-function docker_tar {
-    image=$1
-    archname=$2
-
-    docker run -v "$(pwd):/source" "undeadleech/${image}" \
-        /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
-
-    tar -cvzf "./target/deploy/${name}-${archname}.tar.gz" -C "./target/release/" "alacritty"
-}
-
-function docker_deb {
-    image=$1
-    archname=$2
-
-    docker run -v "$(pwd):/source" "undeadleech/${image}" sh -c \
-        "cd /source && /root/.cargo/bin/cargo deb --no-build -p alacritty \
-        --output ./target/deploy/${name}-${archname}.deb"
-}
-
 if [ "$TRAVIS_OS_NAME" == "osx" ]; then
     osx || exit
-elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
-    debian "amd64" || exit
-elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
-    debian "i386" || exit
 elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
     windows
 fi
