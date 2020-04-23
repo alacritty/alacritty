@@ -65,24 +65,20 @@ pub fn set_locale_environment() {
         result
     };
 
-    // Provide a default value for LC_CTYPE if needed
+    // provide a default value for LC_CTYPE if needed
     unsafe {
-        let orginal = setlocale(LC_CTYPE, null());
-        let ctype = if orginal.is_null() {
-            CString::new("C").unwrap()
+        // check if we already have LC_CTYPE set as a environment variable
+        if let Ok(ctype) = env::var("LC_CTYPE") {
+            setlocale(LC_CTYPE, CString::new(ctype).unwrap().as_ptr());
         } else {
-            CStr::from_ptr(orginal).to_owned()
+            // if current LC_CTYPE is either null or C, we overwrite it
+            let ctype = setlocale(LC_CTYPE, null());
+            if !ctype.is_null() && CStr::from_ptr(ctype).to_string_lossy() == "C" {
+                let locale = "UTF-8";
+                setlocale(LC_CTYPE, CString::new(locale).unwrap().as_ptr());
+                env::set_var("LC_CTYPE", locale);
+            }
         };
-
-        let ctype_string = ctype.into_string().unwrap();
-        match ctype_string.as_str() {
-            "C" => {
-                let utf8 = CString::new("UTF-8").unwrap();
-                setlocale(LC_CTYPE, utf8.as_ptr());
-                env::set_var("LC_CTYPE", utf8.into_string().unwrap());
-            },
-            _ => (),
-        }
     }
 
     env::set_var("LANG", &locale_id);
