@@ -72,12 +72,16 @@ pub fn set_locale_environment() {
     unsafe {
         // Check if we already have LC_CTYPE set as a environment variable
         if env::var("LC_CTYPE").is_ok() {
-            setlocale(LC_CTYPE, CString::new("").unwrap().as_ptr());
+            let locale_c_str = CString::new("").unwrap();
+            let locale_ptr = locale_c_str.as_ptr();
+            setlocale(LC_CTYPE, locale_ptr);
         } else {
             let ctype = setlocale(LC_CTYPE, null());
             if !ctype.is_null() && CStr::from_ptr(ctype).to_string_lossy() == "C" {
                 let locale = "UTF-8";
-                setlocale(LC_CTYPE, CString::new(locale).unwrap().as_ptr());
+                let locale_c_str = CString::new(locale).unwrap();
+                let locale_ptr = locale_c_str.as_ptr();
+                setlocale(LC_CTYPE, locale_ptr);
                 env::set_var("LC_CTYPE", locale);
             }
         };
