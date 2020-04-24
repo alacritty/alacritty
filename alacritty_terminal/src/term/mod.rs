@@ -745,6 +745,12 @@ pub struct Term<T> {
 
     /// Current forward and backward buffer search regexes.
     regex_search: Option<RegexSearch>,
+
+    /// Width of individual cell.
+    cell_width: f32,
+
+    /// Height of individual cell.
+    cell_height: f32,
 }
 
 impl<T> Term<T> {
@@ -795,6 +801,8 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             selection: None,
             regex_search: None,
+            cell_width: size.cell_width,
+            cell_height: size.cell_height,
         }
     }
 
@@ -1005,6 +1013,10 @@ impl<T> Term<T> {
 
         // Reset scrolling region.
         self.scroll_region = Line(0)..self.screen_lines();
+
+        // Save cell size
+        self.cell_width = size.cell_width;
+        self.cell_height = size.cell_height;
     }
 
     /// Active terminal modes.
@@ -2219,6 +2231,18 @@ impl<T: EventListener> Handler for Term<T> {
             self.set_title(popped);
         }
     }
+
+    #[inline]
+    fn window_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
+        let width = self.cell_width * self.grid.cols().0 as f32;
+        let height = self.cell_height * self.grid.screen_lines().0 as f32;
+        let _ = write!(writer, "\x1b[4;{};{}t", height, width);
+    }
+
+    #[inline]
+    fn area_size_chars<W: io::Write>(&mut self, writer: &mut W) {
+        let _ = write!(writer, "\x1b[8;{};{}t", self.grid.screen_lines(), self.grid.cols());
+    }
 }
 
 /// Terminal version for escape sequence reports.
@@ -2754,6 +2778,43 @@ mod tests {
         assert_eq!(version_number("0.1.2-dev"), 1_02);
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
+    }
+
+    #[test]
+    fn report_size_in_pixels_and_chars() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
+        let mut processor = ansi::Processor::default();
+
+        macro_rules! run_sequence {
+            ($input:expr, $output:expr) => {
+                let mut writer = Vec::new();
+                for &i in &$input[..] {
+                    processor.advance(&mut term, i, &mut writer);
+                }
+
+                assert_eq!(&$output[..], &writer[..]);
+            };
+        }
+
+        run_sequence!(b"\x1b[14t", b"\x1b[4;51;21t");
+        run_sequence!(b"\x1b[18t", b"\x1b[8;17;7t");
+
+        // Resize
+        let size = SizeInfo { width: 210.0, height: 510.0, ..size };
+        term.resize(&size);
+
+        run_sequence!(b"\x1b[14t", b"\x1b[4;510;210t");
+        run_sequence!(b"\x1b[18t", b"\x1b[8;170;70t");
     }
 }
 
