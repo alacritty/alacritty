@@ -65,13 +65,12 @@ pub fn set_locale_environment() {
         result
     };
 
-    // provide a default value for LC_CTYPE if needed
+    // Provide a default value for LC_CTYPE if needed
     unsafe {
-        // check if we already have LC_CTYPE set as a environment variable
+        // Check if we already have LC_CTYPE set as a environment variable
         if let Ok(ctype) = env::var("LC_CTYPE") {
             setlocale(LC_CTYPE, CString::new(ctype).unwrap().as_ptr());
         } else {
-            // if current LC_CTYPE is either null or C, we overwrite it
             let ctype = setlocale(LC_CTYPE, null());
             if !ctype.is_null() && CStr::from_ptr(ctype).to_string_lossy() == "C" {
                 let locale = "UTF-8";
