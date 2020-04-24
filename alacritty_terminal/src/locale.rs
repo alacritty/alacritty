@@ -61,8 +61,7 @@ pub fn set_locale_environment() {
     let locale_id = unsafe {
         // try setting `locale_id`
         let modified = setlocale(LC_CTYPE, locale_ptr);
-        let result = if modified.is_null() { String::new() } else { locale_id };
-        result
+        if modified.is_null() { String::new() } else { locale_id }
     };
 
     // Provide a default value for LC_CTYPE if needed
