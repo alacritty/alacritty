@@ -24,13 +24,18 @@ use glutin::event_loop::EventLoop;
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
+#[cfg(windows)]
+use glutin::platform::windows::IconExtWindows;
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 use image::ImageFormat;
+#[cfg(not(any(target_os = "macos", windows)))]
 use log::error;
+#[cfg(windows)]
+use winapi::shared::minwindef::WORD;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
@@ -47,8 +52,12 @@ use crate::gl;
 use crate::wayland_theme::AlacrittyWaylandTheme;
 
 // It's required to be in this directory due to the `windows.rc` file
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
+
+// This should match the definition of IDI_ICON from `windows.rc`
+#[cfg(windows)]
+const IDI_ICON: WORD = 0x101;
 
 /// Window errors
 #[derive(Debug)]
@@ -252,11 +261,7 @@ impl Window {
             _ => true,
         };
 
-        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
-            .expect("loading icon")
-            .to_rgba();
-        let (width, height) = image.dimensions();
-        let icon = Icon::from_rgba(image.into_raw(), width, height);
+        let icon = Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
             .with_title(title)
