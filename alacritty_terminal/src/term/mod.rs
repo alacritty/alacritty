@@ -209,6 +209,7 @@ pub struct CursorKey {
 pub struct RenderableCellsIter<'a, C> {
     inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
+    tabs: &'a TabStops,
     cursor: RenderableCursor,
     config: &'a Config<C>,
     colors: &'a color::List,
@@ -257,6 +258,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         RenderableCellsIter {
             cursor: term.renderable_cursor(config),
             grid,
+            tabs: &term.tabs,
             inner,
             selection: selection_range,
             config,
@@ -290,6 +292,13 @@ impl<'a, C> RenderableCellsIter<'a, C> {
 
         let num_cols = self.grid.num_cols().0;
         let cell = self.grid[&point];
+
+        // highlight this cell if it is part of a partially selected tab
+        if let Some(mut tab_range) = self.tabs.tab_range(self.grid, point) {
+            if tab_range.any(|col| selection.contains(col, point.line)) {
+                return true;
+            }
+        }
 
         // Check if wide char's spacers are selected
         if cell.flags.contains(Flags::WIDE_CHAR) {
@@ -1051,8 +1060,15 @@ impl<T> Term<T> {
             cols.start -= 1;
         }
 
+        let begin_point = self.grid.clamp_buffer_to_visible(Point::new(line, cols.start));
+        let begin_tab_range = self.tabs.tab_range(&self.grid, begin_point);
+
+        // if the range begins in the middle of a tab, move it to the beginning of the tab,
+        // this will include the tab character in the resulting string
+        let col_start = begin_tab_range.map(|range| range.0.start).unwrap_or(cols.start);
+
         let mut tab_mode = false;
-        for col in IndexRange::from(cols.start..line_length) {
+        for col in IndexRange::from(col_start..line_length) {
             let cell = grid_line[col];
 
             // Skip over cells until next tab-stop once a tab was found
@@ -2263,6 +2279,41 @@ impl TabStops {
             index += 1;
             is_tabstop
         });
+    }
+
+    fn tab_range(&self, grid: &Grid<Cell>, point: Point) -> Option<IndexRange<Column>> {
+        let mut tab_begin = None;
+        #[allow(clippy::range_plus_one)]
+        for col in IndexRange::from(Column(0)..point.col + 1).rev() {
+            let c = grid[&Point::new(point.line, col)];
+
+            if c.c == '\t' {
+                tab_begin = Some(col);
+                break;
+            }
+
+            let is_tab_border = self[col];
+            if !c.is_empty() || is_tab_border {
+                break;
+            }
+        }
+
+        if let Some(tab_begin) = tab_begin {
+            for col in IndexRange::from(point.col..grid.num_cols()) {
+                let c = grid[&Point::new(point.line, col)];
+                let is_tab_border = self[col];
+
+                // check for tab here if \t is on a tab border (e.g. col 0)
+                if (is_tab_border && c.c != '\t') || !c.is_empty() {
+                    return Some(IndexRange::from(tab_begin..col));
+                }
+            }
+
+            #[allow(clippy::range_plus_one)]
+            return Some(IndexRange::from(tab_begin..grid.num_cols() + 1));
+        }
+
+        None
     }
 }
 
