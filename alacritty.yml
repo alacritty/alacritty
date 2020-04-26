@@ -83,8 +83,8 @@
   # Specifying '0' will disable scrolling.
   #history: 10000
 
-  # Number of lines the viewport will move for every line scrolled when
-  # scrollback is enabled (history > 0).
+  # Acceleration for mouse scrolling, number of lines the viewport will move for
+  # every line scrolled when scrollback is enabled (history > 0).
   #multiplier: 3
 
 # Font configuration
