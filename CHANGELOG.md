@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Packaging
 
-- Minimum Rust version has been bumped to 1.39.0
+- Minimum Rust version has been bumped to 1.41.0
 
 ### Added
 
@@ -23,9 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Block cursor is no longer inverted at the start/end of a selection
 - Preserve selection on non-LMB or mouse mode clicks
 - Wayland client side decorations are now based on config colorscheme
+- Low resolution window decoration icon on Windows
 
 ### Fixed
 - Tabstops not being reset with `reset`
+- Selection not cleared when switching between main and alt grid
 
 ## 0.4.2
 
