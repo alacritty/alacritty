@@ -137,7 +137,8 @@ impl Options {
                 Arg::with_name("class")
                     .long("class")
                     .takes_value(true)
-                    .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
+                    .value_names(&["instance", "general"])
+                    .help(&format!("Defines window class hint on Linux [default: {},{}]", DEFAULT_NAME, DEFAULT_NAME)),
             )
             .arg(
                 Arg::with_name("embed").long("embed").takes_value(true).help(
