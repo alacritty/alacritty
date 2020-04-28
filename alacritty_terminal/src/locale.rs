@@ -61,7 +61,7 @@ pub fn set_locale_environment() {
     }
 }
 
-/// Determine system locale based on language and country code.
+// Determine system locale based on language and country code.
 fn system_locale() -> String {
     unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
