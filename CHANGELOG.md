@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CopySelection` action which copies into selection buffer on Linux/BSD
 - Option `cursor.thickness` to set terminal cursor thickness
 - Font fallback on Windows
-- LC_CTYPE fallback to UTF-8 on macOS
 
 ### Changed
 
@@ -27,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Low resolution window decoration icon on Windows
 
 ### Fixed
+
 - Tabstops not being reset with `reset`
 - Selection not cleared when switching between main and alt grid
+- Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
 
 ## 0.4.2
 
