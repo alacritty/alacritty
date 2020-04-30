@@ -28,6 +28,7 @@ pub mod event;
 pub mod event_loop;
 pub mod grid;
 pub mod index;
+#[cfg(target_os = "macos")]
 pub mod locale;
 pub mod message_bar;
 pub mod meter;

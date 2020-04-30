@@ -26,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Low resolution window decoration icon on Windows
 
 ### Fixed
+
 - Tabstops not being reset with `reset`
 - Selection not cleared when switching between main and alt grid
+- Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
 
 ## 0.4.2
 
