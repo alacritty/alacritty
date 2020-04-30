@@ -205,7 +205,10 @@ impl Display {
             // On Wayland we can safely ignore this call, since the window isn't visible until you
             // actually draw something into it.
             if event_loop.is_x11() {
-                window.swap_buffers()
+                window.swap_buffers();
+                renderer.with_api(&config, &size_info, |api| {
+                    api.finish();
+                });
             }
         }
 
@@ -499,6 +502,18 @@ impl Display {
         }
 
         self.window.swap_buffers();
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if self.window.x11_window_id().is_some() {
+                // It was find out that on X11 swap_buffers doesn't block with vsync on most
+                // systems, so the block will be on the next gl command (glClear on the next event
+                // loop tick for us), which introduces a permament one frame of delay
+                self.renderer.with_api(&config, &size_info, |api| {
+                    api.finish();
+                });
+            }
+        }
     }
 }
 
