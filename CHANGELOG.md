@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.5.0-dev
+
+### Packaging
+
+- Minimum Rust version has been bumped to 1.41.0
+
+### Added
+
+- Default Command+N keybinding for SpawnNewInstance on macOS
+- Vi mode for copying text and opening links
+- `CopySelection` action which copies into selection buffer on Linux/BSD
+- Option `cursor.thickness` to set terminal cursor thickness
+- Font fallback on Windows
+
+### Changed
+
+- Block cursor is no longer inverted at the start/end of a selection
+- Preserve selection on non-LMB or mouse mode clicks
+- Wayland client side decorations are now based on config colorscheme
+- Low resolution window decoration icon on Windows
+
+### Fixed
+
+- Tabstops not being reset with `reset`
+- Selection not cleared when switching between main and alt grid
+- Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
+
 ## 0.4.2
 ### Fixed
 - Tabstops not being reset with `reset`
