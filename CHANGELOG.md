@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wayland client side decorations are now based on config colorscheme
 - Low resolution window decoration icon on Windows
 - Mouse bindings for additional buttons need to be specified as a number not a string
+- Don't hide cursor on modifier press with `mouse.hide_when_typing` enabled
 
 ### Fixed
 
