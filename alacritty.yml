@@ -83,7 +83,7 @@
   # Specifying '0' will disable scrolling.
   #history: 10000
 
-  # Modifier for multiplying the mouse scrolling distance.
+  # Scrolling distance multiplier.
   #multiplier: 3
 
 # Font configuration
