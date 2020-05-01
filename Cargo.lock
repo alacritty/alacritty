@@ -19,6 +19,7 @@ version = "0.5.0-dev"
 dependencies = [
  "alacritty_terminal 0.5.0-dev",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cocoa 0.20.0 (git+https://github.com/servo/core-foundation-rs)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "embed-resource 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -332,6 +333,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cocoa"
+version = "0.20.0"
+source = "git+https://github.com/servo/core-foundation-rs#16ec92e7c43da3c12f24495436bb528ab1b3bfb6"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "block 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation 0.7.0 (git+https://github.com/servo/core-foundation-rs)",
+ "core-graphics 0.19.0 (git+https://github.com/servo/core-foundation-rs)",
+ "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
+ "objc 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -360,9 +375,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "core-foundation"
+version = "0.7.0"
+source = "git+https://github.com/servo/core-foundation-rs#16ec92e7c43da3c12f24495436bb528ab1b3bfb6"
+dependencies = [
+ "core-foundation-sys 0.7.0 (git+https://github.com/servo/core-foundation-rs)",
+ "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "core-foundation-sys"
+version = "0.7.0"
+source = "git+https://github.com/servo/core-foundation-rs#16ec92e7c43da3c12f24495436bb528ab1b3bfb6"
 
 [[package]]
 name = "core-graphics"
@@ -371,6 +400,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "core-graphics"
+version = "0.19.0"
+source = "git+https://github.com/servo/core-foundation-rs#16ec92e7c43da3c12f24495436bb528ab1b3bfb6"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation 0.7.0 (git+https://github.com/servo/core-foundation-rs)",
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2208,11 +2248,15 @@ dependencies = [
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 "checksum cmake 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "81fb25b677f8bf1eb325017cb6bb8452f87969db0fedb4f757b297bee78a7c62"
 "checksum cocoa 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f29f7768b2d1be17b96158e3285951d366b40211320fb30826a76cb7a0da6400"
+"checksum cocoa 0.20.0 (git+https://github.com/servo/core-foundation-rs)" = "<none>"
 "checksum constant_time_eq 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 "checksum copypasta 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "865e9675691e2a7dfc806b16ef2dd5dd536e26ea9b8046519767d79be03aeb6a"
 "checksum core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "25b9e03f145fd4f2bf705e07b900cd41fc636598fe5dc452fd0db1441c3f496d"
+"checksum core-foundation 0.7.0 (git+https://github.com/servo/core-foundation-rs)" = "<none>"
 "checksum core-foundation-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e7ca8a5221364ef15ce201e8ed2f609fc312682a8f4e0e3d4aa5879764e0fa3b"
+"checksum core-foundation-sys 0.7.0 (git+https://github.com/servo/core-foundation-rs)" = "<none>"
 "checksum core-graphics 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)" = "56790968ab1c8a1202a102e6de05fc6e1ec87da99e4e93e9a7d13efbfc1e95a9"
+"checksum core-graphics 0.19.0 (git+https://github.com/servo/core-foundation-rs)" = "<none>"
 "checksum core-text 13.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "db84654ad95211c082cf9795f6f83dc17d0ae6c985ac1b906369dc7384ed346d"
 "checksum core-video-sys 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8dc065219542086f72d1e9f7aadbbab0989e980263695d129d502082d063a9d0"
 "checksum crc32fast 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ba125de2af0df55319f41944744ad91c71113bf74a4646efff39afe1f6842db1"
