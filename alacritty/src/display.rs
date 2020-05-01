@@ -118,6 +118,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+    #[cfg(not(any(target_os = "macos", windows)))]
+    is_x11: bool,
 }
 
 impl Display {
@@ -198,13 +200,16 @@ impl Display {
             api.clear(background_color);
         });
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let is_x11 = event_loop.is_x11();
+
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             // On Wayland we can safely ignore this call, since the window isn't visible until you
             // actually draw something into it.
-            if event_loop.is_x11() {
+            if is_x11 {
                 window.swap_buffers();
                 renderer.with_api(&config, &size_info, |api| {
                     api.finish();
@@ -240,6 +245,8 @@ impl Display {
             size_info,
             urls: Urls::new(),
             highlighted_url: None,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            is_x11,
         })
     }
 
@@ -505,7 +512,7 @@ impl Display {
 
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if self.window.x11_window_id().is_some() {
+            if self.is_x11 {
                 // It was find out that on X11 swap_buffers doesn't block with vsync on most
                 // systems, so the block will be on the next gl command (glClear on the next event
                 // loop tick for us), which introduces a permament one frame of delay
