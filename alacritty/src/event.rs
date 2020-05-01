@@ -388,8 +388,25 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
+    /// Return `true` if `event_queue` is empty, `false` otherwise.
     #[inline]
-    /// Return `true` if `event_queue` is empty, `true` otherwise.
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn event_queue_empty(&mut self) -> bool {
+        let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
+            Some(wayland_event_queue) => wayland_event_queue,
+            None => return self.event_queue.is_empty(),
+        };
+
+        // On Wayland we also dispatch and check its own event queue
+        let events_dispatched = wayland_event_queue
+            .dispatch_pending(&mut (), |_, _, _| {})
+            .expect("failed to dispatch event queue");
+
+        self.event_queue.is_empty() && events_dispatched == 0
+    }
+
+    /// Return `true` if `event_queue` is empty, `false` otherwise.
+    #[cfg(any(target_os = "macos", windows))]
     fn event_queue_empty(&mut self) -> bool {
         #[cfg(not(any(target_os = "macos", windows)))]
         {
@@ -498,8 +515,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
             #[cfg(not(any(target_os = "macos", windows)))]
             {
-                if event_loop.is_wayland()
-                    && !self.display.window.should_draw.load(Ordering::Relaxed)
+                if !self.display.is_x11 && !self.display.window.should_draw.load(Ordering::Relaxed)
                 {
                     return;
                 }

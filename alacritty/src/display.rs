@@ -151,8 +151,7 @@ impl Display {
         // Initialize Wayland event queue, to handle Wayland callbacks.
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if event_loop.is_wayland() {
-                let display = event_loop.wayland_display().unwrap();
+            if let Some(display) = event_loop.wayland_display() {
                 let display = unsafe { WaylandDisplay::from_external_display(display as _) };
                 wayland_event_queue = Some(display.create_event_queue());
             }
@@ -232,7 +231,7 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             // On Wayland we can safely ignore this call, since the window isn't visible until you
-            // actually draw something into it.
+            // actually draw something into it and commit those changes.
             if is_x11 {
                 window.swap_buffers();
                 renderer.with_api(&config, &size_info, |api| {

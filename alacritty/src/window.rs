@@ -150,16 +150,17 @@ fn create_gl_window(
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
-    windowed_context: WindowedContext<PossiblyCurrent>,
-    current_mouse_cursor: CursorIcon,
-    mouse_visible: bool,
-    /// Wayland setting to control redrawing of the window, according to the frame callbacks.
+    /// Flag tracking frame redraw requests from Wayland compositor.
     #[cfg(not(any(target_os = "macos", windows)))]
     pub should_draw: Arc<AtomicBool>,
 
-    /// Attached Wayland surface to create new frame events.
+    /// Attached Wayland surface to request new frame events.
     #[cfg(not(any(target_os = "macos", windows)))]
     pub wayland_surface: Option<Attached<WlSurface>>,
+
+    windowed_context: WindowedContext<PossiblyCurrent>,
+    current_mouse_cursor: CursorIcon,
+    mouse_visible: bool,
 }
 
 impl Window {
@@ -192,17 +193,19 @@ impl Window {
         #[cfg(not(any(target_os = "macos", windows)))]
         let mut wayland_surface = None;
 
-        // On X11, embed the window inside another if the parent ID has been set
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             if event_loop.is_x11() {
+                // On X11, embed the window inside another if the parent ID has been set
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
             } else {
+                // Apply CSD theme
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
                 windowed_context.window().set_wayland_theme(theme);
 
+                // Attach surface to Alacritty's internal wayland queue to handle frame callbacks
                 let surface = windowed_context.window().wayland_surface().unwrap();
                 let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
                 wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
