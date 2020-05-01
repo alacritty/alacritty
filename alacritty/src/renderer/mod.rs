@@ -418,6 +418,8 @@ struct InstanceData {
     bg_g: f32,
     bg_b: f32,
     bg_a: f32,
+    // boolean set to true if the glyph already is colored (typically RGBA emojis)
+    pre_colored: u8,
 }
 
 #[derive(Debug)]
@@ -465,18 +467,11 @@ impl Batch {
         Self { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
-    pub fn add_item(&mut self, mut cell: RenderableCell, glyph: &Glyph) {
+    pub fn add_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
 
-        if glyph.colored {
-            // XXX Temporary workaround to prevent emojis being rendered with a wrong colors on, at
-            // least, dark backgrounds. For more info see #1864.
-            cell.fg.r = 255;
-            cell.fg.g = 255;
-            cell.fg.b = 255;
-        }
 
         self.instances.push(InstanceData {
             col: cell.column.0 as f32,
@@ -500,6 +495,7 @@ impl Batch {
             bg_g: f32::from(cell.bg.g),
             bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
+            pre_colored: glyph.colored as u8,
         });
     }
 
@@ -643,6 +639,17 @@ impl QuadRenderer {
             );
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
+            // preColoredGlyph attribute
+            gl::VertexAttribPointer(
+                5,
+                1,
+                gl::BYTE,
+                gl::FALSE,
+                size_of::<InstanceData>() as i32,
+                (17 * size_of::<f32>()) as *const _,
+            );
+            gl::EnableVertexAttribArray(5);
+            gl::VertexAttribDivisor(5, 1);
 
             // Rectangle setup.
             gl::GenVertexArrays(1, &mut rect_vao);
@@ -1513,14 +1520,17 @@ impl Atlas {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             gl::GenTextures(1, &mut id);
             gl::BindTexture(gl::TEXTURE_2D, id);
+            // We use an RGBA atlas that can handle colored glyphs.
+            // As they usually are outnumbered by regular text glyphs, this is slightly wasteful.
+            // Another way would be to have a separate atlas for RGBA and render in two passes.
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as i32,
+                gl::RGBA as i32,
                 size,
                 size,
                 0,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 ptr::null(),
             );

@@ -15,6 +15,7 @@
 in vec2 TexCoords;
 flat in vec3 fg;
 flat in vec4 bg;
+flat in int preColored;
 uniform int backgroundPass;
 
 layout(location = 0, index = 0) out vec4 color;
@@ -31,8 +32,14 @@ void main()
         alphaMask = vec4(1.0);
         color = vec4(bg.rgb, 1.0);
     } else {
-        vec3 textColor = texture(mask, TexCoords).rgb;
-        alphaMask = vec4(textColor, textColor.r);
-        color = vec4(fg, 1.0);
+        if (preColored != 0) {
+            vec4 c = texture(mask, TexCoords);
+            alphaMask = vec4(c.a);
+            color = c;
+        } else {
+            vec3 textColor = texture(mask, TexCoords).rgb;
+            alphaMask = vec4(textColor, textColor.r);
+            color = vec4(fg, 1.0);
+        }
     }
 }
