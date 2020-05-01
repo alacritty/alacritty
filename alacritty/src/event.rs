@@ -386,6 +386,23 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
+    /// Dispatch wayland event queue
+    ///
+    /// Return `false` if queue is not presented or empty, `true` otherwise.
+    #[inline]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn dispatch_wayland_queue(&mut self) -> bool {
+        if let Some(wayland_event_queue) = self.display.wayland_event_queue.as_mut() {
+            let events_dispatched = wayland_event_queue
+                .dispatch_pending(&mut (), |_, _, _| {})
+                .expect("failed to dispatch event queue");
+            // We've dispatched some events
+            events_dispatched != 0
+        } else {
+            false
+        }
+    }
+
     /// Run the event loop.
     pub fn run<T>(&mut self, terminal: Arc<FairMutex<Term<T>>>, mut event_loop: EventLoop<Event>)
     where
@@ -413,32 +430,17 @@ impl<N: Notify + OnResize> Processor<N> {
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
-                    let event_queue_empty = event_queue.is_empty();
+                    #[allow(unused_mut)]
+                    let mut queues_empty = event_queue.is_empty();
 
                     #[cfg(not(any(target_os = "macos", windows)))]
                     {
-                        let wayland_queue_empty = if event_loop.is_wayland() {
-                            let num_dispatched = self
-                                .display
-                                .wayland_event_queue
-                                .as_mut()
-                                .unwrap()
-                                .dispatch_pending(&mut (), |_, _, _| {})
-                                .unwrap();
-                            num_dispatched == 0
-                        } else {
-                            true
-                        };
-
-                        if event_queue_empty && wayland_queue_empty {
-                            return;
-                        }
+                        let wayland_queue_empty = !self.dispatch_wayland_queue();
+                        queues_empty = queues_empty && wayland_queue_empty;
                     }
-                    #[cfg(any(target_os = "macos", windows))]
-                    {
-                        if event_queue_empty {
-                            return;
-                        }
+
+                    if queues_empty {
+                        return;
                     }
                 },
                 // Remap DPR change event to remove lifetime

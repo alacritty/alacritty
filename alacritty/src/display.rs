@@ -203,7 +203,8 @@ impl Display {
         // Update OpenGL projection
         renderer.resize(&size_info);
 
-        // Clear screen
+        // We should call `clear` when window is offscreen, so when `window.show()` happens it
+        // would be with background color instead of uninitialized surface.
         let background_color = config.colors.primary.background;
         renderer.with_api(&config, &size_info, |api| {
             api.clear(background_color);
@@ -214,8 +215,6 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         let mut wayland_event_queue = None;
 
-        // We should call `clear` when window is offscreen, so when `window.show()` happens it
-        // would be with background color instead of uninitialized surface.
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             // On Wayland we can safely ignore this call, since the window isn't visible until you
