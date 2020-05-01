@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve selection on non-LMB or mouse mode clicks
 - Wayland client side decorations are now based on config colorscheme
 - Low resolution window decoration icon on Windows
+- Mouse bindings for additional buttons need to be specified as a number not a string
 
 ### Fixed
 
