@@ -33,6 +33,9 @@ rustc_tools_util = "0.2.0"
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = { git = "https://github.com/servo/core-foundation-rs", branch = "master" }
+
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 image = { version = "0.23.3", default-features = false, features = ["ico"] }
 
