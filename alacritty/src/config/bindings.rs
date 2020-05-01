@@ -14,7 +14,6 @@
 #![allow(clippy::enum_glob_use)]
 
 use std::fmt::{self, Debug, Display};
-use std::str::FromStr;
 
 use glutin::event::VirtualKeyCode::*;
 use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
@@ -621,7 +620,17 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
             type Value = MouseButtonWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Left, Right, Middle, or a number")
+                f.write_str("Left, Right, Middle, or a number from 0 to 255")
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<MouseButtonWrapper, E>
+            where
+                E: de::Error,
+            {
+                match value {
+                    0..=255 => Ok(MouseButtonWrapper(MouseButton::Other(value as u8))),
+                    _ => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
+                }
             }
 
             fn visit_str<E>(self, value: &str) -> Result<MouseButtonWrapper, E>
@@ -632,18 +641,12 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                     "Left" => Ok(MouseButtonWrapper(MouseButton::Left)),
                     "Right" => Ok(MouseButtonWrapper(MouseButton::Right)),
                     "Middle" => Ok(MouseButtonWrapper(MouseButton::Middle)),
-                    _ => {
-                        if let Ok(index) = u8::from_str(value) {
-                            Ok(MouseButtonWrapper(MouseButton::Other(index)))
-                        } else {
-                            Err(E::invalid_value(Unexpected::Str(value), &self))
-                        }
-                    },
+                    _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }
             }
         }
 
-        deserializer.deserialize_str(MouseButtonVisitor)
+        deserializer.deserialize_any(MouseButtonVisitor)
     }
 }
 
