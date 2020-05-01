@@ -777,7 +777,7 @@ impl QuadRenderer {
         if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
             self.reload_shaders(props);
         }
-        while let Ok(_) = self.rx.try_recv() {}
+        while self.rx.try_recv().is_ok() {}
 
         unsafe {
             gl::UseProgram(self.program.id);
