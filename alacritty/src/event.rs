@@ -360,6 +360,7 @@ pub struct Processor<N> {
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
+    event_queue: Vec<GlutinEvent<'static, alacritty_terminal::event::Event>>,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -383,24 +384,30 @@ impl<N: Notify + OnResize> Processor<N> {
             config,
             message_buffer,
             display,
+            event_queue: Vec::new(),
         }
     }
 
-    /// Dispatch wayland event queue.
-    ///
-    /// Return `false` if queue is not presented or empty, `true` otherwise.
     #[inline]
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn dispatch_wayland_queue(&mut self) -> bool {
-        if let Some(wayland_event_queue) = self.display.wayland_event_queue.as_mut() {
+    /// Return `true` if `event_queue` is empty, `true` otherwise.
+    fn event_queue_empty(&mut self) -> bool {
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
+                Some(wayland_event_queue) => wayland_event_queue,
+                None => return self.event_queue.is_empty(),
+            };
+
+            // On Wayland we also dispatch and check its own event queue
             let events_dispatched = wayland_event_queue
                 .dispatch_pending(&mut (), |_, _, _| {})
                 .expect("failed to dispatch event queue");
-            // We've dispatched some events
-            events_dispatched != 0
-        } else {
-            false
+
+            self.event_queue.is_empty() && events_dispatched == 0
         }
+
+        #[cfg(any(target_os = "macos", windows))]
+        self.event_queue.is_empty()
     }
 
     /// Run the event loop.
@@ -408,8 +415,6 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
-        let mut event_queue = Vec::new();
-
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
@@ -430,16 +435,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
-                    #[allow(unused_mut)]
-                    let mut queues_empty = event_queue.is_empty();
-
-                    #[cfg(not(any(target_os = "macos", windows)))]
-                    {
-                        let wayland_queue_empty = !self.dispatch_wayland_queue();
-                        queues_empty = queues_empty && wayland_queue_empty;
-                    }
-
-                    if queues_empty {
+                    if self.event_queue_empty() {
                         return;
                     }
                 },
@@ -451,14 +447,14 @@ impl<N: Notify + OnResize> Processor<N> {
                     *control_flow = ControlFlow::Poll;
                     let size = (new_inner_size.width, new_inner_size.height);
                     let event = GlutinEvent::UserEvent(Event::DPRChanged(scale_factor, size));
-                    event_queue.push(event);
+                    self.event_queue.push(event);
                     return;
                 },
                 // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
                 // Since we remap that event to remove the lifetime, this is safe.
                 event => unsafe {
                     *control_flow = ControlFlow::Poll;
-                    event_queue.push(mem::transmute(event));
+                    self.event_queue.push(mem::transmute(event));
                     return;
                 },
             }
@@ -485,7 +481,7 @@ impl<N: Notify + OnResize> Processor<N> {
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
 
-            for event in event_queue.drain(..) {
+            for event in self.event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
             }
 
@@ -514,7 +510,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
                 // Request immediate re-draw if visual bell animation is not finished yet
                 if !terminal.visual_bell.completed() {
-                    event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
+                    self.event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
                 }
 
                 // Redraw screen

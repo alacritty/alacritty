@@ -125,14 +125,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
-<<<<<<< HEAD
     #[cfg(not(any(target_os = "macos", windows)))]
     is_x11: bool,
-
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub wayland_event_queue: Option<EventQueue>,
-=======
->>>>>>> 23cd40a... Travis pls pass
 }
 
 impl Display {
@@ -233,10 +227,7 @@ impl Display {
         });
 
         #[cfg(not(any(target_os = "macos", windows)))]
-<<<<<<< HEAD
         let is_x11 = event_loop.is_x11();
-        #[cfg(not(any(target_os = "macos", windows)))]
-        let mut wayland_event_queue = None;
 
         #[cfg(not(any(target_os = "macos", windows)))]
         {
@@ -247,19 +238,6 @@ impl Display {
                 renderer.with_api(&config, &size_info, |api| {
                     api.finish();
                 });
-            } else {
-                // Initialize Wayland event queue, to handle various Wayland related routines.
-                let display = window.wayland_display().unwrap();
-                let display = unsafe { WaylandDisplay::from_external_display(display as _) };
-                wayland_event_queue = Some(display.create_event_queue());
-=======
-        {
-            // Setup and perform platform specific helpers
-            if event_loop.is_x11() {
-                // On Wayland we can safely ignore this call, since the window isn't visible until
-                // you actually draw something into it.
-                window.swap_buffers()
->>>>>>> 23cd40a... Travis pls pass
             }
         }
 
