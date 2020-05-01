@@ -533,6 +533,8 @@ impl Display {
             });
         }
 
+        // Frame event should be requested before swaping buffers, since it requires surface
+        // `commit`, which is done by swap buffers under the hood
         #[cfg(not(any(target_os = "macos", windows)))]
         self.request_frame(&self.window);
 

@@ -515,7 +515,9 @@ impl<N: Notify + OnResize> Processor<N> {
 
             #[cfg(not(any(target_os = "macos", windows)))]
             {
-                if !self.display.is_x11 && !self.display.window.should_draw.load(Ordering::Relaxed)
+                // Skip rendering on Wayland until we get frame event from compositor
+                if event_loop.is_wayland()
+                    && !self.display.window.should_draw.load(Ordering::Relaxed)
                 {
                     return;
                 }
