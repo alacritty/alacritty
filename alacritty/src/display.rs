@@ -526,19 +526,7 @@ impl Display {
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            // Register wayland frame callback
-            if let Some(surface) = self.window.wayland_surface() {
-                let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
-                let attached = proxy.attach(self.wayland_event_queue.as_ref().unwrap().token());
-                let should_draw = self.window.should_draw.clone();
-                // Mark that window was drawn
-                should_draw.store(false, Ordering::Relaxed);
-                attached.frame().quick_assign(move |_, _, _| {
-                    should_draw.store(true, Ordering::Relaxed);
-                });
-            }
-        }
+        self.request_frame(&self.window);
 
         self.window.swap_buffers();
 
@@ -552,6 +540,24 @@ impl Display {
                     api.finish();
                 });
             }
+        }
+    }
+
+    /// Requst a new frame for a window on Wayland.
+    #[inline]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn request_frame(&self, window: &Window) {
+        // Register wayland frame callback
+        if let Some(surface) = window.wayland_surface() {
+            let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
+            let attached = proxy.attach(self.wayland_event_queue.as_ref().unwrap().token());
+            let should_draw = self.window.should_draw.clone();
+
+            // Mark that window was drawn
+            should_draw.store(false, Ordering::Relaxed);
+            attached.frame().quick_assign(move |_, _, _| {
+                should_draw.store(true, Ordering::Relaxed);
+            });
         }
     }
 }
