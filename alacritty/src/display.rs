@@ -118,6 +118,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+    #[cfg(not(any(target_os = "macos", windows)))]
+    is_x11: bool,
 }
 
 impl Display {
@@ -198,14 +200,20 @@ impl Display {
             api.clear(background_color);
         });
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let is_x11 = event_loop.is_x11();
+
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             // On Wayland we can safely ignore this call, since the window isn't visible until you
             // actually draw something into it.
-            if event_loop.is_x11() {
-                window.swap_buffers()
+            if is_x11 {
+                window.swap_buffers();
+                renderer.with_api(&config, &size_info, |api| {
+                    api.finish();
+                });
             }
         }
 
@@ -237,6 +245,8 @@ impl Display {
             size_info,
             urls: Urls::new(),
             highlighted_url: None,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            is_x11,
         })
     }
 
@@ -499,6 +509,18 @@ impl Display {
         }
 
         self.window.swap_buffers();
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if self.is_x11 {
+                // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
+                // will block to synchronize (this is `glClear` in Alacritty), which causes a
+                // permanent one frame delay.
+                self.renderer.with_api(&config, &size_info, |api| {
+                    api.finish();
+                });
+            }
+        }
     }
 }
 

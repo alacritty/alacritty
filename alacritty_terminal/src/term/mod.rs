@@ -2667,7 +2667,6 @@ mod benches {
 
     use std::fs;
     use std::mem;
-    use std::path::Path;
 
     use crate::clipboard::Clipboard;
     use crate::config::MockConfig;

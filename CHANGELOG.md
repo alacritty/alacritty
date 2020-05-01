@@ -24,10 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve selection on non-LMB or mouse mode clicks
 - Wayland client side decorations are now based on config colorscheme
 - Low resolution window decoration icon on Windows
+- Mouse bindings for additional buttons need to be specified as a number not a string
 
 ### Fixed
+
 - Tabstops not being reset with `reset`
 - Selection not cleared when switching between main and alt grid
+- Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
+- Resize lag on launch under some X11 wms
+- Increased input latency due to vsync behavior on X11
 
 ## 0.4.2
 
