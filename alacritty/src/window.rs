@@ -55,6 +55,12 @@ use crate::gl;
 #[cfg(not(any(target_os = "macos", windows)))]
 use crate::wayland_theme::AlacrittyWaylandTheme;
 
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::{Attached, EventQueue, Proxy};
+
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::protocol::wl_surface::WlSurface;
+
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(any(target_os = "macos", windows)))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
@@ -140,16 +146,20 @@ fn create_gl_window(
     Ok(windowed_context)
 }
 
-/// A window which can be used for displaying the terminal
+/// A window which can be used for displaying the terminal.
 ///
-/// Wraps the underlying windowing library to provide a stable API in Alacritty
+/// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
-    /// Wayland setting to control redrawing of the window, according to the frame callbacks
+    /// Wayland setting to control redrawing of the window, according to the frame callbacks.
     #[cfg(not(any(target_os = "macos", windows)))]
     pub should_draw: Arc<AtomicBool>,
+
+    /// Attached Wayland surface to create new frame events.
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub wayland_surface: Option<Attached<WlSurface>>,
 }
 
 impl Window {
@@ -160,6 +170,7 @@ impl Window {
         event_loop: &EventLoop<Event>,
         config: &Config,
         size: Option<PhysicalSize<u32>>,
+        #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let window_builder = Window::get_platform_window(&config.window.title, &config.window);
         // Disable vsync on Wayland
@@ -178,6 +189,9 @@ impl Window {
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut wayland_surface = None;
+
         // On X11, embed the window inside another if the parent ID has been set
         #[cfg(not(any(target_os = "macos", windows)))]
         {
@@ -188,6 +202,10 @@ impl Window {
             } else {
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
                 windowed_context.window().set_wayland_theme(theme);
+
+                let surface = windowed_context.window().wayland_surface().unwrap();
+                let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
+                wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
             }
         }
 
@@ -197,6 +215,8 @@ impl Window {
             windowed_context,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
+            #[cfg(not(any(target_os = "macos", windows)))]
+            wayland_surface,
         })
     }
 
@@ -383,8 +403,8 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn wayland_surface(&self) -> Option<*mut c_void> {
-        self.window().wayland_surface()
+    pub fn wayland_surface(&self) -> Option<&Attached<WlSurface>> {
+        self.wayland_surface.as_ref()
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

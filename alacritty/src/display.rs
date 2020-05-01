@@ -29,9 +29,7 @@ use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
 #[cfg(not(any(target_os = "macos", windows)))]
-use wayland_client::protocol::wl_surface::WlSurface;
-#[cfg(not(any(target_os = "macos", windows)))]
-use wayland_client::{Display as WaylandDisplay, EventQueue, Proxy};
+use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use font::{self, Rasterize};
 
@@ -121,14 +119,20 @@ pub struct Display {
     /// Currently highlighted URL.
     pub highlighted_url: Option<Url>,
 
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub wayland_event_queue: Option<EventQueue>,
+
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+<<<<<<< HEAD
     #[cfg(not(any(target_os = "macos", windows)))]
     is_x11: bool,
 
     #[cfg(not(any(target_os = "macos", windows)))]
     pub wayland_event_queue: Option<EventQueue>,
+=======
+>>>>>>> 23cd40a... Travis pls pass
 }
 
 impl Display {
@@ -147,11 +151,30 @@ impl Display {
         debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);
         debug!("Estimated Dimensions: {:?}", dimensions);
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut wayland_event_queue = None;
+
+        // Initialize Wayland event queue, to handle Wayland callbacks.
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_wayland() {
+                let display = event_loop.wayland_display().unwrap();
+                let display = unsafe { WaylandDisplay::from_external_display(display as _) };
+                wayland_event_queue = Some(display.create_event_queue());
+            }
+        }
+
         // Create the window where Alacritty will be displayed
         let size = dimensions.map(|(width, height)| PhysicalSize::new(width, height));
 
         // Spawn window
-        let mut window = Window::new(event_loop, &config, size)?;
+        let mut window = Window::new(
+            event_loop,
+            &config,
+            size,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            wayland_event_queue.as_ref(),
+        )?;
 
         let dpr = window.scale_factor();
         info!("Device pixel ratio: {}", dpr);
@@ -203,14 +226,14 @@ impl Display {
         // Update OpenGL projection
         renderer.resize(&size_info);
 
-        // We should call `clear` when window is offscreen, so when `window.show()` happens it
-        // would be with background color instead of uninitialized surface.
+        // Call `clear` before showing the window, to make sure the surface is initialized.
         let background_color = config.colors.primary.background;
         renderer.with_api(&config, &size_info, |api| {
             api.clear(background_color);
         });
 
         #[cfg(not(any(target_os = "macos", windows)))]
+<<<<<<< HEAD
         let is_x11 = event_loop.is_x11();
         #[cfg(not(any(target_os = "macos", windows)))]
         let mut wayland_event_queue = None;
@@ -229,6 +252,14 @@ impl Display {
                 let display = window.wayland_display().unwrap();
                 let display = unsafe { WaylandDisplay::from_external_display(display as _) };
                 wayland_event_queue = Some(display.create_event_queue());
+=======
+        {
+            // Setup and perform platform specific helpers
+            if event_loop.is_x11() {
+                // On Wayland we can safely ignore this call, since the window isn't visible until
+                // you actually draw something into it.
+                window.swap_buffers()
+>>>>>>> 23cd40a... Travis pls pass
             }
         }
 
@@ -547,18 +578,20 @@ impl Display {
     #[inline]
     #[cfg(not(any(target_os = "macos", windows)))]
     fn request_frame(&self, window: &Window) {
-        // Register wayland frame callback
-        if let Some(surface) = window.wayland_surface() {
-            let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
-            let attached = proxy.attach(self.wayland_event_queue.as_ref().unwrap().token());
-            let should_draw = self.window.should_draw.clone();
+        let surface = match window.wayland_surface() {
+            Some(surface) => surface,
+            None => return,
+        };
 
-            // Mark that window was drawn
-            should_draw.store(false, Ordering::Relaxed);
-            attached.frame().quick_assign(move |_, _, _| {
-                should_draw.store(true, Ordering::Relaxed);
-            });
-        }
+        let should_draw = self.window.should_draw.clone();
+
+        // Mark that window was drawn
+        should_draw.store(false, Ordering::Relaxed);
+
+        // Request a new frame
+        surface.frame().quick_assign(move |_, _, _| {
+            should_draw.store(true, Ordering::Relaxed);
+        });
     }
 }
 

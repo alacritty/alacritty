@@ -386,7 +386,7 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
-    /// Dispatch wayland event queue
+    /// Dispatch wayland event queue.
     ///
     /// Return `false` if queue is not presented or empty, `true` otherwise.
     #[inline]
