@@ -345,13 +345,6 @@ impl Window {
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
-        #[cfg(macos)]
-        {
-            if self.window().simple_fullscreen() {
-                return;
-            }
-        }
-
         if fullscreen {
             let current_monitor = self.window().current_monitor();
             self.window().set_fullscreen(Some(Fullscreen::Borderless(current_monitor)));
@@ -362,10 +355,6 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_simple_fullscreen(&mut self, simple_fullscreen: bool) {
-        if self.window().fullscreen().is_some() {
-            return;
-        }
-
         self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
