@@ -923,6 +923,12 @@ impl<'a, C> RenderApi<'a, C> {
         }
     }
 
+    pub fn finish(&self) {
+        unsafe {
+            gl::Finish();
+        }
+    }
+
     fn render_batch(&mut self) {
         unsafe {
             gl::BufferSubData(
