@@ -513,9 +513,9 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             if self.is_x11 {
-                // It was find out that on X11 swap_buffers doesn't block with vsync on most
-                // systems, so the block will be on the next gl command (glClear on the next event
-                // loop tick for us), which introduces a permament one frame of delay
+                // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
+                // will block to synchronize (this is `glClear` in Alacritty), which causes a
+                // permanent one frame delay.
                 self.renderer.with_api(&config, &size_info, |api| {
                     api.finish();
                 });
