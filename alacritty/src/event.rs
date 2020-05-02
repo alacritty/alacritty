@@ -394,10 +394,11 @@ impl<N: Notify + OnResize> Processor<N> {
     fn event_queue_empty(&mut self) -> bool {
         let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
             Some(wayland_event_queue) => wayland_event_queue,
+            // Since frame callbacks do not exist on X11, just check for event queue.
             None => return self.event_queue.is_empty(),
         };
 
-        // On Wayland we also dispatch and check its own event queue
+        // Check for pending frame callbacks on Wayland.
         let events_dispatched = wayland_event_queue
             .dispatch_pending(&mut (), |_, _, _| {})
             .expect("failed to dispatch event queue");
@@ -406,24 +407,9 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Return `true` if `event_queue` is empty, `false` otherwise.
+    #[inline]
     #[cfg(any(target_os = "macos", windows))]
     fn event_queue_empty(&mut self) -> bool {
-        #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
-                Some(wayland_event_queue) => wayland_event_queue,
-                None => return self.event_queue.is_empty(),
-            };
-
-            // On Wayland we also dispatch and check its own event queue
-            let events_dispatched = wayland_event_queue
-                .dispatch_pending(&mut (), |_, _, _| {})
-                .expect("failed to dispatch event queue");
-
-            self.event_queue.is_empty() && events_dispatched == 0
-        }
-
-        #[cfg(any(target_os = "macos", windows))]
         self.event_queue.is_empty()
     }
 
@@ -437,18 +423,18 @@ impl<N: Notify + OnResize> Processor<N> {
                 info!("glutin event: {:?}", event);
             }
 
-            // Ignore all events we do not care about
+            // Ignore all events we do not care about.
             if Self::skip_event(&event) {
                 return;
             }
 
             match event {
-                // Check for shutdown
+                // Check for shutdown.
                 GlutinEvent::UserEvent(Event::Exit) => {
                     *control_flow = ControlFlow::Exit;
                     return;
                 },
-                // Process events
+                // Process events.
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
@@ -456,7 +442,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         return;
                     }
                 },
-                // Remap DPR change event to remove lifetime
+                // Remap DPR change event to remove lifetime.
                 GlutinEvent::WindowEvent {
                     event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                     ..
@@ -502,7 +488,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 Processor::handle_event(event, &mut processor);
             }
 
-            // Process DisplayUpdate events
+            // Process DisplayUpdate events.
             if !display_update_pending.is_empty() {
                 self.display.handle_update(
                     &mut terminal,
@@ -515,7 +501,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
             #[cfg(not(any(target_os = "macos", windows)))]
             {
-                // Skip rendering on Wayland until we get frame event from compositor
+                // Skip rendering on Wayland until we get frame event from compositor.
                 if event_loop.is_wayland()
                     && !self.display.window.should_draw.load(Ordering::Relaxed)
                 {
@@ -526,12 +512,12 @@ impl<N: Notify + OnResize> Processor<N> {
             if terminal.dirty {
                 terminal.dirty = false;
 
-                // Request immediate re-draw if visual bell animation is not finished yet
+                // Request immediate re-draw if visual bell animation is not finished yet.
                 if !terminal.visual_bell.completed() {
                     self.event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
                 }
 
-                // Redraw screen
+                // Redraw screen.
                 self.display.draw(
                     terminal,
                     &self.message_buffer,

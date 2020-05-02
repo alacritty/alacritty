@@ -174,16 +174,18 @@ impl Window {
         #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let window_builder = Window::get_platform_window(&config.window.title, &config.window);
-        // Disable vsync on Wayland
+
+        // Disable vsync on Wayland.
         #[cfg(not(any(target_os = "macos", windows)))]
         let vsync = !event_loop.is_wayland();
         #[cfg(any(target_os = "macos", windows))]
         let vsync = true;
+
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, vsync, size))?;
 
-        // Text cursor
+        // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
         windowed_context.window().set_cursor_icon(current_mouse_cursor);
 
@@ -196,16 +198,16 @@ impl Window {
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             if event_loop.is_x11() {
-                // On X11, embed the window inside another if the parent ID has been set
+                // On X11, embed the window inside another if the parent ID has been set.
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
             } else {
-                // Apply CSD theme
+                // Apply client side decorations theme.
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
                 windowed_context.window().set_wayland_theme(theme);
 
-                // Attach surface to Alacritty's internal wayland queue to handle frame callbacks
+                // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
                 let surface = windowed_context.window().wayland_surface().unwrap();
                 let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
                 wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
