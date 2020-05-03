@@ -71,9 +71,9 @@ impl Urls {
         Self::default()
     }
 
-    // Update tracked URLs
+    /// Update tracked URLs.
     pub fn update(&mut self, num_cols: usize, cell: RenderableCell) {
-        // Convert cell to character
+        // Convert cell to character.
         let c = match cell.inner {
             RenderableCellContent::Chars(chars) => chars[0],
             RenderableCellContent::Cursor(_) => return,
@@ -82,14 +82,14 @@ impl Urls {
         let point: Point = cell.into();
         let end = point;
 
-        // Reset URL when empty cells have been skipped
+        // Reset URL when empty cells have been skipped.
         if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
             self.reset();
         }
 
         self.last_point = Some(end);
 
-        // Extend current state if a wide char spacer is encountered
+        // Extend current state if a wide char spacer is encountered.
         if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
             if let UrlLocation::Url(_, mut end_offset) = self.state {
                 if end_offset != 0 {
@@ -102,20 +102,20 @@ impl Urls {
             return;
         }
 
-        // Advance parser
+        // Advance parser.
         let last_state = mem::replace(&mut self.state, self.locator.advance(c));
         match (self.state, last_state) {
             (UrlLocation::Url(_length, end_offset), UrlLocation::Scheme) => {
-                // Create empty URL
+                // Create empty URL.
                 self.urls.push(Url { lines: Vec::new(), end_offset, num_cols });
 
-                // Push schemes into URL
+                // Push schemes into URL.
                 for scheme_cell in self.scheme_buffer.split_off(0) {
                     let point = scheme_cell.into();
                     self.extend_url(point, point, scheme_cell.fg, end_offset);
                 }
 
-                // Push the new cell into URL
+                // Push the new cell into URL.
                 self.extend_url(point, end, cell.fg, end_offset);
             },
             (UrlLocation::Url(_length, end_offset), UrlLocation::Url(..)) => {
@@ -126,24 +126,24 @@ impl Urls {
             _ => (),
         }
 
-        // Reset at un-wrapped linebreak
+        // Reset at un-wrapped linebreak.
         if cell.column.0 + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
             self.reset();
         }
     }
 
-    // Extend the last URL
+    /// Extend the last URL.
     fn extend_url(&mut self, start: Point, end: Point, color: Rgb, end_offset: u16) {
         let url = self.urls.last_mut().unwrap();
 
-        // If color changed, we need to insert a new line
+        // If color changed, we need to insert a new line.
         if url.lines.last().map(|last| last.color) == Some(color) {
             url.lines.last_mut().unwrap().end = end;
         } else {
             url.lines.push(RenderLine { color, start, end });
         }
 
-        // Update excluded cells at the end of the URL
+        // Update excluded cells at the end of the URL.
         url.end_offset = end_offset;
     }
 
@@ -156,13 +156,13 @@ impl Urls {
         mouse_mode: bool,
         selection: bool,
     ) -> Option<Url> {
-        // Require additional shift in mouse mode
+        // Require additional shift in mouse mode.
         let mut required_mods = config.ui_config.mouse.url.mods();
         if mouse_mode {
             required_mods |= ModifiersState::SHIFT;
         }
 
-        // Make sure all prerequisites for highlighting are met
+        // Make sure all prerequisites for highlighting are met.
         if selection
             || !mouse.inside_grid
             || config.ui_config.mouse.url.launcher.is_none()

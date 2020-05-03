@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Font rendering based on CoreText
+//! Font rendering based on CoreText.
 #![allow(improper_ctypes)]
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ use super::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
-/// Font descriptor
+/// Font descriptor.
 ///
 /// The descriptor provides data about a font and supports creating a font.
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl Descriptor {
     }
 }
 
-/// Rasterizer, the main type exported by this package
+/// Rasterizer, the main type exported by this package.
 ///
 /// Given a fontdesc, can rasterize fonts.
 pub struct Rasterizer {
@@ -86,16 +86,16 @@ pub struct Rasterizer {
     use_thin_strokes: bool,
 }
 
-/// Errors occurring when using the core text rasterizer
+/// Errors occurring when using the core text rasterizer.
 #[derive(Debug)]
 pub enum Error {
-    /// Tried to rasterize a glyph but it was not available
+    /// Tried to rasterize a glyph but it was not available.
     MissingGlyph(char),
 
-    /// Couldn't find font matching description
+    /// Couldn't find font matching description.
     MissingFont(FontDesc),
 
-    /// Requested an operation with a FontKey that isn't known to the rasterizer
+    /// Requested an operation with a FontKey that isn't known to the rasterizer.
     FontNotLoaded,
 }
 
@@ -136,7 +136,7 @@ impl crate::Rasterize for Rasterizer {
         })
     }
 
-    /// Get metrics for font specified by FontKey
+    /// Get metrics for font specified by FontKey.
     fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
         let font = self.fonts.get(&key).ok_or(Error::FontNotLoaded)?;
 
@@ -156,21 +156,21 @@ impl crate::Rasterize for Rasterizer {
         })
     }
 
-    /// Get rasterized glyph for given glyph key
+    /// Get rasterized glyph for given glyph key.
     fn get_glyph(&mut self, glyph: GlyphKey) -> Result<RasterizedGlyph, Error> {
-        // get loaded font
+        // Get loaded font.
         let font = self.fonts.get(&glyph.font_key).ok_or(Error::FontNotLoaded)?;
 
-        // first try the font itself as a direct hit
+        // First try the font itself as a direct hit.
         self.maybe_get_glyph(glyph, font).unwrap_or_else(|| {
-            // then try fallbacks
+            // Then try fallbacks.
             for fallback in &font.fallbacks {
                 if let Some(result) = self.maybe_get_glyph(glyph, &fallback) {
-                    // found a fallback
+                    // found a fallback.
                     return result;
                 }
             }
-            // no fallback, give up.
+            // No fallback, give up.
             Err(Error::MissingGlyph(glyph.c))
         })
     }
@@ -190,7 +190,7 @@ impl Rasterizer {
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
             if descriptor.style_name == style {
-                // Found the font we want
+                // Found the font we want.
                 let scaled_size = f64::from(size.as_f32_pts()) * f64::from(self.device_pixel_ratio);
                 let font = descriptor.to_font(scaled_size, true);
                 return Ok(font);
@@ -221,7 +221,7 @@ impl Rasterizer {
         for descriptor in descriptors {
             let font = descriptor.to_font(scaled_size, true);
             if font.is_bold() == bold && font.is_italic() == italic {
-                // Found the font we want
+                // Found the font we want.
                 return Ok(font);
             }
         }
@@ -238,7 +238,7 @@ impl Rasterizer {
         }
     }
 
-    // Helper to try and get a glyph for a given font. Used for font fallback.
+    /// Helper to try and get a glyph for a given font. Used for font fallback.
     fn maybe_get_glyph(
         &self,
         glyph: GlyphKey,
@@ -254,7 +254,7 @@ impl Rasterizer {
     }
 }
 
-/// Specifies the intended rendering orientation of the font for obtaining glyph metrics
+/// Specifies the intended rendering orientation of the font for obtaining glyph metrics.
 #[derive(Debug)]
 pub enum FontOrientation {
     Default = kCTFontDefaultOrientation as isize,
@@ -268,7 +268,7 @@ impl Default for FontOrientation {
     }
 }
 
-/// A font
+/// A font.
 #[derive(Clone)]
 pub struct Font {
     ct_font: CTFont,
@@ -278,9 +278,9 @@ pub struct Font {
 
 unsafe impl Send for Font {}
 
-/// List all family names
+/// List all family names.
 pub fn get_family_names() -> Vec<String> {
-    // CFArray of CFStringRef
+    // CFArray of CFStringRef.
     let names = ct_get_family_names();
     let mut owned_names = Vec::new();
 
@@ -291,23 +291,23 @@ pub fn get_family_names() -> Vec<String> {
     owned_names
 }
 
-/// Return fallback descriptors for font/language list
+/// Return fallback descriptors for font/language list.
 fn cascade_list_for_languages(ct_font: &CTFont, languages: &[String]) -> Vec<Descriptor> {
-    // convert language type &Vec<String> -> CFArray
+    // Convert language type &Vec<String> -> CFArray.
     let langarr: CFArray<CFString> = {
         let tmp: Vec<CFString> =
             languages.iter().map(|language| CFString::new(&language)).collect();
         CFArray::from_CFTypes(&tmp)
     };
 
-    // CFArray of CTFontDescriptorRef (again)
+    // CFArray of CTFontDescriptorRef (again).
     let list = ct_cascade_list_for_languages(ct_font, &langarr);
 
-    // convert CFArray to Vec<Descriptor>
+    // Convert CFArray to Vec<Descriptor>.
     list.into_iter().map(|fontdesc| Descriptor::new(fontdesc.clone())).collect()
 }
 
-/// Get descriptors for family name
+/// Get descriptors for family name.
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
@@ -318,7 +318,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
         create_for_family("Menlo").expect("Menlo exists")
     });
 
-    // CFArray of CTFontDescriptorRef (i think)
+    // CFArray of CTFontDescriptorRef (i think).
     let descriptors = ct_collection.get_descriptors();
     if let Some(descriptors) = descriptors {
         for descriptor in descriptors.iter() {
@@ -330,7 +330,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 }
 
 impl Descriptor {
-    /// Create a Font from this descriptor
+    /// Create a Font from this descriptor.
     pub fn to_font(&self, size: f64, load_fallbacks: bool) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
@@ -342,7 +342,7 @@ impl Descriptor {
                 .map(|descriptor| {
                     let menlo = ct_new_from_descriptor(&descriptor.ct_descriptor, size);
 
-                    // TODO fixme, hardcoded en for english
+                    // TODO fixme, hardcoded en for english.
                     let mut fallbacks = cascade_list_for_languages(&menlo, &["en".to_owned()])
                         .into_iter()
                         .filter(|desc| !desc.font_path.as_os_str().is_empty())
@@ -361,7 +361,7 @@ impl Descriptor {
                         fallbacks.push(descriptor.to_font(size, false))
                     };
 
-                    // Include Menlo in the fallback list as well
+                    // Include Menlo in the fallback list as well.
                     fallbacks.insert(0, Font {
                         cg_font: menlo.copy_to_CGFont(),
                         ct_font: menlo,
@@ -380,7 +380,7 @@ impl Descriptor {
 }
 
 impl Font {
-    /// The the bounding rect of a glyph
+    /// The the bounding rect of a glyph.
     pub fn bounding_rect_for_glyph(
         &self,
         orientation: FontOrientation,
@@ -488,7 +488,7 @@ impl Font {
             kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
         );
 
-        // Give the context an opaque, black background
+        // Give the context an opaque, black background.
         cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 1.0);
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
@@ -510,7 +510,7 @@ impl Font {
         cg_context.set_allows_antialiasing(true);
         cg_context.set_should_antialias(true);
 
-        // Set fill color to white for drawing the glyph
+        // Set fill color to white for drawing the glyph.
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);
         let rasterization_origin =
             CGPoint { x: f64::from(-rasterized_left), y: f64::from(rasterized_descent) };
@@ -540,15 +540,15 @@ impl Font {
     }
 
     fn glyph_index(&self, character: char) -> Option<u32> {
-        // encode this char as utf-16
+        // Encode this char as utf-16.
         let mut buf = [0; 2];
         let encoded: &[u16] = character.encode_utf16(&mut buf);
-        // and use the utf-16 buffer to get the index
+        // And use the utf-16 buffer to get the index.
         self.glyph_index_utf16(encoded)
     }
 
     fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
-        // output buffer for the glyph. for non-BMP glyphs, like
+        // Output buffer for the glyph. for non-BMP glyphs, like
         // emojis, this will be filled with two chars the second
         // always being a 0.
         let mut glyphs: [CGGlyph; 2] = [0; 2];
@@ -586,11 +586,11 @@ mod tests {
         assert!(!list.is_empty());
         println!("{:?}", list);
 
-        // Check to_font
+        // Check to_font.
         let fonts = list.iter().map(|desc| desc.to_font(72., false)).collect::<Vec<_>>();
 
         for font in fonts {
-            // Get a glyph
+            // Get a glyph.
             for c in &['a', 'b', 'c', 'd'] {
                 let glyph = font.get_glyph(*c, 72., false).unwrap();
 
@@ -599,7 +599,7 @@ mod tests {
                     BitmapBuffer::RGBA(buf) => buf,
                 };
 
-                // Debug the glyph.. sigh
+                // Debug the glyph.. sigh.
                 for row in 0..glyph.height {
                     for col in 0..glyph.width {
                         let index = ((glyph.width * 3 * row) + (col * 3)) as usize;

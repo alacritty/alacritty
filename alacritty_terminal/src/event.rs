@@ -16,20 +16,20 @@ pub enum Event {
     Exit,
 }
 
-/// Byte sequences are sent to a `Notify` in response to some events
+/// Byte sequences are sent to a `Notify` in response to some events.
 pub trait Notify {
-    /// Notify that an escape sequence should be written to the pty
+    /// Notify that an escape sequence should be written to the pty.
     ///
-    /// TODO this needs to be able to error somehow
+    /// TODO this needs to be able to error somehow.
     fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
 }
 
-/// Types that are interested in when the display is resized
+/// Types that are interested in when the display is resized.
 pub trait OnResize {
     fn on_resize(&mut self, size: &SizeInfo);
 }
 
-/// Event Loop for notifying the renderer about terminal events
+/// Event Loop for notifying the renderer about terminal events.
 pub trait EventListener {
     fn send_event(&self, event: Event);
 }

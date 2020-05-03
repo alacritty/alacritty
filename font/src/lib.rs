@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Compatibility layer for different font engines
+//! Compatibility layer for different font engines.
 //!
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
-//! Eventually, ClearType support will be available for windows
+//! Eventually, ClearType support will be available for windows.
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
@@ -24,7 +24,7 @@ use std::fmt;
 use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-// If target isn't macos or windows, reexport everything from ft
+// If target isn't macos or windows, reexport everything from ft.
 #[cfg(not(any(target_os = "macos", windows)))]
 pub mod ft;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -35,7 +35,7 @@ pub mod directwrite;
 #[cfg(windows)]
 pub use directwrite::{DirectWriteRasterizer as Rasterizer, Error};
 
-// If target is macos, reexport everything from darwin
+// If target is macos, reexport everything from darwin.
 #[cfg(target_os = "macos")]
 mod darwin;
 #[cfg(target_os = "macos")]
@@ -60,7 +60,7 @@ pub enum Weight {
     Bold,
 }
 
-/// Style of font
+/// Style of font.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
     Specific(String),
@@ -93,16 +93,16 @@ impl fmt::Display for FontDesc {
     }
 }
 
-/// Identifier for a Font for use in maps/etc
+/// Identifier for a Font for use in maps/etc.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct FontKey {
     token: u32,
 }
 
 impl FontKey {
-    /// Get next font key for given size
+    /// Get next font key for given size.
     ///
-    /// The generated key will be globally unique
+    /// The generated key will be globally unique.
     pub fn next() -> FontKey {
         static TOKEN: AtomicUsize = AtomicUsize::new(0);
 
@@ -117,23 +117,23 @@ pub struct GlyphKey {
     pub size: Size,
 }
 
-/// Font size stored as integer
+/// Font size stored as integer.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Size(i16);
 
 impl Size {
-    /// Create a new `Size` from a f32 size in points
+    /// Create a new `Size` from a f32 size in points.
     pub fn new(size: f32) -> Size {
         Size((size * Size::factor()) as i16)
     }
 
-    /// Scale factor between font "Size" type and point size
+    /// Scale factor between font "Size" type and point size.
     #[inline]
     pub fn factor() -> f32 {
         2.0
     }
 
-    /// Get the f32 size in points
+    /// Get the f32 size in points.
     pub fn as_f32_pts(self) -> f32 {
         f32::from(self.0) / Size::factor()
     }
@@ -215,23 +215,23 @@ pub struct Metrics {
 }
 
 pub trait Rasterize {
-    /// Errors occurring in Rasterize methods
+    /// Errors occurring in Rasterize methods.
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    /// Create a new Rasterizer
+    /// Create a new Rasterizer.
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
-    /// Get `Metrics` for the given `FontKey`
+    /// Get `Metrics` for the given `FontKey`.
     fn metrics(&self, _: FontKey, _: Size) -> Result<Metrics, Self::Err>;
 
-    /// Load the font described by `FontDesc` and `Size`
+    /// Load the font described by `FontDesc` and `Size`.
     fn load_font(&mut self, _: &FontDesc, _: Size) -> Result<FontKey, Self::Err>;
 
-    /// Rasterize the glyph described by `GlyphKey`.
+    /// Rasterize the glyph described by `GlyphKey`..
     fn get_glyph(&mut self, _: GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 
-    /// Update the Rasterizer's DPI factor
+    /// Update the Rasterizer's DPI factor.
     fn update_dpr(&mut self, device_pixel_ratio: f32);
 }

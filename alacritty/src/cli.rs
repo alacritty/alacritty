@@ -30,7 +30,7 @@ const CONFIG_PATH: &str = "%APPDATA%\\alacritty\\alacritty.yml";
 #[cfg(target_os = "macos")]
 const CONFIG_PATH: &str = "$HOME/.config/alacritty/alacritty.yml";
 
-/// Options specified on the command line
+/// Options specified on the command line.
 pub struct Options {
     pub live_config_reload: Option<bool>,
     pub print_events: bool,
@@ -241,8 +241,8 @@ impl Options {
 
         if let Some(mut args) = matches.values_of("command") {
             // The following unwrap is guaranteed to succeed.
-            // If 'command' exists it must also have a first item since
-            // Arg::min_values(1) is set.
+            // If `command` exists it must also have a first item since
+            // `Arg::min_values(1)` is set.
             let command = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
             options.command = Some(Shell::new_with_args(command, args));

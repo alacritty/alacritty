@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! ANSI Terminal Stream Parsing
+//! ANSI Terminal Stream Parsing.
 use std::io;
 use std::str;
 
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 
-// Parse colors in XParseColor format
+/// Parse colors in XParseColor format.
 fn xparse_color(color: &[u8]) -> Option<Rgb> {
     if !color.is_empty() && color[0] == b'#' {
         parse_legacy_color(&color[1..])
@@ -33,7 +33,7 @@ fn xparse_color(color: &[u8]) -> Option<Rgb> {
     }
 }
 
-// Parse colors in `rgb:r(rrr)/g(ggg)/b(bbb)` format
+/// Parse colors in `rgb:r(rrr)/g(ggg)/b(bbb)` format.
 fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     let colors = str::from_utf8(color).ok()?.split('/').collect::<Vec<_>>();
 
@@ -41,7 +41,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
         return None;
     }
 
-    // Scale values instead of filling with `0`s
+    // Scale values instead of filling with `0`s.
     let scale = |input: &str| {
         let max = u32::pow(16, input.len() as u32) - 1;
         let value = u32::from_str_radix(input, 16).ok()?;
@@ -51,11 +51,11 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     Some(Rgb { r: scale(colors[0])?, g: scale(colors[1])?, b: scale(colors[2])? })
 }
 
-// Parse colors in `#r(rrr)g(ggg)b(bbb)` format
+/// Parse colors in `#r(rrr)g(ggg)b(bbb)` format.
 fn parse_legacy_color(color: &[u8]) -> Option<Rgb> {
     let item_len = color.len() / 3;
 
-    // Truncate/Fill to two byte precision
+    // Truncate/Fill to two byte precision.
     let color_from_slice = |slice: &[u8]| {
         let col = usize::from_str_radix(str::from_utf8(slice).ok()?, 16).ok()? << 4;
         Some((col >> (4 * slice.len().saturating_sub(1))) as u8)
@@ -87,13 +87,13 @@ fn parse_number(input: &[u8]) -> Option<u8> {
     Some(num)
 }
 
-/// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
+/// The processor wraps a `vte::Parser` to ultimately call methods on a Handler.
 pub struct Processor {
     state: ProcessorState,
     parser: vte::Parser,
 }
 
-/// Internal state for VTE processor
+/// Internal state for VTE processor.
 struct ProcessorState {
     preceding_char: Option<char>,
 }
@@ -109,7 +109,7 @@ struct Performer<'a, H: Handler + TermInfo, W: io::Write> {
 }
 
 impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
-    /// Create a performer
+    /// Create a performer.
     #[inline]
     pub fn new<'b>(
         state: &'b mut ProcessorState,
@@ -142,185 +142,185 @@ impl Processor {
     }
 }
 
-/// Trait that provides properties of terminal
+/// Trait that provides properties of terminal.
 pub trait TermInfo {
     fn lines(&self) -> Line;
     fn cols(&self) -> Column;
 }
 
-/// Type that handles actions from the parser
+/// Type that handles actions from the parser.
 ///
 /// XXX Should probably not provide default impls for everything, but it makes
 /// writing specific handler impls for tests far easier.
 pub trait Handler {
-    /// OSC to set window title
+    /// OSC to set window title.
     fn set_title(&mut self, _: Option<String>) {}
 
-    /// Set the cursor style
+    /// Set the cursor style.
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
-    /// A character to be displayed
+    /// A character to be displayed.
     fn input(&mut self, _c: char) {}
 
-    /// Set cursor to position
+    /// Set cursor to position.
     fn goto(&mut self, _: Line, _: Column) {}
 
-    /// Set cursor to specific row
+    /// Set cursor to specific row.
     fn goto_line(&mut self, _: Line) {}
 
-    /// Set cursor to specific column
+    /// Set cursor to specific column.
     fn goto_col(&mut self, _: Column) {}
 
-    /// Insert blank characters in current line starting from cursor
+    /// Insert blank characters in current line starting from cursor.
     fn insert_blank(&mut self, _: Column) {}
 
-    /// Move cursor up `rows`
+    /// Move cursor up `rows`.
     fn move_up(&mut self, _: Line) {}
 
-    /// Move cursor down `rows`
+    /// Move cursor down `rows`.
     fn move_down(&mut self, _: Line) {}
 
-    /// Identify the terminal (should write back to the pty stream)
+    /// Identify the terminal (should write back to the pty stream).
     ///
     /// TODO this should probably return an io::Result
     fn identify_terminal<W: io::Write>(&mut self, _: &mut W) {}
 
-    // Report device status
+    /// Report device status.
     fn device_status<W: io::Write>(&mut self, _: &mut W, _: usize) {}
 
-    /// Move cursor forward `cols`
+    /// Move cursor forward `cols`.
     fn move_forward(&mut self, _: Column) {}
 
-    /// Move cursor backward `cols`
+    /// Move cursor backward `cols`.
     fn move_backward(&mut self, _: Column) {}
 
-    /// Move cursor down `rows` and set to column 1
+    /// Move cursor down `rows` and set to column 1.
     fn move_down_and_cr(&mut self, _: Line) {}
 
-    /// Move cursor up `rows` and set to column 1
+    /// Move cursor up `rows` and set to column 1.
     fn move_up_and_cr(&mut self, _: Line) {}
 
-    /// Put `count` tabs
+    /// Put `count` tabs.
     fn put_tab(&mut self, _count: i64) {}
 
-    /// Backspace `count` characters
+    /// Backspace `count` characters.
     fn backspace(&mut self) {}
 
-    /// Carriage return
+    /// Carriage return.
     fn carriage_return(&mut self) {}
 
-    /// Linefeed
+    /// Linefeed.
     fn linefeed(&mut self) {}
 
-    /// Ring the bell
+    /// Ring the bell.
     ///
-    /// Hopefully this is never implemented
+    /// Hopefully this is never implemented.
     fn bell(&mut self) {}
 
-    /// Substitute char under cursor
+    /// Substitute char under cursor.
     fn substitute(&mut self) {}
 
-    /// Newline
+    /// Newline.
     fn newline(&mut self) {}
 
-    /// Set current position as a tabstop
+    /// Set current position as a tabstop.
     fn set_horizontal_tabstop(&mut self) {}
 
-    /// Scroll up `rows` rows
+    /// Scroll up `rows` rows.
     fn scroll_up(&mut self, _: Line) {}
 
-    /// Scroll down `rows` rows
+    /// Scroll down `rows` rows.
     fn scroll_down(&mut self, _: Line) {}
 
-    /// Insert `count` blank lines
+    /// Insert `count` blank lines.
     fn insert_blank_lines(&mut self, _: Line) {}
 
-    /// Delete `count` lines
+    /// Delete `count` lines.
     fn delete_lines(&mut self, _: Line) {}
 
-    /// Erase `count` chars in current line following cursor
+    /// Erase `count` chars in current line following cursor.
     ///
     /// Erase means resetting to the default state (default colors, no content,
-    /// no mode flags)
+    /// no mode flags).
     fn erase_chars(&mut self, _: Column) {}
 
-    /// Delete `count` chars
+    /// Delete `count` chars.
     ///
     /// Deleting a character is like the delete key on the keyboard - everything
     /// to the right of the deleted things is shifted left.
     fn delete_chars(&mut self, _: Column) {}
 
-    /// Move backward `count` tabs
+    /// Move backward `count` tabs.
     fn move_backward_tabs(&mut self, _count: i64) {}
 
-    /// Move forward `count` tabs
+    /// Move forward `count` tabs.
     fn move_forward_tabs(&mut self, _count: i64) {}
 
-    /// Save current cursor position
+    /// Save current cursor position.
     fn save_cursor_position(&mut self) {}
 
-    /// Restore cursor position
+    /// Restore cursor position.
     fn restore_cursor_position(&mut self) {}
 
-    /// Clear current line
+    /// Clear current line.
     fn clear_line(&mut self, _mode: LineClearMode) {}
 
-    /// Clear screen
+    /// Clear screen.
     fn clear_screen(&mut self, _mode: ClearMode) {}
 
-    /// Clear tab stops
+    /// Clear tab stops.
     fn clear_tabs(&mut self, _mode: TabulationClearMode) {}
 
-    /// Reset terminal state
+    /// Reset terminal state.
     fn reset_state(&mut self) {}
 
-    /// Reverse Index
+    /// Reverse Index.
     ///
     /// Move the active position to the same horizontal position on the
     /// preceding line. If the active position is at the top margin, a scroll
-    /// down is performed
+    /// down is performed.
     fn reverse_index(&mut self) {}
 
-    /// set a terminal attribute
+    /// Set a terminal attribute.
     fn terminal_attribute(&mut self, _attr: Attr) {}
 
-    /// Set mode
+    /// Set mode.
     fn set_mode(&mut self, _mode: Mode) {}
 
-    /// Unset mode
+    /// Unset mode.
     fn unset_mode(&mut self, _: Mode) {}
 
-    /// DECSTBM - Set the terminal scrolling region
+    /// DECSTBM - Set the terminal scrolling region.
     fn set_scrolling_region(&mut self, _top: usize, _bottom: usize) {}
 
-    /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
+    /// DECKPAM - Set keypad to applications mode (ESCape instead of digits).
     fn set_keypad_application_mode(&mut self) {}
 
-    /// DECKPNM - Set keypad to numeric mode (digits instead of ESCape seq)
+    /// DECKPNM - Set keypad to numeric mode (digits instead of ESCape seq).
     fn unset_keypad_application_mode(&mut self) {}
 
-    /// Set one of the graphic character sets, G0 to G3, as the active charset.
+    /// Set one of the graphic character sets, G0 to G3, as the active charset..
     ///
     /// 'Invoke' one of G0 to G3 in the GL area. Also referred to as shift in,
-    /// shift out and locking shift depending on the set being activated
+    /// shift out and locking shift depending on the set being activated.
     fn set_active_charset(&mut self, _: CharsetIndex) {}
 
-    /// Assign a graphic character set to G0, G1, G2 or G3
+    /// Assign a graphic character set to G0, G1, G2 or G3.
     ///
     /// 'Designate' a graphic character set as one of G0 to G3, so that it can
-    /// later be 'invoked' by `set_active_charset`
+    /// later be 'invoked' by `set_active_charset`.
     fn configure_charset(&mut self, _: CharsetIndex, _: StandardCharset) {}
 
-    /// Set an indexed color value
+    /// Set an indexed color value.
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
-    /// Write a foreground/background color escape sequence with the current color
+    /// Write a foreground/background color escape sequence with the current color.
     fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize, _: &str) {}
 
-    /// Reset an indexed color to original value
+    /// Reset an indexed color to original value.
     fn reset_color(&mut self, _: usize) {}
 
-    /// Set the clipboard
+    /// Set the clipboard.
     fn set_clipboard(&mut self, _: u8, _: &[u8]) {}
 
     /// Write clipboard data to child.
@@ -329,30 +329,30 @@ pub trait Handler {
     /// Run the decaln routine.
     fn decaln(&mut self) {}
 
-    /// Push a title onto the stack
+    /// Push a title onto the stack.
     fn push_title(&mut self) {}
 
-    /// Pop the last title from the stack
+    /// Pop the last title from the stack.
     fn pop_title(&mut self) {}
 }
 
-/// Describes shape of cursor
+/// Describes shape of cursor.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub enum CursorStyle {
-    /// Cursor is a block like `▒`
+    /// Cursor is a block like `▒`.
     Block,
 
-    /// Cursor is an underscore like `_`
+    /// Cursor is an underscore like `_`.
     Underline,
 
-    /// Cursor is a vertical bar `⎸`
+    /// Cursor is a vertical bar `⎸`.
     Beam,
 
-    /// Cursor is a box like `☐`
+    /// Cursor is a box like `☐`.
     #[serde(skip)]
     HollowBlock,
 
-    /// Invisible cursor
+    /// Invisible cursor.
     #[serde(skip)]
     Hidden,
 }
@@ -363,65 +363,65 @@ impl Default for CursorStyle {
     }
 }
 
-/// Terminal modes
+/// Terminal modes.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
-    /// ?1
+    /// ?1.
     CursorKeys = 1,
-    /// Select 80 or 132 columns per page
+    /// Select 80 or 132 columns per page.
     ///
-    /// CSI ? 3 h -> set 132 column font
-    /// CSI ? 3 l -> reset 80 column font
+    /// CSI ? 3 h -> set 132 column font.
+    /// CSI ? 3 l -> reset 80 column font.
     ///
     /// Additionally,
     ///
     /// * set margins to default positions
     /// * erases all data in page memory
     /// * resets DECLRMM to unavailable
-    /// * clears data from the status line (if set to host-writable)
+    /// * clears data from the status line (if set to host-writable).
     DECCOLM = 3,
-    /// IRM Insert Mode
+    /// IRM Insert Mode.
     ///
-    /// NB should be part of non-private mode enum
+    /// NB should be part of non-private mode enum.
     ///
-    /// * `CSI 4 h` change to insert mode
-    /// * `CSI 4 l` reset to replacement mode
+    /// * `CSI 4 h` change to insert mode.
+    /// * `CSI 4 l` reset to replacement mode.
     Insert = 4,
-    /// ?6
+    /// ?6.
     Origin = 6,
-    /// ?7
+    /// ?7.
     LineWrap = 7,
-    /// ?12
+    /// ?12.
     BlinkingCursor = 12,
-    /// 20
+    /// 20.
     ///
     /// NB This is actually a private mode. We should consider adding a second
     /// enumeration for public/private modesets.
     LineFeedNewLine = 20,
-    /// ?25
+    /// ?25.
     ShowCursor = 25,
-    /// ?1000
+    /// ?1000.
     ReportMouseClicks = 1000,
-    /// ?1002
+    /// ?1002.
     ReportCellMouseMotion = 1002,
-    /// ?1003
+    /// ?1003.
     ReportAllMouseMotion = 1003,
-    /// ?1004
+    /// ?1004.
     ReportFocusInOut = 1004,
-    /// ?1005
+    /// ?1005.
     Utf8Mouse = 1005,
-    /// ?1006
+    /// ?1006.
     SgrMouse = 1006,
-    /// ?1007
+    /// ?1007.
     AlternateScroll = 1007,
-    /// ?1049
+    /// ?1049.
     SwapScreenAndSetRestoreCursor = 1049,
-    /// ?2004
+    /// ?2004.
     BracketedPaste = 2004,
 }
 
 impl Mode {
-    /// Create mode from a primitive
+    /// Create mode from a primitive.
     ///
     /// TODO lots of unhandled values..
     pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
@@ -463,106 +463,106 @@ impl Mode {
     }
 }
 
-/// Mode for clearing line
+/// Mode for clearing line.
 ///
-/// Relative to cursor
+/// Relative to cursor.
 #[derive(Debug)]
 pub enum LineClearMode {
-    /// Clear right of cursor
+    /// Clear right of cursor.
     Right,
-    /// Clear left of cursor
+    /// Clear left of cursor.
     Left,
-    /// Clear entire line
+    /// Clear entire line.
     All,
 }
 
-/// Mode for clearing terminal
+/// Mode for clearing terminal.
 ///
-/// Relative to cursor
+/// Relative to cursor.
 #[derive(Debug)]
 pub enum ClearMode {
-    /// Clear below cursor
+    /// Clear below cursor.
     Below,
-    /// Clear above cursor
+    /// Clear above cursor.
     Above,
-    /// Clear entire terminal
+    /// Clear entire terminal.
     All,
-    /// Clear 'saved' lines (scrollback)
+    /// Clear 'saved' lines (scrollback).
     Saved,
 }
 
-/// Mode for clearing tab stops
+/// Mode for clearing tab stops.
 #[derive(Debug)]
 pub enum TabulationClearMode {
-    /// Clear stop under cursor
+    /// Clear stop under cursor.
     Current,
-    /// Clear all stops
+    /// Clear all stops.
     All,
 }
 
-/// Standard colors
+/// Standard colors.
 ///
 /// The order here matters since the enum should be castable to a `usize` for
 /// indexing a color list.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum NamedColor {
-    /// Black
+    /// Black.
     Black = 0,
-    /// Red
+    /// Red.
     Red,
-    /// Green
+    /// Green.
     Green,
-    /// Yellow
+    /// Yellow.
     Yellow,
-    /// Blue
+    /// Blue.
     Blue,
-    /// Magenta
+    /// Magenta.
     Magenta,
-    /// Cyan
+    /// Cyan.
     Cyan,
-    /// White
+    /// White.
     White,
-    /// Bright black
+    /// Bright black.
     BrightBlack,
-    /// Bright red
+    /// Bright red.
     BrightRed,
-    /// Bright green
+    /// Bright green.
     BrightGreen,
-    /// Bright yellow
+    /// Bright yellow.
     BrightYellow,
-    /// Bright blue
+    /// Bright blue.
     BrightBlue,
-    /// Bright magenta
+    /// Bright magenta.
     BrightMagenta,
-    /// Bright cyan
+    /// Bright cyan.
     BrightCyan,
-    /// Bright white
+    /// Bright white.
     BrightWhite,
-    /// The foreground color
+    /// The foreground color.
     Foreground = 256,
-    /// The background color
+    /// The background color.
     Background,
-    /// Color for the cursor itself
+    /// Color for the cursor itself.
     Cursor,
-    /// Dim black
+    /// Dim black.
     DimBlack,
-    /// Dim red
+    /// Dim red.
     DimRed,
-    /// Dim green
+    /// Dim green.
     DimGreen,
-    /// Dim yellow
+    /// Dim yellow.
     DimYellow,
-    /// Dim blue
+    /// Dim blue.
     DimBlue,
-    /// Dim magenta
+    /// Dim magenta.
     DimMagenta,
-    /// Dim cyan
+    /// Dim cyan.
     DimCyan,
-    /// Dim white
+    /// Dim white.
     DimWhite,
-    /// The bright foreground color
+    /// The bright foreground color.
     BrightForeground,
-    /// Dim foreground
+    /// Dim foreground.
     DimForeground,
 }
 
@@ -623,55 +623,55 @@ pub enum Color {
     Indexed(u8),
 }
 
-/// Terminal character attributes
+/// Terminal character attributes.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Attr {
-    /// Clear all special abilities
+    /// Clear all special abilities.
     Reset,
-    /// Bold text
+    /// Bold text.
     Bold,
-    /// Dim or secondary color
+    /// Dim or secondary color.
     Dim,
-    /// Italic text
+    /// Italic text.
     Italic,
-    /// Underline text
+    /// Underline text.
     Underline,
-    /// Blink cursor slowly
+    /// Blink cursor slowly.
     BlinkSlow,
-    /// Blink cursor fast
+    /// Blink cursor fast.
     BlinkFast,
-    /// Invert colors
+    /// Invert colors.
     Reverse,
-    /// Do not display characters
+    /// Do not display characters.
     Hidden,
-    /// Strikeout text
+    /// Strikeout text.
     Strike,
-    /// Cancel bold
+    /// Cancel bold.
     CancelBold,
-    /// Cancel bold and dim
+    /// Cancel bold and dim.
     CancelBoldDim,
-    /// Cancel italic
+    /// Cancel italic.
     CancelItalic,
-    /// Cancel underline
+    /// Cancel underline.
     CancelUnderline,
-    /// Cancel blink
+    /// Cancel blink.
     CancelBlink,
-    /// Cancel inversion
+    /// Cancel inversion.
     CancelReverse,
-    /// Cancel text hiding
+    /// Cancel text hiding.
     CancelHidden,
-    /// Cancel strikeout
+    /// Cancel strikeout.
     CancelStrike,
-    /// Set indexed foreground color
+    /// Set indexed foreground color.
     Foreground(Color),
-    /// Set indexed background color
+    /// Set indexed background color.
     Background(Color),
 }
 
-/// Identifiers which can be assigned to a graphic character set
+/// Identifiers which can be assigned to a graphic character set.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CharsetIndex {
-    /// Default set, is designated as ASCII at startup
+    /// Default set, is designated as ASCII at startup.
     G0,
     G1,
     G2,
@@ -684,7 +684,7 @@ impl Default for CharsetIndex {
     }
 }
 
-/// Standard or common character sets which can be designated as G0-G3
+/// Standard or common character sets which can be designated as G0-G3.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StandardCharset {
     Ascii,
@@ -741,7 +741,7 @@ where
         debug!("[unhandled unhook]");
     }
 
-    // TODO replace OSC parsing with parser combinators
+    // TODO replace OSC parsing with parser combinators.
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]], bell_terminated: bool) {
         let writer = &mut self.writer;
@@ -764,7 +764,7 @@ where
         }
 
         match params[0] {
-            // Set window title
+            // Set window title.
             b"0" | b"2" => {
                 if params.len() >= 2 {
                     let title = params[1..]
@@ -780,11 +780,11 @@ where
                 unhandled(params);
             },
 
-            // Set icon name
-            // This is ignored, since alacritty has no concept of tabs
+            // Set icon name.
+            // This is ignored, since alacritty has no concept of tabs.
             b"1" => (),
 
-            // Set color index
+            // Set color index.
             b"4" => {
                 if params.len() > 1 && params.len() % 2 != 0 {
                     for chunk in params[1..].chunks(2) {
@@ -799,16 +799,16 @@ where
                 unhandled(params);
             },
 
-            // Get/set Foreground, Background, Cursor colors
+            // Get/set Foreground, Background, Cursor colors.
             b"10" | b"11" | b"12" => {
                 if params.len() >= 2 {
                     if let Some(mut dynamic_code) = parse_number(params[0]) {
                         for param in &params[1..] {
-                            // 10 is the first dynamic color, also the foreground
+                            // 10 is the first dynamic color, also the foreground.
                             let offset = dynamic_code as usize - 10;
                             let index = NamedColor::Foreground as usize + offset;
 
-                            // End of setting dynamic colors
+                            // End of setting dynamic colors.
                             if index > NamedColor::Cursor as usize {
                                 unhandled(params);
                                 break;
@@ -834,7 +834,7 @@ where
                 unhandled(params);
             },
 
-            // Set cursor style
+            // Set cursor style.
             b"50" => {
                 if params.len() >= 2
                     && params[1].len() >= 13
@@ -852,7 +852,7 @@ where
                 unhandled(params);
             },
 
-            // Set clipboard
+            // Set clipboard.
             b"52" => {
                 if params.len() < 3 {
                     return unhandled(params);
@@ -865,9 +865,9 @@ where
                 }
             },
 
-            // Reset color index
+            // Reset color index.
             b"104" => {
-                // Reset all color indexes when no parameters are given
+                // Reset all color indexes when no parameters are given.
                 if params.len() == 1 {
                     for i in 0..256 {
                         self.handler.reset_color(i);
@@ -875,7 +875,7 @@ where
                     return;
                 }
 
-                // Reset color indexes given as parameters
+                // Reset color indexes given as parameters.
                 for param in &params[1..] {
                     match parse_number(param) {
                         Some(index) => self.handler.reset_color(index as usize),
@@ -884,13 +884,13 @@ where
                 }
             },
 
-            // Reset foreground color
+            // Reset foreground color.
             b"110" => self.handler.reset_color(NamedColor::Foreground as usize),
 
-            // Reset background color
+            // Reset background color.
             b"111" => self.handler.reset_color(NamedColor::Background as usize),
 
-            // Reset text cursor color
+            // Reset text cursor color.
             b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
 
             _ => unhandled(params),
@@ -1066,7 +1066,7 @@ where
                 handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize)
             },
             ('q', Some(b' ')) => {
-                // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
+                // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
                 let style = match arg_or_default!(idx: 0, default: 0) {
                     0 => None,
                     1 | 2 => Some(CursorStyle::Block),
@@ -1138,7 +1138,7 @@ where
             (b'8', None) => self.handler.restore_cursor_position(),
             (b'=', None) => self.handler.set_keypad_application_mode(),
             (b'>', None) => self.handler.unset_keypad_application_mode(),
-            // String terminator, do nothing (parser handles as string terminator)
+            // String terminator, do nothing (parser handles as string terminator).
             (b'\\', None) => (),
             _ => unhandled!(),
         }
@@ -1146,12 +1146,14 @@ where
 }
 
 fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
-    // Sometimes a C-style for loop is just what you need
-    let mut i = 0; // C-for initializer
+    // Sometimes a C-style for loop is just what you need.
+
+    // C-for initializer.
+    let mut i = 0;
     let mut attrs = Vec::with_capacity(parameters.len());
     loop {
         if i >= parameters.len() {
-            // C-for condition
+            // C-for condition.
             break;
         }
 
@@ -1231,12 +1233,13 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
 
         attrs.push(attr);
 
-        i += 1; // C-for expr
+        // C-for expr.
+        i += 1;
     }
     attrs
 }
 
-/// Parse a color specifier from list of attributes
+/// Parse a color specifier from list of attributes.
 fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
     if attrs.len() < 2 {
         return None;
@@ -1244,7 +1247,7 @@ fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
 
     match attrs[*i + 1] {
         2 => {
-            // RGB color spec
+            // RGB color spec.
             if attrs.len() < 5 {
                 debug!("Expected RGB color spec; got {:?}", attrs);
                 return None;
@@ -1290,75 +1293,75 @@ fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
 /// C0 set of 7-bit control characters (from ANSI X3.4-1977).
 #[allow(non_snake_case)]
 pub mod C0 {
-    /// Null filler, terminal should ignore this character
+    /// Null filler, terminal should ignore this character.
     pub const NUL: u8 = 0x00;
-    /// Start of Header
+    /// Start of Header.
     pub const SOH: u8 = 0x01;
-    /// Start of Text, implied end of header
+    /// Start of Text, implied end of header.
     pub const STX: u8 = 0x02;
-    /// End of Text, causes some terminal to respond with ACK or NAK
+    /// End of Text, causes some terminal to respond with ACK or NAK.
     pub const ETX: u8 = 0x03;
-    /// End of Transmission
+    /// End of Transmission.
     pub const EOT: u8 = 0x04;
-    /// Enquiry, causes terminal to send ANSWER-BACK ID
+    /// Enquiry, causes terminal to send ANSWER-BACK ID.
     pub const ENQ: u8 = 0x05;
-    /// Acknowledge, usually sent by terminal in response to ETX
+    /// Acknowledge, usually sent by terminal in response to ETX.
     pub const ACK: u8 = 0x06;
-    /// Bell, triggers the bell, buzzer, or beeper on the terminal
+    /// Bell, triggers the bell, buzzer, or beeper on the terminal.
     pub const BEL: u8 = 0x07;
-    /// Backspace, can be used to define overstruck characters
+    /// Backspace, can be used to define overstruck characters.
     pub const BS: u8 = 0x08;
-    /// Horizontal Tabulation, move to next predetermined position
+    /// Horizontal Tabulation, move to next predetermined position.
     pub const HT: u8 = 0x09;
-    /// Linefeed, move to same position on next line (see also NL)
+    /// Linefeed, move to same position on next line (see also NL).
     pub const LF: u8 = 0x0A;
-    /// Vertical Tabulation, move to next predetermined line
+    /// Vertical Tabulation, move to next predetermined line.
     pub const VT: u8 = 0x0B;
-    /// Form Feed, move to next form or page
+    /// Form Feed, move to next form or page.
     pub const FF: u8 = 0x0C;
-    /// Carriage Return, move to first character of current line
+    /// Carriage Return, move to first character of current line.
     pub const CR: u8 = 0x0D;
-    /// Shift Out, switch to G1 (other half of character set)
+    /// Shift Out, switch to G1 (other half of character set).
     pub const SO: u8 = 0x0E;
-    /// Shift In, switch to G0 (normal half of character set)
+    /// Shift In, switch to G0 (normal half of character set).
     pub const SI: u8 = 0x0F;
-    /// Data Link Escape, interpret next control character specially
+    /// Data Link Escape, interpret next control character specially.
     pub const DLE: u8 = 0x10;
-    /// (DC1) Terminal is allowed to resume transmitting
+    /// (DC1) Terminal is allowed to resume transmitting.
     pub const XON: u8 = 0x11;
-    /// Device Control 2, causes ASR-33 to activate paper-tape reader
+    /// Device Control 2, causes ASR-33 to activate paper-tape reader.
     pub const DC2: u8 = 0x12;
-    /// (DC2) Terminal must pause and refrain from transmitting
+    /// (DC2) Terminal must pause and refrain from transmitting.
     pub const XOFF: u8 = 0x13;
-    /// Device Control 4, causes ASR-33 to deactivate paper-tape reader
+    /// Device Control 4, causes ASR-33 to deactivate paper-tape reader.
     pub const DC4: u8 = 0x14;
-    /// Negative Acknowledge, used sometimes with ETX and ACK
+    /// Negative Acknowledge, used sometimes with ETX and ACK.
     pub const NAK: u8 = 0x15;
-    /// Synchronous Idle, used to maintain timing in Sync communication
+    /// Synchronous Idle, used to maintain timing in Sync communication.
     pub const SYN: u8 = 0x16;
-    /// End of Transmission block
+    /// End of Transmission block.
     pub const ETB: u8 = 0x17;
-    /// Cancel (makes VT100 abort current escape sequence if any)
+    /// Cancel (makes VT100 abort current escape sequence if any).
     pub const CAN: u8 = 0x18;
-    /// End of Medium
+    /// End of Medium.
     pub const EM: u8 = 0x19;
-    /// Substitute (VT100 uses this to display parity errors)
+    /// Substitute (VT100 uses this to display parity errors).
     pub const SUB: u8 = 0x1A;
-    /// Prefix to an escape sequence
+    /// Prefix to an escape sequence.
     pub const ESC: u8 = 0x1B;
-    /// File Separator
+    /// File Separator.
     pub const FS: u8 = 0x1C;
-    /// Group Separator
+    /// Group Separator.
     pub const GS: u8 = 0x1D;
-    /// Record Separator (sent by VT132 in block-transfer mode)
+    /// Record Separator (sent by VT132 in block-transfer mode).
     pub const RS: u8 = 0x1E;
-    /// Unit Separator
+    /// Unit Separator.
     pub const US: u8 = 0x1F;
-    /// Delete, should be ignored by terminal
+    /// Delete, should be ignored by terminal.
     pub const DEL: u8 = 0x7f;
 }
 
-// Tests for parsing escape sequences
+// Tests for parsing escape sequences.
 //
 // Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
@@ -1514,7 +1517,7 @@ mod tests {
         assert_eq!(handler.attr, Some(Attr::Foreground(Color::Spec(spec))));
     }
 
-    /// No exactly a test; useful for debugging
+    /// No exactly a test; useful for debugging.
     #[test]
     fn parse_zsh_startup() {
         static BYTES: &[u8] = &[

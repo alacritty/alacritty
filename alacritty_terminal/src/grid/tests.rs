@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the Grid
+//! Tests for the Grid.
 
 use super::{BidirectionalIterator, Grid};
 use crate::grid::GridCell;
@@ -71,7 +71,7 @@ fn visible_to_buffer() {
     assert_eq!(point, Point::new(4, Column(3)));
 }
 
-// Scroll up moves lines upwards
+// Scroll up moves lines upwards.
 #[test]
 fn scroll_up() {
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
@@ -97,13 +97,13 @@ fn scroll_up() {
     assert_eq!(grid[Line(6)].occ, 1);
     assert_eq!(grid[Line(7)][Column(0)], 9);
     assert_eq!(grid[Line(7)].occ, 1);
-    assert_eq!(grid[Line(8)][Column(0)], 0); // was 0
+    assert_eq!(grid[Line(8)][Column(0)], 0); // was 0.
     assert_eq!(grid[Line(8)].occ, 0);
-    assert_eq!(grid[Line(9)][Column(0)], 0); // was 1
+    assert_eq!(grid[Line(9)][Column(0)], 0); // was 1.
     assert_eq!(grid[Line(9)].occ, 0);
 }
 
-// Scroll down moves lines downwards
+// Scroll down moves lines downwards.
 #[test]
 fn scroll_down() {
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
@@ -113,9 +113,9 @@ fn scroll_down() {
 
     grid.scroll_down(&(Line(0)..Line(10)), Line(2), &0);
 
-    assert_eq!(grid[Line(0)][Column(0)], 0); // was 8
+    assert_eq!(grid[Line(0)][Column(0)], 0); // was 8.
     assert_eq!(grid[Line(0)].occ, 0);
-    assert_eq!(grid[Line(1)][Column(0)], 0); // was 9
+    assert_eq!(grid[Line(1)][Column(0)], 0); // was 9.
     assert_eq!(grid[Line(1)].occ, 0);
     assert_eq!(grid[Line(2)][Column(0)], 0);
     assert_eq!(grid[Line(2)].occ, 1);
@@ -135,7 +135,7 @@ fn scroll_down() {
     assert_eq!(grid[Line(9)].occ, 1);
 }
 
-// Test that GridIterator works
+// Test that GridIterator works.
 #[test]
 fn test_iter() {
     let mut grid = Grid::new(Line(5), Column(5), 0, 0);
@@ -156,7 +156,7 @@ fn test_iter() {
     assert_eq!(Some(&3), iter.next());
     assert_eq!(Some(&4), iter.next());
 
-    // test linewrapping
+    // test line-wrapping.
     assert_eq!(Some(&5), iter.next());
     assert_eq!(Column(0), iter.point().col);
     assert_eq!(3, iter.point().line);
@@ -165,10 +165,10 @@ fn test_iter() {
     assert_eq!(Column(4), iter.point().col);
     assert_eq!(4, iter.point().line);
 
-    // Make sure iter.cell() returns the current iterator position
+    // Make sure iter.cell() returns the current iterator position.
     assert_eq!(&4, iter.cell());
 
-    // test that iter ends at end of grid
+    // test that iter ends at end of grid.
     let mut final_iter = grid.iter_from(Point { line: 0, col: Column(4) });
     assert_eq!(None, final_iter.next());
     assert_eq!(Some(&23), final_iter.prev());
@@ -282,7 +282,7 @@ fn grow_reflow() {
     assert_eq!(grid[1][Column(1)], cell('2'));
     assert_eq!(grid[1][Column(2)], cell('3'));
 
-    // Make sure rest of grid is empty
+    // Make sure rest of grid is empty.
     assert_eq!(grid[0].len(), 3);
     assert_eq!(grid[0][Column(0)], Cell::default());
     assert_eq!(grid[0][Column(1)], Cell::default());
@@ -311,8 +311,8 @@ fn grow_reflow_multiline() {
     assert_eq!(grid[2][Column(4)], cell('5'));
     assert_eq!(grid[2][Column(5)], cell('6'));
 
-    // Make sure rest of grid is empty
-    // https://github.com/rust-lang/rust-clippy/issues/3788
+    // Make sure rest of grid is empty.
+    // https://github.com/rust-lang/rust-clippy/issues/3788.
     #[allow(clippy::needless_range_loop)]
     for r in 0..2 {
         assert_eq!(grid[r].len(), 6);

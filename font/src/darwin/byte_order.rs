@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Constants for bitmap byte order
+//! Constants for bitmap byte order.
 #![allow(non_upper_case_globals)]
 pub const kCGBitmapByteOrder32Little: u32 = 2 << 12;
 pub const kCGBitmapByteOrder32Big: u32 = 4 << 12;

@@ -22,22 +22,22 @@ use crate::config::ui_config::UIConfig;
 
 pub type Config = TermConfig<UIConfig>;
 
-/// Result from config loading
+/// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Errors occurring during config loading
+/// Errors occurring during config loading.
 #[derive(Debug)]
 pub enum Error {
-    /// Config file not found
+    /// Config file not found.
     NotFound,
 
-    /// Couldn't read $HOME environment variable
+    /// Couldn't read $HOME environment variable.
     ReadingEnvHome(env::VarError),
 
-    /// io error reading file
+    /// io error reading file.
     Io(io::Error),
 
-    /// Not valid yaml or missing parameters
+    /// Not valid yaml or missing parameters.
     Yaml(serde_yaml::Error),
 }
 
@@ -96,7 +96,7 @@ impl From<serde_yaml::Error> for Error {
 /// 4. $HOME/.alacritty.yml
 #[cfg(not(windows))]
 pub fn installed_config() -> Option<PathBuf> {
-    // Try using XDG location by default
+    // Try using XDG location by default.
     xdg::BaseDirectories::with_prefix("alacritty")
         .ok()
         .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
@@ -107,12 +107,12 @@ pub fn installed_config() -> Option<PathBuf> {
         })
         .or_else(|| {
             if let Ok(home) = env::var("HOME") {
-                // Fallback path: $HOME/.config/alacritty/alacritty.yml
+                // Fallback path: $HOME/.config/alacritty/alacritty.yml.
                 let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
                 if fallback.exists() {
                     return Some(fallback);
                 }
-                // Fallback path: $HOME/.alacritty.yml
+                // Fallback path: $HOME/.alacritty.yml.
                 let fallback = PathBuf::from(&home).join(".alacritty.yml");
                 if fallback.exists() {
                     return Some(fallback);
@@ -146,7 +146,7 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 fn read_config(path: &PathBuf) -> Result<Config> {
     let mut contents = fs::read_to_string(path)?;
 
-    // Remove UTF-8 BOM
+    // Remove UTF-8 BOM.
     if contents.starts_with('\u{FEFF}') {
         contents = contents.split_off(3);
     }

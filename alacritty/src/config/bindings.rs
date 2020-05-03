@@ -25,21 +25,21 @@ use serde_yaml::Value as SerdeValue;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
-/// Describes a state and action to take in that state
+/// Describes a state and action to take in that state.
 ///
-/// This is the shared component of `MouseBinding` and `KeyBinding`
+/// This is the shared component of `MouseBinding` and `KeyBinding`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Binding<T> {
-    /// Modifier keys required to activate binding
+    /// Modifier keys required to activate binding.
     pub mods: ModifiersState,
 
-    /// String to send to pty if mods and mode match
+    /// String to send to pty if mods and mode match.
     pub action: Action,
 
-    /// Terminal mode required to activate binding
+    /// Terminal mode required to activate binding.
     pub mode: TermMode,
 
-    /// excluded terminal modes where the binding won't be activated
+    /// excluded terminal modes where the binding won't be activated.
     pub notmode: TermMode,
 
     /// This property is used as part of the trigger detection code.
@@ -48,10 +48,10 @@ pub struct Binding<T> {
     pub trigger: T,
 }
 
-/// Bindings that are triggered by a keyboard key
+/// Bindings that are triggered by a keyboard key.
 pub type KeyBinding = Binding<Key>;
 
-/// Bindings that are triggered by a mouse button
+/// Bindings that are triggered by a mouse button.
 pub type MouseBinding = Binding<MouseButton>;
 
 impl<T: Eq> Binding<T> {
@@ -68,19 +68,19 @@ impl<T: Eq> Binding<T> {
 
     #[inline]
     pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
-        // Check the binding's key and modifiers
+        // Check the binding's key and modifiers.
         if self.trigger != binding.trigger || self.mods != binding.mods {
             return false;
         }
 
-        // Completely empty modes match all modes
+        // Completely empty modes match all modes.
         if (self.mode.is_empty() && self.notmode.is_empty())
             || (binding.mode.is_empty() && binding.notmode.is_empty())
         {
             return true;
         }
 
-        // Check for intersection (equality is required since empty does not intersect itself)
+        // Check for intersection (equality is required since empty does not intersect itself).
         (self.mode == binding.mode || self.mode.intersects(binding.mode))
             && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode))
     }
@@ -171,7 +171,7 @@ pub enum Action {
     /// Toggle fullscreen.
     ToggleFullscreen,
 
-    /// Toggle simple fullscreen on macos.
+    /// Toggle simple fullscreen on macOS.
     #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
 
@@ -410,7 +410,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     //    8     | Shift + Alt + Control
     // ---------+---------------------------
     //
-    // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
+    // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys.
     let mut modifiers = vec![
         ModifiersState::SHIFT,
         ModifiersState::ALT,
@@ -452,8 +452,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             F20,    mods, ~TermMode::VI; Action::Esc(format!("\x1b[34;{}~", modifiers_code));
         ));
 
-        // We're adding the following bindings with `Shift` manually above, so skipping them here
-        // modifiers_code != Shift
+        // We're adding the following bindings with `Shift` manually above, so skipping them here.
+
+        // modifiers_code != Shift.
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
@@ -525,7 +526,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
     )
 }
 
-// Don't return any bindings for tests since they are commented-out by default
+// Don't return any bindings for tests since they are commented-out by default.
 #[cfg(test)]
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
     vec![]
@@ -956,7 +957,7 @@ impl CommandWrapper {
     }
 }
 
-/// Newtype for implementing deserialize on glutin Mods
+/// Newtype for implementing deserialize on glutin Mods.
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.

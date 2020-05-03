@@ -13,47 +13,47 @@ pub const DEFAULT_NAME: &str = "Alacritty";
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct WindowConfig {
-    /// Initial dimensions
+    /// Initial dimensions.
     #[serde(deserialize_with = "failure_default")]
     pub dimensions: Dimensions,
 
-    /// Initial position
+    /// Initial position.
     #[serde(deserialize_with = "failure_default")]
     pub position: Option<Delta<i32>>,
 
-    /// Pixel padding
+    /// Pixel padding.
     #[serde(deserialize_with = "failure_default")]
     pub padding: Delta<u8>,
 
-    /// Draw the window with title bar / borders
+    /// Draw the window with title bar / borders.
     #[serde(deserialize_with = "failure_default")]
     pub decorations: Decorations,
 
-    /// Spread out additional padding evenly
+    /// Spread out additional padding evenly.
     #[serde(deserialize_with = "failure_default")]
     pub dynamic_padding: bool,
 
-    /// Startup mode
+    /// Startup mode.
     #[serde(deserialize_with = "failure_default")]
     startup_mode: StartupMode,
 
-    /// Window title
+    /// Window title.
     #[serde(default = "default_title")]
     pub title: String,
 
-    /// Window class
+    /// Window class.
     #[serde(deserialize_with = "from_string_or_deserialize")]
     pub class: Class,
 
-    /// XEmbed parent
+    /// XEmbed parent.
     #[serde(skip)]
     pub embed: Option<c_ulong>,
 
-    /// GTK theme variant
+    /// GTK theme variant.
     #[serde(deserialize_with = "option_explicit_none")]
     pub gtk_theme_variant: Option<String>,
 
-    /// TODO: DEPRECATED
+    // TODO: DEPRECATED
     #[serde(deserialize_with = "failure_default")]
     pub start_maximized: Option<bool>,
 }
@@ -124,17 +124,17 @@ impl Default for Decorations {
     }
 }
 
-/// Window Dimensions
+/// Window Dimensions.
 ///
-/// Newtype to avoid passing values incorrectly
+/// Newtype to avoid passing values incorrectly.
 #[serde(default)]
 #[derive(Default, Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 pub struct Dimensions {
-    /// Window width in character columns
+    /// Window width in character columns.
     #[serde(deserialize_with = "failure_default")]
     columns: Column,
 
-    /// Window Height in character lines
+    /// Window Height in character lines.
     #[serde(deserialize_with = "failure_default")]
     lines: Line,
 }
@@ -144,20 +144,20 @@ impl Dimensions {
         Dimensions { columns, lines }
     }
 
-    /// Get lines
+    /// Get lines.
     #[inline]
     pub fn lines_u32(&self) -> u32 {
         self.lines.0 as u32
     }
 
-    /// Get columns
+    /// Get columns.
     #[inline]
     pub fn columns_u32(&self) -> u32 {
         self.columns.0 as u32
     }
 }
 
-/// Window class hint
+/// Window class hint.
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {

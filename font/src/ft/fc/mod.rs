@@ -72,7 +72,7 @@ pub fn font_sort(config: &ConfigRef, pattern: &PatternRef) -> Option<FontSet> {
         let ptr = FcFontSort(
             config.as_ptr(),
             pattern.as_ptr(),
-            1, // Trim font list
+            1, // Trim font list.
             &mut charsets,
             &mut result,
         );
@@ -102,14 +102,14 @@ pub fn font_list(
     }
 }
 
-/// Available font sets
+/// Available font sets.
 #[derive(Debug, Copy, Clone)]
 pub enum SetName {
     System = FcSetSystem as isize,
     Application = FcSetApplication as isize,
 }
 
-/// When matching, how to match
+/// When matching, how to match.
 #[derive(Debug, Copy, Clone)]
 pub enum MatchKind {
     Font = FcMatchFont as isize,
@@ -187,7 +187,7 @@ impl From<isize> for Width {
     }
 }
 
-/// Subpixel geometry
+/// Subpixel geometry.
 #[derive(Debug)]
 pub enum Rgba {
     Unknown,
@@ -237,7 +237,7 @@ impl From<isize> for Rgba {
     }
 }
 
-/// Hinting Style
+/// Hinting Style.
 #[derive(Debug, Copy, Clone)]
 pub enum HintStyle {
     None,
@@ -257,7 +257,7 @@ impl fmt::Display for HintStyle {
     }
 }
 
-/// Lcd filter, used to reduce color fringing with subpixel rendering
+/// Lcd filter, used to reduce color fringing with subpixel rendering.
 pub enum LcdFilter {
     None,
     Default,

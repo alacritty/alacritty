@@ -39,7 +39,7 @@ impl FontSet {
             FcFontSetList(
                 config.as_ptr(),
                 &mut source.as_ptr(),
-                1, // nsets
+                1, // nsets.
                 pattern.as_ptr(),
                 objects.as_ptr(),
             )
@@ -48,7 +48,7 @@ impl FontSet {
     }
 }
 
-/// Iterator over a font set
+/// Iterator over a font set.
 pub struct Iter<'a> {
     font_set: &'a FontSetRef,
     num_fonts: usize,

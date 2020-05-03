@@ -31,7 +31,7 @@ pub fn set_locale_environment() {
     if !env_locale_ptr.is_null() {
         let env_locale = unsafe { CStr::from_ptr(env_locale_ptr).to_string_lossy() };
 
-        // Assume `C` locale means unchanged, since it is the default anyways
+        // Assume `C` locale means unchanged, since it is the default anyways.
         if env_locale != "C" {
             debug!("Using environment locale: {}", env_locale);
             return;
@@ -40,13 +40,13 @@ pub fn set_locale_environment() {
 
     let system_locale = system_locale();
 
-    // Set locale to system locale
+    // Set locale to system locale.
     let system_locale_c = CString::new(system_locale.clone()).expect("nul byte in system locale");
     let lc_all = unsafe { setlocale(LC_ALL, system_locale_c.as_ptr()) };
 
-    // Check if system locale was valid or not
+    // Check if system locale was valid or not.
     if lc_all.is_null() {
-        // Use fallback locale
+        // Use fallback locale.
         debug!("Using fallback locale: {}", FALLBACK_LOCALE);
 
         let fallback_locale_c = CString::new(FALLBACK_LOCALE).unwrap();
@@ -54,7 +54,7 @@ pub fn set_locale_environment() {
 
         env::set_var("LC_CTYPE", FALLBACK_LOCALE);
     } else {
-        // Use system locale
+        // Use system locale.
         debug!("Using system locale: {}", system_locale);
 
         env::set_var("LC_ALL", system_locale);
@@ -71,9 +71,10 @@ fn system_locale() -> String {
         // `localeIdentifier` returns extra metadata with the locale (including currency and
         // collator) on newer versions of macOS. This is not a valid locale, so we use
         // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
-        // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc
-        // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc
-        // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc
+        //
+        // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc.
+        // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc.
+        // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc.
         let is_language_code_supported: bool =
             msg_send![locale, respondsToSelector: sel!(languageCode)];
         let is_country_code_supported: bool =

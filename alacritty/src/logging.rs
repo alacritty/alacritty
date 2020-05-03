@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Logging for alacritty.
+//! Logging for Alacritty.
 //!
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
@@ -151,19 +151,19 @@ impl OnDemandLogFile {
         let mut path = env::temp_dir();
         path.push(format!("Alacritty-{}.log", process::id()));
 
-        // Set log path as an environment variable
+        // Set log path as an environment variable.
         env::set_var(ALACRITTY_LOG_ENV, path.as_os_str());
 
         OnDemandLogFile { path, file: None, created: Arc::new(AtomicBool::new(false)) }
     }
 
     fn file(&mut self) -> Result<&mut LineWriter<File>, io::Error> {
-        // Allow to recreate the file if it has been deleted at runtime
+        // Allow to recreate the file if it has been deleted at runtime.
         if self.file.is_some() && !self.path.as_path().exists() {
             self.file = None;
         }
 
-        // Create the file if it doesn't exist yet
+        // Create the file if it doesn't exist yet.
         if self.file.is_none() {
             let file = OpenOptions::new().append(true).create(true).open(&self.path);
 

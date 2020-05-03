@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! tty related functionality
+//! TTY related functionality.
 
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
@@ -37,9 +37,9 @@ use std::process::{Child, Command, Stdio};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Process ID of child process
+/// Process ID of child process.
 ///
-/// Necessary to put this in static storage for `sigchld` to have access
+/// Necessary to put this in static storage for `SIGCHLD` to have access.
 static PID: AtomicUsize = AtomicUsize::new(0);
 
 macro_rules! die {
@@ -53,7 +53,7 @@ pub fn child_pid() -> pid_t {
     PID.load(Ordering::Relaxed) as pid_t
 }
 
-/// Get raw fds for master/slave ends of a new pty
+/// Get raw fds for master/slave ends of a new pty.
 fn make_pty(size: winsize) -> (RawFd, RawFd) {
     let mut win_size = size;
     win_size.ws_xpixel = 0;
@@ -64,7 +64,7 @@ fn make_pty(size: winsize) -> (RawFd, RawFd) {
     (ends.master, ends.slave)
 }
 
-/// Really only needed on BSD, but should be fine elsewhere
+/// Really only needed on BSD, but should be fine elsewhere.
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
         // TIOSCTTY changes based on platform and the `ioctl` call is different
@@ -91,13 +91,13 @@ struct Passwd<'a> {
     shell: &'a str,
 }
 
-/// Return a Passwd struct with pointers into the provided buf
+/// Return a Passwd struct with pointers into the provided buf.
 ///
 /// # Unsafety
 ///
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
 fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
-    // Create zeroed passwd struct
+    // Create zeroed passwd struct.
     let mut entry: MaybeUninit<libc::passwd> = MaybeUninit::uninit();
 
     let mut res: *mut libc::passwd = ptr::null_mut();
@@ -117,10 +117,10 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
         die!("pw not found");
     }
 
-    // sanity check
+    // Sanity check.
     assert_eq!(entry.pw_uid, uid);
 
-    // Build a borrowed Passwd struct
+    // Build a borrowed Passwd struct.
     Passwd {
         name: unsafe { CStr::from_ptr(entry.pw_name).to_str().unwrap() },
         passwd: unsafe { CStr::from_ptr(entry.pw_passwd).to_str().unwrap() },
@@ -140,7 +140,7 @@ pub struct Pty {
     signals_token: mio::Token,
 }
 
-/// Create a new tty and return a handle to interact with it.
+/// Create a new TTY and return a handle to interact with it.
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     let win_size = size.to_winsize();
     let mut buf = [0; 1024];
@@ -166,12 +166,12 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     // Setup child stdin/stdout/stderr as slave fd of pty
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
-    // error on libc::close.)
+    // error on libc::close.).
     builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
     builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
     builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 
-    // Setup shell environment
+    // Setup shell environment.
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
     builder.env("SHELL", pw.shell);
@@ -183,7 +183,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
 
     unsafe {
         builder.pre_exec(move || {
-            // Create a new process group
+            // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
                 die!("Failed to set session id: {}", io::Error::last_os_error());
@@ -191,7 +191,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
 
             set_controlling_terminal(slave);
 
-            // No longer need slave/master fds
+            // No longer need slave/master fds.
             libc::close(slave);
             libc::close(master);
 
@@ -206,17 +206,17 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
         });
     }
 
-    // Handle set working directory option
+    // Handle set working directory option.
     if let Some(dir) = &config.working_directory {
         builder.current_dir(dir);
     }
 
-    // Prepare signal handling before spawning child
+    // Prepare signal handling before spawning child.
     let signals = Signals::new(&[sighook::SIGCHLD]).expect("error preparing signal handling");
 
     match builder.spawn() {
         Ok(child) => {
-            // Remember child PID so other modules can use it
+            // Remember child PID so other modules can use it.
             PID.store(child.id() as usize, Ordering::Relaxed);
 
             unsafe {
@@ -332,9 +332,9 @@ impl EventedPty for Pty {
     }
 }
 
-/// Types that can produce a `libc::winsize`
+/// Types that can produce a `libc::winsize`.
 pub trait ToWinsize {
-    /// Get a `libc::winsize`
+    /// Get a `libc::winsize`.
     fn to_winsize(&self) -> winsize;
 }
 
@@ -350,7 +350,7 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 impl OnResize for Pty {
-    /// Resize the pty
+    /// Resize the pty.
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.

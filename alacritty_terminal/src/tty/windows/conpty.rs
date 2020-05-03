@@ -42,7 +42,7 @@ use crate::tty::windows::{cmdline, win32_string, Pty};
 //  done until a safety net is in place for versions of Windows
 //  that do not support the ConPTY api, as such versions will
 //  pass unit testing - but fail to actually function.
-/// Dynamically-loaded Pseudoconsole API from kernel32.dll
+/// Dynamically-loaded Pseudoconsole API from kernel32.dll.
 ///
 /// The field names are deliberately PascalCase as this matches
 /// the defined symbols in kernel32 and also is the convention
@@ -58,7 +58,7 @@ struct ConptyApi {
 impl ConptyApi {
     /// Load the API or None if it cannot be found.
     pub fn new() -> Option<Self> {
-        // Unsafe because windows API calls
+        // Unsafe because windows API calls.
         unsafe {
             let hmodule = GetModuleHandleA("kernel32\0".as_ptr() as _);
             assert!(!hmodule.is_null());
@@ -80,7 +80,7 @@ impl ConptyApi {
     }
 }
 
-/// RAII Pseudoconsole
+/// RAII Pseudoconsole.
 pub struct Conpty {
     pub handle: HPCON,
     api: ConptyApi,
@@ -91,7 +91,7 @@ impl Drop for Conpty {
         // XXX: This will block until the conout pipe is drained. Will cause a deadlock if the
         // conout pipe has already been dropped by this point.
         //
-        // See PR #3084 and https://docs.microsoft.com/en-us/windows/console/closepseudoconsole
+        // See PR #3084 and https://docs.microsoft.com/en-us/windows/console/closepseudoconsole.
         unsafe { (self.api.ClosePseudoConsole)(self.handle) }
     }
 }
@@ -118,7 +118,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let coord =
         coord_from_sizeinfo(size).expect("Overflow when creating initial size on pseudoconsole");
 
-    // Create the Pseudo Console, using the pipes
+    // Create the Pseudo Console, using the pipes.
     let result = unsafe {
         (api.CreatePseudoConsole)(
             coord,
@@ -133,7 +133,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
 
     let mut success;
 
-    // Prepare child process startup info
+    // Prepare child process startup info.
 
     let mut size: SIZE_T = 0;
 
@@ -185,12 +185,12 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         }
     }
 
-    // Set thread attribute list's Pseudo Console to the specified ConPTY
+    // Set thread attribute list's Pseudo Console to the specified ConPTY.
     unsafe {
         success = UpdateProcThreadAttribute(
             startup_info_ex.lpAttributeList,
             0,
-            22 | 0x0002_0000, // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
+            22 | 0x0002_0000, // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE.
             pty_handle,
             mem::size_of::<HPCON>(),
             ptr::null_mut(),
@@ -242,7 +242,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     })
 }
 
-// Panic with the last os error as message
+// Panic with the last os error as message.
 fn panic_shell_spawn() {
     panic!("Unable to spawn shell: {}", Error::last_os_error());
 }

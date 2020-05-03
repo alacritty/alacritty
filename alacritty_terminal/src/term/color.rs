@@ -24,7 +24,7 @@ pub struct Rgb {
     pub b: u8,
 }
 
-// a multiply function for Rgb, as the default dim is just *2/3
+// a multiply function for Rgb, as the default dim is just *2/3.
 impl Mul<f32> for Rgb {
     type Output = Rgb;
 
@@ -41,7 +41,7 @@ impl Mul<f32> for Rgb {
     }
 }
 
-/// Deserialize an Rgb from a hex string
+/// Deserialize an Rgb from a hex string.
 ///
 /// This is *not* the deserialize impl for Rgb since we want a symmetric
 /// serialize/deserialize impl for ref tests.
@@ -52,7 +52,7 @@ impl<'de> Deserialize<'de> for Rgb {
     {
         struct RgbVisitor;
 
-        // Used for deserializing reftests
+        // Used for deserializing reftests.
         #[derive(Deserialize)]
         struct RgbDerivedDeser {
             r: u8,
@@ -80,15 +80,15 @@ impl<'de> Deserialize<'de> for Rgb {
             }
         }
 
-        // Return an error if the syntax is incorrect
+        // Return an error if the syntax is incorrect.
         let value = serde_yaml::Value::deserialize(deserializer)?;
 
-        // Attempt to deserialize from struct form
+        // Attempt to deserialize from struct form.
         if let Ok(RgbDerivedDeser { r, g, b }) = RgbDerivedDeser::deserialize(value.clone()) {
             return Ok(Rgb { r, g, b });
         }
 
-        // Deserialize from hex notation (either 0xff00ff or #ff00ff)
+        // Deserialize from hex notation (either 0xff00ff or #ff00ff).
         match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
@@ -128,7 +128,7 @@ impl FromStr for Rgb {
     }
 }
 
-/// List of indexed colors
+/// List of indexed colors.
 ///
 /// The first 16 entries are the standard ansi named colors. Items 16..232 are
 /// the color cube.  Items 233..256 are the grayscale ramp. Item 256 is
@@ -140,7 +140,7 @@ pub struct List([Rgb; COUNT]);
 
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
-        // Type inference fails without this annotation
+        // Type inference fails without this annotation.
         let mut list = List([Rgb::default(); COUNT]);
 
         list.fill_named(colors);
@@ -153,7 +153,7 @@ impl<'a> From<&'a Colors> for List {
 
 impl List {
     pub fn fill_named(&mut self, colors: &Colors) {
-        // Normals
+        // Normals.
         self[ansi::NamedColor::Black] = colors.normal().black;
         self[ansi::NamedColor::Red] = colors.normal().red;
         self[ansi::NamedColor::Green] = colors.normal().green;
@@ -163,7 +163,7 @@ impl List {
         self[ansi::NamedColor::Cyan] = colors.normal().cyan;
         self[ansi::NamedColor::White] = colors.normal().white;
 
-        // Brights
+        // Brights.
         self[ansi::NamedColor::BrightBlack] = colors.bright().black;
         self[ansi::NamedColor::BrightRed] = colors.bright().red;
         self[ansi::NamedColor::BrightGreen] = colors.bright().green;
@@ -175,14 +175,14 @@ impl List {
         self[ansi::NamedColor::BrightForeground] =
             colors.primary.bright_foreground.unwrap_or(colors.primary.foreground);
 
-        // Foreground and background
+        // Foreground and background.
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
         self[ansi::NamedColor::Background] = colors.primary.background;
 
-        // Background for custom cursor colors
+        // Background for custom cursor colors.
         self[ansi::NamedColor::Cursor] = colors.cursor.cursor.unwrap_or_else(Rgb::default);
 
-        // Dims
+        // Dims.
         self[ansi::NamedColor::DimForeground] =
             colors.primary.dim_foreground.unwrap_or(colors.primary.foreground * DIM_FACTOR);
         match colors.dim {
@@ -213,11 +213,11 @@ impl List {
 
     pub fn fill_cube(&mut self, colors: &Colors) {
         let mut index: usize = 16;
-        // Build colors
+        // Build colors.
         for r in 0..6 {
             for g in 0..6 {
                 for b in 0..6 {
-                    // Override colors 16..232 with the config (if present)
+                    // Override colors 16..232 with the config (if present).
                     if let Some(indexed_color) =
                         colors.indexed_colors.iter().find(|ic| ic.index == index as u8)
                     {
@@ -241,10 +241,10 @@ impl List {
         let mut index: usize = 232;
 
         for i in 0..24 {
-            // Index of the color is number of named colors + number of cube colors + i
+            // Index of the color is number of named colors + number of cube colors + i.
             let color_index = 16 + 216 + i;
 
-            // Override colors 232..256 with the config (if present)
+            // Override colors 232..256 with the config (if present).
             if let Some(indexed_color) =
                 colors.indexed_colors.iter().find(|ic| ic.index == color_index)
             {

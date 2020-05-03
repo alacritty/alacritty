@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer};
 use crate::config::DefaultTrueBool;
 use crate::config::{failure_default, Delta, LOG_TARGET_CONFIG};
 
-/// Font config
+/// Font config.
 ///
 /// Defaults are provided at the level of this struct per platform, but not per
 /// field in this struct. It might be nice in the future to have defaults for
@@ -18,31 +18,31 @@ use crate::config::{failure_default, Delta, LOG_TARGET_CONFIG};
 #[serde(default)]
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct Font {
-    /// Normal font face
+    /// Normal font face.
     #[serde(deserialize_with = "failure_default")]
     normal: FontDescription,
 
-    /// Bold font face
+    /// Bold font face.
     #[serde(deserialize_with = "failure_default")]
     bold: SecondaryFontDescription,
 
-    /// Italic font face
+    /// Italic font face.
     #[serde(deserialize_with = "failure_default")]
     italic: SecondaryFontDescription,
 
-    /// Bold italic font face
+    /// Bold italic font face.
     #[serde(deserialize_with = "failure_default")]
     bold_italic: SecondaryFontDescription,
 
-    /// Font size in points
+    /// Font size in points.
     #[serde(deserialize_with = "DeserializeSize::deserialize")]
     pub size: Size,
 
-    /// Extra spacing per character
+    /// Extra spacing per character.
     #[serde(deserialize_with = "failure_default")]
     pub offset: Delta<i8>,
 
-    /// Glyph offset within character cell
+    /// Glyph offset within character cell.
     #[serde(deserialize_with = "failure_default")]
     pub glyph_offset: Delta<i8>,
 
@@ -68,27 +68,27 @@ impl Default for Font {
 }
 
 impl Font {
-    /// Get a font clone with a size modification
+    /// Get a font clone with a size modification.
     pub fn with_size(self, size: Size) -> Font {
         Font { size, ..self }
     }
 
-    // Get normal font description
+    /// Get normal font description.
     pub fn normal(&self) -> &FontDescription {
         &self.normal
     }
 
-    // Get bold font description
+    /// Get bold font description.
     pub fn bold(&self) -> FontDescription {
         self.bold.desc(&self.normal)
     }
 
-    // Get italic font description
+    /// Get italic font description.
     pub fn italic(&self) -> FontDescription {
         self.italic.desc(&self.normal)
     }
 
-    // Get bold italic font description
+    /// Get bold italic font description.
     pub fn bold_italic(&self) -> FontDescription {
         self.bold_italic.desc(&self.normal)
     }
@@ -108,7 +108,7 @@ fn default_font_size() -> Size {
     Size::new(11.)
 }
 
-/// Description of the normal font
+/// Description of the normal font.
 #[serde(default)]
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct FontDescription {
@@ -132,7 +132,7 @@ impl Default for FontDescription {
     }
 }
 
-/// Description of the italic and bold font
+/// Description of the italic and bold font.
 #[serde(default)]
 #[derive(Debug, Default, Deserialize, Clone, PartialEq, Eq)]
 pub struct SecondaryFontDescription {
@@ -198,7 +198,7 @@ impl DeserializeSize for Size {
             .deserialize_any(NumVisitor::<D> { _marker: PhantomData })
             .map(|v| Size::new(v as _));
 
-        // Use default font size as fallback
+        // Use default font size as fallback.
         match size {
             Ok(size) => Ok(size),
             Err(err) => {

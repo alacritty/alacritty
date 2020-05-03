@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Line and Column newtypes for strongly typed tty/grid/terminal APIs
+//! Line and Column newtypes for strongly typed tty/grid/terminal APIs.
 
-/// Indexing types and implementations for Grid and Line
+/// Indexing types and implementations for Grid and Line.
 use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::term::RenderableCell;
 
-/// The side of a cell
+/// The side of a cell.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Side {
     Left,
@@ -39,7 +39,7 @@ impl Side {
     }
 }
 
-/// Index in the grid using row, column notation
+/// Index in the grid using row, column notation.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
 pub struct Point<L = Line> {
     pub line: L,
@@ -149,9 +149,9 @@ impl From<RenderableCell> for Point<Line> {
     }
 }
 
-/// A line
+/// A line.
 ///
-/// Newtype to avoid passing values incorrectly
+/// Newtype to avoid passing values incorrectly.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Line(pub usize);
 
@@ -161,9 +161,9 @@ impl fmt::Display for Line {
     }
 }
 
-/// A column
+/// A column.
 ///
-/// Newtype to avoid passing values incorrectly
+/// Newtype to avoid passing values incorrectly.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Column(pub usize);
 
@@ -173,9 +173,9 @@ impl fmt::Display for Column {
     }
 }
 
-/// A linear index
+/// A linear index.
 ///
-/// Newtype to avoid passing values incorrectly
+/// Newtype to avoid passing values incorrectly.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Linear(pub usize);
 
@@ -238,7 +238,7 @@ macro_rules! forward_ref_binop {
     };
 }
 
-/// Macro for deriving deref
+/// Macro for deriving deref.
 macro_rules! deref {
     ($ty:ty, $target:ty) => {
         impl Deref for $ty {
@@ -308,7 +308,7 @@ macro_rules! sub {
 /// This exists because we can't implement Iterator on Range
 /// and the existing impl needs the unstable Step trait
 /// This should be removed and replaced with a Step impl
-/// in the ops macro when `step_by` is stabilized
+/// in the ops macro when `step_by` is stabilized.
 pub struct IndexRange<T>(pub Range<T>);
 
 impl<T> From<Range<T>> for IndexRange<T> {
@@ -329,7 +329,7 @@ macro_rules! ops {
             fn steps_between(start: $ty, end: $ty, by: $ty) -> Option<usize> {
                 if by == $construct(0) { return None; }
                 if start < end {
-                    // Note: We assume $t <= usize here
+                    // Note: We assume $t <= usize here.
                     let diff = (end - start).0;
                     let by = by.0;
                     if diff % by > 0 {

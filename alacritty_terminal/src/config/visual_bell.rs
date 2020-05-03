@@ -8,15 +8,15 @@ use crate::term::color::Rgb;
 #[serde(default)]
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VisualBellConfig {
-    /// Visual bell animation function
+    /// Visual bell animation function.
     #[serde(deserialize_with = "failure_default")]
     pub animation: VisualBellAnimation,
 
-    /// Visual bell duration in milliseconds
+    /// Visual bell duration in milliseconds.
     #[serde(deserialize_with = "failure_default")]
     pub duration: u16,
 
-    /// Visual bell flash color
+    /// Visual bell flash color.
     #[serde(deserialize_with = "failure_default")]
     pub color: Rgb,
 }
@@ -32,7 +32,7 @@ impl Default for VisualBellConfig {
 }
 
 impl VisualBellConfig {
-    /// Visual bell duration in milliseconds
+    /// Visual bell duration in milliseconds.
     #[inline]
     pub fn duration(&self) -> Duration {
         Duration::from_millis(u64::from(self.duration))
@@ -43,15 +43,17 @@ impl VisualBellConfig {
 /// Penner's Easing Functions.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub enum VisualBellAnimation {
-    Ease,         // CSS
-    EaseOut,      // CSS
-    EaseOutSine,  // Penner
-    EaseOutQuad,  // Penner
-    EaseOutCubic, // Penner
-    EaseOutQuart, // Penner
-    EaseOutQuint, // Penner
-    EaseOutExpo,  // Penner
-    EaseOutCirc,  // Penner
+    // CSS.
+    Ease,
+    EaseOut,
+    // Penner.
+    EaseOutSine,
+    EaseOutQuad,
+    EaseOutCubic,
+    EaseOutQuart,
+    EaseOutQuint,
+    EaseOutExpo,
+    EaseOutCirc,
     Linear,
 }
 
