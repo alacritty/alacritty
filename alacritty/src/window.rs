@@ -17,6 +17,10 @@ use std::ffi::c_void;
 use std::fmt::{self, Display, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::os::raw::c_ulong;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::atomic::AtomicBool;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::Arc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
@@ -50,6 +54,12 @@ use crate::config::Config;
 use crate::gl;
 #[cfg(not(any(target_os = "macos", windows)))]
 use crate::wayland_theme::AlacrittyWaylandTheme;
+
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::{Attached, EventQueue, Proxy};
+
+#[cfg(not(any(target_os = "macos", windows)))]
+use wayland_client::protocol::wl_surface::WlSurface;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -117,6 +127,7 @@ fn create_gl_window(
     mut window: WindowBuilder,
     event_loop: &EventLoop<Event>,
     srgb: bool,
+    vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
     if let Some(dimensions) = dimensions {
@@ -125,7 +136,7 @@ fn create_gl_window(
 
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
-        .with_vsync(true)
+        .with_vsync(vsync)
         .with_hardware_acceleration(None)
         .build_windowed(window, event_loop)?;
 
@@ -135,10 +146,18 @@ fn create_gl_window(
     Ok(windowed_context)
 }
 
-/// A window which can be used for displaying the terminal
+/// A window which can be used for displaying the terminal.
 ///
-/// Wraps the underlying windowing library to provide a stable API in Alacritty
+/// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
+    /// Flag tracking frame redraw requests from Wayland compositor.
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub should_draw: Arc<AtomicBool>,
+
+    /// Attached Wayland surface to request new frame events.
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub wayland_surface: Option<Attached<WlSurface>>,
+
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
@@ -152,33 +171,58 @@ impl Window {
         event_loop: &EventLoop<Event>,
         config: &Config,
         size: Option<PhysicalSize<u32>>,
+        #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let window_builder = Window::get_platform_window(&config.window.title, &config.window);
-        let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, size)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, size))?;
 
-        // Text cursor
+        // Disable vsync on Wayland.
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let vsync = !event_loop.is_wayland();
+        #[cfg(any(target_os = "macos", windows))]
+        let vsync = true;
+
+        let windowed_context =
+            create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, vsync, size))?;
+
+        // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
         windowed_context.window().set_cursor_icon(current_mouse_cursor);
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        // On X11, embed the window inside another if the parent ID has been set
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut wayland_surface = None;
+
         #[cfg(not(any(target_os = "macos", windows)))]
         {
             if event_loop.is_x11() {
+                // On X11, embed the window inside another if the parent ID has been set.
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
             } else {
+                // Apply client side decorations theme.
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
                 windowed_context.window().set_wayland_theme(theme);
+
+                // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
+                let surface = windowed_context.window().wayland_surface().unwrap();
+                let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
+                wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
             }
         }
 
-        Ok(Self { current_mouse_cursor, mouse_visible: true, windowed_context })
+        Ok(Self {
+            current_mouse_cursor,
+            mouse_visible: true,
+            windowed_context,
+            #[cfg(not(any(target_os = "macos", windows)))]
+            should_draw: Arc::new(AtomicBool::new(true)),
+            #[cfg(not(any(target_os = "macos", windows)))]
+            wayland_surface,
+        })
     }
 
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
@@ -361,6 +405,11 @@ impl Window {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn wayland_display(&self) -> Option<*mut c_void> {
         self.window().wayland_display()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    pub fn wayland_surface(&self) -> Option<&Attached<WlSurface>> {
+        self.wayland_surface.as_ref()
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

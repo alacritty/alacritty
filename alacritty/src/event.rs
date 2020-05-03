@@ -8,6 +8,8 @@ use std::fs::File;
 use std::io::Write;
 use std::mem;
 use std::path::PathBuf;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -358,6 +360,7 @@ pub struct Processor<N> {
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
+    event_queue: Vec<GlutinEvent<'static, alacritty_terminal::event::Event>>,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -381,7 +384,33 @@ impl<N: Notify + OnResize> Processor<N> {
             config,
             message_buffer,
             display,
+            event_queue: Vec::new(),
         }
+    }
+
+    /// Return `true` if `event_queue` is empty, `false` otherwise.
+    #[inline]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn event_queue_empty(&mut self) -> bool {
+        let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
+            Some(wayland_event_queue) => wayland_event_queue,
+            // Since frame callbacks do not exist on X11, just check for event queue.
+            None => return self.event_queue.is_empty(),
+        };
+
+        // Check for pending frame callbacks on Wayland.
+        let events_dispatched = wayland_event_queue
+            .dispatch_pending(&mut (), |_, _, _| {})
+            .expect("failed to dispatch event queue");
+
+        self.event_queue.is_empty() && events_dispatched == 0
+    }
+
+    /// Return `true` if `event_queue` is empty, `false` otherwise.
+    #[inline]
+    #[cfg(any(target_os = "macos", windows))]
+    fn event_queue_empty(&mut self) -> bool {
+        self.event_queue.is_empty()
     }
 
     /// Run the event loop.
@@ -389,33 +418,31 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
-        let mut event_queue = Vec::new();
-
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
 
-            // Ignore all events we do not care about
+            // Ignore all events we do not care about.
             if Self::skip_event(&event) {
                 return;
             }
 
             match event {
-                // Check for shutdown
+                // Check for shutdown.
                 GlutinEvent::UserEvent(Event::Exit) => {
                     *control_flow = ControlFlow::Exit;
                     return;
                 },
-                // Process events
+                // Process events.
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
-                    if event_queue.is_empty() {
+                    if self.event_queue_empty() {
                         return;
                     }
                 },
-                // Remap DPR change event to remove lifetime
+                // Remap DPR change event to remove lifetime.
                 GlutinEvent::WindowEvent {
                     event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                     ..
@@ -423,14 +450,14 @@ impl<N: Notify + OnResize> Processor<N> {
                     *control_flow = ControlFlow::Poll;
                     let size = (new_inner_size.width, new_inner_size.height);
                     let event = GlutinEvent::UserEvent(Event::DPRChanged(scale_factor, size));
-                    event_queue.push(event);
+                    self.event_queue.push(event);
                     return;
                 },
                 // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
                 // Since we remap that event to remove the lifetime, this is safe.
                 event => unsafe {
                     *control_flow = ControlFlow::Poll;
-                    event_queue.push(mem::transmute(event));
+                    self.event_queue.push(mem::transmute(event));
                     return;
                 },
             }
@@ -457,11 +484,11 @@ impl<N: Notify + OnResize> Processor<N> {
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
 
-            for event in event_queue.drain(..) {
+            for event in self.event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
             }
 
-            // Process DisplayUpdate events
+            // Process DisplayUpdate events.
             if !display_update_pending.is_empty() {
                 self.display.handle_update(
                     &mut terminal,
@@ -472,15 +499,25 @@ impl<N: Notify + OnResize> Processor<N> {
                 );
             }
 
+            #[cfg(not(any(target_os = "macos", windows)))]
+            {
+                // Skip rendering on Wayland until we get frame event from compositor.
+                if event_loop.is_wayland()
+                    && !self.display.window.should_draw.load(Ordering::Relaxed)
+                {
+                    return;
+                }
+            }
+
             if terminal.dirty {
                 terminal.dirty = false;
 
-                // Request immediate re-draw if visual bell animation is not finished yet
+                // Request immediate re-draw if visual bell animation is not finished yet.
                 if !terminal.visual_bell.completed() {
-                    event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
+                    self.event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
                 }
 
-                // Redraw screen
+                // Redraw screen.
                 self.display.draw(
                     terminal,
                     &self.message_buffer,
