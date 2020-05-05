@@ -80,7 +80,7 @@ pub fn get_beam_cursor_glyph(height: i32, line_width: i32) -> RasterizedGlyph {
     }
 }
 
-/// Returns a custom box cursor character
+/// Returns a custom box cursor character.
 pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32) -> RasterizedGlyph {
     // Create a new box outline rectangle.
     let mut buf = Vec::with_capacity((width * height * 3) as usize);
