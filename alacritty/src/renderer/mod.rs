@@ -1482,7 +1482,7 @@ struct Atlas {
     /// Height of atlas.
     height: i32,
 
-    /// Left-most free pixel in a row..
+    /// Left-most free pixel in a row.
     ///
     /// This is called the extent because it is the upper bound of used pixels
     /// in a row.
