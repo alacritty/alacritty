@@ -361,7 +361,8 @@ where
                             }
 
                             if event.readiness().is_readable() {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
+                                {
                                     #[cfg(target_os = "linux")]
                                     {
                                         // On Linux, a `read` on the master side of a PTY can fail
