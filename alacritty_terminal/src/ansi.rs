@@ -299,7 +299,7 @@ pub trait Handler {
     /// DECKPNM - Set keypad to numeric mode (digits instead of ESCape seq).
     fn unset_keypad_application_mode(&mut self) {}
 
-    /// Set one of the graphic character sets, G0 to G3, as the active charset..
+    /// Set one of the graphic character sets, G0 to G3, as the active charset.
     ///
     /// 'Invoke' one of G0 to G3 in the GL area. Also referred to as shift in,
     /// shift out and locking shift depending on the set being activated.
