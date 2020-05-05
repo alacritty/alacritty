@@ -156,7 +156,7 @@ fn test_iter() {
     assert_eq!(Some(&3), iter.next());
     assert_eq!(Some(&4), iter.next());
 
-    // test line-wrapping.
+    // Test line-wrapping.
     assert_eq!(Some(&5), iter.next());
     assert_eq!(Column(0), iter.point().col);
     assert_eq!(3, iter.point().line);
