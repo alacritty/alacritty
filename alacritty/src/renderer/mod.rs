@@ -110,7 +110,7 @@ pub struct TextShaderProgram {
     /// Program id.
     id: GLuint,
 
-    /// projection scale and offset uniform.
+    /// Projection scale and offset uniform.
     u_projection: GLint,
 
     /// Cell dimensions (pixels).
