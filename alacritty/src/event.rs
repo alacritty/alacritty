@@ -743,7 +743,7 @@ impl<N: Notify + OnResize> Processor<N> {
             return;
         }
 
-        // dump grid state.
+        // Dump grid state.
         let mut grid = terminal.grid().clone();
         grid.initialize_all(&Cell::default());
         grid.truncate();
