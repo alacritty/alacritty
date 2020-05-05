@@ -1562,7 +1562,7 @@ impl Atlas {
             return Err(AtlasInsertError::Full);
         }
 
-        // There appears to be room; load the glyph..
+        // There appears to be room; load the glyph.
         Ok(self.insert_inner(glyph, active_tex))
     }
 
