@@ -1237,7 +1237,6 @@ impl<T> Term<T> {
         T: EventListener,
     {
         // Setting 132 column font makes no sense, but run the other side effects.
-        //
         // Clear scrolling region.
         self.set_scrolling_region(1, self.grid.num_lines().0);
 

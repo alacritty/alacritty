@@ -14,7 +14,7 @@
 //
 //! Handle input from glutin.
 //!
-//! Certain key combinations should send some escape sequence back to the pty.
+//! Certain key combinations should send some escape sequence back to the PTY.
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.

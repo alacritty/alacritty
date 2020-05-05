@@ -20,25 +20,25 @@ use crate::term::{SizeInfo, Term};
 use crate::tty;
 use crate::util::thread;
 
-/// Max bytes to read from the pty.
+/// Max bytes to read from the PTY.
 const MAX_READ: usize = 0x10_000;
 
 /// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]
 pub enum Msg {
-    /// Data that should be written to the pty.
+    /// Data that should be written to the PTY.
     Input(Cow<'static, [u8]>),
 
     /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down.
     Shutdown,
 
-    /// Instruction to resize the pty.
+    /// Instruction to resize the PTY.
     Resize(SizeInfo),
 }
 
 /// The main event!.. loop.
 ///
-/// Handles all the pty I/O and runs the pty parser which updates terminal
+/// Handles all the PTY I/O and runs the PTY parser which updates terminal
 /// state.
 pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     poll: mio::Poll,
@@ -300,7 +300,7 @@ where
     }
 
     pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
-        thread::spawn_named("pty reader", move || {
+        thread::spawn_named("PTY reader", move || {
             let mut state = State::default();
             let mut buf = [0u8; MAX_READ];
 
@@ -355,7 +355,7 @@ where
                             #[cfg(unix)]
                             {
                                 if UnixReady::from(event.readiness()).is_hup() {
-                                    // Don't try to do I/O on a dead pty.
+                                    // Don't try to do I/O on a dead PTY.
                                     continue;
                                 }
                             }
@@ -364,7 +364,7 @@ where
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
                                     #[cfg(target_os = "linux")]
                                     {
-                                        // On Linux, a `read` on the master side of a pty can fail
+                                        // On Linux, a `read` on the master side of a PTY can fail
                                         // with `EIO` if the client side hangs up.  In that case,
                                         // just loop back round for the inevitable `Exited` event.
                                         // This sucks, but checking the process is either racy or
@@ -374,14 +374,14 @@ where
                                         }
                                     }
 
-                                    error!("Error reading from pty in event loop: {}", err);
+                                    error!("Error reading from PTY in event loop: {}", err);
                                     break 'event_loop;
                                 }
                             }
 
                             if event.readiness().is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
-                                    error!("Error writing to pty in event loop: {}", err);
+                                    error!("Error writing to PTY in event loop: {}", err);
                                     break 'event_loop;
                                 }
                             }

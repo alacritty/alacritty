@@ -24,7 +24,7 @@ pub struct Rgb {
     pub b: u8,
 }
 
-// a multiply function for Rgb, as the default dim is just *2/3.
+// A multiply function for Rgb, as the default dim is just *2/3.
 impl Mul<f32> for Rgb {
     type Output = Rgb;
 

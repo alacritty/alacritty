@@ -72,9 +72,9 @@ fn system_locale() -> String {
         // collator) on newer versions of macOS. This is not a valid locale, so we use
         // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
         //
-        // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc.
-        // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc.
-        // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc.
+        // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc
+        // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc
+        // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc
         let is_language_code_supported: bool =
             msg_send![locale, respondsToSelector: sel!(languageCode)];
         let is_country_code_supported: bool =

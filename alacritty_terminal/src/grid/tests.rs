@@ -312,7 +312,7 @@ fn grow_reflow_multiline() {
     assert_eq!(grid[2][Column(5)], cell('6'));
 
     // Make sure rest of grid is empty.
-    // https://github.com/rust-lang/rust-clippy/issues/3788.
+    // https://github.com/rust-lang/rust-clippy/issues/3788
     #[allow(clippy::needless_range_loop)]
     for r in 0..2 {
         assert_eq!(grid[r].len(), 6);

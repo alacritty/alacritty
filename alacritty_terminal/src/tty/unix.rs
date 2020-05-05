@@ -53,7 +53,7 @@ pub fn child_pid() -> pid_t {
     PID.load(Ordering::Relaxed) as pid_t
 }
 
-/// Get raw fds for master/slave ends of a new pty.
+/// Get raw fds for master/slave ends of a new PTY.
 fn make_pty(size: winsize) -> (RawFd, RawFd) {
     let mut win_size = size;
     win_size.ws_xpixel = 0;
@@ -163,7 +163,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
         builder.arg(arg);
     }
 
-    // Setup child stdin/stdout/stderr as slave fd of pty
+    // Setup child stdin/stdout/stderr as slave fd of PTY.
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
     // error on libc::close.).
@@ -350,7 +350,7 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 impl OnResize for Pty {
-    /// Resize the pty.
+    /// Resize the PTY.
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.

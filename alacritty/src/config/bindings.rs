@@ -33,7 +33,7 @@ pub struct Binding<T> {
     /// Modifier keys required to activate binding.
     pub mods: ModifiersState,
 
-    /// String to send to pty if mods and mode match.
+    /// String to send to PTY if mods and mode match.
     pub action: Action,
 
     /// Terminal mode required to activate binding.
@@ -410,7 +410,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     //    8     | Shift + Alt + Control
     // ---------+---------------------------
     //
-    // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys.
+    // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
     let mut modifiers = vec![
         ModifiersState::SHIFT,
         ModifiersState::ALT,
@@ -453,8 +453,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         ));
 
         // We're adding the following bindings with `Shift` manually above, so skipping them here.
-
-        // modifiers_code != Shift.
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;

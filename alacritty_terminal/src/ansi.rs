@@ -366,7 +366,7 @@ impl Default for CursorStyle {
 /// Terminal modes.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
-    /// ?1.
+    /// ?1
     CursorKeys = 1,
     /// Select 80 or 132 columns per page.
     ///
@@ -387,43 +387,43 @@ pub enum Mode {
     /// * `CSI 4 h` change to insert mode.
     /// * `CSI 4 l` reset to replacement mode.
     Insert = 4,
-    /// ?6.
+    /// ?6
     Origin = 6,
-    /// ?7.
+    /// ?7
     LineWrap = 7,
-    /// ?12.
+    /// ?12
     BlinkingCursor = 12,
-    /// 20.
+    /// 20
     ///
     /// NB This is actually a private mode. We should consider adding a second
     /// enumeration for public/private modesets.
     LineFeedNewLine = 20,
-    /// ?25.
+    /// ?25
     ShowCursor = 25,
-    /// ?1000.
+    /// ?1000
     ReportMouseClicks = 1000,
-    /// ?1002.
+    /// ?1002
     ReportCellMouseMotion = 1002,
-    /// ?1003.
+    /// ?1003
     ReportAllMouseMotion = 1003,
-    /// ?1004.
+    /// ?1004
     ReportFocusInOut = 1004,
-    /// ?1005.
+    /// ?1005
     Utf8Mouse = 1005,
-    /// ?1006.
+    /// ?1006
     SgrMouse = 1006,
-    /// ?1007.
+    /// ?1007
     AlternateScroll = 1007,
-    /// ?1049.
+    /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
-    /// ?2004.
+    /// ?2004
     BracketedPaste = 2004,
 }
 
 impl Mode {
     /// Create mode from a primitive.
     ///
-    /// TODO lots of unhandled values..
+    /// TODO lots of unhandled values.
     pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
         let private = match intermediate {
             Some(b'?') => true,
@@ -1146,8 +1146,6 @@ where
 }
 
 fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
-    // Sometimes a C-style for loop is just what you need.
-
     // C-for initializer.
     let mut i = 0;
     let mut attrs = Vec::with_capacity(parameters.len());

@@ -96,7 +96,7 @@ impl Drop for Conpty {
     }
 }
 
-// The Conpty handle can be sent between threads.
+// The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
@@ -145,7 +145,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 
     // Setting this flag but leaving all the handles as default (null) ensures the
-    // pty process does not inherit any handles from this Alacritty process.
+    // PTY process does not inherit any handles from this Alacritty process.
     startup_info_ex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
     // Create the appropriately sized thread attribute list.

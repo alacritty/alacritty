@@ -127,7 +127,7 @@ fn main() {
 
 /// Run Alacritty.
 ///
-/// Creates a window, the terminal state, pty, I/O event loop, input processor,
+/// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
@@ -147,7 +147,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // The display manages a window and can draw the terminal.
     let display = Display::new(&config, &window_event_loop)?;
 
-    info!("pty dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
+    info!("PTY dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
 
     // Create new native clipboard.
     #[cfg(not(any(target_os = "macos", windows)))]
@@ -163,9 +163,9 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     let terminal = Term::new(&config, &display.size_info, clipboard, event_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
 
-    // Create the pty.
+    // Create the PTY.
     //
-    // The pty forks a process to run the shell on the slave side of the
+    // The PTY forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
     #[cfg(not(any(target_os = "macos", windows)))]
@@ -175,7 +175,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
 
     // Create the pseudoterminal I/O loop.
     //
-    // pty I/O is ran on another thread as to not occupy cycles used by the
+    // PTY I/O is ran on another thread as to not occupy cycles used by the
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
@@ -210,19 +210,19 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
 
     // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
-    //   - Drop for Conpty will deadlock if the conout pipe has already been dropped.
-    //   - The conout pipe is dropped when the io_thread is joined below (io_thread owns pty).
-    //   - Conpty is dropped when the last of processor and io_thread are dropped, because both of
-    //     them own an Arc<Conpty>.
+    //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped.
+    //   - The conout pipe is dropped when the io_thread is joined below (io_thread owns PTY).
+    //   - ConPTY is dropped when the last of processor and io_thread are dropped, because both of
+    //     them own an Arc<ConPTY>.
     //
-    // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. pty)
-    // is dropped, it can ensure Conpty is dropped before the conout pipe in the pty drop order.
+    // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. PTY)
+    // is dropped, it can ensure ConPTY is dropped before the conout pipe in the PTY drop order.
     //
-    // FIXME: Change pty API to enforce the correct drop order with the typesystem.
+    // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
 
     // Shutdown pty parser event loop.
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to pty event loop");
+    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to PTY event loop");
     io_thread.join().expect("join io thread");
 
     // FIXME patch notify library to have a shutdown method.
