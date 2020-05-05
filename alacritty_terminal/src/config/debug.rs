@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config::{failure_default, LOG_TARGET_CONFIG};
 
-/// Debugging options
+/// Debugging options.
 #[serde(default)]
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Debug {
@@ -13,15 +13,15 @@ pub struct Debug {
     #[serde(deserialize_with = "failure_default")]
     pub print_events: bool,
 
-    /// Keep the log file after quitting
+    /// Keep the log file after quitting.
     #[serde(deserialize_with = "failure_default")]
     pub persistent_logging: bool,
 
-    /// Should show render timer
+    /// Should show render timer.
     #[serde(deserialize_with = "failure_default")]
     pub render_timer: bool,
 
-    /// Record ref test
+    /// Record ref test.
     #[serde(skip)]
     pub ref_test: bool,
 }

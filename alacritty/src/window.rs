@@ -61,24 +61,24 @@ use wayland_client::{Attached, EventQueue, Proxy};
 #[cfg(not(any(target_os = "macos", windows)))]
 use wayland_client::protocol::wl_surface::WlSurface;
 
-// It's required to be in this directory due to the `windows.rc` file
+// It's required to be in this directory due to the `windows.rc` file.
 #[cfg(not(any(target_os = "macos", windows)))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
 
-// This should match the definition of IDI_ICON from `windows.rc`
+// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
 
-/// Window errors
+/// Window errors.
 #[derive(Debug)]
 pub enum Error {
-    /// Error creating the window
+    /// Error creating the window.
     ContextCreation(glutin::CreationError),
 
-    /// Error dealing with fonts
+    /// Error dealing with fonts.
     Font(font::Error),
 
-    /// Error manipulating the rendering context
+    /// Error manipulating the rendering context.
     Context(glutin::ContextError),
 }
 
@@ -140,7 +140,7 @@ fn create_gl_window(
         .with_hardware_acceleration(None)
         .build_windowed(window, event_loop)?;
 
-    // Make the context current so OpenGL operations can run
+    // Make the context current so OpenGL operations can run.
     let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
 
     Ok(windowed_context)
@@ -164,7 +164,7 @@ pub struct Window {
 }
 
 impl Window {
-    /// Create a new window
+    /// Create a new window.
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
@@ -242,7 +242,7 @@ impl Window {
         self.window().set_visible(visibility);
     }
 
-    /// Set the window title
+    /// Set the window title.
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window().set_title(title);
@@ -256,7 +256,7 @@ impl Window {
         }
     }
 
-    /// Set mouse cursor visible
+    /// Set mouse cursor visible.
     pub fn set_mouse_visible(&mut self, visible: bool) {
         if visible != self.mouse_visible {
             self.mouse_visible = visible;
@@ -286,9 +286,9 @@ impl Window {
             .with_decorations(decorations)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             .with_window_icon(icon.ok())
-            // X11
+            // X11.
             .with_class(class.instance.clone(), class.general.clone())
-            // Wayland
+            // Wayland.
             .with_app_id(class.instance.clone());
 
         if let Some(ref val) = window_config.gtk_theme_variant {
@@ -378,7 +378,7 @@ impl Window {
         self.window().set_minimized(minimized);
     }
 
-    /// Toggle the window's fullscreen state
+    /// Toggle the window's fullscreen state.
     pub fn toggle_fullscreen(&mut self) {
         self.set_fullscreen(self.window().fullscreen().is_none());
     }
@@ -417,7 +417,7 @@ impl Window {
         self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
     }
 
-    /// Adjust the IME editor position according to the new location of the cursor
+    /// Adjust the IME editor position according to the new location of the cursor.
     #[cfg(not(windows))]
     pub fn update_ime_position<T>(&mut self, terminal: &Term<T>, size_info: &SizeInfo) {
         let point = terminal.cursor().point;
@@ -464,13 +464,13 @@ fn x_embed_window(window: &GlutinWindow, parent_id: c_ulong) {
             2,
         );
 
-        // Register new error handler
+        // Register new error handler.
         let old_handler = (xlib.XSetErrorHandler)(Some(xembed_error_handler));
 
-        // Check for the existence of the target before attempting reparenting
+        // Check for the existence of the target before attempting reparenting.
         (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
 
-        // Drain errors and restore original error handler
+        // Drain errors and restore original error handler.
         (xlib.XSync)(xlib_display as _, 0);
         (xlib.XSetErrorHandler)(old_handler);
     }

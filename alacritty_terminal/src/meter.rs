@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Rendering time meter
+//! Rendering time meter.
 //!
 //! Used to track rendering times and provide moving averages.
 //!
@@ -36,27 +36,27 @@ use std::time::{Duration, Instant};
 
 const NUM_SAMPLES: usize = 10;
 
-/// The meter
+/// The meter.
 #[derive(Default)]
 pub struct Meter {
-    /// Track last 60 timestamps
+    /// Track last 60 timestamps.
     times: [f64; NUM_SAMPLES],
 
-    /// Average sample time in microseconds
+    /// Average sample time in microseconds.
     avg: f64,
 
-    /// Index of next time to update.
+    /// Index of next time to update..
     index: usize,
 }
 
-/// Sampler
+/// Sampler.
 ///
-/// Samplers record how long they are "alive" for and update the meter on drop.
+/// Samplers record how long they are "alive" for and update the meter on drop..
 pub struct Sampler<'a> {
-    /// Reference to meter that created the sampler
+    /// Reference to meter that created the sampler.
     meter: &'a mut Meter,
 
-    // When the sampler was created
+    /// When the sampler was created.
     created_at: Instant,
 }
 
@@ -78,22 +78,22 @@ impl<'a> Drop for Sampler<'a> {
 }
 
 impl Meter {
-    /// Create a meter
+    /// Create a meter.
     pub fn new() -> Meter {
         Default::default()
     }
 
-    /// Get a sampler
+    /// Get a sampler.
     pub fn sampler(&mut self) -> Sampler<'_> {
         Sampler::new(self)
     }
 
-    /// Get the current average sample duration in microseconds
+    /// Get the current average sample duration in microseconds.
     pub fn average(&self) -> f64 {
         self.avg
     }
 
-    /// Add a sample
+    /// Add a sample.
     ///
     /// Used by Sampler::drop.
     fn add_sample(&mut self, sample: Duration) {

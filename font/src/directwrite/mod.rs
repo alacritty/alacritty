@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Rasterization powered by DirectWrite
+//! Rasterization powered by DirectWrite.
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -114,7 +114,7 @@ impl DirectWriteRasterizer {
         let idx = *face
             .get_glyph_indices(&[c as u32])
             .first()
-            // DirectWrite returns 0 if the glyph does not exist in the font
+            // DirectWrite returns 0 if the glyph does not exist in the font.
             .filter(|glyph_index| **glyph_index != 0)
             .ok_or_else(|| Error::MissingGlyph(c))?;
 
@@ -184,7 +184,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let line_height = f64::from(ascent - descent + line_gap);
 
-        // Since all monospace characters have the same width, we use `!` for horizontal metrics
+        // Since all monospace characters have the same width, we use `!` for horizontal metrics.
         let c = '!';
         let glyph_index = self.get_glyph_index(face, c)?;
 
@@ -205,7 +205,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        // Fast path if face is already loaded
+        // Fast path if face is already loaded.
         if let Some(key) = self.keys.get(desc) {
             return Ok(*key);
         }
@@ -218,7 +218,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
         let font = match desc.style {
             Style::Description { weight, slant } => {
                 // This searches for the "best" font - should mean we don't have to worry about
-                // fallbacks if our exact desired weight/style isn't available
+                // fallbacks if our exact desired weight/style isn't available.
                 Ok(family.get_first_matching_font(weight.into(), FontStretch::Normal, slant.into()))
             },
             Style::Specific(ref style) => {
@@ -332,7 +332,7 @@ fn get_current_locale() -> String {
     let mut buf = vec![0u16; LOCALE_NAME_MAX_LENGTH];
     let len = unsafe { GetUserDefaultLocaleName(buf.as_mut_ptr(), buf.len() as i32) as usize };
 
-    // `len` includes null byte, which we don't need in Rust
+    // `len` includes null byte, which we don't need in Rust.
     OsString::from_wide(&buf[..len - 1]).into_string().expect("Locale not valid unicode")
 }
 

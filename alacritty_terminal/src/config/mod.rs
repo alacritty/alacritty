@@ -44,68 +44,68 @@ const DEFAULT_CURSOR_THICKNESS: f32 = 0.15;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
-/// Top-level config type
+/// Top-level config type.
 #[derive(Debug, PartialEq, Default, Deserialize)]
 pub struct Config<T> {
-    /// Pixel padding
+    /// Pixel padding.
     #[serde(default, deserialize_with = "failure_default")]
     pub padding: Option<Delta<u8>>,
 
-    /// TERM env variable
+    /// TERM env variable.
     #[serde(default, deserialize_with = "failure_default")]
     pub env: HashMap<String, String>,
 
-    /// Font configuration
+    /// Font configuration.
     #[serde(default, deserialize_with = "failure_default")]
     pub font: Font,
 
-    /// Should draw bold text with brighter colors instead of bold font
+    /// Should draw bold text with brighter colors instead of bold font.
     #[serde(default, deserialize_with = "failure_default")]
     draw_bold_text_with_bright_colors: bool,
 
     #[serde(default, deserialize_with = "failure_default")]
     pub colors: Colors,
 
-    /// Background opacity from 0.0 to 1.0
+    /// Background opacity from 0.0 to 1.0.
     #[serde(default, deserialize_with = "failure_default")]
     background_opacity: Percentage,
 
-    /// Window configuration
+    /// Window configuration.
     #[serde(default, deserialize_with = "failure_default")]
     pub window: WindowConfig,
 
     #[serde(default, deserialize_with = "failure_default")]
     pub selection: Selection,
 
-    /// Path to a shell program to run on startup
+    /// Path to a shell program to run on startup.
     #[serde(default, deserialize_with = "from_string_or_deserialize")]
     pub shell: Option<Shell<'static>>,
 
-    /// Path where config was loaded from
+    /// Path where config was loaded from.
     #[serde(default, deserialize_with = "failure_default")]
     pub config_path: Option<PathBuf>,
 
-    /// Visual bell configuration
+    /// Visual bell configuration.
     #[serde(default, deserialize_with = "failure_default")]
     pub visual_bell: VisualBellConfig,
 
-    /// Use dynamic title
+    /// Use dynamic title.
     #[serde(default, deserialize_with = "failure_default")]
     dynamic_title: DefaultTrueBool,
 
-    /// Live config reload
+    /// Live config reload.
     #[serde(default, deserialize_with = "failure_default")]
     live_config_reload: DefaultTrueBool,
 
-    /// How much scrolling history to keep
+    /// How much scrolling history to keep.
     #[serde(default, deserialize_with = "failure_default")]
     pub scrolling: Scrolling,
 
-    /// Cursor configuration
+    /// Cursor configuration.
     #[serde(default, deserialize_with = "failure_default")]
     pub cursor: Cursor,
 
-    /// Use WinPTY backend even if ConPTY is available
+    /// Use WinPTY backend even if ConPTY is available.
     #[cfg(windows)]
     #[serde(default, deserialize_with = "failure_default")]
     pub winpty_backend: bool,
@@ -114,19 +114,19 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     alt_send_esc: DefaultTrueBool,
 
-    /// Shell startup directory
+    /// Shell startup directory.
     #[serde(default, deserialize_with = "option_explicit_none")]
     pub working_directory: Option<PathBuf>,
 
-    /// Debug options
+    /// Debug options.
     #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
 
-    /// Additional configuration options not directly required by the terminal
+    /// Additional configuration options not directly required by the terminal.
     #[serde(flatten)]
     pub ui_config: T,
 
-    /// Remain open after child process exits
+    /// Remain open after child process exits.
     #[serde(skip)]
     pub hold: bool,
 
@@ -149,13 +149,13 @@ impl<T> Config<T> {
         self.draw_bold_text_with_bright_colors
     }
 
-    /// Should show render timer
+    /// Should show render timer.
     #[inline]
     pub fn render_timer(&self) -> bool {
         self.render_timer.unwrap_or(self.debug.render_timer)
     }
 
-    /// Live config reload
+    /// Live config reload.
     #[inline]
     pub fn live_config_reload(&self) -> bool {
         self.live_config_reload.0
@@ -200,13 +200,13 @@ impl<T> Config<T> {
         self.dynamic_title.0 = dynamic_title;
     }
 
-    /// Send escape sequences using the alt key
+    /// Send escape sequences using the alt key.
     #[inline]
     pub fn alt_send_esc(&self) -> bool {
         self.alt_send_esc.0
     }
 
-    /// Keep the log file after quitting Alacritty
+    /// Keep the log file after quitting Alacritty.
     #[inline]
     pub fn persistent_logging(&self) -> bool {
         self.persistent_logging.unwrap_or(self.debug.persistent_logging)
@@ -316,14 +316,14 @@ impl FromString for Option<Shell<'_>> {
     }
 }
 
-/// A delta for a point in a 2 dimensional plane
+/// A delta for a point in a 2 dimensional plane.
 #[serde(default, bound(deserialize = "T: Deserialize<'de> + Default"))]
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct Delta<T: Default + PartialEq + Eq> {
-    /// Horizontal change
+    /// Horizontal change.
     #[serde(deserialize_with = "failure_default")]
     pub x: T,
-    /// Vertical change
+    /// Vertical change.
     #[serde(deserialize_with = "failure_default")]
     pub y: T,
 }
@@ -407,7 +407,7 @@ where
     })
 }
 
-// Used over From<String>, to allow implementation for foreign types
+// Used over From<String>, to allow implementation for foreign types.
 pub trait FromString {
     fn from(input: String) -> Self;
 }

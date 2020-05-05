@@ -74,7 +74,7 @@ impl RenderLine {
         let line_bottom = (start_point.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + descent;
 
-        // Make sure lines are always visible
+        // Make sure lines are always visible.
         height = height.max(1.);
         let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
@@ -116,18 +116,26 @@ impl RenderLines {
                 continue;
             }
 
-            // Check if there's an active line
+            // Check if there's an active line.
             if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
                 if cell.fg == line.color
                     && cell.column == line.end.col + 1
                     && cell.line == line.end.line
                 {
-                    // Update the length of the line
+                    // Update the length of the line.
                     line.end = cell.into();
                     continue;
                 }
             }
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, text_run.fg)
+            // Start new line if there currently is none.
+            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
+            match self.inner.get_mut(flag) {
+                Some(lines) => lines.push(line),
+                None => {
+                    self.inner.insert(*flag, vec![line]);
+                },
+            }
+        }
     }
 }

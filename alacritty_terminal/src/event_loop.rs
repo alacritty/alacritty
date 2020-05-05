@@ -1,4 +1,4 @@
-//! The main event loop which performs I/O on the pseudoterminal
+//! The main event loop which performs I/O on the pseudoterminal.
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::fs::File;
@@ -20,25 +20,25 @@ use crate::term::{SizeInfo, Term};
 use crate::tty;
 use crate::util::thread;
 
-/// Max bytes to read from the PTY
+/// Max bytes to read from the PTY.
 const MAX_READ: usize = 0x10_000;
 
-/// Messages that may be sent to the `EventLoop`
+/// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]
 pub enum Msg {
-    /// Data that should be written to the pty
+    /// Data that should be written to the PTY.
     Input(Cow<'static, [u8]>),
 
-    /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down
+    /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down.
     Shutdown,
 
-    /// Instruction to resize the pty
+    /// Instruction to resize the PTY.
     Resize(SizeInfo),
 }
 
 /// The main event!.. loop.
 ///
-/// Handles all the pty I/O and runs the pty parser which updates terminal
+/// Handles all the PTY I/O and runs the PTY parser which updates terminal
 /// state.
 pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     poll: mio::Poll,
@@ -57,7 +57,7 @@ struct Writing {
     written: usize,
 }
 
-/// All of the mutable state needed to run the event loop
+/// All of the mutable state needed to run the event loop.
 ///
 /// Contains list of items to write, current write state, etc. Anything that
 /// would otherwise be mutated on the `EventLoop` goes here.
@@ -152,7 +152,7 @@ where
     T: tty::EventedPty + event::OnResize + Send + 'static,
     U: EventListener + Send + 'static,
 {
-    /// Create a new event loop
+    /// Create a new event loop.
     pub fn new<V>(
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
@@ -176,9 +176,9 @@ where
         self.tx.clone()
     }
 
-    // Drain the channel
-    //
-    // Returns `false` when a shutdown message was received.
+    /// Drain the channel.
+    ///
+    /// Returns `false` when a shutdown message was received.
     fn drain_recv_channel(&mut self, state: &mut State) -> bool {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
@@ -191,7 +191,7 @@ where
         true
     }
 
-    // Returns a `bool` indicating whether or not the event loop should continue running
+    /// Returns a `bool` indicating whether or not the event loop should continue running.
     #[inline]
     fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
         if !self.drain_recv_channel(state) {
@@ -234,18 +234,18 @@ where
 
                     // Get reference to terminal. Lock is acquired on initial
                     // iteration and held until there's no bytes left to parse
-                    // or we've reached MAX_READ.
+                    // or we've reached `MAX_READ`.
                     if terminal.is_none() {
                         terminal = Some(self.terminal.lock());
                     }
                     let terminal = terminal.as_mut().unwrap();
 
-                    // Run the parser
+                    // Run the parser.
                     for byte in &buf[..got] {
                         state.parser.advance(&mut **terminal, *byte, &mut self.pty.writer());
                     }
 
-                    // Exit if we've processed enough bytes
+                    // Exit if we've processed enough bytes.
                     if processed > MAX_READ {
                         break;
                     }
@@ -260,7 +260,7 @@ where
         }
 
         if processed > 0 {
-            // Queue terminal redraw
+            // Queue terminal redraw.
             self.event_proxy.send_event(Event::Wakeup);
         }
 
@@ -300,7 +300,7 @@ where
     }
 
     pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
-        thread::spawn_named("pty reader", move || {
+        thread::spawn_named("PTY reader", move || {
             let mut state = State::default();
             let mut buf = [0u8; MAX_READ];
 
@@ -311,7 +311,7 @@ where
             let channel_token = tokens.next().unwrap();
             self.poll.register(&self.rx, channel_token, Ready::readable(), poll_opts).unwrap();
 
-            // Register TTY through EventedRW interface
+            // Register TTY through EventedRW interface.
             self.pty.register(&self.poll, &mut tokens, Ready::readable(), poll_opts).unwrap();
 
             let mut events = Events::with_capacity(1024);
@@ -355,13 +355,14 @@ where
                             #[cfg(unix)]
                             {
                                 if UnixReady::from(event.readiness()).is_hup() {
-                                    // don't try to do I/O on a dead PTY
+                                    // Don't try to do I/O on a dead PTY.
                                     continue;
                                 }
                             }
 
                             if event.readiness().is_readable() {
-                                if let Err(e) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
+                                {
                                     #[cfg(target_os = "linux")]
                                     {
                                         // On Linux, a `read` on the master side of a PTY can fail
@@ -369,19 +370,19 @@ where
                                         // just loop back round for the inevitable `Exited` event.
                                         // This sucks, but checking the process is either racy or
                                         // blocking.
-                                        if e.kind() == ErrorKind::Other {
+                                        if err.kind() == ErrorKind::Other {
                                             continue;
                                         }
                                     }
 
-                                    error!("Error reading from PTY in event loop: {}", e);
+                                    error!("Error reading from PTY in event loop: {}", err);
                                     break 'event_loop;
                                 }
                             }
 
                             if event.readiness().is_writable() {
-                                if let Err(e) = self.pty_write(&mut state) {
-                                    error!("Error writing to PTY in event loop: {}", e);
+                                if let Err(err) = self.pty_write(&mut state) {
+                                    error!("Error writing to PTY in event loop: {}", err);
                                     break 'event_loop;
                                 }
                             }
@@ -390,16 +391,16 @@ where
                     }
                 }
 
-                // Register write interest if necessary
+                // Register write interest if necessary.
                 let mut interest = Ready::readable();
                 if state.needs_write() {
                     interest.insert(Ready::writable());
                 }
-                // Reregister with new interest
+                // Reregister with new interest.
                 self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
             }
 
-            // The evented instances are not dropped here so deregister them explicitly
+            // The evented instances are not dropped here so deregister them explicitly.
             let _ = self.poll.deregister(&self.rx);
             let _ = self.pty.deregister(&self.poll);
 

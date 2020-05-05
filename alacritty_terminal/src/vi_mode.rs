@@ -147,7 +147,7 @@ impl ViModeCursor {
     /// Get target cursor point for vim-like page movement.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: isize) -> Self {
-        // Check number of lines the cursor needs to be moved
+        // Check number of lines the cursor needs to be moved.
         let overscroll = if lines > 0 {
             let max_scroll = term.grid().history_size() - term.grid().display_offset();
             max(0, lines - max_scroll as isize)
@@ -156,18 +156,18 @@ impl ViModeCursor {
             min(0, lines + max_scroll as isize)
         };
 
-        // Clamp movement to within visible region
+        // Clamp movement to within visible region.
         let mut line = self.point.line.0 as isize;
         line -= overscroll;
         line = max(0, min(term.grid().num_lines().0 as isize - 1, line));
 
-        // Find the first occupied cell after scrolling has been performed
+        // Find the first occupied cell after scrolling has been performed.
         let buffer_point = term.visible_to_buffer(self.point);
         let mut target_line = buffer_point.line as isize + lines;
         target_line = max(0, min(term.grid().len() as isize - 1, target_line));
         let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().col;
 
-        // Move cursor
+        // Move cursor.
         self.point = Point::new(Line(line as usize), col);
 
         self
@@ -179,7 +179,7 @@ fn scroll_to_point<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
     let display_offset = term.grid().display_offset();
     let lines = term.grid().num_lines();
 
-    // Scroll once the top/bottom has been reached
+    // Scroll once the top/bottom has been reached.
     if point.line >= display_offset + lines.0 {
         let lines = point.line.saturating_sub(display_offset + lines.0 - 1);
         term.scroll_display(Scroll::Lines(lines as isize));
@@ -193,24 +193,24 @@ fn scroll_to_point<T: EventListener>(term: &mut Term<T>, point: Point<usize>) {
 fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let cols = term.grid().num_cols();
 
-    // Expand across wide cells
+    // Expand across wide cells.
     point = expand_wide(term, point, false);
 
-    // Find last non-empty cell in the current line
+    // Find last non-empty cell in the current line.
     let occupied = last_occupied_in_line(term, point.line).unwrap_or_default();
 
     if point.col < occupied.col {
-        // Jump to last occupied cell when not already at or beyond it
+        // Jump to last occupied cell when not already at or beyond it.
         occupied
     } else if is_wrap(term, point) {
-        // Jump to last occupied cell across linewraps
+        // Jump to last occupied cell across linewraps.
         while point.line > 0 && is_wrap(term, point) {
             point.line -= 1;
         }
 
         last_occupied_in_line(term, point.line).unwrap_or(point)
     } else {
-        // Jump to last column when beyond the last occupied cell
+        // Jump to last column when beyond the last occupied cell.
         Point::new(point.line, cols - 1)
     }
 }
@@ -219,18 +219,18 @@ fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
 fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let cols = term.grid().num_cols();
 
-    // Expand left across wide chars, since we're searching lines left to right
+    // Expand left across wide chars, since we're searching lines left to right.
     point = expand_wide(term, point, true);
 
-    // Find first non-empty cell in current line
+    // Find first non-empty cell in current line.
     let occupied = first_occupied_in_line(term, point.line)
         .unwrap_or_else(|| Point::new(point.line, cols - 1));
 
-    // Jump across wrapped lines if we're already at this line's first occupied cell
+    // Jump across wrapped lines if we're already at this line's first occupied cell.
     if point == occupied {
         let mut occupied = None;
 
-        // Search for non-empty cell in previous lines
+        // Search for non-empty cell in previous lines.
         for line in (point.line + 1)..term.grid().len() {
             if !is_wrap(term, Point::new(line, cols - 1)) {
                 break;
@@ -239,7 +239,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
             occupied = first_occupied_in_line(term, line).or(occupied);
         }
 
-        // Fallback to the next non-empty cell
+        // Fallback to the next non-empty cell.
         let mut line = point.line;
         occupied.unwrap_or_else(|| loop {
             if let Some(occupied) = first_occupied_in_line(term, line) {
@@ -265,9 +265,9 @@ fn semantic<T: EventListener>(
     left: bool,
     start: bool,
 ) -> Point<usize> {
-    // Expand semantically based on movement direction
+    // Expand semantically based on movement direction.
     let expand_semantic = |point: Point<usize>| {
-        // Do not expand when currently on a semantic escape char
+        // Do not expand when currently on a semantic escape char.
         let cell = term.grid()[point.line][point.col];
         if term.semantic_escape_chars().contains(cell.c)
             && !cell.flags.contains(Flags::WIDE_CHAR_SPACER)
@@ -280,27 +280,27 @@ fn semantic<T: EventListener>(
         }
     };
 
-    // Make sure we jump above wide chars
+    // Make sure we jump above wide chars.
     point = expand_wide(term, point, left);
 
-    // Move to word boundary
+    // Move to word boundary.
     if left != start && !is_boundary(term, point, left) {
         point = expand_semantic(point);
     }
 
-    // Skip whitespace
+    // Skip whitespace.
     let mut next_point = advance(term, point, left);
     while !is_boundary(term, point, left) && is_space(term, next_point) {
         point = next_point;
         next_point = advance(term, point, left);
     }
 
-    // Assure minimum movement of one cell
+    // Assure minimum movement of one cell.
     if !is_boundary(term, point, left) {
         point = advance(term, point, left);
     }
 
-    // Move to word boundary
+    // Move to word boundary.
     if left == start && !is_boundary(term, point, left) {
         point = expand_semantic(point);
     }
@@ -315,18 +315,18 @@ fn word<T: EventListener>(
     left: bool,
     start: bool,
 ) -> Point<usize> {
-    // Make sure we jump above wide chars
+    // Make sure we jump above wide chars.
     point = expand_wide(term, point, left);
 
     if left == start {
-        // Skip whitespace until right before a word
+        // Skip whitespace until right before a word.
         let mut next_point = advance(term, point, left);
         while !is_boundary(term, point, left) && is_space(term, next_point) {
             point = next_point;
             next_point = advance(term, point, left);
         }
 
-        // Skip non-whitespace until right inside word boundary
+        // Skip non-whitespace until right inside word boundary.
         let mut next_point = advance(term, point, left);
         while !is_boundary(term, point, left) && !is_space(term, next_point) {
             point = next_point;
@@ -335,12 +335,12 @@ fn word<T: EventListener>(
     }
 
     if left != start {
-        // Skip non-whitespace until just beyond word
+        // Skip non-whitespace until just beyond word.
         while !is_boundary(term, point, left) && !is_space(term, point) {
             point = advance(term, point, left);
         }
 
-        // Skip whitespace until right inside word boundary
+        // Skip whitespace until right inside word boundary.
         while !is_boundary(term, point, left) && is_space(term, point) {
             point = advance(term, point, left);
         }

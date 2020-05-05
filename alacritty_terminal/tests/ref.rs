@@ -105,7 +105,7 @@ fn ref_test(dir: &Path) {
         parser.advance(&mut terminal, byte, &mut io::sink());
     }
 
-    // Truncate invisible lines from the grid
+    // Truncate invisible lines from the grid.
     let mut term_grid = terminal.grid().clone();
     term_grid.initialize_all(&Cell::default());
     term_grid.truncate();
