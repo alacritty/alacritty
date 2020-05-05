@@ -168,7 +168,7 @@ fn test_iter() {
     // Make sure iter.cell() returns the current iterator position.
     assert_eq!(&4, iter.cell());
 
-    // test that iter ends at end of grid.
+    // Test that iter ends at end of grid.
     let mut final_iter = grid.iter_from(Point { line: 0, col: Column(4) });
     assert_eq!(None, final_iter.next());
     assert_eq!(Some(&23), final_iter.prev());
