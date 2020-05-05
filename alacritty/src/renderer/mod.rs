@@ -239,7 +239,7 @@ impl GlyphCache {
 
         let regular = rasterizer.load_font(&regular_desc, size)?;
 
-        // helper to load a description if it is not the regular_desc.
+        // Helper to load a description if it is not the `regular_desc`.
         let mut load_or_regular = |desc: FontDesc| {
             if desc == regular_desc {
                 regular
