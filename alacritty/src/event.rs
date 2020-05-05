@@ -366,7 +366,7 @@ pub struct Processor<N> {
 impl<N: Notify + OnResize> Processor<N> {
     /// Create a new event processor.
     ///
-    /// Takes a writer which is expected to be hooked up to the write end of a pty.
+    /// Takes a writer which is expected to be hooked up to the write end of a PTY.
     pub fn new(
         notifier: N,
         message_buffer: MessageBuffer,
