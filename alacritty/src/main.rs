@@ -58,6 +58,11 @@ mod renderer;
 mod url;
 mod window;
 
+#[cfg(not(windows))]
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 #[cfg(not(any(target_os = "macos", windows)))]
 mod wayland_theme;
 
