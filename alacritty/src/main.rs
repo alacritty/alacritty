@@ -221,7 +221,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
 
-    // Shutdown pty parser event loop.
+    // Shutdown PTY parser event loop.
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to PTY event loop");
     io_thread.join().expect("join io thread");
 
