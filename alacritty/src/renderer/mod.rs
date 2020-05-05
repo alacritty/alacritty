@@ -1277,7 +1277,7 @@ impl RectShaderProgram {
             gl::UseProgram(program);
         }
 
-        // get uniform locations.
+        // Get uniform locations.
         let u_color = unsafe { gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _) };
 
         let shader = Self { id: program, u_color };
