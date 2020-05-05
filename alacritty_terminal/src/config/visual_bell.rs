@@ -43,17 +43,25 @@ impl VisualBellConfig {
 /// Penner's Easing Functions.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub enum VisualBellAnimation {
-    // CSS animations.
+    // CSS animation.
     Ease,
+    // CSS animation.
     EaseOut,
-    // Penner animations.
+    // Penner animation.
     EaseOutSine,
+    // Penner animation.
     EaseOutQuad,
+    // Penner animation.
     EaseOutCubic,
+    // Penner animation.
     EaseOutQuart,
+    // Penner animation.
     EaseOutQuint,
+    // Penner animation.
     EaseOutExpo,
+    // Penner animation.
     EaseOutCirc,
+    // Penner animation.
     Linear,
 }
 

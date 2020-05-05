@@ -378,14 +378,14 @@ pub enum Mode {
     /// * set margins to default positions
     /// * erases all data in page memory
     /// * resets DECLRMM to unavailable
-    /// * clears data from the status line (if set to host-writable).
+    /// * clears data from the status line (if set to host-writable)
     DECCOLM = 3,
     /// IRM Insert Mode.
     ///
     /// NB should be part of non-private mode enum.
     ///
-    /// * `CSI 4 h` change to insert mode.
-    /// * `CSI 4 l` reset to replacement mode.
+    /// * `CSI 4 h` change to insert mode
+    /// * `CSI 4 l` reset to replacement mode
     Insert = 4,
     /// ?6
     Origin = 6,
@@ -1146,12 +1146,10 @@ where
 }
 
 fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
-    // C-for initializer.
     let mut i = 0;
     let mut attrs = Vec::with_capacity(parameters.len());
     loop {
         if i >= parameters.len() {
-            // C-for condition.
             break;
         }
 
@@ -1231,7 +1229,6 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
 
         attrs.push(attr);
 
-        // C-for expr.
         i += 1;
     }
     attrs
