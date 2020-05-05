@@ -166,7 +166,7 @@ impl crate::Rasterize for Rasterizer {
             // Then try fallbacks.
             for fallback in &font.fallbacks {
                 if let Some(result) = self.maybe_get_glyph(glyph, &fallback) {
-                    // found a fallback.
+                    // Found a fallback.
                     return result;
                 }
             }
