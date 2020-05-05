@@ -28,11 +28,11 @@ impl Monitor {
                     watcher(tx, Duration::from_millis(10)).expect("Unable to spawn file watcher");
                 let config_path = ::std::fs::canonicalize(path).expect("canonicalize config path");
 
-                // Get directory of config
+                // Get directory of config.
                 let mut parent = config_path.clone();
                 parent.pop();
 
-                // Watch directory
+                // Watch directory.
                 watcher
                     .watch(&parent, RecursiveMode::NonRecursive)
                     .expect("watch alacritty.yml dir");

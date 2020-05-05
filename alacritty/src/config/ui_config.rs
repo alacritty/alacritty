@@ -11,11 +11,11 @@ pub struct UIConfig {
     #[serde(default, deserialize_with = "failure_default")]
     pub mouse: Mouse,
 
-    /// Keybindings
+    /// Keybindings.
     #[serde(default = "default_key_bindings", deserialize_with = "deserialize_key_bindings")]
     pub key_bindings: Vec<KeyBinding>,
 
-    /// Bindings for the mouse
+    /// Bindings for the mouse.
     #[serde(default = "default_mouse_bindings", deserialize_with = "deserialize_mouse_bindings")]
     pub mouse_bindings: Vec<MouseBinding>,
 }
@@ -63,7 +63,7 @@ where
 {
     let values = Vec::<serde_yaml::Value>::deserialize(deserializer)?;
 
-    // Skip all invalid values
+    // Skip all invalid values.
     let mut bindings = Vec::with_capacity(values.len());
     for value in values {
         match Binding::<T>::deserialize(value) {
@@ -74,7 +74,7 @@ where
         }
     }
 
-    // Remove matching default bindings
+    // Remove matching default bindings.
     for binding in bindings.iter() {
         default.retain(|b| !b.triggers_match(binding));
     }

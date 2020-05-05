@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Defines the Row type which makes up lines in the grid
+//! Defines the Row type which makes up lines in the grid.
 
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut};
@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use crate::grid::GridCell;
 use crate::index::Column;
 
-/// A row in the grid
+/// A row in the grid.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Row<T> {
     inner: Vec<T>,
@@ -67,7 +67,7 @@ impl<T: Copy> Row<T> {
             return None;
         }
 
-        // Split off cells for a new row
+        // Split off cells for a new row.
         let mut new_row = self.inner.split_off(cols.0);
         let index = new_row.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
         new_row.truncate(index);
@@ -91,14 +91,13 @@ impl<T: Copy> Row<T> {
 
         let template = *template;
 
-        // Mark all cells as dirty if template cell changed
+        // Mark all cells as dirty if template cell changed.
         let len = self.inner.len();
         if !self.inner[len - 1].fast_eq(template) {
             self.occ = len;
         }
 
-        // Reset every dirty in the row
-        // let template = *template;
+        // Reset every dirty in the row.
         for item in &mut self.inner[..self.occ] {
             *item = template;
         }
@@ -192,10 +191,6 @@ impl<T> IndexMut<Column> for Row<T> {
         &mut self.inner[index.0]
     }
 }
-
-// -----------------------------------------------------------------------------
-// Index ranges of columns
-// -----------------------------------------------------------------------------
 
 impl<T> Index<Range<Column>> for Row<T> {
     type Output = [T];

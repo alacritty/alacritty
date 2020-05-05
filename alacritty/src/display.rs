@@ -219,7 +219,7 @@ impl Display {
         // Update OpenGL projection.
         renderer.resize(&size_info);
 
-        // Call `clear` before showing the window, to make sure the surface is initialized.
+        // Clear screen.
         let background_color = config.colors.primary.background;
         renderer.with_api(&config, &size_info, |api| {
             api.clear(background_color);
@@ -244,7 +244,7 @@ impl Display {
 
         // Set window position.
         //
-        // TODO: replace `set_position` with `with_position` once available
+        // TODO: replace `set_position` with `with_position` once available.
         // Upstream issue: https://github.com/rust-windowing/winit/issues/806.
         if let Some(position) = config.window.position {
             window.set_outer_position(PhysicalPosition::from((position.x, position.y)));

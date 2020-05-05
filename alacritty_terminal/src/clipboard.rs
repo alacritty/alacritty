@@ -61,7 +61,7 @@ impl Clipboard {
         return Self::new_nop();
     }
 
-    // Use for tests and ref-tests
+    // Use for tests and ref-tests.
     pub fn new_nop() -> Self {
         Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
     }

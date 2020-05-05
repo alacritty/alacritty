@@ -46,7 +46,7 @@ impl FallbackFont {
 
 impl FontKey {
     fn from_pattern_hashes(lhs: PatternHash, rhs: PatternHash) -> Self {
-        // XOR two hashes to get a font ID
+        // XOR two hashes to get a font ID.
         Self { token: lhs.0.rotate_left(1) ^ rhs.0 }
     }
 }
@@ -121,18 +121,18 @@ impl Rasterize for FreeTypeRasterizer {
         let height = (full.size_metrics.height / 64) as f64;
         let descent = (full.size_metrics.descender / 64) as f32;
 
-        // Get underline position and thickness in device pixels
+        // Get underline position and thickness in device pixels.
         let x_scale = full.size_metrics.x_scale as f32 / 65536.0;
         let mut underline_position = f32::from(face.ft_face.underline_position()) * x_scale / 64.;
         let mut underline_thickness = f32::from(face.ft_face.underline_thickness()) * x_scale / 64.;
 
-        // Fallback for bitmap fonts which do not provide underline metrics
+        // Fallback for bitmap fonts which do not provide underline metrics.
         if underline_position == 0. {
             underline_thickness = (descent.abs() / 5.).round();
             underline_position = descent / 2.;
         }
 
-        // Get strikeout position and thickness in device pixels
+        // Get strikeout position and thickness in device pixels.
         let (strikeout_position, strikeout_thickness) =
             match TrueTypeOS2Table::from_face(&mut (*face.ft_face).clone()) {
                 Some(os2) => {
@@ -141,7 +141,7 @@ impl Rasterize for FreeTypeRasterizer {
                     (strikeout_position, strikeout_thickness)
                 },
                 _ => {
-                    // Fallback if font doesn't provide info about strikeout
+                    // Fallback if font doesn't provide info about strikeout.
                     trace!("Using fallback strikeout metrics");
                     let strikeout_position = height as f32 / 2. + descent;
                     (strikeout_position, underline_thickness)
@@ -206,9 +206,9 @@ struct FullMetrics {
 }
 
 impl FreeTypeRasterizer {
-    /// Load a font face according to `FontDesc`
+    /// Load a font face according to `FontDesc`.
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
-        // Adjust for DPI
+        // Adjust for DPR.
         let size = f64::from(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         let config = fc::Config::get_current();
@@ -216,26 +216,26 @@ impl FreeTypeRasterizer {
         pattern.add_family(&desc.name);
         pattern.add_pixelsize(size);
 
-        // Add style to a pattern
+        // Add style to a pattern.
         match desc.style {
             Style::Description { slant, weight } => {
-                // Match nearest font
+                // Match nearest font.
                 pattern.set_weight(weight.into_fontconfig_type());
                 pattern.set_slant(slant.into_fontconfig_type());
             },
             Style::Specific(ref style) => {
-                // If a name was specified, try and load specifically that font
+                // If a name was specified, try and load specifically that font.
                 pattern.add_style(style);
             },
         }
 
-        // Hash requested pattern
+        // Hash requested pattern.
         let hash = pattern.hash();
 
         pattern.config_substitute(config, fc::MatchKind::Pattern);
         pattern.default_substitute();
 
-        // Get font list using pattern. First font is the primary one while the rest are fallbacks
+        // Get font list using pattern. First font is the primary one while the rest are fallbacks.
         let matched_fonts =
             fc::font_sort(&config, &pattern).ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         let mut matched_fonts = matched_fonts.into_iter();
@@ -243,24 +243,24 @@ impl FreeTypeRasterizer {
         let primary_font =
             matched_fonts.next().ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        // We should render patterns to get values like `pixelsizefixupfactor`
+        // We should render patterns to get values like `pixelsizefixupfactor`.
         let primary_font = pattern.render_prepare(config, primary_font);
 
-        // Hash pattern together with request pattern to include requested font size in the hash
+        // Hash pattern together with request pattern to include requested font size in the hash.
         let primary_font_key = FontKey::from_pattern_hashes(hash, primary_font.hash());
 
-        // Return if we already have the same primary font
+        // Return if we already have the same primary font.
         if self.fallback_lists.contains_key(&primary_font_key) {
             return Ok(primary_font_key);
         }
 
-        // Load font if we haven't loaded it yet
+        // Load font if we haven't loaded it yet.
         if !self.faces.contains_key(&primary_font_key) {
             self.face_from_pattern(&primary_font, primary_font_key)
                 .and_then(|pattern| pattern.ok_or_else(|| Error::MissingFont(desc.to_owned())))?;
         }
 
-        // Coverage for fallback fonts
+        // Coverage for fallback fonts.
         let coverage = CharSet::new();
         let empty_charset = CharSet::new();
 
@@ -268,7 +268,7 @@ impl FreeTypeRasterizer {
             .map(|fallback_font| {
                 let charset = fallback_font.get_charset().unwrap_or(&empty_charset);
 
-                // Use original pattern to preserve loading flags
+                // Use original pattern to preserve loading flags.
                 let fallback_font = pattern.render_prepare(config, fallback_font);
                 let fallback_font_key = FontKey::from_pattern_hashes(hash, fallback_font.hash());
 
@@ -299,7 +299,7 @@ impl FreeTypeRasterizer {
         let mut ft_face = self.library.new_face(&ft_face_location.path, ft_face_location.index)?;
         if ft_face.has_color() {
             unsafe {
-                // Select the colored bitmap size to use from the array of available sizes
+                // Select the colored bitmap size to use from the array of available sizes.
                 freetype_sys::FT_Select_Size(ft_face.raw_mut(), 0);
             }
         }
@@ -370,7 +370,7 @@ impl FreeTypeRasterizer {
     fn load_face_with_glyph(&mut self, glyph: GlyphKey) -> Result<FontKey, Error> {
         let fallback_list = self.fallback_lists.get(&glyph.font_key).unwrap();
 
-        // Check whether glyph is presented in any fallback font
+        // Check whether glyph is presented in any fallback font.
         if !fallback_list.coverage.has_char(glyph.c) {
             return Ok(glyph.font_key);
         }
@@ -382,7 +382,7 @@ impl FreeTypeRasterizer {
                 Some(face) => {
                     let index = face.ft_face.get_char_index(glyph.c as usize);
 
-                    // We found something in a current face, so let's use it
+                    // We found something in a current face, so let's use it.
                     if index != 0 {
                         return Ok(font_key);
                     }
@@ -400,12 +400,12 @@ impl FreeTypeRasterizer {
             }
         }
 
-        // You can hit this return, if you're failing to get charset from a pattern
+        // You can hit this return, if you're failing to get charset from a pattern.
         Ok(glyph.font_key)
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
-        // Render a normal character if it's not a cursor
+        // Render a normal character if it's not a cursor.
         let font_key = self.face_for_glyph(glyph_key)?;
         let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
@@ -442,7 +442,7 @@ impl FreeTypeRasterizer {
             let fixup_factor = if let Some(pixelsize_fixup_factor) = face.pixelsize_fixup_factor {
                 pixelsize_fixup_factor
             } else {
-                // Fallback if user has bitmap scaling disabled
+                // Fallback if user has bitmap scaling disabled.
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
                 f64::from(pixelsize) / f64::from(metrics.y_ppem)
             };
@@ -465,7 +465,7 @@ impl FreeTypeRasterizer {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
             (false, ..) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
             (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
-            // hintslight does *not* use LCD hinting even when a subpixel mode
+            // `hintslight` does *not* use LCD hinting even when a subpixel mode
             // is selected.
             //
             // According to the FreeType docs,
@@ -478,7 +478,7 @@ impl FreeTypeRasterizer {
             // In practice, this means we can have `FT_LOAD_TARGET_LIGHT` with
             // subpixel render modes like `FT_RENDER_MODE_LCD`. Libraries like
             // cairo take the same approach and consider `hintslight` to always
-            // prefer `FT_LOAD_TARGET_LIGHT`
+            // prefer `FT_LOAD_TARGET_LIGHT`.
             (true, fc::HintStyle::Slight, _) => LoadFlag::TARGET_LIGHT,
             // If LCD hinting is to be used, must select hintmedium or hintfull,
             // have AA enabled, and select a subpixel mode.
@@ -565,7 +565,7 @@ impl FreeTypeRasterizer {
                     while count != 0 {
                         let value = ((byte >> bit) & 1) * 255;
                         // Push value 3x since result buffer should be 1 byte
-                        // per channel
+                        // per channel.
                         res.push(value);
                         res.push(value);
                         res.push(value);
@@ -623,7 +623,7 @@ impl FreeTypeRasterizer {
 /// This will take the `bitmap_glyph` as input and return the glyph's content downscaled by
 /// `fixup_factor`.
 fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
-    // Only scale colored buffers which are bigger than required
+    // Only scale colored buffers which are bigger than required.
     let bitmap_buffer = match (&bitmap_glyph.buf, fixup_factor.partial_cmp(&1.0)) {
         (BitmapBuffer::RGBA(buffer), Some(Ordering::Less)) => buffer,
         _ => return bitmap_glyph,
@@ -635,19 +635,20 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let target_width = (bitmap_width as f64 * fixup_factor) as usize;
     let target_height = (bitmap_height as f64 * fixup_factor) as usize;
 
-    // Number of pixels in the input buffer, per pixel in the output buffer
+    // Number of pixels in the input buffer, per pixel in the output buffer.
     let downsampling_step = 1.0 / fixup_factor;
 
     let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
     for line_index in 0..target_height {
-        // Get the first and last line which will be consolidated in the current output pixel
+        // Get the first and last line which will be consolidated in the current output pixel.
         let line_index = line_index as f64;
         let source_line_start = (line_index * downsampling_step).round() as usize;
         let source_line_end = ((line_index + 1.) * downsampling_step).round() as usize;
 
         for column_index in 0..target_width {
-            // Get the first and last column which will be consolidated in the current output pixel
+            // Get the first and last column which will be consolidated in the current output
+            // pixel.
             let column_index = column_index as f64;
             let source_column_start = (column_index * downsampling_step).round() as usize;
             let source_column_end = ((column_index + 1.) * downsampling_step).round() as usize;
@@ -655,7 +656,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            // Consolidate all pixels within the source rectangle into a single averaged pixel
+            // Consolidate all pixels within the source rectangle into a single averaged pixel.
             for source_line in source_line_start..source_line_end {
                 let source_pixel_index = source_line * bitmap_width;
 
@@ -669,7 +670,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 }
             }
 
-            // Add a single pixel to the output buffer for the downscaled source rectangle
+            // Add a single pixel to the output buffer for the downscaled source rectangle.
             downsampled_buffer.push((r / pixels_picked) as u8);
             downsampled_buffer.push((g / pixels_picked) as u8);
             downsampled_buffer.push((b / pixels_picked) as u8);
@@ -679,7 +680,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
 
     bitmap_glyph.buf = BitmapBuffer::RGBA(downsampled_buffer);
 
-    // Downscale the metrics
+    // Downscale the metrics.
     bitmap_glyph.top = (f64::from(bitmap_glyph.top) * fixup_factor) as i32;
     bitmap_glyph.left = (f64::from(bitmap_glyph.left) * fixup_factor) as i32;
     bitmap_glyph.width = target_width as i32;
@@ -688,19 +689,19 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     bitmap_glyph
 }
 
-/// Errors occurring when using the freetype rasterizer
+/// Errors occurring when using the freetype rasterizer.
 #[derive(Debug)]
 pub enum Error {
-    /// Error occurred within the FreeType library
+    /// Error occurred within the FreeType library.
     FreeType(freetype::Error),
 
-    /// Couldn't find font matching description
+    /// Couldn't find font matching description.
     MissingFont(FontDesc),
 
-    /// Tried to get size metrics from a Face that didn't have a size
+    /// Tried to get size metrics from a Face that didn't have a size.
     MissingSizeMetrics,
 
-    /// Requested an operation with a FontKey that isn't known to the rasterizer
+    /// Requested an operation with a FontKey that isn't known to the rasterizer.
     FontNotLoaded,
 }
 

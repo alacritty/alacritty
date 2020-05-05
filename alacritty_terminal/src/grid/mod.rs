@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A specialized 2d grid implementation optimized for use in a terminal.
+//! A specialized 2D grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min, Ordering};
 use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
@@ -32,7 +32,7 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
-/// Bidirection iterator
+/// Bidirectional iterator.
 pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
 }
@@ -55,7 +55,7 @@ impl<T> Deref for Indexed<T> {
 
 impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
     fn eq(&self, other: &Self) -> bool {
-        // Compare struct fields and check result of grid comparison
+        // Compare struct fields and check result of grid comparison.
         self.raw.eq(&other.raw)
             && self.cols.eq(&other.cols)
             && self.lines.eq(&other.lines)
@@ -72,11 +72,11 @@ pub trait GridCell {
     /// Fast equality approximation.
     ///
     /// This is a faster alternative to [`PartialEq`],
-    /// but might report inequal cells as equal.
+    /// but might report unequal cells as equal.
     fn fast_eq(&self, other: Self) -> bool;
 }
 
-/// Represents the terminal display contents
+/// Represents the terminal display contents.
 ///
 /// ```notrust
 /// ┌─────────────────────────┐  <-- max_scroll_limit + lines
@@ -152,7 +152,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         } else if point.line >= self.display_offset + self.lines.0 {
             Point::new(Line(0), Column(0))
         } else {
-            // Since edgecases are handled, conversion is identical as visible to buffer
+            // Since edge-cases are handled, conversion is identical as visible to buffer.
             self.visible_to_buffer(point.into()).into()
         }
     }
@@ -162,7 +162,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
     }
 
-    /// Update the size of the scrollback history
+    /// Update the size of the scrollback history.
     pub fn update_history(&mut self, history_size: usize) {
         let current_history_size = self.history_size();
         if current_history_size > history_size {
@@ -199,7 +199,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         cursor_pos: &mut Point,
         template: &T,
     ) {
-        // Check that there's actually work to do and return early if not
+        // Check that there's actually work to do and return early if not.
         if lines == self.lines && cols == self.cols {
             return;
         }
@@ -231,7 +231,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         }
     }
 
-    /// Add lines to the visible area
+    /// Add lines to the visible area.
     ///
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
@@ -239,18 +239,18 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     fn grow_lines(&mut self, new_line_count: Line, cursor_pos: &mut Point, template: &T) {
         let lines_added = new_line_count - self.lines;
 
-        // Need to "resize" before updating buffer
+        // Need to "resize" before updating buffer.
         self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, template));
         self.lines = new_line_count;
 
         let history_size = self.history_size();
         let from_history = min(history_size, lines_added.0);
 
-        // Move cursor down for all lines pulled from history
+        // Move cursor down for all lines pulled from history.
         cursor_pos.line += from_history;
 
         if from_history != lines_added.0 {
-            // Move existing lines up for every line that couldn't be pulled from history
+            // Move existing lines up for every line that couldn't be pulled from history.
             self.scroll_up(&(Line(0)..new_line_count), lines_added - from_history, template);
         }
 
@@ -258,9 +258,9 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
-    // Grow number of columns in each row, reflowing if necessary
+    /// Grow number of columns in each row, reflowing if necessary.
     fn grow_cols(&mut self, reflow: bool, cols: Column, cursor_pos: &mut Point, template: &T) {
-        // Check if a row needs to be wrapped
+        // Check if a row needs to be wrapped.
         let should_reflow = |row: &Row<T>| -> bool {
             let len = Column(row.len());
             reflow && len < cols && row[len - 1].flags().contains(Flags::WRAPLINE)
@@ -269,7 +269,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let mut new_empty_lines = 0;
         let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
-            // Check if reflowing shoud be performed
+            // Check if reflowing should be performed.
             let last_row = match reversed.last_mut() {
                 Some(last_row) if should_reflow(last_row) => last_row,
                 _ => {
@@ -278,12 +278,12 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 },
             };
 
-            // Remove wrap flag before appending additional cells
+            // Remove wrap flag before appending additional cells.
             if let Some(cell) = last_row.last_mut() {
                 cell.flags_mut().remove(Flags::WRAPLINE);
             }
 
-            // Remove leading spacers when reflowing wide char to the previous line
+            // Remove leading spacers when reflowing wide char to the previous line.
             let last_len = last_row.len();
             if last_len >= 2
                 && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
@@ -292,10 +292,10 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 last_row.shrink(Column(last_len - 1));
             }
 
-            // Append as many cells from the next line as possible
+            // Append as many cells from the next line as possible.
             let len = min(row.len(), cols.0 - last_row.len());
 
-            // Insert leading spacer when there's not enough room for reflowing wide char
+            // Insert leading spacer when there's not enough room for reflowing wide char.
             let mut cells = if row[Column(len - 1)].flags().contains(Flags::WIDE_CHAR) {
                 let mut cells = row.front_split_off(len - 1);
 
@@ -312,28 +312,28 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
             if row.is_empty() {
                 if i + reversed.len() < self.lines.0 {
-                    // Add new line and move lines up if we can't pull from history
+                    // Add new line and move lines up if we can't pull from history.
                     cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                     new_empty_lines += 1;
                 } else if i < self.display_offset {
-                    // Keep viewport in place if line is outside of the visible area
+                    // Keep viewport in place if line is outside of the visible area.
                     self.display_offset = self.display_offset.saturating_sub(1);
                 }
 
-                // Don't push line into the new buffer
+                // Don't push line into the new buffer.
                 continue;
             } else if let Some(cell) = last_row.last_mut() {
-                // Set wrap flag if next line still has cells
+                // Set wrap flag if next line still has cells.
                 cell.flags_mut().insert(Flags::WRAPLINE);
             }
 
             reversed.push(row);
         }
 
-        // Add padding lines
+        // Add padding lines.
         reversed.append(&mut vec![Row::new(cols, template); new_empty_lines]);
 
-        // Fill remaining cells and reverse iterator
+        // Fill remaining cells and reverse iterator.
         let mut new_raw = Vec::with_capacity(reversed.len());
         for mut row in reversed.drain(..).rev() {
             if row.len() < cols.0 {
@@ -348,18 +348,18 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.cols = cols;
     }
 
-    // Shrink number of columns in each row, reflowing if necessary
+    /// Shrink number of columns in each row, reflowing if necessary.
     fn shrink_cols(&mut self, reflow: bool, cols: Column, template: &T) {
         let mut new_raw = Vec::with_capacity(self.raw.len());
         let mut buffered = None;
         for (i, mut row) in self.raw.drain().enumerate().rev() {
-            // Append lines left over from previous row
+            // Append lines left over from previous row.
             if let Some(buffered) = buffered.take() {
                 row.append_front(buffered);
             }
 
             loop {
-                // Check if reflowing shoud be performed
+                // Check if reflowing should be performed.
                 let mut wrapped = match row.shrink(cols) {
                     Some(wrapped) if reflow => wrapped,
                     _ => {
@@ -368,7 +368,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                     },
                 };
 
-                // Insert spacer if a wide char would be wrapped into the last column
+                // Insert spacer if a wide char would be wrapped into the last column.
                 if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
                     wrapped.insert(0, row[cols - 1]);
 
@@ -377,7 +377,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                     row[cols - 1] = spacer;
                 }
 
-                // Remove wide char spacer before shrinking
+                // Remove wide char spacer before shrinking.
                 let len = wrapped.len();
                 if (len == 1 || (len >= 2 && !wrapped[len - 2].flags().contains(Flags::WIDE_CHAR)))
                     && wrapped[len - 1].flags().contains(Flags::WIDE_CHAR_SPACER)
@@ -394,7 +394,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
                 new_raw.push(row);
 
-                // Set line as wrapped if cells got removed
+                // Set line as wrapped if cells got removed.
                 if let Some(cell) = new_raw.last_mut().and_then(|r| r.last_mut()) {
                     cell.flags_mut().insert(Flags::WRAPLINE);
                 }
@@ -405,21 +405,21 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                     .unwrap_or(false)
                     && wrapped.len() < cols.0
                 {
-                    // Make sure previous wrap flag doesn't linger around
+                    // Make sure previous wrap flag doesn't linger around.
                     if let Some(cell) = wrapped.last_mut() {
                         cell.flags_mut().remove(Flags::WRAPLINE);
                     }
 
-                    // Add removed cells to start of next row
+                    // Add removed cells to start of next row.
                     buffered = Some(wrapped);
                     break;
                 } else {
-                    // Make sure viewport doesn't move if line is outside of the visible area
+                    // Make sure viewport doesn't move if line is outside of the visible area.
                     if i < self.display_offset {
                         self.display_offset = min(self.display_offset + 1, self.max_scroll_limit);
                     }
 
-                    // Make sure new row is at least as long as new width
+                    // Make sure new row is at least as long as new width.
                     let occ = wrapped.len();
                     if occ < cols.0 {
                         wrapped.append(&mut vec![*template; cols.0 - occ]);
@@ -435,7 +435,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.cols = cols;
     }
 
-    /// Remove lines from the visible area
+    /// Remove lines from the visible area.
     ///
     /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
     /// bottom of the screen. This is achieved by pushing history "out the top"
@@ -443,7 +443,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
     ///
     /// Alacritty takes the same approach.
     fn shrink_lines(&mut self, target: Line, cursor_pos: &mut Point, template: &T) {
-        // Scroll up to keep cursor inside the window
+        // Scroll up to keep cursor inside the window.
         let required_scrolling = (cursor_pos.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
             self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), template);
@@ -476,24 +476,24 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
             self.decrease_scroll_limit(*positions);
 
-            // Now, restore any scroll region lines
+            // Now, restore any scroll region lines.
             let lines = self.lines;
             for i in IndexRange(region.end..lines) {
                 self.raw.swap_lines(i, i + positions);
             }
 
-            // Finally, reset recycled lines
+            // Finally, reset recycled lines.
             for i in IndexRange(Line(0)..positions) {
                 self.raw[i].reset(&template);
             }
         } else {
-            // Rotate selection to track content
+            // Rotate selection to track content.
             self.selection = self
                 .selection
                 .take()
                 .and_then(|s| s.rotate(num_lines, num_cols, region, -(*positions as isize)));
 
-            // Subregion rotation
+            // Subregion rotation.
             for line in IndexRange((region.start + positions)..region.end).rev() {
                 self.raw.swap_lines(line, line - positions);
             }
@@ -504,7 +504,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         }
     }
 
-    /// scroll_up moves lines at the bottom towards the top
+    /// Move lines at the bottom towards the top.
     ///
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: &T) {
@@ -512,7 +512,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let num_cols = self.num_cols().0;
 
         if region.start == Line(0) {
-            // Update display offset when not pinned to active area
+            // Update display offset when not pinned to active area.
             if self.display_offset != 0 {
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
@@ -537,25 +537,25 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 self.raw.swap(i, i + *positions);
             }
 
-            // Finally, reset recycled lines
+            // Finally, reset recycled lines.
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
                 self.raw[i + fixed_lines].reset(&template);
             }
         } else {
-            // Rotate selection to track content
+            // Rotate selection to track content.
             self.selection = self
                 .selection
                 .take()
                 .and_then(|s| s.rotate(num_lines, num_cols, region, *positions as isize));
 
-            // Subregion rotation
+            // Subregion rotation.
             for line in IndexRange(region.start..(region.end - positions)) {
                 self.raw.swap_lines(line, line + positions);
             }
 
-            // Clear reused lines
+            // Clear reused lines.
             for line in IndexRange((region.end - positions)..region.end) {
                 self.raw[line].reset(&template);
             }
@@ -575,23 +575,23 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
-        // Reset display offset
+        // Reset display offset.
         self.display_offset = 0;
 
-        // Clear the viewport
+        // Clear the viewport.
         self.scroll_up(&region, positions, template);
 
-        // Reset rotated lines
+        // Reset rotated lines.
         for i in positions.0..self.lines.0 {
             self.raw[i].reset(&template);
         }
     }
 
-    // Completely reset the grid state
+    /// Completely reset the grid state.
     pub fn reset(&mut self, template: &T) {
         self.clear_history();
 
-        // Reset all visible lines
+        // Reset all visible lines.
         for row in 0..self.raw.len() {
             self.raw[row].reset(template);
         }
@@ -620,11 +620,11 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn clear_history(&mut self) {
-        // Explicitly purge all lines from history
+        // Explicitly purge all lines from history.
         self.raw.shrink_lines(self.history_size());
     }
 
-    /// Total number of lines in the buffer, this includes scrollback + visible lines
+    /// Total number of lines in the buffer, this includes scrollback + visible lines.
     #[inline]
     pub fn len(&self) -> usize {
         self.raw.len()
@@ -635,20 +635,20 @@ impl<T> Grid<T> {
         self.raw.len() - *self.lines
     }
 
-    /// This is used only for initializing after loading ref-tests
+    /// This is used only for initializing after loading ref-tests.
     #[inline]
     pub fn initialize_all(&mut self, template: &T)
     where
         T: Copy + GridCell,
     {
-        // Remove all cached lines to clear them of any content
+        // Remove all cached lines to clear them of any content.
         self.truncate();
 
-        // Initialize everything with empty new lines
+        // Initialize everything with empty new lines.
         self.raw.initialize(self.max_scroll_limit - self.history_size(), template, self.cols);
     }
 
-    /// This is used only for truncating before saving ref-tests
+    /// This is used only for truncating before saving ref-tests.
     #[inline]
     pub fn truncate(&mut self) {
         self.raw.truncate();
@@ -666,7 +666,7 @@ impl<T> Grid<T> {
 }
 
 pub struct GridIterator<'a, T> {
-    /// Immutable grid reference
+    /// Immutable grid reference.
     grid: &'a Grid<T>,
 
     /// Current position of the iterator within the grid.
@@ -722,7 +722,7 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     }
 }
 
-/// Index active region by line
+/// Index active region by line.
 impl<T> Index<Line> for Grid<T> {
     type Output = Row<T>;
 
@@ -732,7 +732,7 @@ impl<T> Index<Line> for Grid<T> {
     }
 }
 
-/// Index with buffer offset
+/// Index with buffer offset.
 impl<T> Index<usize> for Grid<T> {
     type Output = Row<T>;
 
@@ -772,22 +772,18 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     }
 }
 
-// -------------------------------------------------------------------------------------------------
-// REGIONS
-// -------------------------------------------------------------------------------------------------
-
-/// A subset of lines in the grid
+/// A subset of lines in the grid.
 ///
-/// May be constructed using Grid::region(..)
+/// May be constructed using Grid::region(..).
 pub struct Region<'a, T> {
     start: Line,
     end: Line,
     raw: &'a Storage<T>,
 }
 
-/// A mutable subset of lines in the grid
+/// A mutable subset of lines in the grid.
 ///
-/// May be constructed using Grid::region_mut(..)
+/// May be constructed using Grid::region_mut(..).
 pub struct RegionMut<'a, T> {
     start: Line,
     end: Line,
@@ -795,7 +791,7 @@ pub struct RegionMut<'a, T> {
 }
 
 impl<'a, T> RegionMut<'a, T> {
-    /// Call the provided function for every item in this region
+    /// Call the provided function for every item in this region.
     pub fn each<F: Fn(&mut T)>(self, func: F) {
         for row in self {
             for item in row {
@@ -806,10 +802,10 @@ impl<'a, T> RegionMut<'a, T> {
 }
 
 pub trait IndexRegion<I, T> {
-    /// Get an immutable region of Self
+    /// Get an immutable region of Self.
     fn region(&self, _: I) -> Region<'_, T>;
 
-    /// Get a mutable region of Self
+    /// Get a mutable region of Self.
     fn region_mut(&mut self, _: I) -> RegionMut<'_, T>;
 }
 
@@ -921,11 +917,7 @@ impl<'a, T> Iterator for RegionIterMut<'a, T> {
     }
 }
 
-// -------------------------------------------------------------------------------------------------
-// DISPLAY ITERATOR
-// -------------------------------------------------------------------------------------------------
-
-/// Iterates over the visible area accounting for buffer transform
+/// Iterates over the visible area accounting for buffer transform.
 pub struct DisplayIter<'a, T> {
     grid: &'a Grid<T>,
     offset: usize,
@@ -974,7 +966,7 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
             column: self.col,
         });
 
-        // Update line/col to point to next item
+        // Update line/col to point to next item.
         self.col += 1;
         if self.col == self.grid.num_cols() && self.offset != self.limit {
             self.offset -= 1;

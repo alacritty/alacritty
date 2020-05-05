@@ -24,7 +24,7 @@ foreign_type! {
 }
 
 impl Config {
-    /// Get the current configuration
+    /// Get the current configuration.
     pub fn get_current() -> &'static ConfigRef {
         unsafe { ConfigRef::from_ptr(FcConfigGetCurrent()) }
     }

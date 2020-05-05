@@ -70,7 +70,7 @@ impl CharSetRef {
 
     pub fn merge(&self, other: &CharSetRef) -> Result<bool, ()> {
         unsafe {
-            // Value is just an indicator whether something was added or not
+            // Value is just an indicator whether something was added or not.
             let mut value: FcBool = 0;
             let res = FcCharSetMerge(self.as_ptr() as _, other.as_ptr() as _, &mut value);
             if res == 0 {

@@ -31,25 +31,25 @@ use crate::tty::windows::{cmdline, Pty};
 pub use winpty::Winpty as Agent;
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
-    // Create config
+    // Create config.
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
     wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
     wconfig.set_mouse_mode(&MouseMode::Auto);
 
-    // Start agent
+    // Start agent.
     let mut agent = Winpty::open(&wconfig).unwrap();
     let (conin, conout) = (agent.conin_name(), agent.conout_name());
 
     let cmdline = cmdline(&config);
 
-    // Spawn process
+    // Spawn process.
     let spawnconfig = SpawnConfig::new(
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
-        None, // appname
+        None, // appname.
         Some(&cmdline),
         config.working_directory.as_ref().map(|p| p.as_path()),
-        None, // Env
+        None, // Env.
     )
     .unwrap();
 

@@ -24,11 +24,11 @@ pub struct Mouse {
 #[serde(default)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Url {
-    // Program for opening links
+    /// Program for opening links.
     #[serde(deserialize_with = "deserialize_launcher")]
     pub launcher: Option<CommandWrapper>,
 
-    // Modifier used to open links
+    /// Modifier used to open links.
     #[serde(deserialize_with = "failure_default")]
     modifiers: ModsWrapper,
 }
@@ -47,10 +47,10 @@ where
 {
     let default = Url::default().launcher;
 
-    // Deserialize to generic value
+    // Deserialize to generic value.
     let val = serde_yaml::Value::deserialize(deserializer)?;
 
-    // Accept `None` to disable the launcher
+    // Accept `None` to disable the launcher.
     if val.as_str().filter(|v| v.to_lowercase() == "none").is_some() {
         return Ok(None);
     }

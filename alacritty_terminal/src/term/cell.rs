@@ -19,7 +19,7 @@ use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 
-// Maximum number of zerowidth characters which will be stored per cell.
+/// Maximum number of zerowidth characters which will be stored per cell.
 pub const MAX_ZEROWIDTH_CHARS: usize = 5;
 
 bitflags! {
@@ -92,9 +92,9 @@ impl GridCell for Cell {
     }
 }
 
-/// Get the length of occupied cells in a line
+/// Get the length of occupied cells in a line.
 pub trait LineLength {
-    /// Calculate the occupied line length
+    /// Calculate the occupied line length.
     fn line_length(&self) -> Column;
 }
 
@@ -139,7 +139,7 @@ impl Cell {
 
     #[inline]
     pub fn reset(&mut self, template: &Cell) {
-        // memcpy template to self
+        // memcpy template to self.
         *self = Cell { c: template.c, bg: template.bg, ..Cell::default() };
     }
 

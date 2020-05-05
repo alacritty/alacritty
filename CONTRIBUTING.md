@@ -99,6 +99,13 @@ All Alacritty changes are automatically verified by CI to conform to its rustfmt
 build is failing because of formatting issues, you can install rustfmt using `rustup component add
 rustfmt` and then format all code using `cargo fmt`.
 
+Unless otherwise specified, Alacritty follows the Rust compiler's style guidelines:
+
+https://rust-lang.github.io/api-guidelines
+
+All comments should be fully punctuated with a trailing period. This applies both to regular and
+documentation comments.
+
 # Release Process
 
 Alacritty's release process aims to provide stable and well tested releases without having to hold
