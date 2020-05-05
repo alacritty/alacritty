@@ -376,7 +376,7 @@ impl Display {
             pty_size.height -= pty_size.cell_height * lines as f32;
         }
 
-        // Resize pty.
+        // Resize PTY.
         pty_resize_handle.on_resize(&pty_size);
 
         // Resize terminal.
