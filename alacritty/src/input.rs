@@ -536,7 +536,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
                 MouseButton::Right => 2,
-                // Can't properly report more than three buttons..
+                // Can't properly report more than three buttons.
                 MouseButton::Other(_) => return,
             };
             self.mouse_report(code, ElementState::Released);
