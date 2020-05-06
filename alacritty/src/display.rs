@@ -23,7 +23,7 @@ use std::time::Instant;
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, nil, NO};
 #[cfg(target_os = "macos")]
-use cocoa::foundation::{NSString, NSUserDefaults};
+use cocoa::foundation::{NSOperatingSystemVersion, NSProcessInfo, NSString, NSUserDefaults};
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
@@ -346,11 +346,17 @@ impl Display {
     /// Set subpixel anti-aliasing
     fn set_font_smoothing(enable: bool) {
         unsafe {
-            let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
-            if enable {
-                id::standardUserDefaults().setBool_forKey_(NO, key);
-            } else {
-                id::standardUserDefaults().removeObject_forKey_(key);
+            // MacOS Mojave 10.14.x disables subpixel anti-aliasing.
+            // To re-enable it, on an application level, we want to ensure
+            // we are running at least 10.14.0.
+            let min_macos_version = NSOperatingSystemVersion::new(10, 14, 0);
+            if NSProcessInfo::processInfo(nil).isOperatingSystemAtLeastVersion(min_macos_version) {
+                let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
+                if enable {
+                    id::standardUserDefaults().setBool_forKey_(NO, key);
+                } else {
+                    id::standardUserDefaults().removeObject_forKey_(key);
+                }
             }
         }
     }
