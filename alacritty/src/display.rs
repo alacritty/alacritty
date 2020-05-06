@@ -232,8 +232,10 @@ impl Display {
 
         // Enable subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        let use_thin_strokes = config.font.use_thin_strokes();
-        Self::enable_font_smoothing(use_thin_strokes);
+        {
+            let use_thin_strokes = config.font.use_thin_strokes();
+            Self::set_font_smoothing(use_thin_strokes);
+        }
 
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
@@ -341,8 +343,8 @@ impl Display {
         });
     }
 
-    /// Enable subpixel anti-aliasing
-    fn enable_font_smoothing(enable: bool) {
+    /// Set subpixel anti-aliasing
+    fn set_font_smoothing(enable: bool) {
         unsafe {
             let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
             if enable {
@@ -411,10 +413,12 @@ impl Display {
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
 
-        // Enable subpixel anti-aliasing.
+        // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        let use_thin_strokes = config.font.use_thin_strokes();
-        Self::enable_font_smoothing(use_thin_strokes);
+        {
+            let use_thin_strokes = config.font.use_thin_strokes();
+            Self::set_font_smoothing(use_thin_strokes);
+        }
     }
 
     /// Draw the screen.
