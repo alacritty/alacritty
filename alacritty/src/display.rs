@@ -202,12 +202,10 @@ impl Display {
             api.clear(background_color);
         });
 
-
         // Enable subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
         let use_thin_strokes = config.font.use_thin_strokes();
         Self::enable_font_smoothing(use_thin_strokes);
-
 
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
@@ -307,11 +305,12 @@ impl Display {
 
     /// Enable subpixel anti-aliasing
     fn enable_font_smoothing(enable: bool) {
-     unsafe {
+        unsafe {
             let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
-            match enable {
-                true => id::standardUserDefaults().setBool_forKey_(NO, key),
-                false => id::standardUserDefaults().removeObject_forKey_(key)
+            if enable {
+                id::standardUserDefaults().setBool_forKey_(NO, key);
+            } else {
+                id::standardUserDefaults().removeObject_forKey_(key);
             }
         }
     }
