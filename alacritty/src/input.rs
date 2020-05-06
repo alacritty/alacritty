@@ -181,7 +181,7 @@ impl<T: EventListener> Execute<T> for Action {
                 }
 
                 ctx.terminal_mut().vi_motion(motion)
-            }
+            },
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
