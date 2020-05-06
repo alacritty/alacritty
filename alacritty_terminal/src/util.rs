@@ -24,9 +24,9 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
-/// Threading utilities
+/// Threading utilities.
 pub mod thread {
-    /// Like `thread::spawn`, but with a `name` argument
+    /// Like `thread::spawn`, but with a `name` argument.
     pub fn spawn_named<F, T, S>(name: S, f: F) -> ::std::thread::JoinHandle<T>
     where
         F: FnOnce() -> T + Send + 'static,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! ANSI Terminal Stream Parsing
+//! ANSI Terminal Stream Parsing.
 #[cfg(windows)]
 use crate::tty::windows::win32_string;
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! State management for a selection in the grid
+//! State management for a selection in the grid.
 //!
 //! A selection should start when the mouse is clicked, and it should be
 //! finalized when the button is released. The selection should be cleared
@@ -117,7 +117,7 @@ impl Selection {
         scrolling_region: &Range<Line>,
         offset: isize,
     ) -> Option<Selection> {
-        // Convert scrolling region from viewport to buffer coordinates
+        // Convert scrolling region from viewport to buffer coordinates.
         let region_start = num_lines - scrolling_region.start.0;
         let region_end = num_lines - scrolling_region.end.0;
 
@@ -126,18 +126,18 @@ impl Selection {
             mem::swap(&mut start, &mut end);
         }
 
-        // Rotate start of selection
+        // Rotate start of selection.
         if (start.point.line < region_start || region_start == num_lines)
             && start.point.line >= region_end
         {
             start.point.line = usize::try_from(start.point.line as isize + offset).unwrap_or(0);
 
-            // If end is within the same region, delete selection once start rotates out
+            // If end is within the same region, delete selection once start rotates out.
             if start.point.line < region_end && end.point.line >= region_end {
                 return None;
             }
 
-            // Clamp selection to start of region
+            // Clamp selection to start of region.
             if start.point.line >= region_start && region_start != num_lines {
                 if self.ty != SelectionType::Block {
                     start.point.col = Column(0);
@@ -147,18 +147,18 @@ impl Selection {
             }
         }
 
-        // Rotate end of selection
+        // Rotate end of selection.
         if (end.point.line < region_start || region_start == num_lines)
             && end.point.line >= region_end
         {
             end.point.line = usize::try_from(end.point.line as isize + offset).unwrap_or(0);
 
-            // Delete selection if end has overtaken the start
+            // Delete selection if end has overtaken the start.
             if end.point.line > start.point.line {
                 return None;
             }
 
-            // Clamp selection to end of region
+            // Clamp selection to end of region.
             if end.point.line < region_end {
                 if self.ty != SelectionType::Block {
                     end.point.col = Column(num_cols - 1);
@@ -180,7 +180,7 @@ impl Selection {
                 }
 
                 // Simple selection is empty when the points are identical
-                // or two adjacent cells have the sides right -> left
+                // or two adjacent cells have the sides right -> left.
                 start == end
                     || (start.side == Side::Right
                         && end.side == Side::Left
@@ -228,13 +228,13 @@ impl Selection {
         let grid = term.grid();
         let num_cols = grid.num_cols();
 
-        // Order start above the end
+        // Order start above the end.
         let (mut start, mut end) = (self.region.start, self.region.end);
         if Self::points_need_swap(start.point, end.point) {
             mem::swap(&mut start, &mut end);
         }
 
-        // Clamp to inside the grid buffer
+        // Clamp to inside the grid buffer.
         let is_block = self.ty == SelectionType::Block;
         let (start, end) = Self::grid_clamp(start, end, is_block, grid.len()).ok()?;
 
@@ -246,7 +246,7 @@ impl Selection {
         }
     }
 
-    // Bring start and end points in the correct order
+    /// Bring start and end points in the correct order.
     fn points_need_swap(start: Point<usize>, end: Point<usize>) -> bool {
         start.line < end.line || start.line == end.line && start.col > end.col
     }
@@ -258,14 +258,14 @@ impl Selection {
         is_block: bool,
         lines: usize,
     ) -> Result<(Anchor, Anchor), ()> {
-        // Clamp selection inside of grid to prevent OOB
+        // Clamp selection inside of grid to prevent OOB.
         if start.point.line >= lines {
-            // Remove selection if it is fully out of the grid
+            // Remove selection if it is fully out of the grid.
             if end.point.line >= lines {
                 return Err(());
             }
 
-            // Clamp to grid if it is still partially visible
+            // Clamp to grid if it is still partially visible.
             if !is_block {
                 start.side = Side::Left;
                 start.point.col = Column(0);
@@ -322,9 +322,9 @@ impl Selection {
             return None;
         }
 
-        // Remove last cell if selection ends to the left of a cell
+        // Remove last cell if selection ends to the left of a cell.
         if end.side == Side::Left && start.point != end.point {
-            // Special case when selection ends to left of first cell
+            // Special case when selection ends to left of first cell.
             if end.point.col == Column(0) {
                 end.point.col = num_cols - 1;
                 end.point.line += 1;
@@ -333,11 +333,11 @@ impl Selection {
             }
         }
 
-        // Remove first cell if selection starts at the right of a cell
+        // Remove first cell if selection starts at the right of a cell.
         if start.side == Side::Right && start.point != end.point {
             start.point.col += 1;
 
-            // Wrap to next line when selection starts to the right of last column
+            // Wrap to next line when selection starts to the right of last column.
             if start.point.col == num_cols {
                 start.point = Point::new(start.point.line.saturating_sub(1), Column(0));
             }
@@ -351,18 +351,18 @@ impl Selection {
             return None;
         }
 
-        // Always go top-left -> bottom-right
+        // Always go top-left -> bottom-right.
         if start.point.col > end.point.col {
             mem::swap(&mut start.side, &mut end.side);
             mem::swap(&mut start.point.col, &mut end.point.col);
         }
 
-        // Remove last cell if selection ends to the left of a cell
+        // Remove last cell if selection ends to the left of a cell.
         if end.side == Side::Left && start.point != end.point && end.point.col.0 > 0 {
             end.point.col -= 1;
         }
 
-        // Remove first cell if selection starts at the right of a cell
+        // Remove first cell if selection starts at the right of a cell.
         if start.side == Side::Right && start.point != end.point {
             start.point.col += 1;
         }

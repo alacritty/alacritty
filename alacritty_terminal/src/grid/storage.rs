@@ -52,7 +52,7 @@ pub struct Storage<T> {
 
 impl<T: PartialEq> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
-        // Both storage buffers need to be truncated and zeroed
+        // Both storage buffers need to be truncated and zeroed.
         assert_eq!(self.zero, 0);
         assert_eq!(other.zero, 0);
 
@@ -66,7 +66,7 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Initialize visible lines, the scrollback buffer is initialized dynamically
+        // Initialize visible lines, the scrollback buffer is initialized dynamically.
         let inner = vec![template; visible_lines.0];
 
         Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
@@ -77,11 +77,11 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Number of lines the buffer needs to grow
+        // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
         self.grow_lines(growage.0, template_row);
 
-        // Update visible lines
+        // Update visible lines.
         self.visible_lines = next;
     }
 
@@ -90,43 +90,43 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Only grow if there are not enough lines still hidden
+        // Only grow if there are not enough lines still hidden.
         let mut new_growage = 0;
         if growage > (self.inner.len() - self.len) {
-            // Lines to grow additionally to invisible lines
+            // Lines to grow additionally to invisible lines.
             new_growage = growage - (self.inner.len() - self.len);
 
-            // Split off the beginning of the raw inner buffer
+            // Split off the beginning of the raw inner buffer.
             let mut start_buffer = self.inner.split_off(self.zero);
 
-            // Insert new template rows at the end of the raw inner buffer
+            // Insert new template rows at the end of the raw inner buffer.
             let mut new_lines = vec![template_row; new_growage];
             self.inner.append(&mut new_lines);
 
-            // Add the start to the raw inner buffer again
+            // Add the start to the raw inner buffer again.
             self.inner.append(&mut start_buffer);
         }
 
-        // Update raw buffer length and zero offset
+        // Update raw buffer length and zero offset.
         self.zero += new_growage;
         self.len += growage;
     }
 
     /// Decrease the number of lines in the buffer.
     pub fn shrink_visible_lines(&mut self, next: Line) {
-        // Shrink the size without removing any lines
+        // Shrink the size without removing any lines.
         let shrinkage = self.visible_lines - next;
         self.shrink_lines(shrinkage.0);
 
-        // Update visible lines
+        // Update visible lines.
         self.visible_lines = next;
     }
 
-    // Shrink the number of lines in the buffer
+    /// Shrink the number of lines in the buffer.
     pub fn shrink_lines(&mut self, shrinkage: usize) {
         self.len -= shrinkage;
 
-        // Free memory
+        // Free memory.
         if self.inner.len() > self.len + MAX_CACHE_SIZE {
             self.truncate();
         }
@@ -209,7 +209,7 @@ impl<T> Storage<T> {
             let a_ptr = self.inner.as_mut_ptr().add(a) as *mut usize;
             let b_ptr = self.inner.as_mut_ptr().add(b) as *mut usize;
 
-            // Copy 1 qword at a time
+            // Copy 1 qword at a time.
             //
             // The optimizer unrolls this loop and vectorizes it.
             let mut tmp: usize;
@@ -360,7 +360,7 @@ mod tests {
         assert_eq!(storage.zero, 2);
     }
 
-    /// Grow the buffer one line at the end of the buffer
+    /// Grow the buffer one line at the end of the buffer.
     ///
     /// Before:
     ///   0: 0 <- Zero
@@ -406,7 +406,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Grow the buffer one line at the start of the buffer
+    /// Grow the buffer one line at the start of the buffer.
     ///
     /// Before:
     ///   0: -
@@ -419,7 +419,7 @@ mod tests {
     ///   3: 1
     #[test]
     fn grow_before_zero() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'-'),
@@ -431,10 +431,10 @@ mod tests {
             len: 3,
         };
 
-        // Grow buffer
+        // Grow buffer.
         storage.grow_visible_lines(Line(4), Row::new(Column(1), &'-'));
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'-'),
@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Shrink the buffer one line at the start of the buffer
+    /// Shrink the buffer one line at the start of the buffer.
     ///
     /// Before:
     ///   0: 2
@@ -464,7 +464,7 @@ mod tests {
     ///   1: 1
     #[test]
     fn shrink_before_zero() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'2'),
@@ -476,10 +476,10 @@ mod tests {
             len: 3,
         };
 
-        // Shrink buffer
+        // Shrink buffer.
         storage.shrink_visible_lines(Line(2));
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'2'),
@@ -496,7 +496,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Shrink the buffer one line at the end of the buffer
+    /// Shrink the buffer one line at the end of the buffer.
     ///
     /// Before:
     ///   0: 0 <- Zero
@@ -508,7 +508,7 @@ mod tests {
     ///   2: 2 <- Hidden
     #[test]
     fn shrink_after_zero() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'0'),
@@ -520,10 +520,10 @@ mod tests {
             len: 3,
         };
 
-        // Shrink buffer
+        // Shrink buffer.
         storage.shrink_visible_lines(Line(2));
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'0'),
@@ -540,7 +540,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Shrink the buffer at the start and end of the buffer
+    /// Shrink the buffer at the start and end of the buffer.
     ///
     /// Before:
     ///   0: 4
@@ -558,7 +558,7 @@ mod tests {
     ///   5: 3 <- Hidden
     #[test]
     fn shrink_before_and_after_zero() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -573,10 +573,10 @@ mod tests {
             len: 6,
         };
 
-        // Shrink buffer
+        // Shrink buffer.
         storage.shrink_visible_lines(Line(2));
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -596,7 +596,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Check that when truncating all hidden lines are removed from the raw buffer
+    /// Check that when truncating all hidden lines are removed from the raw buffer.
     ///
     /// Before:
     ///   0: 4 <- Hidden
@@ -610,7 +610,7 @@ mod tests {
     ///   1: 1
     #[test]
     fn truncate_invisible_lines() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -625,10 +625,10 @@ mod tests {
             len: 2,
         };
 
-        // Truncate buffer
+        // Truncate buffer.
         storage.truncate();
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
             zero: 0,
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// Truncate buffer only at the beginning
+    /// Truncate buffer only at the beginning.
     ///
     /// Before:
     ///   0: 1
@@ -652,7 +652,7 @@ mod tests {
     ///   0: 0 <- Zero
     #[test]
     fn truncate_invisible_lines_beginning() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'1'),
@@ -664,10 +664,10 @@ mod tests {
             len: 2,
         };
 
-        // Truncate buffer
+        // Truncate buffer.
         storage.truncate();
 
-        // Make sure the result is correct
+        // Make sure the result is correct.
         let expected = Storage {
             inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
             zero: 0,
@@ -680,7 +680,7 @@ mod tests {
         assert_eq!(storage.len, expected.len);
     }
 
-    /// First shrink the buffer and then grow it again
+    /// First shrink the buffer and then grow it again.
     ///
     /// Before:
     ///   0: 4
@@ -706,7 +706,7 @@ mod tests {
     ///   6: 3
     #[test]
     fn shrink_then_grow() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -721,10 +721,10 @@ mod tests {
             len: 6,
         };
 
-        // Shrink buffer
+        // Shrink buffer.
         storage.shrink_lines(3);
 
-        // Make sure the result after shrinking is correct
+        // Make sure the result after shrinking is correct.
         let shrinking_expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -742,10 +742,10 @@ mod tests {
         assert_eq!(storage.zero, shrinking_expected.zero);
         assert_eq!(storage.len, shrinking_expected.len);
 
-        // Grow buffer
+        // Grow buffer.
         storage.grow_lines(4, Row::new(Column(1), &'-'));
 
-        // Make sure the result after shrinking is correct
+        // Make sure the result after shrinking is correct.
         let growing_expected = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn initialize() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
@@ -782,11 +782,11 @@ mod tests {
             len: 6,
         };
 
-        // Initialize additional lines
+        // Initialize additional lines.
         let init_size = 3;
         storage.initialize(init_size, &'-', Column(1));
 
-        // Make sure the lines are present and at the right location
+        // Make sure the lines are present and at the right location.
 
         let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
         let mut expected_inner = vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5')];

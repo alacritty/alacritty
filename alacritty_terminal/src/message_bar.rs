@@ -42,18 +42,18 @@ impl Message {
         let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
         let button_len = CLOSE_BUTTON_TEXT.len();
 
-        // Split line to fit the screen
+        // Split line to fit the screen.
         let mut lines = Vec::new();
         let mut line = String::new();
         for c in self.text.trim().chars() {
             if c == '\n'
                 || line.len() == num_cols
-                // Keep space in first line for button
+                // Keep space in first line for button.
                 || (lines.is_empty()
                     && num_cols >= button_len
                     && line.len() == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
-                // Attempt to wrap on word boundaries
+                // Attempt to wrap on word boundaries.
                 if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
                     let split = line.split_off(index + 1);
                     line.pop();
@@ -71,7 +71,7 @@ impl Message {
         }
         lines.push(Self::pad_text(line, num_cols));
 
-        // Truncate output if it's too long
+        // Truncate output if it's too long.
         if lines.len() > max_lines {
             lines.truncate(max_lines);
             if TRUNCATED_MESSAGE.len() <= num_cols {
@@ -81,7 +81,7 @@ impl Message {
             }
         }
 
-        // Append close button to first line
+        // Append close button to first line.
         if button_len <= num_cols {
             if let Some(line) = lines.get_mut(0) {
                 line.truncate(num_cols - button_len);
@@ -146,10 +146,10 @@ impl MessageBuffer {
     /// Remove the currently visible message.
     #[inline]
     pub fn pop(&mut self) {
-        // Remove the message itself
+        // Remove the message itself.
         let msg = self.messages.pop_front();
 
-        // Remove all duplicates
+        // Remove all duplicates.
         if let Some(msg) = msg {
             self.messages = self.messages.drain(..).filter(|m| m != &msg).collect();
         }
@@ -373,7 +373,7 @@ mod tests {
 
         message_buffer.remove_target("target");
 
-        // Count number of messages
+        // Count number of messages.
         let mut num_messages = 0;
         while message_buffer.message().is_some() {
             num_messages += 1;
@@ -435,7 +435,7 @@ mod tests {
 
         message_buffer.pop();
 
-        // Count number of messages
+        // Count number of messages.
         let mut num_messages = 0;
         while message_buffer.message().is_some() {
             num_messages += 1;

@@ -59,7 +59,7 @@ where
                     index
                 );
 
-                // Return value out of range to ignore this color
+                // Return value out of range to ignore this color.
                 Ok(0)
             } else {
                 Ok(index)
@@ -68,7 +68,7 @@ where
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring setting", err);
 
-            // Return value out of range to ignore this color
+            // Return value out of range to ignore this color.
             Ok(0)
         },
     }
@@ -124,7 +124,7 @@ fn default_foreground() -> Rgb {
     Rgb { r: 0xea, g: 0xea, b: 0xea }
 }
 
-/// The 8-colors sections of config
+/// The 8-colors sections of config.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AnsiColors {
     #[serde(deserialize_with = "failure_default")]

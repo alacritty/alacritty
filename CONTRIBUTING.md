@@ -42,7 +42,7 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.39.0. All patches are expected
+Please note that the minimum supported version of Alacritty is Rust 1.41.0. All patches are expected
 to work with the minimum supported version.
 
 ### Testing
@@ -98,6 +98,13 @@ used to document changes from a user-perspective, instead of explaining the tech
 All Alacritty changes are automatically verified by CI to conform to its rustfmt guidelines. If a CI
 build is failing because of formatting issues, you can install rustfmt using `rustup component add
 rustfmt` and then format all code using `cargo fmt`.
+
+Unless otherwise specified, Alacritty follows the Rust compiler's style guidelines:
+
+https://rust-lang.github.io/api-guidelines
+
+All comments should be fully punctuated with a trailing period. This applies both to regular and
+documentation comments.
 
 # Release Process
 

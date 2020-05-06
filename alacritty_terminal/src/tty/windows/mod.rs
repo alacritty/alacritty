@@ -51,9 +51,9 @@ pub struct Pty {
     // `conout` before `backend` will cause a deadlock.
     backend: PtyBackend,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
-    // See https://github.com/Microsoft/console/issues/262
+    // See https://github.com/Microsoft/console/issues/262.
     // When support for that lands then it should be possible to use
-    // NamedPipe for the conout and conin handles
+    // NamedPipe for the conout and conin handles.
     conout: EventedReadablePipe,
     conin: EventedWritablePipe,
     read_token: mio::Token,
