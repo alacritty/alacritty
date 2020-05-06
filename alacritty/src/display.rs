@@ -18,6 +18,10 @@ use std::f64;
 use std::fmt::{self, Formatter};
 use std::time::Instant;
 
+#[cfg(target_os = "macos")]
+use cocoa::base::{id, nil, NO};
+use cocoa::foundation::{NSString, NSUserDefaults};
+
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
@@ -198,6 +202,13 @@ impl Display {
             api.clear(background_color);
         });
 
+
+        // Enable subpixel anti-aliasing.
+        #[cfg(target_os = "macos")]
+        let use_thin_strokes = config.font.use_thin_strokes();
+        Self::enable_font_smoothing(use_thin_strokes);
+
+
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -294,6 +305,17 @@ impl Display {
         });
     }
 
+    /// Enable subpixel anti-aliasing
+    fn enable_font_smoothing(enable: bool) {
+     unsafe {
+            let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
+            match enable {
+                true => id::standardUserDefaults().setBool_forKey_(NO, key),
+                false => id::standardUserDefaults().removeObject_forKey_(key)
+            }
+        }
+    }
+
     /// Process update events.
     pub fn handle_update<T>(
         &mut self,
@@ -351,6 +373,11 @@ impl Display {
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
+
+        // Enable subpixel anti-aliasing.
+        #[cfg(target_os = "macos")]
+        let use_thin_strokes = config.font.use_thin_strokes();
+        Self::enable_font_smoothing(use_thin_strokes);
     }
 
     /// Draw the screen
