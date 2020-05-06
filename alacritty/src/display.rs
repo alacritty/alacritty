@@ -22,6 +22,7 @@ use std::time::Instant;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, nil, NO};
+#[cfg(target_os = "macos")]
 use cocoa::foundation::{NSString, NSUserDefaults};
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
