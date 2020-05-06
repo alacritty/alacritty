@@ -306,6 +306,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         L,    ModifiersState::CTRL,  ~TermMode::VI; Action::Esc("\x0c".into());
         Tab,  ModifiersState::SHIFT, ~TermMode::VI; Action::Esc("\x1b[Z".into());
         Back, ModifiersState::ALT,   ~TermMode::VI; Action::Esc("\x1b\x7f".into());
+        Back, ModifiersState::SHIFT, ~TermMode::VI; Action::Esc("\x7f".into());
         Home,     ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToTop;
         End,      ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
         PageUp,   ModifiersState::SHIFT, ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
