@@ -590,12 +590,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
-                        if input.state == ElementState::Pressed {
-                            // Hide cursor while typing.
-                            if processor.ctx.config.ui_config.mouse.hide_when_typing {
-                                processor.ctx.window.set_mouse_visible(false);
-                            }
-                        }
                     },
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {

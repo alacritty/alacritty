@@ -128,6 +128,10 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
+                if ctx.config().ui_config.mouse.hide_when_typing {
+                    ctx.window_mut().set_mouse_visible(false);
+                }
+
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
@@ -171,7 +175,13 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.launch_url(url);
                 }
             },
-            Action::ViMotion(motion) => ctx.terminal_mut().vi_motion(motion),
+            Action::ViMotion(motion) => {
+                if ctx.config().ui_config.mouse.hide_when_typing {
+                    ctx.window_mut().set_mouse_visible(false);
+                }
+
+                ctx.terminal_mut().vi_motion(motion)
+            },
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -712,6 +722,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn received_char(&mut self, c: char) {
         if *self.ctx.suppress_chars() || self.ctx.terminal().mode().contains(TermMode::VI) {
             return;
+        }
+
+        if self.ctx.config().ui_config.mouse.hide_when_typing {
+            self.ctx.window_mut().set_mouse_visible(false);
         }
 
         self.ctx.scroll(Scroll::Bottom);
