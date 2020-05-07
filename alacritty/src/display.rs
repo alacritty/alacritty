@@ -346,8 +346,8 @@ impl Display {
     /// Set subpixel anti-aliasing
     fn set_font_smoothing(enable: bool) {
         unsafe {
-            // MacOS Mojave 10.14.x disables subpixel anti-aliasing.
-            // To re-enable it, on an application level, we want to ensure
+            // MacOS Mojave 10.14.x disables subpixel anti-aliasing,
+            // to re-enable it on an application level, we want to ensure
             // we are running at least 10.14.0.
             let min_macos_version = NSOperatingSystemVersion::new(10, 14, 0);
             if NSProcessInfo::processInfo(nil).isOperatingSystemAtLeastVersion(min_macos_version) {
