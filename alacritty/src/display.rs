@@ -237,8 +237,6 @@ impl Display {
             Self::set_font_smoothing(use_thin_strokes);
         }
 
-        // We should call `clear` when window is offscreen, so when `window.show()` happens it
-        // would be with background color instead of uninitialized surface.
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
 
