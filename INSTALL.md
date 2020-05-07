@@ -16,9 +16,10 @@
         10. [Solus](#solus)
         11. [NixOS/Nixpkgs](#nixosnixpkgs)
         12. [Gentoo](#gentoo)
-        13. [Windows](#windows)
-        14. [Clear Linux](#clear-linux)
-        15. [Other](#other)
+        13. [Clear Linux](#clear-linux)
+        14. [GNU Guix](#gnu-guix)
+        15. [Windows](#windows)
+        16. [Other](#other)
 2. [Building](#building)
     1. [Linux/Windows](#linux--windows)
         1. [Desktop Entry](#desktop-entry)
@@ -183,6 +184,16 @@ please open an issue.
 emerge --onlydeps x11-terms/alacritty
 ```
 
+#### Clear Linux
+
+On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
+`swupd` command that should install all of them. If something is still found
+to be missing, please open an issue.
+
+```sh
+swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb devpkg-fontconfig
+```
+
 #### GNU Guix
 
 The following command can be used to get a shell with all development
@@ -196,16 +207,6 @@ guix environment alacritty
 
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
 installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
-
-#### Clear Linux
-
-On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
-`swupd` command that should install all of them. If something is still found
-to be missing, please open an issue.
-
-```sh
-swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb devpkg-fontconfig
-```
 
 #### Other
 
