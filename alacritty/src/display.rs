@@ -230,7 +230,7 @@ impl Display {
             api.clear(background_color);
         });
 
-        // Enable subpixel anti-aliasing.
+        // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
         {
             let use_thin_strokes = config.font.use_thin_strokes();
