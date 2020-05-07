@@ -204,7 +204,7 @@ On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb
+swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb devpkg-fontconfig
 ```
 
 #### Other
