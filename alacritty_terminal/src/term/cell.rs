@@ -60,6 +60,12 @@ impl Default for Cell {
     }
 }
 
+impl ToString for Cell {
+    fn to_string(&self) -> String {
+        self.c.to_string()
+    }
+}
+
 impl GridCell for Cell {
     #[inline]
     fn is_empty(&self) -> bool {

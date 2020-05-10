@@ -665,6 +665,33 @@ impl<T> Grid<T> {
     }
 }
 
+impl<T: GridCell + ToString> Grid<T> {
+    fn to_string_between(&self, y0: Line, y1: Line) -> String {
+        let mut s = String::new();
+        for y in (*y0..*y1).rev() {
+            let row = &self[y];
+            for x in 0..*self.num_cols() {
+                let cell = &row[Column(x)];
+                s.push_str(&cell.to_string()); // TODO: this is not cheap, support for Cell only?
+            }
+            if !row[self.num_cols() - 1].flags().contains(Flags::WRAPLINE) {
+                s.push('\n');
+            }
+        }
+        s
+    }
+
+    pub fn to_string_only_visible(&self) -> String {
+        self.to_string_between(Line(self.display_offset), self.lines)
+    }
+}
+
+impl<T: GridCell + ToString> ToString for Grid<T> {
+    fn to_string(&self) -> String {
+        self.to_string_between(Line(0), Line(*self.lines + self.history_size()))
+    }
+}
+
 pub struct GridIterator<'a, T> {
     /// Immutable grid reference.
     grid: &'a Grid<T>,

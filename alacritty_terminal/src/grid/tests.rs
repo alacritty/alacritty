@@ -363,6 +363,38 @@ fn shrink_reflow_disabled() {
     assert_eq!(grid[0][Column(1)], cell('2'));
 }
 
+#[test]
+fn to_string() {
+    let mut grid = Grid::new(Line(4), Column(4), 1, Cell::default());
+    grid[Line(0)][Column(0)] = cell('1');
+    grid[Line(0)][Column(1)] = cell('2');
+    grid[Line(0)][Column(2)] = cell('3');
+    grid[Line(0)][Column(3)] = cell('4');
+
+    grid[Line(1)][Column(0)] = cell('5');
+    grid[Line(1)][Column(1)] = cell('6');
+    grid[Line(1)][Column(2)] = cell('7');
+    grid[Line(1)][Column(3)] = wrap_cell('8');
+
+    grid[Line(2)][Column(0)] = cell('a');
+    grid[Line(2)][Column(1)] = cell('b');
+    grid[Line(2)][Column(2)] = cell('c');
+    grid[Line(2)][Column(3)] = cell('d');
+
+    grid[Line(3)][Column(0)] = cell('e');
+    grid[Line(3)][Column(1)] = cell('f');
+    grid[Line(3)][Column(2)] = cell('g');
+    grid[Line(3)][Column(3)] = cell('h');
+
+    assert_eq!(grid.to_string(), "1234\n5678abcd\nefgh\n");
+    assert_eq!(grid.to_string_only_visible(), "1234\n5678abcd\nefgh\n");
+
+    grid.scroll_up(&(Line(0)..Line(4)), Line(1), &cell(' '));
+
+    assert_eq!(grid.to_string(), "1234\n5678abcd\nefgh\n    \n");
+    assert_eq!(grid.to_string_only_visible(), "5678abcd\nefgh\n    \n");
+}
+
 fn cell(c: char) -> Cell {
     let mut cell = Cell::default();
     cell.c = c;
