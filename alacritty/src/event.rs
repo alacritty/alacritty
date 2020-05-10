@@ -298,11 +298,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn to_string(&self) -> String {
-        self.terminal.grid().to_string()
+        self.terminal.grid_to_string()
     }
 
     fn to_string_only_visible(&self) -> String {
-        self.terminal.grid().to_string_only_visible()
+        self.terminal.grid_to_string_only_visible()
     }
 }
 
