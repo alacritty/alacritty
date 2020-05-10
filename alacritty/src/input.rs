@@ -45,7 +45,7 @@ use alacritty_terminal::term::{SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
 use alacritty_terminal::vi_mode::ViMotion;
 
-use crate::config::{Action, Binding, Config, Key, ViAction};
+use crate::config::{Action, Binding, CommandInput, Config, Key, ViAction};
 use crate::event::{ClickState, Mouse};
 use crate::url::{Url, Urls};
 use crate::window::Window;
@@ -93,6 +93,8 @@ pub trait ActionContext<T: EventListener> {
     fn urls(&self) -> &Urls;
     fn launch_url(&self, url: Url);
     fn mouse_mode(&self) -> bool;
+    fn to_string(&self) -> String;
+    fn to_string_only_visible(&self) -> String;
 }
 
 trait Execute<T: EventListener> {
@@ -146,11 +148,16 @@ impl<T: EventListener> Execute<T> for Action {
             Action::PasteSelection => {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
                 paste(ctx, &text);
-            },
-            Action::Command(ref program, ref args) => {
-                trace!("Running command {} with args {:?}", program, args);
+            }
+            Action::Command(ref program, ref args, ref input) => {
+                trace!("Running command {} with args {:?} on input {:?}", program, args, input);
 
-                match start_daemon(program, args) {
+                let input_str = input.map(|i| match i {
+                    CommandInput::VisibleText => ctx.to_string_only_visible(),
+                    CommandInput::AllText => ctx.to_string(),
+                });
+
+                match start_daemon(program, args, input_str) {
                     Ok(_) => debug!("Spawned new proc"),
                     Err(err) => warn!("Couldn't run command {}", err),
                 }
@@ -1030,6 +1037,14 @@ mod tests {
 
         fn launch_url(&self, _: Url) {
             unimplemented!();
+        }
+
+        fn to_string(&self) -> String {
+            self.terminal.grid().to_string()
+        }
+
+        fn to_string_only_visible(&self) -> String {
+            self.terminal.grid().to_string_only_visible()
         }
     }
 

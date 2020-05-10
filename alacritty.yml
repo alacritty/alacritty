@@ -512,9 +512,16 @@
 #
 # - `command`: Fork and execute a specified command plus arguments
 #
-#    The `command` field must be a map containing a `program` string and an
-#    `args` array of command line parameter strings. For example:
-#       `{ program: "alacritty", args: ["-e", "vttest"] }`
+#    The `command` field can be either only a string specifying the program, or
+#    a map of:
+#
+#    - `program` (required), string specifying the program
+#    - `args` (optional), array of command line parameter strings
+#    - `input` (optional), either VisibleText or AllText. If specified, then
+#      respectively either the visible text in the terminal or all the text
+#      including the scrollback is piped to the command's stdin.
+#
+#    For example: `{ program: "alacritty", args: ["-e", "vttest"] }`
 #
 # And optionally:
 #

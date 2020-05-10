@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::ffi::OsStr;
+use std::io::Write;
 use std::process::{Command, Stdio};
 use std::{cmp, io};
 
@@ -44,15 +45,15 @@ pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
 }
 
 #[cfg(not(windows))]
-pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
+pub fn start_daemon<I, S>(program: &str, args: I, input: Option<String>) -> io::Result<()>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
     unsafe {
-        Command::new(program)
+        let mut child = Command::new(program)
             .args(args)
-            .stdin(Stdio::null())
+            .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .pre_exec(|| {
@@ -68,30 +69,37 @@ where
 
                 Ok(())
             })
-            .spawn()?
-            .wait()
-            .map(|_| ())
+            .spawn()?;
+        if let Some(s) = input {
+            let stdin = child.stdin.as_mut().unwrap();
+            stdin.write_all(s.as_bytes())?;
+        }
+        child.wait().map(|_| ())
     }
 }
 
 #[cfg(windows)]
-pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
+pub fn start_daemon<I, S>(program: &str, args: I, input: Option<String>) -> io::Result<()>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    // Setting all the I/O handles to null and setting the
+    // Setting all the I/O handles to null or piped and setting the
     // CREATE_NEW_PROCESS_GROUP and CREATE_NO_WINDOW has the effect
     // that console applications will run without opening a new
     // console window.
-    Command::new(program)
+    let mut child = Command::new(program)
         .args(args)
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW)
-        .spawn()
-        .map(|_| ())
+        .spawn()?;
+    if let Some(s) = input {
+        let stdin = child.stdin.as_mut().unwrap();
+        stdin.write_all(s.as_bytes())?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

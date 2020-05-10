@@ -15,7 +15,7 @@ pub mod monitor;
 mod mouse;
 mod ui_config;
 
-pub use crate::config::bindings::{Action, Binding, Key, ViAction};
+pub use crate::config::bindings::{Action, Binding, CommandInput, Key, ViAction};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UIConfig;

@@ -86,6 +86,12 @@ impl<T: Eq> Binding<T> {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum CommandInput {
+    VisibleText,
+    AllText,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub enum Action {
     /// Write an escape sequence.
@@ -94,7 +100,7 @@ pub enum Action {
 
     /// Run given command.
     #[serde(skip)]
-    Command(String, Vec<String>),
+    Command(String, Vec<String>, Option<CommandInput>),
 
     /// Move vi mode cursor.
     #[serde(skip)]
@@ -883,9 +889,9 @@ impl<'a> Deserialize<'a> for RawBinding {
                     (Some(action), None, None) => action,
                     (None, Some(chars), None) => Action::Esc(chars),
                     (None, None, Some(cmd)) => match cmd {
-                        CommandWrapper::Just(program) => Action::Command(program, vec![]),
-                        CommandWrapper::WithArgs { program, args } => {
-                            Action::Command(program, args)
+                        CommandWrapper::Just(program) => Action::Command(program, vec![], None),
+                        CommandWrapper::WithArgs { program, args, input } => {
+                            Action::Command(program, args, input)
                         },
                     },
                     _ => {
@@ -937,6 +943,8 @@ pub enum CommandWrapper {
         program: String,
         #[serde(default)]
         args: Vec<String>,
+        #[serde(default)]
+        input: Option<CommandInput>,
     },
 }
 

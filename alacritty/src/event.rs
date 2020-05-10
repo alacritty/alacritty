@@ -238,7 +238,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
 
-        match start_daemon(&alacritty, &args) {
+        match start_daemon(&alacritty, &args, None) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
             Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
         }
@@ -290,11 +290,19 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let end = self.terminal.visible_to_buffer(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
-            match start_daemon(launcher.program(), &args) {
+            match start_daemon(launcher.program(), &args, None) {
                 Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
                 Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
             }
         }
+    }
+
+    fn to_string(&self) -> String {
+        self.terminal.grid().to_string()
+    }
+
+    fn to_string_only_visible(&self) -> String {
+        self.terminal.grid().to_string_only_visible()
     }
 }
 
