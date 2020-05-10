@@ -419,7 +419,7 @@ struct InstanceData {
     bg_b: f32,
     bg_a: f32,
     // boolean set to true if the glyph already is colored (typically RGBA emojis)
-    pre_colored: u8,
+    colored: u8,
 }
 
 #[derive(Debug)]
@@ -495,7 +495,7 @@ impl Batch {
             bg_g: f32::from(cell.bg.g),
             bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
-            pre_colored: glyph.colored as u8,
+            colored: glyph.colored as u8,
         });
     }
 
@@ -639,7 +639,7 @@ impl QuadRenderer {
             );
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
-            // preColoredGlyph attribute
+            // coloredGlyph attribute
             gl::VertexAttribPointer(
                 5,
                 1,
@@ -1521,8 +1521,9 @@ impl Atlas {
             gl::GenTextures(1, &mut id);
             gl::BindTexture(gl::TEXTURE_2D, id);
             // We use an RGBA atlas that can handle colored glyphs.
-            // As they usually are outnumbered by regular text glyphs, this is slightly wasteful.
-            // Another way would be to have a separate atlas for RGBA and render in two passes.
+            // Most of the text glyphs don't need this alpha channel but it has a negligible impact in practice.
+            // For more details and comparative benchmarks with a dual atlas approach, see:
+            // https://github.com/alacritty/alacritty/pull/3665
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,

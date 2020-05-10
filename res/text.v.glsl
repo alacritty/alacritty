@@ -27,12 +27,13 @@ layout (location = 3) in vec3 textColor;
 // Background color
 layout (location = 4) in vec4 backgroundColor;
 
-layout (location = 5) in int preColoredGlyph;
+// Set to 1 if the glyph colors should be kept
+layout (location = 5) in int coloredGlyph;
 
 out vec2 TexCoords;
 flat out vec3 fg;
 flat out vec4 bg;
-flat out int preColored;
+flat out int colored;
 
 // Terminal properties
 uniform vec2 cellDim;
@@ -74,5 +75,5 @@ void main()
 
     bg = vec4(backgroundColor.rgb / 255.0, backgroundColor.a);
     fg = textColor / vec3(255.0, 255.0, 255.0);
-    preColored = preColoredGlyph;
+    colored = coloredGlyph;
 }
