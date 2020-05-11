@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #version 330 core
-// Cell properties
+// Cell properties.
 layout (location = 0) in vec2 gridCoords;
 
-// glyph properties
+// glyph properties.
 layout (location = 1) in vec4 glyph;
 
-// uv mapping
+// uv mapping.
 layout (location = 2) in vec4 uv;
 
-// text fg color
+// text fg color.
 layout (location = 3) in vec3 textColor;
 
-// Background color
+// Background color.
 layout (location = 4) in vec4 backgroundColor;
 
-// Set to 1 if the glyph colors should be kept
+// Set to 1 if the glyph colors should be kept.
 layout (location = 5) in int coloredGlyph;
 
 out vec2 TexCoords;

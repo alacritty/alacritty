@@ -418,7 +418,7 @@ struct InstanceData {
     bg_g: f32,
     bg_b: f32,
     bg_a: f32,
-    // boolean set to true if the glyph already is colored (typically RGBA emojis)
+    // Colored glyph indicator.
     colored: u8,
 }
 
