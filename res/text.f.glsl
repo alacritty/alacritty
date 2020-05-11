@@ -33,12 +33,17 @@ void main()
         color = vec4(bg.rgb, 1.0);
     } else {
         if (colored != 0) {
-            // Color glyphs (such as emojis).
+            // Color glyphs, like emojis.
             vec4 glyphColor = texture(mask, TexCoords);
             alphaMask = vec4(glyphColor.a);
-            // Blend with background color used in a pass.
-            vec3 blendedColor = glyphColor.rgb + bg.rgb * (1.0 -  glyphColor.a);
-            color = vec4(blendedColor, 1.0);
+
+            // Handle premultiplied alpha.
+            //
+            // NOTE - we won't show garbage from division by zero on a screen,
+            // due to alpha being 0, so it's perfrectly fine to do so.
+            glyphColor.rgb = vec3(glyphColor.rgb / glyphColor.a);
+
+            color = vec4(glyphColor.rgb, 1.0);
         } else {
             // Regular text glyphs.
             vec3 textColor = texture(mask, TexCoords).rgb;

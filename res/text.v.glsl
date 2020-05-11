@@ -15,13 +15,13 @@
 // Cell properties.
 layout (location = 0) in vec2 gridCoords;
 
-// glyph properties.
+// Glyph properties.
 layout (location = 1) in vec4 glyph;
 
 // uv mapping.
 layout (location = 2) in vec4 uv;
 
-// text fg color.
+// Text fg color.
 layout (location = 3) in vec3 textColor;
 
 // Background color.
