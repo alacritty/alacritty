@@ -25,7 +25,6 @@
         1. [Desktop Entry](#desktop-entry)
     2. [MacOS](#macos)
     3. [Cargo](#cargo)
-    4. [Debian/Ubuntu](#debianubuntu-1)
 3. [Manual Page](#manual-page)
 4. [Shell Completions](#shell-completions)
     1. [Zsh](#zsh)
@@ -65,12 +64,9 @@ drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
 
 #### Debian/Ubuntu
 
-You can build alacritty using `cargo deb` and use your system's package manager
-to maintain the application using the instructions [below](#debianubuntu-1).
-
-If you'd still like to build a local version manually, you need a few extra
-libraries to build Alacritty. Here's an apt command that should install all of
-them. If something is still found to be missing, please open an issue.
+If you'd like to build a local version manually, you need a few extra libraries
+to build Alacritty. Here's an apt command that should install all of them. If
+something is still found to be missing, please open an issue.
 
 ```sh
 apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev python3
@@ -253,21 +249,6 @@ If you don't want to clone the repository, you can install Alacritty directly us
 
 ```sh
 cargo install --git https://github.com/alacritty/alacritty
-```
-
-### Debian/Ubuntu
-
-Using `cargo deb`, you can create and install a deb file.
-
-```sh
-cargo install cargo-deb
-cargo deb --install -p alacritty
-```
-
-To choose a default terminal app, use Debian's `update-alternatives`.
-
-```sh
-update-alternatives --config x-terminal-emulator
 ```
 
 ## Manual Page
