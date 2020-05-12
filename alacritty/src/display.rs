@@ -20,11 +20,6 @@ use std::fmt::{self, Formatter};
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-#[cfg(target_os = "macos")]
-use cocoa::base::{id, nil, NO};
-#[cfg(target_os = "macos")]
-use cocoa::foundation::{NSOperatingSystemVersion, NSProcessInfo, NSString, NSUserDefaults};
-
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
@@ -36,7 +31,7 @@ use parking_lot::MutexGuard;
 #[cfg(not(any(target_os = "macos", windows)))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
-use font::{self, Rasterize};
+use font::{self, Rasterize, set_font_smoothing};
 
 use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{Event, OnResize};
@@ -234,7 +229,7 @@ impl Display {
         #[cfg(target_os = "macos")]
         {
             let use_thin_strokes = config.font.use_thin_strokes();
-            Self::set_font_smoothing(use_thin_strokes);
+            set_font_smoothing(use_thin_strokes);
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -341,24 +336,6 @@ impl Display {
         });
     }
 
-    /// Set subpixel anti-aliasing
-    fn set_font_smoothing(enable: bool) {
-        unsafe {
-            // MacOS Mojave 10.14.x disables subpixel anti-aliasing,
-            // to re-enable it on an application level, we want to ensure
-            // we are running at least 10.14.0.
-            let min_macos_version = NSOperatingSystemVersion::new(10, 14, 0);
-            if NSProcessInfo::processInfo(nil).isOperatingSystemAtLeastVersion(min_macos_version) {
-                let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
-                if enable {
-                    id::standardUserDefaults().setBool_forKey_(NO, key);
-                } else {
-                    id::standardUserDefaults().removeObject_forKey_(key);
-                }
-            }
-        }
-    }
-
     /// Process update events.
     pub fn handle_update<T>(
         &mut self,
@@ -421,7 +398,7 @@ impl Display {
         #[cfg(target_os = "macos")]
         {
             let use_thin_strokes = config.font.use_thin_strokes();
-            Self::set_font_smoothing(use_thin_strokes);
+            set_font_smoothing(use_thin_strokes);
         }
     }
 
