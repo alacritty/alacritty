@@ -472,7 +472,6 @@ impl Batch {
             self.tex = glyph.tex_id;
         }
 
-
         self.instances.push(InstanceData {
             col: cell.column.0 as f32,
             row: cell.line.0 as f32,
@@ -1520,7 +1519,8 @@ impl Atlas {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             gl::GenTextures(1, &mut id);
             gl::BindTexture(gl::TEXTURE_2D, id);
-            // Use RGBA texture for both normal and emoji glyphs, since it has no performance impact.
+            // Use RGBA texture for both normal and emoji glyphs, since it has no performance
+            // impact.
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
