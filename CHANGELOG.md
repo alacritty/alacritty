@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.41.0
+- Prebuilt Linux binaries have been removed
 
 ### Added
 
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Low resolution window decoration icon on Windows
 - Mouse bindings for additional buttons need to be specified as a number not a string
 - Don't hide cursor on modifier press with `mouse.hide_when_typing` enabled
+- `Shift + Backspace` now sends `^?` instead of `^H`
 
 ### Fixed
 
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resize lag on launch under some X11 wms
 - Increased input latency due to vsync behavior on X11
 - Freeze when application is invisible on Wayland
+- Emoji colors blending with terminal background
 
 ## 0.4.2
 

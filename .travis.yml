@@ -1,8 +1,5 @@
 language: rust
 
-services:
-  - docker
-
 addons:
   apt:
     packages:
