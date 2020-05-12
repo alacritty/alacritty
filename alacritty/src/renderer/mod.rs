@@ -418,8 +418,8 @@ struct InstanceData {
     bg_g: f32,
     bg_b: f32,
     bg_a: f32,
-    // Colored glyph indicator.
-    colored: u8,
+    // Flag indicating that glyph uses multiple colors, like an Emoji.
+    multicolor: u8,
 }
 
 #[derive(Debug)]
@@ -495,7 +495,7 @@ impl Batch {
             bg_g: f32::from(cell.bg.g),
             bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
-            colored: glyph.colored as u8,
+            multicolor: glyph.colored as u8,
         });
     }
 
@@ -639,7 +639,7 @@ impl QuadRenderer {
             );
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
-            // coloredGlyph attribute
+            // Multicolor flag.
             gl::VertexAttribPointer(
                 5,
                 1,
@@ -1520,10 +1520,7 @@ impl Atlas {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             gl::GenTextures(1, &mut id);
             gl::BindTexture(gl::TEXTURE_2D, id);
-            // We use an RGBA atlas that can handle colored glyphs.
-            // Most of the text glyphs don't need this alpha channel but it has a negligible impact in practice.
-            // For more details and comparative benchmarks with a dual atlas approach, see:
-            // https://github.com/alacritty/alacritty/pull/3665
+            // Use RGBA texture for both normal and emoji glyphs, since it has no performance impact.
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,

@@ -173,7 +173,7 @@ pub struct RasterizedGlyph {
 
 #[derive(Clone, Debug)]
 pub enum BitmapBuffer {
-    /// RGB pixels.
+    /// RGB alphamask.
     RGB(Vec<u8>),
 
     /// RGBA pixels with premultiplied alpha.

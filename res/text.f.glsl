@@ -37,11 +37,10 @@ void main()
             vec4 glyphColor = texture(mask, TexCoords);
             alphaMask = vec4(glyphColor.a);
 
-            // Handle premultiplied alpha.
-            //
-            // NOTE - we won't show garbage from division by zero on a screen,
-            // due to alpha being 0, so it's perfrectly fine to do so.
-            glyphColor.rgb = vec3(glyphColor.rgb / glyphColor.a);
+            // Revert alpha premultiplication.
+            if (glyphColor.a != 0) {
+                glyphColor.rgb = vec3(glyphColor.rgb / glyphColor.a);
+            }
 
             color = vec4(glyphColor.rgb, 1.0);
         } else {
