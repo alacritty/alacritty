@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crashing at startup on Windows
 - Resize lag on launch under some X11 wms
 - Increased input latency due to vsync behavior on X11
+- Resize lag on launch under some X11 wms
+- Increased input latency due to vsync behavior on X11
+- Freeze when application is invisible on Wayland
+- Emoji colors blending with terminal background
 
 ## 0.4.2
 ### Fixed

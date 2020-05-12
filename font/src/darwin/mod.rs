@@ -488,8 +488,8 @@ impl Font {
             kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
         );
 
-        // Give the context an opaque, black background
-        cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 1.0);
+        // Set background color for graphics context.
+        cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 0.0);
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
             &CGSize::new(f64::from(rasterized_width), f64::from(rasterized_height)),
