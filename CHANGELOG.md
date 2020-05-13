@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Increased input latency due to vsync behavior on X11
 - Freeze when application is invisible on Wayland
 - Emoji colors blending with terminal background
+- Fix escapes prematurely terminated by terminators in unicode glyphs
 
 ## 0.4.2
 ### Fixed
