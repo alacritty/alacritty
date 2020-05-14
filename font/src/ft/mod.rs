@@ -456,7 +456,7 @@ impl FreeTypeRasterizer {
             }
         }
 
-        // Transform glyphs with the matrix from Fontconfig. Primary used to generate italics.
+        // Transform glyphs with the matrix from Fontconfig. Primarily used to generate italics.
         if let Some(matrix) = face.matrix.as_ref() {
             let glyph = face.ft_face.raw().glyph;
 
