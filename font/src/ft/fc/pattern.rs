@@ -576,7 +576,7 @@ impl PatternRef {
         }
     }
 
-    /// Get charset from the patter.
+    /// Get charset from the pattern.
     pub fn get_charset(&self) -> Option<&CharSetRef> {
         unsafe {
             let mut charset = ptr::null_mut();
@@ -596,7 +596,7 @@ impl PatternRef {
         }
     }
 
-    /// Get matrix from the patter.
+    /// Get matrix from the pattern.
     pub fn get_matrix(&self) -> Option<FcMatrix> {
         unsafe {
             let mut matrix = ptr::null_mut();

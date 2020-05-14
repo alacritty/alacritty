@@ -342,17 +342,15 @@ impl FreeTypeRasterizer {
 
             let embolden = pattern.embolden().next().unwrap_or(false);
 
-            let matrix = if let Some(matrix) = pattern.get_matrix() {
+            let matrix = pattern.get_matrix().map(|matrix| {
                 // Convert Fontconfig matrix to FreeType matrix.
                 let xx = to_fixedpoint_16_6(matrix.xx);
                 let xy = to_fixedpoint_16_6(matrix.xy);
                 let yx = to_fixedpoint_16_6(matrix.yx);
                 let yy = to_fixedpoint_16_6(matrix.yy);
 
-                Some(Matrix { xx, xy, yx, yy })
-            } else {
-                None
-            };
+                Matrix { xx, xy, yx, yy }
+            });
 
             let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
 
@@ -460,14 +458,13 @@ impl FreeTypeRasterizer {
 
         // Transform glyphs with the matrix from Fontconfig. Primary used to generate italics.
         if let Some(matrix) = face.matrix.as_ref() {
-            unsafe {
-                let glyph = face.ft_face.raw().glyph;
+            let glyph = face.ft_face.raw().glyph;
 
-                // Check that the glyph is outline.
+            unsafe {
+                // Check that the glyph is a vectorial outline, not a bitmap.
                 if (*glyph).format == freetype_sys::FT_GLYPH_FORMAT_OUTLINE {
                     let outline = &(*glyph).outline;
 
-                    // Apply transformation.
                     freetype_sys::FT_Outline_Transform(outline, matrix);
                 }
             }
