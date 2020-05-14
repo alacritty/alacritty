@@ -21,10 +21,14 @@ use std::str;
 use foreign_types::{foreign_type, ForeignType, ForeignTypeRef};
 use libc::{c_char, c_double, c_int};
 
+use super::ffi::FcMatrix;
 use super::ffi::FcResultMatch;
 use super::ffi::{FcBool, FcFontRenderPrepare, FcPatternGetBool, FcPatternGetDouble};
 use super::ffi::{FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcPattern, FcPatternHash};
-use super::ffi::{FcPatternAddCharSet, FcPatternDestroy, FcPatternDuplicate, FcPatternGetCharSet};
+use super::ffi::{
+    FcPatternAddCharSet, FcPatternDestroy, FcPatternDuplicate, FcPatternGetCharSet,
+    FcPatternGetMatrix,
+};
 use super::ffi::{FcPatternAddDouble, FcPatternAddString, FcPatternCreate, FcPatternGetString};
 use super::ffi::{FcPatternAddInteger, FcPatternGetInteger, FcPatternPrint};
 
@@ -572,9 +576,10 @@ impl PatternRef {
         }
     }
 
+    /// Get charset from the pattern.
     pub fn get_charset(&self) -> Option<&CharSetRef> {
         unsafe {
-            let mut charset: *mut _ = ptr::null_mut();
+            let mut charset = ptr::null_mut();
 
             let result = FcPatternGetCharSet(
                 self.as_ptr(),
@@ -585,6 +590,25 @@ impl PatternRef {
 
             if result == FcResultMatch {
                 Some(&*(charset as *const CharSetRef))
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Get matrix from the pattern.
+    pub fn get_matrix(&self) -> Option<FcMatrix> {
+        unsafe {
+            let mut matrix = ptr::null_mut();
+            let result = FcPatternGetMatrix(
+                self.as_ptr(),
+                b"matrix\0".as_ptr() as *mut c_char,
+                0,
+                &mut matrix,
+            );
+
+            if result == FcResultMatch {
+                Some(*matrix)
             } else {
                 None
             }
