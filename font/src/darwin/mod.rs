@@ -282,7 +282,13 @@ pub struct Font {
 unsafe impl Send for Font {}
 
 
-/// Set subpixel anti-aliasing on MacOS.
+/// Set subpixel anti-aliasing on macOS.
+///
+/// Sub-pixel anti-aliasing has been disabled since macOS Mojave by default. This function allows
+/// overriding the global `CGFontRenderingFontSmoothingDisabled` setting on a per-application basis
+/// to re-enable it.
+///
+/// This is a no-op on systems running High Sierra or earlier (< 10.14.0).
 pub fn set_font_smoothing(enable: bool) {
     unsafe {
         // MacOS Mojave 10.14.x disables subpixel anti-aliasing,
