@@ -291,9 +291,7 @@ unsafe impl Send for Font {}
 /// This is a no-op on systems running High Sierra or earlier (< 10.14.0).
 pub fn set_font_smoothing(enable: bool) {
     unsafe {
-        // MacOS Mojave 10.14.x disables subpixel anti-aliasing,
-        // to re-enable it on an application level, we want to ensure
-        // we are running at least 10.14.0.
+        // Check that we're running at least Mojave (10.14.0+).
         let min_macos_version = NSOperatingSystemVersion::new(10, 14, 0);
         if NSProcessInfo::processInfo(nil).isOperatingSystemAtLeastVersion(min_macos_version) {
             let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
