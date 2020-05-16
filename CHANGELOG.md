@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Freeze when application is invisible on Wayland
 - Emoji colors blending with terminal background
 - Fix escapes prematurely terminated by terminators in unicode glyphs
+- Incorrect location when clicking inside an unfocused window on macOS
+- Startup mode `Maximized` on Windows
 
 ## 0.4.2
 
