@@ -414,11 +414,11 @@ dependencies = [
 
 [[package]]
 name = "core-text"
-version = "13.3.2"
+version = "15.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-graphics 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.70 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -597,10 +597,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "font"
 version = "0.1.0"
 dependencies = [
- "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-foundation-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-graphics 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-text 13.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-foundation-sys 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-graphics 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-text 15.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dwrote 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.20.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2376,7 +2376,7 @@ dependencies = [
 "checksum core-foundation-sys 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 "checksum core-graphics 0.17.3 (registry+https://github.com/rust-lang/crates.io-index)" = "56790968ab1c8a1202a102e6de05fc6e1ec87da99e4e93e9a7d13efbfc1e95a9"
 "checksum core-graphics 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)" = "59e78b2e0aaf43f08e7ae0d6bc96895ef72ff0921c7d4ff4762201b2dba376dd"
-"checksum core-text 13.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "db84654ad95211c082cf9795f6f83dc17d0ae6c985ac1b906369dc7384ed346d"
+"checksum core-text 15.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "131b3fd1f8bd5db9f2b398fa4fdb6008c64afc04d447c306ac2c7e98fba2a61d"
 "checksum core-video-sys 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "34ecad23610ad9757664d644e369246edde1803fcb43ed72876565098a5d3828"
 "checksum crc32fast 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ba125de2af0df55319f41944744ad91c71113bf74a4646efff39afe1f6842db1"
 "checksum crossbeam-utils 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
