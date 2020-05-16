@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mouse bindings for additional buttons need to be specified as a number not a string
 - Don't hide cursor on modifier press with `mouse.hide_when_typing` enabled
 - `Shift + Backspace` now sends `^?` instead of `^H`
+- Default color scheme is now `Tomorrow Night` with the bright colors of `Tomorrow Night Bright`
 
 ### Fixed
 
