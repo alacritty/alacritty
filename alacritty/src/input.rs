@@ -260,6 +260,9 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
                 term.vi_mode_cursor.point.line = term.grid().num_lines() - 1;
+
+                // Move to beginning twice, to always jump across linewraps.
+                term.vi_motion(ViMotion::FirstOccupied);
                 term.vi_motion(ViMotion::FirstOccupied);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
