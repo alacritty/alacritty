@@ -32,6 +32,8 @@ use parking_lot::MutexGuard;
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use font::{self, Rasterize};
+#[cfg(target_os = "macos")]
+use font::set_font_smoothing;
 
 use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{Event, OnResize};
@@ -224,6 +226,10 @@ impl Display {
         renderer.with_api(&config, &size_info, |api| {
             api.clear(background_color);
         });
+
+        // Set subpixel anti-aliasing.
+        #[cfg(target_os = "macos")]
+        set_font_smoothing(config.font.use_thin_strokes());
 
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();

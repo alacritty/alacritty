@@ -38,6 +38,9 @@ use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::SymbolicTraitAccessors;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
+use cocoa::base::{id, nil, NO};
+use cocoa::foundation::{NSOperatingSystemVersion, NSProcessInfo, NSString, NSUserDefaults};
+
 use euclid::{Point2D, Rect, Size2D};
 
 use log::{trace, warn};
@@ -277,6 +280,31 @@ pub struct Font {
 }
 
 unsafe impl Send for Font {}
+
+
+/// Set subpixel anti-aliasing on macOS.
+///
+/// Sub-pixel anti-aliasing has been disabled since macOS Mojave by default. This function allows
+/// overriding the global `CGFontRenderingFontSmoothingDisabled` setting on a per-application basis
+/// to re-enable it.
+///
+/// This is a no-op on systems running High Sierra or earlier (< 10.14.0).
+pub fn set_font_smoothing(enable: bool) {
+    let min_macos_version = NSOperatingSystemVersion::new(10, 14, 0);
+    unsafe {
+        // Check that we're running at least Mojave (10.14.0+).
+        if !NSProcessInfo::processInfo(nil).isOperatingSystemAtLeastVersion(min_macos_version) {
+            return
+        }
+
+        let key = NSString::alloc(nil).init_str("CGFontRenderingFontSmoothingDisabled");
+        if enable {
+            id::standardUserDefaults().setBool_forKey_(NO, key);
+        } else {
+            id::standardUserDefaults().removeObject_forKey_(key);
+        }
+    }
+}
 
 /// List all family names.
 pub fn get_family_names() -> Vec<String> {

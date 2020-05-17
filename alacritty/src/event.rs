@@ -22,7 +22,9 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
-use font::Size;
+use font::{self, Size};
+#[cfg(target_os = "macos")]
+use font::set_font_smoothing;
 
 use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::config::Font;
@@ -725,6 +727,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 processor.ctx.window.set_wayland_theme(&config.colors);
             }
         }
+
+        // Set subpixel anti-aliasing.
+        #[cfg(target_os = "macos")]
+        set_font_smoothing(config.font.use_thin_strokes());
 
         *processor.ctx.config = config;
 
