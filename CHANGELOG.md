@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix escapes prematurely terminated by terminators in unicode glyphs
 - Incorrect location when clicking inside an unfocused window on macOS
 - Startup mode `Maximized` on Windows
+- Crashing on start on Windows
+- Crash when writing a fullwidth character in the last column with auto-wrap mode disabled
 
 ## 0.4.2
 ### Fixed

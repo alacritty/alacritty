@@ -1343,10 +1343,16 @@ impl<T: EventListener> Handler for Term<T> {
         if width == 1 {
             self.write_at_cursor(c);
         } else {
-            // Insert extra placeholder before wide char if glyph doesn't fit in this row anymore
             if self.cursor.point.col + 1 >= num_cols {
-                self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
-                self.wrapline();
+                if self.mode.contains(TermMode::LINE_WRAP) {
+                    // Insert placeholder before wide char if glyph does not fit in this row.
+                    self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
+                    self.wrapline();
+                } else {
+                    // Prevent out of bounds crash when linewrapping is disabled.
+                    self.input_needs_wrap = true;
+                    return;
+                }
             }
 
             // Write full width glyph to current cursor cell
