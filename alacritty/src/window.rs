@@ -500,6 +500,7 @@ fn gl_finish() {
 }
 
 #[inline]
+#[cfg(not(any(target_os = "macos", windows)))]
 fn gl_clear(color: Rgb, alpha: f32) {
     unsafe {
         gl::ClearColor(
