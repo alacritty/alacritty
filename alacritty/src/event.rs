@@ -728,10 +728,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        {
-            let use_thin_strokes = config.font.use_thin_strokes();
-            set_font_smoothing(use_thin_strokes);
-        }
+        set_font_smoothing(config.font.use_thin_strokes());
 
         *processor.ctx.config = config;
 
