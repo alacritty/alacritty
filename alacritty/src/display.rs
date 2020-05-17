@@ -227,10 +227,7 @@ impl Display {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        {
-            let use_thin_strokes = config.font.use_thin_strokes();
-            set_font_smoothing(use_thin_strokes);
-        }
+        set_font_smoothing(config.font.use_thin_strokes());
 
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
