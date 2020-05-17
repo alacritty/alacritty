@@ -203,14 +203,14 @@ impl Window {
                 if let Some(parent_window_id) = config.window.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
-                // Perform glClear() on-screen to avoid drawing color over on the window
-                // at incorrect sizes.
+                // Perform glClear() on-screen to avoid drawing color over the window
+                // at an incorrect size.
+                // We make GL calls here directly, instead of going through QuadRenderer,
+                // to avoid having to initialize SizeInfo.
                 windowed_context.window().set_visible(true);
                 gl_clear(config.colors.primary.background, config.background_opacity());
-                // We make these GL calls here directly, instead of going through QuadRenderer,
-                // to avoid having to initialize SizeInfo. Also, swap buffers to avoid glitches.
+                // Swap buffers to commit glClear() color into the screen.
                 windowed_context.swap_buffers().expect("swap buffers");
-                gl_finish();
             } else {
                 // Apply client side decorations theme.
                 let theme = AlacrittyWaylandTheme::new(&config.colors);
@@ -493,14 +493,6 @@ unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent)
 
 #[inline]
 #[cfg(not(any(target_os = "macos", windows)))]
-fn gl_finish() {
-    unsafe {
-        gl::Finish();
-    }
-}
-
-#[inline]
-#[cfg(not(any(target_os = "macos", windows)))]
 fn gl_clear(color: Rgb, alpha: f32) {
     unsafe {
         gl::ClearColor(
@@ -510,5 +502,7 @@ fn gl_clear(color: Rgb, alpha: f32) {
             alpha,
         );
         gl::Clear(gl::COLOR_BUFFER_BIT);
+        // Block until glClear() finishes.
+        gl::Finish();
     }
 }
