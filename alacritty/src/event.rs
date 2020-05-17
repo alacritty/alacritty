@@ -22,7 +22,9 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
-use font::{self, set_font_smoothing, Size};
+use font::{self, Size};
+#[cfg(target_os = "macos")]
+use font::set_font_smoothing;
 
 use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::config::Font;
