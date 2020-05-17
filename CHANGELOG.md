@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix escapes prematurely terminated by terminators in unicode glyphs
 - Incorrect location when clicking inside an unfocused window on macOS
 - Startup mode `Maximized` on Windows
+- Coloring at incorrect sizes when calling glClear() on X11
 
 ## 0.4.2
 

@@ -219,25 +219,27 @@ impl Display {
         // Update OpenGL projection.
         renderer.resize(&size_info);
 
-        // Clear screen.
-        let background_color = config.colors.primary.background;
-        renderer.with_api(&config, &size_info, |api| {
-            api.clear(background_color);
-        });
-
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
 
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            // On Wayland we can safely ignore this call, since the window isn't visible until you
-            // actually draw something into it and commit those changes.
-            if is_x11 {
-                window.swap_buffers();
+            // Clear screen on Wayland.
+            if !is_x11 {
+                let background_color = config.colors.primary.background;
                 renderer.with_api(&config, &size_info, |api| {
-                    api.finish();
+                    api.clear(background_color);
                 });
             }
+        }
+
+        #[cfg(any(target_os = "macos", windows))]
+        {
+            // Clear screen on Windows and MacOS.
+            let background_color = config.colors.primary.background;
+            renderer.with_api(&config, &size_info, |api| {
+                api.clear(background_color);
+            });
         }
 
         window.set_visible(true);
