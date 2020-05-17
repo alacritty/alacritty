@@ -393,13 +393,6 @@ impl Display {
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
-
-        // Set subpixel anti-aliasing.
-        #[cfg(target_os = "macos")]
-        {
-            let use_thin_strokes = config.font.use_thin_strokes();
-            set_font_smoothing(use_thin_strokes);
-        }
     }
 
     /// Draw the screen.
