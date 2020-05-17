@@ -17,7 +17,7 @@ servo-fontconfig = "0.5.0"
 freetype-rs = "0.24"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = { git = "https://github.com/servo/core-foundation-rs", branch = "master" }
+cocoa = "0.20.1"
 core-foundation = "0.6"
 core-text = "13"
 core-graphics = "0.17"
