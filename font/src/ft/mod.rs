@@ -19,7 +19,7 @@ use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
 use freetype::tt_os2::TrueTypeOS2Table;
-use freetype::{self, Library};
+use freetype::{self, Library, Matrix};
 use freetype::{freetype_sys, Face as FTFace};
 use libc::c_uint;
 use log::{debug, trace};
@@ -63,6 +63,8 @@ struct FaceLoadingProperties {
     lcd_filter: c_uint,
     non_scalable: Option<f32>,
     colored: bool,
+    embolden: bool,
+    matrix: Option<Matrix>,
     pixelsize_fixup_factor: Option<f64>,
     ft_face: Rc<FTFace>,
 }
@@ -97,6 +99,11 @@ pub struct FreeTypeRasterizer {
 #[inline]
 fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
+}
+
+#[inline]
+fn to_fixedpoint_16_6(f: f64) -> i64 {
+    (f * 65536.0) as i64
 }
 
 impl Rasterize for FreeTypeRasterizer {
@@ -333,6 +340,18 @@ impl FreeTypeRasterizer {
                 Some(pattern.pixelsize().next().expect("has 1+ pixelsize") as f32)
             };
 
+            let embolden = pattern.embolden().next().unwrap_or(false);
+
+            let matrix = pattern.get_matrix().map(|matrix| {
+                // Convert Fontconfig matrix to FreeType matrix.
+                let xx = to_fixedpoint_16_6(matrix.xx);
+                let xy = to_fixedpoint_16_6(matrix.xy);
+                let yx = to_fixedpoint_16_6(matrix.yx);
+                let yy = to_fixedpoint_16_6(matrix.yy);
+
+                Matrix { xx, xy, yx, yy }
+            });
+
             let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
 
             let face = FaceLoadingProperties {
@@ -341,6 +360,8 @@ impl FreeTypeRasterizer {
                 lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
                 colored: ft_face.has_color(),
+                embolden,
+                matrix,
                 pixelsize_fixup_factor,
                 ft_face,
             };
@@ -425,6 +446,30 @@ impl FreeTypeRasterizer {
         face.ft_face.load_glyph(index as u32, face.load_flags)?;
 
         let glyph = face.ft_face.glyph();
+
+        // Generate synthetic bold.
+        if face.embolden {
+            unsafe {
+                freetype_sys::FT_GlyphSlot_Embolden(glyph.raw()
+                    as *const freetype_sys::FT_GlyphSlotRec
+                    as *mut freetype_sys::FT_GlyphSlotRec);
+            }
+        }
+
+        // Transform glyphs with the matrix from Fontconfig. Primarily used to generate italics.
+        if let Some(matrix) = face.matrix.as_ref() {
+            let glyph = face.ft_face.raw().glyph;
+
+            unsafe {
+                // Check that the glyph is a vectorial outline, not a bitmap.
+                if (*glyph).format == freetype_sys::FT_GLYPH_FORMAT_OUTLINE {
+                    let outline = &(*glyph).outline;
+
+                    freetype_sys::FT_Outline_Transform(outline, matrix);
+                }
+            }
+        }
+
         glyph.render_glyph(face.render_mode)?;
 
         let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;

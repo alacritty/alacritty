@@ -117,11 +117,11 @@ impl Default for PrimaryColors {
 }
 
 fn default_background() -> Rgb {
-    Rgb { r: 0, g: 0, b: 0 }
+    Rgb { r: 0x1d, g: 0x1f, b: 0x21 }
 }
 
 fn default_foreground() -> Rgb {
-    Rgb { r: 0xea, g: 0xea, b: 0xea }
+    Rgb { r: 0xc5, g: 0xc8, b: 0xc6 }
 }
 
 /// The 8-colors sections of config.
@@ -151,14 +151,14 @@ struct NormalColors(AnsiColors);
 impl Default for NormalColors {
     fn default() -> Self {
         NormalColors(AnsiColors {
-            black: Rgb { r: 0x00, g: 0x00, b: 0x00 },
-            red: Rgb { r: 0xd5, g: 0x4e, b: 0x53 },
-            green: Rgb { r: 0xb9, g: 0xca, b: 0x4a },
-            yellow: Rgb { r: 0xe6, g: 0xc5, b: 0x47 },
-            blue: Rgb { r: 0x7a, g: 0xa6, b: 0xda },
-            magenta: Rgb { r: 0xc3, g: 0x97, b: 0xd8 },
-            cyan: Rgb { r: 0x70, g: 0xc0, b: 0xba },
-            white: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            black: Rgb { r: 0x1d, g: 0x1f, b: 0x21 },
+            red: Rgb { r: 0xcc, g: 0x66, b: 0x66 },
+            green: Rgb { r: 0xb5, g: 0xbd, b: 0x68 },
+            yellow: Rgb { r: 0xf0, g: 0xc6, b: 0x74 },
+            blue: Rgb { r: 0x81, g: 0xa2, b: 0xbe },
+            magenta: Rgb { r: 0xb2, g: 0x94, b: 0xbb },
+            cyan: Rgb { r: 0x8a, g: 0xbe, b: 0xb7 },
+            white: Rgb { r: 0xc5, g: 0xc8, b: 0xc6 },
         })
     }
 }
@@ -170,13 +170,13 @@ impl Default for BrightColors {
     fn default() -> Self {
         BrightColors(AnsiColors {
             black: Rgb { r: 0x66, g: 0x66, b: 0x66 },
-            red: Rgb { r: 0xff, g: 0x33, b: 0x34 },
-            green: Rgb { r: 0x9e, g: 0xc4, b: 0x00 },
+            red: Rgb { r: 0xd5, g: 0x4e, b: 0x53 },
+            green: Rgb { r: 0xb9, g: 0xca, b: 0x4a },
             yellow: Rgb { r: 0xe7, g: 0xc5, b: 0x47 },
             blue: Rgb { r: 0x7a, g: 0xa6, b: 0xda },
-            magenta: Rgb { r: 0xb7, g: 0x7e, b: 0xe0 },
-            cyan: Rgb { r: 0x54, g: 0xce, b: 0xd6 },
-            white: Rgb { r: 0xff, g: 0xff, b: 0xff },
+            magenta: Rgb { r: 0xc3, g: 0x97, b: 0xd8 },
+            cyan: Rgb { r: 0x70, g: 0xc0, b: 0xb1 },
+            white: Rgb { r: 0xea, g: 0xea, b: 0xea },
         })
     }
 }
