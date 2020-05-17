@@ -502,7 +502,5 @@ fn gl_clear(color: Rgb, alpha: f32) {
             alpha,
         );
         gl::Clear(gl::COLOR_BUFFER_BIT);
-        // Block until glClear() finishes.
-        gl::Finish();
     }
 }
