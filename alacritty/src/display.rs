@@ -178,6 +178,18 @@ impl Display {
         // Create renderer.
         let mut renderer = QuadRenderer::new()?;
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let is_x11 = event_loop.is_x11();
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if is_x11 {
+                // On X11, show the window early so glClear()
+                // can color over it at the right size.
+                window.set_visible(true);
+            }
+        }
+
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
@@ -219,27 +231,22 @@ impl Display {
         // Update OpenGL projection.
         renderer.resize(&size_info);
 
-        #[cfg(not(any(target_os = "macos", windows)))]
-        let is_x11 = event_loop.is_x11();
+        // Clear screen.
+        let background_color = config.colors.primary.background;
+        renderer.with_api(&config, &size_info, |api| {
+            api.clear(background_color);
+        });
 
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            // Clear screen on Wayland.
-            if !is_x11 {
-                let background_color = config.colors.primary.background;
+            // On Wayland we can safely ignore this call, since the window isn't visible until you
+            // actually draw something into it and commit those changes.
+            if is_x11 {
+                window.swap_buffers();
                 renderer.with_api(&config, &size_info, |api| {
-                    api.clear(background_color);
+                    api.finish();
                 });
             }
-        }
-
-        #[cfg(any(target_os = "macos", windows))]
-        {
-            // Clear screen on Windows and MacOS.
-            let background_color = config.colors.primary.background;
-            renderer.with_api(&config, &size_info, |api| {
-                api.clear(background_color);
-            });
         }
 
         window.set_visible(true);
