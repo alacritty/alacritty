@@ -167,8 +167,8 @@ executable and is available through the
 
 ## Configuration
 
-You can find the default configuration file with documentation for all available
-fields on the [GitHub releases page](https://github.com/alacritty/alacritty/releases) for each release.
+See [alacritty.yml](alacritty.yml) for an example configuration file containing all available fields with documentation.
+Or look at alacritty.yml for a specific version on the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations:
