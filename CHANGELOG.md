@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default Command+N keybinding for SpawnNewInstance on macOS
 - Vi mode for copying text and opening links
 - `CopySelection` action which copies into selection buffer on Linux/BSD
-- Option `cursor.thickness` to set terminal cursor thickness
+- Options `cursor.thickness.{beam, underline, hollow}` to set terminal cursor thickness
 - Font fallback on Windows
 - Support for Fontconfig embolden and matrix options
 

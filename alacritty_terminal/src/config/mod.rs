@@ -249,21 +249,43 @@ pub struct Cursor {
     pub style: CursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<CursorStyle>,
-    #[serde(deserialize_with = "deserialize_cursor_thickness")]
-    thickness: Percentage,
+    #[serde(deserialize_with = "failure_default")]
+    pub thickness: Thickness,
     #[serde(deserialize_with = "failure_default")]
     unfocused_hollow: DefaultTrueBool,
+}
+
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
+pub struct Thickness {
+    #[serde(deserialize_with = "deserialize_cursor_thickness")]
+    beam: Percentage,
+    #[serde(deserialize_with = "deserialize_cursor_thickness")]
+    underline: Percentage,
+    #[serde(deserialize_with = "deserialize_cursor_thickness")]
+    hollow: Percentage,
+}
+
+impl Thickness {
+    #[inline]
+    pub fn beam(self) -> f64 {
+        self.beam.0 as f64
+    }
+
+    #[inline]
+    pub fn underline(self) -> f64 {
+        self.underline.0 as f64
+    }
+
+    #[inline]
+    pub fn hollow(self) -> f64 {
+        self.hollow.0 as f64
+    }
 }
 
 impl Cursor {
     #[inline]
     pub fn unfocused_hollow(self) -> bool {
         self.unfocused_hollow.0
-    }
-
-    #[inline]
-    pub fn thickness(self) -> f64 {
-        self.thickness.0 as f64
     }
 }
 
@@ -272,8 +294,18 @@ impl Default for Cursor {
         Self {
             style: Default::default(),
             vi_mode_style: Default::default(),
-            thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
+            thickness: Default::default(),
             unfocused_hollow: Default::default(),
+        }
+    }
+}
+
+impl Default for Thickness {
+    fn default() -> Self {
+        Self {
+            beam: Percentage::new(DEFAULT_CURSOR_THICKNESS),
+            underline: Percentage::new(DEFAULT_CURSOR_THICKNESS),
+            hollow: Percentage::new(DEFAULT_CURSOR_THICKNESS),
         }
     }
 }

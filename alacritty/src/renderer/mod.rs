@@ -1038,7 +1038,9 @@ impl<'a, C> RenderApi<'a, C> {
                         self.config.font.offset.x,
                         self.config.font.offset.y,
                         cursor_key.is_wide,
-                        self.config.cursor.thickness(),
+                        self.config.cursor.thickness.beam(),
+                        self.config.cursor.thickness.underline(),
+                        self.config.cursor.thickness.hollow(),
                     ))
                 });
                 self.add_render_item(cell, glyph);

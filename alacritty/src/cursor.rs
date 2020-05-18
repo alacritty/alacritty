@@ -26,13 +26,13 @@ pub fn get_cursor_glyph(
     offset_x: i8,
     offset_y: i8,
     is_wide: bool,
-    cursor_thickness: f64,
+    beam_thickness: f64,
+    underline_thickness: f64,
+    hollow_thickness: f64,
 ) -> RasterizedGlyph {
     // Calculate the cell metrics.
     let height = metrics.line_height as i32 + i32::from(offset_y);
     let mut width = metrics.average_advance as i32 + i32::from(offset_x);
-
-    let line_width = cmp::max((cursor_thickness * f64::from(width)).round() as i32, 1);
 
     // Double the cursor width if it's above a double-width glyph.
     if is_wide {
@@ -40,12 +40,21 @@ pub fn get_cursor_glyph(
     }
 
     match cursor {
-        CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width),
-        CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
-        CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
+        CursorStyle::HollowBlock => {
+            get_box_cursor_glyph(height, width, get_line_width(hollow_thickness, width))
+        },
+        CursorStyle::Underline => {
+            get_underline_cursor_glyph(width, get_line_width(underline_thickness, width))
+        },
+        CursorStyle::Beam => get_beam_cursor_glyph(height, get_line_width(beam_thickness, width)),
         CursorStyle::Block => get_block_cursor_glyph(height, width),
         CursorStyle::Hidden => RasterizedGlyph::default(),
     }
+}
+
+#[inline]
+pub fn get_line_width(thickness: f64, width: i32) -> i32 {
+    cmp::max((thickness * f64::from(width)).round() as i32, 1)
 }
 
 /// Return a custom underline cursor character.

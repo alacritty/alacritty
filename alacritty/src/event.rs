@@ -22,9 +22,9 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
-use font::{self, Size};
 #[cfg(target_os = "macos")]
 use font::set_font_smoothing;
+use font::{self, Size};
 
 use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::config::Font;
@@ -705,8 +705,14 @@ impl<N: Notify + OnResize> Processor<N> {
         processor.ctx.terminal.update_config(&config);
 
         // Reload cursor if we've changed its thickness.
-        if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
-            > std::f64::EPSILON
+        if ((processor.ctx.config.cursor.thickness.beam()
+            + processor.ctx.config.cursor.thickness.underline()
+            + processor.ctx.config.cursor.thickness.hollow())
+            - (config.cursor.thickness.beam()
+                + config.cursor.thickness.underline()
+                + config.cursor.thickness.hollow()))
+        .abs()
+            > f64::EPSILON
         {
             processor.ctx.display_update_pending.cursor = true;
         }
