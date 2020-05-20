@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrect location when clicking inside an unfocused window on macOS
 - Startup mode `Maximized` on Windows
 - Crash when writing a fullwidth character in the last column with auto-wrap mode disabled
+- Paste from some apps on Wayland
 
 ## 0.4.2
 
