@@ -389,6 +389,12 @@ impl Descriptor {
                         fallbacks.push(descriptor.to_font(size, false))
                     };
 
+                    if let Some(descriptor) =
+                        descriptors_for_family("Rockwell").into_iter().next()
+                    {
+                        fallbacks.push(descriptor.to_font(size, false))
+                    };
+
                     // Include Menlo in the fallback list as well.
                     fallbacks.insert(0, Font {
                         cg_font: menlo.copy_to_CGFont(),
