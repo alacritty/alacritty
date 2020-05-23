@@ -41,7 +41,7 @@ dirs = "2.0.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = "2"
-wayland-client = { version = "0.26", features = ["dlopen"] }
+wayland-client = { version = "^0.26.6", features = ["dlopen"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
