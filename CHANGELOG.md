@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup mode `Maximized` on Windows
 - Crash when writing a fullwidth character in the last column with auto-wrap mode disabled
 - Paste from some apps on Wayland
+- Incorrect window dimensions when clearing on X11
 
 ## 0.4.2
 

@@ -419,6 +419,20 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
+
+        // Clear on-screen on Unix (X11).
+        //
+        // We only perform clearing here to avoid
+        // clearing at incorrect window dimensions.
+        // NOTE: We put this line behind a conditional and
+        // an `if` to avoid clearing twice on other systems.
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_x11() {
+                self.display.clear_x11(&self.config);
+            }
+        }
+
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
