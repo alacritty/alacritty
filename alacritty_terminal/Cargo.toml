@@ -10,7 +10,6 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2"
-notify = "4"
 bitflags = "1"
 font = { path = "../font" }
 parking_lot = "0.10.2"
@@ -23,7 +22,6 @@ log = "0.4"
 unicode-width = "0.1"
 base64 = "0.11.0"
 terminfo = "0.7.1"
-url = "2"
 copypasta = { version = "0.7.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
