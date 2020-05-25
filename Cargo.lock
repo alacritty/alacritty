@@ -15,9 +15,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.4.2"
+version = "0.4.3-rc1"
 dependencies = [
- "alacritty_terminal 0.4.2",
+ "alacritty_terminal 0.4.3-rc1",
  "clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "embed-resource 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.4.2"
+version = "0.4.3-rc1"
 dependencies = [
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -84,7 +84,7 @@ dependencies = [
  "rusttype 0.7.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir 2.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "xdg 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "xml-rs 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -713,7 +713,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "khronos_api 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "xml-rs 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -723,7 +723,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "khronos_api 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "xml-rs 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2101,7 +2101,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "xml-rs 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2262,7 +2262,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "xml-rs"
-version = "0.8.3"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -2541,6 +2541,6 @@ dependencies = [
 "checksum x11-dl 2.18.5 (registry+https://github.com/rust-lang/crates.io-index)" = "2bf981e3a5b3301209754218f962052d4d9ee97e478f4d26d4a6eced34c1fef8"
 "checksum xcb 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "62056f63138b39116f82a540c983cc11f1c90cd70b3d492a70c25eaa50bd22a6"
 "checksum xdg 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
-"checksum xml-rs 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "b07db065a5cf61a7e4ba64f29e67db906fb1787316516c4e6e5ff0fea1efcd8a"
+"checksum xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "541b12c998c5b56aa2b4e6f18f03664eef9a4fd0a246a55594efae6cc2d964b5"
 "checksum yaml-rust 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "65923dd1784f44da1d2c3dbbc5e822045628c590ba72123e1c73d3c230c4434d"
 "checksum zip 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "6df134e83b8f0f8153a094c7b0fd79dfebe437f1d76e7715afa18ed95ebe2fd7"
