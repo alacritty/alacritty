@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Don't hide cursor on modifier press with `mouse.hide_when_typing` enabled
 - `Shift + Backspace` now sends `^?` instead of `^H`
 - Default color scheme is now `Tomorrow Night` with the bright colors of `Tomorrow Night Bright`
+- Set IUTF8 termios flag for improved UTF8 input support
 
 ### Fixed
 
