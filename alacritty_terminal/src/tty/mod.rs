@@ -12,7 +12,7 @@ mod unix;
 pub use self::unix::*;
 
 #[cfg(windows)]
-pub mod windows;
+mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
 
