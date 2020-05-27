@@ -31,9 +31,9 @@ use parking_lot::MutexGuard;
 #[cfg(not(any(target_os = "macos", windows)))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
-use font::{self, Rasterize};
 #[cfg(target_os = "macos")]
 use font::set_font_smoothing;
+use font::{self, Rasterize};
 
 use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{Event, OnResize};
