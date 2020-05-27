@@ -22,7 +22,7 @@ use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;
 use nix::pty::openpty;
-#[cfg(any(target_os = "android", target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::{self as sighook, iterator::Signals};
 
@@ -153,7 +153,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         if let Ok(mut termios) = termios::tcgetattr(master) {
-            // Assume UTF-8 encoded characters.
+            // Set character encoding to UTF-8.
             termios.input_flags.set(InputFlags::IUTF8, true);
             let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
         }
