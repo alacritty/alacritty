@@ -134,14 +134,14 @@ The exact steps for an exemplary `0.2.0` release might look like this:
  13. The `-dev` is stripped from the `0.2.0-dev` changelog entries on master
 
 On master and with new planned releases, only the minor version is bumped. This makes it possible to
-create bug fix releases by incrementing the patch version of previous minor releases, without having
-to adjust the next planned release's version number.
+create bug fix releases by incrementing the patch version of a previous minor release, without
+having to adjust the next planned release's version number.
 
 The exact steps for an exemplary `0.2.3` release might look like this:
  1. Initially, the version on the latest master is `0.3.0-dev` and the latest release was `0.2.2`
  2. A new `v0.2.3` branch is forked from the `v0.2.2` branch
  4. All bug fixes are cherry-picked from master into the `v0.2.3` branch
- 5. The version is bumped to `v0.2.3-rc1` and the changelog's `0.3.0` entries are moved to `0.2.3`
+ 5. The version is bumped to `v0.2.3-rc1` and the changelog is updated to include all fixes
  6. Follow Steps 5-12 of the regular release's example
  7. The release's changelog is ported back to master, removing fixes from the `0.2.3` release
 
