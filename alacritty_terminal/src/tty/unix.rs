@@ -22,6 +22,8 @@ use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;
 use nix::pty::openpty;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::{self as sighook, iterator::Signals};
 
 use mio::unix::EventedFd;
@@ -45,7 +47,7 @@ static PID: AtomicUsize = AtomicUsize::new(0);
 macro_rules! die {
     ($($arg:tt)*) => {{
         error!($($arg)*);
-        ::std::process::exit(1);
+        std::process::exit(1);
     }}
 }
 
@@ -147,6 +149,15 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     let pw = get_pw_entry(&mut buf);
 
     let (master, slave) = make_pty(win_size);
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        if let Ok(mut termios) = termios::tcgetattr(master) {
+            // Set character encoding to UTF-8.
+            termios.input_flags.set(InputFlags::IUTF8, true);
+            let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
+        }
+    }
 
     let default_shell = if cfg!(target_os = "macos") {
         let shell_name = pw.shell.rsplit('/').next().unwrap();
