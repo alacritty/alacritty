@@ -61,19 +61,17 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     ///
     /// Alacritty takes the same approach.
     fn shrink_lines(&mut self, target: Line) {
-        let shrinkage = self.lines.0 - target.0;
-
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..target), Line(required_scrolling), T::default());
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), T::default());
 
             // Clamp cursors to the new viewport size.
             self.saved_cursor.point.line = min(self.saved_cursor.point.line, target - 1);
             self.cursor.point.line = min(self.cursor.point.line, target - 1);
         }
 
-        self.raw.rotate(shrinkage as isize);
+        self.raw.rotate((self.lines - target).0 as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
     }
