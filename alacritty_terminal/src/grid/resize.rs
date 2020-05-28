@@ -88,10 +88,10 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
         self.cols = cols;
 
-        let mut rows = self.raw.take_all();
-
         let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         let mut new_empty_lines = 0;
+
+        let mut rows = self.raw.take_all();
 
         for (i, mut row) in rows.drain(..).enumerate().rev() {
             // Check if reflowing shoud be performed.
@@ -109,12 +109,13 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             }
 
             // Remove leading spacers when reflowing wide char to the previous line.
-            let last_len = last_row.len();
+            let mut last_len = last_row.len();
             if last_len >= 2
                 && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
                 && last_row[Column(last_len - 1)].flags().contains(Flags::WIDE_CHAR_SPACER)
             {
                 last_row.shrink(Column(last_len - 1));
+                last_len -= 1;
             }
 
             // Append as many cells from the next line as possible.
