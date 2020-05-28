@@ -268,12 +268,14 @@ impl Display {
         });
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        if self.is_x11 {
-            // On Wayland we can safely ignore this call, since the window isn't visible until you
-            // actually draw something into it and commit those changes.
-            self.window.swap_buffers();
-            // NOTE: From what I understand, the window here is already shown,
-            // so there's no need to block anymore with `api.finish()`.
+        {
+            if self.is_x11 {
+                // On Wayland we can safely ignore this call, since the window isn't visible until you
+                // actually draw something into it and commit those changes.
+                self.window.swap_buffers();
+                // NOTE: From what I understand, the window here is already shown,
+                // so there's no need to block anymore with `api.finish()`.
+            }
         }
     }
 
