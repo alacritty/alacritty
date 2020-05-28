@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
+use std::{thread, time};
 
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, WindowEvent};
@@ -419,19 +420,18 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
+        // Show the window.
+        self.display.window.set_visible(true);
 
-        // Clear on-screen on Unix (X11).
+        // Sleep for 5ms.
         //
-        // We only perform clearing here to avoid
-        // clearing at incorrect window dimensions.
-        // NOTE: We put this line behind a conditional and
-        // an `if` to avoid clearing twice on other systems.
-        #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if event_loop.is_x11() {
-                self.display.clear_x11(&self.config);
-            }
-        }
+        // `set_visible` does not block until the window is shown, so we
+        // sleep here to avoid clearing while the window is still hidden.
+        thread::sleep(time::Duration::from_millis(5));
+
+        // Clear screen.
+        debug!("Inner size before clearing: {:?}", self.display.window.inner_size());
+        self.display.clear(&self.config);
 
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {

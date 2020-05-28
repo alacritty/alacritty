@@ -225,32 +225,8 @@ impl Display {
         #[cfg(target_os = "macos")]
         set_font_smoothing(config.font.use_thin_strokes());
 
-        // Clear off-screen on Windows and MacOS.
-        //
-        // These systems do not suffer from issue #3061,
-        // so we can safely clear here as normal.
-        // NOTE: We put this line behind a conditional
-        // to avoid clearing twice on other systems.
-        #[cfg(any(target_os = "macos", windows))]
-        Self::clear_screen(config, &mut renderer, &size_info);
-
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
-
-        // Clear off-screen on Unix (non-X11).
-        //
-        // Wayland does not suffer from issue #3061,
-        // so we can safely clear here as normal.
-        // NOTE: We put this line behind a conditional and
-        // an `if` to avoid clearing twice on other systems.
-        #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if !is_x11 {
-                Self::clear_screen(config, &mut renderer, &size_info);
-            }
-        }
-
-        window.set_visible(true);
 
         // Set window position.
         //
@@ -285,27 +261,20 @@ impl Display {
         })
     }
 
-    // Clear function we use during `Display` creation.
-    fn clear_screen(config: &Config, renderer: &mut QuadRenderer, size_info: &SizeInfo) {
-        // We factor out screen clearing to avoid duplication.
+    pub fn clear(&mut self, config: &Config) {
         let background_color = config.colors.primary.background;
-        renderer.with_api(&config, &size_info, |api| {
+        self.renderer.with_api(&config, &self.size_info, |api| {
             api.clear(background_color);
         });
-    }
 
-    // Clear function we use after `Display` creation (for X11).
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn clear_x11(&mut self, config: &Config) {
-        // Clear the screen as normal.
-        Self::clear_screen(config, &mut self.renderer, &self.size_info);
-        // Swap buffers.
-        //
-        // On Wayland we can safely ignore this call, since the window isn't visible until you
-        // actually draw something into it and commit those changes.
-        self.window.swap_buffers();
-        // NOTE: From what I understand, the window here is already shown,
-        // so there's no need to block here anymore with `api.finish()`.
+        #[cfg(not(any(target_os = "macos", windows)))]
+        if self.is_x11 {
+            // On Wayland we can safely ignore this call, since the window isn't visible until you
+            // actually draw something into it and commit those changes.
+            self.window.swap_buffers();
+            // NOTE: From what I understand, the window here is already shown,
+            // so there's no need to block anymore with `api.finish()`.
+        }
     }
 
     fn new_glyph_cache(
