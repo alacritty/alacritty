@@ -13,7 +13,6 @@ alacritty_terminal = { path = "../alacritty_terminal", default-features = false 
 clap = "2"
 log = "0.4"
 time = "0.1.40"
-env_logger = "0.7.1"
 fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"

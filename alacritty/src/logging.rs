@@ -42,17 +42,11 @@ pub fn initialize(
 ) -> Result<Option<PathBuf>, log::SetLoggerError> {
     log::set_max_level(options.log_level);
 
-    // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
-    // use the alacritty-only logger.
-    if std::env::var("RUST_LOG").is_ok() {
-        env_logger::try_init()?;
-        Ok(None)
-    } else {
-        let logger = Logger::new(event_proxy);
-        let path = logger.file_path();
-        log::set_boxed_logger(Box::new(logger))?;
-        Ok(path)
-    }
+    let logger = Logger::new(event_proxy);
+    let path = logger.file_path();
+    log::set_boxed_logger(Box::new(logger))?;
+
+    Ok(path)
 }
 
 pub struct Logger {
