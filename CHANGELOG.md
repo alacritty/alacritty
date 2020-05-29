@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum Rust version has been bumped to 1.41.0
 - Prebuilt Linux binaries have been removed
 
+### Removed
+
+- Environment variable `RUST_LOG` for selecting the log level
+
 ### Added
 
 - Default Command+N keybinding for SpawnNewInstance on macOS
