@@ -124,7 +124,7 @@ impl Selection {
         let num_cols = num_cols.0;
 
         let (mut start, mut end) = (&mut self.region.start, &mut self.region.end);
-        if Selection::points_need_swap(start.point, end.point) {
+        if Self::points_need_swap(start.point, end.point) {
             mem::swap(&mut start, &mut end);
         }
 
@@ -176,7 +176,7 @@ impl Selection {
         match self.ty {
             SelectionType::Simple => {
                 let (mut start, mut end) = (self.region.start, self.region.end);
-                if Selection::points_need_swap(start.point, end.point) {
+                if Self::points_need_swap(start.point, end.point) {
                     mem::swap(&mut start, &mut end);
                 }
 

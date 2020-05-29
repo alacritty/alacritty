@@ -1194,29 +1194,17 @@ impl<T> Term<T> {
         // Move cursor.
         self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
 
-        self.vi_mode_recompute_selection();
-
-        self.dirty = true;
-    }
-
-    /// Update the active selection to match the vi mode cursor position.
-    #[inline]
-    fn vi_mode_recompute_selection(&mut self) {
-        // Require vi mode to be active.
-        if !self.mode.contains(TermMode::VI) {
-            return;
+        // Update selection if one is active.
+        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
+        if let Some(selection) = &mut self.selection {
+            // Do not extend empty selections started by a single mouse click.
+            if !selection.is_empty() {
+                selection.update(viewport_point, Side::Left);
+                selection.include_all();
+            }
         }
 
-        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
-
-        // Update only if non-empty selection is present.
-        let selection = match &mut self.selection {
-            Some(selection) if !selection.is_empty() => selection,
-            _ => return,
-        };
-
-        selection.update(viewport_point, Side::Left);
-        selection.include_all();
+        self.dirty = true;
     }
 
     #[inline]
@@ -1933,7 +1921,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn reverse_index(&mut self) {
         trace!("Reversing index");
-        // if cursor is at the top.
+
         if self.grid.cursor.point.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {

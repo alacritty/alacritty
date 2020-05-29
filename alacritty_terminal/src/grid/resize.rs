@@ -18,8 +18,8 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(reflow, cols),
-            Ordering::Greater => self.shrink_cols(reflow, cols),
+            Ordering::Less => self.grow_cols(cols, reflow),
+            Ordering::Greater => self.shrink_cols(cols, reflow),
             Ordering::Equal => (),
         }
     }
@@ -77,7 +77,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     /// Grow number of columns in each row, reflowing if necessary.
-    fn grow_cols(&mut self, reflow: bool, cols: Column) {
+    fn grow_cols(&mut self, cols: Column, reflow: bool) {
         // Check if a row needs to be wrapped.
         let should_reflow = |row: &Row<T>| -> bool {
             let len = Column(row.len());
@@ -92,7 +92,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         let mut rows = self.raw.take_all();
 
         for (i, mut row) in rows.drain(..).enumerate().rev() {
-            // Check if reflowing shoud be performed.
+            // Check if reflowing should be performed.
             let last_row = match reversed.last_mut() {
                 Some(last_row) if should_reflow(last_row) => last_row,
                 _ => {
@@ -116,7 +116,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 last_len -= 1;
             }
 
-            // Append as many cells from the next line as possible.
+            // Don't try to pull more cells from the next line than available.
             let len = min(row.len(), cols.0 - last_len);
 
             // Insert leading spacer when there's not enough room for reflowing wide char.
@@ -132,12 +132,12 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 row.front_split_off(len)
             };
 
-            // Add removed cells to previous row and reflow content.
+            // Reflow cells to previous row.
             last_row.append(&mut cells);
 
             if row.is_empty() {
                 if i + reversed.len() < self.lines.0 {
-                    // Add new line and move lines up if we can't pull from history.
+                    // Add new line and move everything up if we can't pull from history.
                     self.saved_cursor.point.line.0 = self.saved_cursor.point.line.saturating_sub(1);
                     self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
                     new_empty_lines += 1;
@@ -156,10 +156,10 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             reversed.push(row);
         }
 
-        // Add padding lines.
+        // Add all new empty lines in one go.
         reversed.append(&mut vec![Row::new(cols, T::default()); new_empty_lines]);
 
-        // Fill remaining cells and reverse iterator.
+        // Reverse iterator and fill all rows that are still too short.
         let mut new_raw = Vec::with_capacity(reversed.len());
         for mut row in reversed.drain(..).rev() {
             if row.len() < cols.0 {
@@ -174,8 +174,8 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         self.display_offset = min(self.display_offset, self.history_size());
     }
 
-    // Shrink number of columns in each row, reflowing if necessary.
-    fn shrink_cols(&mut self, reflow: bool, cols: Column) {
+    /// Shrink number of columns in each row, reflowing if necessary.
+    fn shrink_cols(&mut self, cols: Column, reflow: bool) {
         self.cols = cols;
 
         let mut rows = self.raw.take_all();
@@ -184,13 +184,13 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         let mut buffered: Option<Vec<T>> = None;
 
         for (i, mut row) in rows.drain(..).enumerate().rev() {
-            // Append lines left over from previous row.
+            // Append lines left over from the previous row.
             if let Some(buffered) = buffered.take() {
                 row.append_front(buffered);
             }
 
             loop {
-                // Check if reflowing should be performed.
+                // Remove all cells which require reflowing.
                 let mut wrapped = match row.shrink(cols) {
                     Some(wrapped) if reflow => wrapped,
                     _ => {
@@ -214,10 +214,12 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                     && wrapped[len - 1].flags().contains(Flags::WIDE_CHAR_SPACER)
                 {
                     if len == 1 {
+                        // Delete the wrapped content if it contains only a leading spacer.
                         row[cols - 1].flags_mut().insert(Flags::WRAPLINE);
                         new_raw.push(row);
                         break;
                     } else {
+                        // Remove the leading spacer from the end of the wrapped row.
                         wrapped[len - 2].flags_mut().insert(Flags::WRAPLINE);
                         wrapped.truncate(len - 1);
                     }
@@ -260,6 +262,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             }
         }
 
+        // Reverse iterator and use it as the new grid storage.
         let mut reversed: Vec<Row<T>> = new_raw.drain(..).rev().collect();
         reversed.truncate(self.max_scroll_limit + self.lines.0);
         self.raw.replace_inner(reversed);
