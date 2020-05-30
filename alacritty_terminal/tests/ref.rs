@@ -107,7 +107,7 @@ fn ref_test(dir: &Path) {
 
     // Truncate invisible lines from the grid.
     let mut term_grid = terminal.grid().clone();
-    term_grid.initialize_all(&Cell::default());
+    term_grid.initialize_all(Cell::default());
     term_grid.truncate();
 
     if grid != term_grid {

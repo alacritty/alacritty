@@ -95,7 +95,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Update selection.
         if self.terminal.mode().contains(TermMode::VI)
-            && self.terminal.selection().as_ref().map(|s| s.is_empty()) != Some(true)
+            && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if ElementState::Pressed == self.mouse().left_button_state {
@@ -116,11 +116,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true)
+        self.terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true)
     }
 
     fn clear_selection(&mut self) {
-        *self.terminal.selection_mut() = None;
+        self.terminal.selection = None;
         self.terminal.dirty = true;
     }
 
@@ -129,7 +129,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Update selection if one exists.
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
-        if let Some(selection) = self.terminal.selection_mut() {
+        if let Some(selection) = &mut self.terminal.selection {
             selection.update(point, side);
 
             if vi_mode {
@@ -142,12 +142,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::new(ty, point, side));
+        self.terminal.selection = Some(Selection::new(ty, point, side));
         self.terminal.dirty = true;
     }
 
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
-        match self.terminal.selection_mut() {
+        match &mut self.terminal.selection {
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
             },
@@ -745,7 +745,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Dump grid state.
         let mut grid = terminal.grid().clone();
-        grid.initialize_all(&Cell::default());
+        grid.initialize_all(Cell::default());
         grid.truncate();
 
         let serialized_grid = json::to_string(&grid).expect("serialize grid");

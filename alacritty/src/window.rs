@@ -420,7 +420,7 @@ impl Window {
     /// Adjust the IME editor position according to the new location of the cursor.
     #[cfg(not(windows))]
     pub fn update_ime_position<T>(&mut self, terminal: &Term<T>, size_info: &SizeInfo) {
-        let point = terminal.cursor().point;
+        let point = terminal.grid().cursor.point;
         let SizeInfo { cell_width, cell_height, padding_x, padding_y, .. } = size_info;
 
         let nspot_x = f64::from(padding_x + point.col.0 as f32 * cell_width);

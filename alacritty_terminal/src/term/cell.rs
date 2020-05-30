@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn line_length_works() {
         let template = Cell::default();
-        let mut row = Row::new(Column(10), &template);
+        let mut row = Row::new(Column(10), template);
         row[Column(5)].c = 'a';
 
         assert_eq!(row.line_length(), Column(6));
@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn line_length_works_with_wrapline() {
         let template = Cell::default();
-        let mut row = Row::new(Column(10), &template);
+        let mut row = Row::new(Column(10), template);
         row[Column(9)].flags.insert(super::Flags::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));

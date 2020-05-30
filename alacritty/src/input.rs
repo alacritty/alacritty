@@ -117,7 +117,7 @@ impl Action {
         ctx.toggle_selection(ty, cursor_point, Side::Left);
 
         // Make sure initial selection is not empty.
-        if let Some(selection) = ctx.terminal_mut().selection_mut() {
+        if let Some(selection) = &mut ctx.terminal_mut().selection {
             selection.include_all();
         }
     }

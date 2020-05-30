@@ -43,20 +43,20 @@ impl<T: PartialEq> PartialEq for Row<T> {
 }
 
 impl<T: Copy> Row<T> {
-    pub fn new(columns: Column, template: &T) -> Row<T>
+    pub fn new(columns: Column, template: T) -> Row<T>
     where
         T: GridCell,
     {
         let occ = if template.is_empty() { 0 } else { columns.0 };
-        Row { inner: vec![*template; columns.0], occ }
+        Row { inner: vec![template; columns.0], occ }
     }
 
-    pub fn grow(&mut self, cols: Column, template: &T) {
+    pub fn grow(&mut self, cols: Column, template: T) {
         if self.inner.len() >= cols.0 {
             return;
         }
 
-        self.inner.append(&mut vec![*template; cols.0 - self.len()]);
+        self.inner.append(&mut vec![template; cols.0 - self.len()]);
     }
 
     pub fn shrink(&mut self, cols: Column) -> Option<Vec<T>>
@@ -83,13 +83,11 @@ impl<T: Copy> Row<T> {
 
     /// Reset all cells in the row to the `template` cell.
     #[inline]
-    pub fn reset(&mut self, template: &T)
+    pub fn reset(&mut self, template: T)
     where
         T: GridCell + PartialEq,
     {
         debug_assert!(!self.inner.is_empty());
-
-        let template = *template;
 
         // Mark all cells as dirty if template cell changed.
         let len = self.inner.len();

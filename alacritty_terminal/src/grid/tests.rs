@@ -79,7 +79,7 @@ fn scroll_up() {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
+    grid.scroll_up(&(Line(0)..Line(10)), Line(2), 0);
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);
@@ -111,7 +111,7 @@ fn scroll_down() {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_down(&(Line(0)..Line(10)), Line(2), &0);
+    grid.scroll_down(&(Line(0)..Line(10)), Line(2), 0);
 
     assert_eq!(grid[Line(0)][Column(0)], 0); // was 8.
     assert_eq!(grid[Line(0)].occ, 0);
@@ -183,7 +183,7 @@ fn shrink_reflow() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = cell('5');
 
-    grid.resize(true, Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(1), Column(2));
 
     assert_eq!(grid.len(), 3);
 
@@ -209,8 +209,8 @@ fn shrink_reflow_twice() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = cell('5');
 
-    grid.resize(true, Line(1), Column(4), &mut Point::new(Line(0), Column(0)), &Cell::default());
-    grid.resize(true, Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(1), Column(4));
+    grid.resize(true, Line(1), Column(2));
 
     assert_eq!(grid.len(), 3);
 
@@ -236,7 +236,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = Cell::default();
 
-    grid.resize(true, Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(1), Column(2));
 
     assert_eq!(grid.len(), 2);
 
@@ -248,7 +248,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     assert_eq!(grid[0][Column(0)], cell('3'));
     assert_eq!(grid[0][Column(1)], cell('4'));
 
-    grid.resize(true, Line(1), Column(1), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(1), Column(1));
 
     assert_eq!(grid.len(), 4);
 
@@ -273,7 +273,7 @@ fn grow_reflow() {
     grid[Line(1)][Column(0)] = cell('3');
     grid[Line(1)][Column(1)] = Cell::default();
 
-    grid.resize(true, Line(2), Column(3), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(2), Column(3));
 
     assert_eq!(grid.len(), 2);
 
@@ -299,7 +299,7 @@ fn grow_reflow_multiline() {
     grid[Line(2)][Column(0)] = cell('5');
     grid[Line(2)][Column(1)] = cell('6');
 
-    grid.resize(true, Line(3), Column(6), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(true, Line(3), Column(6));
 
     assert_eq!(grid.len(), 3);
 
@@ -330,7 +330,7 @@ fn grow_reflow_disabled() {
     grid[Line(1)][Column(0)] = cell('3');
     grid[Line(1)][Column(1)] = Cell::default();
 
-    grid.resize(false, Line(2), Column(3), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(false, Line(2), Column(3));
 
     assert_eq!(grid.len(), 2);
 
@@ -354,7 +354,7 @@ fn shrink_reflow_disabled() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = cell('5');
 
-    grid.resize(false, Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(false, Line(1), Column(2));
 
     assert_eq!(grid.len(), 1);
 
