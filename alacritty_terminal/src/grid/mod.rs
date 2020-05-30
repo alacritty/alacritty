@@ -353,7 +353,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
     }
 
-    // Completely reset the grid state.
+    /// Completely reset the grid state.
     pub fn reset(&mut self, template: T) {
         self.clear_history();
 

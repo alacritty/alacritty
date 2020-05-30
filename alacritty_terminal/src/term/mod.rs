@@ -49,6 +49,9 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
 
+/// Minimum number of columns and lines.
+const MIN_SIZE: usize = 2;
+
 /// A type that can expand a given point to a region.
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -726,12 +729,16 @@ pub struct Term<T> {
     /// Terminal requires redraw.
     pub dirty: bool,
 
-    /// Vi mode cursor.
+    /// Visual bell configuration and status.
+    pub visual_bell: VisualBell,
+
+    /// Terminal focus controlling the cursor shape.
+    pub is_focused: bool,
+
+    /// Cursor for keyboard selection.
     pub vi_mode_cursor: ViModeCursor,
 
     pub selection: Option<Selection>,
-    pub visual_bell: VisualBell,
-    pub is_focused: bool,
 
     /// The grid.
     grid: Grid<Cell>,
@@ -1035,8 +1042,8 @@ impl<T> Term<T> {
     pub fn resize(&mut self, size: &SizeInfo) {
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
-        let num_cols = max(size.cols(), Column(2));
-        let num_lines = max(size.lines(), Line(2));
+        let num_cols = max(size.cols(), Column(MIN_SIZE));
+        let num_lines = max(size.lines(), Line(MIN_SIZE));
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");
