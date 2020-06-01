@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.4.3-rc1
+## 0.4.3
 
 ### Fixed
 
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash when writing a fullwidth character in the last column with auto-wrap mode disabled
 - Crashing at startup on Windows
 
-## 0.4.2-dev
+## 0.4.2
 
 ### Packaging
 
