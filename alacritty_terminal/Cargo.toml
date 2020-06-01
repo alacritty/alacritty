@@ -29,7 +29,7 @@ nix = "0.17.0"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]
-winpty = "0.2.0"
+winpty = { version = "0.2.0", optional = true }
 mio-named-pipes = "0.1"
 miow = "0.3"
 winapi = { version = "0.3.7", features = [
@@ -42,7 +42,7 @@ mio-anonymous-pipes = "0.1"
 objc = "0.2.2"
 
 [features]
-default = ["x11", "wayland"]
+default = ["x11", "wayland", "winpty"]
 x11 = ["copypasta/x11"]
 wayland = ["copypasta/wayland"]
 nightly = []
