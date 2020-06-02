@@ -24,20 +24,20 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
+#[cfg(feature = "winpty")]
+mod automatic_backend;
 mod child;
 mod conpty;
-#[cfg(feature = "winpty")]
-mod switchable_backends;
 #[cfg(feature = "winpty")]
 mod winpty;
 
 #[cfg(not(feature = "winpty"))]
-pub use conpty::Conpty as Backend;
+use conpty::Conpty as Backend;
 #[cfg(not(feature = "winpty"))]
-pub use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
+use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 
 #[cfg(feature = "winpty")]
-pub use switchable_backends::{
+use automatic_backend::{
     EventedReadablePipe as ReadPipe, EventedWritablePipe as WritePipe, PtyBackend as Backend,
 };
 
@@ -60,7 +60,26 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
 
 #[cfg(feature = "winpty")]
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
-    switchable_backends::new(config, size, window_id)
+    automatic_backend::new(config, size, window_id)
+}
+
+impl Pty {
+    fn new(
+        backend: impl Into<Backend>,
+        conout: impl Into<ReadPipe>,
+        conin: impl Into<WritePipe>,
+        child_watcher: ChildExitWatcher,
+    ) -> Self {
+        Self {
+            backend: backend.into(),
+            conout: conout.into(),
+            conin: conin.into(),
+            read_token: 0.into(),
+            write_token: 0.into(),
+            child_event_token: 0.into(),
+            child_watcher,
+        }
+    }
 }
 
 impl EventedReadWrite for Pty {

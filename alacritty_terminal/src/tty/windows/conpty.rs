@@ -231,15 +231,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let conpty = Conpty { handle: pty_handle, api };
 
-    Some(Pty {
-        backend: super::Backend::from(conpty),
-        conout: super::ReadPipe::from(conout),
-        conin: super::WritePipe::from(conin),
-        read_token: 0.into(),
-        write_token: 0.into(),
-        child_event_token: 0.into(),
-        child_watcher,
-    })
+    Some(Pty::new(conpty, conout, conin, child_watcher))
 }
 
 // Panic with the last os error as message.
