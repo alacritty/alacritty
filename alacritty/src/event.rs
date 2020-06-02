@@ -629,8 +629,9 @@ impl<N: Notify + OnResize> Processor<N> {
                         }
                     },
                     WindowEvent::DroppedFile(path) => {
+                        const PATH_SEPARATOR: &str = " ";
                         let path: String = path.to_string_lossy().into();
-                        processor.ctx.write_to_pty(path.into_bytes());
+                        processor.ctx.write_to_pty((path + PATH_SEPARATOR).into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_grid = false;
