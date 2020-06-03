@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Shift + Backspace` now sends `^?` instead of `^H`
 - Default color scheme is now `Tomorrow Night` with the bright colors of `Tomorrow Night Bright`
 - Set IUTF8 termios flag for improved UTF8 input support
+- Dragging files into terminal now adds a space after each path
 
 ### Fixed
 

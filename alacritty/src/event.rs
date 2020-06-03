@@ -630,7 +630,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        processor.ctx.write_to_pty(path.into_bytes());
+                        processor.ctx.write_to_pty((path + " ").into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_grid = false;
