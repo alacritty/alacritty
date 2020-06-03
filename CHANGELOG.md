@@ -40,21 +40,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Tabstops not being reset with `reset`
 - Selection not cleared when switching between main and alt grid
+- Freeze when application is invisible on Wayland
+- Paste from some apps on Wayland
+- Slow startup with Nvidia binary drivers on some X11 systems
+- Display not scrolling when printing new lines while scrolled in history
+
+## 0.4.3
+
+### Fixed
+
+- Tabstops not being reset with `reset`
 - Fallback to `LC_CTYPE=UTF-8` on macOS without valid system locale
 - Resize lag on launch under some X11 wms
 - Increased input latency due to vsync behavior on X11
-- Freeze when application is invisible on Wayland
 - Emoji colors blending with terminal background
 - Fix escapes prematurely terminated by terminators in unicode glyphs
 - Incorrect location when clicking inside an unfocused window on macOS
 - Startup mode `Maximized` on Windows
 - Crash when writing a fullwidth character in the last column with auto-wrap mode disabled
-- Paste from some apps on Wayland
-- Slow startup with Nvidia binary drivers on some X11 systems
-- Display not scrolling when printing new lines while scrolled in history
-
+- Crashing at startup on Windows
 
 ## 0.4.2
 
