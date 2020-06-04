@@ -1,10 +1,10 @@
 use std::os::raw::c_ulong;
 
-use serde::Deserialize;
+use log::error;
+use serde::{Deserialize, Deserializer};
+use serde_yaml::Value;
 
-use crate::config::{
-    failure_default, from_string_or_deserialize, option_explicit_none, Delta, FromString,
-};
+use crate::config::{failure_default, option_explicit_none, Delta, LOG_TARGET_CONFIG};
 use crate::index::{Column, Line};
 
 /// Default Alacritty name, used for window title and class.
@@ -42,7 +42,7 @@ pub struct WindowConfig {
     pub title: String,
 
     /// Window class.
-    #[serde(deserialize_with = "from_string_or_deserialize")]
+    #[serde(deserialize_with = "failure_default")]
     pub class: Class,
 
     /// XEmbed parent.
@@ -158,8 +158,7 @@ impl Dimensions {
 }
 
 /// Window class hint.
-#[serde(default)]
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     pub instance: String,
     pub general: String,
@@ -171,8 +170,26 @@ impl Default for Class {
     }
 }
 
-impl FromString for Class {
-    fn from(value: String) -> Self {
-        Class { instance: value, general: DEFAULT_NAME.into() }
+impl<'a> Deserialize<'a> for Class {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let value = Value::deserialize(deserializer)?;
+
+        if let Value::String(instance) = value {
+            return Ok(Class { instance, general: DEFAULT_NAME.into() });
+        }
+
+        match Self::deserialize(value) {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using class Alacritty", err
+                );
+                Ok(Self::default())
+            },
+        }
     }
 }

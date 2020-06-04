@@ -14,7 +14,7 @@
 //
 //! TTY related functionality.
 
-use crate::config::{Config, Shell};
+use crate::config::{Config, Program};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
@@ -163,14 +163,14 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
         let shell_name = pw.shell.rsplit('/').next().unwrap();
         let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
 
-        Shell::new_with_args("/bin/bash", argv)
+        Program::WithArgs { program: "/bin/bash".to_owned(), args: argv }
     } else {
-        Shell::new(pw.shell)
+        Program::Just(pw.shell.to_owned())
     };
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    let mut builder = Command::new(&*shell.program);
-    for arg in &shell.args {
+    let mut builder = Command::new(&*shell.program());
+    for arg in shell.args() {
         builder.arg(arg);
     }
 
@@ -246,7 +246,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
             pty.on_resize(size);
             pty
         },
-        Err(err) => die!("Failed to spawn command '{}': {}", shell.program, err),
+        Err(err) => die!("Failed to spawn command '{}': {}", shell.program(), err),
     }
 }
 

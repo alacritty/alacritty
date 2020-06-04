@@ -22,6 +22,7 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
+use alacritty_terminal::config::Program;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
@@ -94,7 +95,7 @@ pub enum Action {
 
     /// Run given command.
     #[serde(skip)]
-    Command(String, Vec<String>),
+    Command(Program),
 
     /// Move vi mode cursor.
     #[serde(skip)]
@@ -763,7 +764,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
-                let mut command: Option<CommandWrapper> = None;
+                let mut command: Option<Program> = None;
 
                 use de::Error;
 
@@ -860,7 +861,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("command"));
                             }
 
-                            command = Some(map.next_value::<CommandWrapper>()?);
+                            command = Some(map.next_value::<Program>()?);
                         },
                     }
                 }
@@ -882,12 +883,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                     },
                     (Some(action), None, None) => action,
                     (None, Some(chars), None) => Action::Esc(chars),
-                    (None, None, Some(cmd)) => match cmd {
-                        CommandWrapper::Just(program) => Action::Command(program, vec![]),
-                        CommandWrapper::WithArgs { program, args } => {
-                            Action::Command(program, args)
-                        },
-                    },
+                    (None, None, Some(cmd)) => Action::Command(cmd),
                     _ => {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",
@@ -926,33 +922,6 @@ impl<'a> Deserialize<'a> for KeyBinding {
         let raw = RawBinding::deserialize(deserializer)?;
         raw.into_key_binding()
             .map_err(|_| D::Error::custom("expected key binding, got mouse binding"))
-    }
-}
-
-#[serde(untagged)]
-#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
-pub enum CommandWrapper {
-    Just(String),
-    WithArgs {
-        program: String,
-        #[serde(default)]
-        args: Vec<String>,
-    },
-}
-
-impl CommandWrapper {
-    pub fn program(&self) -> &str {
-        match self {
-            CommandWrapper::Just(program) => program,
-            CommandWrapper::WithArgs { program, .. } => program,
-        }
-    }
-
-    pub fn args(&self) -> &[String] {
-        match self {
-            CommandWrapper::Just(_) => &[],
-            CommandWrapper::WithArgs { args, .. } => args,
-        }
     }
 }
 
