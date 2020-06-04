@@ -515,8 +515,12 @@ impl Font {
             kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
         );
 
+        let is_colored = self.is_colored();
+
         // Set background color for graphics context.
-        cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 0.0);
+        let bg_a = if is_colored { 0.0 } else { 1.0 };
+        cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, bg_a);
+
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
             &CGSize::new(f64::from(rasterized_width), f64::from(rasterized_height)),
@@ -550,7 +554,7 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = if self.is_colored() {
+        let buf = if is_colored {
             BitmapBuffer::RGBA(byte_order::extract_rgba(&rasterized_pixels))
         } else {
             BitmapBuffer::RGB(byte_order::extract_rgb(&rasterized_pixels))
