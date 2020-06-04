@@ -486,7 +486,6 @@ impl Font {
             self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(character))?;
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
-        let is_colored = self.is_colored();
 
         let rasterized_left = bounds.origin.x.floor() as i32;
         let rasterized_width =
@@ -515,6 +514,8 @@ impl Font {
             &CGColorSpace::create_device_rgb(),
             kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
         );
+
+        let is_colored = self.is_colored();
 
         // Set background color for graphics context.
         let bg_a = if is_colored { 0.0 } else { 1.0 };
