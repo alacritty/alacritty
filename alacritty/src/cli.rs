@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, error, LevelFilter};
 
-use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
+use alacritty_terminal::config::{Delta, Dimensions, Program, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
 
 use crate::config::Config;
@@ -41,7 +41,7 @@ pub struct Options {
     pub class: Option<String>,
     pub embed: Option<String>,
     pub log_level: LevelFilter,
-    pub command: Option<Shell<'static>>,
+    pub command: Option<Program>,
     pub hold: bool,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
@@ -243,9 +243,9 @@ impl Options {
             // The following unwrap is guaranteed to succeed.
             // If `command` exists it must also have a first item since
             // `Arg::min_values(1)` is set.
-            let command = String::from(args.next().unwrap());
+            let program = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
-            options.command = Some(Shell::new_with_args(command, args));
+            options.command = Some(Program::WithArgs { program, args });
         }
 
         if matches.is_present("hold") {

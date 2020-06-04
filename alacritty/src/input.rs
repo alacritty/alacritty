@@ -147,7 +147,9 @@ impl<T: EventListener> Execute<T> for Action {
                 let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
                 paste(ctx, &text);
             },
-            Action::Command(ref program, ref args) => {
+            Action::Command(ref program) => {
+                let args = program.args();
+                let program = program.program();
                 trace!("Running command {} with args {:?}", program, args);
 
                 match start_daemon(program, args) {

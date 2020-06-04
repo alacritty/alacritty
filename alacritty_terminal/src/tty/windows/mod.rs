@@ -18,7 +18,7 @@ use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
 
-use crate::config::{Config, Shell};
+use crate::config::{Config, Program};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -197,11 +197,11 @@ impl OnResize for Pty {
 }
 
 fn cmdline<C>(config: &Config<C>) -> String {
-    let default_shell = Shell::new("powershell");
+    let default_shell = Program::Just("powershell".to_owned());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program.as_ref())
-        .chain(shell.args.iter().map(|a| a.as_ref()))
+    once(shell.program().as_ref())
+        .chain(shell.args().iter().map(|a| a.as_ref()))
         .collect::<Vec<_>>()
         .join(" ")
 }
