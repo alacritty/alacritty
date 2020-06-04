@@ -6,7 +6,6 @@ use std::io::{self, Read};
 use std::path::Path;
 
 use alacritty_terminal::ansi;
-use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::MockConfig;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::index::Column;
@@ -98,7 +97,7 @@ fn ref_test(dir: &Path) {
     let mut config = MockConfig::default();
     config.scrolling.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
+    let mut terminal = Term::new(&config, &size, Mock);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

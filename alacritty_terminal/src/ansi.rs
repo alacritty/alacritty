@@ -320,11 +320,11 @@ pub trait Handler {
     /// Reset an indexed color to original value.
     fn reset_color(&mut self, _: usize) {}
 
-    /// Set the clipboard.
-    fn set_clipboard(&mut self, _: u8, _: &[u8]) {}
+    /// Request to set a clipboard.
+    fn request_clipboard_set(&mut self, _: u8, _: &[u8]) {}
 
-    /// Write clipboard data to child.
-    fn write_clipboard<W: io::Write>(&mut self, _: u8, _: &mut W, _: &str) {}
+    /// Request to paste to a child.
+    fn request_clipboard_write(&mut self, _: u8, _: &str) {}
 
     /// Run the decaln routine.
     fn decaln(&mut self) {}
@@ -905,8 +905,8 @@ where
 
                 let clipboard = params[1].get(0).unwrap_or(&b'c');
                 match params[2] {
-                    b"?" => self.handler.write_clipboard(*clipboard, writer, terminator),
-                    base64 => self.handler.set_clipboard(*clipboard, base64),
+                    b"?" => self.handler.request_clipboard_write(*clipboard, terminator),
+                    base64 => self.handler.request_clipboard_set(*clipboard, base64),
                 }
             },
 

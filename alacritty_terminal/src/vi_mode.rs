@@ -412,7 +412,6 @@ fn is_boundary<T>(term: &Term<T>, point: Point<usize>, left: bool) -> bool {
 mod tests {
     use super::*;
 
-    use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::Event;
     use crate::index::{Column, Line};
@@ -433,7 +432,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
+        Term::new(&MockConfig::default(), &size, Mock)
     }
 
     #[test]
