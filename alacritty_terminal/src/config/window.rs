@@ -42,7 +42,7 @@ pub struct WindowConfig {
     pub title: String,
 
     /// Window class.
-    #[serde(deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "deserialize_class")]
     pub class: Class,
 
     /// XEmbed parent.
@@ -158,9 +158,13 @@ impl Dimensions {
 }
 
 /// Window class hint.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[serde(default)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {
+    #[serde(deserialize_with = "deserialize_class_resource")]
     pub instance: String,
+
+    #[serde(deserialize_with = "deserialize_class_resource")]
     pub general: String,
 }
 
@@ -170,26 +174,42 @@ impl Default for Class {
     }
 }
 
-impl<'a> Deserialize<'a> for Class {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        let value = Value::deserialize(deserializer)?;
+fn deserialize_class_resource<'a, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'a>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match String::deserialize(value) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: {}, using default value {}", err, DEFAULT_NAME,
+            );
 
-        if let Value::String(instance) = value {
-            return Ok(Class { instance, general: DEFAULT_NAME.into() });
-        }
+            Ok(DEFAULT_NAME.into())
+        },
+    }
+}
 
-        match Self::deserialize(value) {
-            Ok(value) => Ok(value),
-            Err(err) => {
-                error!(
-                    target: LOG_TARGET_CONFIG,
-                    "Problem with config: {}; using class Alacritty", err
-                );
-                Ok(Self::default())
-            },
-        }
+fn deserialize_class<'a, D>(deserializer: D) -> Result<Class, D::Error>
+where
+    D: Deserializer<'a>,
+{
+    let value = Value::deserialize(deserializer)?;
+
+    if let Value::String(instance) = value {
+        return Ok(Class { instance, general: DEFAULT_NAME.into() });
+    }
+
+    match Class::deserialize(value) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: {}; using class {}", err, DEFAULT_NAME
+            );
+            Ok(Class::default())
+        },
     }
 }
