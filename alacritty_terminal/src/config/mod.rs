@@ -277,12 +277,24 @@ impl Default for Cursor {
     }
 }
 
-pub fn deserialize_cursor_thickness<'a, D>(deserializer: D) -> Result<Percentage, D::Error>
+fn deserialize_cursor_thickness<'a, D>(deserializer: D) -> Result<Percentage, D::Error>
 where
     D: Deserializer<'a>,
 {
-    Ok(Percentage::deserialize(Value::deserialize(deserializer)?)
-        .unwrap_or_else(|_| Percentage::new(DEFAULT_CURSOR_THICKNESS)))
+    let value = Value::deserialize(deserializer)?;
+    match Percentage::deserialize(value) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: {}, using default thickness value {}",
+                err,
+                DEFAULT_CURSOR_THICKNESS
+            );
+
+            Ok(Percentage::new(DEFAULT_CURSOR_THICKNESS))
+        },
+    }
 }
 
 #[serde(untagged)]
