@@ -2142,7 +2142,6 @@ pub enum ClipboardType {
     Selection,
 }
 
-
 struct TabStops {
     tabs: Vec<bool>,
 }

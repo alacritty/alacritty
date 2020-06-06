@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::message_bar::Message;
 use crate::term::{ClipboardType, SizeInfo};
