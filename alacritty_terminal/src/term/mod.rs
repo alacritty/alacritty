@@ -1796,17 +1796,11 @@ impl<T: EventListener> Handler for Term<T> {
             _ => return,
         };
 
-        let bytes = match base64::decode(base64) {
-            Ok(bytes) => bytes,
-            Err(_) => return,
-        };
-
-        let text = match String::from_utf8(bytes) {
-            Ok(text) => text,
-            Err(_) => return,
-        };
-
-        self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
+        if let Ok(bytes) = base64::decode(base64) {
+            if let Ok(text) = String::from_utf8(bytes) {
+                self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
+            }
+        }
     }
 
     /// Load data from clipboard.
