@@ -5,10 +5,7 @@ use log::{debug, warn};
 
 use alacritty_terminal::term::ClipboardType;
 
-#[cfg(any(
-    test,
-    all(feature = "wayland", not(any(feature = "x11", target_os = "macos", windows)))
-))]
+#[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(all(not(any(target_os = "macos", windows)), feature = "wayland"))]
 use copypasta::wayland_clipboard;
@@ -53,12 +50,9 @@ impl Clipboard {
         return Self::new_nop();
     }
 
-    /// Use for tests, ref-tests, and to handle missing clipboard provider, when build with either
-    /// only `wayland` or `x11 features.
-    #[cfg(any(
-        test,
-        all(feature = "wayland", not(any(feature = "x11", target_os = "macos", windows)))
-    ))]
+    /// Used for tests and to handle missing clipboard provider when built without the `x11`
+    /// feature.
+    #[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
     pub fn new_nop() -> Self {
         Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
     }

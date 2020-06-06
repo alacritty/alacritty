@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::path::PathBuf;
@@ -13,7 +14,7 @@ pub enum Event {
     Message(Message),
     Title(String),
     ClipboardStore(ClipboardType, String),
-    ClipboardLoad(ClipboardType, std::sync::Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
+    ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
     Wakeup,
     Urgent,
     Exit,

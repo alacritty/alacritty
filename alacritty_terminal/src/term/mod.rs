@@ -1302,12 +1302,6 @@ impl<T> TermInfo for Term<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClipboardType {
-    Clipboard,
-    Selection,
-}
-
 impl<T: EventListener> Handler for Term<T> {
     /// A character to be displayed.
     #[inline]
@@ -2141,6 +2135,13 @@ impl<T: EventListener> Handler for Term<T> {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClipboardType {
+    Clipboard,
+    Selection,
+}
+
 
 struct TabStops {
     tabs: Vec<bool>,

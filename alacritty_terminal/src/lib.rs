@@ -9,7 +9,6 @@
 extern crate objc;
 
 pub mod ansi;
-pub mod clipboard;
 pub mod config;
 pub mod event;
 pub mod event_loop;
