@@ -2,6 +2,7 @@
 
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
 
@@ -1816,7 +1817,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         self.event_proxy.send_event(Event::ClipboardLoad(
             clipboard_type,
-            std::sync::Arc::new(move |text| {
+            Arc::new(move |text| {
                 let base64 = base64::encode(&text);
                 format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
             }),
