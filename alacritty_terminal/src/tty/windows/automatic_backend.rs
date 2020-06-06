@@ -1,8 +1,9 @@
-/// Types to determine the appropriate PTY backend at runtime.
-///
-/// Unless the winpty feature is disabled, the PTY backend will automatically fall back to
-/// WinPTY when the newer ConPTY API is not supported, as long as the user hasn't explicitly
-/// opted into the WinPTY config option.
+//! Types to determine the appropriate PTY backend at runtime.
+//!
+//! Unless the winpty feature is disabled, the PTY backend will automatically fall back to
+//! WinPTY when the newer ConPTY API is not supported, as long as the user hasn't explicitly
+//! opted into the WinPTY config option.
+
 use std::io::{self, Read, Write};
 
 use log::info;

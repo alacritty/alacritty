@@ -1,4 +1,5 @@
 //! The main event loop which performs I/O on the pseudoterminal.
+
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::fs::File;

@@ -1,4 +1,5 @@
 //! Process window events.
+
 use std::borrow::Cow;
 use std::cmp::max;
 use std::env;
