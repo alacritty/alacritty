@@ -23,7 +23,6 @@ use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::event::Event;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -35,6 +34,7 @@ use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
 
 mod cli;
+mod clipboard;
 mod config;
 mod cursor;
 mod display;
@@ -136,18 +136,12 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
 
     info!("PTY dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
 
-    // Create new native clipboard.
-    #[cfg(not(any(target_os = "macos", windows)))]
-    let clipboard = Clipboard::new(display.window.wayland_display());
-    #[cfg(any(target_os = "macos", windows))]
-    let clipboard = Clipboard::new();
-
     // Create the terminal.
     //
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, &display.size_info, clipboard, event_proxy.clone());
+    let terminal = Term::new(&config, &display.size_info, event_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Create the PTY.

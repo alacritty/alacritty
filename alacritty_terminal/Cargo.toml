@@ -22,7 +22,6 @@ log = "0.4"
 unicode-width = "0.1"
 base64 = "0.11.0"
 terminfo = "0.7.1"
-copypasta = { version = "0.7.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.17.0"
@@ -42,9 +41,7 @@ mio-anonymous-pipes = "0.1"
 objc = "0.2.2"
 
 [features]
-default = ["x11", "wayland", "winpty"]
-x11 = ["copypasta/x11"]
-wayland = ["copypasta/wayland"]
+default = ["winpty"]
 nightly = []
 bench = []
 

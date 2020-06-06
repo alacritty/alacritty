@@ -3,6 +3,9 @@ use std::ffi::c_void;
 
 use log::{debug, warn};
 
+use alacritty_terminal::term::ClipboardType;
+
+#[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(all(not(any(target_os = "macos", windows)), feature = "wayland"))]
 use copypasta::wayland_clipboard;
@@ -47,7 +50,9 @@ impl Clipboard {
         return Self::new_nop();
     }
 
-    // Use for tests and ref-tests.
+    /// Used for tests and to handle missing clipboard provider when built without the `x11`
+    /// feature.
+    #[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
     pub fn new_nop() -> Self {
         Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
     }
@@ -60,12 +65,6 @@ impl Default for Clipboard {
         #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
         return Self::new_nop();
     }
-}
-
-#[derive(Debug)]
-pub enum ClipboardType {
-    Clipboard,
-    Selection,
 }
 
 impl Clipboard {

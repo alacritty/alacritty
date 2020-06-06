@@ -372,7 +372,6 @@ impl Selection {
 mod tests {
     use super::*;
 
-    use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
     use crate::index::{Column, Line, Point, Side};
@@ -393,7 +392,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
+        Term::new(&MockConfig::default(), &size, Mock)
     }
 
     /// Test case of single cell selection.

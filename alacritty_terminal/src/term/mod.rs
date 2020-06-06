@@ -2,6 +2,7 @@
 
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
 
@@ -12,7 +13,6 @@ use unicode_width::UnicodeWidthChar;
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset, TermInfo,
 };
-use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
 use crate::event::{Event, EventListener};
 use crate::grid::{
@@ -777,9 +777,6 @@ pub struct Term<T> {
     /// Style of the vi mode cursor.
     vi_mode_cursor_style: Option<CursorStyle>,
 
-    /// Clipboard access coupled to the active window.
-    clipboard: Clipboard,
-
     /// Proxy for sending events to the event loop.
     event_proxy: T,
 
@@ -808,12 +805,7 @@ impl<T> Term<T> {
         self.dirty = true;
     }
 
-    pub fn new<C>(
-        config: &Config<C>,
-        size: &SizeInfo,
-        clipboard: Clipboard,
-        event_proxy: T,
-    ) -> Term<T> {
+    pub fn new<C>(config: &Config<C>, size: &SizeInfo, event_proxy: T) -> Term<T> {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -847,7 +839,6 @@ impl<T> Term<T> {
             default_cursor_style: config.cursor.style,
             vi_mode_cursor_style: config.cursor.vi_mode_style,
             dynamic_title: config.dynamic_title(),
-            clipboard,
             event_proxy,
             is_focused: true,
             title: None,
@@ -1151,11 +1142,6 @@ impl<T> Term<T> {
         T: EventListener,
     {
         self.event_proxy.send_event(Event::Exit);
-    }
-
-    #[inline]
-    pub fn clipboard(&mut self) -> &mut Clipboard {
-        &mut self.clipboard
     }
 
     /// Toggle the vi mode.
@@ -1802,9 +1788,9 @@ impl<T: EventListener> Handler for Term<T> {
         self.color_modified[index] = false;
     }
 
-    /// Set the clipboard.
+    /// Store data into clipboard.
     #[inline]
-    fn set_clipboard(&mut self, clipboard: u8, base64: &[u8]) {
+    fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
@@ -1812,25 +1798,30 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         if let Ok(bytes) = base64::decode(base64) {
-            if let Ok(text) = str::from_utf8(&bytes) {
-                self.clipboard.store(clipboard_type, text);
+            if let Ok(text) = String::from_utf8(bytes) {
+                self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
             }
         }
     }
 
-    /// Write clipboard data to child.
+    /// Load data from clipboard.
     #[inline]
-    fn write_clipboard<W: io::Write>(&mut self, clipboard: u8, writer: &mut W, terminator: &str) {
+    fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
             _ => return,
         };
 
-        let text = self.clipboard.load(clipboard_type);
-        let base64 = base64::encode(&text);
-        let escape = format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator);
-        let _ = writer.write_all(escape.as_bytes());
+        let terminator = terminator.to_owned();
+
+        self.event_proxy.send_event(Event::ClipboardLoad(
+            clipboard_type,
+            Arc::new(move |text| {
+                let base64 = base64::encode(&text);
+                format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
+            }),
+        ));
     }
 
     #[inline]
@@ -2140,6 +2131,12 @@ impl<T: EventListener> Handler for Term<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClipboardType {
+    Clipboard,
+    Selection,
+}
+
 struct TabStops {
     tabs: Vec<bool>,
 }
@@ -2195,7 +2192,6 @@ mod tests {
     use std::mem;
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
-    use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
@@ -2219,7 +2215,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2275,7 +2271,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2304,7 +2300,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2349,7 +2345,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2368,7 +2364,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), Cell::default());
@@ -2398,7 +2394,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2426,7 +2422,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2460,7 +2456,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2488,7 +2484,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2522,7 +2518,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let mut term = Term::new(&MockConfig::default(), &size, Mock);
 
         // Title None by default.
         assert_eq!(term.title, None);
@@ -2576,7 +2572,6 @@ mod benches {
     use std::fs;
     use std::mem;
 
-    use crate::clipboard::Clipboard;
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
     use crate::grid::Grid;
@@ -2617,7 +2612,7 @@ mod benches {
 
         let config = MockConfig::default();
 
-        let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
+        let mut terminal = Term::new(&config, &size, Mock);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

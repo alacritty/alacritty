@@ -21,17 +21,17 @@ use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
-use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{self, Message};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::mode::TermMode;
-use alacritty_terminal::term::{SizeInfo, Term};
+use alacritty_terminal::term::{ClipboardType, SizeInfo, Term};
 use alacritty_terminal::util::start_daemon;
 use alacritty_terminal::vi_mode::ViMotion;
 
+use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::event::{ClickState, Mouse};
 use crate::url::{Url, Urls};
@@ -77,6 +77,7 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
+    fn clipboard(&mut self) -> &mut Clipboard;
     fn urls(&self) -> &Urls;
     fn launch_url(&self, url: Url);
     fn mouse_mode(&self) -> bool;
@@ -127,11 +128,11 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::Paste => {
-                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
+                let text = ctx.clipboard().load(ClipboardType::Clipboard);
                 paste(ctx, &text);
             },
             Action::PasteSelection => {
-                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
+                let text = ctx.clipboard().load(ClipboardType::Selection);
                 paste(ctx, &text);
             },
             Action::Command(ref program) => {
@@ -881,14 +882,14 @@ mod tests {
     };
     use glutin::event_loop::EventLoopWindowTarget;
 
-    use alacritty_terminal::clipboard::{Clipboard, ClipboardType};
     use alacritty_terminal::event::{Event as TerminalEvent, EventListener};
     use alacritty_terminal::grid::Scroll;
     use alacritty_terminal::index::{Point, Side};
     use alacritty_terminal::message_bar::{Message, MessageBuffer};
     use alacritty_terminal::selection::{Selection, SelectionType};
-    use alacritty_terminal::term::{SizeInfo, Term, TermMode};
+    use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 
+    use crate::clipboard::Clipboard;
     use crate::config::{ClickHandler, Config};
     use crate::event::{ClickState, Mouse};
     use crate::url::{Url, Urls};
@@ -909,6 +910,7 @@ mod tests {
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
+        pub clipboard: &'a mut Clipboard,
         pub message_buffer: &'a mut MessageBuffer,
         pub received_count: usize,
         pub suppress_chars: bool,
@@ -1020,6 +1022,10 @@ mod tests {
             unimplemented!();
         }
 
+        fn clipboard(&mut self) -> &mut Clipboard {
+            self.clipboard
+        }
+
         fn launch_url(&self, _: Url) {
             unimplemented!();
         }
@@ -1057,7 +1063,9 @@ mod tests {
                     dpr: 1.0,
                 };
 
-                let mut terminal = Term::new(&cfg, &size, Clipboard::new_nop(), MockEventProxy);
+                let mut clipboard = Clipboard::new_nop();
+
+                let mut terminal = Term::new(&cfg, &size, MockEventProxy);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
@@ -1071,6 +1079,7 @@ mod tests {
                     selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
+                    clipboard: &mut clipboard,
                     received_count: 0,
                     suppress_chars: false,
                     modifiers: Default::default(),

@@ -27,7 +27,6 @@ use serde_json as json;
 use font::set_font_smoothing;
 use font::{self, Size};
 
-use alacritty_terminal::clipboard::ClipboardType;
 use alacritty_terminal::config::Font;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::OnResize;
@@ -38,12 +37,13 @@ use alacritty_terminal::message_bar::{Message, MessageBuffer};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::{SizeInfo, Term, TermMode};
+use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
 
 use crate::cli::Options;
+use crate::clipboard::Clipboard;
 use crate::config;
 use crate::config::Config;
 use crate::display::Display;
@@ -68,6 +68,7 @@ impl DisplayUpdate {
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
+    pub clipboard: &'a mut Clipboard,
     pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
     pub received_count: &'a mut usize,
@@ -111,7 +112,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn copy_selection(&mut self, ty: ClipboardType) {
         if let Some(selected) = self.terminal.selection_to_string() {
             if !selected.is_empty() {
-                self.terminal.clipboard().store(ty, selected);
+                self.clipboard.store(ty, selected);
             }
         }
     }
@@ -281,6 +282,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.urls
     }
 
+    fn clipboard(&mut self) -> &mut Clipboard {
+        self.clipboard
+    }
+
     /// Spawn URL launcher when clicking on URLs.
     fn launch_url(&self, url: Url) {
         if self.mouse.block_url_launcher {
@@ -358,6 +363,7 @@ pub struct Processor<N> {
     mouse: Mouse,
     received_count: usize,
     suppress_chars: bool,
+    clipboard: Clipboard,
     modifiers: ModifiersState,
     config: Config,
     message_buffer: MessageBuffer,
@@ -376,6 +382,11 @@ impl<N: Notify + OnResize> Processor<N> {
         config: Config,
         display: Display,
     ) -> Processor<N> {
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let clipboard = Clipboard::new(display.window.wayland_display());
+        #[cfg(any(target_os = "macos", windows))]
+        let clipboard = Clipboard::new();
+
         Processor {
             notifier,
             mouse: Default::default(),
@@ -387,6 +398,7 @@ impl<N: Notify + OnResize> Processor<N> {
             message_buffer,
             display,
             event_queue: Vec::new(),
+            clipboard,
         }
     }
 
@@ -472,6 +484,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
+                clipboard: &mut self.clipboard,
                 size_info: &mut self.display.size_info,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
@@ -568,6 +581,13 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.message_buffer.push(message);
                     processor.ctx.display_update_pending.message_buffer = true;
                     processor.ctx.terminal.dirty = true;
+                },
+                Event::ClipboardStore(clipboard_type, content) => {
+                    processor.ctx.clipboard.store(clipboard_type, content);
+                },
+                Event::ClipboardLoad(clipboard_type, format) => {
+                    let text = format(processor.ctx.clipboard.load(clipboard_type).as_str());
+                    processor.ctx.write_to_pty(text.into_bytes());
                 },
                 Event::MouseCursorDirty => processor.reset_mouse_cursor(),
                 Event::Exit => (),
