@@ -1,37 +1,38 @@
-use std::convert::From;
+#[rustfmt::skip]
 #[cfg(not(any(target_os = "macos", windows)))]
-use std::ffi::c_void;
+use {
+    std::ffi::c_void,
+    std::os::raw::c_ulong,
+    std::sync::atomic::AtomicBool,
+    std::sync::Arc,
+
+    glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix},
+    image::ImageFormat,
+    log::error,
+    wayland_client::protocol::wl_surface::WlSurface,
+    wayland_client::{Attached, EventQueue, Proxy},
+    x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
+
+    alacritty_terminal::config::Colors,
+
+    crate::wayland_theme::AlacrittyWaylandTheme,
+};
+
 use std::fmt::{self, Display, Formatter};
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::os::raw::c_ulong;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::sync::atomic::AtomicBool;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::sync::Arc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
-#[cfg(not(any(target_os = "macos", windows)))]
-use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
 #[cfg(windows)]
 use glutin::platform::windows::IconExtWindows;
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
-#[cfg(not(any(target_os = "macos", windows)))]
-use image::ImageFormat;
-#[cfg(not(any(target_os = "macos", windows)))]
-use log::error;
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
-#[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-#[cfg(not(any(target_os = "macos", windows)))]
-use alacritty_terminal::config::Colors;
 use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
 #[cfg(not(windows))]
@@ -39,14 +40,6 @@ use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
 use crate::gl;
-#[cfg(not(any(target_os = "macos", windows)))]
-use crate::wayland_theme::AlacrittyWaylandTheme;
-
-#[cfg(not(any(target_os = "macos", windows)))]
-use wayland_client::{Attached, EventQueue, Proxy};
-
-#[cfg(not(any(target_os = "macos", windows)))]
-use wayland_client::protocol::wl_surface::WlSurface;
 
 // It's required to be in this directory due to the `windows.rc` file.
 #[cfg(not(any(target_os = "macos", windows)))]
