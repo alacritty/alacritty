@@ -131,8 +131,12 @@ pkg install alacritty
 brew cask install alacritty
 ```
 
-Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page),
-[shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
+After installation with brew, it is highly reocommended that you clone
+alacritty source code with `git clone
+https://github.com/alacritty/alacritty.git` and setup the [manual
+page](INSTALL.md#manual-page), [shell
+completions](INSTALL.md#shell-completions), and [terminfo
+definitions](INSTALL.md#terminfo).
 
 ### Windows
 
