@@ -131,8 +131,12 @@ pkg install alacritty
 brew cask install alacritty
 ```
 
-Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page),
-[shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
+Once the cask is installed, it is recommended to setup the
+[manual page](INSTALL.md#manual-page),
+[shell completions](INSTALL.md#shell-completions), and
+[terminfo definitions](INSTALL.md#terminfo). These instructions need to be
+followed from within the Alacritty source for your version, which can be found
+on the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
 ### Windows
 
