@@ -27,7 +27,7 @@ use serde_json as json;
 use font::set_font_smoothing;
 use font::{self, Size};
 
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
+use alacritty_terminal::config::{Program, LOG_TARGET_CONFIG};
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
@@ -839,8 +839,15 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => processor.ctx.window.set_title(&title),
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,
-                    TerminalEvent::Urgent => {
-                        processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused)
+                    TerminalEvent::Bell => {
+                        let _ = processor
+                            .ctx
+                            .config
+                            .bell()
+                            .command
+                            .as_ref()
+                            .map(Self::start_bell_program);
+                        processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         processor.ctx.clipboard.store(clipboard_type, content);
@@ -1048,6 +1055,15 @@ impl<N: Notify + OnResize> Processor<N> {
             } else if display_offset != 0 && origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(-1));
             }
+        }
+    }
+
+    fn start_bell_program(program: &Program) {
+        let args = program.args().to_vec();
+
+        match start_daemon(program.program(), &args) {
+            Ok(_) => debug!("Launched {} with args {:?}", program.program(), args),
+            Err(_) => warn!("Unable to launch {} with args {:?}", program.program(), args),
         }
     }
 

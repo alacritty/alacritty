@@ -217,6 +217,13 @@ fn print_deprecation_warnings(config: &Config) {
              the config"
         );
     }
+
+    if config.visual_bell.is_some() {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config visual_bell has been deprecated; please use bell instead"
+        )
+    }
 }
 
 #[cfg(test)]

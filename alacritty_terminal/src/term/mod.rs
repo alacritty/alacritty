@@ -14,7 +14,7 @@ use unicode_width::UnicodeWidthChar;
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
 };
-use crate::config::{Config, VisualBellAnimation};
+use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
@@ -467,7 +467,7 @@ pub use crate::term::mode::TermMode;
 
 pub struct VisualBell {
     /// Visual bell animation.
-    animation: VisualBellAnimation,
+    animation: BellAnimation,
 
     /// Visual bell duration.
     duration: Duration,
@@ -484,15 +484,6 @@ fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
 }
 
 impl VisualBell {
-    pub fn new<C>(config: &Config<C>) -> VisualBell {
-        let visual_bell_config = &config.visual_bell;
-        VisualBell {
-            animation: visual_bell_config.animation,
-            duration: visual_bell_config.duration(),
-            start_time: None,
-        }
-    }
-
     /// Ring the visual bell, and return its intensity.
     pub fn ring(&mut self) -> f64 {
         let now = Instant::now();
@@ -557,19 +548,17 @@ impl VisualBell {
                 // VisualBell. When `time` is 0.0, `inverse_intensity` is 0.0,
                 // and when `time` is 1.0, `inverse_intensity` is 1.0.
                 let inverse_intensity = match self.animation {
-                    VisualBellAnimation::Ease | VisualBellAnimation::EaseOut => {
+                    BellAnimation::Ease | BellAnimation::EaseOut => {
                         cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
                     },
-                    VisualBellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
-                    VisualBellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
-                    VisualBellAnimation::EaseOutCubic => {
-                        cubic_bezier(0.215, 0.61, 0.355, 1.0, time)
-                    },
-                    VisualBellAnimation::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
-                    VisualBellAnimation::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
-                    VisualBellAnimation::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
-                    VisualBellAnimation::EaseOutCirc => cubic_bezier(0.075, 0.82, 0.165, 1.0, time),
-                    VisualBellAnimation::Linear => time,
+                    BellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
+                    BellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
+                    BellAnimation::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
+                    BellAnimation::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
+                    BellAnimation::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
+                    BellAnimation::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
+                    BellAnimation::EaseOutCirc => cubic_bezier(0.075, 0.82, 0.165, 1.0, time),
+                    BellAnimation::Linear => time,
                 };
 
                 // Since we want the `intensity` of the VisualBell to decay over
@@ -580,9 +569,19 @@ impl VisualBell {
     }
 
     pub fn update_config<C>(&mut self, config: &Config<C>) {
-        let visual_bell_config = &config.visual_bell;
-        self.animation = visual_bell_config.animation;
-        self.duration = visual_bell_config.duration();
+        let bell_config = config.bell();
+        self.animation = bell_config.animation;
+        self.duration = bell_config.duration();
+    }
+}
+
+impl From<&BellConfig> for VisualBell {
+    fn from(bell_config: &BellConfig) -> VisualBell {
+        VisualBell {
+            animation: bell_config.animation,
+            duration: bell_config.duration(),
+            start_time: None,
+        }
     }
 }
 
@@ -763,7 +762,7 @@ impl<T> Term<T> {
 
         Term {
             dirty: false,
-            visual_bell: VisualBell::new(config),
+            visual_bell: config.bell().into(),
             grid,
             inactive_grid: alt,
             active_charset: Default::default(),
@@ -1617,7 +1616,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn bell(&mut self) {
         trace!("Bell");
         self.visual_bell.ring();
-        self.event_proxy.send_event(Event::Urgent);
+        self.event_proxy.send_event(Event::Bell);
     }
 
     #[inline]
