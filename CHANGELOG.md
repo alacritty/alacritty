@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Improve documentation for macos install with brew
 - Block cursor is no longer inverted at the start/end of a selection
 - Preserve selection on non-LMB or mouse mode clicks
 - Wayland client side decorations are now based on config colorscheme
