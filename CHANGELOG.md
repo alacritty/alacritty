@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default color scheme is now `Tomorrow Night` with the bright colors of `Tomorrow Night Bright`
 - Set IUTF8 termios flag for improved UTF8 input support
 - Dragging files into terminal now adds a space after each path
+- Default binding replacement conditions
 
 ### Fixed
 
