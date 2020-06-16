@@ -23,7 +23,6 @@ use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_terminal::event::Event;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty_terminal::locale;
@@ -42,6 +41,7 @@ mod event;
 mod input;
 mod logging;
 mod renderer;
+mod scheduler;
 mod url;
 mod window;
 
@@ -57,7 +57,7 @@ use crate::cli::Options;
 use crate::config::monitor::Monitor;
 use crate::config::Config;
 use crate::display::Display;
-use crate::event::{EventProxy, Processor};
+use crate::event::{Event, EventProxy, Processor};
 
 fn main() {
     panic::attach_handler();

@@ -4,10 +4,9 @@ use std::time::Duration;
 
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::util;
 
-use crate::event::EventProxy;
+use crate::event::{Event, EventProxy};
 
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,

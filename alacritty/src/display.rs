@@ -23,7 +23,7 @@ use font::set_font_smoothing;
 use font::{self, Rasterize};
 
 use alacritty_terminal::config::{Font, StartupMode};
-use alacritty_terminal::event::{Event, OnResize};
+use alacritty_terminal::event::OnResize;
 use alacritty_terminal::index::Line;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
@@ -119,7 +119,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(config: &Config, event_loop: &EventLoop<Event>) -> Result<Display, Error> {
+    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>) -> Result<Display, Error> {
         // Guess DPR based on first monitor.
         let estimated_dpr =
             event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.);

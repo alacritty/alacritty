@@ -34,7 +34,6 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
-use alacritty_terminal::event::Event;
 #[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
@@ -103,9 +102,9 @@ impl From<font::Error> for Error {
     }
 }
 
-fn create_gl_window(
+fn create_gl_window<E>(
     mut window: WindowBuilder,
-    event_loop: &EventLoop<Event>,
+    event_loop: &EventLoop<E>,
     srgb: bool,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
@@ -147,8 +146,8 @@ impl Window {
     /// Create a new window.
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(
-        event_loop: &EventLoop<Event>,
+    pub fn new<E>(
+        event_loop: &EventLoop<E>,
         config: &Config,
         size: Option<PhysicalSize<u32>>,
         #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
