@@ -226,24 +226,25 @@ fn cmdline<C>(config: &Config<C>) -> String {
 /// between those delimiters are input to or output from the function.
 ///
 /// ```rust
-/// assert_eq!(quote_argument(r#"a b c"#), r#""a b c""#)
-/// assert_eq!(quote_argument(r#"a"bc"#), r#""a\"bc""#)
-/// assert_eq!(quote_argument(r#"a\"bc"#), r#""a\\\"bc""#)
-/// assert_eq!(quote_argument(r#"a\\"bc"#), r#""a\\\\\"bc""#)
-/// assert_eq!(quote_argument(r#"\abc""#), r#""\abc\""#)
-/// assert_eq!(quote_argument(r#"a\\bc""#), r#""a\\bc\""#)
-/// assert_eq!(quote_argument(r#"a\b"c"#), r#""a\b\"c""#)
-/// assert_eq!(quote_argument(r#""abc\"#), r#""\"abc\\""#)
+/// # use alacritty_terminal::tty::windows::quote_argument;
+/// assert_eq!(quote_argument(r#"a b c"#), r#""a b c""#);
+/// assert_eq!(quote_argument(r#"a"bc"#), r#""a\"bc""#);
+/// assert_eq!(quote_argument(r#"a\"bc"#), r#""a\\\"bc""#);
+/// assert_eq!(quote_argument(r#"a\\"bc"#), r#""a\\\\\"bc""#);
+/// assert_eq!(quote_argument(r#"\abc""#), r#""\abc\""#);
+/// assert_eq!(quote_argument(r#"a\\bc""#), r#""a\\bc\""#);
+/// assert_eq!(quote_argument(r#"a\b"c"#), r#""a\b\"c""#);
+/// assert_eq!(quote_argument(r#""abc\"#), r#""\"abc\\""#);
 ///
 /// // Simple enough, left unescaped.
-/// assert_eq!(quote_argument(r#"abc"#), r#"abc"#)
-/// assert_eq!(quote_argument(r#"\abc"#), r#"\abc"#)
-/// assert_eq!(quote_argument(r#"a\\bc"#), r#"a\\bc"#)
-/// assert_eq!(quote_argument(r#"abc\"#), r#"abc\"#)
+/// assert_eq!(quote_argument(r#"abc"#), r#"abc"#);
+/// assert_eq!(quote_argument(r#"\abc"#), r#"\abc"#);
+/// assert_eq!(quote_argument(r#"a\\bc"#), r#"a\\bc"#);
+/// assert_eq!(quote_argument(r#"abc\"#), r#"abc\"#);
 /// ```
 fn quote_argument(arg: &str) -> String {
     // If this argument is simple enough, get out of Dodge.
-    if arg.is_empty() && !arg.contains('"') && !args.chars().any(char::is_whitespace) {
+    if arg.is_empty() && !arg.contains('"') && !arg.chars().any(char::is_whitespace) {
         return arg.to_owned();
     }
 
@@ -262,8 +263,8 @@ fn quote_argument(arg: &str) -> String {
         } else if c == '"' {
             // If we have a backslash run, it was actually preceding a quote, so action is
             // required. We need to double the run, plus add an extra backslash to actually escape
-            // the quote.
-            for _ in 0..(backslash_count + 1) {
+            // the quote (hence the inclusive bound).
+            for _ in 0..=backslash_count {
                 output.push('\\');
             }
             // And now we're not in a run anymore.
