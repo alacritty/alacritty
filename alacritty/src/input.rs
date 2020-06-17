@@ -35,7 +35,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::event::{ClickState, Event, Mouse};
-use crate::scheduler::{Scheduler, SELECTION_SCROLLING_EVENT};
+use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
 
@@ -46,10 +46,10 @@ pub const FONT_SIZE_STEP: f32 = 0.5;
 const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(25);
 
 /// Minimum number of pixels at the bottom/top where selection scrolling is performed.
-const MIN_SELECTION_SCROLLING_HEIGHT: i32 = 5;
+const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
 
 /// Number of pixels for increasing the selection scrolling speed factor by one.
-const SELECTION_SCROLLING_STEP: i32 = 25;
+const SELECTION_SCROLLING_STEP: f64 = 25.;
 
 /// Processes input from glutin.
 ///
@@ -568,7 +568,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.ctx.launch_url(url);
         }
 
-        self.ctx.scheduler().unschedule(SELECTION_SCROLLING_EVENT);
+        self.ctx.scheduler().unschedule(TimerId::SelectionScrolling);
         self.copy_selection();
     }
 
@@ -897,19 +897,22 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let size_info = self.ctx.size_info();
         let scheduler = self.ctx.scheduler();
 
+        // Scale constants by DPI.
+        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * size_info.dpr) as i32;
+        let step = (SELECTION_SCROLLING_STEP * size_info.dpr) as i32;
+
         // Compute the height of the scrolling areas.
-        let min_height = MIN_SELECTION_SCROLLING_HEIGHT;
         let end_top = max(min_height, size_info.padding_y as i32);
         let height_bottom = max(min_height, size_info.padding_bottom() as i32);
         let start_bottom = size_info.height as i32 - height_bottom;
 
         // Get distance from closest window boundary.
         let delta = if mouse_y < end_top {
-            end_top - mouse_y + SELECTION_SCROLLING_STEP
+            end_top - mouse_y + step
         } else if mouse_y >= start_bottom {
-            start_bottom - mouse_y - SELECTION_SCROLLING_STEP
+            start_bottom - mouse_y - step
         } else {
-            scheduler.unschedule(SELECTION_SCROLLING_EVENT);
+            scheduler.unschedule(TimerId::SelectionScrolling);
             return;
         };
 
@@ -918,14 +921,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let event = Event::Scroll(Scroll::Lines(delta));
 
         // Schedule event.
-        match scheduler.get_mut(SELECTION_SCROLLING_EVENT) {
+        match scheduler.get_mut(TimerId::SelectionScrolling) {
             Some(timer) => timer.event = event.into(),
             None => {
                 scheduler.schedule(
                     event.into(),
                     SELECTION_SCROLLING_INTERVAL,
                     true,
-                    Some(SELECTION_SCROLLING_EVENT),
+                    TimerId::SelectionScrolling,
                 );
             },
         }

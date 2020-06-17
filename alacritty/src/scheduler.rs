@@ -7,23 +7,16 @@ use glutin::event::Event as GlutinEvent;
 
 use crate::event::Event as AlacrittyEvent;
 
-/// Event ID for scrolling during selection.
-pub const SELECTION_SCROLLING_EVENT: u64 = 0;
-
-/// Number of IDs reserved for manual creation, these will never be automatically generated.
-const RESERVED_IDS: u64 = 4096;
-
 type Event = GlutinEvent<'static, AlacrittyEvent>;
 
 /// Scheduler tracking all pending timers.
 pub struct Scheduler {
     timers: VecDeque<Timer>,
-    next_id: u64,
 }
 
 impl Default for Scheduler {
     fn default() -> Self {
-        Self { timers: VecDeque::new(), next_id: RESERVED_IDS }
+        Self { timers: VecDeque::new() }
     }
 }
 
@@ -42,7 +35,7 @@ impl Scheduler {
             if let Some(timer) = self.timers.pop_front() {
                 // Automatically repeat the event.
                 if let Some(interval) = timer.interval {
-                    self.schedule(timer.event.clone(), interval, true, Some(timer.id));
+                    self.schedule(timer.event.clone(), interval, true, timer.id);
                 }
 
                 event_queue.push(timer.event);
@@ -58,8 +51,8 @@ impl Scheduler {
         event: Event,
         interval: Duration,
         repeat: bool,
-        id: Option<u64>,
-    ) -> u64 {
+        timer_id: TimerId,
+    ) {
         let deadline = Instant::now() + interval;
 
         // Get insert position in the schedule.
@@ -75,33 +68,28 @@ impl Scheduler {
             }
         }
 
-        // Retrieve the next free ID.
-        let id = match id {
-            Some(id) => id,
-            None => {
-                self.next_id += 1;
-                self.next_id
-            },
-        };
-
         // Set the automatic event repeat rate.
         let interval = if repeat { Some(interval) } else { None };
 
-        self.timers.insert(index, Timer { interval, deadline, event, id });
-
-        id
+        self.timers.insert(index, Timer { interval, deadline, event, id: timer_id });
     }
 
     /// Cancel a scheduled event.
-    pub fn unschedule(&mut self, id: u64) -> Option<Event> {
+    pub fn unschedule(&mut self, id: TimerId) -> Option<Event> {
         let index = self.timers.iter().position(|timer| timer.id == id)?;
         self.timers.remove(index).map(|timer| timer.event)
     }
 
     /// Access a staged event by ID.
-    pub fn get_mut(&mut self, id: u64) -> Option<&mut Timer> {
+    pub fn get_mut(&mut self, id: TimerId) -> Option<&mut Timer> {
         self.timers.iter_mut().find(|timer| timer.id == id)
     }
+}
+
+/// ID uniquely identifying a timer.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TimerId {
+    SelectionScrolling,
 }
 
 /// Event scheduled to be emitted at a specific time.
@@ -110,5 +98,5 @@ pub struct Timer {
     pub event: Event,
 
     interval: Option<Duration>,
-    id: u64,
+    id: TimerId,
 }
