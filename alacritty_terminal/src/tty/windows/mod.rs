@@ -207,23 +207,46 @@ fn cmdline<C>(config: &Config<C>) -> String {
 /// that case, each backslash in the run must be escaped with its own backslash. All other
 /// backslashes must *not* be escaped and will be interpreted literally.
 ///
+/// # Avoiding Quoting
+///
+/// If we determine the argument is &ldquo;simple enough&rdquo;, that is, the argument
+///   * is empty,
+///   * doesn't contain a quote, and
+///   * doesn't contain whitespace
+/// then we don't actually need to escape anything. It's better in that case to leave the argument
+/// unescaped so that programs that handle their arguments &ldquo;oddly&rdquo; have a better chance
+/// of correctly parsing them.
+///
+/// Note that a string containing backslashes, but still meeting the above requirements, *does not*
+/// need to be escaped.
+///
 /// # Examples
 ///
 /// Note in the following examples that `r#"..."#` defines a raw string, so only the characters
 /// between those delimiters are input to or output from the function.
 ///
 /// ```rust
-/// assert_eq!(quote_argument(r#"abc"#), r#""abc""#)
 /// assert_eq!(quote_argument(r#"a b c"#), r#""a b c""#)
 /// assert_eq!(quote_argument(r#"a"bc"#), r#""a\"bc""#)
 /// assert_eq!(quote_argument(r#"a\"bc"#), r#""a\\\"bc""#)
 /// assert_eq!(quote_argument(r#"a\\"bc"#), r#""a\\\\\"bc""#)
-/// assert_eq!(quote_argument(r#"\abc"#), r#""\abc""#)
-/// assert_eq!(quote_argument(r#"a\\bc"#), r#""a\\bc""#)
+/// assert_eq!(quote_argument(r#"\abc""#), r#""\abc\""#)
+/// assert_eq!(quote_argument(r#"a\\bc""#), r#""a\\bc\""#)
 /// assert_eq!(quote_argument(r#"a\b"c"#), r#""a\b\"c""#)
-/// assert_eq!(quote_argument(r#"abc\"#), r#""abc\\""#)
+/// assert_eq!(quote_argument(r#""abc\"#), r#""\"abc\\""#)
+///
+/// // Simple enough, left unescaped.
+/// assert_eq!(quote_argument(r#"abc"#), r#"abc"#)
+/// assert_eq!(quote_argument(r#"\abc"#), r#"\abc"#)
+/// assert_eq!(quote_argument(r#"a\\bc"#), r#"a\\bc"#)
+/// assert_eq!(quote_argument(r#"abc\"#), r#"abc\"#)
 /// ```
 fn quote_argument(arg: &str) -> String {
+    // If this argument is simple enough, get out of Dodge.
+    if arg.is_empty() && !arg.contains('"') && !args.chars().any(char::is_whitespace) {
+        return arg.to_owned();
+    }
+
     // Allocate the output string, which will require *at least* as much space as the input.
     let mut output = String::with_capacity(arg.len());
     // Keep track of the number of backslashes we've seen in the current run of backslashes. If
