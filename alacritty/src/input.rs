@@ -917,7 +917,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         };
 
         // Scale number of lines scrolled based on distance to boundary.
-        let delta = delta as isize / SELECTION_SCROLLING_STEP as isize;
+        let delta = delta as isize / step as isize;
         let event = Event::Scroll(Scroll::Lines(delta));
 
         // Schedule event.
