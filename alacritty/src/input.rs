@@ -43,7 +43,7 @@ use crate::window::Window;
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
 /// Interval for mouse scrolling during selection outside of the boundaries.
-const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(20);
+const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
 
 /// Minimum number of pixels at the bottom/top where selection scrolling is performed.
 const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
