@@ -193,28 +193,36 @@ fn cmdline<C>(config: &Config<C>) -> String {
         .join(" ")
 }
 
-// Quote an argument for a Windows command line. The full rules are described in the link below,
-// but the basic idea is that we need to add quotes around the argument, and escape any quotes
-// inside the argument.
-//
-// https://docs.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments?view=vs-2019
-//
-// The escaping rules are a bit insane. Each quote must be escaped with a leading backslash.
-// Backslashes must *only* be escaped if they are in a run of backslashes preceding a quote. In
-// that case, each backslash in the run must be escaped with its own backslash. All other
-// backslashes must *not* be escaped and will be interpreted literally.
-//
-// Examples:
-//
-//   * abc -> "abc"
-//   * a b c -> "a b c"
-//   * a"bc -> "a\"bc"
-//   * a\"bc -> "a\\\"bc"
-//   * a\\"bc -> "a\\\\\"bc"
-//   * \abc -> "\abc"
-//   * a\\bc -> "a\\bc"
-//   * a\b"c -> "a\b\"c"
-//   * abc\ -> "abc\\"
+/// Quote an argument for a Windows command line.
+///
+/// The full rules are described [in this article][parsing-args] in terms of parsing rather than
+/// quoting, but the basic idea is that we need to add quotes around the argument and escape any
+/// quotes inside the argument.
+///
+/// [parsing-args]:
+/// https://docs.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments
+///
+/// The escaping rules are a bit insane. Each quote must be escaped with a leading backslash.
+/// Backslashes must *only* be escaped if they are in a run of backslashes preceding a quote. In
+/// that case, each backslash in the run must be escaped with its own backslash. All other
+/// backslashes must *not* be escaped and will be interpreted literally.
+///
+/// # Examples
+///
+/// Note in the following examples that `r#"..."#` defines a raw string, so only the characters
+/// between those delimiters are input to or output from the function.
+///
+/// ```rust
+/// assert_eq!(quote_argument(r#"abc"#), r#""abc""#)
+/// assert_eq!(quote_argument(r#"a b c"#), r#""a b c""#)
+/// assert_eq!(quote_argument(r#"a"bc"#), r#""a\"bc""#)
+/// assert_eq!(quote_argument(r#"a\"bc"#), r#""a\\\"bc""#)
+/// assert_eq!(quote_argument(r#"a\\"bc"#), r#""a\\\\\"bc""#)
+/// assert_eq!(quote_argument(r#"\abc"#), r#""\abc""#)
+/// assert_eq!(quote_argument(r#"a\\bc"#), r#""a\\bc""#)
+/// assert_eq!(quote_argument(r#"a\b"c"#), r#""a\b\"c""#)
+/// assert_eq!(quote_argument(r#"abc\"#), r#""abc\\""#)
+/// ```
 fn quote_argument(arg: &str) -> String {
     // Allocate the output string, which will require *at least* as much space as the input.
     let mut output = String::with_capacity(arg.len());
