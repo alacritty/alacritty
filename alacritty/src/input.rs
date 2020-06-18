@@ -6,12 +6,13 @@
 //! determine what to do when a non-modifier key is pressed.
 
 use std::borrow::Cow;
-use std::cmp::{min, Ordering};
+use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use log::{debug, trace, warn};
 
+use glutin::dpi::PhysicalPosition;
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
 };
@@ -21,7 +22,7 @@ use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
-use alacritty_terminal::event::{Event, EventListener};
+use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::Scroll;
 use alacritty_terminal::index::{Column, Line, Point, Side};
 use alacritty_terminal::message_bar::{self, Message};
@@ -33,12 +34,22 @@ use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
-use crate::event::{ClickState, Mouse};
+use crate::event::{ClickState, Event, Mouse};
+use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
+
+/// Interval for mouse scrolling during selection outside of the boundaries.
+const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
+
+/// Minimum number of pixels at the bottom/top where selection scrolling is performed.
+const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
+
+/// Number of pixels for increasing the selection scrolling speed factor by one.
+const SELECTION_SCROLLING_STEP: f64 = 20.;
 
 /// Processes input from glutin.
 ///
@@ -77,10 +88,11 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
-    fn clipboard(&mut self) -> &mut Clipboard;
     fn urls(&self) -> &Urls;
     fn launch_url(&self, url: Url);
     fn mouse_mode(&self) -> bool;
+    fn clipboard_mut(&mut self) -> &mut Clipboard;
+    fn scheduler_mut(&mut self) -> &mut Scheduler;
 }
 
 trait Execute<T: EventListener> {
@@ -128,11 +140,11 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::Paste => {
-                let text = ctx.clipboard().load(ClipboardType::Clipboard);
+                let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
                 paste(ctx, &text);
             },
             Action::PasteSelection => {
-                let text = ctx.clipboard().load(ClipboardType::Selection);
+                let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 paste(ctx, &text);
             },
             Action::Command(ref program) => {
@@ -304,8 +316,18 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     #[inline]
-    pub fn mouse_moved(&mut self, x: usize, y: usize) {
+    pub fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
         let size_info = self.ctx.size_info();
+
+        let (x, y) = position.into();
+
+        let lmb_pressed = self.ctx.mouse().left_button_state == ElementState::Pressed;
+        if !self.ctx.selection_is_empty() && lmb_pressed {
+            self.update_selection_scrolling(y);
+        }
+
+        let x = min(max(x, 0), size_info.width as i32 - 1) as usize;
+        let y = min(max(y, 0), size_info.height as i32 - 1) as usize;
 
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
@@ -339,9 +361,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
-        if self.ctx.mouse().left_button_state == ElementState::Pressed
-            && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
-        {
+        if lmb_pressed && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode()) {
             // Treat motion over message bar like motion over the last line.
             let line = min(point.line, last_term_line);
 
@@ -356,7 +376,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             && point.line <= last_term_line
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
-            if self.ctx.mouse().left_button_state == ElementState::Pressed {
+            if lmb_pressed {
                 self.mouse_report(32, ElementState::Pressed);
             } else if self.ctx.mouse().middle_button_state == ElementState::Pressed {
                 self.mouse_report(33, ElementState::Pressed);
@@ -548,6 +568,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.ctx.launch_url(url);
         }
 
+        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
         self.copy_selection();
     }
 
@@ -870,32 +891,61 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             MouseState::Text
         }
     }
+
+    /// Handle automatic scrolling when selecting above/below the window.
+    fn update_selection_scrolling(&mut self, mouse_y: i32) {
+        let size_info = self.ctx.size_info();
+        let scheduler = self.ctx.scheduler_mut();
+
+        // Scale constants by DPI.
+        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * size_info.dpr) as i32;
+        let step = (SELECTION_SCROLLING_STEP * size_info.dpr) as i32;
+
+        // Compute the height of the scrolling areas.
+        let end_top = max(min_height, size_info.padding_y as i32);
+        let height_bottom = max(min_height, size_info.padding_bottom() as i32);
+        let start_bottom = size_info.height as i32 - height_bottom;
+
+        // Get distance from closest window boundary.
+        let delta = if mouse_y < end_top {
+            end_top - mouse_y + step
+        } else if mouse_y >= start_bottom {
+            start_bottom - mouse_y - step
+        } else {
+            scheduler.unschedule(TimerId::SelectionScrolling);
+            return;
+        };
+
+        // Scale number of lines scrolled based on distance to boundary.
+        let delta = delta as isize / step as isize;
+        let event = Event::Scroll(Scroll::Lines(delta));
+
+        // Schedule event.
+        match scheduler.get_mut(TimerId::SelectionScrolling) {
+            Some(timer) => timer.event = event.into(),
+            None => {
+                scheduler.schedule(
+                    event.into(),
+                    SELECTION_SCROLLING_INTERVAL,
+                    true,
+                    TimerId::SelectionScrolling,
+                );
+            },
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-    use std::time::Duration;
+    use super::*;
 
-    use glutin::event::{
-        ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent,
-    };
-    use glutin::event_loop::EventLoopWindowTarget;
+    use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
 
-    use alacritty_terminal::event::{Event as TerminalEvent, EventListener};
-    use alacritty_terminal::grid::Scroll;
-    use alacritty_terminal::index::{Point, Side};
-    use alacritty_terminal::message_bar::{Message, MessageBuffer};
-    use alacritty_terminal::selection::{Selection, SelectionType};
-    use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
+    use alacritty_terminal::event::Event as TerminalEvent;
+    use alacritty_terminal::message_bar::MessageBuffer;
+    use alacritty_terminal::selection::Selection;
 
-    use crate::clipboard::Clipboard;
-    use crate::config::{ClickHandler, Config};
-    use crate::event::{ClickState, Mouse};
-    use crate::url::{Url, Urls};
-    use crate::window::Window;
-
-    use super::{Action, Binding, Processor};
+    use crate::config::ClickHandler;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -1014,7 +1064,11 @@ mod tests {
             self.config
         }
 
-        fn event_loop(&self) -> &EventLoopWindowTarget<TerminalEvent> {
+        fn clipboard_mut(&mut self) -> &mut Clipboard {
+            self.clipboard
+        }
+
+        fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
             unimplemented!();
         }
 
@@ -1022,11 +1076,11 @@ mod tests {
             unimplemented!();
         }
 
-        fn clipboard(&mut self) -> &mut Clipboard {
-            self.clipboard
+        fn launch_url(&self, _: Url) {
+            unimplemented!();
         }
 
-        fn launch_url(&self, _: Url) {
+        fn scheduler_mut (&mut self) -> &mut Scheduler {
             unimplemented!();
         }
     }
@@ -1089,8 +1143,8 @@ mod tests {
 
                 let mut processor = Processor::new(context, &None);
 
-                let event: Event::<'_, TerminalEvent> = $input;
-                if let Event::WindowEvent {
+                let event: GlutinEvent::<'_, TerminalEvent> = $input;
+                if let GlutinEvent::WindowEvent {
                     event: WindowEvent::MouseInput {
                         state,
                         button,
@@ -1130,7 +1184,7 @@ mod tests {
         name: single_click,
         initial_state: ClickState::None,
         initial_button: MouseButton::Other(0),
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1146,7 +1200,7 @@ mod tests {
         name: single_right_click,
         initial_state: ClickState::None,
         initial_button: MouseButton::Other(0),
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
@@ -1162,7 +1216,7 @@ mod tests {
         name: single_middle_click,
         initial_state: ClickState::None,
         initial_button: MouseButton::Other(0),
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Middle,
@@ -1178,7 +1232,7 @@ mod tests {
         name: double_click,
         initial_state: ClickState::Click,
         initial_button: MouseButton::Left,
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1194,7 +1248,7 @@ mod tests {
         name: triple_click,
         initial_state: ClickState::DoubleClick,
         initial_button: MouseButton::Left,
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
@@ -1210,7 +1264,7 @@ mod tests {
         name: multi_click_separate_buttons,
         initial_state: ClickState::DoubleClick,
         initial_button: MouseButton::Left,
-        input: Event::WindowEvent {
+        input: GlutinEvent::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,

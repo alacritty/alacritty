@@ -148,7 +148,7 @@ pub struct Grid<T> {
     max_scroll_limit: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Scroll {
     Lines(isize),
     PageUp,

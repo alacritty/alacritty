@@ -691,13 +691,24 @@ impl SizeInfo {
         Column(((self.width - 2. * self.padding_x) / self.cell_width) as usize)
     }
 
+    #[inline]
+    pub fn padding_right(&self) -> usize {
+        (self.padding_x + (self.width - 2. * self.padding_x) % self.cell_width) as usize
+    }
+
+    #[inline]
+    pub fn padding_bottom(&self) -> usize {
+        (self.padding_y + (self.height - 2. * self.padding_y) % self.cell_height) as usize
+    }
+
     /// Check if coordinates are inside the terminal grid.
     ///
     /// The padding is not counted as part of the grid.
+    #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x < (self.width - self.padding_x) as usize
+        x < (self.width as usize - self.padding_right())
             && x >= self.padding_x as usize
-            && y < (self.height - self.padding_y) as usize
+            && y < (self.height as usize - self.padding_bottom())
             && y >= self.padding_y as usize
     }
 

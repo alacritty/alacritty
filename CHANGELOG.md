@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Font fallback on Windows
 - Support for Fontconfig embolden and matrix options
 - Opt-out compilation flag `winpty` to disable WinPTY support
+- Scrolling during selection when mouse is at top/bottom of window
 
 ### Changed
 
