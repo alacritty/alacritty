@@ -88,11 +88,11 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
-    fn clipboard(&mut self) -> &mut Clipboard;
     fn urls(&self) -> &Urls;
     fn launch_url(&self, url: Url);
     fn mouse_mode(&self) -> bool;
-    fn scheduler(&mut self) -> &mut Scheduler;
+    fn clipboard_mut(&mut self) -> &mut Clipboard;
+    fn scheduler_mut(&mut self) -> &mut Scheduler;
 }
 
 trait Execute<T: EventListener> {
@@ -140,11 +140,11 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::Paste => {
-                let text = ctx.clipboard().load(ClipboardType::Clipboard);
+                let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
                 paste(ctx, &text);
             },
             Action::PasteSelection => {
-                let text = ctx.clipboard().load(ClipboardType::Selection);
+                let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 paste(ctx, &text);
             },
             Action::Command(ref program) => {
@@ -568,7 +568,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.ctx.launch_url(url);
         }
 
-        self.ctx.scheduler().unschedule(TimerId::SelectionScrolling);
+        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
         self.copy_selection();
     }
 
@@ -895,7 +895,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// Handle automatic scrolling when selecting above/below the window.
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
         let size_info = self.ctx.size_info();
-        let scheduler = self.ctx.scheduler();
+        let scheduler = self.ctx.scheduler_mut();
 
         // Scale constants by DPI.
         let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * size_info.dpr) as i32;
@@ -1064,6 +1064,10 @@ mod tests {
             self.config
         }
 
+        fn clipboard_mut(&mut self) -> &mut Clipboard {
+            self.clipboard
+        }
+
         fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
             unimplemented!();
         }
@@ -1072,15 +1076,11 @@ mod tests {
             unimplemented!();
         }
 
-        fn clipboard(&mut self) -> &mut Clipboard {
-            self.clipboard
-        }
-
         fn launch_url(&self, _: Url) {
             unimplemented!();
         }
 
-        fn scheduler(&mut self) -> &mut Scheduler {
+        fn scheduler_mut (&mut self) -> &mut Scheduler {
             unimplemented!();
         }
     }

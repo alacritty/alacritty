@@ -325,11 +325,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.urls
     }
 
-    fn clipboard(&mut self) -> &mut Clipboard {
+    fn clipboard_mut(&mut self) -> &mut Clipboard {
         self.clipboard
     }
 
-    fn scheduler(&mut self) -> &mut Scheduler {
+    fn scheduler_mut(&mut self) -> &mut Scheduler {
         self.scheduler
     }
 }
