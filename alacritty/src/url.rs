@@ -90,7 +90,7 @@ impl Urls {
         self.last_point = Some(end);
 
         // Extend current state if a wide char spacer is encountered.
-        if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+        if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
             if let UrlLocation::Url(_, mut end_offset) = self.state {
                 if end_offset != 0 {
                     end_offset += 1;

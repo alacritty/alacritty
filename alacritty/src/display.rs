@@ -1,6 +1,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
+use std::cmp::min;
 use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -15,6 +16,7 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
+use unicode_width::UnicodeWidthChar;
 #[cfg(not(any(target_os = "macos", windows)))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
@@ -23,12 +25,12 @@ use font::set_font_smoothing;
 use font::{self, Rasterize};
 
 use alacritty_terminal::config::{Font, StartupMode};
-use alacritty_terminal::event::OnResize;
-use alacritty_terminal::index::Line;
+use alacritty_terminal::event::{EventListener, OnResize};
+use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
 use alacritty_terminal::selection::Selection;
-use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
@@ -37,6 +39,8 @@ use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
 use crate::window::{self, Window};
+
+const SEARCH_LABEL: &str = "Search: ";
 
 #[derive(Debug)]
 pub enum Error {
@@ -328,9 +332,12 @@ impl Display {
         terminal: &mut Term<T>,
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
+        search_active: bool,
         config: &Config,
         update_pending: DisplayUpdate,
-    ) {
+    ) where
+        T: EventListener,
+    {
         // Update font size and cell dimensions.
         if let Some(font) = update_pending.font {
             self.update_glyph_cache(config, font);
@@ -369,6 +376,11 @@ impl Display {
             pty_size.height -= pty_size.cell_height * lines as f32;
         }
 
+        // Add an extra line for the current search regex.
+        if search_active {
+            pty_size.height -= pty_size.cell_height;
+        }
+
         // Resize PTY.
         pty_resize_handle.on_resize(&pty_size);
 
@@ -393,6 +405,7 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
+        search_regex: Option<String>,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -402,18 +415,25 @@ impl Display {
         let size_info = self.size_info;
 
         let selection = !terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE)
-            && !terminal.mode().contains(TermMode::VI);
+        let mouse_mode =
+            terminal.mode.intersects(TermMode::MOUSE_MODE) && !terminal.mode.contains(TermMode::VI);
 
-        let vi_mode_cursor = if terminal.mode().contains(TermMode::VI) {
-            Some(terminal.vi_mode_cursor)
-        } else {
-            None
-        };
+        let vi_mode_cursor =
+            if terminal.mode.contains(TermMode::VI) { Some(terminal.vi_mode_cursor) } else { None };
 
         // Update IME position.
         #[cfg(not(windows))]
-        self.window.update_ime_position(&terminal, &self.size_info);
+        {
+            let point = match &search_regex {
+                Some(regex) => {
+                    let len = min(regex.len() + SEARCH_LABEL.len(), terminal.num_cols().0);
+                    Point::new(terminal.num_lines() - 1, Column(len - 1))
+                },
+                None => terminal.grid().cursor.point,
+            };
+
+            self.window.update_ime_position(point, &self.size_info);
+        }
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
@@ -484,11 +504,13 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
+        let mut message_bar_lines = 0;
         if let Some(message) = message_buffer.message() {
             let text = message.text(&size_info);
+            message_bar_lines = text.len();
 
             // Create a new rectangle for the background.
-            let start_line = size_info.lines().0 - text.len();
+            let start_line = size_info.lines().0 - message_bar_lines;
             let y = size_info.cell_height.mul_add(start_line as f32, size_info.padding_y);
             let message_bar_rect =
                 RenderRect::new(0., y, size_info.width, size_info.height - y, message.color(), 1.);
@@ -501,12 +523,14 @@ impl Display {
 
             // Relay messages to the user.
             let mut offset = 1;
+            let fg = config.colors.primary.background;
             for message_text in text.iter().rev() {
                 self.renderer.with_api(&config, &size_info, |mut api| {
                     api.render_string(
-                        &message_text,
-                        Line(size_info.lines().saturating_sub(offset)),
                         glyph_cache,
+                        Line(size_info.lines().saturating_sub(offset)),
+                        &message_text,
+                        fg,
                         None,
                     );
                 });
@@ -517,12 +541,48 @@ impl Display {
             self.renderer.draw_rects(&size_info, rects);
         }
 
+        // Draw current search regex.
+        if let Some(search_regex) = search_regex {
+            let label_len = SEARCH_LABEL.len();
+            let num_cols = size_info.cols().0;
+
+            // Add spacers for wide chars.
+            let mut text = String::with_capacity(search_regex.len());
+            for c in search_regex.chars() {
+                text.push(c);
+                if c.width() == Some(2) {
+                    text.push(' ');
+                }
+            }
+
+            // Add cursor to show whitespace.
+            text.push('_');
+
+            // Truncate beginning of text when it exceeds viewport width.
+            let text_len = text.len();
+            let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
+            let text = &text[truncate_len..];
+
+            // Assure text length is at least num_cols.
+            let padding_len = num_cols.saturating_sub(label_len);
+            let text = format!("{}{:<2$}", SEARCH_LABEL, text, padding_len);
+
+            let fg = config.colors.search_bar_foreground();
+            let bg = config.colors.search_bar_background();
+            let line = size_info.lines() - message_bar_lines - 1;
+            self.renderer.with_api(&config, &size_info, |mut api| {
+                api.render_string(glyph_cache, line, &text, fg, Some(bg));
+            });
+        }
+
         // Draw render timer.
         if config.render_timer() {
             let timing = format!("{:.3} usec", self.meter.average());
-            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+            let fg = config.colors.normal().black;
+            let bg = config.colors.normal().red;
+
             self.renderer.with_api(&config, &size_info, |mut api| {
-                api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
+                api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
             });
         }
 

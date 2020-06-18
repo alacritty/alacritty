@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opt-out compilation flag `winpty` to disable WinPTY support
 - Scrolling during selection when mouse is at top/bottom of window
 - Expanding existing selections using the right mouse button
+- Terminal search
 
 ### Changed
 
@@ -58,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linewrap tracking when switching between primary and alternate screen buffer
 - Preservation of the alternate screen's saved cursor when swapping to primary screen and back
 - Reflow of cursor during resize
+- Cursor color escape ignored when its color is set to inverted in the config
 
 ## 0.4.3
 

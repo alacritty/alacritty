@@ -1,7 +1,7 @@
 //! Process window events.
 
 use std::borrow::Cow;
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::env;
 #[cfg(unix)]
 use std::fs;
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
@@ -31,8 +31,8 @@ use alacritty_terminal::config::Font;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::OnResize;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
-use alacritty_terminal::grid::Scroll;
-use alacritty_terminal::index::{Column, Line, Point, Side};
+use alacritty_terminal::grid::{Dimensions, Scroll};
+use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
 use alacritty_terminal::message_bar::{Message, MessageBuffer};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
@@ -48,9 +48,15 @@ use crate::config;
 use crate::config::Config;
 use crate::display::Display;
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-use crate::scheduler::Scheduler;
+use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
+
+/// Duration after the last user input until an unlimited search is performed.
+pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
+
+/// Maximum number of lines blockingly searched while still typing the search regex.
+const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
@@ -60,6 +66,7 @@ pub enum Event {
     Scroll(Scroll),
     ConfigReload(PathBuf),
     Message(Message),
+    SearchNext,
 }
 
 impl From<Event> for GlutinEvent<'_, Event> {
@@ -74,17 +81,49 @@ impl From<TerminalEvent> for Event {
     }
 }
 
+/// Regex search state.
+pub struct SearchState {
+    /// Search string regex.
+    regex: Option<String>,
+
+    /// Search direction.
+    direction: Direction,
+
+    /// Change in display offset after jumping to the match.
+    display_offset_delta: Option<isize>,
+
+    /// Vi cursor position before search.
+    vi_cursor_point: Point,
+}
+
+impl SearchState {
+    fn new() -> Self {
+        Self {
+            direction: Direction::Right,
+            display_offset_delta: None,
+            vi_cursor_point: Point::default(),
+            regex: None,
+        }
+    }
+}
+
+impl Default for SearchState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize<u32>>,
-    pub message_buffer: bool,
     pub font: Option<Font>,
     pub cursor: bool,
+    pub dirty: bool,
 }
 
 impl DisplayUpdate {
     fn is_empty(&self) -> bool {
-        self.dimensions.is_none() && self.font.is_none() && !self.message_buffer && !self.cursor
+        self.dimensions.is_none() && self.font.is_none() && !self.cursor && !self.dirty
     }
 }
 
@@ -104,6 +143,7 @@ pub struct ActionContext<'a, N, T> {
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub urls: &'a Urls,
     pub scheduler: &'a mut Scheduler,
+    pub search_state: &'a mut SearchState,
     font_size: &'a mut Size,
 }
 
@@ -120,7 +160,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.scroll_display(scroll);
 
         // Update selection.
-        if self.terminal.mode().contains(TermMode::VI)
+        if self.terminal.mode.contains(TermMode::VI)
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
@@ -154,7 +194,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists.
-        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+        let vi_mode = self.terminal.mode.contains(TermMode::VI);
         if let Some(selection) = &mut self.terminal.selection {
             selection.update(point, side);
 
@@ -198,8 +238,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn mouse_mode(&self) -> bool {
-        self.terminal.mode().intersects(TermMode::MOUSE_MODE)
-            && !self.terminal.mode().contains(TermMode::VI)
+        self.terminal.mode.intersects(TermMode::MOUSE_MODE)
+            && !self.terminal.mode.contains(TermMode::VI)
     }
 
     #[inline]
@@ -305,8 +345,118 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn pop_message(&mut self) {
-        self.display_update_pending.message_buffer = true;
-        self.message_buffer.pop();
+        if !self.message_buffer.is_empty() {
+            self.display_update_pending.dirty = true;
+            self.message_buffer.pop();
+        }
+    }
+
+    #[inline]
+    fn start_search(&mut self, direction: Direction) {
+        let num_lines = self.terminal.num_lines();
+        let num_cols = self.terminal.num_cols();
+
+        self.search_state.regex = Some(String::new());
+        self.search_state.direction = direction;
+
+        // Store original vi cursor position as search origin and for resetting.
+        self.search_state.vi_cursor_point = if self.terminal.mode.contains(TermMode::VI) {
+            self.terminal.vi_mode_cursor.point
+        } else {
+            match direction {
+                Direction::Right => Point::new(Line(0), Column(0)),
+                Direction::Left => Point::new(num_lines - 2, num_cols - 1),
+            }
+        };
+
+        self.display_update_pending.dirty = true;
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn confirm_search(&mut self) {
+        // Enter vi mode once search is confirmed.
+        self.terminal.mode.insert(TermMode::VI);
+
+        // Force limitless search if the previous one was interrupted.
+        self.goto_match(None);
+
+        // Move vi cursor down if resize will pull content from history.
+        if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
+            self.terminal.vi_mode_cursor.point.line += 1;
+        }
+
+        // Clear reset state.
+        self.search_state.display_offset_delta = None;
+
+        self.display_update_pending.dirty = true;
+        self.search_state.regex = None;
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn cancel_search(&mut self) {
+        self.terminal.cancel_search();
+
+        // Recover pre-search state.
+        self.search_reset_state();
+
+        // Move vi cursor down if resize will pull from history.
+        if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
+            self.terminal.vi_mode_cursor.point.line += 1;
+        }
+
+        self.display_update_pending.dirty = true;
+        self.search_state.regex = None;
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn push_search(&mut self, c: char) {
+        let regex = match self.search_state.regex.as_mut() {
+            Some(regex) => regex,
+            None => return,
+        };
+
+        // Add new char to search string.
+        regex.push(c);
+
+        // Create terminal search from the new regex string.
+        self.terminal.start_search(&regex);
+
+        // Update search highlighting.
+        self.goto_match(MAX_SEARCH_WHILE_TYPING);
+
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn pop_search(&mut self) {
+        let regex = match self.search_state.regex.as_mut() {
+            Some(regex) => regex,
+            None => return,
+        };
+
+        // Remove last char from search string.
+        regex.pop();
+
+        // Create terminal search from the new regex string.
+        self.terminal.start_search(&regex);
+
+        // Update search highlighting.
+        self.goto_match(MAX_SEARCH_WHILE_TYPING);
+
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn search_direction(&self) -> Direction {
+        self.search_state.direction
+    }
+
+    #[inline]
+    fn search_active(&self) -> bool {
+        self.search_state.regex.is_some()
     }
 
     fn message(&self) -> Option<&Message> {
@@ -331,6 +481,70 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn scheduler_mut(&mut self) -> &mut Scheduler {
         self.scheduler
+    }
+}
+
+impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
+    /// Reset terminal to state before search was started.
+    fn search_reset_state(&mut self) {
+        if let Some(display_offset_delta) = self.search_state.display_offset_delta.take() {
+            self.terminal.scroll_display(Scroll::Delta(display_offset_delta));
+        }
+
+        let mut vi_cursor_point = self.search_state.vi_cursor_point;
+        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
+        vi_cursor_point.col = min(vi_cursor_point.col, self.terminal.num_cols() - 1);
+        self.terminal.vi_mode_cursor.point = vi_cursor_point;
+    }
+
+    /// Jump to the first regex match from the search origin.
+    fn goto_match(&mut self, mut limit: Option<usize>) {
+        let regex = match self.search_state.regex.take() {
+            Some(regex) => regex,
+            None => return,
+        };
+
+        // Limit search only when enough lines are available to run into the limit.
+        limit = limit.filter(|&limit| limit <= self.terminal.total_lines());
+
+        // Use original position as search origin.
+        let mut vi_cursor_point = self.search_state.vi_cursor_point;
+        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
+        let mut origin = self.terminal.visible_to_buffer(vi_cursor_point);
+        if let Some(display_offset_delta) = self.search_state.display_offset_delta {
+            origin.line = (origin.line as isize + display_offset_delta) as usize;
+        }
+
+        // Jump to the next match.
+        let direction = self.search_state.direction;
+        match self.terminal.search_next(origin, direction, Side::Left, limit) {
+            Some(regex_match) => {
+                let old_offset = self.terminal.grid().display_offset() as isize;
+
+                self.terminal.vi_goto_point(*regex_match.start());
+
+                // Store number of lines the viewport had to be moved.
+                let offset_delta = self.search_state.display_offset_delta.get_or_insert(0);
+                *offset_delta += old_offset - self.terminal.grid().display_offset() as isize;
+
+                // Since we found a result, we require no delayed re-search.
+                self.scheduler.unschedule(TimerId::DelayedSearch);
+            },
+            None if limit.is_none() => self.search_reset_state(),
+            None => {
+                // Schedule delayed search if we ran into our search limit.
+                if !self.scheduler.scheduled(TimerId::DelayedSearch) {
+                    self.scheduler.schedule(
+                        Event::SearchNext.into(),
+                        TYPING_SEARCH_DELAY,
+                        false,
+                        TimerId::DelayedSearch,
+                    );
+                }
+            },
+        }
+
+        self.search_state.regex = Some(regex);
     }
 }
 
@@ -400,6 +614,7 @@ pub struct Processor<N> {
     display: Display,
     font_size: Size,
     event_queue: Vec<GlutinEvent<'static, Event>>,
+    search_state: SearchState,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -429,6 +644,7 @@ impl<N: Notify + OnResize> Processor<N> {
             display,
             event_queue: Vec::new(),
             clipboard,
+            search_state: SearchState::new(),
         }
     }
 
@@ -513,6 +729,7 @@ impl<N: Notify + OnResize> Processor<N> {
             let mut terminal = terminal.lock();
 
             let mut display_update_pending = DisplayUpdate::default();
+            let old_search_active = self.search_state.regex.is_some();
 
             let context = ActionContext {
                 terminal: &mut terminal,
@@ -530,6 +747,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 config: &mut self.config,
                 urls: &self.display.urls,
                 scheduler: &mut scheduler,
+                search_state: &mut self.search_state,
                 event_loop,
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
@@ -539,15 +757,7 @@ impl<N: Notify + OnResize> Processor<N> {
             }
 
             // Process DisplayUpdate events.
-            if !display_update_pending.is_empty() {
-                self.display.handle_update(
-                    &mut terminal,
-                    &mut self.notifier,
-                    &self.message_buffer,
-                    &self.config,
-                    display_update_pending,
-                );
-            }
+            self.dispatch_display_update(&mut terminal, old_search_active, display_update_pending);
 
             #[cfg(not(any(target_os = "macos", windows)))]
             {
@@ -575,6 +785,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
+                    self.search_state.regex.clone(),
                 );
             }
         });
@@ -609,9 +820,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 },
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
-                    processor.ctx.display_update_pending.message_buffer = true;
+                    processor.ctx.display_update_pending.dirty = true;
                     processor.ctx.terminal.dirty = true;
                 },
+                Event::SearchNext => processor.ctx.goto_match(None),
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
                 Event::TerminalEvent(event) => match event {
@@ -741,14 +953,14 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
-    pub fn reload_config<T>(
-        path: &PathBuf,
-        processor: &mut input::Processor<T, ActionContext<N, T>>,
-    ) where
+    fn reload_config<T>(path: &PathBuf, processor: &mut input::Processor<T, ActionContext<N, T>>)
+    where
         T: EventListener,
     {
-        processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
-        processor.ctx.display_update_pending.message_buffer = true;
+        if !processor.ctx.message_buffer.is_empty() {
+            processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
+            processor.ctx.display_update_pending.dirty = true;
+        }
 
         let config = match config::reload_from(&path) {
             Ok(config) => config,
@@ -793,8 +1005,48 @@ impl<N: Notify + OnResize> Processor<N> {
         processor.ctx.terminal.dirty = true;
     }
 
-    // Write the ref test results to the disk.
-    pub fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
+    /// Submit the pending changes to the `Display`.
+    fn dispatch_display_update<T>(
+        &mut self,
+        terminal: &mut Term<T>,
+        old_search_active: bool,
+        display_update_pending: DisplayUpdate,
+    ) where
+        T: EventListener,
+    {
+        if display_update_pending.is_empty() {
+            return;
+        }
+
+        // Compute cursor positions before resize.
+        let num_lines = terminal.num_lines();
+        let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
+        let origin_at_bottom = (!terminal.mode.contains(TermMode::VI)
+            && self.search_state.direction == Direction::Left)
+            || terminal.vi_mode_cursor.point.line == num_lines - 1;
+
+        self.display.handle_update(
+            terminal,
+            &mut self.notifier,
+            &self.message_buffer,
+            self.search_state.regex.is_some(),
+            &self.config,
+            display_update_pending,
+        );
+
+        // Scroll to make sure search origin is visible and content moves as little as possible.
+        if !old_search_active && self.search_state.regex.is_some() {
+            let display_offset = terminal.grid().display_offset();
+            if display_offset == 0 && cursor_at_bottom && !origin_at_bottom {
+                terminal.scroll_display(Scroll::Delta(1));
+            } else if display_offset != 0 && origin_at_bottom {
+                terminal.scroll_display(Scroll::Delta(-1));
+            }
+        }
+    }
+
+    /// Write the ref test results to the disk.
+    fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
         if !self.config.debug.ref_test {
             return;
         }

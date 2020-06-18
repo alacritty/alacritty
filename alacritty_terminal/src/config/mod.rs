@@ -13,7 +13,7 @@ mod scrolling;
 mod visual_bell;
 mod window;
 
-use crate::ansi::{CursorStyle, NamedColor};
+use crate::ansi::CursorStyle;
 
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
@@ -21,7 +21,6 @@ pub use crate::config::font::{Font, FontDescription};
 pub use crate::config::scrolling::Scrolling;
 pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig, DEFAULT_NAME};
-use crate::term::color::Rgb;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
@@ -154,30 +153,6 @@ impl<T> Config<T> {
     #[inline]
     pub fn dynamic_title(&self) -> bool {
         self.dynamic_title.0
-    }
-
-    /// Cursor foreground color.
-    #[inline]
-    pub fn cursor_text_color(&self) -> Option<Rgb> {
-        self.colors.cursor.text
-    }
-
-    /// Cursor background color.
-    #[inline]
-    pub fn cursor_cursor_color(&self) -> Option<NamedColor> {
-        self.colors.cursor.cursor.map(|_| NamedColor::Cursor)
-    }
-
-    /// Vi mode cursor foreground color.
-    #[inline]
-    pub fn vi_mode_cursor_text_color(&self) -> Option<Rgb> {
-        self.colors.vi_mode_cursor.text
-    }
-
-    /// Vi mode cursor background color.
-    #[inline]
-    pub fn vi_mode_cursor_cursor_color(&self) -> Option<Rgb> {
-        self.colors.vi_mode_cursor.cursor
     }
 
     #[inline]

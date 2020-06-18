@@ -176,6 +176,12 @@ pub enum Action {
     /// Allow receiving char input.
     ReceiveChar,
 
+    /// Start a buffer search.
+    Search,
+
+    /// Start a reverse buffer search.
+    SearchReverse,
+
     /// No action.
     None,
 }
@@ -208,6 +214,14 @@ pub enum ViAction {
     ToggleBlockSelection,
     /// Toggle semantic vi selection.
     ToggleSemanticSelection,
+    /// Jump to the beginning of the next match.
+    SearchNext,
+    /// Jump to the beginning of the previous match.
+    SearchPrevious,
+    /// Jump to the end of the next match.
+    SearchEndNext,
+    /// Jump to the end of the previous match.
+    SearchEndPrevious,
     /// Launch the URL below the vi mode cursor.
     Open,
 }
@@ -364,10 +378,14 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         D,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollHalfPageDown;
         Y,                             +TermMode::VI; Action::Copy;
         Y,                             +TermMode::VI; Action::ClearSelection;
+        Slash,                         +TermMode::VI; Action::Search;
+        Slash,  ModifiersState::SHIFT, +TermMode::VI; Action::SearchReverse;
         V,                             +TermMode::VI; ViAction::ToggleNormalSelection;
         V,      ModifiersState::SHIFT, +TermMode::VI; ViAction::ToggleLineSelection;
         V,      ModifiersState::CTRL,  +TermMode::VI; ViAction::ToggleBlockSelection;
         V,      ModifiersState::ALT,   +TermMode::VI; ViAction::ToggleSemanticSelection;
+        N,                             +TermMode::VI; ViAction::SearchNext;
+        N,      ModifiersState::SHIFT, +TermMode::VI; ViAction::SearchPrevious;
         Return,                        +TermMode::VI; ViAction::Open;
         K,                             +TermMode::VI; ViMotion::Up;
         J,                             +TermMode::VI; ViMotion::Down;

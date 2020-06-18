@@ -2,12 +2,13 @@ use std::fmt;
 use std::ops::{Index, IndexMut, Mul};
 use std::str::FromStr;
 
-use log::{error, trace};
-use serde::de::Visitor;
+use log::trace;
+use serde::de::{Error as _, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_yaml::Value;
 
 use crate::ansi;
-use crate::config::{Colors, LOG_TARGET_CONFIG};
+use crate::config::Colors;
 
 pub const COUNT: usize = 269;
 
@@ -67,7 +68,7 @@ impl<'de> Deserialize<'de> for Rgb {
                 f.write_str("hex color like #ff00ff")
             }
 
-            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
+            fn visit_str<E>(self, value: &str) -> Result<Rgb, E>
             where
                 E: serde::de::Error,
             {
@@ -81,7 +82,7 @@ impl<'de> Deserialize<'de> for Rgb {
         }
 
         // Return an error if the syntax is incorrect.
-        let value = serde_yaml::Value::deserialize(deserializer)?;
+        let value = Value::deserialize(deserializer)?;
 
         // Attempt to deserialize from struct form.
         if let Ok(RgbDerivedDeser { r, g, b }) = RgbDerivedDeser::deserialize(value.clone()) {
@@ -89,23 +90,14 @@ impl<'de> Deserialize<'de> for Rgb {
         }
 
         // Deserialize from hex notation (either 0xff00ff or #ff00ff).
-        match value.deserialize_str(RgbVisitor) {
-            Ok(rgb) => Ok(rgb),
-            Err(err) => {
-                error!(
-                    target: LOG_TARGET_CONFIG,
-                    "Problem with config: {}; using color #000000", err
-                );
-                Ok(Rgb::default())
-            },
-        }
+        value.deserialize_str(RgbVisitor).map_err(D::Error::custom)
     }
 }
 
 impl FromStr for Rgb {
     type Err = ();
 
-    fn from_str(s: &str) -> std::result::Result<Rgb, ()> {
+    fn from_str(s: &str) -> Result<Rgb, ()> {
         let chars = if s.starts_with("0x") && s.len() == 8 {
             &s[2..]
         } else if s.starts_with('#') && s.len() == 7 {
@@ -125,6 +117,66 @@ impl FromStr for Rgb {
             },
             Err(_) => Err(()),
         }
+    }
+}
+
+/// RGB color optionally referencing the cell's foreground or background.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CellRgb {
+    CellForeground,
+    CellBackground,
+    Rgb(Rgb),
+}
+
+impl CellRgb {
+    pub fn color(self, foreground: Rgb, background: Rgb) -> Rgb {
+        match self {
+            Self::CellForeground => foreground,
+            Self::CellBackground => background,
+            Self::Rgb(rgb) => rgb,
+        }
+    }
+}
+
+impl Default for CellRgb {
+    fn default() -> Self {
+        Self::Rgb(Rgb::default())
+    }
+}
+
+impl<'de> Deserialize<'de> for CellRgb {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        const EXPECTING: &str = "CellForeground, CellBackground, or hex color like #ff00ff";
+
+        struct CellRgbVisitor;
+        impl<'a> Visitor<'a> for CellRgbVisitor {
+            type Value = CellRgb;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(EXPECTING)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<CellRgb, E>
+            where
+                E: serde::de::Error,
+            {
+                // Attempt to deserialize as enum constants.
+                match value {
+                    "CellForeground" => return Ok(CellRgb::CellForeground),
+                    "CellBackground" => return Ok(CellRgb::CellBackground),
+                    _ => (),
+                }
+
+                Rgb::from_str(&value[..]).map(CellRgb::Rgb).map_err(|_| {
+                    E::custom(format!("failed to parse color {}; expected {}", value, EXPECTING))
+                })
+            }
+        }
+
+        deserializer.deserialize_str(CellRgbVisitor).map_err(D::Error::custom)
     }
 }
 
@@ -178,9 +230,6 @@ impl List {
         // Foreground and background.
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
         self[ansi::NamedColor::Background] = colors.primary.background;
-
-        // Background for custom cursor colors.
-        self[ansi::NamedColor::Cursor] = colors.cursor.cursor.unwrap_or_else(Rgb::default);
 
         // Dims.
         self[ansi::NamedColor::DimForeground] =

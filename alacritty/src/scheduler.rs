@@ -9,6 +9,22 @@ use crate::event::Event as AlacrittyEvent;
 
 type Event = GlutinEvent<'static, AlacrittyEvent>;
 
+/// ID uniquely identifying a timer.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TimerId {
+    SelectionScrolling,
+    DelayedSearch,
+}
+
+/// Event scheduled to be emitted at a specific time.
+pub struct Timer {
+    pub deadline: Instant,
+    pub event: Event,
+
+    interval: Option<Duration>,
+    id: TimerId,
+}
+
 /// Scheduler tracking all pending timers.
 pub struct Scheduler {
     timers: VecDeque<Timer>,
@@ -74,23 +90,13 @@ impl Scheduler {
         self.timers.remove(index).map(|timer| timer.event)
     }
 
+    /// Check if a timer is already scheduled.
+    pub fn scheduled(&mut self, id: TimerId) -> bool {
+        self.timers.iter().any(|timer| timer.id == id)
+    }
+
     /// Access a staged event by ID.
     pub fn get_mut(&mut self, id: TimerId) -> Option<&mut Timer> {
         self.timers.iter_mut().find(|timer| timer.id == id)
     }
-}
-
-/// ID uniquely identifying a timer.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TimerId {
-    SelectionScrolling,
-}
-
-/// Event scheduled to be emitted at a specific time.
-pub struct Timer {
-    pub deadline: Instant,
-    pub event: Event,
-
-    interval: Option<Duration>,
-    id: TimerId,
 }

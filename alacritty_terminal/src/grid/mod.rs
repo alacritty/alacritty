@@ -160,7 +160,7 @@ pub struct Grid<T> {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Scroll {
-    Lines(isize),
+    Delta(isize),
     PageUp,
     PageDown,
     Top,
@@ -180,22 +180,6 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
     }
 
-    /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
-        if point.line < self.display_offset {
-            Point::new(self.lines - 1, self.cols - 1)
-        } else if point.line >= self.display_offset + self.lines.0 {
-            Point::new(Line(0), Column(0))
-        } else {
-            // Since edge-cases are handled, conversion is identical as visible to buffer.
-            self.visible_to_buffer(point.into()).into()
-        }
-    }
-
-    /// Convert viewport relative point to global buffer indexing.
-    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
-    }
 
     /// Update the size of the scrollback history.
     pub fn update_history(&mut self, history_size: usize) {
@@ -208,22 +192,16 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     pub fn scroll_display(&mut self, scroll: Scroll) {
-        match scroll {
-            Scroll::Lines(count) => {
-                self.display_offset = min(
-                    max((self.display_offset as isize) + count, 0isize) as usize,
-                    self.history_size(),
-                );
-            },
-            Scroll::PageUp => {
-                self.display_offset = min(self.display_offset + self.lines.0, self.history_size());
-            },
-            Scroll::PageDown => {
-                self.display_offset -= min(self.display_offset, self.lines.0);
-            },
-            Scroll::Top => self.display_offset = self.history_size(),
-            Scroll::Bottom => self.display_offset = 0,
-        }
+        self.display_offset = match scroll {
+            Scroll::Delta(count) => min(
+                max((self.display_offset as isize) + count, 0isize) as usize,
+                self.history_size(),
+            ),
+            Scroll::PageUp => min(self.display_offset + self.lines.0, self.history_size()),
+            Scroll::PageDown => self.display_offset.saturating_sub(self.lines.0),
+            Scroll::Top => self.history_size(),
+            Scroll::Bottom => 0,
+        };
     }
 
     fn increase_scroll_limit(&mut self, count: usize, template: T) {
@@ -364,9 +342,22 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
 #[allow(clippy::len_without_is_empty)]
 impl<T> Grid<T> {
+    /// Clamp a buffer point to the visible region.
+    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
+        if point.line < self.display_offset {
+            Point::new(self.lines - 1, self.cols - 1)
+        } else if point.line >= self.display_offset + self.lines.0 {
+            Point::new(Line(0), Column(0))
+        } else {
+            // Since edgecases are handled, conversion is identical as visible to buffer.
+            self.visible_to_buffer(point.into()).into()
+        }
+    }
+
+    /// Convert viewport relative point to global buffer indexing.
     #[inline]
-    pub fn num_lines(&self) -> Line {
-        self.lines
+    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
     }
 
     #[inline]
@@ -375,25 +366,9 @@ impl<T> Grid<T> {
     }
 
     #[inline]
-    pub fn num_cols(&self) -> Column {
-        self.cols
-    }
-
-    #[inline]
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history.
         self.raw.shrink_lines(self.history_size());
-    }
-
-    /// Total number of lines in the buffer, this includes scrollback + visible lines.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.raw.len()
-    }
-
-    #[inline]
-    pub fn history_size(&self) -> usize {
-        self.raw.len() - *self.lines
     }
 
     /// This is used only for initializing after loading ref-tests.
@@ -432,6 +407,56 @@ impl<T> Grid<T> {
     }
 }
 
+/// Grid dimensions.
+pub trait Dimensions {
+    /// Total number of lines in the buffer, this includes scrollback and visible lines.
+    fn total_lines(&self) -> usize;
+
+    /// Height of the viewport in lines.
+    fn num_lines(&self) -> Line;
+
+    /// Width of the viewport in columns.
+    fn num_cols(&self) -> Column;
+
+    /// Number of invisible lines part of the scrollback history.
+    #[inline]
+    fn history_size(&self) -> usize {
+        self.total_lines() - self.num_lines().0
+    }
+}
+
+impl<G> Dimensions for Grid<G> {
+    #[inline]
+    fn total_lines(&self) -> usize {
+        self.raw.len()
+    }
+
+    #[inline]
+    fn num_lines(&self) -> Line {
+        self.lines
+    }
+
+    #[inline]
+    fn num_cols(&self) -> Column {
+        self.cols
+    }
+}
+
+#[cfg(test)]
+impl Dimensions for (Line, Column) {
+    fn total_lines(&self) -> usize {
+        *self.0
+    }
+
+    fn num_lines(&self) -> Line {
+        self.0
+    }
+
+    fn num_cols(&self) -> Column {
+        self.1
+    }
+}
+
 pub struct GridIterator<'a, T> {
     /// Immutable grid reference.
     grid: &'a Grid<T>,
@@ -446,7 +471,7 @@ impl<'a, T> GridIterator<'a, T> {
     }
 
     pub fn cell(&self) -> &'a T {
-        &self.grid[self.cur.line][self.cur.col]
+        &self.grid[self.cur]
     }
 }
 
@@ -454,38 +479,35 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.num_cols() - Column(1);
+        let last_col = self.grid.num_cols() - 1;
+
         match self.cur {
-            Point { line, col } if line == 0 && col == last_col => None,
+            Point { line, col } if line == 0 && col == last_col => return None,
             Point { col, .. } if (col == last_col) => {
                 self.cur.line -= 1;
                 self.cur.col = Column(0);
-                Some(&self.grid[self.cur.line][self.cur.col])
             },
-            _ => {
-                self.cur.col += Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
+            _ => self.cur.col += Column(1),
         }
+
+        Some(&self.grid[self.cur])
     }
 }
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let num_cols = self.grid.num_cols();
+        let last_col = self.grid.num_cols() - 1;
 
         match self.cur {
-            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
+            Point { line, col: Column(0) } if line == self.grid.total_lines() - 1 => return None,
             Point { col: Column(0), .. } => {
                 self.cur.line += 1;
-                self.cur.col = num_cols - Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
+                self.cur.col = last_col;
             },
-            _ => {
-                self.cur.col -= Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
+            _ => self.cur.col -= Column(1),
         }
+
+        Some(&self.grid[self.cur])
     }
 }
 
@@ -535,6 +557,22 @@ impl<'point, T> Index<&'point Point> for Grid<T> {
 impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     #[inline]
     fn index_mut<'a, 'b>(&'a mut self, point: &'b Point) -> &'a mut T {
+        &mut self[point.line][point.col]
+    }
+}
+
+impl<T> Index<Point<usize>> for Grid<T> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, point: Point<usize>) -> &T {
+        &self[point.line][point.col]
+    }
+}
+
+impl<T> IndexMut<Point<usize>> for Grid<T> {
+    #[inline]
+    fn index_mut(&mut self, point: Point<usize>) -> &mut T {
         &mut self[point.line][point.col]
     }
 }
