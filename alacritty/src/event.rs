@@ -89,8 +89,8 @@ pub struct SearchState {
     /// Search direction.
     direction: Direction,
 
-    /// Change in display offset after jumping to the match.
-    display_offset_delta: Option<isize>,
+    /// Change in display offset since the beginning of the search.
+    display_offset_delta: isize,
 
     /// Vi cursor position before search.
     vi_cursor_point: Point,
@@ -98,18 +98,18 @@ pub struct SearchState {
 
 impl SearchState {
     fn new() -> Self {
-        Self {
-            direction: Direction::Right,
-            display_offset_delta: None,
-            vi_cursor_point: Point::default(),
-            regex: None,
-        }
+        Self::default()
     }
 }
 
 impl Default for SearchState {
     fn default() -> Self {
-        Self::new()
+        Self {
+            direction: Direction::Right,
+            display_offset_delta: 0,
+            vi_cursor_point: Point::default(),
+            regex: None,
+        }
     }
 }
 
@@ -344,6 +344,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.dirty = true;
     }
 
+    #[inline]
     fn pop_message(&mut self) {
         if !self.message_buffer.is_empty() {
             self.display_update_pending.dirty = true;
@@ -379,7 +380,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.mode.insert(TermMode::VI);
 
         // Force limitless search if the previous one was interrupted.
-        self.goto_match(None);
+        if self.scheduler.scheduled(TimerId::DelayedSearch) {
+            self.goto_match(None);
+        }
 
         // Move vi cursor down if resize will pull content from history.
         if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
@@ -387,7 +390,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Clear reset state.
-        self.search_state.display_offset_delta = None;
+        self.search_state.display_offset_delta = 0;
 
         self.display_update_pending.dirty = true;
         self.search_state.regex = None;
@@ -487,9 +490,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to state before search was started.
     fn search_reset_state(&mut self) {
-        if let Some(display_offset_delta) = self.search_state.display_offset_delta.take() {
-            self.terminal.scroll_display(Scroll::Delta(display_offset_delta));
-        }
+        self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
 
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
         vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
@@ -511,9 +512,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
         vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
         let mut origin = self.terminal.visible_to_buffer(vi_cursor_point);
-        if let Some(display_offset_delta) = self.search_state.display_offset_delta {
-            origin.line = (origin.line as isize + display_offset_delta) as usize;
-        }
+        origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
 
         // Jump to the next match.
         let direction = self.search_state.direction;
@@ -524,12 +523,13 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.terminal.vi_goto_point(*regex_match.start());
 
                 // Store number of lines the viewport had to be moved.
-                let offset_delta = self.search_state.display_offset_delta.get_or_insert(0);
-                *offset_delta += old_offset - self.terminal.grid().display_offset() as isize;
+                let display_offset = self.terminal.grid().display_offset();
+                self.search_state.display_offset_delta += old_offset - display_offset as isize;
 
                 // Since we found a result, we require no delayed re-search.
                 self.scheduler.unschedule(TimerId::DelayedSearch);
             },
+            // Reset viewport only when we know there is no match, to prevent unnecessary jumping.
             None if limit.is_none() => self.search_reset_state(),
             None => {
                 // Schedule delayed search if we ran into our search limit.

@@ -195,7 +195,7 @@ fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let cols = term.grid().num_cols();
 
     // Expand across wide cells.
-    point = term.expand_wide(point, Direction::Left);
+    point = term.expand_wide(point, Direction::Right);
 
     // Find last non-empty cell in the current line.
     let occupied = last_occupied_in_line(term, point.line).unwrap_or_default();
@@ -221,7 +221,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     let cols = term.grid().num_cols();
 
     // Expand left across wide chars, since we're searching lines left to right.
-    point = term.expand_wide(point, Direction::Right);
+    point = term.expand_wide(point, Direction::Left);
 
     // Find first non-empty cell in current line.
     let occupied = first_occupied_in_line(term, point.line)

@@ -854,12 +854,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let suppress_chars = *self.ctx.suppress_chars();
         let search_active = self.ctx.search_active();
         if suppress_chars || self.ctx.terminal().mode.contains(TermMode::VI) || search_active {
-            // Skip control characters.
-            let c_decimal = c as isize;
-            let is_printable = (c_decimal >= 0x20 && c_decimal < 0x7f) || c_decimal >= 0xa0;
+            if search_active {
+                // Skip control characters.
+                let c_decimal = c as isize;
+                let is_printable = (c_decimal >= 0x20 && c_decimal < 0x7f) || c_decimal >= 0xa0;
 
-            if !suppress_chars && is_printable {
-                self.ctx.push_search(c);
+                if !suppress_chars && is_printable {
+                    self.ctx.push_search(c);
+                }
             }
 
             return;
@@ -962,7 +964,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     fn message_close_at_cursor(&self) -> bool {
         let mouse = self.ctx.mouse();
 
-        // Offset button position by search height, since it sits above the message bar.
+        // Since search is above the message bar, the button is offset by search's height.
         let search_height = if self.ctx.search_active() { 1 } else { 0 };
 
         mouse.inside_grid
