@@ -4,7 +4,6 @@ use std::ops::RangeInclusive;
 
 use regex_automata::{dense, DenseDFA, Error as RegexError, DFA};
 
-use crate::event::EventListener;
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator};
 use crate::index::{Boundary, Column, Direction, Point, Side};
 use crate::term::cell::{Cell, Flags};
@@ -51,10 +50,7 @@ impl RegexSearch {
 impl<T> Term<T> {
     /// Enter terminal buffer search mode.
     #[inline]
-    pub fn start_search(&mut self, search: &str)
-    where
-        T: EventListener,
-    {
+    pub fn start_search(&mut self, search: &str) {
         self.regex_search = RegexSearch::new(search).ok();
         self.dirty = true;
     }
@@ -72,12 +68,11 @@ impl<T> Term<T> {
         mut origin: Point<usize>,
         direction: Direction,
         side: Side,
-        max_lines: Option<usize>,
-    ) -> Option<Match>
-    where
-        T: EventListener,
-    {
+        mut max_lines: Option<usize>,
+    ) -> Option<Match> {
         origin = self.expand_wide(origin, direction);
+
+        max_lines = max_lines.filter(|max_lines| max_lines + 1 < self.total_lines());
 
         match direction {
             Direction::Right => self.next_match_right(origin, side, max_lines),
@@ -100,7 +95,7 @@ impl<T> Term<T> {
         // Limit maximum number of lines searched.
         let total_lines = self.total_lines();
         end = match max_lines {
-            Some(max_lines) if max_lines + 1 < total_lines => {
+            Some(max_lines) => {
                 let line = (start.line + total_lines - max_lines) % total_lines;
                 Point::new(line, self.num_cols() - 1)
             },
@@ -139,11 +134,8 @@ impl<T> Term<T> {
         let mut end = start;
 
         // Limit maximum number of lines searched.
-        let total_lines = self.total_lines();
         end = match max_lines {
-            Some(max_lines) if max_lines + 1 < total_lines => {
-                Point::new((start.line + max_lines) % total_lines, Column(0))
-            },
+            Some(max_lines) => Point::new((start.line + max_lines) % self.total_lines(), Column(0)),
             _ => end.add_absolute(self, Boundary::Wrap, 1),
         };
 
@@ -290,7 +282,7 @@ impl<T> Term<T> {
         regex_match
     }
 
-    /// Advance the grid iterator over fullwidth characters.
+    /// Advance a grid iterator over fullwidth characters.
     fn skip_fullwidth(
         &self,
         iter: &mut GridIterator<'_, Cell>,
@@ -438,6 +430,7 @@ impl<T> Term<T> {
     }
 }
 
+/// Iterator over regex matches.
 pub struct RegexIter<'a, T> {
     point: Point<usize>,
     end: Point<usize>,
