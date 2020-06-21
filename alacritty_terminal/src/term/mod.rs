@@ -67,7 +67,7 @@ impl<'a> RenderableSearch<'a> {
     pub fn new<T>(term: &'a Term<T>) -> Self {
         let mut renderable_search = Self { iter: Self::new_iter(term), active_match: None };
 
-        // Load the first match, so the active match is only `None` once done.
+        // Load the first match, so the active match is only `None` once iteration is done.
         renderable_search.advance_match(term.grid());
 
         renderable_search
@@ -271,37 +271,33 @@ pub struct RenderableCell {
 impl RenderableCell {
     fn new<'a, C>(iter: &mut RenderableCellsIter<'a, C>, cell: Indexed<Cell>) -> Self {
         let point = Point::new(cell.line, cell.column);
-        let matched = iter.is_matched(point);
-
-        let config = &iter.config;
-        let colors = &iter.colors;
 
         // Lookup RGB values.
-        let mut fg_rgb = Self::compute_fg_rgb(config, colors, cell.fg, cell.flags);
-        let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
+        let mut fg_rgb = Self::compute_fg_rgb(iter.config, iter.colors, cell.fg, cell.flags);
+        let mut bg_rgb = Self::compute_bg_rgb(iter.colors, cell.bg);
 
         if cell.inverse() {
             mem::swap(&mut fg_rgb, &mut bg_rgb);
         }
 
         if iter.is_selected(point) {
-            let selected_fg = config.colors.selection.text().color(fg_rgb, bg_rgb);
-            bg_rgb = config.colors.selection.background().color(fg_rgb, bg_rgb);
+            let selected_fg = iter.config.colors.selection.text().color(fg_rgb, bg_rgb);
+            bg_rgb = iter.config.colors.selection.background().color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
 
             if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
-                fg_rgb = colors[NamedColor::Background];
-                bg_rgb = colors[NamedColor::Foreground];
+                fg_rgb = iter.colors[NamedColor::Background];
+                bg_rgb = iter.colors[NamedColor::Foreground];
             }
-        } else if matched {
-            let selected_fg = config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
-            bg_rgb = config.colors.search.matches.background.color(fg_rgb, bg_rgb);
+        } else if iter.is_matched(point) {
+            let selected_fg = iter.config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
+            bg_rgb = iter.config.colors.search.matches.background.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
         }
 
-        // Set background transparent if it matches the terminal background.
-        let bg_alpha = if bg_rgb == colors[NamedColor::Background] { 0. } else { 1. };
+        // Make background transparent if it matches the terminal background.
+        let bg_alpha = if bg_rgb == iter.colors[NamedColor::Background] { 0. } else { 1. };
 
         RenderableCell {
             line: cell.line,
