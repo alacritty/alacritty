@@ -139,6 +139,15 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
+            Action::CopyDynamic => {
+                if ctx.selection_is_empty() {
+                    *ctx.suppress_chars() = false;
+                } else {
+                    ctx.copy_selection(ClipboardType::Clipboard);
+                    ctx.clear_selection();
+                    *ctx.suppress_chars() = true;
+                }
+            },
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
                 paste(ctx, &text);
@@ -778,7 +787,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// for its action to be executed.
     fn process_key_bindings(&mut self, input: KeyboardInput) {
         let mods = *self.ctx.modifiers();
-        let mut suppress_chars = None;
+        let mut suppress_chars = true;
 
         for i in 0..self.ctx.config().ui_config.key_bindings.len() {
             let binding = &self.ctx.config().ui_config.key_bindings[i];
@@ -794,13 +803,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 let binding = binding.clone();
                 binding.execute(&mut self.ctx);
 
-                // Don't suppress when there has been a `ReceiveChar` action.
-                *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
+                // Don't suppress when there has been a `ReceiveChar` action
+                // or ctx.suppress_chars() was set.
+                suppress_chars |= binding.action != Action::ReceiveChar && *self.ctx.suppress_chars();
             }
         }
 
         // Don't suppress char if no bindings were triggered.
-        *self.ctx.suppress_chars() = suppress_chars.unwrap_or(false);
+        *self.ctx.suppress_chars() = suppress_chars;
     }
 
     /// Attempt to find a binding and execute its action.

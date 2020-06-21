@@ -99,6 +99,9 @@ pub enum Action {
     /// Paste contents of system clipboard.
     Paste,
 
+    /// Copy selection and clear it, or forward the keybinding to the program if there is no selection.
+    CopyDynamic,
+
     /// Store current selection into clipboard.
     Copy,
 
