@@ -426,8 +426,8 @@ impl Display {
         {
             let point = match &search_regex {
                 Some(regex) => {
-                    let len = min(regex.len() + SEARCH_LABEL.len(), terminal.num_cols().0);
-                    Point::new(terminal.num_lines() - 1, Column(len - 1))
+                    let column = min(regex.len() + SEARCH_LABEL.len(), terminal.num_cols().0 - 1);
+                    Point::new(terminal.num_lines() - 1, Column(column))
                 },
                 None => terminal.grid().cursor.point,
             };
@@ -522,69 +522,25 @@ impl Display {
             self.renderer.draw_rects(&size_info, rects);
 
             // Relay messages to the user.
-            let mut offset = 1;
             let fg = config.colors.primary.background;
-            for message_text in text.iter().rev() {
+            for (i, message_text) in text.iter().rev().enumerate() {
                 self.renderer.with_api(&config, &size_info, |mut api| {
                     api.render_string(
                         glyph_cache,
-                        Line(size_info.lines().saturating_sub(offset)),
+                        Line(size_info.lines().saturating_sub(i + 1)),
                         &message_text,
                         fg,
                         None,
                     );
                 });
-                offset += 1;
             }
         } else {
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, rects);
         }
 
-        // Draw current search regex.
-        if let Some(search_regex) = search_regex {
-            let label_len = SEARCH_LABEL.len();
-            let num_cols = size_info.cols().0;
-
-            // Add spacers for wide chars.
-            let mut text = String::with_capacity(search_regex.len());
-            for c in search_regex.chars() {
-                text.push(c);
-                if c.width() == Some(2) {
-                    text.push(' ');
-                }
-            }
-
-            // Add cursor to show whitespace.
-            text.push('_');
-
-            // Truncate beginning of text when it exceeds viewport width.
-            let text_len = text.len();
-            let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
-            let text = &text[truncate_len..];
-
-            // Assure text length is at least num_cols.
-            let padding_len = num_cols.saturating_sub(label_len);
-            let text = format!("{}{:<2$}", SEARCH_LABEL, text, padding_len);
-
-            let fg = config.colors.search_bar_foreground();
-            let bg = config.colors.search_bar_background();
-            let line = size_info.lines() - message_bar_lines - 1;
-            self.renderer.with_api(&config, &size_info, |mut api| {
-                api.render_string(glyph_cache, line, &text, fg, Some(bg));
-            });
-        }
-
-        // Draw render timer.
-        if config.render_timer() {
-            let timing = format!("{:.3} usec", self.meter.average());
-            let fg = config.colors.normal().black;
-            let bg = config.colors.normal().red;
-
-            self.renderer.with_api(&config, &size_info, |mut api| {
-                api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
-            });
-        }
+        self.draw_search(config, &size_info, message_bar_lines, search_regex);
+        self.draw_render_timer(config, &size_info);
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -604,6 +560,68 @@ impl Display {
                 });
             }
         }
+    }
+
+    /// Draw current search regex.
+    fn draw_search(
+        &mut self,
+        config: &Config,
+        size_info: &SizeInfo,
+        message_bar_lines: usize,
+        search_regex: Option<String>
+    ) {
+        let search_regex = match search_regex {
+            Some(search_regex) => search_regex,
+            None => return,
+        };
+        let glyph_cache = &mut self.glyph_cache;
+
+        let label_len = SEARCH_LABEL.len();
+        let num_cols = size_info.cols().0;
+
+        // Add spacers for wide chars.
+        let mut text = String::with_capacity(search_regex.len());
+        for c in search_regex.chars() {
+            text.push(c);
+            if c.width() == Some(2) {
+                text.push(' ');
+            }
+        }
+
+        // Add cursor to show whitespace.
+        text.push('_');
+
+        // Truncate beginning of text when it exceeds viewport width.
+        let text_len = text.len();
+        let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
+        let text = &text[truncate_len..];
+
+        // Assure text length is at least num_cols.
+        let padding_len = num_cols.saturating_sub(label_len);
+        let text = format!("{}{:<2$}", SEARCH_LABEL, text, padding_len);
+
+        let fg = config.colors.search_bar_foreground();
+        let bg = config.colors.search_bar_background();
+        let line = size_info.lines() - message_bar_lines - 1;
+        self.renderer.with_api(&config, &size_info, |mut api| {
+            api.render_string(glyph_cache, line, &text, fg, Some(bg));
+        });
+    }
+
+    /// Draw render timer.
+    fn draw_render_timer(&mut self, config: &Config, size_info: &SizeInfo) {
+        if !config.render_timer() {
+            return;
+        }
+        let glyph_cache = &mut self.glyph_cache;
+
+        let timing = format!("{:.3} usec", self.meter.average());
+        let fg = config.colors.normal().black;
+        let bg = config.colors.normal().red;
+
+        self.renderer.with_api(&config, &size_info, |mut api| {
+            api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
+        });
     }
 
     /// Requst a new frame for a window on Wayland.
