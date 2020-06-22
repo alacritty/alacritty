@@ -492,42 +492,104 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             };
 
             self.mouse_report(code, ElementState::Pressed);
-        } else if button == MouseButton::Left {
-            self.on_left_click();
         } else {
-            // Do nothing when using buttons other than LMB.
-            self.ctx.mouse_mut().click_state = ClickState::None;
+            // Calculate time since the last click to handle double/triple clicks in normal mode.
+            let now = Instant::now();
+            let elapsed = now - self.ctx.mouse().last_click_timestamp;
+            self.ctx.mouse_mut().last_click_timestamp = now;
+            self.ctx.mouse_mut().last_click_button = button;
+
+            // Load mouse point, treating message bar and padding as closest cell.
+            let mouse = self.ctx.mouse();
+            let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
+            point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
+
+            match button {
+                MouseButton::Left => self.on_left_click(point, elapsed),
+                MouseButton::Right => self.on_right_click(point, elapsed),
+                // Do nothing when using buttons other than LMB.
+                _ => self.ctx.mouse_mut().click_state = ClickState::None,
+            }
         }
     }
 
-    /// Handle left click selection and vi mode cursor movement.
-    fn on_left_click(&mut self) {
-        // Calculate time since the last click to handle double/triple clicks in normal mode.
-        let now = Instant::now();
-        let elapsed = now - self.ctx.mouse().last_click_timestamp;
-        self.ctx.mouse_mut().last_click_timestamp = now;
-
-        // Load mouse point, treating message bar and padding as closest cell.
-        let mouse = self.ctx.mouse();
-        let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
-        point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
-
+    /// Handle selection expansion on right click.
+    fn on_right_click(&mut self, point: Point, elapsed: Duration) {
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
             {
-                self.on_left_double_click(point);
+                self.expand_selection(point, SelectionType::Semantic);
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
                 if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
             {
-
-                self.on_left_triple_click(point);
+                self.expand_selection(point, SelectionType::Lines);
                 ClickState::TripleClick
             }
             _ => {
-                self.on_left_single_click(point);
+                // Determine selection type.
+                let selection_type = if self.ctx.modifiers().ctrl() {
+                    SelectionType::Block
+                } else {
+                    SelectionType::Simple
+                };
+
+                self.expand_selection(point, selection_type);
+
+                ClickState::Click
+            },
+        };
+    }
+
+    /// Expand existing selection.
+    fn expand_selection(&mut self, point: Point, selection_type: SelectionType) {
+        let cell_side = self.ctx.mouse().cell_side;
+
+        let selection = match &mut self.ctx.terminal_mut().selection {
+            Some(selection) => selection,
+            None => return,
+        };
+
+        selection.ty = selection_type;
+        self.ctx.update_selection(point, cell_side);
+    }
+
+    /// Handle left click selection and vi mode cursor movement.
+    fn on_left_click(&mut self, point: Point, elapsed: Duration) {
+        let side = self.ctx.mouse().cell_side;
+
+        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
+            ClickState::Click
+                if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
+            {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.start_selection(SelectionType::Semantic, point, side);
+
+                ClickState::DoubleClick
+            }
+            ClickState::DoubleClick
+                if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
+            {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.start_selection(SelectionType::Lines, point, side);
+
+                ClickState::TripleClick
+            }
+            _ => {
+                // Don't launch URLs if this click cleared the selection.
+                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+
+                self.ctx.clear_selection();
+
+                // Start new empty selection.
+                if self.ctx.modifiers().ctrl() {
+                    self.ctx.start_selection(SelectionType::Block, point, side);
+                } else {
+                    self.ctx.start_selection(SelectionType::Simple, point, side);
+                }
+
                 ClickState::Click
             },
         };
@@ -536,64 +598,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         if self.ctx.terminal().mode().contains(TermMode::VI) {
             // Update Vi mode cursor position on click.
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
-        }
-    }
-
-    /// Handle single click with the LMB.
-    fn on_left_single_click(&mut self, point: Point) {
-        // Don't launch URLs if this click cleared the selection.
-        self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
-
-        // Determine selection type.
-        let selection_type = if self.ctx.modifiers().ctrl() {
-            SelectionType::Block
-        } else {
-            SelectionType::Simple
-        };
-
-        let shift = self.ctx.modifiers().shift();
-        let side = self.ctx.mouse().cell_side;
-
-        match &mut self.ctx.terminal_mut().selection {
-            // Expand existing selection.
-            Some(selection) if shift => {
-                selection.ty = selection_type;
-                self.ctx.update_selection(point, side);
-            },
-            // Start new empty selection.
-            _ => self.ctx.start_selection(selection_type, point, side),
-        }
-    }
-
-    /// Handle double click with the LMB.
-    fn on_left_double_click(&mut self, point: Point) {
-        let side = self.ctx.mouse().cell_side;
-
-        self.ctx.mouse_mut().block_url_launcher = true;
-
-        let shift = self.ctx.modifiers().shift();
-        match &mut self.ctx.terminal_mut().selection {
-            Some(selection) if shift => {
-                selection.ty = SelectionType::Semantic;
-                self.ctx.update_selection(point, side);
-            },
-            _ => self.ctx.start_selection(SelectionType::Semantic, point, side),
-        }
-    }
-
-    /// Handle triple click with the LMB.
-    fn on_left_triple_click(&mut self, point: Point) {
-        let side = self.ctx.mouse().cell_side;
-
-        self.ctx.mouse_mut().block_url_launcher = true;
-
-        let shift = self.ctx.modifiers().shift();
-        match &mut self.ctx.terminal_mut().selection {
-            Some(selection) if shift => {
-                selection.ty = SelectionType::Lines;
-                self.ctx.update_selection(point, side);
-            },
-            _ => self.ctx.start_selection(SelectionType::Lines, point, side),
         }
     }
 
@@ -1124,7 +1128,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn scheduler_mut (&mut self) -> &mut Scheduler {
+        fn scheduler_mut(&mut self) -> &mut Scheduler {
             unimplemented!();
         }
     }
