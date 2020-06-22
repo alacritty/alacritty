@@ -493,11 +493,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             self.mouse_report(code, ElementState::Pressed);
         } else {
-            // Calculate time since the last click to handle double/triple clicks in normal mode.
+            // Reset click state if button has changed
+            if button != self.ctx.mouse().last_click_button {
+                self.ctx.mouse_mut().last_click_button = button;
+                self.ctx.mouse_mut().click_state = ClickState::None;
+            }
+
+            // Calculate time since the last click to handle double/triple clicks.
             let now = Instant::now();
             let elapsed = now - self.ctx.mouse().last_click_timestamp;
             self.ctx.mouse_mut().last_click_timestamp = now;
-            self.ctx.mouse_mut().last_click_button = button;
 
             // Load mouse point, treating message bar and padding as closest cell.
             let mouse = self.ctx.mouse();
@@ -1257,7 +1262,7 @@ mod tests {
             },
             window_id: unsafe { std::mem::transmute_copy(&0) },
         },
-        end_state: ClickState::None,
+        end_state: ClickState::Click,
     }
 
     test_clickstate! {
@@ -1321,7 +1326,7 @@ mod tests {
             },
             window_id: unsafe { std::mem::transmute_copy(&0) },
         },
-        end_state: ClickState::None,
+        end_state: ClickState::Click,
     }
 
     test_process_binding! {
