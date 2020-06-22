@@ -512,36 +512,22 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
         point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
-        let side = self.ctx.mouse().cell_side;
-
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
             {
-                self.ctx.mouse_mut().block_url_launcher = true;
-                self.ctx.start_selection(SelectionType::Semantic, point, side);
+                self.on_left_double_click(point);
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
                 if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
             {
-                self.ctx.mouse_mut().block_url_launcher = true;
-                self.ctx.start_selection(SelectionType::Lines, point, side);
+
+                self.on_left_triple_click(point);
                 ClickState::TripleClick
             }
             _ => {
-                // Don't launch URLs if this click cleared the selection.
-                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
-
-                self.ctx.clear_selection();
-
-                // Start new empty selection.
-                if self.ctx.modifiers().ctrl() {
-                    self.ctx.start_selection(SelectionType::Block, point, side);
-                } else {
-                    self.ctx.start_selection(SelectionType::Simple, point, side);
-                }
-
+                self.on_left_single_click(point);
                 ClickState::Click
             },
         };
@@ -550,6 +536,64 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         if self.ctx.terminal().mode().contains(TermMode::VI) {
             // Update Vi mode cursor position on click.
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
+        }
+    }
+
+    /// Handle single click with the LMB.
+    fn on_left_single_click(&mut self, point: Point) {
+        // Don't launch URLs if this click cleared the selection.
+        self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+
+        // Determine selection type.
+        let selection_type = if self.ctx.modifiers().ctrl() {
+            SelectionType::Block
+        } else {
+            SelectionType::Simple
+        };
+
+        let shift = self.ctx.modifiers().shift();
+        let side = self.ctx.mouse().cell_side;
+
+        match &mut self.ctx.terminal_mut().selection {
+            // Expand existing selection.
+            Some(selection) if shift => {
+                selection.ty = selection_type;
+                self.ctx.update_selection(point, side);
+            },
+            // Start new empty selection.
+            _ => self.ctx.start_selection(selection_type, point, side),
+        }
+    }
+
+    /// Handle double click with the LMB.
+    fn on_left_double_click(&mut self, point: Point) {
+        let side = self.ctx.mouse().cell_side;
+
+        self.ctx.mouse_mut().block_url_launcher = true;
+
+        let shift = self.ctx.modifiers().shift();
+        match &mut self.ctx.terminal_mut().selection {
+            Some(selection) if shift => {
+                selection.ty = SelectionType::Semantic;
+                self.ctx.update_selection(point, side);
+            },
+            _ => self.ctx.start_selection(SelectionType::Semantic, point, side),
+        }
+    }
+
+    /// Handle triple click with the LMB.
+    fn on_left_triple_click(&mut self, point: Point) {
+        let side = self.ctx.mouse().cell_side;
+
+        self.ctx.mouse_mut().block_url_launcher = true;
+
+        let shift = self.ctx.modifiers().shift();
+        match &mut self.ctx.terminal_mut().selection {
+            Some(selection) if shift => {
+                selection.ty = SelectionType::Lines;
+                self.ctx.update_selection(point, side);
+            },
+            _ => self.ctx.start_selection(SelectionType::Lines, point, side),
         }
     }
 
