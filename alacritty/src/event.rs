@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, WindowEvent};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -351,6 +351,7 @@ pub struct Mouse {
     pub middle_button_state: ElementState,
     pub right_button_state: ElementState,
     pub last_click_timestamp: Instant,
+    pub last_click_button: MouseButton,
     pub click_state: ClickState,
     pub scroll_px: f64,
     pub line: Line,
@@ -367,6 +368,7 @@ impl Default for Mouse {
             x: 0,
             y: 0,
             last_click_timestamp: Instant::now(),
+            last_click_button: MouseButton::Left,
             left_button_state: ElementState::Released,
             middle_button_state: ElementState::Released,
             right_button_state: ElementState::Released,

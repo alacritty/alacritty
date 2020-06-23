@@ -46,13 +46,7 @@ impl Scheduler {
     }
 
     /// Schedule a new event.
-    pub fn schedule(
-        &mut self,
-        event: Event,
-        interval: Duration,
-        repeat: bool,
-        timer_id: TimerId,
-    ) {
+    pub fn schedule(&mut self, event: Event, interval: Duration, repeat: bool, timer_id: TimerId) {
         let deadline = Instant::now() + interval;
 
         // Get insert position in the schedule.
