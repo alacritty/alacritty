@@ -361,12 +361,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
-        if lmb_pressed && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode()) {
+        if (lmb_pressed || self.ctx.mouse().right_button_state == ElementState::Pressed)
+            && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
+        {
             // Treat motion over message bar like motion over the last line.
             let line = min(point.line, last_term_line);
 
             // Move vi mode cursor to mouse cursor position.
-            if self.ctx.terminal().mode().contains(TermMode::VI) {
+            if self.ctx.terminal().mode().contains(TermMode::VI) && lmb_pressed {
                 self.ctx.terminal_mut().vi_mode_cursor.point = point;
             }
 
