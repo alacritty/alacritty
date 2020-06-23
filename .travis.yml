@@ -15,7 +15,6 @@ os:
 rust:
   - 1.41.0
   - stable
-  - nightly
 
 matrix:
   fast_finish: true
@@ -42,12 +41,6 @@ matrix:
     - name: "Windows Stable"
       os: windows
       rust: stable-x86_64-pc-windows-msvc
-    - name: "Windows Nightly"
-      os: windows
-      rust: nightly-x86_64-pc-windows-msvc
-  allow_failures:
-    - rust: nightly
-    - rust: nightly-x86_64-pc-windows-msvc
 
 install: ci/install.sh
 script: ci/script.sh
