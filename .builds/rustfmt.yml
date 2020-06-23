@@ -1,0 +1,10 @@
+image: archlinux
+sources:
+  - https://github.com/alacritty/alacritty
+tasks:
+  - rustup: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly --profile minimal
+      $HOME/.cargo/bin/rustup component add rustfmt
+  - rustfmt: |
+      cd alacritty
+      $HOME/.cargo/bin/cargo fmt -- --check

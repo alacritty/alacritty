@@ -36,10 +36,6 @@ matrix:
       os: windows
       env: CLIPPY=true
       rust: 1.41.0-x86_64-pc-windows-msvc
-    - name: "Rustfmt"
-      os: linux
-      env: RUSTFMT=true
-      rust: nightly
     - name: "Windows 1.41.0"
       os: windows
       rust: 1.41.0-x86_64-pc-windows-msvc
