@@ -568,7 +568,7 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         message_bar_lines: usize,
-        search_regex: Option<String>
+        search_regex: Option<String>,
     ) {
         let search_regex = match search_regex {
             Some(search_regex) => search_regex,

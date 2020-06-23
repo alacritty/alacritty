@@ -491,6 +491,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to state before search was started.
     fn search_reset_state(&mut self) {
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
+        self.search_state.display_offset_delta = 0;
 
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
         vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
