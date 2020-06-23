@@ -368,7 +368,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             let line = min(point.line, last_term_line);
 
             // Move vi mode cursor to mouse cursor position.
-            if self.ctx.terminal().mode().contains(TermMode::VI) && lmb_pressed {
+            if self.ctx.terminal().mode().contains(TermMode::VI) {
                 self.ctx.terminal_mut().vi_mode_cursor.point = point;
             }
 
@@ -560,6 +560,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         selection.ty = selection_type;
         self.ctx.update_selection(point, cell_side);
+
+        // Move vi mode cursor to mouse click position.
+        if self.ctx.terminal().mode().contains(TermMode::VI) {
+            self.ctx.terminal_mut().vi_mode_cursor.point = point;
+        }
     }
 
     /// Handle left click selection and vi mode cursor movement.
@@ -591,9 +596,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             ClickState::None => (),
         };
 
-        // Move vi mode cursor to mouse position.
+        // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) {
-            // Update Vi mode cursor position on click.
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
