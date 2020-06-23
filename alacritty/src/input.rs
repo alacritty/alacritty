@@ -493,25 +493,36 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             self.mouse_report(code, ElementState::Pressed);
         } else {
-            // Reset click state if button has changed
-            if button != self.ctx.mouse().last_click_button {
-                self.ctx.mouse_mut().last_click_button = button;
-                self.ctx.mouse_mut().click_state = ClickState::None;
-            }
-
             // Calculate time since the last click to handle double/triple clicks.
             let now = Instant::now();
             let elapsed = now - self.ctx.mouse().last_click_timestamp;
             self.ctx.mouse_mut().last_click_timestamp = now;
 
-            // Load mouse point, treating message bar and padding as closest cell.
+            // Update multi-click state.
+            let mouse_config = &self.ctx.config().ui_config.mouse;
+            self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
+                // Reset click state if button has changed.
+                _ if button != self.ctx.mouse().last_click_button => {
+                    self.ctx.mouse_mut().last_click_button = button;
+                    ClickState::Click
+                },
+                ClickState::Click if elapsed < mouse_config.double_click.threshold => {
+                    ClickState::DoubleClick
+                },
+                ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold => {
+                    ClickState::TripleClick
+                },
+                _ => ClickState::Click,
+            };
+
+            // Load mouse point, treating message bar and padding as the closest cell.
             let mouse = self.ctx.mouse();
             let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
             point.line = min(point.line, self.ctx.terminal().grid().num_lines() - 1);
 
             match button {
-                MouseButton::Left => self.on_left_click(point, elapsed),
-                MouseButton::Right => self.on_right_click(point, elapsed),
+                MouseButton::Left => self.on_left_click(point),
+                MouseButton::Right => self.on_right_click(point),
                 // Do nothing when using buttons other than LMB.
                 _ => self.ctx.mouse_mut().click_state = ClickState::None,
             }
@@ -519,22 +530,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     /// Handle selection expansion on right click.
-    fn on_right_click(&mut self, point: Point, elapsed: Duration) {
-        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            ClickState::Click
-                if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
-            {
-                self.expand_selection(point, SelectionType::Semantic);
-                ClickState::DoubleClick
-            }
-            ClickState::DoubleClick
-                if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
-            {
-                self.expand_selection(point, SelectionType::Lines);
-                ClickState::TripleClick
-            }
-            _ => {
-                // Determine selection type.
+    fn on_right_click(&mut self, point: Point) {
+        match self.ctx.mouse().click_state {
+            ClickState::Click => {
                 let selection_type = if self.ctx.modifiers().ctrl() {
                     SelectionType::Block
                 } else {
@@ -542,10 +540,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 };
 
                 self.expand_selection(point, selection_type);
-
-                ClickState::Click
             },
-        };
+            ClickState::DoubleClick => self.expand_selection(point, SelectionType::Semantic),
+            ClickState::TripleClick => self.expand_selection(point, SelectionType::Lines),
+            ClickState::None => (),
+        }
     }
 
     /// Expand existing selection.
@@ -562,27 +561,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     /// Handle left click selection and vi mode cursor movement.
-    fn on_left_click(&mut self, point: Point, elapsed: Duration) {
+    fn on_left_click(&mut self, point: Point) {
         let side = self.ctx.mouse().cell_side;
 
-        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            ClickState::Click
-                if elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
-            {
-                self.ctx.mouse_mut().block_url_launcher = true;
-                self.ctx.start_selection(SelectionType::Semantic, point, side);
-
-                ClickState::DoubleClick
-            }
-            ClickState::DoubleClick
-                if elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
-            {
-                self.ctx.mouse_mut().block_url_launcher = true;
-                self.ctx.start_selection(SelectionType::Lines, point, side);
-
-                ClickState::TripleClick
-            }
-            _ => {
+        match self.ctx.mouse().click_state {
+            ClickState::Click => {
                 // Don't launch URLs if this click cleared the selection.
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
@@ -594,9 +577,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 } else {
                     self.ctx.start_selection(SelectionType::Simple, point, side);
                 }
-
-                ClickState::Click
             },
+            ClickState::DoubleClick => {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.start_selection(SelectionType::Semantic, point, side);
+            },
+            ClickState::TripleClick => {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.start_selection(SelectionType::Lines, point, side);
+            },
+            ClickState::None => (),
         };
 
         // Move vi mode cursor to mouse position.
