@@ -443,11 +443,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Remove last char from search string.
         regex.pop();
 
-        // Create terminal search from the new regex string.
-        self.terminal.start_search(&regex);
+        if regex.is_empty() {
+            // Stop search if there's nothing to search for.
+            self.search_reset_state();
+            self.terminal.cancel_search();
+        } else {
+            // Create terminal search from the new regex string.
+            self.terminal.start_search(&regex);
 
-        // Update search highlighting.
-        self.goto_match(MAX_SEARCH_WHILE_TYPING);
+            // Update search highlighting.
+            self.goto_match(MAX_SEARCH_WHILE_TYPING);
+        }
 
         self.terminal.dirty = true;
     }
@@ -490,13 +496,18 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to state before search was started.
     fn search_reset_state(&mut self) {
+        // Reset display offset.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
 
+        // Reset vi mode cursor.
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
         vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
         vi_cursor_point.col = min(vi_cursor_point.col, self.terminal.num_cols() - 1);
         self.terminal.vi_mode_cursor.point = vi_cursor_point;
+
+        // Unschedule pending timers.
+        self.scheduler.unschedule(TimerId::DelayedSearch);
     }
 
     /// Jump to the first regex match from the search origin.
