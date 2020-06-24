@@ -1768,11 +1768,11 @@ impl<T: EventListener> Handler for Term<T> {
             },
         }
 
-        let buffer_cursor_line = self.grid.buffer_cursor_point().line;
+        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
         self.selection = self
             .selection
             .take()
-            .filter(|s| !s.intersects_range(buffer_cursor_line..=buffer_cursor_line));
+            .filter(|s| !s.intersects_range(cursor_buffer_line..=cursor_buffer_line));
     }
 
     /// Set the indexed color value.
@@ -1850,8 +1850,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let template = self.grid.cursor.template;
 
-        let num_lines = self.grid.num_lines().0 - 1;
-        let buffer_cursor_line = self.grid.buffer_cursor_point().line;
+        let last_line = self.grid.num_lines().0 - 1;
+        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
 
         match mode {
             ansi::ClearMode::Above => {
@@ -1872,7 +1872,7 @@ impl<T: EventListener> Handler for Term<T> {
                 self.selection = self
                     .selection
                     .take()
-                    .filter(|s| !s.intersects_range(buffer_cursor_line..=num_lines));
+                    .filter(|s| !s.intersects_range(cursor_buffer_line..=last_line));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
@@ -1880,12 +1880,12 @@ impl<T: EventListener> Handler for Term<T> {
                     cell.reset(&template);
                 }
 
-                if cursor.line.0 < num_lines {
+                if cursor.line.0 < last_line {
                     self.grid.region_mut((cursor.line + 1)..).each(|cell| cell.reset(&template));
                 }
 
                 self.selection =
-                    self.selection.take().filter(|s| !s.intersects_range(0..=buffer_cursor_line));
+                    self.selection.take().filter(|s| !s.intersects_range(0..=cursor_buffer_line));
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1896,13 +1896,17 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 self.selection =
-                    self.selection.take().filter(|s| !s.intersects_range(0..=num_lines));
+                    self.selection.take().filter(|s| !s.intersects_range(0..=last_line));
             },
             ansi::ClearMode::Saved => {
+                let last_scrollback_line = max(self.grid.len() - 1, last_line + 1);
+
                 self.grid.clear_history();
 
-                self.selection =
-                    self.selection.take().filter(|s| s.intersects_range(0..=num_lines));
+                self.selection = self
+                    .selection
+                    .take()
+                    .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
             },
         }
     }

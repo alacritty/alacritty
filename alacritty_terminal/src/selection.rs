@@ -195,12 +195,12 @@ impl Selection {
 
     /// Check whether selection contains any point in a given range.
     pub fn intersects_range(&self, range: RangeInclusive<usize>) -> bool {
-        let (mut start, mut end) = (self.region.start, self.region.end);
-        if Self::points_need_swap(start.point, end.point) {
+        let mut start = self.region.start.point.line;
+        let mut end = self.region.end.point.line;
+
+        if Self::points_need_swap(self.region.start.point, self.region.end.point) {
             mem::swap(&mut start, &mut end);
         }
-
-        let (start, end) = (start.point.line, end.point.line);
 
         let (range_start, range_end) = range.into_inner();
 
@@ -233,7 +233,9 @@ impl Selection {
         let num_cols = grid.num_cols();
 
         // Order start above the end.
-        let (mut start, mut end) = (self.region.start, self.region.end);
+        let mut start = self.region.start;
+        let mut end = self.region.end;
+
         if Self::points_need_swap(start.point, end.point) {
             mem::swap(&mut start, &mut end);
         }

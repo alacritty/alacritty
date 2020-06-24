@@ -188,7 +188,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     /// Return the cursor position in buffer coordinates.
-    pub fn buffer_cursor_point(&self) -> Point<usize> {
+    pub fn cursor_buffer_point(&self) -> Point<usize> {
         Point { line: self.lines.0 - self.cursor.point.line.0 - 1, col: self.cursor.point.col }
     }
 
