@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slow startup with Nvidia binary drivers on some X11 systems
 - Display not scrolling when printing new lines while scrolled in history
 - Regression in font rendering on macOS
+- Scroll down escape (`CSI Ps T`) incorrectly pulling lines from history
 
 ## 0.4.3
 
