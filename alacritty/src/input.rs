@@ -361,7 +361,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
-        if lmb_pressed && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode()) {
+        if (lmb_pressed || self.ctx.mouse().right_button_state == ElementState::Pressed)
+            && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
+        {
             // Treat motion over message bar like motion over the last line.
             let line = min(point.line, last_term_line);
 
@@ -558,6 +560,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         selection.ty = selection_type;
         self.ctx.update_selection(point, cell_side);
+
+        // Move vi mode cursor to mouse click position.
+        if self.ctx.terminal().mode().contains(TermMode::VI) {
+            self.ctx.terminal_mut().vi_mode_cursor.point = point;
+        }
     }
 
     /// Handle left click selection and vi mode cursor movement.
@@ -589,9 +596,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             ClickState::None => (),
         };
 
-        // Move vi mode cursor to mouse position.
+        // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) {
-            // Update Vi mode cursor position on click.
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
