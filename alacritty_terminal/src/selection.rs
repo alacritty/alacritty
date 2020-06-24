@@ -7,7 +7,7 @@
 
 use std::convert::TryFrom;
 use std::mem;
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 use crate::index::{Column, Line, Point, Side};
 use crate::term::{Search, Term};
@@ -191,6 +191,22 @@ impl Selection {
             },
             SelectionType::Semantic | SelectionType::Lines => false,
         }
+    }
+
+    /// Check whether selection contains any point in a given range.
+    pub fn intersects_range(&self, range: RangeInclusive<usize>) -> bool {
+        let (mut start, mut end) = (self.region.start, self.region.end);
+        if Self::points_need_swap(start.point, end.point) {
+            mem::swap(&mut start, &mut end);
+        }
+
+        let (start, end) = (start.point.line, end.point.line);
+
+        let (range_start, range_end) = range.into_inner();
+
+        (start >= range_end && end <= range_end)
+            || (start >= range_start && end <= range_start)
+            || (start >= range_start && start <= range_end)
     }
 
     /// Expand selection sides to include all cells.

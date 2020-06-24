@@ -1050,12 +1050,16 @@ impl<T> Term<T> {
         self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
         self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
 
-        // Recreate tabs list.
-        self.tabs.resize(self.grid.num_cols());
-
-        // Reset scrolling region and selection.
+        // Reset scrolling region.
         self.scroll_region = Line(0)..self.grid.num_lines();
-        self.selection = None;
+
+        // Invalidate selection and tabs only when necessary.
+        if old_cols != num_cols {
+            self.selection = None;
+
+            // Recreate tabs list.
+            self.tabs.resize(self.grid.num_cols());
+        }
     }
 
     #[inline]
@@ -1763,6 +1767,12 @@ impl<T: EventListener> Handler for Term<T> {
                 }
             },
         }
+
+        let buffer_cursor_line = self.grid.buffer_cursor_point().line;
+        self.selection = self
+            .selection
+            .take()
+            .filter(|s| !s.intersects_range(buffer_cursor_line..=buffer_cursor_line));
     }
 
     /// Set the indexed color value.
@@ -1840,8 +1850,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let template = self.grid.cursor.template;
 
-        // Remove active selections.
-        self.selection = None;
+        let num_lines = self.grid.num_lines().0 - 1;
+        let buffer_cursor_line = self.grid.buffer_cursor_point().line;
 
         match mode {
             ansi::ClearMode::Above => {
@@ -1858,15 +1868,24 @@ impl<T: EventListener> Handler for Term<T> {
                 for cell in &mut self.grid[cursor.line][..end] {
                     cell.reset(&template);
                 }
+
+                self.selection = self
+                    .selection
+                    .take()
+                    .filter(|s| !s.intersects_range(buffer_cursor_line..=num_lines));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
                 for cell in &mut self.grid[cursor.line][cursor.col..] {
                     cell.reset(&template);
                 }
-                if cursor.line < self.grid.num_lines() - 1 {
+
+                if cursor.line.0 < num_lines {
                     self.grid.region_mut((cursor.line + 1)..).each(|cell| cell.reset(&template));
                 }
+
+                self.selection =
+                    self.selection.take().filter(|s| !s.intersects_range(0..=buffer_cursor_line));
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1875,8 +1894,16 @@ impl<T: EventListener> Handler for Term<T> {
                     let template = Cell { bg: template.bg, ..Cell::default() };
                     self.grid.clear_viewport(template);
                 }
+
+                self.selection =
+                    self.selection.take().filter(|s| !s.intersects_range(0..=num_lines));
             },
-            ansi::ClearMode::Saved => self.grid.clear_history(),
+            ansi::ClearMode::Saved => {
+                self.grid.clear_history();
+
+                self.selection =
+                    self.selection.take().filter(|s| s.intersects_range(0..=num_lines));
+            },
         }
     }
 
