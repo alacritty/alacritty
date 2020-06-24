@@ -204,9 +204,7 @@ impl Selection {
 
         let (range_start, range_end) = range.into_inner();
 
-        (start >= range_end && end <= range_end)
-            || (start >= range_start && end <= range_start)
-            || (start >= range_start && start <= range_end)
+        range.start <= selection.start && range.end >= selection.end
     }
 
     /// Expand selection sides to include all cells.
