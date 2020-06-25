@@ -62,6 +62,7 @@ ref_tests! {
     erase_chars_reset
     scroll_up_reset
     clear_underline
+    region_scroll_down
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

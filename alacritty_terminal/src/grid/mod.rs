@@ -238,12 +238,10 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         // changing the start index.
         //
         // To accommodate scroll regions, rows are reordered at the end.
-        if region.start == Line(0) {
+        if region.start == Line(0) && self.max_scroll_limit == 0 {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate_up(*positions);
-
-            self.decrease_scroll_limit(*positions);
 
             // Now, restore any scroll region lines.
             let lines = self.lines;
