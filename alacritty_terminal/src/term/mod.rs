@@ -1896,15 +1896,16 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::ClearMode::Saved => {
                 let last_scrollback_line = self.grid.len() - 1;
+                if last_scrollback_line == last_line {
+                    return;
+                }
 
                 self.grid.clear_history();
 
-                if last_scrollback_line > last_line {
-                    self.selection = self
-                        .selection
-                        .take()
-                        .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
-                }
+                self.selection = self
+                    .selection
+                    .take()
+                    .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
             },
         }
     }
