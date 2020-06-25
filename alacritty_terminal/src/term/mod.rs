@@ -1050,16 +1050,12 @@ impl<T> Term<T> {
         self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
         self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
 
-        // Reset scrolling region.
+        // Recreate tabs list.
+        self.tabs.resize(self.grid.num_cols());
+
+        // Reset scrolling region and selection.
         self.scroll_region = Line(0)..self.grid.num_lines();
-
-        // Invalidate selection and tabs only when necessary.
-        if old_cols != num_cols {
-            self.selection = None;
-
-            // Recreate tabs list.
-            self.tabs.resize(self.grid.num_cols());
-        }
+        self.selection = None;
     }
 
     #[inline]
@@ -1899,14 +1895,16 @@ impl<T: EventListener> Handler for Term<T> {
                     self.selection.take().filter(|s| !s.intersects_range(0..=last_line));
             },
             ansi::ClearMode::Saved => {
-                let last_scrollback_line = max(self.grid.len() - 1, last_line + 1);
+                let last_scrollback_line = self.grid.len() - 1;
 
                 self.grid.clear_history();
 
-                self.selection = self
-                    .selection
-                    .take()
-                    .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
+                if last_scrollback_line > last_line {
+                    self.selection = self
+                        .selection
+                        .take()
+                        .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
+                }
             },
         }
     }

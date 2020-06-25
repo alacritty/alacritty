@@ -204,7 +204,7 @@ impl Selection {
 
         let (range_start, range_end) = range.into_inner();
 
-        range.start <= selection.start && range.end >= selection.end
+        range_start <= start && range_end >= end
     }
 
     /// Expand selection sides to include all cells.
@@ -658,5 +658,19 @@ mod tests {
             end: Point::new(6, Column(3)),
             is_block: true,
         });
+    }
+
+    #[test]
+    fn range_intersection() {
+        let mut selection =
+            Selection::new(SelectionType::Lines, Point::new(6, Column(1)), Side::Left);
+        selection.update(Point::new(3, Column(1)), Side::Right);
+
+        assert!(selection.intersects_range(4..=5));
+        assert!(selection.intersects_range(5..=7));
+        assert!(selection.intersects_range(2..=4));
+        assert!(selection.intersects_range(2..=7));
+        assert!(!selection.intersects_range(7..=8));
+        assert!(!selection.intersects_range(1..=2));
     }
 }
