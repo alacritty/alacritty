@@ -28,7 +28,7 @@ use font::set_font_smoothing;
 use font::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::event::{OnResize, Event as TerminalEvent, EventListener, Notify};
+use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
 use alacritty_terminal::message_bar::{Message, MessageBuffer};
@@ -805,8 +805,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR.
-                    let font = processor.ctx.config.font.clone().with_size(*processor.ctx.font_size);
-                    display_update_pending.set_font(font);
+                    let font = processor.ctx.config.font.clone();
+                    display_update_pending.set_font(font.with_size(*processor.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
