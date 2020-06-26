@@ -965,7 +965,7 @@ impl<T> Term<T> {
             self.selection = None;
 
             // Recreate tabs list.
-            self.tabs.resize(self.num_cols());
+            self.tabs.resize(num_cols);
         } else if let Some(selection) = self.selection.take() {
             // Move the selection if only number of lines changed.
             let delta = if num_lines > old_lines {
