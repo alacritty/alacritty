@@ -7,7 +7,7 @@
 
 use std::convert::TryFrom;
 use std::mem;
-use std::ops::Range;
+use std::ops::{Bound, Range, RangeBounds};
 
 use crate::index::{Column, Line, Point, Side};
 use crate::term::{Search, Term};
@@ -193,6 +193,30 @@ impl Selection {
         }
     }
 
+    /// Check whether selection contains any point in a given range.
+    pub fn intersects_range<R: RangeBounds<usize>>(&self, range: R) -> bool {
+        let mut start = self.region.start.point.line;
+        let mut end = self.region.end.point.line;
+
+        if Self::points_need_swap(self.region.start.point, self.region.end.point) {
+            mem::swap(&mut start, &mut end);
+        }
+
+        let range_start = match range.start_bound() {
+            Bound::Included(&range_start) => range_start,
+            Bound::Excluded(&range_start) => range_start.saturating_add(1),
+            Bound::Unbounded => 0,
+        };
+
+        let range_end = match range.end_bound() {
+            Bound::Included(&range_end) => range_end,
+            Bound::Excluded(&range_end) => range_end.saturating_sub(1),
+            Bound::Unbounded => usize::max_value(),
+        };
+
+        range_start <= start && range_end >= end
+    }
+
     /// Expand selection sides to include all cells.
     pub fn include_all(&mut self) {
         let (start, end) = (self.region.start.point, self.region.end.point);
@@ -217,7 +241,9 @@ impl Selection {
         let num_cols = grid.num_cols();
 
         // Order start above the end.
-        let (mut start, mut end) = (self.region.start, self.region.end);
+        let mut start = self.region.start;
+        let mut end = self.region.end;
+
         if Self::points_need_swap(start.point, end.point) {
             mem::swap(&mut start, &mut end);
         }
@@ -642,5 +668,22 @@ mod tests {
             end: Point::new(6, Column(3)),
             is_block: true,
         });
+    }
+
+    #[test]
+    fn range_intersection() {
+        let mut selection =
+            Selection::new(SelectionType::Lines, Point::new(6, Column(1)), Side::Left);
+        selection.update(Point::new(3, Column(1)), Side::Right);
+
+        assert!(selection.intersects_range(..));
+        assert!(selection.intersects_range(2..));
+        assert!(selection.intersects_range(2..=4));
+        assert!(selection.intersects_range(2..=7));
+        assert!(selection.intersects_range(4..=5));
+        assert!(selection.intersects_range(5..8));
+
+        assert!(!selection.intersects_range(..=2));
+        assert!(!selection.intersects_range(7..=8));
     }
 }

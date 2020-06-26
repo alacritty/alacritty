@@ -1763,6 +1763,12 @@ impl<T: EventListener> Handler for Term<T> {
                 }
             },
         }
+
+        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
+        self.selection = self
+            .selection
+            .take()
+            .filter(|s| !s.intersects_range(cursor_buffer_line..=cursor_buffer_line));
     }
 
     /// Set the indexed color value.
@@ -1840,8 +1846,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let template = self.grid.cursor.template;
 
-        // Remove active selections.
-        self.selection = None;
+        let num_lines = self.grid.num_lines().0;
+        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
 
         match mode {
             ansi::ClearMode::Above => {
@@ -1858,15 +1864,24 @@ impl<T: EventListener> Handler for Term<T> {
                 for cell in &mut self.grid[cursor.line][..end] {
                     cell.reset(&template);
                 }
+
+                self.selection = self
+                    .selection
+                    .take()
+                    .filter(|s| !s.intersects_range(cursor_buffer_line..num_lines));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
                 for cell in &mut self.grid[cursor.line][cursor.col..] {
                     cell.reset(&template);
                 }
-                if cursor.line < self.grid.num_lines() - 1 {
+
+                if cursor.line.0 < num_lines - 1 {
                     self.grid.region_mut((cursor.line + 1)..).each(|cell| cell.reset(&template));
                 }
+
+                self.selection =
+                    self.selection.take().filter(|s| !s.intersects_range(..=cursor_buffer_line));
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1875,8 +1890,16 @@ impl<T: EventListener> Handler for Term<T> {
                     let template = Cell { bg: template.bg, ..Cell::default() };
                     self.grid.clear_viewport(template);
                 }
+
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));
             },
-            ansi::ClearMode::Saved => self.grid.clear_history(),
+            ansi::ClearMode::Saved if self.grid.history_size() > 0 => {
+                self.grid.clear_history();
+
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(num_lines..));
+            },
+            // We have no history to clear.
+            ansi::ClearMode::Saved => (),
         }
     }
 
