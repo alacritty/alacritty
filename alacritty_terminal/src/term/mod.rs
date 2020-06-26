@@ -1894,13 +1894,14 @@ impl<T: EventListener> Handler for Term<T> {
                 self.selection =
                     self.selection.take().filter(|s| !s.intersects_range(0..=last_line));
             },
-            ansi::ClearMode::Saved if self.grid.len() - 1 > last_line => {
+            ansi::ClearMode::Saved if self.grid.history_size() > 0 => {
                 self.grid.clear_history();
 
+                let last_scrollback_line = self.grid.len() - 1;
                 self.selection = self
                     .selection
                     .take()
-                    .filter(|s| !s.intersects_range(last_line + 1..=self.grid.len() - 1));
+                    .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
             },
             // We have no history to clear.
             ansi::ClearMode::Saved => (),
