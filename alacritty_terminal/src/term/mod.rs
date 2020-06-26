@@ -960,6 +960,23 @@ impl<T> Term<T> {
 
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
+        // Invalidate selection and tabs only when necessary.
+        if old_cols != num_cols {
+            self.selection = None;
+
+            // Recreate tabs list.
+            self.tabs.resize(self.num_cols());
+        } else if let Some(selection) = self.selection.take() {
+            // Move the selection if only number of lines changed.
+            let delta = if num_lines > old_lines {
+                (num_lines - old_lines.0).saturating_sub(self.grid.history_size()) as isize
+            } else {
+                let cursor_line = self.grid.cursor.point.line;
+                -(min(old_lines - cursor_line - 1, old_lines - num_lines).0 as isize)
+            };
+            self.selection = selection.rotate(self, &(Line(0)..num_lines), delta);
+        }
+
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
 
         self.grid.resize(!is_alt, num_lines, num_cols);
@@ -971,14 +988,6 @@ impl<T> Term<T> {
 
         // Reset scrolling region.
         self.scroll_region = Line(0)..self.num_lines();
-
-        // Invalidate selection and tabs only when necessary.
-        if old_cols != num_cols {
-            self.selection = None;
-
-            // Recreate tabs list.
-            self.tabs.resize(self.num_cols());
-        }
     }
 
     /// Swap primary and alternate screen buffer.
