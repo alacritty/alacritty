@@ -298,7 +298,7 @@ impl GlyphCache {
 
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
-        font: config::Font,
+        font: &config::Font,
         dpr: f64,
         loader: &mut L,
     ) -> Result<(), font::Error> {
@@ -307,7 +307,7 @@ impl GlyphCache {
 
         // Recompute font keys.
         let (regular, bold, italic, bold_italic) =
-            Self::compute_font_keys(&font, &mut self.rasterizer)?;
+            Self::compute_font_keys(font, &mut self.rasterizer)?;
 
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, font.size)?;

@@ -27,10 +27,8 @@ use serde_json as json;
 use font::set_font_smoothing;
 use font::{self, Size};
 
-use alacritty_terminal::config::Font;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::event::OnResize;
-use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
+use alacritty_terminal::event::{OnResize, Event as TerminalEvent, EventListener, Notify};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
 use alacritty_terminal::message_bar::{Message, MessageBuffer};
@@ -46,7 +44,7 @@ use crate::cli::Options;
 use crate::clipboard::Clipboard;
 use crate::config;
 use crate::config::Config;
-use crate::display::Display;
+use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -110,20 +108,6 @@ impl Default for SearchState {
             vi_cursor_point: Point::default(),
             regex: None,
         }
-    }
-}
-
-#[derive(Default, Clone, Debug, PartialEq)]
-pub struct DisplayUpdate {
-    pub dimensions: Option<PhysicalSize<u32>>,
-    pub font: Option<Font>,
-    pub cursor: bool,
-    pub dirty: bool,
-}
-
-impl DisplayUpdate {
-    fn is_empty(&self) -> bool {
-        self.dimensions.is_none() && self.font.is_none() && !self.cursor && !self.dirty
     }
 }
 
@@ -334,13 +318,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
         let font = self.config.font.clone().with_size(*self.font_size);
-        self.display_update_pending.font = Some(font);
+        self.display_update_pending.set_font(font);
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
         *self.font_size = self.config.font.size;
-        self.display_update_pending.font = Some(self.config.font.clone());
+        self.display_update_pending.set_font(self.config.font.clone());
         self.terminal.dirty = true;
     }
 
@@ -821,11 +805,11 @@ impl<N: Notify + OnResize> Processor<N> {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR.
-                    display_update_pending.font =
-                        Some(processor.ctx.config.font.clone().with_size(*processor.ctx.font_size));
+                    let font = processor.ctx.config.font.clone().with_size(*processor.ctx.font_size);
+                    display_update_pending.set_font(font);
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
-                    display_update_pending.dimensions = Some(PhysicalSize::new(width, height));
+                    display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     processor.ctx.size_info.dpr = scale_factor;
                     processor.ctx.terminal.dirty = true;
@@ -871,7 +855,7 @@ impl<N: Notify + OnResize> Processor<N> {
                             }
                         }
 
-                        processor.ctx.display_update_pending.dimensions = Some(size);
+                        processor.ctx.display_update_pending.set_dimensions(size);
                         processor.ctx.terminal.dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
@@ -988,7 +972,7 @@ impl<N: Notify + OnResize> Processor<N> {
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f64::EPSILON
         {
-            processor.ctx.display_update_pending.cursor = true;
+            processor.ctx.display_update_pending.set_cursor_dirty();
         }
 
         if processor.ctx.config.font != config.font {
@@ -998,7 +982,7 @@ impl<N: Notify + OnResize> Processor<N> {
             }
 
             let font = config.font.clone().with_size(*processor.ctx.font_size);
-            processor.ctx.display_update_pending.font = Some(font);
+            processor.ctx.display_update_pending.set_font(font);
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -1026,7 +1010,7 @@ impl<N: Notify + OnResize> Processor<N> {
     ) where
         T: EventListener,
     {
-        if display_update_pending.is_empty() {
+        if !display_update_pending.dirty {
             return;
         }
 

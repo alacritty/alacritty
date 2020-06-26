@@ -34,7 +34,7 @@ use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
-use crate::event::{DisplayUpdate, Mouse};
+use crate::event::Mouse;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
@@ -100,6 +100,44 @@ impl From<renderer::Error> for Error {
 impl From<glutin::ContextError> for Error {
     fn from(val: glutin::ContextError) -> Self {
         Error::ContextError(val)
+    }
+}
+
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct DisplayUpdate {
+    pub dirty: bool,
+
+    dimensions: Option<PhysicalSize<u32>>,
+    font: Option<Font>,
+    cursor_dirty: bool,
+}
+
+impl DisplayUpdate {
+    pub fn dimensions(&self) -> Option<PhysicalSize<u32>> {
+        self.dimensions
+    }
+
+    pub fn font(&self) -> Option<&Font> {
+        self.font.as_ref()
+    }
+
+    pub fn cursor_dirty(&self) -> bool {
+        self.cursor_dirty
+    }
+
+    pub fn set_dimensions(&mut self, dimensions: PhysicalSize<u32>) {
+        self.dimensions = Some(dimensions);
+        self.dirty = true;
+    }
+
+    pub fn set_font(&mut self, font: Font) {
+        self.font = Some(font);
+        self.dirty = true;
+    }
+
+    pub fn set_cursor_dirty(&mut self) {
+        self.cursor_dirty = true;
+        self.dirty = true;
     }
 }
 
@@ -304,7 +342,7 @@ impl Display {
     }
 
     /// Update font size and cell dimensions.
-    fn update_glyph_cache(&mut self, config: &Config, font: Font) {
+    fn update_glyph_cache(&mut self, config: &Config, font: &Font) {
         let size_info = &mut self.size_info;
         let cache = &mut self.glyph_cache;
 
@@ -339,9 +377,9 @@ impl Display {
         T: EventListener,
     {
         // Update font size and cell dimensions.
-        if let Some(font) = update_pending.font {
+        if let Some(font) = update_pending.font() {
             self.update_glyph_cache(config, font);
-        } else if update_pending.cursor {
+        } else if update_pending.cursor_dirty() {
             self.clear_glyph_cache();
         }
 
@@ -353,7 +391,7 @@ impl Display {
         let mut padding_y = f32::from(config.window.padding.y) * self.size_info.dpr as f32;
 
         // Update the window dimensions.
-        if let Some(size) = update_pending.dimensions {
+        if let Some(size) = update_pending.dimensions() {
             // Ensure we have at least one column and row.
             self.size_info.width = (size.width as f32).max(cell_width + 2. * padding_x);
             self.size_info.height = (size.height as f32).max(cell_height + 2. * padding_y);
