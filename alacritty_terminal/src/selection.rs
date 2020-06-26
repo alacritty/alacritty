@@ -7,7 +7,7 @@
 
 use std::convert::TryFrom;
 use std::mem;
-use std::ops::{Range, RangeInclusive};
+use std::ops::{Bound, Range, RangeBounds};
 
 use crate::index::{Column, Line, Point, Side};
 use crate::term::{Search, Term};
@@ -194,7 +194,7 @@ impl Selection {
     }
 
     /// Check whether selection contains any point in a given range.
-    pub fn intersects_range(&self, range: RangeInclusive<usize>) -> bool {
+    pub fn intersects_range<R: RangeBounds<usize>>(&self, range: R) -> bool {
         let mut start = self.region.start.point.line;
         let mut end = self.region.end.point.line;
 
@@ -202,7 +202,17 @@ impl Selection {
             mem::swap(&mut start, &mut end);
         }
 
-        let (range_start, range_end) = range.into_inner();
+        let range_start = match range.start_bound() {
+            Bound::Included(&range_start) => range_start,
+            Bound::Excluded(&range_start) => range_start.saturating_add(1),
+            Bound::Unbounded => 0,
+        };
+
+        let range_end = match range.end_bound() {
+            Bound::Included(&range_end) => range_end,
+            Bound::Excluded(&range_end) => range_end.saturating_sub(1),
+            Bound::Unbounded => usize::max_value(),
+        };
 
         range_start <= start && range_end >= end
     }
@@ -666,11 +676,14 @@ mod tests {
             Selection::new(SelectionType::Lines, Point::new(6, Column(1)), Side::Left);
         selection.update(Point::new(3, Column(1)), Side::Right);
 
-        assert!(selection.intersects_range(4..=5));
-        assert!(selection.intersects_range(5..=7));
+        assert!(selection.intersects_range(..));
+        assert!(selection.intersects_range(2..));
         assert!(selection.intersects_range(2..=4));
         assert!(selection.intersects_range(2..=7));
+        assert!(selection.intersects_range(4..=5));
+        assert!(selection.intersects_range(5..8));
+
+        assert!(!selection.intersects_range(..=2));
         assert!(!selection.intersects_range(7..=8));
-        assert!(!selection.intersects_range(1..=2));
     }
 }

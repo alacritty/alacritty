@@ -1865,11 +1865,10 @@ impl<T: EventListener> Handler for Term<T> {
                     cell.reset(&template);
                 }
 
-                let last_visible_line_index = num_lines - 1;
                 self.selection = self
                     .selection
                     .take()
-                    .filter(|s| !s.intersects_range(cursor_buffer_line..=last_visible_line_index));
+                    .filter(|s| !s.intersects_range(cursor_buffer_line..num_lines));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
@@ -1882,7 +1881,7 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 self.selection =
-                    self.selection.take().filter(|s| !s.intersects_range(0..=cursor_buffer_line));
+                    self.selection.take().filter(|s| !s.intersects_range(..=cursor_buffer_line));
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1892,20 +1891,12 @@ impl<T: EventListener> Handler for Term<T> {
                     self.grid.clear_viewport(template);
                 }
 
-                let last_visible_line_index = num_lines - 1;
-                self.selection = self
-                    .selection
-                    .take()
-                    .filter(|s| !s.intersects_range(0..=last_visible_line_index));
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));
             },
             ansi::ClearMode::Saved if self.grid.history_size() > 0 => {
                 self.grid.clear_history();
 
-                let last_scrollback_line = self.grid.len() - 1;
-                self.selection = self
-                    .selection
-                    .take()
-                    .filter(|s| !s.intersects_range(num_lines..=last_scrollback_line));
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(num_lines..));
             },
             // We have no history to clear.
             ansi::ClearMode::Saved => (),
