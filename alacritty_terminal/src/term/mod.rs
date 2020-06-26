@@ -1846,7 +1846,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let template = self.grid.cursor.template;
 
-        let last_line = self.grid.num_lines().0 - 1;
+        let num_lines = self.grid.num_lines().0;
         let cursor_buffer_line = self.grid.cursor_buffer_point().line;
 
         match mode {
@@ -1865,10 +1865,11 @@ impl<T: EventListener> Handler for Term<T> {
                     cell.reset(&template);
                 }
 
+                let last_visible_line_index = num_lines - 1;
                 self.selection = self
                     .selection
                     .take()
-                    .filter(|s| !s.intersects_range(cursor_buffer_line..=last_line));
+                    .filter(|s| !s.intersects_range(cursor_buffer_line..=last_visible_line_index));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
@@ -1876,7 +1877,7 @@ impl<T: EventListener> Handler for Term<T> {
                     cell.reset(&template);
                 }
 
-                if cursor.line.0 < last_line {
+                if cursor.line.0 < num_lines - 1 {
                     self.grid.region_mut((cursor.line + 1)..).each(|cell| cell.reset(&template));
                 }
 
@@ -1891,8 +1892,11 @@ impl<T: EventListener> Handler for Term<T> {
                     self.grid.clear_viewport(template);
                 }
 
-                self.selection =
-                    self.selection.take().filter(|s| !s.intersects_range(0..=last_line));
+                let last_visible_line_index = num_lines - 1;
+                self.selection = self
+                    .selection
+                    .take()
+                    .filter(|s| !s.intersects_range(0..=last_visible_line_index));
             },
             ansi::ClearMode::Saved if self.grid.history_size() > 0 => {
                 self.grid.clear_history();
@@ -1901,7 +1905,7 @@ impl<T: EventListener> Handler for Term<T> {
                 self.selection = self
                     .selection
                     .take()
-                    .filter(|s| !s.intersects_range(last_line + 1..=last_scrollback_line));
+                    .filter(|s| !s.intersects_range(num_lines..=last_scrollback_line));
             },
             // We have no history to clear.
             ansi::ClearMode::Saved => (),
