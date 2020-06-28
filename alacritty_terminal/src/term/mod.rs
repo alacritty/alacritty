@@ -738,9 +738,6 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
-    /// The grid.
-    grid: Grid<Cell>,
-
     /// Tracks if the next call to input will need to first handle wrapping.
     /// This is true after the last column is set with the input function. Any function that
     /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
@@ -748,11 +745,17 @@ pub struct Term<T> {
     /// arrays. Without it we would have to sanitize cursor.col every time we used it.
     input_needs_wrap: bool,
 
-    /// Alternate grid.
-    alt_grid: Grid<Cell>,
+    /// Currently active grid.
+    ///
+    /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
+    /// this will be the alternate grid. Otherwise it is the primary screen buffer.
+    grid: Grid<Cell>,
 
-    /// Alt is active.
-    alt: bool,
+    /// Currently inactive grid.
+    ///
+    /// Opposite of the active grid. While the alternate screen buffer is active, this will be the
+    /// primary grid. Otherwise it is the alternate screen buffer.
+    inactive_grid: Grid<Cell>,
 
     /// Index into `charsets`, pointing to what ASCII is currently being mapped to.
     active_charset: CharsetIndex,
@@ -835,8 +838,7 @@ impl<T> Term<T> {
             visual_bell: VisualBell::new(config),
             input_needs_wrap: false,
             grid,
-            alt_grid: alt,
-            alt: false,
+            inactive_grid: alt,
             active_charset: Default::default(),
             vi_mode_cursor: Default::default(),
             tabs,
@@ -888,8 +890,8 @@ impl<T> Term<T> {
             self.event_proxy.send_event(Event::Title(self.default_title.clone()));
         }
 
-        if self.alt {
-            self.alt_grid.update_history(config.scrolling.history() as usize);
+        if self.mode.contains(TermMode::ALT_SCREEN) {
+            self.inactive_grid.update_history(config.scrolling.history() as usize);
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
@@ -1044,7 +1046,7 @@ impl<T> Term<T> {
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
 
         self.grid.resize(!is_alt, num_lines, num_cols);
-        self.alt_grid.resize(is_alt, num_lines, num_cols);
+        self.inactive_grid.resize(is_alt, num_lines, num_cols);
 
         // Clamp vi cursor to viewport.
         self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
@@ -1063,15 +1065,21 @@ impl<T> Term<T> {
         &self.mode
     }
 
+    /// Swap primary and alternate screen buffer.
     pub fn swap_alt(&mut self) {
-        if self.alt {
+        if self.mode.contains(TermMode::ALT_SCREEN) {
             let template = self.grid.cursor.template;
             self.grid.region_mut(..).each(|c| c.reset(&template));
+
+            self.inactive_grid.cursor = self.inactive_grid.saved_cursor;
+            self.grid.cursor = self.grid.saved_cursor;
+        } else {
+            self.inactive_grid.saved_cursor = self.inactive_grid.cursor;
+            self.grid.saved_cursor = self.grid.cursor;
         }
 
-        self.alt = !self.alt;
-        mem::swap(&mut self.grid, &mut self.alt_grid);
-
+        mem::swap(&mut self.grid, &mut self.inactive_grid);
+        self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
     }
 
@@ -1919,8 +1927,8 @@ impl<T: EventListener> Handler for Term<T> {
     /// Reset all important fields in the term struct.
     #[inline]
     fn reset_state(&mut self) {
-        if self.alt {
-            self.swap_alt();
+        if self.mode.contains(TermMode::ALT_SCREEN) {
+            mem::swap(&mut self.grid, &mut self.inactive_grid);
         }
         self.input_needs_wrap = false;
         self.active_charset = Default::default();
@@ -1929,7 +1937,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
         self.grid.reset(Cell::default());
-        self.alt_grid.reset(Cell::default());
+        self.inactive_grid.reset(Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
         self.tabs = TabStops::new(self.grid.num_cols());
         self.title_stack = Vec::new();
@@ -1986,11 +1994,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Setting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                if !self.alt {
-                    self.mode.insert(TermMode::ALT_SCREEN);
-                    self.save_cursor_position();
+                if !self.mode.contains(TermMode::ALT_SCREEN) {
                     self.swap_alt();
-                    self.save_cursor_position();
                 }
             },
             ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
@@ -2039,11 +2044,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Unsetting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                if self.alt {
-                    self.mode.remove(TermMode::ALT_SCREEN);
-                    self.restore_cursor_position();
+                if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.swap_alt();
-                    self.restore_cursor_position();
                 }
             },
             ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
