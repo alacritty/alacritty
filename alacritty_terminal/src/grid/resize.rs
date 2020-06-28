@@ -139,13 +139,13 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 if i + reversed.len() < self.lines.0 {
                     // Move cursor lines up if the removed line is above them.
                     let cursor_buffer_line = (self.num_lines() - self.cursor.point.line - 1).0;
-                    if i > cursor_buffer_line {
-                        self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
+                    if i > cursor_buffer_line && self.cursor.point.line.0 != 0 {
+                        self.cursor.point.line -= 1;
                     }
 
                     let saved_buffer_line = (self.num_lines() - self.saved_cursor.point.line - 1).0;
-                    if i > saved_buffer_line {
-                        self.saved_cursor.point.line.0 = self.saved_cursor.point.line.saturating_sub(1);
+                    if i > saved_buffer_line && self.saved_cursor.point.line.0 != 0 {
+                        self.saved_cursor.point.line -= 1;
                     }
 
                     // Add a new line to the bottom, to fill the gap in the viewport.
