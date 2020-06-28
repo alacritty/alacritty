@@ -135,24 +135,26 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             // Reflow cells to previous row.
             last_row.append(&mut cells);
 
-            if row.is_empty() {
+            let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
+            if row.is_empty() && i != cursor_buffer_line {
                 if i + reversed.len() < self.lines.0 {
-                    // Move cursor lines up if the removed line is above them.
-                    let cursor_buffer_line = (self.num_lines() - self.cursor.point.line - 1).0;
-                    if i > cursor_buffer_line && self.cursor.point.line.0 != 0 {
-                        self.cursor.point.line -= 1;
-                    }
-
-                    let saved_buffer_line = (self.num_lines() - self.saved_cursor.point.line - 1).0;
-                    if i > saved_buffer_line && self.saved_cursor.point.line.0 != 0 {
-                        self.saved_cursor.point.line -= 1;
-                    }
-
-                    // Add a new line to the bottom, to fill the gap in the viewport.
+                    // Add new line and move everything up if we can't pull from history.
+                    self.saved_cursor.point.line.0 = self.saved_cursor.point.line.saturating_sub(1);
+                    self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
                     new_empty_lines += 1;
                 } else {
                     // Since we removed a line, rotate down the viewport.
                     self.display_offset = self.display_offset.saturating_sub(1);
+
+                    // Rotate cursors down if content below them was pulled from history.
+                    if i <= cursor_buffer_line {
+                        self.cursor.point.line += 1;
+                    }
+
+                    let saved_buffer_line = (self.lines - self.saved_cursor.point.line - 1).0;
+                    if i <= saved_buffer_line {
+                        self.saved_cursor.point.line += 1;
+                    }
                 }
 
                 // Don't push line into the new buffer.
