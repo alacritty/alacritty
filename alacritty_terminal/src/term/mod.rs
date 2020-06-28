@@ -1775,7 +1775,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
         }
 
-        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
+        let cursor_buffer_line = (self.grid.num_lines() - self.grid.cursor.point.line - 1).0;
         self.selection = self
             .selection
             .take()
@@ -1858,7 +1858,7 @@ impl<T: EventListener> Handler for Term<T> {
         let template = self.grid.cursor.template;
 
         let num_lines = self.grid.num_lines().0;
-        let cursor_buffer_line = self.grid.cursor_buffer_point().line;
+        let cursor_buffer_line = num_lines - self.grid.cursor.point.line.0 - 1;
 
         match mode {
             ansi::ClearMode::Above => {
