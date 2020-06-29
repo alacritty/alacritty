@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dragging files into terminal now adds a space after each path
 - Default binding replacement conditions
 - Adjusted selection clearing granularity to more accurately match content
+- To use the cell's text color for selection with a modified background, the `color.selection.text`
+    variable must now be set to `CellForeground` instead of omitting it
 
 ### Fixed
 
