@@ -21,7 +21,7 @@ use crate::grid::{
 use crate::index::{self, Column, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
-use crate::term::color::Rgb;
+use crate::term::color::{Rgb, DIM_FACTOR};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
@@ -378,7 +378,10 @@ impl RenderableCell {
 
     fn compute_fg_rgb<C>(config: &Config<C>, colors: &color::List, fg: Color, flags: Flags) -> Rgb {
         match fg {
-            Color::Spec(rgb) => rgb,
+            Color::Spec(rgb) => match flags & Flags::DIM {
+                Flags::DIM => rgb * DIM_FACTOR,
+                _ => rgb,
+            },
             Color::Named(ansi) => {
                 match (config.draw_bold_text_with_bright_colors(), flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
