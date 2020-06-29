@@ -138,7 +138,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             last_row.append(&mut cells);
 
             let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-            if row.is_empty() && (i != cursor_buffer_line || row.len() == 0) {
+            if row.is_clear() && (i != cursor_buffer_line || row.len() == 0) {
                 if i + reversed.len() < self.lines.0 {
                     // Add new line and move everything up if we can't pull from history.
                     self.saved_cursor.point.line.0 = self.saved_cursor.point.line.saturating_sub(1);
