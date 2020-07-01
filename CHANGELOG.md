@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scroll down escape (`CSI Ps T`) incorrectly pulling lines from history
 - Dim escape (`CSI 2 m`) support for truecolor text
 - Incorrectly deleted lines when increasing width with a prompt wrapped using spaces
+- Crash when shrinking window height with a saved cursor below the primary one
 
 ## 0.4.3
 
