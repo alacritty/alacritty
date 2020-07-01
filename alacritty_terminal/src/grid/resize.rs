@@ -67,9 +67,11 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), T::default());
 
             // Clamp cursors to the new viewport size.
-            self.saved_cursor.point.line = min(self.saved_cursor.point.line, target - 1);
             self.cursor.point.line = min(self.cursor.point.line, target - 1);
         }
+
+        // Clamp saved cursor, since only primary cursor is scrolled into viewport.
+        self.saved_cursor.point.line = min(self.saved_cursor.point.line, target - 1);
 
         self.raw.rotate((self.lines - target).0 as isize);
         self.raw.shrink_visible_lines(target);
@@ -135,7 +137,8 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             // Reflow cells to previous row.
             last_row.append(&mut cells);
 
-            if row.is_empty() {
+            let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
+            if row.is_clear() && (i != cursor_buffer_line || row.len() == 0) {
                 if i + reversed.len() < self.lines.0 {
                     // Add new line and move everything up if we can't pull from history.
                     self.saved_cursor.point.line.0 = self.saved_cursor.point.line.saturating_sub(1);
@@ -144,6 +147,16 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 } else {
                     // Since we removed a line, rotate down the viewport.
                     self.display_offset = self.display_offset.saturating_sub(1);
+
+                    // Rotate cursors down if content below them was pulled from history.
+                    if i < cursor_buffer_line {
+                        self.cursor.point.line += 1;
+                    }
+
+                    let saved_buffer_line = (self.lines - self.saved_cursor.point.line - 1).0;
+                    if i < saved_buffer_line {
+                        self.saved_cursor.point.line += 1;
+                    }
                 }
 
                 // Don't push line into the new buffer.

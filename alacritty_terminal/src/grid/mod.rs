@@ -187,11 +187,6 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, col: point.col }
     }
 
-    /// Return the cursor position in buffer coordinates.
-    pub fn cursor_buffer_point(&self) -> Point<usize> {
-        Point { line: self.lines.0 - self.cursor.point.line.0 - 1, col: self.cursor.point.col }
-    }
-
     /// Update the size of the scrollback history.
     pub fn update_history(&mut self, history_size: usize) {
         let current_history_size = self.history_size();
