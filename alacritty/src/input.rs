@@ -322,7 +322,7 @@ impl<T: EventListener> Execute<T> for Action {
 }
 
 fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {
-    if ctx.terminal().mode.contains(TermMode::BRACKETED_PASTE) {
+    if ctx.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
         ctx.write_to_pty(&b"\x1b[200~"[..]);
         ctx.write_to_pty(contents.replace("\x1b", "").into_bytes());
         ctx.write_to_pty(&b"\x1b[201~"[..]);
@@ -414,7 +414,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             let line = min(point.line, last_term_line);
 
             // Move vi mode cursor to mouse cursor position.
-            if self.ctx.terminal().mode.contains(TermMode::VI) {
+            if self.ctx.terminal().mode().contains(TermMode::VI) {
                 self.ctx.terminal_mut().vi_mode_cursor.point = point;
             }
 
@@ -422,7 +422,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         } else if inside_grid
             && cell_changed
             && point.line <= last_term_line
-            && self.ctx.terminal().mode.intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
+            && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
                 self.mouse_report(32, ElementState::Pressed);
@@ -430,7 +430,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.mouse_report(33, ElementState::Pressed);
             } else if self.ctx.mouse().right_button_state == ElementState::Pressed {
                 self.mouse_report(34, ElementState::Pressed);
-            } else if self.ctx.terminal().mode.contains(TermMode::MOUSE_MOTION) {
+            } else if self.ctx.terminal().mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed);
             }
         }
@@ -459,7 +459,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
-        let utf8 = self.ctx.terminal().mode.contains(TermMode::UTF8_MOUSE);
+        let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
         let max_point = if utf8 { 2015 } else { 223 };
 
@@ -517,7 +517,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         // Report mouse events.
-        if self.ctx.terminal().mode.contains(TermMode::SGR_MOUSE) {
+        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
             self.sgr_mouse_report(button + mods, state);
         } else if let ElementState::Released = state {
             self.normal_mouse_report(3 + mods);
@@ -608,7 +608,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.update_selection(point, cell_side);
 
         // Move vi mode cursor to mouse click position.
-        if self.ctx.terminal().mode.contains(TermMode::VI) {
+        if self.ctx.terminal().mode().contains(TermMode::VI) {
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
@@ -643,7 +643,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         };
 
         // Move vi mode cursor to mouse click position.
-        if self.ctx.terminal().mode.contains(TermMode::VI) {
+        if self.ctx.terminal().mode().contains(TermMode::VI) {
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
@@ -703,7 +703,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         } else if self
             .ctx
             .terminal()
-            .mode
+            .mode()
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().shift()
         {
@@ -744,7 +744,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             term.vi_mode_cursor.point.col = absolute.col;
 
             // Update selection.
-            if term.mode.contains(TermMode::VI) {
+            if term.mode().contains(TermMode::VI) {
                 let point = term.vi_mode_cursor.point;
                 if !self.ctx.selection_is_empty() {
                     self.ctx.update_selection(point, Side::Right);
@@ -756,7 +756,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
-        if self.ctx.terminal().mode.contains(TermMode::FOCUS_IN_OUT) {
+        if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
             let chr = if is_focused { "I" } else { "O" };
 
             let msg = format!("\x1b[{}", chr);
@@ -853,7 +853,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn received_char(&mut self, c: char) {
         let suppress_chars = *self.ctx.suppress_chars();
         let search_active = self.ctx.search_active();
-        if suppress_chars || self.ctx.terminal().mode.contains(TermMode::VI) || search_active {
+        if suppress_chars || self.ctx.terminal().mode().contains(TermMode::VI) || search_active {
             if search_active {
                 // Skip control characters.
                 let c_decimal = c as isize;
@@ -918,7 +918,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 _ => continue,
             };
 
-            if binding.is_triggered_by(self.ctx.terminal().mode, mods, &key) {
+            if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &key) {
                 // Binding was triggered; run the action.
                 let binding = binding.clone();
                 binding.execute(&mut self.ctx);
@@ -938,7 +938,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// for its action to be executed.
     fn process_mouse_bindings(&mut self, button: MouseButton) {
         let mods = *self.ctx.modifiers();
-        let mode = self.ctx.terminal().mode;
+        let mode = *self.ctx.terminal().mode();
         let mouse_mode = self.ctx.mouse_mode();
 
         for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {

@@ -111,7 +111,7 @@ impl<T> Term<T> {
             .find(|regex_match| {
                 let match_point = Self::match_side(&regex_match, side);
 
-                // If the matche's point is beyond the origin, we're done.
+                // If the match's point is beyond the origin, we're done.
                 match_point.line > start.line
                     || match_point.line < origin.line
                     || (match_point.line == origin.line && match_point.col >= origin.col)
@@ -224,7 +224,7 @@ impl<T> Term<T> {
             let mut buf = [0; 4];
             let utf8_len = cell.c.encode_utf8(&mut buf).len();
 
-            // Pass char to DFA is individual bytes.
+            // Pass char to DFA as individual bytes.
             for i in 0..utf8_len {
                 // Inverse byte order when going left.
                 let byte = match direction {

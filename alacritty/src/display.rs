@@ -454,10 +454,10 @@ impl Display {
 
         let selection = !terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true);
         let mouse_mode =
-            terminal.mode.intersects(TermMode::MOUSE_MODE) && !terminal.mode.contains(TermMode::VI);
+            terminal.mode().intersects(TermMode::MOUSE_MODE) && !terminal.mode().contains(TermMode::VI);
 
         let vi_mode_cursor =
-            if terminal.mode.contains(TermMode::VI) { Some(terminal.vi_mode_cursor) } else { None };
+            if terminal.mode().contains(TermMode::VI) { Some(terminal.vi_mode_cursor) } else { None };
 
         // Update IME position.
         #[cfg(not(windows))]

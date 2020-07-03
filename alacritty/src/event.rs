@@ -144,7 +144,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.scroll_display(scroll);
 
         // Update selection.
-        if self.terminal.mode.contains(TermMode::VI)
+        if self.terminal.mode().contains(TermMode::VI)
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
@@ -178,7 +178,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists.
-        let vi_mode = self.terminal.mode.contains(TermMode::VI);
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
         if let Some(selection) = &mut self.terminal.selection {
             selection.update(point, side);
 
@@ -222,8 +222,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn mouse_mode(&self) -> bool {
-        self.terminal.mode.intersects(TermMode::MOUSE_MODE)
-            && !self.terminal.mode.contains(TermMode::VI)
+        self.terminal.mode().intersects(TermMode::MOUSE_MODE)
+            && !self.terminal.mode().contains(TermMode::VI)
     }
 
     #[inline]
@@ -345,7 +345,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.direction = direction;
 
         // Store original vi cursor position as search origin and for resetting.
-        self.search_state.vi_cursor_point = if self.terminal.mode.contains(TermMode::VI) {
+        self.search_state.vi_cursor_point = if self.terminal.mode().contains(TermMode::VI) {
             self.terminal.vi_mode_cursor.point
         } else {
             match direction {
@@ -361,7 +361,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn confirm_search(&mut self) {
         // Enter vi mode once search is confirmed.
-        self.terminal.mode.insert(TermMode::VI);
+        self.terminal.set_vi_mode();
 
         // Force limitless search if the previous one was interrupted.
         if self.scheduler.scheduled(TimerId::DelayedSearch) {
@@ -1017,7 +1017,7 @@ impl<N: Notify + OnResize> Processor<N> {
         // Compute cursor positions before resize.
         let num_lines = terminal.num_lines();
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
-        let origin_at_bottom = (!terminal.mode.contains(TermMode::VI)
+        let origin_at_bottom = (!terminal.mode().contains(TermMode::VI)
             && self.search_state.direction == Direction::Left)
             || terminal.vi_mode_cursor.point.line == num_lines - 1;
 

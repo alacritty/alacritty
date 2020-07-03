@@ -679,7 +679,7 @@ pub struct Term<T> {
     tabs: TabStops,
 
     /// Mode flags.
-    pub mode: TermMode,
+    mode: TermMode,
 
     /// Scroll region.
     ///
@@ -990,6 +990,12 @@ impl<T> Term<T> {
         self.scroll_region = Line(0)..self.num_lines();
     }
 
+    /// Active terminal modes.
+    #[inline]
+    pub fn mode(&self) -> &TermMode {
+        &self.mode
+    }
+
     /// Swap primary and alternate screen buffer.
     pub fn swap_alt(&mut self) {
         if !self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1107,6 +1113,13 @@ impl<T> Term<T> {
             self.cancel_search();
         }
 
+        self.dirty = true;
+    }
+
+    /// Start vi mode without moving the cursor.
+    #[inline]
+    pub fn set_vi_mode(&mut self) {
+        self.mode.insert(TermMode::VI);
         self.dirty = true;
     }
 
