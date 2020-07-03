@@ -791,7 +791,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
-                    self.search_state.regex.clone(),
+                    self.search_state.regex.as_ref(),
                 );
             }
         });

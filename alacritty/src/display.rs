@@ -443,7 +443,7 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
-        search_regex: Option<String>,
+        search_regex: Option<&String>,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -465,7 +465,7 @@ impl Display {
         // Update IME position.
         #[cfg(not(windows))]
         {
-            let point = match &search_regex {
+            let point = match search_regex {
                 Some(regex) => {
                     let column = min(regex.len() + SEARCH_LABEL.len(), terminal.cols().0 - 1);
                     Point::new(terminal.screen_lines() - 1, Column(column))
@@ -609,7 +609,7 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         message_bar_lines: usize,
-        search_regex: Option<String>,
+        search_regex: Option<&String>,
     ) {
         let search_regex = match search_regex {
             Some(search_regex) => search_regex,
