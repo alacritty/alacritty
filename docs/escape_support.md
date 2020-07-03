@@ -81,8 +81,8 @@ brevity.
 
 | ESCAPE    | STATUS      | NOTE                                               |
 | --------- | ----------- | -------------------------------------------------- |
-| `OSC 0`   | IMPLEMENTED | Tabs are not supported                             |
-| `OSC 1`   | REJECTED    | Tabs are not supported                             |
+| `OSC 0`   | IMPLEMENTED | Icon names are not supported                       |
+| `OSC 1`   | REJECTED    | Icon names are not supported                       |
 | `OSC 2`   | IMPLEMENTED |                                                    |
 | `OSC 4`   | IMPLEMENTED |                                                    |
 | `OSC 10`  | IMPLEMENTED |                                                    |
