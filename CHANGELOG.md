@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Default Command+N keybinding for SpawnNewInstance on macOS
-- Vi mode for copying text and opening links
+- Vi mode for regex search, copying text, and opening links
 - `CopySelection` action which copies into selection buffer on Linux/BSD
 - Option `cursor.thickness` to set terminal cursor thickness
 - Font fallback on Windows
@@ -27,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opt-out compilation flag `winpty` to disable WinPTY support
 - Scrolling during selection when mouse is at top/bottom of window
 - Expanding existing selections using the right mouse button
-- Vi mode terminal regex search
 
 ### Changed
 

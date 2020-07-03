@@ -53,7 +53,7 @@ use crate::window::Window;
 /// Duration after the last user input until an unlimited search is performed.
 pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
 
-/// Maximum number of lines blockingly searched while still typing the search regex.
+/// Maximum number of lines for the blocking search while still typing the search regex.
 const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
 /// Events dispatched through the UI event loop.
@@ -363,7 +363,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Enter vi mode once search is confirmed.
         self.terminal.set_vi_mode();
 
-        // Force limitless search if the previous one was interrupted.
+        // Force unlimited search if the previous one was interrupted.
         if self.scheduler.scheduled(TimerId::DelayedSearch) {
             self.goto_match(None);
         }
@@ -488,7 +488,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
-    /// Reset terminal to state before search was started.
+    /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
         // Reset display offset.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
@@ -735,7 +735,7 @@ impl<N: Notify + OnResize> Processor<N> {
             let mut terminal = terminal.lock();
 
             let mut display_update_pending = DisplayUpdate::default();
-            let old_search_active = self.search_state.regex.is_some();
+            let old_is_searching = self.search_state.regex.is_some();
 
             let context = ActionContext {
                 terminal: &mut terminal,
@@ -763,7 +763,9 @@ impl<N: Notify + OnResize> Processor<N> {
             }
 
             // Process DisplayUpdate events.
-            self.dispatch_display_update(&mut terminal, old_search_active, display_update_pending);
+            if display_update_pending.dirty {
+                self.submit_display_update(&mut terminal, old_is_searching, display_update_pending);
+            }
 
             #[cfg(not(any(target_os = "macos", windows)))]
             {
@@ -797,7 +799,9 @@ impl<N: Notify + OnResize> Processor<N> {
         });
 
         // Write ref tests to disk.
-        self.write_ref_test_results(&terminal.lock());
+        if self.config.debug.ref_test {
+            self.write_ref_test_results(&terminal.lock());
+        }
     }
 
     /// Handle events from glutin.
@@ -1012,18 +1016,14 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Submit the pending changes to the `Display`.
-    fn dispatch_display_update<T>(
+    fn submit_display_update<T>(
         &mut self,
         terminal: &mut Term<T>,
-        old_search_active: bool,
+        old_is_searching: bool,
         display_update_pending: DisplayUpdate,
     ) where
         T: EventListener,
     {
-        if !display_update_pending.dirty {
-            return;
-        }
-
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
@@ -1041,7 +1041,7 @@ impl<N: Notify + OnResize> Processor<N> {
         );
 
         // Scroll to make sure search origin is visible and content moves as little as possible.
-        if !old_search_active && self.search_state.regex.is_some() {
+        if !old_is_searching && self.search_state.regex.is_some() {
             let display_offset = terminal.grid().display_offset();
             if display_offset == 0 && cursor_at_bottom && !origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(1));
@@ -1053,10 +1053,6 @@ impl<N: Notify + OnResize> Processor<N> {
 
     /// Write the ref test results to the disk.
     fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
-        if !self.config.debug.ref_test {
-            return;
-        }
-
         // Dump grid state.
         let mut grid = terminal.grid().clone();
         grid.initialize_all(Cell::default());
