@@ -81,7 +81,7 @@ brevity.
 
 | ESCAPE    | STATUS      | NOTE                                               |
 | --------- | ----------- | -------------------------------------------------- |
-| `OSC 0`   | IMPLEMENTED |                                                    |
+| `OSC 0`   | IMPLEMENTED | Tabs are not supported                             |
 | `OSC 1`   | REJECTED    | Tabs are not supported                             |
 | `OSC 2`   | IMPLEMENTED |                                                    |
 | `OSC 4`   | IMPLEMENTED |                                                    |
@@ -90,7 +90,7 @@ brevity.
 | `OSC 12`  | IMPLEMENTED |                                                    |
 | `OSC 50`  | IMPLEMENTED | Only `CursorShape` is supported                    |
 | `OSC 52`  | IMPLEMENTED | Only Clipboard and primary selection supported     |
-| `OSC 104` | IMPLEMENTED | Only Clipboard and primary selection supported     |
+| `OSC 104` | IMPLEMENTED |                                                    |
 | `OSC 110` | IMPLEMENTED |                                                    |
 | `OSC 111` | IMPLEMENTED |                                                    |
 | `OSC 112` | IMPLEMENTED |                                                    |
