@@ -127,7 +127,7 @@ impl Options {
                     .value_name("instance> | <instance>,<general")
                     .takes_value(true)
                     .use_delimiter(true)
-                    .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
+                    .help(&format!("Defines window class or app+id on Linux [default: {}]", DEFAULT_NAME)),
             )
             .arg(
                 Arg::with_name("embed").long("embed").takes_value(true).help(
