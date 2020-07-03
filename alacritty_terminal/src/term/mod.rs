@@ -275,29 +275,37 @@ impl RenderableCell {
         // Lookup RGB values.
         let mut fg_rgb = Self::compute_fg_rgb(iter.config, iter.colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(iter.colors, cell.bg);
+        let mut bg_alpha = Self::compute_bg_alpha(cell.bg);
 
         if cell.inverse() {
             mem::swap(&mut fg_rgb, &mut bg_rgb);
+            bg_alpha = 1.0;
         }
 
         if iter.is_selected(point) {
+            let config_bg = iter.config.colors.selection.background();
             let selected_fg = iter.config.colors.selection.text().color(fg_rgb, bg_rgb);
-            bg_rgb = iter.config.colors.selection.background().color(fg_rgb, bg_rgb);
+            bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
 
             if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
                 fg_rgb = iter.colors[NamedColor::Background];
                 bg_rgb = iter.colors[NamedColor::Foreground];
+                bg_alpha = 1.0;
+            } else if config_bg != CellRgb::CellBackground {
+                bg_alpha = 1.0;
             }
         } else if iter.is_matched(point) {
+            let config_bg = iter.config.colors.search.matches.background;
             let selected_fg = iter.config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
-            bg_rgb = iter.config.colors.search.matches.background.color(fg_rgb, bg_rgb);
+            bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
-        }
 
-        // Make background transparent if it matches the terminal background.
-        let bg_alpha = if bg_rgb == iter.colors[NamedColor::Background] { 0. } else { 1. };
+            if config_bg != CellRgb::CellBackground {
+                bg_alpha = 1.0;
+            }
+        }
 
         RenderableCell {
             line: cell.line,
@@ -353,6 +361,20 @@ impl RenderableCell {
 
                 colors[idx]
             },
+        }
+    }
+
+    /// Compute background alpha based on cell's original color.
+    ///
+    /// Since an RGB color matching the background should not be transparent, this is computed
+    /// using the named input color, rather than checking the RGB of the background after its color
+    /// is computed.
+    #[inline]
+    fn compute_bg_alpha(bg: Color) -> f32 {
+        if bg == Color::Named(NamedColor::Background) {
+            0.
+        } else {
+            1.
         }
     }
 
