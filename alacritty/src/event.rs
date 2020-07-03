@@ -405,6 +405,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             None => return,
         };
 
+        // Hide cursor while typing into the search bar.
+        if self.config.ui_config.mouse.hide_when_typing {
+            self.window.set_mouse_visible(false);
+        }
+
         // Add new char to search string.
         regex.push(c);
 
@@ -423,6 +428,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(regex) => regex,
             None => return,
         };
+
+        // Hide cursor while typing into the search bar.
+        if self.config.ui_config.mouse.hide_when_typing {
+            self.window.set_mouse_visible(false);
+        }
 
         // Remove last char from search string.
         regex.pop();
