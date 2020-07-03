@@ -114,7 +114,7 @@ fn ref_test(dir: &Path) {
 
     if grid != term_grid {
         for i in 0..grid.total_lines() {
-            for j in 0..grid.num_cols().0 {
+            for j in 0..grid.cols().0 {
                 let cell = term_grid[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
                 if original_cell != cell {

@@ -338,8 +338,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn start_search(&mut self, direction: Direction) {
-        let num_lines = self.terminal.num_lines();
-        let num_cols = self.terminal.num_cols();
+        let num_lines = self.terminal.screen_lines();
+        let num_cols = self.terminal.cols();
 
         self.search_state.regex = Some(String::new());
         self.search_state.direction = direction;
@@ -486,8 +486,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         // Reset vi mode cursor.
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
-        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
-        vi_cursor_point.col = min(vi_cursor_point.col, self.terminal.num_cols() - 1);
+        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.screen_lines() - 1);
+        vi_cursor_point.col = min(vi_cursor_point.col, self.terminal.cols() - 1);
         self.terminal.vi_mode_cursor.point = vi_cursor_point;
 
         // Unschedule pending timers.
@@ -506,7 +506,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         // Use original position as search origin.
         let mut vi_cursor_point = self.search_state.vi_cursor_point;
-        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.num_lines() - 1);
+        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.screen_lines() - 1);
         let mut origin = self.terminal.visible_to_buffer(vi_cursor_point);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
 
@@ -1015,7 +1015,7 @@ impl<N: Notify + OnResize> Processor<N> {
         }
 
         // Compute cursor positions before resize.
-        let num_lines = terminal.num_lines();
+        let num_lines = terminal.screen_lines();
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
         let origin_at_bottom = (!terminal.mode().contains(TermMode::VI)
             && self.search_state.direction == Direction::Left)

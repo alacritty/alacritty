@@ -453,19 +453,22 @@ impl Display {
         let size_info = self.size_info;
 
         let selection = !terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode =
-            terminal.mode().intersects(TermMode::MOUSE_MODE) && !terminal.mode().contains(TermMode::VI);
+        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE)
+            && !terminal.mode().contains(TermMode::VI);
 
-        let vi_mode_cursor =
-            if terminal.mode().contains(TermMode::VI) { Some(terminal.vi_mode_cursor) } else { None };
+        let vi_mode_cursor = if terminal.mode().contains(TermMode::VI) {
+            Some(terminal.vi_mode_cursor)
+        } else {
+            None
+        };
 
         // Update IME position.
         #[cfg(not(windows))]
         {
             let point = match &search_regex {
                 Some(regex) => {
-                    let column = min(regex.len() + SEARCH_LABEL.len(), terminal.num_cols().0 - 1);
-                    Point::new(terminal.num_lines() - 1, Column(column))
+                    let column = min(regex.len() + SEARCH_LABEL.len(), terminal.cols().0 - 1);
+                    Point::new(terminal.screen_lines() - 1, Column(column))
                 },
                 None => terminal.grid().cursor.point,
             };

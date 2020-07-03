@@ -29,6 +29,21 @@ impl Direction {
     }
 }
 
+/// Behavior for handling grid boundaries.
+pub enum Boundary {
+    /// Clamp to grid boundaries.
+    ///
+    /// When an operation exceeds the grid boundaries, the last point will be returned no matter
+    /// how far the boundaries were exceeded.
+    Clamp,
+
+    /// Wrap around grid bondaries.
+    ///
+    /// When an operation exceeds the grid boundaries, the point will wrap around the entire grid
+    /// history and continue at the other side.
+    Wrap,
+}
+
 /// Index in the grid using row, column notation.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
 pub struct Point<L = Line> {
@@ -79,7 +94,7 @@ impl Point<usize> {
         D: Dimensions,
     {
         let total_lines = dimensions.total_lines();
-        let num_cols = dimensions.num_cols().0;
+        let num_cols = dimensions.cols().0;
 
         self.line += (rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols;
         self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
@@ -100,7 +115,7 @@ impl Point<usize> {
     where
         D: Dimensions,
     {
-        let num_cols = dimensions.num_cols();
+        let num_cols = dimensions.cols();
 
         let line_delta = (rhs + self.col.0) / num_cols.0;
 
@@ -119,21 +134,6 @@ impl Point<usize> {
             }
         }
     }
-}
-
-/// Behavior for handling grid boundaries.
-pub enum Boundary {
-    /// Clamp to grid boundaries.
-    ///
-    /// When an operation exceeds the grid boundaries, the last point will be returned no matter
-    /// how far the boundaries were exceeded.
-    Clamp,
-
-    /// Wrap around grid bondaries.
-    ///
-    /// When an operation exceeds the grid boundaries, the point will wrap around the entire grid
-    /// history and continue at the other side.
-    Wrap,
 }
 
 impl Ord for Point {

@@ -66,8 +66,8 @@ impl ViModeCursor {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion) -> Self {
         let display_offset = term.grid().display_offset();
-        let lines = term.grid().num_lines();
-        let cols = term.grid().num_cols();
+        let lines = term.grid().screen_lines();
+        let cols = term.grid().cols();
 
         let mut buffer_point = term.visible_to_buffer(self.point);
 
@@ -175,7 +175,7 @@ impl ViModeCursor {
         // Clamp movement to within visible region.
         let mut line = self.point.line.0 as isize;
         line -= overscroll;
-        line = max(0, min(term.grid().num_lines().0 as isize - 1, line));
+        line = max(0, min(term.grid().screen_lines().0 as isize - 1, line));
 
         // Find the first occupied cell after scrolling has been performed.
         let buffer_point = term.visible_to_buffer(self.point);
@@ -192,7 +192,7 @@ impl ViModeCursor {
 
 /// Find next end of line to move to.
 fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
-    let cols = term.grid().num_cols();
+    let cols = term.grid().cols();
 
     // Expand across wide cells.
     point = term.expand_wide(point, Direction::Right);
@@ -218,7 +218,7 @@ fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
 
 /// Find next non-empty cell to move to.
 fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
-    let cols = term.grid().num_cols();
+    let cols = term.grid().cols();
 
     // Expand left across wide chars, since we're searching lines left to right.
     point = term.expand_wide(point, Direction::Left);
@@ -352,14 +352,14 @@ fn word<T: EventListener>(
 
 /// Find first non-empty cell in line.
 fn first_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
-    (0..term.grid().num_cols().0)
+    (0..term.grid().cols().0)
         .map(|col| Point::new(line, Column(col)))
         .find(|&point| !is_space(term, point))
 }
 
 /// Find last non-empty cell in line.
 fn last_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
-    (0..term.grid().num_cols().0)
+    (0..term.grid().cols().0)
         .map(|col| Point::new(line, Column(col)))
         .rfind(|&point| !is_space(term, point))
 }
@@ -387,7 +387,7 @@ fn is_wrap<T>(term: &Term<T>, point: Point<usize>) -> bool {
 /// Check if point is at screen boundary.
 fn is_boundary<T>(term: &Term<T>, point: Point<usize>, direction: Direction) -> bool {
     let total_lines = term.grid().total_lines();
-    let num_cols = term.grid().num_cols();
+    let num_cols = term.grid().cols();
     (point.line + 1 >= total_lines && point.col.0 == 0 && direction == Direction::Left)
         || (point.line == 0 && point.col + 1 >= num_cols && direction == Direction::Right)
 }

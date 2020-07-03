@@ -105,8 +105,8 @@ impl Selection {
         range: &Range<Line>,
         delta: isize,
     ) -> Option<Selection> {
-        let num_lines = dimensions.num_lines().0;
-        let num_cols = dimensions.num_cols().0;
+        let num_lines = dimensions.screen_lines().0;
+        let num_cols = dimensions.cols().0;
         let range_bottom = range.start.0;
         let range_top = range.end.0;
 
@@ -238,7 +238,7 @@ impl Selection {
     /// Convert selection to grid coordinates.
     pub fn to_range<T>(&self, term: &Term<T>) -> Option<SelectionRange> {
         let grid = term.grid();
-        let num_cols = grid.num_cols();
+        let num_cols = grid.cols();
 
         // Order start above the end.
         let mut start = self.region.start;

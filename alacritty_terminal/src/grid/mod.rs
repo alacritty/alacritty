@@ -66,7 +66,7 @@ pub struct Cursor {
     /// The location of this cursor.
     pub point: Point,
 
-    /// Template cell when using this cursor.
+    /// Template cell when usingscreen_linessor.
     pub template: Cell,
 
     /// Currently configured graphic character sets.
@@ -256,7 +256,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     ///
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: T) {
-        let num_lines = self.num_lines().0;
+        let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
             // Update display offset when not pinned to active area.
@@ -301,7 +301,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
     pub fn clear_viewport(&mut self, template: T) {
         // Determine how many lines to scroll up by.
-        let end = Point { line: 0, col: self.num_cols() };
+        let end = Point { line: 0, col: self.cols() };
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
             if !cell.is_empty() || iter.cur.line >= *self.lines {
@@ -310,7 +310,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
         debug_assert!(iter.cur.line <= *self.lines);
         let positions = self.lines - iter.cur.line;
-        let region = Line(0)..self.num_lines();
+        let region = Line(0)..self.screen_lines();
 
         // Reset display offset.
         self.display_offset = 0;
@@ -412,15 +412,15 @@ pub trait Dimensions {
     fn total_lines(&self) -> usize;
 
     /// Height of the viewport in lines.
-    fn num_lines(&self) -> Line;
+    fn screen_lines(&self) -> Line;
 
-    /// Width of the viewport in columns.
-    fn num_cols(&self) -> Column;
+    /// Width of the terminal in columns.
+    fn cols(&self) -> Column;
 
     /// Number of invisible lines part of the scrollback history.
     #[inline]
     fn history_size(&self) -> usize {
-        self.total_lines() - self.num_lines().0
+        self.total_lines() - self.screen_lines().0
     }
 }
 
@@ -431,12 +431,12 @@ impl<G> Dimensions for Grid<G> {
     }
 
     #[inline]
-    fn num_lines(&self) -> Line {
+    fn screen_lines(&self) -> Line {
         self.lines
     }
 
     #[inline]
-    fn num_cols(&self) -> Column {
+    fn cols(&self) -> Column {
         self.cols
     }
 }
@@ -447,11 +447,11 @@ impl Dimensions for (Line, Column) {
         *self.0
     }
 
-    fn num_lines(&self) -> Line {
+    fn screen_lines(&self) -> Line {
         self.0
     }
 
-    fn num_cols(&self) -> Column {
+    fn cols(&self) -> Column {
         self.1
     }
 }
@@ -478,7 +478,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.num_cols() - 1;
+        let last_col = self.grid.cols() - 1;
 
         match self.cur {
             Point { line, col } if line == 0 && col == last_col => return None,
@@ -495,7 +495,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.num_cols() - 1;
+        let last_col = self.grid.cols() - 1;
 
         match self.cur {
             Point { line, col: Column(0) } if line == self.grid.total_lines() - 1 => return None,
@@ -615,15 +615,15 @@ pub trait IndexRegion<I, T> {
 
 impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
     fn region(&self, index: Range<Line>) -> Region<'_, T> {
-        assert!(index.start < self.num_lines());
-        assert!(index.end <= self.num_lines());
+        assert!(index.start < self.screen_lines());
+        assert!(index.end <= self.screen_lines());
         assert!(index.start <= index.end);
         Region { start: index.start, end: index.end, raw: &self.raw }
     }
 
     fn region_mut(&mut self, index: Range<Line>) -> RegionMut<'_, T> {
-        assert!(index.start < self.num_lines());
-        assert!(index.end <= self.num_lines());
+        assert!(index.start < self.screen_lines());
+        assert!(index.end <= self.screen_lines());
         assert!(index.start <= index.end);
         RegionMut { start: index.start, end: index.end, raw: &mut self.raw }
     }
@@ -631,35 +631,35 @@ impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
 
 impl<T> IndexRegion<RangeTo<Line>, T> for Grid<T> {
     fn region(&self, index: RangeTo<Line>) -> Region<'_, T> {
-        assert!(index.end <= self.num_lines());
+        assert!(index.end <= self.screen_lines());
         Region { start: Line(0), end: index.end, raw: &self.raw }
     }
 
     fn region_mut(&mut self, index: RangeTo<Line>) -> RegionMut<'_, T> {
-        assert!(index.end <= self.num_lines());
+        assert!(index.end <= self.screen_lines());
         RegionMut { start: Line(0), end: index.end, raw: &mut self.raw }
     }
 }
 
 impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
     fn region(&self, index: RangeFrom<Line>) -> Region<'_, T> {
-        assert!(index.start < self.num_lines());
-        Region { start: index.start, end: self.num_lines(), raw: &self.raw }
+        assert!(index.start < self.screen_lines());
+        Region { start: index.start, end: self.screen_lines(), raw: &self.raw }
     }
 
     fn region_mut(&mut self, index: RangeFrom<Line>) -> RegionMut<'_, T> {
-        assert!(index.start < self.num_lines());
-        RegionMut { start: index.start, end: self.num_lines(), raw: &mut self.raw }
+        assert!(index.start < self.screen_lines());
+        RegionMut { start: index.start, end: self.screen_lines(), raw: &mut self.raw }
     }
 }
 
 impl<T> IndexRegion<RangeFull, T> for Grid<T> {
     fn region(&self, _: RangeFull) -> Region<'_, T> {
-        Region { start: Line(0), end: self.num_lines(), raw: &self.raw }
+        Region { start: Line(0), end: self.screen_lines(), raw: &self.raw }
     }
 
     fn region_mut(&mut self, _: RangeFull) -> RegionMut<'_, T> {
-        RegionMut { start: Line(0), end: self.num_lines(), raw: &mut self.raw }
+        RegionMut { start: Line(0), end: self.screen_lines(), raw: &mut self.raw }
     }
 }
 
@@ -732,7 +732,7 @@ pub struct DisplayIter<'a, T> {
 
 impl<'a, T: 'a> DisplayIter<'a, T> {
     pub fn new(grid: &'a Grid<T>) -> DisplayIter<'a, T> {
-        let offset = grid.display_offset + *grid.num_lines() - 1;
+        let offset = grid.display_offset + *grid.screen_lines() - 1;
         let limit = grid.display_offset;
         let col = Column(0);
         let line = Line(0);
@@ -759,7 +759,7 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         // Return None if we've reached the end.
-        if self.offset == self.limit && self.grid.num_cols() == self.col {
+        if self.offset == self.limit && self.grid.cols() == self.col {
             return None;
         }
 
@@ -772,7 +772,7 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
 
         // Update line/col to point to next item.
         self.col += 1;
-        if self.col == self.grid.num_cols() && self.offset != self.limit {
+        if self.col == self.grid.cols() && self.offset != self.limit {
             self.offset -= 1;
 
             self.col = Column(0);
