@@ -446,6 +446,7 @@ impl Display {
         search_regex: Option<&String>,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
+        let search_regex = search_regex.map(|regex| Self::format_search(&regex));
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
         let metrics = self.glyph_cache.font_metrics();
@@ -465,9 +466,9 @@ impl Display {
         // Update IME position.
         #[cfg(not(windows))]
         {
-            let point = match search_regex {
+            let point = match &search_regex {
                 Some(regex) => {
-                    let column = min(regex.len() + SEARCH_LABEL.len(), terminal.cols().0 - 1);
+                    let column = min(regex.len() + SEARCH_LABEL.len() - 1, terminal.cols().0 - 1);
                     Point::new(terminal.screen_lines() - 1, Column(column))
                 },
                 None => terminal.grid().cursor.point,
@@ -603,23 +604,8 @@ impl Display {
         }
     }
 
-    /// Draw current search regex.
-    fn draw_search(
-        &mut self,
-        config: &Config,
-        size_info: &SizeInfo,
-        message_bar_lines: usize,
-        search_regex: Option<&String>,
-    ) {
-        let search_regex = match search_regex {
-            Some(search_regex) => search_regex,
-            None => return,
-        };
-        let glyph_cache = &mut self.glyph_cache;
-
-        let label_len = SEARCH_LABEL.len();
-        let num_cols = size_info.cols().0;
-
+    /// Format search regex to account for the cursor and fullwidth characters.
+    fn format_search(search_regex: &str) -> String {
         // Add spacers for wide chars.
         let mut text = String::with_capacity(search_regex.len());
         for c in search_regex.chars() {
@@ -632,10 +618,30 @@ impl Display {
         // Add cursor to show whitespace.
         text.push('_');
 
+        text
+    }
+
+    /// Draw current search regex.
+    fn draw_search(
+        &mut self,
+        config: &Config,
+        size_info: &SizeInfo,
+        message_bar_lines: usize,
+        search_regex: Option<String>,
+    ) {
+        let search_regex = match search_regex {
+            Some(search_regex) => search_regex,
+            None => return,
+        };
+        let glyph_cache = &mut self.glyph_cache;
+
+        let label_len = SEARCH_LABEL.len();
+        let num_cols = size_info.cols().0;
+
         // Truncate beginning of text when it exceeds viewport width.
-        let text_len = text.len();
+        let text_len = search_regex.len();
         let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
-        let text = &text[truncate_len..];
+        let text = &search_regex[truncate_len..];
 
         // Assure text length is at least num_cols.
         let padding_len = num_cols.saturating_sub(label_len);
