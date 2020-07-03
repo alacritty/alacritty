@@ -45,7 +45,7 @@ Prints version information
 \fB\-\-class\fR <instance> | <instance>,<general>
 Defines the window class hint on Linux [default: Alacritty,Alacritty]
 
-On Wayland the instance class sets the `app+id`, while the general class is ignored.
+On Wayland the instance class sets the `app_id`, while the general class is ignored.
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)
