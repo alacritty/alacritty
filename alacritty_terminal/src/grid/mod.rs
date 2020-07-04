@@ -66,7 +66,7 @@ pub struct Cursor {
     /// The location of this cursor.
     pub point: Point,
 
-    /// Template cell when usingscreen_linessor.
+    /// Template cell when using this cursor.
     pub template: Cell,
 
     /// Currently configured graphic character sets.
