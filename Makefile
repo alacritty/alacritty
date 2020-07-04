@@ -2,9 +2,9 @@ TARGET = alacritty
 
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
-COMPLETIONS_DIR = $(ASSETS_DIR)/completions
 MANPAGE = $(ASSETS_DIR)/alacritty.man
 TERMINFO = $(ASSETS_DIR)/alacritty.info
+COMPLETIONS_DIR = $(ASSETS_DIR)/completions
 COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
 			  $(COMPLETIONS_DIR)/alacritty.bash \
 			  $(COMPLETIONS_DIR)/alacritty.fish
