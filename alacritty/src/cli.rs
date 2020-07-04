@@ -24,7 +24,8 @@ pub struct Options {
     pub dimensions: Option<Dimensions>,
     pub position: Option<Delta<i32>>,
     pub title: Option<String>,
-    pub class: Option<String>,
+    pub class_instance: Option<String>,
+    pub class_general: Option<String>,
     pub embed: Option<String>,
     pub log_level: LevelFilter,
     pub command: Option<Program>,
@@ -43,7 +44,8 @@ impl Default for Options {
             dimensions: None,
             position: None,
             title: None,
-            class: None,
+            class_instance: None,
+            class_general: None,
             embed: None,
             log_level: LevelFilter::Warn,
             command: None,
@@ -122,8 +124,13 @@ impl Options {
             .arg(
                 Arg::with_name("class")
                     .long("class")
+                    .value_name("instance> | <instance>,<general")
                     .takes_value(true)
-                    .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
+                    .use_delimiter(true)
+                    .help(&format!(
+                        "Defines window class or `app_id` on Linux [default: {}]",
+                        DEFAULT_NAME
+                    )),
             )
             .arg(
                 Arg::with_name("embed").long("embed").takes_value(true).help(
@@ -200,7 +207,11 @@ impl Options {
             }
         }
 
-        options.class = matches.value_of("class").map(ToOwned::to_owned);
+        if let Some(mut class) = matches.values_of("class") {
+            options.class_instance = class.next().map(|instance| instance.to_owned());
+            options.class_general = class.next().map(|general| general.to_owned());
+        }
+
         options.title = matches.value_of("title").map(ToOwned::to_owned);
         options.embed = matches.value_of("embed").map(ToOwned::to_owned);
 
@@ -264,13 +275,8 @@ impl Options {
         config.window.position = self.position.or(config.window.position);
         config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
 
-        if let Some(class) = self.class {
-            let parts: Vec<_> = class.split(',').collect();
-            config.window.class.instance = parts[0].into();
-            if let Some(&general) = parts.get(1) {
-                config.window.class.general = general.into();
-            }
-        }
+        config.window.class.instance = self.class_instance.unwrap_or(config.window.class.instance);
+        config.window.class.general = self.class_general.unwrap_or(config.window.class.general);
 
         config.debug.print_events = self.print_events || config.debug.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level);
