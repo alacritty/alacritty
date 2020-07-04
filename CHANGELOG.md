@@ -673,6 +673,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The mouse bindings now support keyboard modifiers (shift/ctrl/alt/super)
 - Add support for the bright foreground color
 - Support for setting foreground, background colors in one escape sequence
+- Support for randomized color settings
 
 ### Changed
 
