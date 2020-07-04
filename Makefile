@@ -3,8 +3,11 @@ TARGET = alacritty
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
-EXTRAS = $(ASSETS_DIR)/alacritty.info $(ASSETS_DIR)/alacritty.man
-COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty $(COMPLETIONS_DIR)/alacritty.bash $(COMPLETIONS_DIR)/alacritty.fish
+MANPAGE = $(ASSETS_DIR)/alacritty.man
+TERMINFO = $(ASSETS_DIR)/alacritty.info
+COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
+			  $(COMPLETIONS_DIR)/alacritty.bash \
+			  $(COMPLETIONS_DIR)/alacritty.fish
 
 APP_NAME = Alacritty.app
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
@@ -31,13 +34,14 @@ $(TARGET):
 	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release
 
 app: | $(APP_NAME) ## Clone Alacritty.app template and mount binary
-$(APP_NAME): $(TARGET) $(APP_TEMPLATE) $(EXTRAS) $(COMPLETIONS)
+$(APP_NAME): $(TARGET)
 	@mkdir -p $(APP_BINARY_DIR)
 	@mkdir -p $(APP_EXTRAS_DIR)
 	@mkdir -p $(APP_COMPLETIONS_DIR)
+	@gzip -c $(MANPAGE) > $(APP_EXTRAS_DIR)/alacritty.1.gz
+	@tic -xe alacritty,alacritty-direct $(TERMINFO) -o $(APP_EXTRAS_DIR)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
-	@cp -fp $(EXTRAS) $(APP_EXTRAS_DIR)
 	@cp -fp $(COMPLETIONS) $(APP_COMPLETIONS_DIR)
 	@touch -r "$(APP_BINARY)" "$(APP_DIR)/$(APP_NAME)"
 	@echo "Created '$@' in '$(APP_DIR)'"
