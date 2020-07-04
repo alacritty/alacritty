@@ -256,8 +256,8 @@ impl Options {
         match &config.random_colors {
             Some(colors) => {
                 info!("Available colors {:?}", colors);
-                config.colors = colors[rand::random::<usize>()%colors.len()].clone();
-            }
+                config.colors = colors[rand::random::<usize>() % colors.len()].clone();
+            },
             None => info!("No random colors found"),
         }
 
