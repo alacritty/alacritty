@@ -51,6 +51,9 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub colors: Colors,
 
+    #[serde(default, deserialize_with = "failure_default")]
+    pub random_colors: Option<Vec<Colors>>,
+
     /// Background opacity from 0.0 to 1.0.
     #[serde(default, deserialize_with = "failure_default")]
     background_opacity: Percentage,

@@ -2,10 +2,12 @@ use std::cmp::max;
 use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
-use log::{self, error, LevelFilter};
+use log::{self, error, info, LevelFilter};
 
 use alacritty_terminal::config::{Delta, Dimensions, Program, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
+
+use rand;
 
 use crate::config::Config;
 
@@ -249,6 +251,14 @@ impl Options {
         match self.working_dir.or_else(|| config.working_directory.take()) {
             Some(ref wd) if !wd.is_dir() => error!("Unable to set working directory to {:?}", wd),
             wd => config.working_directory = wd,
+        }
+
+        match &config.random_colors {
+            Some(colors) => {
+                info!("Available colors {:?}", colors);
+                config.colors = colors[rand::random::<usize>()%colors.len()].clone();
+            }
+            None => info!("No random colors found"),
         }
 
         if let Some(lcr) = self.live_config_reload {
