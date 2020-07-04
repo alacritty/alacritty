@@ -8,7 +8,7 @@ use std::rc::Rc;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library, Matrix};
 use freetype::{freetype_sys, Face as FTFace};
-use libc::{c_long, c_uint};
+use libc::c_uint;
 use log::{debug, trace};
 
 pub mod fc;
@@ -89,8 +89,8 @@ fn to_freetype_26_6(f: f32) -> isize {
 }
 
 #[inline]
-fn to_fixedpoint_16_6(f: f64) -> c_long {
-    (f * 65536.0) as c_long
+fn to_fixedpoint_16_6(f: f64) -> isize {
+    (f * 65536.0) as isize
 }
 
 impl Rasterize for FreeTypeRasterizer {
