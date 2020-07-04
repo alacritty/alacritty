@@ -274,12 +274,13 @@ impl RenderableCell {
         // Lookup RGB values.
         let mut fg_rgb = Self::compute_fg_rgb(iter.config, iter.colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(iter.colors, cell.bg);
-        let mut bg_alpha = Self::compute_bg_alpha(cell.bg);
 
-        if cell.inverse() {
+        let mut bg_alpha = if cell.inverse() {
             mem::swap(&mut fg_rgb, &mut bg_rgb);
-            bg_alpha = 1.0;
-        }
+            1.0
+        } else {
+            Self::compute_bg_alpha(cell.bg)
+        };
 
         if iter.is_selected(point) {
             let config_bg = iter.config.colors.selection.background();
