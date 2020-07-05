@@ -1062,10 +1062,11 @@ impl<T> Term<T> {
 
     /// Swap primary and alternate screen buffer.
     pub fn swap_alt(&mut self) {
-        if self.mode.contains(TermMode::ALT_SCREEN) {
+        if !self.mode.contains(TermMode::ALT_SCREEN) {
+            // Reset alternate screen contents.
             let template = self.grid.cursor.template;
             self.grid.region_mut(..).each(|c| c.reset(&template));
-        } else {
+
             // Set alt screen cursor to the current primary screen cursor.
             self.inactive_grid.cursor = self.grid.cursor;
 
