@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrectly deleted lines when increasing width with a prompt wrapped using spaces
 - Documentation for class in `--help` missing information on setting general class
 - Linewrap tracking when switching between primary and alternate screen buffer
+- Preservation of the alternate screen's saved cursor when swapping to primary screen and back
 
 ## 0.4.3
 

@@ -1,0 +1,4 @@
+[undeadleech@archhq saved_cursor_alt]$ echo -e "\e(0 \e[10H \e[?1049h \e7 \e[?1049l \e(B \e[H \e[?1049h test \e8 xxx"
+(0 [10H [?1049h 7 [?1049l (B [H [?1049h test 8 xxx
+[undeadleech@archhq saved_cursor_alt]$ exit
+exit

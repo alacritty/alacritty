@@ -1065,11 +1065,11 @@ impl<T> Term<T> {
         if self.mode.contains(TermMode::ALT_SCREEN) {
             let template = self.grid.cursor.template;
             self.grid.region_mut(..).each(|c| c.reset(&template));
-
-            self.inactive_grid.cursor = self.inactive_grid.saved_cursor;
-            self.grid.cursor = self.grid.saved_cursor;
         } else {
-            self.inactive_grid.saved_cursor = self.inactive_grid.cursor;
+            // Set alt screen cursor to the current primary screen cursor.
+            self.inactive_grid.cursor = self.grid.cursor;
+
+            // Drop information about the primary screens saved cursor.
             self.grid.saved_cursor = self.grid.cursor;
 
             // Reset wrapline status flag.
