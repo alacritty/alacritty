@@ -1062,18 +1062,16 @@ impl<T> Term<T> {
 
     /// Swap primary and alternate screen buffer.
     pub fn swap_alt(&mut self) {
-        if self.mode.contains(TermMode::ALT_SCREEN) {
-            let template = self.grid.cursor.template;
-            self.grid.region_mut(..).each(|c| c.reset(&template));
+        if !self.mode.contains(TermMode::ALT_SCREEN) {
+            // Set alt screen cursor to the current primary screen cursor.
+            self.inactive_grid.cursor = self.grid.cursor;
 
-            self.inactive_grid.cursor = self.inactive_grid.saved_cursor;
-            self.grid.cursor = self.grid.saved_cursor;
-        } else {
-            self.inactive_grid.saved_cursor = self.inactive_grid.cursor;
+            // Drop information about the primary screens saved cursor.
             self.grid.saved_cursor = self.grid.cursor;
 
-            // Reset wrapline status flag.
-            self.inactive_grid.cursor.input_needs_wrap = false;
+            // Reset alternate screen contents.
+            let template = self.inactive_grid.cursor.template;
+            self.inactive_grid.region_mut(..).each(|c| c.reset(&template));
         }
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
