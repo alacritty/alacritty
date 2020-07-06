@@ -71,6 +71,16 @@ pub struct Cursor {
 
     /// Currently configured graphic character sets.
     pub charsets: Charsets,
+
+    /// Tracks if the next call to input will need to first handle wrapping.
+    ///
+    /// This is true after the last column is set with the input function. Any function that
+    /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
+    ///
+    /// Tracking `input_needs_wrap` makes it possible to not store a cursor position that exceeds
+    /// the number of columns, which would lead to index out of bounds when interacting with arrays
+    /// without sanitization.
+    pub input_needs_wrap: bool,
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]

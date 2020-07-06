@@ -741,13 +741,6 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
-    /// Tracks if the next call to input will need to first handle wrapping.
-    /// This is true after the last column is set with the input function. Any function that
-    /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
-    /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
-    /// arrays. Without it we would have to sanitize cursor.col every time we used it.
-    input_needs_wrap: bool,
-
     /// Currently active grid.
     ///
     /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
@@ -839,7 +832,6 @@ impl<T> Term<T> {
         Term {
             dirty: false,
             visual_bell: VisualBell::new(config),
-            input_needs_wrap: false,
             grid,
             inactive_grid: alt,
             active_charset: Default::default(),
@@ -1079,6 +1071,9 @@ impl<T> Term<T> {
         } else {
             self.inactive_grid.saved_cursor = self.inactive_grid.cursor;
             self.grid.saved_cursor = self.grid.cursor;
+
+            // Reset wrapline status flag.
+            self.inactive_grid.cursor.input_needs_wrap = false;
         }
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
@@ -1235,7 +1230,7 @@ impl<T> Term<T> {
         }
 
         self.grid.cursor.point.col = Column(0);
-        self.input_needs_wrap = false;
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     /// Write `c` to the cell at the cursor position.
@@ -1347,7 +1342,7 @@ impl<T: EventListener> Handler for Term<T> {
         }
 
         // Move cursor to next line.
-        if self.input_needs_wrap {
+        if self.grid.cursor.input_needs_wrap {
             self.wrapline();
         }
 
@@ -1376,7 +1371,7 @@ impl<T: EventListener> Handler for Term<T> {
                     self.wrapline();
                 } else {
                     // Prevent out of bounds crash when linewrapping is disabled.
-                    self.input_needs_wrap = true;
+                    self.grid.cursor.input_needs_wrap = true;
                     return;
                 }
             }
@@ -1392,7 +1387,7 @@ impl<T: EventListener> Handler for Term<T> {
         if self.grid.cursor.point.col + 1 < num_cols {
             self.grid.cursor.point.col += 1;
         } else {
-            self.input_needs_wrap = true;
+            self.grid.cursor.input_needs_wrap = true;
         }
     }
 
@@ -1415,7 +1410,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         self.grid.cursor.point.line = min(line + y_offset, max_y);
         self.grid.cursor.point.col = min(col, self.grid.num_cols() - 1);
-        self.input_needs_wrap = false;
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
@@ -1476,14 +1471,14 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Moving forward: {}", cols);
         let num_cols = self.grid.num_cols();
         self.grid.cursor.point.col = min(self.grid.cursor.point.col + cols, num_cols - 1);
-        self.input_needs_wrap = false;
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         trace!("Moving backward: {}", cols);
         self.grid.cursor.point.col = Column(self.grid.cursor.point.col.saturating_sub(cols.0));
-        self.input_needs_wrap = false;
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
@@ -1526,7 +1521,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
         // A tab after the last column is the same as a linebreak.
-        if self.input_needs_wrap {
+        if self.grid.cursor.input_needs_wrap {
             self.wrapline();
             return;
         }
@@ -1561,7 +1556,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         if self.grid.cursor.point.col > Column(0) {
             self.grid.cursor.point.col -= 1;
-            self.input_needs_wrap = false;
+            self.grid.cursor.input_needs_wrap = false;
         }
     }
 
@@ -1570,7 +1565,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn carriage_return(&mut self) {
         trace!("Carriage return");
         self.grid.cursor.point.col = Column(0);
-        self.input_needs_wrap = false;
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     /// Linefeed.
@@ -1933,7 +1928,6 @@ impl<T: EventListener> Handler for Term<T> {
         if self.mode.contains(TermMode::ALT_SCREEN) {
             mem::swap(&mut self.grid, &mut self.inactive_grid);
         }
-        self.input_needs_wrap = false;
         self.active_charset = Default::default();
         self.mode = Default::default();
         self.colors = self.original_colors;

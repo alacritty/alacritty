@@ -63,6 +63,7 @@ ref_tests! {
     scroll_up_reset
     clear_underline
     region_scroll_down
+    wrapline_alt_toggle
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
