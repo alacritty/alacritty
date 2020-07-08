@@ -5,6 +5,7 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{io, iter, mem, ptr, str};
+use std::iter::Peekable;
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -20,7 +21,7 @@ use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, S
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::{CellRgb, Rgb, DIM_FACTOR};
-use crate::term::search::{Match, RegexIter, RegexSearch};
+use crate::term::search::{RegexIter, RegexSearch};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
@@ -56,34 +57,16 @@ pub struct CursorKey {
     pub is_wide: bool,
 }
 
+type MatchIter<'a> = Box<dyn Iterator<Item = RangeInclusive<Point<usize>>> + 'a>;
+
 /// Regex search highlight tracking.
 pub struct RenderableSearch<'a> {
-    iter: Box<dyn Iterator<Item = Match> + 'a>,
-    active_match: Option<RangeInclusive<Point>>,
+    iter: Peekable<MatchIter<'a>>,
 }
 
 impl<'a> RenderableSearch<'a> {
     /// Create a new renderable search iterator.
-    pub fn new<T>(term: &'a Term<T>) -> Self {
-        let mut renderable_search = Self { iter: Self::new_iter(term), active_match: None };
-
-        // Load the first match, so the active match is only `None` once iteration is done.
-        renderable_search.advance_match(term.grid());
-
-        renderable_search
-    }
-
-    /// Move the current regex match to the next result.
-    pub fn advance_match<G>(&mut self, grid: &Grid<G>) {
-        self.active_match = self.iter.next().map(|regex_match| {
-            let start = grid.clamp_buffer_to_visible(*regex_match.start());
-            let end = grid.clamp_buffer_to_visible(*regex_match.end());
-            start..=end
-        });
-    }
-
-    /// Create the underlying iterator.
-    fn new_iter<'t, T>(term: &'t Term<T>) -> Box<dyn Iterator<Item = Match> + 't> {
+    fn new<T>(term: &'a Term<T>) -> Self {
         let viewport_end = term.grid().display_offset();
         let viewport_start = viewport_end + term.grid().screen_lines().0 - 1;
 
@@ -97,7 +80,8 @@ impl<'a> RenderableSearch<'a> {
         if start.line > viewport_start + MAX_SEARCH_LINES {
             if start.line == 0 {
                 // Do not highlight anything if this line is the last.
-                return Box::new(iter::empty());
+                let iter: MatchIter<'a> = Box::new(iter::empty());
+                return Self { iter: iter.peekable() };
             } else {
                 // Start at next line if this one is too long.
                 start.line -= 1;
@@ -106,11 +90,28 @@ impl<'a> RenderableSearch<'a> {
         end.line = max(end.line, viewport_end.saturating_sub(MAX_SEARCH_LINES));
 
         // Create an iterater for the current regex search for all visible matches.
-        Box::new(
-            RegexIter::new(start, end, Direction::Right, &term)
-                .skip_while(move |rm| rm.end().line > viewport_start)
-                .take_while(move |rm| rm.start().line >= viewport_end),
-        )
+        let iter: MatchIter<'a> = Box::new(RegexIter::new(start, end, Direction::Right, &term)
+            .skip_while(move |rm| rm.end().line > viewport_start)
+            .take_while(move |rm| rm.start().line >= viewport_end)
+        );
+
+        Self { iter: iter.peekable() }
+    }
+
+    /// Advance the search tracker to the next point.
+    ///
+    /// This will return `true` if the point passed is part of a search match.
+    fn advance(&mut self, point: Point<usize>) -> bool {
+        while let Some(regex_match) = &self.iter.peek() {
+            if regex_match.start() > &point {
+                break;
+            } else if regex_match.end() < &point {
+                let _ = self.iter.next();
+            } else {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -178,21 +179,6 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             colors: &term.colors,
             search: RenderableSearch::new(term),
         }
-    }
-
-    /// Check if point is part of a search match.
-    fn is_matched(&mut self, point: Point) -> bool {
-        while let Some(regex_match) = &self.search.active_match {
-            if regex_match.start() > &point {
-                break;
-            } else if regex_match.end() < &point {
-                self.search.advance_match(self.grid);
-            } else {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Check selection state of a cell.
@@ -296,7 +282,8 @@ impl RenderableCell {
             } else if config_bg != CellRgb::CellBackground {
                 bg_alpha = 1.0;
             }
-        } else if iter.is_matched(point) {
+        } else if iter.search.advance(iter.grid.visible_to_buffer(point)) {
+            // Highlight the cell if it is part of a search match.
             let config_bg = iter.config.colors.search.matches.background;
             let matched_fg = iter.config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);

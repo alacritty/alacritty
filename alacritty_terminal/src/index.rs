@@ -45,7 +45,7 @@ pub enum Boundary {
 }
 
 /// Index in the grid using row, column notation.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Point<L = Line> {
     pub line: L,
     pub col: Column,
@@ -136,13 +136,32 @@ impl Point<usize> {
     }
 }
 
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
-            (Ordering::Equal, Ordering::Equal) => Ordering::Equal,
-            (Ordering::Equal, ord) | (ord, Ordering::Equal) => ord,
-            (Ordering::Less, _) => Ordering::Less,
-            (Ordering::Greater, _) => Ordering::Greater,
+            (Ordering::Equal, ord) | (ord, _) => ord,
+        }
+    }
+}
+
+impl PartialOrd for Point<usize> {
+    fn partial_cmp(&self, other: &Point<usize>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Point<usize> {
+    fn cmp(&self, other: &Point<usize>) -> Ordering {
+        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+            (Ordering::Equal, ord) => ord,
+            (Ordering::Less, _) => Ordering::Greater,
+            (Ordering::Greater, _) => Ordering::Less,
         }
     }
 }
