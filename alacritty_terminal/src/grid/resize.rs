@@ -153,16 +153,16 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 // Resize cursor's line and reflow the cursor if necessary.
                 let mut target = self.cursor.point.sub(cols, num_wrapped);
 
-                let line_delta = (self.cursor.point.line - target.line).0;
-                cursor_line_delta += line_delta;
-                is_clear &= line_delta != 0;
-
                 // Clamp to the last column, if no content was reflown with the cursor.
                 if target.col.0 == 0 {
                     self.cursor.input_needs_wrap = true;
                     target = target.sub(cols, 1);
                 }
                 self.cursor.point.col = target.col;
+
+                let line_delta = (self.cursor.point.line - target.line).0;
+                cursor_line_delta += line_delta;
+                is_clear &= line_delta != 0;
             } else if is_clear {
                 if i + reversed.len() >= self.lines.0 {
                     // Since we removed a line, rotate down the viewport.
