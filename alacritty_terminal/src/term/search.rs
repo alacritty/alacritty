@@ -148,7 +148,7 @@ impl<T> Term<T> {
             .find(|regex_match| {
                 let match_point = Self::match_side(&regex_match, side);
 
-                // If the matche's point is beyond the origin, we're done.
+                // If the match's point is beyond the origin, we're done.
                 match_point.line < start.line
                     || match_point.line > origin.line
                     || (match_point.line == origin.line && match_point.col <= origin.col)
