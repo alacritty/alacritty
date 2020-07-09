@@ -7,16 +7,20 @@ use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
+use crate::grid::Dimensions;
 use crate::term::RenderableCell;
 
 /// The side of a cell.
+pub type Side = Direction;
+
+/// Horizontal direction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Side {
+pub enum Direction {
     Left,
     Right,
 }
 
-impl Side {
+impl Direction {
     pub fn opposite(self) -> Self {
         match self {
             Side::Right => Side::Left,
@@ -25,8 +29,23 @@ impl Side {
     }
 }
 
+/// Behavior for handling grid boundaries.
+pub enum Boundary {
+    /// Clamp to grid boundaries.
+    ///
+    /// When an operation exceeds the grid boundaries, the last point will be returned no matter
+    /// how far the boundaries were exceeded.
+    Clamp,
+
+    /// Wrap around grid bondaries.
+    ///
+    /// When an operation exceeds the grid boundaries, the point will wrap around the entire grid
+    /// history and continue at the other side.
+    Wrap,
+}
+
 /// Index in the grid using row, column notation.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Point<L = Line> {
     pub line: L,
     pub col: Column,
@@ -65,43 +84,84 @@ impl<L> Point<L> {
         self.col = Column((self.col.0 + rhs) % num_cols);
         self
     }
+}
 
+impl Point<usize> {
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub_absolute(mut self, num_cols: Column, rhs: usize) -> Point<L>
+    pub fn sub_absolute<D>(mut self, dimensions: &D, boundary: Boundary, rhs: usize) -> Point<usize>
     where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        D: Dimensions,
     {
-        let num_cols = num_cols.0;
-        self.line = self.line + ((rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols);
+        let total_lines = dimensions.total_lines();
+        let num_cols = dimensions.cols().0;
+
+        self.line += (rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols;
         self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
-        self
+
+        if self.line >= total_lines {
+            match boundary {
+                Boundary::Clamp => Point::new(total_lines - 1, Column(0)),
+                Boundary::Wrap => Point::new(self.line - total_lines, self.col),
+            }
+        } else {
+            self
+        }
     }
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add_absolute(mut self, num_cols: Column, rhs: usize) -> Point<L>
+    pub fn add_absolute<D>(mut self, dimensions: &D, boundary: Boundary, rhs: usize) -> Point<usize>
     where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        D: Dimensions,
     {
-        let line_changes = (rhs + self.col.0) / num_cols.0;
-        if self.line.into() >= Line(line_changes) {
-            self.line = self.line - line_changes;
+        let num_cols = dimensions.cols();
+
+        let line_delta = (rhs + self.col.0) / num_cols.0;
+
+        if self.line >= line_delta {
+            self.line -= line_delta;
             self.col = Column((self.col.0 + rhs) % num_cols.0);
             self
         } else {
-            Point::new(L::default(), num_cols - 1)
+            match boundary {
+                Boundary::Clamp => Point::new(0, num_cols - 1),
+                Boundary::Wrap => {
+                    let col = Column((self.col.0 + rhs) % num_cols.0);
+                    let line = dimensions.total_lines() + self.line - line_delta;
+                    Point::new(line, col)
+                },
+            }
         }
+    }
+}
+
+impl PartialOrd for Point {
+    fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
-            (Ordering::Equal, Ordering::Equal) => Ordering::Equal,
-            (Ordering::Equal, ord) | (ord, Ordering::Equal) => ord,
-            (Ordering::Less, _) => Ordering::Less,
-            (Ordering::Greater, _) => Ordering::Greater,
+            (Ordering::Equal, ord) | (ord, _) => ord,
+        }
+    }
+}
+
+impl PartialOrd for Point<usize> {
+    fn partial_cmp(&self, other: &Point<usize>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Point<usize> {
+    fn cmp(&self, other: &Point<usize>) -> Ordering {
+        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+            (Ordering::Equal, ord) => ord,
+            (Ordering::Less, _) => Ordering::Greater,
+            (Ordering::Greater, _) => Ordering::Less,
         }
     }
 }
@@ -429,7 +489,7 @@ ops!(Linear, Linear);
 
 #[cfg(test)]
 mod tests {
-    use super::{Column, Line, Point};
+    use super::*;
 
     #[test]
     fn location_ordering() {
@@ -493,51 +553,100 @@ mod tests {
 
     #[test]
     fn add_absolute() {
-        let num_cols = Column(42);
         let point = Point::new(0, Column(13));
 
-        let result = point.add_absolute(num_cols, 1);
+        let result = point.add_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.col + 1));
     }
 
     #[test]
-    fn add_absolute_wrap() {
-        let num_cols = Column(42);
-        let point = Point::new(1, num_cols - 1);
+    fn add_absolute_wrapline() {
+        let point = Point::new(1, Column(41));
 
-        let result = point.add_absolute(num_cols, 1);
+        let result = point.add_absolute(&(Line(2), Column(42)), Boundary::Clamp, 1);
+
+        assert_eq!(result, Point::new(0, Column(0)));
+    }
+
+    #[test]
+    fn add_absolute_multiline_wrapline() {
+        let point = Point::new(2, Column(9));
+
+        let result = point.add_absolute(&(Line(3), Column(10)), Boundary::Clamp, 11);
 
         assert_eq!(result, Point::new(0, Column(0)));
     }
 
     #[test]
     fn add_absolute_clamp() {
-        let num_cols = Column(42);
-        let point = Point::new(0, num_cols - 1);
+        let point = Point::new(0, Column(41));
 
-        let result = point.add_absolute(num_cols, 1);
+        let result = point.add_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, point);
     }
 
     #[test]
+    fn add_absolute_wrap() {
+        let point = Point::new(0, Column(41));
+
+        let result = point.add_absolute(&(Line(3), Column(42)), Boundary::Wrap, 1);
+
+        assert_eq!(result, Point::new(2, Column(0)));
+    }
+
+    #[test]
+    fn add_absolute_multiline_wrap() {
+        let point = Point::new(0, Column(9));
+
+        let result = point.add_absolute(&(Line(3), Column(10)), Boundary::Wrap, 11);
+
+        assert_eq!(result, Point::new(1, Column(0)));
+    }
+
+    #[test]
     fn sub_absolute() {
-        let num_cols = Column(42);
         let point = Point::new(0, Column(13));
 
-        let result = point.sub_absolute(num_cols, 1);
+        let result = point.sub_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.col - 1));
     }
 
     #[test]
-    fn sub_absolute_wrap() {
-        let num_cols = Column(42);
+    fn sub_absolute_wrapline() {
         let point = Point::new(0, Column(0));
 
-        let result = point.sub_absolute(num_cols, 1);
+        let result = point.sub_absolute(&(Line(2), Column(42)), Boundary::Clamp, 1);
 
-        assert_eq!(result, Point::new(1, num_cols - 1));
+        assert_eq!(result, Point::new(1, Column(41)));
+    }
+
+    #[test]
+    fn sub_absolute_multiline_wrapline() {
+        let point = Point::new(0, Column(0));
+
+        let result = point.sub_absolute(&(Line(3), Column(10)), Boundary::Clamp, 11);
+
+        assert_eq!(result, Point::new(2, Column(9)));
+    }
+
+    #[test]
+    fn sub_absolute_wrap() {
+        let point = Point::new(2, Column(0));
+
+        let result = point.sub_absolute(&(Line(3), Column(42)), Boundary::Wrap, 1);
+
+        assert_eq!(result, Point::new(0, Column(41)));
+    }
+
+    #[test]
+    fn sub_absolute_multiline_wrap() {
+        let point = Point::new(2, Column(0));
+
+        let result = point.sub_absolute(&(Line(3), Column(10)), Boundary::Wrap, 11);
+
+        assert_eq!(result, Point::new(1, Column(9)));
     }
 }

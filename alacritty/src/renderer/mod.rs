@@ -298,7 +298,7 @@ impl GlyphCache {
 
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
-        font: config::Font,
+        font: &config::Font,
         dpr: f64,
         loader: &mut L,
     ) -> Result<(), font::Error> {
@@ -307,7 +307,7 @@ impl GlyphCache {
 
         // Recompute font keys.
         let (regular, bold, italic, bold_italic) =
-            Self::compute_font_keys(&font, &mut self.rasterizer)?;
+            Self::compute_font_keys(font, &mut self.rasterizer)?;
 
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, font.size)?;
@@ -968,29 +968,29 @@ impl<'a, C> RenderApi<'a, C> {
     /// errors.
     pub fn render_string(
         &mut self,
-        string: &str,
-        line: Line,
         glyph_cache: &mut GlyphCache,
-        color: Option<Rgb>,
+        line: Line,
+        string: &str,
+        fg: Rgb,
+        bg: Option<Rgb>,
     ) {
-        let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
-        let col = Column(0);
+        let bg_alpha = bg.map(|_| 1.0).unwrap_or(0.0);
 
         let cells = string
             .chars()
             .enumerate()
             .map(|(i, c)| RenderableCell {
                 line,
-                column: col + i,
+                column: Column(i),
                 inner: RenderableCellContent::Chars({
                     let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
                     chars[0] = c;
                     chars
                 }),
-                bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
-                fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: Flags::empty(),
                 bg_alpha,
+                fg,
+                bg: bg.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
             })
             .collect::<Vec<_>>();
 

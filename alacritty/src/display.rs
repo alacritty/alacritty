@@ -1,6 +1,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
+use std::cmp::min;
 use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -15,6 +16,7 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
+use unicode_width::UnicodeWidthChar;
 #[cfg(not(any(target_os = "macos", windows)))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
@@ -23,20 +25,22 @@ use font::set_font_smoothing;
 use font::{self, Rasterize};
 
 use alacritty_terminal::config::{Font, StartupMode};
-use alacritty_terminal::event::OnResize;
-use alacritty_terminal::index::Line;
+use alacritty_terminal::event::{EventListener, OnResize};
+use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
 use alacritty_terminal::selection::Selection;
-use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
-use crate::event::{DisplayUpdate, Mouse};
+use crate::event::Mouse;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
 use crate::window::{self, Window};
+
+const SEARCH_LABEL: &str = "Search: ";
 
 #[derive(Debug)]
 pub enum Error {
@@ -96,6 +100,44 @@ impl From<renderer::Error> for Error {
 impl From<glutin::ContextError> for Error {
     fn from(val: glutin::ContextError) -> Self {
         Error::ContextError(val)
+    }
+}
+
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct DisplayUpdate {
+    pub dirty: bool,
+
+    dimensions: Option<PhysicalSize<u32>>,
+    font: Option<Font>,
+    cursor_dirty: bool,
+}
+
+impl DisplayUpdate {
+    pub fn dimensions(&self) -> Option<PhysicalSize<u32>> {
+        self.dimensions
+    }
+
+    pub fn font(&self) -> Option<&Font> {
+        self.font.as_ref()
+    }
+
+    pub fn cursor_dirty(&self) -> bool {
+        self.cursor_dirty
+    }
+
+    pub fn set_dimensions(&mut self, dimensions: PhysicalSize<u32>) {
+        self.dimensions = Some(dimensions);
+        self.dirty = true;
+    }
+
+    pub fn set_font(&mut self, font: Font) {
+        self.font = Some(font);
+        self.dirty = true;
+    }
+
+    pub fn set_cursor_dirty(&mut self) {
+        self.cursor_dirty = true;
+        self.dirty = true;
     }
 }
 
@@ -300,7 +342,7 @@ impl Display {
     }
 
     /// Update font size and cell dimensions.
-    fn update_glyph_cache(&mut self, config: &Config, font: Font) {
+    fn update_glyph_cache(&mut self, config: &Config, font: &Font) {
         let size_info = &mut self.size_info;
         let cache = &mut self.glyph_cache;
 
@@ -328,13 +370,16 @@ impl Display {
         terminal: &mut Term<T>,
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
+        search_active: bool,
         config: &Config,
         update_pending: DisplayUpdate,
-    ) {
+    ) where
+        T: EventListener,
+    {
         // Update font size and cell dimensions.
-        if let Some(font) = update_pending.font {
+        if let Some(font) = update_pending.font() {
             self.update_glyph_cache(config, font);
-        } else if update_pending.cursor {
+        } else if update_pending.cursor_dirty() {
             self.clear_glyph_cache();
         }
 
@@ -346,7 +391,7 @@ impl Display {
         let mut padding_y = f32::from(config.window.padding.y) * self.size_info.dpr as f32;
 
         // Update the window dimensions.
-        if let Some(size) = update_pending.dimensions {
+        if let Some(size) = update_pending.dimensions() {
             // Ensure we have at least one column and row.
             self.size_info.width = (size.width as f32).max(cell_width + 2. * padding_x);
             self.size_info.height = (size.height as f32).max(cell_height + 2. * padding_y);
@@ -367,6 +412,11 @@ impl Display {
         if let Some(message) = message_buffer.message() {
             let lines = message.text(&self.size_info).len();
             pty_size.height -= pty_size.cell_height * lines as f32;
+        }
+
+        // Add an extra line for the current search regex.
+        if search_active {
+            pty_size.height -= pty_size.cell_height;
         }
 
         // Resize PTY.
@@ -393,8 +443,10 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
+        search_regex: Option<&String>,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
+        let search_regex = search_regex.map(|regex| Self::format_search(&regex));
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
         let metrics = self.glyph_cache.font_metrics();
@@ -413,7 +465,17 @@ impl Display {
 
         // Update IME position.
         #[cfg(not(windows))]
-        self.window.update_ime_position(&terminal, &self.size_info);
+        {
+            let point = match &search_regex {
+                Some(regex) => {
+                    let column = min(regex.len() + SEARCH_LABEL.len() - 1, terminal.cols().0 - 1);
+                    Point::new(terminal.screen_lines() - 1, Column(column))
+                },
+                None => terminal.grid().cursor.point,
+            };
+
+            self.window.update_ime_position(point, &self.size_info);
+        }
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
@@ -484,11 +546,13 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
+        let mut message_bar_lines = 0;
         if let Some(message) = message_buffer.message() {
             let text = message.text(&size_info);
+            message_bar_lines = text.len();
 
             // Create a new rectangle for the background.
-            let start_line = size_info.lines().0 - text.len();
+            let start_line = size_info.lines().0 - message_bar_lines;
             let y = size_info.cell_height.mul_add(start_line as f32, size_info.padding_y);
             let message_bar_rect =
                 RenderRect::new(0., y, size_info.width, size_info.height - y, message.color(), 1.);
@@ -500,31 +564,25 @@ impl Display {
             self.renderer.draw_rects(&size_info, rects);
 
             // Relay messages to the user.
-            let mut offset = 1;
-            for message_text in text.iter().rev() {
+            let fg = config.colors.primary.background;
+            for (i, message_text) in text.iter().rev().enumerate() {
                 self.renderer.with_api(&config, &size_info, |mut api| {
                     api.render_string(
-                        &message_text,
-                        Line(size_info.lines().saturating_sub(offset)),
                         glyph_cache,
+                        Line(size_info.lines().saturating_sub(i + 1)),
+                        &message_text,
+                        fg,
                         None,
                     );
                 });
-                offset += 1;
             }
         } else {
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, rects);
         }
 
-        // Draw render timer.
-        if config.render_timer() {
-            let timing = format!("{:.3} usec", self.meter.average());
-            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-            self.renderer.with_api(&config, &size_info, |mut api| {
-                api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
-            });
-        }
+        self.draw_search(config, &size_info, message_bar_lines, search_regex);
+        self.draw_render_timer(config, &size_info);
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -544,6 +602,73 @@ impl Display {
                 });
             }
         }
+    }
+
+    /// Format search regex to account for the cursor and fullwidth characters.
+    fn format_search(search_regex: &str) -> String {
+        // Add spacers for wide chars.
+        let mut text = String::with_capacity(search_regex.len());
+        for c in search_regex.chars() {
+            text.push(c);
+            if c.width() == Some(2) {
+                text.push(' ');
+            }
+        }
+
+        // Add cursor to show whitespace.
+        text.push('_');
+
+        text
+    }
+
+    /// Draw current search regex.
+    fn draw_search(
+        &mut self,
+        config: &Config,
+        size_info: &SizeInfo,
+        message_bar_lines: usize,
+        search_regex: Option<String>,
+    ) {
+        let search_regex = match search_regex {
+            Some(search_regex) => search_regex,
+            None => return,
+        };
+        let glyph_cache = &mut self.glyph_cache;
+
+        let label_len = SEARCH_LABEL.len();
+        let num_cols = size_info.cols().0;
+
+        // Truncate beginning of text when it exceeds viewport width.
+        let text_len = search_regex.len();
+        let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
+        let text = &search_regex[truncate_len..];
+
+        // Assure text length is at least num_cols.
+        let padding_len = num_cols.saturating_sub(label_len);
+        let text = format!("{}{:<2$}", SEARCH_LABEL, text, padding_len);
+
+        let fg = config.colors.search_bar_foreground();
+        let bg = config.colors.search_bar_background();
+        let line = size_info.lines() - message_bar_lines - 1;
+        self.renderer.with_api(&config, &size_info, |mut api| {
+            api.render_string(glyph_cache, line, &text, fg, Some(bg));
+        });
+    }
+
+    /// Draw render timer.
+    fn draw_render_timer(&mut self, config: &Config, size_info: &SizeInfo) {
+        if !config.render_timer() {
+            return;
+        }
+        let glyph_cache = &mut self.glyph_cache;
+
+        let timing = format!("{:.3} usec", self.meter.average());
+        let fg = config.colors.normal().black;
+        let bg = config.colors.normal().red;
+
+        self.renderer.with_api(&config, &size_info, |mut api| {
+            api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
+        });
     }
 
     /// Requst a new frame for a window on Wayland.

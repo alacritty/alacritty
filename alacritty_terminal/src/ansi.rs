@@ -89,13 +89,13 @@ struct ProcessorState {
 ///
 /// Processor creates a Performer when running advance and passes the Performer
 /// to `vte::Parser`.
-struct Performer<'a, H: Handler + TermInfo, W: io::Write> {
+struct Performer<'a, H: Handler, W: io::Write> {
     state: &'a mut ProcessorState,
     handler: &'a mut H,
     writer: &'a mut W,
 }
 
-impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
+impl<'a, H: Handler + 'a, W: io::Write> Performer<'a, H, W> {
     /// Create a performer.
     #[inline]
     pub fn new<'b>(
@@ -121,18 +121,12 @@ impl Processor {
     #[inline]
     pub fn advance<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
     where
-        H: Handler + TermInfo,
+        H: Handler,
         W: io::Write,
     {
         let mut performer = Performer::new(&mut self.state, handler, writer);
         self.parser.advance(&mut performer, byte);
     }
-}
-
-/// Trait that provides properties of terminal.
-pub trait TermInfo {
-    fn lines(&self) -> Line;
-    fn cols(&self) -> Column;
 }
 
 /// Type that handles actions from the parser.
@@ -278,7 +272,7 @@ pub trait Handler {
     fn unset_mode(&mut self, _: Mode) {}
 
     /// DECSTBM - Set the terminal scrolling region.
-    fn set_scrolling_region(&mut self, _top: usize, _bottom: usize) {}
+    fn set_scrolling_region(&mut self, _top: usize, _bottom: Option<usize>) {}
 
     /// DECKPAM - Set keypad to applications mode (ESCape instead of digits).
     fn set_keypad_application_mode(&mut self) {}
@@ -731,7 +725,7 @@ impl StandardCharset {
 
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 where
-    H: Handler + TermInfo + 'a,
+    H: Handler + 'a,
     W: io::Write + 'a,
 {
     #[inline]
@@ -945,9 +939,7 @@ where
 
         macro_rules! arg_or_default {
             (idx: $idx:expr, default: $default:expr) => {
-                args.get($idx)
-                    .and_then(|v| if *v == 0 { None } else { Some(*v) })
-                    .unwrap_or($default)
+                args.get($idx).copied().filter(|&v| v != 0).unwrap_or($default)
             };
         }
 
@@ -1099,7 +1091,7 @@ where
             },
             ('r', None) => {
                 let top = arg_or_default!(idx: 0, default: 1) as usize;
-                let bottom = arg_or_default!(idx: 1, default: handler.lines().0 as _) as usize;
+                let bottom = args.get(1).map(|&b| b as usize).filter(|&b| b != 0);
 
                 handler.set_scrolling_region(top, bottom);
             },
@@ -1391,9 +1383,7 @@ pub mod C0 {
 mod tests {
     use super::{
         parse_number, xparse_color, Attr, CharsetIndex, Color, Handler, Processor, StandardCharset,
-        TermInfo,
     };
-    use crate::index::{Column, Line};
     use crate::term::color::Rgb;
     use std::io;
 
@@ -1424,16 +1414,6 @@ mod tests {
 
         fn reset_state(&mut self) {
             *self = Self::default();
-        }
-    }
-
-    impl TermInfo for MockHandler {
-        fn lines(&self) -> Line {
-            Line(200)
-        }
-
-        fn cols(&self) -> Column {
-            Column(90)
         }
     }
 

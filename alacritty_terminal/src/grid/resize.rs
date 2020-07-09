@@ -6,7 +6,7 @@ use crate::index::{Column, Line};
 use crate::term::cell::Flags;
 
 use crate::grid::row::Row;
-use crate::grid::{Grid, GridCell};
+use crate::grid::{Dimensions, Grid, GridCell};
 
 impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     /// Resize the grid's width and/or height.
@@ -18,8 +18,8 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols, reflow),
-            Ordering::Greater => self.shrink_cols(cols, reflow),
+            Ordering::Less => self.grow_cols(reflow, cols),
+            Ordering::Greater => self.shrink_cols(reflow, cols),
             Ordering::Equal => (),
         }
     }
@@ -79,7 +79,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     /// Grow number of columns in each row, reflowing if necessary.
-    fn grow_cols(&mut self, cols: Column, reflow: bool) {
+    fn grow_cols(&mut self, reflow: bool, cols: Column) {
         // Check if a row needs to be wrapped.
         let should_reflow = |row: &Row<T>| -> bool {
             let len = Column(row.len());
@@ -116,9 +116,8 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
             // Remove leading spacers when reflowing wide char to the previous line.
             let mut last_len = last_row.len();
-            if last_len >= 2
-                && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
-                && last_row[Column(last_len - 1)].flags().contains(Flags::WIDE_CHAR_SPACER)
+            if last_len >= 1
+                && last_row[Column(last_len - 1)].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER)
             {
                 last_row.shrink(Column(last_len - 1));
                 last_len -= 1;
@@ -135,7 +134,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 let mut cells = row.front_split_off(len - 1);
 
                 let mut spacer = T::default();
-                spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
                 cells.push(spacer);
 
                 cells
@@ -143,7 +142,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 row.front_split_off(len)
             };
 
-            // Reflow cells to previous row.
+            // Add removed cells to previous row and reflow content.
             last_row.append(&mut cells);
 
             let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
@@ -219,7 +218,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     /// Shrink number of columns in each row, reflowing if necessary.
-    fn shrink_cols(&mut self, cols: Column, reflow: bool) {
+    fn shrink_cols(&mut self, reflow: bool, cols: Column) {
         self.cols = cols;
 
         // Remove the linewrap special case, by moving the cursor outside of the grid.
@@ -268,17 +267,14 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                     wrapped.insert(0, row[cols - 1]);
 
                     let mut spacer = T::default();
-                    spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                    spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
                     row[cols - 1] = spacer;
                 }
 
                 // Remove wide char spacer before shrinking.
                 let len = wrapped.len();
-                if (len == 1 || (len >= 2 && !wrapped[len - 2].flags().contains(Flags::WIDE_CHAR)))
-                    && wrapped[len - 1].flags().contains(Flags::WIDE_CHAR_SPACER)
-                {
+                if wrapped[len - 1].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     if len == 1 {
-                        // Delete the wrapped content if it contains only a leading spacer.
                         row[cols - 1].flags_mut().insert(Flags::WRAPLINE);
                         new_raw.push(row);
                         break;

@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Default Command+N keybinding for SpawnNewInstance on macOS
-- Vi mode for copying text and opening links
+- Vi mode for regex search, copying text, and opening links
 - `CopySelection` action which copies into selection buffer on Linux/BSD
 - Option `cursor.thickness` to set terminal cursor thickness
 - Font fallback on Windows
@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dragging files into terminal now adds a space after each path
 - Default binding replacement conditions
 - Adjusted selection clearing granularity to more accurately match content
+- To use the cell's text color for selection with a modified background, the `color.selection.text`
+    variable must now be set to `CellForeground` instead of omitting it
 
 ### Fixed
 
@@ -58,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linewrap tracking when switching between primary and alternate screen buffer
 - Preservation of the alternate screen's saved cursor when swapping to primary screen and back
 - Reflow of cursor during resize
+- Cursor color escape ignored when its color is set to inverted in the config
 
 ## 0.4.3
 

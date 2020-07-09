@@ -8,11 +8,10 @@ use std::path::Path;
 use alacritty_terminal::ansi;
 use alacritty_terminal::config::MockConfig;
 use alacritty_terminal::event::{Event, EventListener};
+use alacritty_terminal::grid::{Dimensions, Grid};
 use alacritty_terminal::index::Column;
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::SizeInfo;
-use alacritty_terminal::Grid;
-use alacritty_terminal::Term;
+use alacritty_terminal::term::{SizeInfo, Term};
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -114,8 +113,8 @@ fn ref_test(dir: &Path) {
     term_grid.truncate();
 
     if grid != term_grid {
-        for i in 0..grid.len() {
-            for j in 0..grid.num_cols().0 {
+        for i in 0..grid.total_lines() {
+            for j in 0..grid.cols().0 {
                 let cell = term_grid[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
                 if original_cell != cell {
