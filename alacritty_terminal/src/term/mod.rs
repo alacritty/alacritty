@@ -1,11 +1,11 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
 use std::cmp::{max, min};
+use std::iter::Peekable;
 use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{io, iter, mem, ptr, str};
-use std::iter::Peekable;
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -90,9 +90,10 @@ impl<'a> RenderableSearch<'a> {
         end.line = max(end.line, viewport_end.saturating_sub(MAX_SEARCH_LINES));
 
         // Create an iterater for the current regex search for all visible matches.
-        let iter: MatchIter<'a> = Box::new(RegexIter::new(start, end, Direction::Right, &term)
-            .skip_while(move |rm| rm.end().line > viewport_start)
-            .take_while(move |rm| rm.start().line >= viewport_end)
+        let iter: MatchIter<'a> = Box::new(
+            RegexIter::new(start, end, Direction::Right, &term)
+                .skip_while(move |rm| rm.end().line > viewport_start)
+                .take_while(move |rm| rm.start().line >= viewport_end),
         );
 
         Self { iter: iter.peekable() }
