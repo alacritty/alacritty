@@ -559,10 +559,10 @@ dependencies = [
  "dwrote 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.20.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "freetype-rs 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "freetype-rs 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "servo-fontconfig 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "servo-fontconfig 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -605,17 +605,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "freetype-rs"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "freetype-sys 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "freetype-sys 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "freetype-sys"
-version = "0.12.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cmake 0.1.44 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1634,20 +1634,20 @@ dependencies = [
 
 [[package]]
 name = "servo-fontconfig"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
- "servo-fontconfig-sys 5.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "servo-fontconfig-sys 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "servo-fontconfig-sys"
-version = "5.0.2"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "expat-sys 2.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "freetype-sys 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "freetype-sys 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2322,8 +2322,8 @@ dependencies = [
 "checksum foreign-types-macros 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "63f713f8b2aa9e24fec85b0e290c56caee12e3b6ae0aeeda238a75b28251afd6"
 "checksum foreign-types-shared 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 "checksum foreign-types-shared 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7684cf33bb7f28497939e8c7cf17e3e4e3b8d9a0080ffa4f8ae2f515442ee855"
-"checksum freetype-rs 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5e687cf953d7052be94742baf3fc63b1ea21ada7d9b45f7b1918221accebf1ae"
-"checksum freetype-sys 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7530337a8e76db5271f1b5f81dd5340b0adaea235cb089cefa1928bd0cb9ee71"
+"checksum freetype-rs 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)" = "74eadec9d0a5c28c54bb9882e54787275152a4e36ce206b45d7451384e5bf5fb"
+"checksum freetype-sys 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a37d4011c0cc628dfa766fcc195454f4b068d7afdc2adfd28861191d866e731a"
 "checksum fsevent 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5ab7d1bd1bd33cc98b0889831b72da23c0aa4df9cec7e0702f46ecea04b35db6"
 "checksum fsevent-sys 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f41b048a94555da0f42f1d632e2e19510084fb8e303b0daa2816e733fb3644a0"
 "checksum fuchsia-zircon 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2e9763c69ebaae630ba35f74888db465e49e259ba1bc0eda7d06f4a067615d82"
@@ -2441,8 +2441,8 @@ dependencies = [
 "checksum serde_derive 1.0.112 (registry+https://github.com/rust-lang/crates.io-index)" = "bf0343ce212ac0d3d6afd9391ac8e9c9efe06b533c8d33f660f6390cc4093f57"
 "checksum serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)" = "ec2c5d7e739bc07a3e73381a39d61fdb5f671c60c1df26a130690665803d8226"
 "checksum serde_yaml 0.8.13 (registry+https://github.com/rust-lang/crates.io-index)" = "ae3e2dd40a7cdc18ca80db804b7f461a39bb721160a85c9a1fa30134bf3c02a5"
-"checksum servo-fontconfig 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0b47fef69c52fb55838c756949c60595f0b855daa4e82fc52ad99ff3e03e2c70"
-"checksum servo-fontconfig-sys 5.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "facb23c6a801c935c3bddfdd7dc4e823af853babc5b0c90ffa3419ebef5d92c7"
+"checksum servo-fontconfig 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c7e3e22fe5fd73d04ebf0daa049d3efe3eae55369ce38ab16d07ddd9ac5c217c"
+"checksum servo-fontconfig-sys 5.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e36b879db9892dfa40f95da1c38a835d41634b825fbd8c4c418093d53c24b388"
 "checksum shared_library 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "5a9e7e0f2bfae24d8a5b5a66c5b257a83c7412304311512a0c054cd5e619da11"
 "checksum shlex 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 "checksum signal-hook 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "604508c1418b99dfe1925ca9224829bb2a8a9a04dda655cc01fcad46f4ab05ed"
