@@ -13,8 +13,8 @@ foreign-types = "0.5"
 log = "0.4"
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
-servo-fontconfig = "0.5.0"
-freetype-rs = "0.25"
+servo-fontconfig = "0.5.1"
+freetype-rs = "0.26"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.20.1"
@@ -26,3 +26,6 @@ core-foundation-sys = "0.7"
 [target.'cfg(windows)'.dependencies]
 dwrote = { version = "0.11" }
 winapi = { version = "0.3", features = ["impl-default"] }
+
+[features]
+force_system_fontconfig = ["servo-fontconfig/force_system_lib"]

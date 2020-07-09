@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum Rust version has been bumped to 1.41.0
 - Prebuilt Linux binaries have been removed
 - Added manpage, terminfo, and completions to macOS application bundle
+- On Linux/BSD the build will fail without Fontconfig installed, instead of building it from source
 
 ### Removed
 
