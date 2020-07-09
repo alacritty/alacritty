@@ -20,12 +20,8 @@ pub struct BellConfig {
     #[serde(deserialize_with = "failure_default")]
     duration: u16,
 
-    // FIXME RGB deserialization always successedes and uses #000000 color. However it should
-    // fallback to a proper color. So it should be reworked either with
-    // https://github.com/alacritty/alacritty/pull/3507 or after that PR will land, since it'll
-    // allow to impl manual deserialization properly.
     /// Visual bell flash color.
-    #[serde(deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "deserialize_bell_color")]
     pub color: Rgb,
 
     /// Command to run on bell.
@@ -49,6 +45,24 @@ impl BellConfig {
     #[inline]
     pub fn duration(&self) -> Duration {
         Duration::from_millis(u64::from(self.duration))
+    }
+}
+
+fn deserialize_bell_color<'a, D>(deserializer: D) -> Result<Rgb, D::Error>
+where
+    D: Deserializer<'a>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match Rgb::deserialize(value) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: {}, using default color value {}", err, DEFAULT_BELL_COLOR
+            );
+
+            Ok(DEFAULT_BELL_COLOR)
+        },
     }
 }
 
