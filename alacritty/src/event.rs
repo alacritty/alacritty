@@ -3,6 +3,8 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::env;
+use std::ffi::OsStr;
+use std::fmt::Debug;
 #[cfg(unix)]
 use std::fs;
 use std::fs::File;
@@ -27,7 +29,7 @@ use serde_json as json;
 use font::set_font_smoothing;
 use font::{self, Size};
 
-use alacritty_terminal::config::{Program, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
@@ -290,10 +292,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
 
-        match start_daemon(&alacritty, &args) {
-            Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
-            Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
-        }
+        start_program(&alacritty, &args);
     }
 
     /// Spawn URL launcher when clicking on URLs.
@@ -308,10 +307,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let end = self.terminal.visible_to_buffer(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
-            match start_daemon(launcher.program(), &args) {
-                Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-                Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
-            }
+            start_program(launcher.program(), &args);
         }
     }
 
@@ -840,13 +836,11 @@ impl<N: Notify + OnResize> Processor<N> {
                     TerminalEvent::Title(title) => processor.ctx.window.set_title(&title),
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,
                     TerminalEvent::Bell => {
-                        let _ = processor
-                            .ctx
-                            .config
-                            .bell()
+                        let bell_config = processor.ctx.config.bell();
+                        let _ = bell_config
                             .command
                             .as_ref()
-                            .map(Self::start_bell_program);
+                            .map(|program| start_program(program.program(), program.args()));
                         processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
@@ -1058,15 +1052,6 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
-    fn start_bell_program(program: &Program) {
-        let args = program.args().to_vec();
-
-        match start_daemon(program.program(), &args) {
-            Ok(_) => debug!("Launched {} with args {:?}", program.program(), args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", program.program(), args),
-        }
-    }
-
     /// Write the ref test results to the disk.
     fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
         // Dump grid state.
@@ -1091,6 +1076,17 @@ impl<N: Notify + OnResize> Processor<N> {
         File::create("./config.json")
             .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
             .expect("write config.json");
+    }
+}
+
+fn start_program<I, S>(program: &str, args: I)
+where
+    I: IntoIterator<Item = S> + Debug + Copy,
+    S: AsRef<OsStr>,
+{
+    match start_daemon(program, args) {
+        Ok(_) => debug!("Launched {} with args {:?}", program, args),
+        Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
     }
 }
 

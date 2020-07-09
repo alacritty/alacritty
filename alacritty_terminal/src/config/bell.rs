@@ -34,8 +34,8 @@ impl Default for BellConfig {
         Self {
             animation: Default::default(),
             duration: Default::default(),
-            color: DEFAULT_BELL_COLOR,
             command: Default::default(),
+            color: DEFAULT_BELL_COLOR,
         }
     }
 }
@@ -80,8 +80,8 @@ where
         return Ok(None);
     }
 
-    match <Option<Program>>::deserialize(val) {
-        Ok(command) => Ok(command),
+    match Program::deserialize(val) {
+        Ok(command) => Ok(Some(command)),
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring field", err);
             Ok(None)
