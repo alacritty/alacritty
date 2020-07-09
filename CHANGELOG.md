@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opt-out compilation flag `winpty` to disable WinPTY support
 - Scrolling during selection when mouse is at top/bottom of window
 - Expanding existing selections using the right mouse button
+- Support for `gopher` and `gemini` URLs
+- Unicode 13 support
 
 ### Changed
 
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adjusted selection clearing granularity to more accurately match content
 - To use the cell's text color for selection with a modified background, the `color.selection.text`
     variable must now be set to `CellForeground` instead of omitting it
+- URLs are no longer highlighted without a clearly delimited scheme
 
 ### Fixed
 
