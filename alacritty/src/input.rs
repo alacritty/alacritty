@@ -99,6 +99,7 @@ pub trait ActionContext<T: EventListener> {
     fn cancel_search(&mut self);
     fn push_search(&mut self, c: char);
     fn pop_search(&mut self);
+    fn pop_word_search(&mut self);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
 }
@@ -807,17 +808,32 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn key_input(&mut self, input: KeyboardInput) {
         match input.state {
             ElementState::Pressed if self.ctx.search_active() => {
-                match input.virtual_keycode {
-                    Some(VirtualKeyCode::Back) => {
+                match (input.virtual_keycode, *self.ctx.modifiers()) {
+                    (Some(VirtualKeyCode::Back), _) => {
                         self.ctx.pop_search();
                         *self.ctx.suppress_chars() = true;
                     },
-                    Some(VirtualKeyCode::Return) => {
+                    (Some(VirtualKeyCode::Return), _)
+                    | (Some(VirtualKeyCode::J), ModifiersState::CTRL) => {
                         self.ctx.confirm_search();
                         *self.ctx.suppress_chars() = true;
                     },
-                    Some(VirtualKeyCode::Escape) => {
+                    (Some(VirtualKeyCode::Escape), _) => {
                         self.ctx.cancel_search();
+                        *self.ctx.suppress_chars() = true;
+                    },
+                    (Some(VirtualKeyCode::U), ModifiersState::CTRL) => {
+                        let direction = self.ctx.search_direction();
+                        self.ctx.cancel_search();
+                        self.ctx.start_search(direction);
+                        *self.ctx.suppress_chars() = true;
+                    },
+                    (Some(VirtualKeyCode::H), ModifiersState::CTRL) => {
+                        self.ctx.pop_search();
+                        *self.ctx.suppress_chars() = true;
+                    },
+                    (Some(VirtualKeyCode::W), ModifiersState::CTRL) => {
+                        self.ctx.pop_word_search();
                         *self.ctx.suppress_chars() = true;
                     },
                     _ => (),
@@ -1126,6 +1142,8 @@ mod tests {
         fn push_search(&mut self, _c: char) {}
 
         fn pop_search(&mut self) {}
+
+        fn pop_word_search(&mut self) {}
 
         fn search_direction(&self) -> Direction {
             Direction::Right

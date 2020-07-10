@@ -395,56 +395,27 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn push_search(&mut self, c: char) {
-        let regex = match self.search_state.regex.as_mut() {
-            Some(regex) => regex,
-            None => return,
-        };
-
-        // Hide cursor while typing into the search bar.
-        if self.config.ui_config.mouse.hide_when_typing {
-            self.window.set_mouse_visible(false);
+        if let Some(regex) = self.search_state.regex.as_mut() {
+            regex.push(c);
+            self.update_search();
         }
-
-        // Add new char to search string.
-        regex.push(c);
-
-        // Create terminal search from the new regex string.
-        self.terminal.start_search(&regex);
-
-        // Update search highlighting.
-        self.goto_match(MAX_SEARCH_WHILE_TYPING);
-
-        self.terminal.dirty = true;
     }
 
     #[inline]
     fn pop_search(&mut self) {
-        let regex = match self.search_state.regex.as_mut() {
-            Some(regex) => regex,
-            None => return,
-        };
-
-        // Hide cursor while typing into the search bar.
-        if self.config.ui_config.mouse.hide_when_typing {
-            self.window.set_mouse_visible(false);
+        if let Some(regex) = self.search_state.regex.as_mut() {
+            regex.pop();
+            self.update_search();
         }
+    }
 
-        // Remove last char from search string.
-        regex.pop();
-
-        if regex.is_empty() {
-            // Stop search if there's nothing to search for.
-            self.search_reset_state();
-            self.terminal.cancel_search();
-        } else {
-            // Create terminal search from the new regex string.
-            self.terminal.start_search(&regex);
-
-            // Update search highlighting.
-            self.goto_match(MAX_SEARCH_WHILE_TYPING);
+    #[inline]
+    fn pop_word_search(&mut self) {
+        if let Some(regex) = self.search_state.regex.as_mut() {
+            *regex = regex.trim_end().to_owned();
+            regex.truncate(regex.rfind(' ').map(|i| i + 1).unwrap_or(0));
+            self.update_search();
         }
-
-        self.terminal.dirty = true;
     }
 
     #[inline]
@@ -483,6 +454,32 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
+    fn update_search(&mut self) {
+        let regex = match self.search_state.regex.as_mut() {
+            Some(regex) => regex,
+            None => return,
+        };
+
+        // Hide cursor while typing into the search bar.
+        if self.config.ui_config.mouse.hide_when_typing {
+            self.window.set_mouse_visible(false);
+        }
+
+        if regex.is_empty() {
+            // Stop search if there's nothing to search for.
+            self.search_reset_state();
+            self.terminal.cancel_search();
+        } else {
+            // Create terminal search from the new regex string.
+            self.terminal.start_search(&regex);
+
+            // Update search highlighting.
+            self.goto_match(MAX_SEARCH_WHILE_TYPING);
+        }
+
+        self.terminal.dirty = true;
+    }
+
     /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
         // Reset display offset.
