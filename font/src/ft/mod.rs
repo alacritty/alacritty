@@ -503,13 +503,13 @@ impl FreeTypeRasterizer {
         let hintstyle = if hinting {
             pattern.hintstyle().next().unwrap_or(fc::HintStyle::Full)
         } else {
-            hintstyle = fc::HintStyle::None
+            fc::HintStyle::None
         };
 
         let mut flags = match (antialias, hintstyle, rgba) {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
             (false, ..) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
-            (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
+            (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING,
             // `hintslight` does *not* use LCD hinting even when a subpixel mode
             // is selected.
             //
@@ -528,11 +528,13 @@ impl FreeTypeRasterizer {
             (true, fc::HintStyle::Medium, _) => LoadFlag::TARGET_NORMAL,
             // If LCD hinting is to be used, must select hintmedium or hintfull,
             // have AA enabled, and select a subpixel mode.
-            (true, _, fc::Rgba::Rgb) | (true, _, fc::Rgba::Bgr) => LoadFlag::TARGET_LCD,
-            (true, _, fc::Rgba::Vrgb) | (true, _, fc::Rgba::Vbgr) => LoadFlag::TARGET_LCD_V,
+            (true, fc::HintStyle::Full, fc::Rgba::Rgb)
+            | (true, fc::HintStyle::Full, fc::Rgba::Bgr) => LoadFlag::TARGET_LCD,
+            (true, fc::HintStyle::Full, fc::Rgba::Vrgb)
+            | (true, fc::HintStyle::Full, fc::Rgba::Vbgr) => LoadFlag::TARGET_LCD_V,
             // For non-rgba modes with Full hinting, just use the default hinting algorithm.
-            (true, _, fc::Rgba::Unknown) => LoadFlag::TARGET_NORMAL,
-            (true, _, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
+            (true, fc::HintStyle::Full, fc::Rgba::Unknown)
+            | (true, fc::HintStyle::Full, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
         };
 
         // Non scalable fonts only have bitmaps, so disabling them entirely is likely not a
