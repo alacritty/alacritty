@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::term::color::Rgb;
-use crate::term::SizeInfo;
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -161,7 +161,7 @@ impl MessageBuffer {
 #[cfg(test)]
 mod tests {
     use super::{Message, MessageBuffer, MIN_FREE_LINES};
-    use crate::term::{color, SizeInfo};
+    use alacritty_terminal::term::{color, SizeInfo};
 
     #[test]
     fn appends_close_button() {

@@ -15,11 +15,11 @@ use std::sync::{Arc, Mutex};
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
 
-use alacritty_terminal::message_bar::Message;
 use alacritty_terminal::term::color;
 
 use crate::cli::Options;
 use crate::event::Event;
+use crate::message_bar::Message;
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 

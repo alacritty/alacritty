@@ -9,6 +9,7 @@ use std::str;
 use libc::{setlocale, LC_ALL, LC_CTYPE};
 use log::debug;
 use objc::runtime::{Class, Object};
+use objc::{class, msg_send, sel};
 
 const FALLBACK_LOCALE: &str = "UTF-8";
 

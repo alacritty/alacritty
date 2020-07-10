@@ -1,13 +1,7 @@
-#[cfg(windows)]
-use crate::tty::windows::win32_string;
-
-// Use the default behavior of the other platforms.
-#[cfg(not(windows))]
-pub fn attach_handler() {}
+use alacritty_terminal::tty::windows::win32_string;
 
 // Install a panic handler that renders the panic in a classical Windows error
 // dialog box as well as writes the panic to STDERR.
-#[cfg(windows)]
 pub fn attach_handler() {
     use std::{io, io::Write, panic, ptr};
     use winapi::um::winuser;

@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     variable must now be set to `CellForeground` instead of omitting it
 - URLs are no longer highlighted without a clearly delimited scheme
 - Renamed `visual_bell` to `bell`
+- Moved `dynamic_title` to `window.dynamic_title`
 
 ### Fixed
 
@@ -70,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fontconfig's `autohint` and `hinting` options being ignored
 - Ingoring of default FreeType properties
 - Alacritty crashing at startup when the configured font does not exist
+
+### Removed
+
+- Deprecated `config.window.start_maximized` config field.
+- Deprecated `render_timer` config field.
+- Deprecated `persistent_logging` config field.
 
 ## 0.4.3
 

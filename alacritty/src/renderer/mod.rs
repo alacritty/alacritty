@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use std::fs;
 use std::hash::BuildHasherDefault;
 use std::io;
@@ -10,7 +11,8 @@ use std::time::Duration;
 
 use fnv::FnvHasher;
 use font::{
-    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size,
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
+    Style, Weight,
 };
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -19,15 +21,18 @@ use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
-use alacritty_terminal::config::{self, Config, Delta, Font, StartupMode};
+use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{self, Flags};
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::thread;
-use std::fmt::{self, Display, Formatter};
 
 pub mod rects;
+
+use crate::config::font::{Font, FontDescription};
+use crate::config::ui_config::{Delta, UIConfig};
+use crate::config::window::{StartupMode, WindowConfig};
 
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.f.glsl");
@@ -173,7 +178,7 @@ pub struct GlyphCache {
 impl GlyphCache {
     pub fn new<L>(
         mut rasterizer: Rasterizer,
-        font: &config::Font,
+        font: &Font,
         loader: &mut L,
     ) -> Result<GlyphCache, font::Error>
     where
@@ -215,14 +220,13 @@ impl GlyphCache {
 
     /// Computes font keys for (Regular, Bold, Italic, Bold Italic).
     fn compute_font_keys(
-        font: &config::Font,
+        font: &Font,
         rasterizer: &mut Rasterizer,
     ) -> Result<(FontKey, FontKey, FontKey, FontKey), font::Error> {
         let size = font.size;
 
         // Load regular font.
-        let regular_desc =
-            Self::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
+        let regular_desc = Self::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
 
         let regular = Self::load_regular_font(rasterizer, &regular_desc, size)?;
 
@@ -236,19 +240,17 @@ impl GlyphCache {
         };
 
         // Load bold font.
-        let bold_desc = Self::make_desc(&font.bold(), font::Slant::Normal, font::Weight::Bold);
+        let bold_desc = Self::make_desc(&font.bold(), Slant::Normal, Weight::Bold);
 
         let bold = load_or_regular(bold_desc);
 
         // Load italic font.
-        let italic_desc =
-            Self::make_desc(&font.italic(), font::Slant::Italic, font::Weight::Normal);
+        let italic_desc = Self::make_desc(&font.italic(), Slant::Italic, Weight::Normal);
 
         let italic = load_or_regular(italic_desc);
 
         // Load bold italic font.
-        let bold_italic_desc =
-            Self::make_desc(&font.bold_italic(), font::Slant::Italic, font::Weight::Bold);
+        let bold_italic_desc = Self::make_desc(&font.bold_italic(), Slant::Italic, Weight::Bold);
 
         let bold_italic = load_or_regular(bold_italic_desc);
 
@@ -265,25 +267,18 @@ impl GlyphCache {
             Err(err) => {
                 error!("{}", err);
 
-                let fallback_desc = Self::make_desc(
-                    &Font::default().normal(),
-                    font::Slant::Normal,
-                    font::Weight::Normal,
-                );
+                let fallback_desc =
+                    Self::make_desc(&Font::default().normal(), Slant::Normal, Weight::Normal);
                 rasterizer.load_font(&fallback_desc, size)
             },
         }
     }
 
-    fn make_desc(
-        desc: &config::FontDescription,
-        slant: font::Slant,
-        weight: font::Weight,
-    ) -> FontDesc {
+    fn make_desc(desc: &FontDescription, slant: Slant, weight: Weight) -> FontDesc {
         let style = if let Some(ref spec) = desc.style {
-            font::Style::Specific(spec.to_owned())
+            Style::Specific(spec.to_owned())
         } else {
-            font::Style::Description { slant, weight }
+            Style::Description { slant, weight }
         };
         FontDesc::new(desc.family.clone(), style)
     }
@@ -318,7 +313,7 @@ impl GlyphCache {
 
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
-        font: &config::Font,
+        font: &Font,
         dpr: f64,
         loader: &mut L,
     ) -> Result<(), font::Error> {
@@ -361,31 +356,30 @@ impl GlyphCache {
     /// Calculate font metrics without access to a glyph cache.
     pub fn static_metrics(font: Font, dpr: f64) -> Result<font::Metrics, font::Error> {
         let mut rasterizer = font::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
-        let regular_desc =
-            GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
+        let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
         let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size)?;
         rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
     }
 
-    pub fn calculate_dimensions<C>(
-        config: &Config<C>,
+    pub fn calculate_dimensions(
+        window_config: &WindowConfig,
         dpr: f64,
         cell_width: f32,
         cell_height: f32,
     ) -> Option<(u32, u32)> {
-        let dimensions = config.window.dimensions;
+        let dimensions = window_config.dimensions;
 
         if dimensions.columns_u32() == 0
             || dimensions.lines_u32() == 0
-            || config.window.startup_mode() != StartupMode::Windowed
+            || window_config.startup_mode != StartupMode::Windowed
         {
             return None;
         }
 
-        let padding_x = f64::from(config.window.padding.x) * dpr;
-        let padding_y = f64::from(config.window.padding.y) * dpr;
+        let padding_x = f64::from(window_config.padding.x) * dpr;
+        let padding_y = f64::from(window_config.padding.y) * dpr;
 
         // Calculate new size based on cols/lines specified in config.
         let grid_width = cell_width as u32 * dimensions.columns_u32();
@@ -446,13 +440,14 @@ pub struct QuadRenderer {
 }
 
 #[derive(Debug)]
-pub struct RenderApi<'a, C> {
+pub struct RenderApi<'a> {
     active_tex: &'a mut GLuint,
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
-    config: &'a Config<C>,
+    config: &'a UIConfig,
+    cursor_config: Cursor,
 }
 
 #[derive(Debug)]
@@ -730,7 +725,7 @@ impl QuadRenderer {
     }
 
     /// Draw all rectangles simultaneously to prevent excessive program swaps.
-    pub fn draw_rects(&mut self, props: &term::SizeInfo, rects: Vec<RenderRect>) {
+    pub fn draw_rects(&mut self, props: &SizeInfo, rects: Vec<RenderRect>) {
         // Swap to rectangle rendering program.
         unsafe {
             // Swap program.
@@ -783,9 +778,15 @@ impl QuadRenderer {
         }
     }
 
-    pub fn with_api<F, T, C>(&mut self, config: &Config<C>, props: &term::SizeInfo, func: F) -> T
+    pub fn with_api<F, T>(
+        &mut self,
+        config: &UIConfig,
+        cursor_config: Cursor,
+        props: &SizeInfo,
+        func: F,
+    ) -> T
     where
-        F: FnOnce(RenderApi<'_, C>) -> T,
+        F: FnOnce(RenderApi<'_>) -> T,
     {
         // Flush message queue.
         if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
@@ -810,6 +811,7 @@ impl QuadRenderer {
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
             config,
+            cursor_config,
         });
 
         unsafe {
@@ -838,7 +840,7 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, props: &term::SizeInfo) {
+    pub fn reload_shaders(&mut self, props: &SizeInfo) {
         info!("Reloading shaders...");
         let result = (TextShaderProgram::new(), RectShaderProgram::new());
         let (program, rect_program) = match result {
@@ -888,7 +890,7 @@ impl QuadRenderer {
     /// Render a rectangle.
     ///
     /// This requires the rectangle program to be activated.
-    fn render_rect(&mut self, rect: &RenderRect, size: &term::SizeInfo) {
+    fn render_rect(&mut self, rect: &RenderRect, size: &SizeInfo) {
         // Do nothing when alpha is fully transparent.
         if rect.alpha == 0. {
             return;
@@ -923,7 +925,7 @@ impl QuadRenderer {
     }
 }
 
-impl<'a, C> RenderApi<'a, C> {
+impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         unsafe {
             let alpha = self.config.background_opacity();
@@ -1046,7 +1048,7 @@ impl<'a, C> RenderApi<'a, C> {
                         self.config.font.offset.x,
                         self.config.font.offset.y,
                         cursor_key.is_wide,
-                        self.config.cursor.thickness(),
+                        self.cursor_config.thickness(),
                     ))
                 });
                 self.add_render_item(cell, glyph);
@@ -1154,7 +1156,7 @@ impl<'a> LoadGlyph for LoaderApi<'a> {
     }
 }
 
-impl<'a, C> LoadGlyph for RenderApi<'a, C> {
+impl<'a> LoadGlyph for RenderApi<'a> {
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
         load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
@@ -1164,7 +1166,7 @@ impl<'a, C> LoadGlyph for RenderApi<'a, C> {
     }
 }
 
-impl<'a, C> Drop for RenderApi<'a, C> {
+impl<'a> Drop for RenderApi<'a> {
     fn drop(&mut self) {
         if !self.batch.is_empty() {
             self.render_batch();
@@ -1251,7 +1253,7 @@ impl TextShaderProgram {
         }
     }
 
-    fn set_term_uniforms(&self, props: &term::SizeInfo) {
+    fn set_term_uniforms(&self, props: &SizeInfo) {
         unsafe {
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
         }

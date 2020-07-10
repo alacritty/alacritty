@@ -33,12 +33,12 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
 
-use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 #[cfg(not(windows))]
 use alacritty_terminal::index::Point;
 #[cfg(not(windows))]
 use alacritty_terminal::term::SizeInfo;
 
+use crate::config::window::{Decorations, StartupMode, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
@@ -154,7 +154,8 @@ impl Window {
         size: Option<PhysicalSize<u32>>,
         #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
-        let window_builder = Window::get_platform_window(&config.window.title, &config.window);
+        let window_config = &config.ui_config.window;
+        let window_builder = Window::get_platform_window(&window_config.title, &window_config);
 
         // Disable vsync on Wayland.
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -180,7 +181,7 @@ impl Window {
         {
             if event_loop.is_x11() {
                 // On X11, embed the window inside another if the parent ID has been set.
-                if let Some(parent_window_id) = config.window.embed {
+                if let Some(parent_window_id) = window_config.embed {
                     x_embed_window(windowed_context.window(), parent_window_id);
                 }
             } else {
@@ -265,7 +266,7 @@ impl Window {
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(decorations)
-            .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
+            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
             .with_window_icon(icon.ok())
             // X11.
             .with_class(class.instance.clone(), class.general.clone())
@@ -293,7 +294,7 @@ impl Window {
             .with_visible(false)
             .with_decorations(decorations)
             .with_transparent(true)
-            .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
+            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
             .with_window_icon(icon.ok())
     }
 
@@ -303,7 +304,7 @@ impl Window {
             .with_title(title)
             .with_visible(false)
             .with_transparent(true)
-            .with_maximized(window_config.startup_mode() == StartupMode::Maximized);
+            .with_maximized(window_config.startup_mode == StartupMode::Maximized);
 
         match window_config.decorations {
             Decorations::Full => window,
