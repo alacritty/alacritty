@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::env;
+use std::fmt::Debug;
 #[cfg(unix)]
 use std::fs;
 use std::fs::File;
@@ -20,7 +21,7 @@ use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindow
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use log::{debug, info, warn};
+use log::info;
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
@@ -38,12 +39,12 @@ use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
-use alacritty_terminal::util::start_daemon;
 
 use crate::cli::Options;
 use crate::clipboard::Clipboard;
 use crate::config;
 use crate::config::Config;
+use crate::daemon::start_daemon;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::scheduler::{Scheduler, TimerId};
@@ -290,10 +291,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
 
-        match start_daemon(&alacritty, &args) {
-            Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
-            Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
-        }
+        start_daemon(&alacritty, &args);
     }
 
     /// Spawn URL launcher when clicking on URLs.
@@ -308,10 +306,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let end = self.terminal.visible_to_buffer(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
-            match start_daemon(launcher.program(), &args) {
-                Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-                Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
-            }
+            start_daemon(launcher.program(), &args);
         }
     }
 
@@ -839,8 +834,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => processor.ctx.window.set_title(&title),
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,
-                    TerminalEvent::Urgent => {
-                        processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused)
+                    TerminalEvent::Bell => {
+                        let bell_command = processor.ctx.config.bell().command.as_ref();
+                        let _ = bell_command.map(|cmd| start_daemon(cmd.program(), cmd.args()));
+                        processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         processor.ctx.clipboard.store(clipboard_type, content);

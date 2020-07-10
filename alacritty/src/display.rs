@@ -540,7 +540,7 @@ impl Display {
                 0.,
                 size_info.width,
                 size_info.height,
-                config.visual_bell.color,
+                config.bell().color,
                 visual_bell_intensity as f32,
             );
             rects.push(visual_bell_rect);

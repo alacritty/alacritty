@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
+use freetype::face::LoadFlag;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library, Matrix};
 use freetype::{freetype_sys, Face as FTFace};
@@ -45,7 +46,7 @@ struct FallbackList {
 }
 
 struct FaceLoadingProperties {
-    load_flags: freetype::face::LoadFlag,
+    load_flags: LoadFlag,
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
     non_scalable: Option<f32>,
@@ -98,6 +99,11 @@ impl Rasterize for FreeTypeRasterizer {
 
     fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
+
+        unsafe {
+            // Initialize default properties, like user preferred interpreter.
+            freetype_sys::FT_Set_Default_Properties(library.raw());
+        };
 
         Ok(FreeTypeRasterizer {
             faces: HashMap::new(),
@@ -484,19 +490,26 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn ft_load_flags(pattern: &PatternRef) -> freetype::face::LoadFlag {
+    fn ft_load_flags(pattern: &PatternRef) -> LoadFlag {
         let antialias = pattern.antialias().next().unwrap_or(true);
-        let hinting = pattern.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
+        let autohint = pattern.autohint().next().unwrap_or(false);
+        let hinting = pattern.hinting().next().unwrap_or(true);
         let rgba = pattern.rgba().next().unwrap_or(fc::Rgba::Unknown);
         let embedded_bitmaps = pattern.embeddedbitmap().next().unwrap_or(true);
         let scalable = pattern.scalable().next().unwrap_or(true);
         let color = pattern.color().next().unwrap_or(false);
 
-        use freetype::face::LoadFlag;
-        let mut flags = match (antialias, hinting, rgba) {
+        // Disable hinting if so was requested.
+        let hintstyle = if hinting {
+            pattern.hintstyle().next().unwrap_or(fc::HintStyle::Full)
+        } else {
+            fc::HintStyle::None
+        };
+
+        let mut flags = match (antialias, hintstyle, rgba) {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
             (false, ..) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
-            (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
+            (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING,
             // `hintslight` does *not* use LCD hinting even when a subpixel mode
             // is selected.
             //
@@ -512,16 +525,16 @@ impl FreeTypeRasterizer {
             // cairo take the same approach and consider `hintslight` to always
             // prefer `FT_LOAD_TARGET_LIGHT`.
             (true, fc::HintStyle::Slight, _) => LoadFlag::TARGET_LIGHT,
+            (true, fc::HintStyle::Medium, _) => LoadFlag::TARGET_NORMAL,
             // If LCD hinting is to be used, must select hintmedium or hintfull,
             // have AA enabled, and select a subpixel mode.
-            (true, _, fc::Rgba::Rgb) | (true, _, fc::Rgba::Bgr) => LoadFlag::TARGET_LCD,
-            (true, _, fc::Rgba::Vrgb) | (true, _, fc::Rgba::Vbgr) => LoadFlag::TARGET_LCD_V,
-            // For non-rgba modes with either Medium or Full hinting, just use
-            // the default hinting algorithm.
-            //
-            // TODO should Medium/Full control whether to use the auto hinter?
-            (true, _, fc::Rgba::Unknown) => LoadFlag::TARGET_NORMAL,
-            (true, _, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
+            (true, fc::HintStyle::Full, fc::Rgba::Rgb)
+            | (true, fc::HintStyle::Full, fc::Rgba::Bgr) => LoadFlag::TARGET_LCD,
+            (true, fc::HintStyle::Full, fc::Rgba::Vrgb)
+            | (true, fc::HintStyle::Full, fc::Rgba::Vbgr) => LoadFlag::TARGET_LCD_V,
+            // For non-rgba modes with Full hinting, just use the default hinting algorithm.
+            (true, fc::HintStyle::Full, fc::Rgba::Unknown)
+            | (true, fc::HintStyle::Full, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
         };
 
         // Non scalable fonts only have bitmaps, so disabling them entirely is likely not a
@@ -530,8 +543,14 @@ impl FreeTypeRasterizer {
             flags |= LoadFlag::NO_BITMAP;
         }
 
+        // Use color for colored fonts.
         if color {
             flags |= LoadFlag::COLOR;
+        }
+
+        // Force autohint if it was requested.
+        if autohint {
+            flags |= LoadFlag::FORCE_AUTOHINT;
         }
 
         flags

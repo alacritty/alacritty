@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
 use std::sync::Arc;
+use std::thread::JoinHandle;
 
 use log::error;
 #[cfg(not(windows))]
@@ -18,8 +19,8 @@ use crate::config::Config;
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::{SizeInfo, Term};
+use crate::thread;
 use crate::tty;
-use crate::util::thread;
 
 /// Max bytes to read from the PTY.
 const MAX_READ: usize = 0x10_000;
@@ -300,7 +301,7 @@ where
         Ok(())
     }
 
-    pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
+    pub fn spawn(mut self) -> JoinHandle<(Self, State)> {
         thread::spawn_named("PTY reader", move || {
             let mut state = State::default();
             let mut buf = [0u8; MAX_READ];

@@ -11,7 +11,7 @@ pub enum Event {
     ClipboardStore(ClipboardType, String),
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
     Wakeup,
-    Urgent,
+    Bell,
     Exit,
 }
 
@@ -23,7 +23,7 @@ impl Debug for Event {
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
             Event::Wakeup => write!(f, "Wakeup"),
-            Event::Urgent => write!(f, "Urgent"),
+            Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
         }
     }

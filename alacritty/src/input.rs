@@ -10,7 +10,7 @@ use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
-use log::{debug, trace, warn};
+use log::trace;
 
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
@@ -30,11 +30,11 @@ use alacritty_terminal::message_bar::{self, Message};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term};
-use alacritty_terminal::util::start_daemon;
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
+use crate::daemon::start_daemon;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -160,10 +160,7 @@ impl<T: EventListener> Execute<T> for Action {
                 let program = program.program();
                 trace!("Running command {} with args {:?}", program, args);
 
-                match start_daemon(program, args) {
-                    Ok(_) => debug!("Spawned new proc"),
-                    Err(err) => warn!("Couldn't run command {}", err),
-                }
+                start_daemon(program, args);
             },
             Action::ClearSelection => ctx.clear_selection(),
             Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),

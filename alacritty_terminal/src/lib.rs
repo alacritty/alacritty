@@ -22,8 +22,8 @@ pub mod panic;
 pub mod selection;
 pub mod sync;
 pub mod term;
+pub mod thread;
 pub mod tty;
-pub mod util;
 pub mod vi_mode;
 
 pub use crate::grid::Grid;

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 use std::ops::{Index, IndexMut, Mul};
 use std::str::FromStr;
 
@@ -64,7 +64,7 @@ impl<'de> Deserialize<'de> for Rgb {
         impl<'a> Visitor<'a> for RgbVisitor {
             type Value = Rgb;
 
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 f.write_str("hex color like #ff00ff")
             }
 
@@ -91,6 +91,12 @@ impl<'de> Deserialize<'de> for Rgb {
 
         // Deserialize from hex notation (either 0xff00ff or #ff00ff).
         value.deserialize_str(RgbVisitor).map_err(D::Error::custom)
+    }
+}
+
+impl Display for Rgb {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
     }
 }
 
