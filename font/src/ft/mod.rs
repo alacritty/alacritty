@@ -494,16 +494,17 @@ impl FreeTypeRasterizer {
         let antialias = pattern.antialias().next().unwrap_or(true);
         let autohint = pattern.autohint().next().unwrap_or(false);
         let hinting = pattern.hinting().next().unwrap_or(true);
-        let mut hintstyle = pattern.hintstyle().next().unwrap_or(fc::HintStyle::Full);
         let rgba = pattern.rgba().next().unwrap_or(fc::Rgba::Unknown);
         let embedded_bitmaps = pattern.embeddedbitmap().next().unwrap_or(true);
         let scalable = pattern.scalable().next().unwrap_or(true);
         let color = pattern.color().next().unwrap_or(false);
 
         // Disable hinting if so was requested.
-        if !hinting {
-            hintstyle = fc::HintStyle::None;
-        }
+        let hintstyle = if hinting {
+            pattern.hintstyle().next().unwrap_or(fc::HintStyle::Full)
+        } else {
+            hintstyle = fc::HintStyle::None
+        };
 
         let mut flags = match (antialias, hintstyle, rgba) {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
