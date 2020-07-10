@@ -18,14 +18,14 @@ where
     I: IntoIterator<Item = S> + Debug + Copy,
     S: AsRef<OsStr>,
 {
-    match start_daemon_impl(program, args) {
+    match spawn_daemon(program, args) {
         Ok(_) => debug!("Launched {} with args {:?}", program, args),
         Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
-    };
+    }
 }
 
 #[cfg(windows)]
-fn start_daemon_impl<I, S>(program: &str, args: I) -> io::Result<()>
+fn spawn_daemon<I, S>(program: &str, args: I) -> io::Result<()>
 where
     I: IntoIterator<Item = S> + Copy,
     S: AsRef<OsStr>,
@@ -45,7 +45,7 @@ where
 }
 
 #[cfg(not(windows))]
-fn start_daemon_impl<I, S>(program: &str, args: I) -> io::Result<()>
+fn spawn_daemon<I, S>(program: &str, args: I) -> io::Result<()>
 where
     I: IntoIterator<Item = S> + Copy,
     S: AsRef<OsStr>,

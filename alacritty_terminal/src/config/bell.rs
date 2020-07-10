@@ -66,9 +66,7 @@ where
     }
 }
 
-fn deserialize_bell_command<'a, D>(
-    deserializer: D,
-) -> std::result::Result<Option<Program>, D::Error>
+fn deserialize_bell_command<'a, D>(deserializer: D) -> Result<Option<Program>, D::Error>
 where
     D: Deserializer<'a>,
 {
