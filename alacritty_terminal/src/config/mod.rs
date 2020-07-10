@@ -6,20 +6,20 @@ use log::error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 
+mod bell;
 mod colors;
 mod debug;
 mod font;
 mod scrolling;
-mod visual_bell;
 mod window;
 
 use crate::ansi::CursorStyle;
 
+pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
 pub use crate::config::font::{Font, FontDescription};
 pub use crate::config::scrolling::Scrolling;
-pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig, DEFAULT_NAME};
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
@@ -69,9 +69,9 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub config_path: Option<PathBuf>,
 
-    /// Visual bell configuration.
+    /// Bell configuration.
     #[serde(default, deserialize_with = "failure_default")]
-    pub visual_bell: VisualBellConfig,
+    bell: BellConfig,
 
     /// Use dynamic title.
     #[serde(default, deserialize_with = "failure_default")]
@@ -113,6 +113,10 @@ pub struct Config<T> {
     /// Remain open after child process exits.
     #[serde(skip)]
     pub hold: bool,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    pub visual_bell: Option<BellConfig>,
 
     // TODO: REMOVED
     #[serde(default, deserialize_with = "failure_default")]
@@ -175,6 +179,11 @@ impl<T> Config<T> {
     #[inline]
     pub fn background_opacity(&self) -> f32 {
         self.background_opacity.0 as f32
+    }
+
+    #[inline]
+    pub fn bell(&self) -> &BellConfig {
+        self.visual_bell.as_ref().unwrap_or(&self.bell)
     }
 }
 

@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanding existing selections using the right mouse button
 - Support for `gopher` and `gemini` URLs
 - Unicode 13 support
+- Option to run command on bell which can be set in `bell.command`
 
 ### Changed
 
@@ -48,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - To use the cell's text color for selection with a modified background, the `color.selection.text`
     variable must now be set to `CellForeground` instead of omitting it
 - URLs are no longer highlighted without a clearly delimited scheme
+- Renamed `visual_bell` to `bell`
 
 ### Fixed
 

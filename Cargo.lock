@@ -32,6 +32,7 @@ dependencies = [
  "gl_generator 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.24.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.72 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 4.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
