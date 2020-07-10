@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor color escape ignored when its color is set to inverted in the config
 - Fontconfig's `autohint` and `hinting` options being ignored
 - Ingoring of default FreeType properties
+- Alacritty crashing at startup when the configured font does not exist
 
 ## 0.4.3
 

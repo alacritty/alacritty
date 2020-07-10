@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use fnv::FnvHasher;
 use font::{
-    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer,
+    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size,
 };
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -224,7 +224,7 @@ impl GlyphCache {
         let regular_desc =
             Self::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
 
-        let regular = rasterizer.load_font(&regular_desc, size)?;
+        let regular = Self::load_regular_font(rasterizer, &regular_desc, size)?;
 
         // Helper to load a description if it is not the `regular_desc`.
         let mut load_or_regular = |desc: FontDesc| {
@@ -253,6 +253,26 @@ impl GlyphCache {
         let bold_italic = load_or_regular(bold_italic_desc);
 
         Ok((regular, bold, italic, bold_italic))
+    }
+
+    fn load_regular_font(
+        rasterizer: &mut Rasterizer,
+        description: &FontDesc,
+        size: Size,
+    ) -> Result<FontKey, font::Error> {
+        match rasterizer.load_font(description, size) {
+            Ok(font) => Ok(font),
+            Err(err) => {
+                error!("{}", err);
+
+                let fallback_desc = Self::make_desc(
+                    &Font::default().normal(),
+                    font::Slant::Normal,
+                    font::Weight::Normal,
+                );
+                rasterizer.load_font(&fallback_desc, size)
+            },
+        }
     }
 
     fn make_desc(
@@ -343,7 +363,7 @@ impl GlyphCache {
         let mut rasterizer = font::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
-        let regular = rasterizer.load_font(&regular_desc, font.size)?;
+        let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size)?;
         rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
