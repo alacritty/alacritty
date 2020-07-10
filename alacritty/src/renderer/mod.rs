@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use fnv::FnvHasher;
 use font::{
-    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size
+    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size,
 };
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -265,7 +265,11 @@ impl GlyphCache {
             Err(err) => {
                 error!("{}", err);
 
-                let fallback_desc = Self::make_desc(&Font::default().normal(), font::Slant::Normal, font::Weight::Normal);
+                let fallback_desc = Self::make_desc(
+                    &Font::default().normal(),
+                    font::Slant::Normal,
+                    font::Weight::Normal,
+                );
                 rasterizer.load_font(&fallback_desc, size)
             },
         }
