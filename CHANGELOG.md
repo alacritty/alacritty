@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preservation of the alternate screen's saved cursor when swapping to primary screen and back
 - Reflow of cursor during resize
 - Cursor color escape ignored when its color is set to inverted in the config
+- Fontconfig's `autohint` and `hinting` options being ignored
+- Ingoring of default FreeType properties
 
 ## 0.4.3
 
