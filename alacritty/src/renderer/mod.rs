@@ -24,7 +24,7 @@ use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{self, Flags};
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
-use alacritty_terminal::util;
+use alacritty_terminal::thread;
 use std::fmt::{self, Display, Formatter};
 
 pub mod rects;
@@ -660,7 +660,7 @@ impl QuadRenderer {
         let (msg_tx, msg_rx) = mpsc::channel();
 
         if cfg!(feature = "live-shader-reload") {
-            util::thread::spawn_named("live shader reload", move || {
+            thread::spawn_named("live shader reload", move || {
                 let (tx, rx) = std::sync::mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher =

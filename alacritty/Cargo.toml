@@ -23,6 +23,7 @@ parking_lot = "0.10.2"
 font = { path = "../font", features = ["force_system_fontconfig"] }
 urlocator = "0.1.3"
 copypasta = { version = "0.7.0", default-features = false }
+libc = "0.2"
 unicode-width = "0.1"
 
 [build-dependencies]

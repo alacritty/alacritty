@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use alacritty_terminal::util;
+use alacritty_terminal::thread;
 
 use crate::event::{Event, EventProxy};
 
@@ -20,7 +20,7 @@ impl Monitor {
         let path = path.into();
 
         Monitor {
-            _thread: util::thread::spawn_named("config watcher", move || {
+            _thread: thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher =

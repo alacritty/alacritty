@@ -36,6 +36,7 @@ mod cli;
 mod clipboard;
 mod config;
 mod cursor;
+mod daemon;
 mod display;
 mod event;
 mod input;

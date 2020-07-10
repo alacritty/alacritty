@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::env;
-use std::ffi::OsStr;
 use std::fmt::Debug;
 #[cfg(unix)]
 use std::fs;
@@ -22,7 +21,7 @@ use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindow
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use log::{debug, info, warn};
+use log::info;
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
@@ -40,12 +39,12 @@ use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
-use alacritty_terminal::util::start_daemon;
 
 use crate::cli::Options;
 use crate::clipboard::Clipboard;
 use crate::config;
 use crate::config::Config;
+use crate::daemon::start_daemon;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::scheduler::{Scheduler, TimerId};
@@ -292,7 +291,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
 
-        start_program(&alacritty, &args);
+        start_daemon(&alacritty, &args);
     }
 
     /// Spawn URL launcher when clicking on URLs.
@@ -307,7 +306,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let end = self.terminal.visible_to_buffer(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
-            start_program(launcher.program(), &args);
+            start_daemon(launcher.program(), &args);
         }
     }
 
@@ -836,11 +835,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     TerminalEvent::Title(title) => processor.ctx.window.set_title(&title),
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,
                     TerminalEvent::Bell => {
-                        let bell_config = processor.ctx.config.bell();
-                        let _ = bell_config
-                            .command
-                            .as_ref()
-                            .map(|program| start_program(program.program(), program.args()));
+                        let bell_command = processor.ctx.config.bell().command.as_ref();
+                        let _ = bell_command.map(|cmd| start_daemon(cmd.program(), cmd.args()));
                         processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
@@ -1076,17 +1072,6 @@ impl<N: Notify + OnResize> Processor<N> {
         File::create("./config.json")
             .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
             .expect("write config.json");
-    }
-}
-
-fn start_program<I, S>(program: &str, args: I)
-where
-    I: IntoIterator<Item = S> + Debug + Copy,
-    S: AsRef<OsStr>,
-{
-    match start_daemon(program, args) {
-        Ok(_) => debug!("Launched {} with args {:?}", program, args),
-        Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
     }
 }
 
