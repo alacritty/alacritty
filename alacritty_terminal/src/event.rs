@@ -7,7 +7,8 @@ use crate::term::{ClipboardType, SizeInfo};
 #[derive(Clone)]
 pub enum Event {
     MouseCursorDirty,
-    Title(Option<String>),
+    Title(String),
+    ResetTitle,
     ClipboardStore(ClipboardType, String),
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
     Wakeup,
@@ -19,7 +20,8 @@ impl Debug for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
-            Event::Title(title) => write!(f, "Title({:?})", title),
+            Event::Title(title) => write!(f, "Title({})", title),
+            Event::ResetTitle => write!(f, "ResetTitle"),
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
             Event::Wakeup => write!(f, "Wakeup"),

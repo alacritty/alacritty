@@ -800,7 +800,12 @@ impl<T> Term<T> {
         self.default_cursor_style = config.cursor.style;
         self.vi_mode_cursor_style = config.cursor.vi_mode_style;
 
-        self.event_proxy.send_event(Event::Title(self.title.clone()));
+        let title_event = match &self.title {
+            Some(title) => Event::Title(title.clone()),
+            None => Event::ResetTitle,
+        };
+
+        self.event_proxy.send_event(title_event);
 
         if self.mode.contains(TermMode::ALT_SCREEN) {
             self.inactive_grid.update_history(config.scrolling.history() as usize);
@@ -2152,7 +2157,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         self.title = title.clone();
 
-        self.event_proxy.send_event(Event::Title(title));
+        let title_event = match title {
+            Some(title) => Event::Title(title),
+            None => Event::ResetTitle,
+        };
+
+        self.event_proxy.send_event(title_event);
     }
 
     #[inline]

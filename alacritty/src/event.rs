@@ -832,8 +832,13 @@ impl<N: Notify + OnResize> Processor<N> {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.dynamic_title() {
-                            let title = title.unwrap_or_else(|| ui_config.window.title.clone());
                             processor.ctx.window.set_title(&title);
+                        }
+                    },
+                    TerminalEvent::ResetTitle => {
+                        let ui_config = &processor.ctx.config.ui_config;
+                        if ui_config.dynamic_title() {
+                            processor.ctx.window.set_title(&ui_config.window.title);
                         }
                     },
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,

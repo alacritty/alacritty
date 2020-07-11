@@ -271,28 +271,29 @@ impl Options {
 
         config.hold = self.hold;
 
-        let ui_config = &mut config.ui_config;
-        ui_config.set_dynamic_title(ui_config.dynamic_title() && self.title.is_none());
-        let window_config = &mut ui_config.window;
-        window_config.dimensions = self.dimensions.unwrap_or(window_config.dimensions);
-        window_config.title = self.title.unwrap_or_else(|| window_config.title.clone());
-        window_config.position = self.position.or(window_config.position);
-        window_config.embed = self.embed.and_then(|embed| embed.parse().ok());
+        let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
+        config.ui_config.set_dynamic_title(dynamic_title);
 
-        window_config.class.instance =
-            self.class_instance.unwrap_or_else(|| window_config.class.instance.clone());
-        window_config.class.general =
-            self.class_general.unwrap_or_else(|| window_config.class.general.clone());
+        config.ui_config.window.dimensions =
+            self.dimensions.unwrap_or(config.ui_config.window.dimensions);
+        config.ui_config.window.title = self.title.unwrap_or(config.ui_config.window.title);
+        config.ui_config.window.position = self.position.or(config.ui_config.window.position);
+        config.ui_config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
+        config.ui_config.window.class.instance =
+            self.class_instance.unwrap_or(config.ui_config.window.class.instance);
+        config.ui_config.window.class.general =
+            self.class_general.unwrap_or(config.ui_config.window.class.general);
 
-        let debug_config = &mut ui_config.debug;
-        debug_config.print_events = self.print_events || debug_config.print_events;
-        debug_config.log_level = max(debug_config.log_level, self.log_level);
-        debug_config.ref_test = self.ref_test || debug_config.ref_test;
-        debug_config.persistent_logging =
-            self.persistent_logging || debug_config.persistent_logging;
+        config.ui_config.debug.print_events =
+            self.print_events || config.ui_config.debug.print_events;
+        config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level);
+        config.ui_config.debug.ref_test = self.ref_test || config.ui_config.debug.ref_test;
+        config.ui_config.debug.persistent_logging =
+            self.persistent_logging || config.ui_config.debug.persistent_logging;
 
-        if debug_config.print_events {
-            debug_config.log_level = max(debug_config.log_level, LevelFilter::Info);
+        if config.ui_config.debug.print_events {
+            config.ui_config.debug.log_level =
+                max(config.ui_config.debug.log_level, LevelFilter::Info);
         }
 
         config

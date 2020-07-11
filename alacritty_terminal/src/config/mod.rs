@@ -219,7 +219,7 @@ impl Percentage {
         })
     }
 
-    pub fn raw_value(self) -> f32 {
+    pub fn as_f32(self) -> f32 {
         self.0
     }
 }

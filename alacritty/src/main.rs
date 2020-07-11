@@ -64,7 +64,7 @@ use crate::message_bar::MessageBuffer;
 
 fn main() {
     #[cfg(windows)]
-    crate::panic::attach_handler();
+    panic::attach_handler();
 
     // When linked with the windows subsystem windows won't automatically attach
     // to the console of the parent process, so we do it explicitly. This fails

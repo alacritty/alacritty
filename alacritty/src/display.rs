@@ -22,7 +22,7 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 #[cfg(target_os = "macos")]
 use font::set_font_smoothing;
-use font::{self, Rasterize};
+use font::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions;
@@ -218,8 +218,9 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let mut padding_x = f32::from(config.ui_config.window.padding.x) * dpr as f32;
-        let mut padding_y = f32::from(config.ui_config.window.padding.y) * dpr as f32;
+        let padding = config.ui_config.window.padding;
+        let mut padding_x = f32::from(padding.x) * dpr as f32;
+        let mut padding_y = f32::from(padding.y) * dpr as f32;
 
         if let Some((width, height)) =
             GlyphCache::calculate_dimensions(&config.ui_config.window, dpr, cell_width, cell_height)
@@ -322,8 +323,7 @@ impl Display {
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.ui_config.font.clone();
-        let rasterizer =
-            font::Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes())?;
+        let rasterizer = Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes())?;
 
         // Initialize glyph cache.
         let glyph_cache = {

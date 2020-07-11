@@ -71,7 +71,7 @@ impl Default for UIConfig {
 impl UIConfig {
     #[inline]
     pub fn background_opacity(&self) -> f32 {
-        self.background_opacity.raw_value()
+        self.background_opacity.as_f32()
     }
 
     #[inline]
