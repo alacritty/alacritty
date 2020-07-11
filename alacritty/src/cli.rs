@@ -274,22 +274,17 @@ impl Options {
         let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
         config.ui_config.set_dynamic_title(dynamic_title);
 
-        config.ui_config.window.dimensions =
-            self.dimensions.unwrap_or(config.ui_config.window.dimensions);
-        config.ui_config.window.title = self.title.unwrap_or(config.ui_config.window.title);
+        replace_if_some(&mut config.ui_config.window.dimensions, self.dimensions);
+        replace_if_some(&mut config.ui_config.window.title, self.title);
         config.ui_config.window.position = self.position.or(config.ui_config.window.position);
         config.ui_config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
-        config.ui_config.window.class.instance =
-            self.class_instance.unwrap_or(config.ui_config.window.class.instance);
-        config.ui_config.window.class.general =
-            self.class_general.unwrap_or(config.ui_config.window.class.general);
+        replace_if_some(&mut config.ui_config.window.class.instance, self.class_instance);
+        replace_if_some(&mut config.ui_config.window.class.general, self.class_general);
 
-        config.ui_config.debug.print_events =
-            self.print_events || config.ui_config.debug.print_events;
+        config.ui_config.debug.print_events |= self.print_events;
         config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level);
-        config.ui_config.debug.ref_test = self.ref_test || config.ui_config.debug.ref_test;
-        config.ui_config.debug.persistent_logging =
-            self.persistent_logging || config.ui_config.debug.persistent_logging;
+        config.ui_config.debug.ref_test |= self.ref_test;
+        config.ui_config.debug.persistent_logging |= self.persistent_logging;
 
         if config.ui_config.debug.print_events {
             config.ui_config.debug.log_level =
@@ -297,6 +292,12 @@ impl Options {
         }
 
         config
+    }
+}
+
+fn replace_if_some<T>(option: &mut T, value: Option<T>) {
+    if let Some(value) = value {
+        *option = value;
     }
 }
 
