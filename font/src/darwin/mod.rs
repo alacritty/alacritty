@@ -103,7 +103,7 @@ impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             Error::MissingGlyph(ref c) => write!(f, "Glyph not found for char {:?}", c),
-            Error::MissingFont(ref desc) => write!(f, "Couldn't find the font {}", desc),
+            Error::MissingFont(ref desc) => write!(f, "Unable to find the font {}", desc),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
         }
     }
