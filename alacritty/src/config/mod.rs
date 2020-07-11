@@ -55,9 +55,9 @@ impl std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NotFound => write!(f, "Couldn't locate config file"),
+            Error::NotFound => write!(f, "Unable to locate config file"),
             Error::ReadingEnvHome(err) => {
-                write!(f, "Couldn't read $HOME environment variable: {}", err)
+                write!(f, "Unable to read $HOME environment variable: {}", err)
             },
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
             Error::Yaml(err) => write!(f, "Problem with config: {}", err),

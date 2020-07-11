@@ -769,12 +769,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::FreeType(err) => err.fmt(f),
-            Error::MissingFont(err) => write!(
-                f,
-                "Couldn't find a font with {}\n\tPlease check the font config in your \
-                 alacritty.yml.",
-                err
-            ),
+            Error::MissingFont(err) => write!(f, "Unable to find the font {}", err),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
             Error::MissingSizeMetrics => {
                 f.write_str("Tried to get size metrics from a face without a size")

@@ -92,8 +92,8 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::MissingGlyph(ref _c) => "Couldn't find the requested glyph",
-            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::MissingGlyph(ref _c) => "Unable to find the requested glyph",
+            Error::MissingFont(ref _desc) => "Unable to find the requested font",
             Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
         }
     }
@@ -103,12 +103,7 @@ impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             Error::MissingGlyph(ref c) => write!(f, "Glyph not found for char {:?}", c),
-            Error::MissingFont(ref desc) => write!(
-                f,
-                "Couldn't find a font with {}\n\tPlease check the font config in your \
-                 alacritty.yml.",
-                desc
-            ),
+            Error::MissingFont(ref desc) => write!(f, "Unable to find the font {}", desc),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
         }
     }

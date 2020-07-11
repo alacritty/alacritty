@@ -1452,7 +1452,7 @@ impl std::error::Error for ShaderCreationError {
 impl Display for ShaderCreationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ShaderCreationError::Io(err) => write!(f, "Couldn't read shader: {}", err),
+            ShaderCreationError::Io(err) => write!(f, "Unable to read shader: {}", err),
             ShaderCreationError::Compile(path, log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
             },
