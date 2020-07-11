@@ -721,14 +721,8 @@ pub struct Term<T> {
     /// Current title of the window.
     title: Option<String>,
 
-    /// Default title for resetting it.
-    default_title: String,
-
-    /// Whether to permit updating the terminal title.
-    dynamic_title: bool,
-
     /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
-    /// term is set, and the Glutin window's title attribute is changed through the event listener.
+    /// term is set.
     title_stack: Vec<Option<String>>,
 
     /// Current forwards and backwards buffer search regexes.
@@ -777,11 +771,9 @@ impl<T> Term<T> {
             cursor_style: None,
             default_cursor_style: config.cursor.style,
             vi_mode_cursor_style: config.cursor.vi_mode_style,
-            dynamic_title: config.dynamic_title(),
             event_proxy,
             is_focused: true,
             title: None,
-            default_title: config.window.title.clone(),
             title_stack: Vec::new(),
             selection: None,
             regex_search: None,
@@ -808,14 +800,12 @@ impl<T> Term<T> {
         self.default_cursor_style = config.cursor.style;
         self.vi_mode_cursor_style = config.cursor.vi_mode_style;
 
-        self.default_title = config.window.title.clone();
-        self.dynamic_title = config.dynamic_title();
+        let title_event = match &self.title {
+            Some(title) => Event::Title(title.clone()),
+            None => Event::ResetTitle,
+        };
 
-        if self.dynamic_title {
-            self.set_title(self.title.clone());
-        } else {
-            self.event_proxy.send_event(Event::Title(self.default_title.clone()));
-        }
+        self.event_proxy.send_event(title_event);
 
         if self.mode.contains(TermMode::ALT_SCREEN) {
             self.inactive_grid.update_history(config.scrolling.history() as usize);
@@ -2167,10 +2157,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         self.title = title.clone();
 
-        if self.dynamic_title {
-            let title = title.unwrap_or_else(|| self.default_title.clone());
-            self.event_proxy.send_event(Event::Title(title));
-        }
+        let title_event = match title {
+            Some(title) => Event::Title(title),
+            None => Event::ResetTitle,
+        };
+
+        self.event_proxy.send_event(title_event);
     }
 
     #[inline]

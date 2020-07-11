@@ -4,8 +4,10 @@ use log::error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 
-use crate::config::{failure_default, option_explicit_none, Delta, LOG_TARGET_CONFIG};
-use crate::index::{Column, Line};
+use alacritty_terminal::config::{failure_default, option_explicit_none, LOG_TARGET_CONFIG};
+use alacritty_terminal::index::{Column, Line};
+
+use crate::config::ui_config::{DefaultTrueBool, Delta};
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
@@ -35,7 +37,7 @@ pub struct WindowConfig {
 
     /// Startup mode.
     #[serde(deserialize_with = "failure_default")]
-    startup_mode: StartupMode,
+    pub startup_mode: StartupMode,
 
     /// Window title.
     #[serde(default = "default_title")]
@@ -53,9 +55,9 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "option_explicit_none")]
     pub gtk_theme_variant: Option<String>,
 
-    // TODO: DEPRECATED
-    #[serde(deserialize_with = "failure_default")]
-    pub start_maximized: Option<bool>,
+    /// Use dynamic title.
+    #[serde(default, deserialize_with = "failure_default")]
+    dynamic_title: DefaultTrueBool,
 }
 
 pub fn default_title() -> String {
@@ -63,11 +65,14 @@ pub fn default_title() -> String {
 }
 
 impl WindowConfig {
-    pub fn startup_mode(&self) -> StartupMode {
-        match self.start_maximized {
-            Some(true) => StartupMode::Maximized,
-            _ => self.startup_mode,
-        }
+    #[inline]
+    pub fn dynamic_title(&self) -> bool {
+        self.dynamic_title.0
+    }
+
+    #[inline]
+    pub fn set_dynamic_title(&mut self, dynamic_title: bool) {
+        self.dynamic_title.0 = dynamic_title;
     }
 }
 
@@ -83,8 +88,8 @@ impl Default for WindowConfig {
             class: Default::default(),
             embed: Default::default(),
             gtk_theme_variant: Default::default(),
-            start_maximized: Default::default(),
             title: default_title(),
+            dynamic_title: Default::default(),
         }
     }
 }

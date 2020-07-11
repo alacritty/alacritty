@@ -11,9 +11,12 @@ use log::{error, warn};
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
 mod bindings;
+pub mod debug;
+pub mod font;
 pub mod monitor;
 mod mouse;
-mod ui_config;
+pub mod ui_config;
+pub mod window;
 
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
 #[cfg(test)]
@@ -172,27 +175,6 @@ fn parse_config(contents: &str) -> Result<Config> {
 }
 
 fn print_deprecation_warnings(config: &Config) {
-    if config.window.start_maximized.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config window.start_maximized is deprecated; please use window.startup_mode instead"
-        );
-    }
-
-    if config.render_timer.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config render_timer is deprecated; please use debug.render_timer instead"
-        );
-    }
-
-    if config.persistent_logging.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config persistent_logging is deprecated; please use debug.persistent_logging instead"
-        );
-    }
-
     if config.scrolling.faux_multiplier().is_some() {
         warn!(
             target: LOG_TARGET_CONFIG,
@@ -222,6 +204,13 @@ fn print_deprecation_warnings(config: &Config) {
         warn!(
             target: LOG_TARGET_CONFIG,
             "Config visual_bell has been deprecated; please use bell instead"
+        )
+    }
+
+    if config.ui_config.dynamic_title.is_some() {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config dynamic_title is deprecated; please use window.dynamic_title instead",
         )
     }
 }

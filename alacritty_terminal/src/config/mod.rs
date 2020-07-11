@@ -8,19 +8,13 @@ use serde_yaml::Value;
 
 mod bell;
 mod colors;
-mod debug;
-mod font;
 mod scrolling;
-mod window;
 
 use crate::ansi::CursorStyle;
 
 pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
-pub use crate::config::debug::Debug;
-pub use crate::config::font::{Font, FontDescription};
 pub use crate::config::scrolling::Scrolling;
-pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig, DEFAULT_NAME};
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
@@ -31,17 +25,9 @@ pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 /// Top-level config type.
 #[derive(Debug, PartialEq, Default, Deserialize)]
 pub struct Config<T> {
-    /// Pixel padding.
-    #[serde(default, deserialize_with = "failure_default")]
-    pub padding: Option<Delta<u8>>,
-
     /// TERM env variable.
     #[serde(default, deserialize_with = "failure_default")]
     pub env: HashMap<String, String>,
-
-    /// Font configuration.
-    #[serde(default, deserialize_with = "failure_default")]
-    pub font: Font,
 
     /// Should draw bold text with brighter colors instead of bold font.
     #[serde(default, deserialize_with = "failure_default")]
@@ -49,14 +35,6 @@ pub struct Config<T> {
 
     #[serde(default, deserialize_with = "failure_default")]
     pub colors: Colors,
-
-    /// Background opacity from 0.0 to 1.0.
-    #[serde(default, deserialize_with = "failure_default")]
-    background_opacity: Percentage,
-
-    /// Window configuration.
-    #[serde(default, deserialize_with = "failure_default")]
-    pub window: WindowConfig,
 
     #[serde(default, deserialize_with = "failure_default")]
     pub selection: Selection,
@@ -73,14 +51,6 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     bell: BellConfig,
 
-    /// Use dynamic title.
-    #[serde(default, deserialize_with = "failure_default")]
-    dynamic_title: DefaultTrueBool,
-
-    /// Live config reload.
-    #[serde(default, deserialize_with = "failure_default")]
-    live_config_reload: DefaultTrueBool,
-
     /// How much scrolling history to keep.
     #[serde(default, deserialize_with = "failure_default")]
     pub scrolling: Scrolling,
@@ -94,17 +64,9 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub winpty_backend: bool,
 
-    /// Send escape sequences using the alt key.
-    #[serde(default, deserialize_with = "failure_default")]
-    alt_send_esc: DefaultTrueBool,
-
     /// Shell startup directory.
     #[serde(default, deserialize_with = "option_explicit_none")]
     pub working_directory: Option<PathBuf>,
-
-    /// Debug options.
-    #[serde(default, deserialize_with = "failure_default")]
-    pub debug: Debug,
 
     /// Additional configuration options not directly required by the terminal.
     #[serde(flatten)]
@@ -121,64 +83,12 @@ pub struct Config<T> {
     // TODO: REMOVED
     #[serde(default, deserialize_with = "failure_default")]
     pub tabspaces: Option<usize>,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    pub render_timer: Option<bool>,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    pub persistent_logging: Option<bool>,
 }
 
 impl<T> Config<T> {
     #[inline]
     pub fn draw_bold_text_with_bright_colors(&self) -> bool {
         self.draw_bold_text_with_bright_colors
-    }
-
-    /// Should show render timer.
-    #[inline]
-    pub fn render_timer(&self) -> bool {
-        self.render_timer.unwrap_or(self.debug.render_timer)
-    }
-
-    /// Live config reload.
-    #[inline]
-    pub fn live_config_reload(&self) -> bool {
-        self.live_config_reload.0
-    }
-
-    #[inline]
-    pub fn set_live_config_reload(&mut self, live_config_reload: bool) {
-        self.live_config_reload.0 = live_config_reload;
-    }
-
-    #[inline]
-    pub fn dynamic_title(&self) -> bool {
-        self.dynamic_title.0
-    }
-
-    #[inline]
-    pub fn set_dynamic_title(&mut self, dynamic_title: bool) {
-        self.dynamic_title.0 = dynamic_title;
-    }
-
-    /// Send escape sequences using the alt key.
-    #[inline]
-    pub fn alt_send_esc(&self) -> bool {
-        self.alt_send_esc.0
-    }
-
-    /// Keep the log file after quitting Alacritty.
-    #[inline]
-    pub fn persistent_logging(&self) -> bool {
-        self.persistent_logging.unwrap_or(self.debug.persistent_logging)
-    }
-
-    #[inline]
-    pub fn background_opacity(&self) -> f32 {
-        self.background_opacity.0 as f32
     }
 
     #[inline]
@@ -294,18 +204,6 @@ impl Program {
     }
 }
 
-/// A delta for a point in a 2 dimensional plane.
-#[serde(default, bound(deserialize = "T: Deserialize<'de> + Default"))]
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
-pub struct Delta<T: Default + PartialEq + Eq> {
-    /// Horizontal change.
-    #[serde(deserialize_with = "failure_default")]
-    pub x: T,
-    /// Vertical change.
-    #[serde(deserialize_with = "failure_default")]
-    pub y: T,
-}
-
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Percentage(f32);
@@ -319,6 +217,10 @@ impl Percentage {
         } else {
             value
         })
+    }
+
+    pub fn as_f32(self) -> f32 {
+        self.0
     }
 }
 

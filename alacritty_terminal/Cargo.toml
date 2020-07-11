@@ -11,7 +11,6 @@ edition = "2018"
 [dependencies]
 libc = "0.2"
 bitflags = "1"
-font = { path = "../font", features = ["force_system_fontconfig"] }
 parking_lot = "0.10.2"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
@@ -38,12 +37,8 @@ winapi = { version = "0.3.7", features = [
 ]}
 mio-anonymous-pipes = "0.1"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2.2"
-
 [features]
 default = ["winpty"]
-nightly = []
 bench = []
 
 [dev-dependencies]

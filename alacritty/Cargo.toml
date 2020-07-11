@@ -36,6 +36,9 @@ xdg = "2"
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 image = { version = "0.23.3", default-features = false, features = ["ico"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 dirs = "2.0.2"
 

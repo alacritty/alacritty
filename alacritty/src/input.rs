@@ -26,7 +26,6 @@ use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
-use alacritty_terminal::message_bar::{self, Message};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::mode::TermMode;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term};
@@ -36,6 +35,7 @@ use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::daemon::start_daemon;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
+use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
@@ -894,7 +894,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             c.encode_utf8(&mut bytes[..]);
         }
 
-        if self.ctx.config().alt_send_esc()
+        if self.ctx.config().ui_config.alt_send_esc()
             && *self.ctx.received_count() == 0
             && self.ctx.modifiers().alt()
             && utf8_len == 1
@@ -1088,10 +1088,10 @@ mod tests {
     use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
 
     use alacritty_terminal::event::Event as TerminalEvent;
-    use alacritty_terminal::message_bar::MessageBuffer;
     use alacritty_terminal::selection::Selection;
 
     use crate::config::ClickHandler;
+    use crate::message_bar::MessageBuffer;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 

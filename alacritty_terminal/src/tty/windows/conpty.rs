@@ -125,8 +125,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-    let title = win32_string(&config.window.title);
-    startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
+    startup_info_ex.StartupInfo.lpTitle = std::ptr::null_mut() as LPWSTR;
 
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 

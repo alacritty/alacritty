@@ -22,19 +22,23 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 #[cfg(target_os = "macos")]
 use font::set_font_smoothing;
-use font::{self, Rasterize};
+use font::{self, Rasterize, Rasterizer};
 
-use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{EventListener, OnResize};
+#[cfg(not(windows))]
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::index::{Column, Line, Point};
-use alacritty_terminal::message_bar::MessageBuffer;
-use alacritty_terminal::meter::Meter;
+use alacritty_terminal::index::Line;
+#[cfg(not(windows))]
+use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
+use crate::config::font::Font;
+use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::event::Mouse;
+use crate::message_bar::MessageBuffer;
+use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
@@ -167,10 +171,15 @@ impl Display {
             event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.);
 
         // Guess the target window dimensions.
-        let metrics = GlyphCache::static_metrics(config.font.clone(), estimated_dpr)?;
+        let metrics = GlyphCache::static_metrics(config.ui_config.font.clone(), estimated_dpr)?;
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
-        let dimensions =
-            GlyphCache::calculate_dimensions(config, estimated_dpr, cell_width, cell_height);
+
+        let dimensions = GlyphCache::calculate_dimensions(
+            &config.ui_config.window,
+            estimated_dpr,
+            cell_width,
+            cell_height,
+        );
 
         debug!("Estimated DPR: {}", estimated_dpr);
         debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);
@@ -212,11 +221,12 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let mut padding_x = f32::from(config.window.padding.x) * dpr as f32;
-        let mut padding_y = f32::from(config.window.padding.y) * dpr as f32;
+        let padding = config.ui_config.window.padding;
+        let mut padding_x = f32::from(padding.x) * dpr as f32;
+        let mut padding_y = f32::from(padding.y) * dpr as f32;
 
         if let Some((width, height)) =
-            GlyphCache::calculate_dimensions(config, dpr, cell_width, cell_height)
+            GlyphCache::calculate_dimensions(&config.ui_config.window, dpr, cell_width, cell_height)
         {
             let PhysicalSize { width: w, height: h } = window.inner_size();
             if w == width && h == height {
@@ -224,7 +234,7 @@ impl Display {
             } else {
                 window.set_inner_size(PhysicalSize::new(width, height));
             }
-        } else if config.window.dynamic_padding {
+        } else if config.ui_config.window.dynamic_padding {
             // Make sure additional padding is spread evenly.
             padding_x = dynamic_padding(padding_x, viewport_size.width as f32, cell_width);
             padding_y = dynamic_padding(padding_y, viewport_size.height as f32, cell_height);
@@ -252,13 +262,13 @@ impl Display {
 
         // Clear screen.
         let background_color = config.colors.primary.background;
-        renderer.with_api(&config, &size_info, |api| {
+        renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
             api.clear(background_color);
         });
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        set_font_smoothing(config.font.use_thin_strokes());
+        set_font_smoothing(config.ui_config.font.use_thin_strokes());
 
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
@@ -269,7 +279,7 @@ impl Display {
             // actually draw something into it and commit those changes.
             if is_x11 {
                 window.swap_buffers();
-                renderer.with_api(&config, &size_info, |api| {
+                renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
                     api.finish();
                 });
             }
@@ -281,12 +291,12 @@ impl Display {
         //
         // TODO: replace `set_position` with `with_position` once available.
         // Upstream issue: https://github.com/rust-windowing/winit/issues/806.
-        if let Some(position) = config.window.position {
+        if let Some(position) = config.ui_config.window.position {
             window.set_outer_position(PhysicalPosition::from((position.x, position.y)));
         }
 
         #[allow(clippy::single_match)]
-        match config.window.startup_mode() {
+        match config.ui_config.window.startup_mode {
             StartupMode::Fullscreen => window.set_fullscreen(true),
             #[cfg(target_os = "macos")]
             StartupMode::SimpleFullscreen => window.set_simple_fullscreen(true),
@@ -315,8 +325,8 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config.font.clone();
-        let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
+        let font = config.ui_config.font.clone();
+        let rasterizer = Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes())?;
 
         // Initialize glyph cache.
         let glyph_cache = {
@@ -387,8 +397,9 @@ impl Display {
         let cell_height = self.size_info.cell_height;
 
         // Recalculate padding.
-        let mut padding_x = f32::from(config.window.padding.x) * self.size_info.dpr as f32;
-        let mut padding_y = f32::from(config.window.padding.y) * self.size_info.dpr as f32;
+        let padding = config.ui_config.window.padding;
+        let mut padding_x = f32::from(padding.x) * self.size_info.dpr as f32;
+        let mut padding_y = f32::from(padding.y) * self.size_info.dpr as f32;
 
         // Update the window dimensions.
         if let Some(size) = update_pending.dimensions() {
@@ -398,7 +409,7 @@ impl Display {
         }
 
         // Distribute excess padding equally on all sides.
-        if config.window.dynamic_padding {
+        if config.ui_config.window.dynamic_padding {
             padding_x = dynamic_padding(padding_x, self.size_info.width, cell_width);
             padding_y = dynamic_padding(padding_y, self.size_info.height, cell_height);
         }
@@ -480,7 +491,7 @@ impl Display {
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
-        self.renderer.with_api(&config, &size_info, |api| {
+        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -491,7 +502,7 @@ impl Display {
         {
             let _sampler = self.meter.sampler();
 
-            self.renderer.with_api(&config, &size_info, |mut api| {
+            self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for cell in grid_cells {
                     // Update URL underlines.
@@ -566,7 +577,7 @@ impl Display {
             // Relay messages to the user.
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().rev().enumerate() {
-                self.renderer.with_api(&config, &size_info, |mut api| {
+                self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
                     api.render_string(
                         glyph_cache,
                         Line(size_info.lines().saturating_sub(i + 1)),
@@ -597,7 +608,7 @@ impl Display {
                 // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
                 // will block to synchronize (this is `glClear` in Alacritty), which causes a
                 // permanent one frame delay.
-                self.renderer.with_api(&config, &size_info, |api| {
+                self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
                     api.finish();
                 });
             }
@@ -650,14 +661,14 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
         let line = size_info.lines() - message_bar_lines - 1;
-        self.renderer.with_api(&config, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
             api.render_string(glyph_cache, line, &text, fg, Some(bg));
         });
     }
 
     /// Draw render timer.
     fn draw_render_timer(&mut self, config: &Config, size_info: &SizeInfo) {
-        if !config.render_timer() {
+        if !config.ui_config.debug.render_timer {
             return;
         }
         let glyph_cache = &mut self.glyph_cache;
@@ -666,7 +677,7 @@ impl Display {
         let fg = config.colors.normal().black;
         let bg = config.colors.normal().red;
 
-        self.renderer.with_api(&config, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
             api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
         });
     }
@@ -701,8 +712,8 @@ fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
 /// Calculate the cell dimensions based on font metrics.
 #[inline]
 fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> (f32, f32) {
-    let offset_x = f64::from(config.font.offset.x);
-    let offset_y = f64::from(config.font.offset.y);
+    let offset_x = f64::from(config.ui_config.font.offset.x);
+    let offset_y = f64::from(config.ui_config.font.offset.y);
     (
         ((metrics.average_advance + offset_x) as f32).floor().max(1.),
         ((metrics.line_height + offset_y) as f32).floor().max(1.),

@@ -1,7 +1,7 @@
 use log::{error, LevelFilter};
 use serde::{Deserialize, Deserializer};
 
-use crate::config::{failure_default, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{failure_default, LOG_TARGET_CONFIG};
 
 /// Debugging options.
 #[serde(default)]

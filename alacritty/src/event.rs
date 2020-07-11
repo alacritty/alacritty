@@ -32,7 +32,6 @@ use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
-use alacritty_terminal::message_bar::{Message, MessageBuffer};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
@@ -47,6 +46,7 @@ use crate::config::Config;
 use crate::daemon::start_daemon;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
@@ -312,14 +312,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        let font = self.config.font.clone().with_size(*self.font_size);
+        let font = self.config.ui_config.font.clone().with_size(*self.font_size);
         self.display_update_pending.set_font(font);
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.config.font.size;
-        self.display_update_pending.set_font(self.config.font.clone());
+        *self.font_size = self.config.ui_config.font.size;
+        self.display_update_pending.set_font(self.config.ui_config.font.clone());
         self.terminal.dirty = true;
     }
 
@@ -636,7 +636,7 @@ impl<N: Notify + OnResize> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
-            font_size: config.font.size,
+            font_size: config.ui_config.font.size,
             config,
             message_buffer,
             display,
@@ -679,7 +679,7 @@ impl<N: Notify + OnResize> Processor<N> {
         let mut scheduler = Scheduler::new();
 
         event_loop.run_return(|event, event_loop, control_flow| {
-            if self.config.debug.print_events {
+            if self.config.ui_config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
 
@@ -791,7 +791,7 @@ impl<N: Notify + OnResize> Processor<N> {
         });
 
         // Write ref tests to disk.
-        if self.config.debug.ref_test {
+        if self.config.ui_config.debug.ref_test {
             self.write_ref_test_results(&terminal.lock());
         }
     }
@@ -811,7 +811,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR.
-                    let font = processor.ctx.config.font.clone();
+                    let font = processor.ctx.config.ui_config.font.clone();
                     display_update_pending.set_font(font.with_size(*processor.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
@@ -829,7 +829,18 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
                 Event::TerminalEvent(event) => match event {
-                    TerminalEvent::Title(title) => processor.ctx.window.set_title(&title),
+                    TerminalEvent::Title(title) => {
+                        let ui_config = &processor.ctx.config.ui_config;
+                        if ui_config.dynamic_title() {
+                            processor.ctx.window.set_title(&title);
+                        }
+                    },
+                    TerminalEvent::ResetTitle => {
+                        let ui_config = &processor.ctx.config.ui_config;
+                        if ui_config.dynamic_title() {
+                            processor.ctx.window.set_title(&ui_config.window.title);
+                        }
+                    },
                     TerminalEvent::Wakeup => processor.ctx.terminal.dirty = true,
                     TerminalEvent::Bell => {
                         let bell_command = processor.ctx.config.bell().command.as_ref();
@@ -983,14 +994,21 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.set_cursor_dirty();
         }
 
-        if processor.ctx.config.font != config.font {
+        if processor.ctx.config.ui_config.font != config.ui_config.font {
             // Do not update font size if it has been changed at runtime.
-            if *processor.ctx.font_size == processor.ctx.config.font.size {
-                *processor.ctx.font_size = config.font.size;
+            if *processor.ctx.font_size == processor.ctx.config.ui_config.font.size {
+                *processor.ctx.font_size = config.ui_config.font.size;
             }
 
-            let font = config.font.clone().with_size(*processor.ctx.font_size);
+            let font = config.ui_config.font.clone().with_size(*processor.ctx.font_size);
             processor.ctx.display_update_pending.set_font(font);
+        }
+
+        // Live title reload.
+        if !config.ui_config.dynamic_title()
+            || processor.ctx.config.ui_config.window.title != config.ui_config.window.title
+        {
+            processor.ctx.window.set_title(&config.ui_config.window.title);
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -1002,7 +1020,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        set_font_smoothing(config.font.use_thin_strokes());
+        set_font_smoothing(config.ui_config.font.use_thin_strokes());
 
         *processor.ctx.config = config;
 

@@ -4,9 +4,11 @@ use std::path::PathBuf;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, error, LevelFilter};
 
-use alacritty_terminal::config::{Delta, Dimensions, Program, DEFAULT_NAME};
+use alacritty_terminal::config::Program;
 use alacritty_terminal::index::{Column, Line};
 
+use crate::config::ui_config::Delta;
+use crate::config::window::{Dimensions, DEFAULT_NAME};
 use crate::config::Config;
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -263,32 +265,39 @@ impl Options {
         }
 
         if let Some(lcr) = self.live_config_reload {
-            config.set_live_config_reload(lcr);
+            config.ui_config.set_live_config_reload(lcr);
         }
         config.shell = self.command.or(config.shell);
 
         config.hold = self.hold;
 
-        config.set_dynamic_title(config.dynamic_title() && self.title.is_none());
-        config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
-        config.window.title = self.title.unwrap_or(config.window.title);
-        config.window.position = self.position.or(config.window.position);
-        config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
+        let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
+        config.ui_config.set_dynamic_title(dynamic_title);
 
-        config.window.class.instance = self.class_instance.unwrap_or(config.window.class.instance);
-        config.window.class.general = self.class_general.unwrap_or(config.window.class.general);
+        replace_if_some(&mut config.ui_config.window.dimensions, self.dimensions);
+        replace_if_some(&mut config.ui_config.window.title, self.title);
+        config.ui_config.window.position = self.position.or(config.ui_config.window.position);
+        config.ui_config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
+        replace_if_some(&mut config.ui_config.window.class.instance, self.class_instance);
+        replace_if_some(&mut config.ui_config.window.class.general, self.class_general);
 
-        config.debug.print_events = self.print_events || config.debug.print_events;
-        config.debug.log_level = max(config.debug.log_level, self.log_level);
-        config.debug.ref_test = self.ref_test || config.debug.ref_test;
-        config.debug.persistent_logging =
-            self.persistent_logging || config.debug.persistent_logging;
+        config.ui_config.debug.print_events |= self.print_events;
+        config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level);
+        config.ui_config.debug.ref_test |= self.ref_test;
+        config.ui_config.debug.persistent_logging |= self.persistent_logging;
 
-        if config.debug.print_events {
-            config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
+        if config.ui_config.debug.print_events {
+            config.ui_config.debug.log_level =
+                max(config.ui_config.debug.log_level, LevelFilter::Info);
         }
 
         config
+    }
+}
+
+fn replace_if_some<T>(option: &mut T, value: Option<T>) {
+    if let Some(value) = value {
+        *option = value;
     }
 }
 
@@ -300,11 +309,11 @@ mod tests {
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
         let config = Config::default();
-        let old_dynamic_title = config.dynamic_title();
+        let old_dynamic_title = config.ui_config.dynamic_title();
 
         let config = Options::default().into_config(config);
 
-        assert_eq!(old_dynamic_title, config.dynamic_title());
+        assert_eq!(old_dynamic_title, config.ui_config.dynamic_title());
     }
 
     #[test]
@@ -315,16 +324,16 @@ mod tests {
         options.title = Some("foo".to_owned());
         let config = options.into_config(config);
 
-        assert!(!config.dynamic_title());
+        assert!(!config.ui_config.dynamic_title());
     }
 
     #[test]
     fn dynamic_title_not_overridden_by_config() {
         let mut config = Config::default();
 
-        config.window.title = "foo".to_owned();
+        config.ui_config.window.title = "foo".to_owned();
         let config = Options::default().into_config(config);
 
-        assert!(config.dynamic_title());
+        assert!(config.ui_config.dynamic_title());
     }
 }
