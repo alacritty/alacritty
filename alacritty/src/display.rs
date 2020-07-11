@@ -25,8 +25,11 @@ use font::set_font_smoothing;
 use font::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
+#[cfg(not(windows))]
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::index::{Column, Line, Point};
+use alacritty_terminal::index::Line;
+#[cfg(not(windows))]
+use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
