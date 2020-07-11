@@ -31,7 +31,7 @@ use font::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
@@ -91,8 +91,8 @@ pub struct SearchState {
     /// Change in display offset since the beginning of the search.
     display_offset_delta: isize,
 
-    /// Vi cursor position before search.
-    vi_cursor_point: Point,
+    /// Search origin in viewport coordinates relative to original display offset.
+    origin: Point,
 }
 
 impl SearchState {
@@ -106,7 +106,7 @@ impl Default for SearchState {
         Self {
             direction: Direction::Right,
             display_offset_delta: 0,
-            vi_cursor_point: Point::default(),
+            origin: Point::default(),
             regex: None,
         }
     }
@@ -340,9 +340,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.direction = direction;
 
         // Store original vi cursor position as search origin and for resetting.
-        self.search_state.vi_cursor_point = if self.terminal.mode().contains(TermMode::VI) {
+        self.search_state.origin = if self.terminal.mode().contains(TermMode::VI) {
             self.terminal.vi_mode_cursor.point
         } else {
+            // Clear search, since it is used as the active match.
+            self.terminal.selection = None;
+
             match direction {
                 Direction::Right => Point::new(Line(0), Column(0)),
                 Direction::Left => Point::new(num_lines - 2, num_cols - 1),
@@ -355,9 +358,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn confirm_search(&mut self) {
-        // Enter vi mode once search is confirmed.
-        self.terminal.set_vi_mode();
-
         // Force unlimited search if the previous one was interrupted.
         if self.scheduler.scheduled(TimerId::DelayedSearch) {
             self.goto_match(None);
@@ -414,6 +414,29 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if let Some(regex) = self.search_state.regex.as_mut() {
             *regex = regex.trim_end().to_owned();
             regex.truncate(regex.rfind(' ').map(|i| i + 1).unwrap_or(0));
+            self.update_search();
+        }
+    }
+
+    #[inline]
+    fn advance_search_origin(&mut self, direction: Direction) {
+        self.search_reset_state();
+        let origin = self.terminal.visible_to_buffer(self.search_state.origin);
+
+        // Move the search origin right in front of the next match in the specified direction.
+        if let Some(regex_match) = self.terminal.search_next(origin, direction, Side::Left, None) {
+            let origin = match direction {
+                Direction::Right => *regex_match.end(),
+                Direction::Left => {
+                    regex_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
+                },
+            };
+            self.terminal.scroll_to_point(origin);
+
+            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(origin);
+            self.search_state.origin = origin_relative;
+            self.search_state.display_offset_delta = 0;
+
             self.update_search();
         }
     }
@@ -487,10 +510,10 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.search_state.display_offset_delta = 0;
 
         // Reset vi mode cursor.
-        let mut vi_cursor_point = self.search_state.vi_cursor_point;
-        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.screen_lines() - 1);
-        vi_cursor_point.col = min(vi_cursor_point.col, self.terminal.cols() - 1);
-        self.terminal.vi_mode_cursor.point = vi_cursor_point;
+        let mut origin = self.search_state.origin;
+        origin.line = min(origin.line, self.terminal.screen_lines() - 1);
+        origin.col = min(origin.col, self.terminal.cols() - 1);
+        self.terminal.vi_mode_cursor.point = origin;
 
         // Unschedule pending timers.
         self.scheduler.unschedule(TimerId::DelayedSearch);
@@ -507,9 +530,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         limit = limit.filter(|&limit| limit <= self.terminal.total_lines());
 
         // Use original position as search origin.
-        let mut vi_cursor_point = self.search_state.vi_cursor_point;
-        vi_cursor_point.line = min(vi_cursor_point.line, self.terminal.screen_lines() - 1);
-        let mut origin = self.terminal.visible_to_buffer(vi_cursor_point);
+        let mut relative_origin = self.search_state.origin;
+        relative_origin.line = min(relative_origin.line, self.terminal.screen_lines() - 1);
+        let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
 
         // Jump to the next match.
@@ -518,7 +541,17 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             Some(regex_match) => {
                 let old_offset = self.terminal.grid().display_offset() as isize;
 
-                self.terminal.vi_goto_point(*regex_match.start());
+                if self.terminal.mode().contains(TermMode::VI) {
+                    // Move vi cursor to the start of the match.
+                    self.terminal.vi_goto_point(*regex_match.start());
+                } else {
+                    // Select the match when vi mode is not active.
+                    self.terminal.scroll_to_point(*regex_match.start());
+                    let start = self.terminal.grid().clamp_buffer_to_visible(*regex_match.start());
+                    let end = self.terminal.grid().clamp_buffer_to_visible(*regex_match.end());
+                    self.start_selection(SelectionType::Simple, start, Side::Left);
+                    self.update_selection(end, Side::Right);
+                }
 
                 // Store number of lines the viewport had to be moved.
                 let display_offset = self.terminal.grid().display_offset();

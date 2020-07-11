@@ -100,6 +100,7 @@ pub trait ActionContext<T: EventListener> {
     fn push_search(&mut self, c: char);
     fn pop_search(&mut self);
     fn pop_word_search(&mut self);
+    fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
 }
@@ -811,9 +812,20 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                         self.ctx.pop_search();
                         *self.ctx.suppress_chars() = true;
                     },
+                    (Some(VirtualKeyCode::Return), ModifiersState::SHIFT)
+                        if !self.ctx.terminal().mode().contains(TermMode::VI) =>
+                    {
+                        self.ctx.advance_search_origin(Direction::Left);
+                        *self.ctx.suppress_chars() = true;
+                    }
                     (Some(VirtualKeyCode::Return), _)
                     | (Some(VirtualKeyCode::J), ModifiersState::CTRL) => {
-                        self.ctx.confirm_search();
+                        if self.ctx.terminal().mode().contains(TermMode::VI) {
+                            self.ctx.confirm_search();
+                        } else {
+                            self.ctx.advance_search_origin(Direction::Right);
+                        }
+
                         *self.ctx.suppress_chars() = true;
                     },
                     (Some(VirtualKeyCode::Escape), _) => {
@@ -1142,6 +1154,8 @@ mod tests {
         fn pop_search(&mut self) {}
 
         fn pop_word_search(&mut self) {}
+
+        fn advance_search_origin(&mut self, _direction: Direction) {}
 
         fn search_direction(&self) -> Direction {
             Direction::Right

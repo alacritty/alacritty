@@ -1115,13 +1115,6 @@ impl<T> Term<T> {
         self.dirty = true;
     }
 
-    /// Start vi mode without moving the cursor.
-    #[inline]
-    pub fn set_vi_mode(&mut self) {
-        self.mode.insert(TermMode::VI);
-        self.dirty = true;
-    }
-
     /// Move vi mode cursor.
     #[inline]
     pub fn vi_motion(&mut self, motion: ViMotion)
