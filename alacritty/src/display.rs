@@ -394,10 +394,9 @@ impl Display {
         let cell_height = self.size_info.cell_height;
 
         // Recalculate padding.
-        let mut padding_x =
-            f32::from(config.ui_config.window.padding.x) * self.size_info.dpr as f32;
-        let mut padding_y =
-            f32::from(config.ui_config.window.padding.y) * self.size_info.dpr as f32;
+        let padding = config.ui_config.window.padding;
+        let mut padding_x = f32::from(padding.x) * self.size_info.dpr as f32;
+        let mut padding_y = f32::from(padding.y) * self.size_info.dpr as f32;
 
         // Update the window dimensions.
         if let Some(size) = update_pending.dimensions() {
