@@ -99,12 +99,6 @@ impl Selection {
         self.region.end = Anchor::new(point, side);
     }
 
-    // TODO: Is this a good method? Should we provide end?
-    /// Start point of the search.
-    pub fn start(&self) -> Point<usize> {
-        self.region.start.point
-    }
-
     pub fn rotate<D: Dimensions>(
         mut self,
         dimensions: &D,
