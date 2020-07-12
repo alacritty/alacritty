@@ -208,20 +208,16 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
                 }
             },
-            Action::ViAction(ViAction::SearchEndNext) => {
+            Action::ViAction(ViAction::SearchStart) => {
                 let origin = ctx.terminal().visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
-                let direction = ctx.search_direction();
-
-                let regex_match = ctx.terminal().search_next(origin, direction, Side::Right, None);
+                let regex_match = ctx.terminal().search_next(origin, Side::Left, Side::Left, None);
                 if let Some(regex_match) = regex_match {
-                    ctx.terminal_mut().vi_goto_point(*regex_match.end());
+                    ctx.terminal_mut().vi_goto_point(*regex_match.start());
                 }
             },
-            Action::ViAction(ViAction::SearchEndPrevious) => {
+            Action::ViAction(ViAction::SearchEnd) => {
                 let origin = ctx.terminal().visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
-                let direction = ctx.search_direction().opposite();
-
-                let regex_match = ctx.terminal().search_next(origin, direction, Side::Right, None);
+                let regex_match = ctx.terminal().search_next(origin, Side::Right, Side::Right, None);
                 if let Some(regex_match) = regex_match {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                 }

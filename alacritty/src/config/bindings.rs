@@ -218,10 +218,10 @@ pub enum ViAction {
     SearchNext,
     /// Jump to the beginning of the previous match.
     SearchPrevious,
-    /// Jump to the end of the next match.
-    SearchEndNext,
-    /// Jump to the end of the previous match.
-    SearchEndPrevious,
+    /// Jump to the next start of a match to the left of the origin.
+    SearchStart,
+    /// Jump to the next end of a match to the right of the origin.
+    SearchEnd,
     /// Launch the URL below the vi mode cursor.
     Open,
 }
