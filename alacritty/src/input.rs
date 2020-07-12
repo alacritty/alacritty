@@ -815,7 +815,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     (Some(VirtualKeyCode::Return), ModifiersState::SHIFT)
                         if !self.ctx.terminal().mode().contains(TermMode::VI) =>
                     {
-                        self.ctx.advance_search_origin(Direction::Left);
+                        let direction = self.ctx.search_direction().opposite();
+                        self.ctx.advance_search_origin(direction);
                         *self.ctx.suppress_chars() = true;
                     }
                     (Some(VirtualKeyCode::Return), _)
@@ -823,7 +824,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                         if self.ctx.terminal().mode().contains(TermMode::VI) {
                             self.ctx.confirm_search();
                         } else {
-                            self.ctx.advance_search_origin(Direction::Right);
+                            self.ctx.advance_search_origin(self.ctx.search_direction());
                         }
 
                         *self.ctx.suppress_chars() = true;
