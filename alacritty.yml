@@ -78,6 +78,13 @@
   # Set this to `None` to use the default theme variant.
   #gtk_theme_variant: None
 
+  # Disable vsync (changes require restart)
+  #
+  # Force to disable vsync, what can improve the input latency but can also add tearing.
+  # A worse throughput performance is also expected by disabling the vsync (about 35% slower).
+  # On Wayland, vsync is always disabled, setting this option has no effect.
+  #disable_vsync: false
+
 #scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.

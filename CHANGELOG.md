@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `gopher` and `gemini` URLs
 - Unicode 13 support
 - Option to run command on bell which can be set in `bell.command`
+- Option `window.disable_vsync` to explicitly disable vsync
 
 ### Changed
 

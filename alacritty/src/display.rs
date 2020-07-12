@@ -604,7 +604,7 @@ impl Display {
 
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if self.is_x11 {
+            if self.is_x11 && !config.ui_config.window.disable_vsync {
                 // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
                 // will block to synchronize (this is `glClear` in Alacritty), which causes a
                 // permanent one frame delay.

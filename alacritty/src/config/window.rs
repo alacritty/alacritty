@@ -58,6 +58,10 @@ pub struct WindowConfig {
     /// Use dynamic title.
     #[serde(default, deserialize_with = "failure_default")]
     dynamic_title: DefaultTrueBool,
+
+    /// Disable vsync.
+    #[serde(deserialize_with = "failure_default")]
+    pub disable_vsync: bool,
 }
 
 pub fn default_title() -> String {
@@ -90,6 +94,7 @@ impl Default for WindowConfig {
             gtk_theme_variant: Default::default(),
             title: default_title(),
             dynamic_title: Default::default(),
+            disable_vsync: Default::default(),
         }
     }
 }

@@ -159,9 +159,9 @@ impl Window {
 
         // Disable vsync on Wayland.
         #[cfg(not(any(target_os = "macos", windows)))]
-        let vsync = !event_loop.is_wayland();
+        let vsync = !window_config.disable_vsync && !event_loop.is_wayland();
         #[cfg(any(target_os = "macos", windows))]
-        let vsync = true;
+        let vsync = !window_config.disable_vsync;
 
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
