@@ -209,15 +209,17 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ViAction(ViAction::SearchStart) => {
-                let origin = ctx.terminal().visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
-                let regex_match = ctx.terminal().search_next(origin, Side::Left, Side::Left, None);
+                let terminal = ctx.terminal();
+                let origin = terminal.visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
+                let regex_match = terminal.search_next(origin, Direction::Left, Side::Left, None);
                 if let Some(regex_match) = regex_match {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
                 }
             },
             Action::ViAction(ViAction::SearchEnd) => {
-                let origin = ctx.terminal().visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
-                let regex_match = ctx.terminal().search_next(origin, Side::Right, Side::Right, None);
+                let terminal = ctx.terminal();
+                let origin = terminal.visible_to_buffer(ctx.terminal().vi_mode_cursor.point);
+                let regex_match = terminal.search_next(origin, Direction::Right, Side::Right, None);
                 if let Some(regex_match) = regex_match {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                 }
