@@ -142,7 +142,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn scroll(&mut self, scroll: Scroll) {
+        let old_offset = self.terminal.grid().display_offset() as isize;
+
         self.terminal.scroll_display(scroll);
+
+        // Keep track of manual display offset changes during search.
+        if self.search_active() {
+            let display_offset = self.terminal.grid().display_offset();
+            self.search_state.display_offset_delta += old_offset - display_offset as isize;
+        }
 
         // Update selection.
         if self.terminal.mode().contains(TermMode::VI)
@@ -339,7 +347,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.regex = Some(String::new());
         self.search_state.direction = direction;
 
-        // Store original vi cursor position as search origin and for resetting.
+        // Store original search position as origin and reset location.
+        self.search_state.display_offset_delta = 0;
         self.search_state.origin = if self.terminal.mode().contains(TermMode::VI) {
             self.terminal.vi_mode_cursor.point
         } else {
@@ -367,9 +376,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
             self.terminal.vi_mode_cursor.point.line += 1;
         }
-
-        // Clear reset state.
-        self.search_state.display_offset_delta = 0;
 
         self.display_update_pending.dirty = true;
         self.search_state.regex = None;
@@ -420,8 +426,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn advance_search_origin(&mut self, direction: Direction) {
-        self.search_reset_state();
-        let origin = self.terminal.visible_to_buffer(self.search_state.origin);
+        let origin = self.absolute_origin();
+        self.terminal.scroll_to_point(origin);
 
         // Move the search origin right in front of the next match in the specified direction.
         if let Some(regex_match) = self.terminal.search_next(origin, direction, Side::Left, None) {
@@ -529,15 +535,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Limit search only when enough lines are available to run into the limit.
         limit = limit.filter(|&limit| limit <= self.terminal.total_lines());
 
-        // Use original position as search origin.
-        let mut relative_origin = self.search_state.origin;
-        relative_origin.line = min(relative_origin.line, self.terminal.screen_lines() - 1);
-        let mut origin = self.terminal.visible_to_buffer(relative_origin);
-        origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
-
         // Jump to the next match.
         let direction = self.search_state.direction;
-        match self.terminal.search_next(origin, direction, Side::Left, limit) {
+        match self.terminal.search_next(self.absolute_origin(), direction, Side::Left, limit) {
             Some(regex_match) => {
                 let old_offset = self.terminal.grid().display_offset() as isize;
 
@@ -576,6 +576,19 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         }
 
         self.search_state.regex = Some(regex);
+    }
+
+    /// Get the absolute position of the search origin.
+    ///
+    /// This takes the relative motion of the viewport since the start of the search into account.
+    /// So while the absolute point of the origin might have changed since new content was printed,
+    /// this will still return the correct absolute position.
+    fn absolute_origin(&self) -> Point<usize> {
+        let mut relative_origin = self.search_state.origin;
+        relative_origin.line = min(relative_origin.line, self.terminal.screen_lines() - 1);
+        let mut origin = self.terminal.visible_to_buffer(relative_origin);
+        origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
+        origin
     }
 }
 
