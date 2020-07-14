@@ -273,7 +273,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
                 // Remove wide char spacer before shrinking.
                 let len = wrapped.len();
-                if wrapped[len - 1].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER) {
+                if len > 0 && wrapped[len - 1].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     if len == 1 {
                         row[cols - 1].flags_mut().insert(Flags::WRAPLINE);
                         new_raw.push(row);
