@@ -317,7 +317,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                     if (i == cursor_buffer_line && self.cursor.point.col < cols)
                         || i < cursor_buffer_line
                     {
-                        self.cursor.point.line -= 1;
+                        self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
                     }
 
                     // Reflow the cursor if it is on this line beyond the width.
