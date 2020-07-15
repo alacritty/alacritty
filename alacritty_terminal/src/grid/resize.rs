@@ -314,7 +314,9 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 } else {
                     // Reflow cursor if a line below it is deleted.
                     let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-                    if i < cursor_buffer_line || (i == cursor_buffer_line && self.cursor.point.col < cols) {
+                    if (i == cursor_buffer_line && self.cursor.point.col < cols)
+                        || i < cursor_buffer_line
+                    {
                         self.cursor.point.line -= 1;
                     }
 
