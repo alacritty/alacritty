@@ -725,7 +725,7 @@ pub struct Term<T> {
     /// term is set.
     title_stack: Vec<Option<String>>,
 
-    /// Current forwards and backwards buffer search regexes.
+    /// Current forward and backward buffer search regexes.
     regex_search: Option<RegexSearch>,
 }
 
@@ -1115,13 +1115,6 @@ impl<T> Term<T> {
         self.dirty = true;
     }
 
-    /// Start vi mode without moving the cursor.
-    #[inline]
-    pub fn set_vi_mode(&mut self) {
-        self.mode.insert(TermMode::VI);
-        self.dirty = true;
-    }
-
     /// Move vi mode cursor.
     #[inline]
     pub fn vi_motion(&mut self, motion: ViMotion)
@@ -1466,8 +1459,8 @@ impl<T: EventListener> Handler for Term<T> {
             ptr::copy(src, dst, num_cells);
         }
 
-        // Cells were just moved out towards the end of the line; fill in
-        // between source and dest with blanks.
+        // Cells were just moved out toward the end of the line;
+        // fill in between source and dest with blanks.
         for c in &mut line[source..destination] {
             c.reset(&cursor.template);
         }

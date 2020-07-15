@@ -28,7 +28,7 @@ pub struct RegexSearch {
 }
 
 impl RegexSearch {
-    /// Build the forwards and backwards search DFAs.
+    /// Build the forward and backward search DFAs.
     pub fn new(search: &str) -> Result<RegexSearch, RegexError> {
         // Check case info for smart case
         let has_uppercase = search.chars().any(|c| c.is_uppercase());
@@ -318,7 +318,7 @@ impl<T> Term<T> {
         let start_char = self.grid[point.line][point.col].c;
 
         // Find the matching bracket we're looking for
-        let (forwards, end_char) = BRACKET_PAIRS.iter().find_map(|(open, close)| {
+        let (forward, end_char) = BRACKET_PAIRS.iter().find_map(|(open, close)| {
             if open == &start_char {
                 Some((true, *close))
             } else if close == &start_char {
@@ -336,7 +336,7 @@ impl<T> Term<T> {
 
         loop {
             // Check the next cell
-            let cell = if forwards { iter.next() } else { iter.prev() };
+            let cell = if forward { iter.next() } else { iter.prev() };
 
             // Break if there are no more cells
             let c = match cell {
@@ -633,7 +633,7 @@ mod tests {
     fn reverse_search_dead_recovery() {
         let mut term = mock_term("zooo lense");
 
-        // Make sure the reverse DFA operates the same as a forwards DFA.
+        // Make sure the reverse DFA operates the same as a forward DFA.
         term.regex_search = Some(RegexSearch::new("zoo").unwrap());
         let start = Point::new(0, Column(9));
         let end = Point::new(0, Column(0));

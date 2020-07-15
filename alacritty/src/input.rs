@@ -100,6 +100,7 @@ pub trait ActionContext<T: EventListener> {
     fn push_search(&mut self, c: char);
     fn pop_search(&mut self);
     fn pop_word_search(&mut self);
+    fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
 }
@@ -224,8 +225,8 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                 }
             },
-            Action::Search => ctx.start_search(Direction::Right),
-            Action::SearchReverse => ctx.start_search(Direction::Left),
+            Action::SearchForward => ctx.start_search(Direction::Right),
+            Action::SearchBackward => ctx.start_search(Direction::Left),
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -359,12 +360,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     #[inline]
     pub fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
+        let search_active = self.ctx.search_active();
         let size_info = self.ctx.size_info();
 
         let (x, y) = position.into();
 
         let lmb_pressed = self.ctx.mouse().left_button_state == ElementState::Pressed;
-        if !self.ctx.selection_is_empty() && lmb_pressed {
+        if !self.ctx.selection_is_empty() && lmb_pressed && !search_active {
             self.update_selection_scrolling(y);
         }
 
@@ -405,6 +407,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let last_term_line = self.ctx.terminal().grid().screen_lines() - 1;
         if (lmb_pressed || self.ctx.mouse().right_button_state == ElementState::Pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
+            && !search_active
         {
             // Treat motion over message bar like motion over the last line.
             let line = min(point.line, last_term_line);
@@ -811,9 +814,21 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                         self.ctx.pop_search();
                         *self.ctx.suppress_chars() = true;
                     },
+                    (Some(VirtualKeyCode::Return), ModifiersState::SHIFT)
+                        if !self.ctx.terminal().mode().contains(TermMode::VI) =>
+                    {
+                        let direction = self.ctx.search_direction().opposite();
+                        self.ctx.advance_search_origin(direction);
+                        *self.ctx.suppress_chars() = true;
+                    }
                     (Some(VirtualKeyCode::Return), _)
                     | (Some(VirtualKeyCode::J), ModifiersState::CTRL) => {
-                        self.ctx.confirm_search();
+                        if self.ctx.terminal().mode().contains(TermMode::VI) {
+                            self.ctx.confirm_search();
+                        } else {
+                            self.ctx.advance_search_origin(self.ctx.search_direction());
+                        }
+
                         *self.ctx.suppress_chars() = true;
                     },
                     (Some(VirtualKeyCode::Escape), _) => {
@@ -1142,6 +1157,8 @@ mod tests {
         fn pop_search(&mut self) {}
 
         fn pop_word_search(&mut self) {}
+
+        fn advance_search_origin(&mut self, _direction: Direction) {}
 
         fn search_direction(&self) -> Direction {
             Direction::Right

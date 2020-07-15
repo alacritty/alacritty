@@ -56,7 +56,7 @@ fn visible_to_buffer() {
     assert_eq!(point, Point::new(4, Column(3)));
 }
 
-// Scroll up moves lines upwards.
+// Scroll up moves lines upward.
 #[test]
 fn scroll_up() {
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
@@ -88,7 +88,7 @@ fn scroll_up() {
     assert_eq!(grid[Line(9)].occ, 0);
 }
 
-// Scroll down moves lines downwards.
+// Scroll down moves lines downward.
 #[test]
 fn scroll_down() {
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
