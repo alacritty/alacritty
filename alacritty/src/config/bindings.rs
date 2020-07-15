@@ -176,11 +176,11 @@ pub enum Action {
     /// Allow receiving char input.
     ReceiveChar,
 
-    /// Start a forwards buffer search.
-    SearchForwards,
+    /// Start a forward buffer search.
+    SearchForward,
 
-    /// Start a backwards buffer search.
-    SearchBackwards,
+    /// Start a backward buffer search.
+    SearchBackward,
 
     /// No action.
     None,
@@ -378,8 +378,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         D,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollHalfPageDown;
         Y,                             +TermMode::VI; Action::Copy;
         Y,                             +TermMode::VI; Action::ClearSelection;
-        Slash,                         +TermMode::VI; Action::SearchForwards;
-        Slash,  ModifiersState::SHIFT, +TermMode::VI; Action::SearchBackwards;
+        Slash,                         +TermMode::VI; Action::SearchForward;
+        Slash,  ModifiersState::SHIFT, +TermMode::VI; Action::SearchBackward;
         V,                             +TermMode::VI; ViAction::ToggleNormalSelection;
         V,      ModifiersState::SHIFT, +TermMode::VI; ViAction::ToggleLineSelection;
         V,      ModifiersState::CTRL,  +TermMode::VI; ViAction::ToggleBlockSelection;
@@ -487,8 +487,8 @@ fn common_keybindings() -> Vec<KeyBinding> {
         KeyBinding;
         V,        ModifiersState::CTRL | ModifiersState::SHIFT, ~TermMode::VI; Action::Paste;
         C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
-        F,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::SearchForwards;
-        B,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::SearchBackwards;
+        F,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::SearchForward;
+        B,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::SearchBackward;
         C,        ModifiersState::CTRL | ModifiersState::SHIFT, +TermMode::VI; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~TermMode::VI; Action::PasteSelection;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
@@ -534,8 +534,8 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         M, ModifiersState::LOGO; Action::Minimize;
         Q, ModifiersState::LOGO; Action::Quit;
         W, ModifiersState::LOGO; Action::Quit;
-        F, ModifiersState::LOGO; Action::SearchForwards;
-        B, ModifiersState::LOGO; Action::SearchBackwards;
+        F, ModifiersState::LOGO; Action::SearchForward;
+        B, ModifiersState::LOGO; Action::SearchBackward;
     )
 }
 

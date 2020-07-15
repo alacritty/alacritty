@@ -225,8 +225,8 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                 }
             },
-            Action::SearchForwards => ctx.start_search(Direction::Right),
-            Action::SearchBackwards => ctx.start_search(Direction::Left),
+            Action::SearchForward => ctx.start_search(Direction::Right),
+            Action::SearchBackward => ctx.start_search(Direction::Left),
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),

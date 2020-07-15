@@ -252,7 +252,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         }
     }
 
-    /// Move lines at the bottom towards the top.
+    /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: T) {
