@@ -1004,6 +1004,14 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.set_font(font);
         }
 
+        // Update display if padding options were changed.
+        let window_config = &processor.ctx.config.ui_config.window;
+        if window_config.padding != config.ui_config.window.padding
+            || window_config.dynamic_padding != config.ui_config.window.dynamic_padding
+        {
+            processor.ctx.display_update_pending.dirty = true;
+        }
+
         // Live title reload.
         if !config.ui_config.dynamic_title()
             || processor.ctx.config.ui_config.window.title != config.ui_config.window.title
