@@ -671,6 +671,7 @@
   #- { key: W,      mods: Command,            action: Quit             }
   #- { key: N,      mods: Command,            action: SpawnNewInstance }
   #- { key: F,      mods: Command|Control,    action: ToggleFullscreen }
+  #- { key: F,      mods: Command,            action: Search           }
 
 #debug:
   # Display the time it takes to redraw each frame.
