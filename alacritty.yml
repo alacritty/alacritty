@@ -582,7 +582,7 @@
 # a no-op if you do not wish to receive input characters for that binding.
 #
 # If the same trigger is assigned to multiple actions, all of them are executed
-# at once.
+# in the order they were defined in.
 #key_bindings:
   #- { key: Paste,                                action: Paste          }
   #- { key: Copy,                                 action: Copy           }
