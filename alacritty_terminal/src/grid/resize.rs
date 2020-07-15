@@ -146,38 +146,43 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             last_row.append(&mut cells);
 
             let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-            let mut is_clear = row.is_clear();
 
             if i == cursor_buffer_line && reflow {
                 // Resize cursor's line and reflow the cursor if necessary.
                 let mut target = self.cursor.point.sub(cols, num_wrapped);
 
                 // Clamp to the last column, if no content was reflown with the cursor.
-                if target.col.0 == 0 {
+                if target.col.0 == 0 && row.is_clear() {
                     self.cursor.input_needs_wrap = true;
                     target = target.sub(cols, 1);
                 }
                 self.cursor.point.col = target.col;
 
+                // Get required cursor line changes. Since `num_wrapped` is smaller than `cols`
+                // this will always be either `0` or `1`.
                 let line_delta = (self.cursor.point.line - target.line).0;
+
+                if line_delta != 0 && row.is_clear() {
+                    continue;
+                }
+
                 cursor_line_delta += line_delta;
-                is_clear &= line_delta != 0;
-            } else if is_clear {
+            } else if row.is_clear() {
                 if i + reversed.len() >= self.lines.0 {
                     // Since we removed a line, rotate down the viewport.
                     self.display_offset = self.display_offset.saturating_sub(1);
+                }
 
-                    // Rotate cursor down if content below them was pulled from history.
-                    if i < cursor_buffer_line {
-                        self.cursor.point.line += 1;
-                    }
+                // Rotate cursor down if content below them was pulled from history.
+                if i < cursor_buffer_line {
+                    self.cursor.point.line += 1;
                 }
 
                 // Don't push line into the new buffer.
                 continue;
             }
 
-            if let (Some(cell), false) = (last_row.last_mut(), is_clear) {
+            if let Some(cell) = last_row.last_mut() {
                 // Set wrap flag if next line still has cells.
                 cell.flags_mut().insert(Flags::WRAPLINE);
             }
@@ -307,11 +312,18 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                     buffered = Some(wrapped);
                     break;
                 } else {
-                    // Reflow the cursor if it is on this line beyond the width.
+                    // Reflow cursor if a line below it is deleted.
                     let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-                    if cursor_buffer_line == i && self.cursor.point.col >= cols {
-                        // Since only a single new line is created, we subtract only `cols` from
-                        // the cursor instead of reflowing it completely.
+                    if (i == cursor_buffer_line && self.cursor.point.col < cols)
+                        || i < cursor_buffer_line
+                    {
+                        self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
+                    }
+
+                    // Reflow the cursor if it is on this line beyond the width.
+                    if i == cursor_buffer_line && self.cursor.point.col >= cols {
+                        // Since only a single new line is created, we subtract only `cols`
+                        // from the cursor instead of reflowing it completely.
                         self.cursor.point.col -= cols;
                     }
 
@@ -333,7 +345,9 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         // Reflow the primary cursor, or clamp it if reflow is disabled.
         if !reflow {
             self.cursor.point.col = min(self.cursor.point.col, cols - 1);
-        } else if self.cursor.point.col == cols {
+        } else if self.cursor.point.col == cols
+            && !self[self.cursor.point.line][cols - 1].flags().contains(Flags::WRAPLINE)
+        {
             self.cursor.input_needs_wrap = true;
             self.cursor.point.col -= 1;
         } else {
