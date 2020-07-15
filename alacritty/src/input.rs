@@ -360,12 +360,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     #[inline]
     pub fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
+        let search_active = self.ctx.search_active();
         let size_info = self.ctx.size_info();
 
         let (x, y) = position.into();
 
         let lmb_pressed = self.ctx.mouse().left_button_state == ElementState::Pressed;
-        if !self.ctx.selection_is_empty() && lmb_pressed {
+        if !self.ctx.selection_is_empty() && lmb_pressed && !search_active {
             self.update_selection_scrolling(y);
         }
 
@@ -406,7 +407,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let last_term_line = self.ctx.terminal().grid().screen_lines() - 1;
         if (lmb_pressed || self.ctx.mouse().right_button_state == ElementState::Pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
-            && !self.ctx.search_active()
+            && !search_active
         {
             // Treat motion over message bar like motion over the last line.
             let line = min(point.line, last_term_line);
