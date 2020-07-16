@@ -83,10 +83,10 @@ impl From<TerminalEvent> for Event {
 /// Regex search state.
 pub struct SearchState {
     /// Search string regex.
-    pub regex: Option<String>,
+    regex: Option<String>,
 
     /// Search direction.
-    pub direction: Direction,
+    direction: Direction,
 
     /// Change in display offset since the beginning of the search.
     display_offset_delta: isize,
@@ -98,6 +98,16 @@ pub struct SearchState {
 impl SearchState {
     fn new() -> Self {
         Self::default()
+    }
+
+    /// Search regex text if a search is active.
+    pub fn regex(&self) -> Option<&String> {
+        self.regex.as_ref()
+    }
+
+    /// Direction of the search from the search origin.
+    pub fn direction(&self) -> Direction {
+        self.direction
     }
 }
 

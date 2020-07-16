@@ -410,6 +410,10 @@ impl Window {
         self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }
 
+    /// No-op, since Windows does not support IME positioning.
+    #[cfg(windows)]
+    pub fn update_ime_position(&mut self, _point: Point, _size_info: &SizeInfo) {}
+
     pub fn swap_buffers(&self) {
         self.windowed_context.swap_buffers().expect("swap buffers");
     }
