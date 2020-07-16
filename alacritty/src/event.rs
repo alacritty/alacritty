@@ -83,10 +83,10 @@ impl From<TerminalEvent> for Event {
 /// Regex search state.
 pub struct SearchState {
     /// Search string regex.
-    regex: Option<String>,
+    pub regex: Option<String>,
 
     /// Search direction.
-    direction: Direction,
+    pub direction: Direction,
 
     /// Change in display offset since the beginning of the search.
     display_offset_delta: isize,
@@ -836,7 +836,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
-                    self.search_state.regex.as_ref(),
+                    &self.search_state,
                 );
             }
         });
