@@ -97,9 +97,6 @@ zypper in alacritty
 
 ### Pop!\_OS
 
-> **Since this requires a Pop!\_OS specific PPA, it will not work on other Ubuntu
-> distributions.**
-
 ```sh
 apt install alacritty
 ```
