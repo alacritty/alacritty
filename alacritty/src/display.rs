@@ -579,7 +579,7 @@ impl Display {
 
         self.draw_render_timer(config, &size_info);
 
-        // Handle search bar rendering.
+        // Handle regex search.
         let ime_position = match search_state.regex() {
             Some(regex) => {
                 let search_label = match search_state.direction() {
@@ -587,10 +587,12 @@ impl Display {
                     Direction::Left => BACKWARD_SEARCH_LABEL,
                 };
 
-                let regex = Self::format_search(&size_info, regex, search_label);
+                let search_text = Self::format_search(&size_info, regex, search_label);
 
-                self.draw_search(config, &size_info, message_bar_lines, &regex);
+                // Render the search bar.
+                self.draw_search(config, &size_info, message_bar_lines, &search_text);
 
+                // Compute IME position.
                 Point::new(size_info.lines() - 1, Column(regex.len() - 1))
             },
             None => cursor_point,
@@ -653,13 +655,13 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         message_bar_lines: usize,
-        search_regex: &str,
+        text: &str,
     ) {
         let glyph_cache = &mut self.glyph_cache;
         let num_cols = size_info.cols().0;
 
         // Assure text length is at least num_cols.
-        let text = format!("{:<1$}", search_regex, num_cols);
+        let text = format!("{:<1$}", text, num_cols);
 
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
