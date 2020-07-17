@@ -402,6 +402,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn push_search(&mut self, c: char) {
         if let Some(regex) = self.search_state.regex.as_mut() {
+            // Prevent previous search selections from sticking around when not in vi mode.
+            if !self.terminal.mode().contains(TermMode::VI) {
+                self.terminal.selection = None;
+            }
+
             regex.push(c);
             self.update_search();
         }
