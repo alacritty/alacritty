@@ -579,7 +579,7 @@ impl Display {
 
         self.draw_render_timer(config, &size_info);
 
-        // Handle regex search.
+        // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
             Some(regex) => {
                 let search_label = match search_state.direction() {
