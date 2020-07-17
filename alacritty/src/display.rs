@@ -25,10 +25,7 @@ use font::set_font_smoothing;
 use font::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
-#[cfg(not(windows))]
-use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::index::Line;
-#[cfg(not(windows))]
+use alacritty_terminal::index::{Line, Direction};
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
@@ -36,7 +33,7 @@ use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 use crate::config::font::Font;
 use crate::config::window::StartupMode;
 use crate::config::Config;
-use crate::event::Mouse;
+use crate::event::{Mouse, SearchState};
 use crate::message_bar::MessageBuffer;
 use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
@@ -44,7 +41,8 @@ use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
 use crate::window::{self, Window};
 
-const SEARCH_LABEL: &str = "Search: ";
+const FORWARD_SEARCH_LABEL: &str = "Search: ";
+const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
 
 #[derive(Debug)]
 pub enum Error {
@@ -454,12 +452,12 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
-        search_regex: Option<&String>,
+        search_state: &SearchState,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
-        let search_regex = search_regex.map(|regex| Self::format_search(&regex));
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
+        let cursor_point = terminal.grid().cursor.point;
         let metrics = self.glyph_cache.font_metrics();
         let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
@@ -473,20 +471,6 @@ impl Display {
         } else {
             None
         };
-
-        // Update IME position.
-        #[cfg(not(windows))]
-        {
-            let point = match &search_regex {
-                Some(regex) => {
-                    let column = min(regex.len() + SEARCH_LABEL.len() - 1, terminal.cols().0 - 1);
-                    Point::new(terminal.screen_lines() - 1, Column(column))
-                },
-                None => terminal.grid().cursor.point,
-            };
-
-            self.window.update_ime_position(point, &self.size_info);
-        }
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
@@ -592,8 +576,29 @@ impl Display {
             self.renderer.draw_rects(&size_info, rects);
         }
 
-        self.draw_search(config, &size_info, message_bar_lines, search_regex);
         self.draw_render_timer(config, &size_info);
+
+        // Handle search and IME positioning.
+        let ime_position = match search_state.regex() {
+            Some(regex) => {
+                let search_label = match search_state.direction() {
+                    Direction::Right => FORWARD_SEARCH_LABEL,
+                    Direction::Left => BACKWARD_SEARCH_LABEL,
+                };
+
+                let search_text = Self::format_search(&size_info, regex, search_label);
+
+                // Render the search bar.
+                self.draw_search(config, &size_info, message_bar_lines, &search_text);
+
+                // Compute IME position.
+                Point::new(size_info.lines() - 1, Column(regex.len() - 1))
+            },
+            None => cursor_point,
+        };
+
+        // Update IME position.
+        self.window.update_ime_position(ime_position, &self.size_info);
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -616,7 +621,11 @@ impl Display {
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
-    fn format_search(search_regex: &str) -> String {
+    fn format_search(
+        size_info: &SizeInfo,
+        search_regex: &str,
+        search_label: &str,
+    ) -> String {
         // Add spacers for wide chars.
         let mut text = String::with_capacity(search_regex.len());
         for c in search_regex.chars() {
@@ -629,6 +638,13 @@ impl Display {
         // Add cursor to show whitespace.
         text.push('_');
 
+        // Add search to the beginning of the search text.
+        let num_cols = size_info.cols().0;
+        let label_len = search_label.len();
+        let text_len = text.len();
+        let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
+        text = format!("{}{}", search_label, &text[truncate_len..]);
+
         text
     }
 
@@ -638,25 +654,13 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         message_bar_lines: usize,
-        search_regex: Option<String>,
+        text: &str,
     ) {
-        let search_regex = match search_regex {
-            Some(search_regex) => search_regex,
-            None => return,
-        };
         let glyph_cache = &mut self.glyph_cache;
-
-        let label_len = SEARCH_LABEL.len();
         let num_cols = size_info.cols().0;
 
-        // Truncate beginning of text when it exceeds viewport width.
-        let text_len = search_regex.len();
-        let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
-        let text = &search_regex[truncate_len..];
-
         // Assure text length is at least num_cols.
-        let padding_len = num_cols.saturating_sub(label_len);
-        let text = format!("{}{:<2$}", SEARCH_LABEL, text, padding_len);
+        let text = format!("{:<1$}", text, num_cols);
 
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
