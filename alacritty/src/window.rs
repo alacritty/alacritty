@@ -33,9 +33,7 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
 
-#[cfg(not(windows))]
 use alacritty_terminal::index::Point;
-#[cfg(not(windows))]
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::window::{Decorations, StartupMode, WindowConfig};

@@ -26,7 +26,6 @@ use font::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::index::{Line, Direction};
-#[cfg(not(windows))]
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
