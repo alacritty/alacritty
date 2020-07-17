@@ -592,7 +592,7 @@ impl Display {
                 self.draw_search(config, &size_info, message_bar_lines, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.lines() - 1, Column(regex.len() - 1))
+                Point::new(size_info.lines() - 1, Column(search_text.len() - 1))
             },
             None => cursor_point,
         };
@@ -627,25 +627,31 @@ impl Display {
         search_label: &str,
     ) -> String {
         // Add spacers for wide chars.
-        let mut text = String::with_capacity(search_regex.len());
+        let mut formatted_regex = String::with_capacity(search_regex.len());
         for c in search_regex.chars() {
-            text.push(c);
+            formatted_regex.push(c);
             if c.width() == Some(2) {
-                text.push(' ');
+                formatted_regex.push(' ');
             }
         }
 
         // Add cursor to show whitespace.
-        text.push('_');
+        formatted_regex.push('_');
 
-        // Add search to the beginning of the search text.
+        // Truncate beginning of the search regex if it exceeds the viewport width.
         let num_cols = size_info.cols().0;
         let label_len = search_label.len();
-        let text_len = text.len();
-        let truncate_len = min((text_len + label_len).saturating_sub(num_cols), text_len);
-        text = format!("{}{}", search_label, &text[truncate_len..]);
+        let regex_len = formatted_regex.len();
+        let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
+        let truncated_regex = &formatted_regex[truncate_len..];
 
-        text
+        // Add search label to the beginning of the search regex.
+        let mut bar_text = format!("{}{}", search_label, truncated_regex);
+
+        // Make sure the label alone doesn't exceed the viewport width.
+        bar_text.truncate(num_cols);
+
+        bar_text
     }
 
     /// Draw current search regex.
