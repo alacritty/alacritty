@@ -99,6 +99,16 @@ impl SearchState {
     fn new() -> Self {
         Self::default()
     }
+
+    /// Search regex text if a search is active.
+    pub fn regex(&self) -> Option<&String> {
+        self.regex.as_ref()
+    }
+
+    /// Direction of the search from the search origin.
+    pub fn direction(&self) -> Direction {
+        self.direction
+    }
 }
 
 impl Default for SearchState {
@@ -836,7 +846,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
-                    self.search_state.regex.as_ref(),
+                    &self.search_state,
                 );
             }
         });
