@@ -1,8 +1,8 @@
 [package]
-name = "font"
+name = "crossfont"
 version = "0.1.0"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
-description = "Font rendering using the best available solution per platform"
+description = "Cross platform native font loading and rasterization"
 license = "Apache-2.0"
 edition = "2018"
 

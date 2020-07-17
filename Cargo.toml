@@ -2,7 +2,7 @@
 members = [
     "alacritty",
     "alacritty_terminal",
-    "font",
+    "crossfont",
 ]
 
 [profile.release]

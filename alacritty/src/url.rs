@@ -3,8 +3,7 @@ use std::mem;
 
 use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
-
-use font::Metrics;
+use crossfont::Metrics;
 
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
