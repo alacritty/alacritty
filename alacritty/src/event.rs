@@ -601,6 +601,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn absolute_origin(&self) -> Point<usize> {
         let mut relative_origin = self.search_state.origin;
         relative_origin.line = min(relative_origin.line, self.terminal.screen_lines() - 1);
+        relative_origin.col = min(relative_origin.col, self.terminal.cols() - 1);
         let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
