@@ -1,6 +1,6 @@
 use std::fmt;
 
-use font::Size;
+use crossfont::Size;
 use log::error;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};

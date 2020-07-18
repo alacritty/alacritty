@@ -25,8 +25,8 @@ use log::info;
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
-use font::set_font_smoothing;
-use font::{self, Size};
+use crossfont::set_font_smoothing;
+use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
