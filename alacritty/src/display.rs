@@ -21,12 +21,12 @@ use unicode_width::UnicodeWidthChar;
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 #[cfg(target_os = "macos")]
-use font::set_font_smoothing;
-use font::{self, Rasterize, Rasterizer};
+use crossfont::set_font_smoothing;
+use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
-use alacritty_terminal::index::{Line, Direction};
 use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::index::{Direction, Line};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
@@ -50,7 +50,7 @@ pub enum Error {
     Window(window::Error),
 
     /// Error dealing with fonts.
-    Font(font::Error),
+    Font(crossfont::Error),
 
     /// Error in renderer.
     Render(renderer::Error),
@@ -87,8 +87,8 @@ impl From<window::Error> for Error {
     }
 }
 
-impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Self {
+impl From<crossfont::Error> for Error {
+    fn from(val: crossfont::Error) -> Self {
         Error::Font(val)
     }
 }
@@ -621,11 +621,7 @@ impl Display {
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
-    fn format_search(
-        size_info: &SizeInfo,
-        search_regex: &str,
-        search_label: &str,
-    ) -> String {
+    fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
         // Add spacers for wide chars.
         let mut formatted_regex = String::with_capacity(search_regex.len());
         for c in search_regex.chars() {
@@ -721,7 +717,7 @@ fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
 
 /// Calculate the cell dimensions based on font metrics.
 #[inline]
-fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> (f32, f32) {
+fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32) {
     let offset_x = f64::from(config.ui_config.font.offset.x);
     let offset_y = f64::from(config.ui_config.font.offset.y);
     (
