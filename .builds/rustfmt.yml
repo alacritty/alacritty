@@ -4,7 +4,7 @@ sources:
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain none
-      rustup toolchain install nightly -c rustfmt
+      $HOME/.cargo/bin/rustup toolchain install nightly -c rustfmt
   - rustfmt: |
       cd alacritty
       $HOME/.cargo/bin/cargo fmt -- --check
