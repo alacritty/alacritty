@@ -9,11 +9,11 @@ use std::ptr;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use fnv::FnvHasher;
 use crossfont::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
     Style, Weight,
 };
+use fnv::FnvHasher;
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 

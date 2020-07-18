@@ -25,8 +25,8 @@ use crossfont::set_font_smoothing;
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
-use alacritty_terminal::index::{Line, Direction};
 use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::index::{Direction, Line};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
@@ -621,11 +621,7 @@ impl Display {
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
-    fn format_search(
-        size_info: &SizeInfo,
-        search_regex: &str,
-        search_label: &str,
-    ) -> String {
+    fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
         // Add spacers for wide chars.
         let mut formatted_regex = String::with_capacity(search_regex.len());
         for c in search_regex.chars() {
