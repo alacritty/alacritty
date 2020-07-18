@@ -45,6 +45,9 @@ issues.
 Please note that the minimum supported version of Alacritty is Rust 1.41.0. All patches are expected
 to work with the minimum supported version.
 
+If you have made any breaking changes to `alacritty_terminal`, make sure to bump its version
+according to semver.
+
 ### Testing
 
 To make sure no regressions were introduced, all tests should be run before sending a pull request.
@@ -144,6 +147,12 @@ The exact steps for an exemplary `0.2.3` release might look like this:
  5. The version is bumped to `v0.2.3-rc1` and the changelog is updated to include all fixes
  6. Follow Steps 5-12 of the regular release's example
  7. The release's changelog is ported back to master, removing fixes from the `0.2.3` release
+
+The `alacritty_terminal` crate follows the same process as `alacritty`, tagging its releases as
+`-dev` and `-rc1` at the same time as the `alacritty` crate. New releases are tagged as
+`alacritty_terminal_vX.Y.Z` whenever a new Alacritty stable release is made. Versions are always
+bumped based on semver, increasing just the patch version until there is a breaking change or new
+feature introduced.
 
 # Contact
 
