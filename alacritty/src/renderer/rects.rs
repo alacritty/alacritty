@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use font::Metrics;
+use crossfont::Metrics;
 
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;

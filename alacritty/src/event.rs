@@ -25,8 +25,8 @@ use log::info;
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
-use font::set_font_smoothing;
-use font::{self, Size};
+use crossfont::set_font_smoothing;
+use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
@@ -98,6 +98,16 @@ pub struct SearchState {
 impl SearchState {
     fn new() -> Self {
         Self::default()
+    }
+
+    /// Search regex text if a search is active.
+    pub fn regex(&self) -> Option<&String> {
+        self.regex.as_ref()
+    }
+
+    /// Direction of the search from the search origin.
+    pub fn direction(&self) -> Direction {
+        self.direction
     }
 }
 
@@ -402,6 +412,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn push_search(&mut self, c: char) {
         if let Some(regex) = self.search_state.regex.as_mut() {
+            // Prevent previous search selections from sticking around when not in vi mode.
+            if !self.terminal.mode().contains(TermMode::VI) {
+                self.terminal.selection = None;
+            }
+
             regex.push(c);
             self.update_search();
         }
@@ -586,6 +601,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn absolute_origin(&self) -> Point<usize> {
         let mut relative_origin = self.search_state.origin;
         relative_origin.line = min(relative_origin.line, self.terminal.screen_lines() - 1);
+        relative_origin.col = min(relative_origin.col, self.terminal.cols() - 1);
         let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
@@ -831,7 +847,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
-                    self.search_state.regex.as_ref(),
+                    &self.search_state,
                 );
             }
         });

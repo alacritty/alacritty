@@ -2,9 +2,9 @@
 
 use std::cmp;
 
-use alacritty_terminal::ansi::CursorStyle;
+use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
-use font::{BitmapBuffer, Metrics, RasterizedGlyph};
+use alacritty_terminal::ansi::CursorStyle;
 
 pub fn get_cursor_glyph(
     cursor: CursorStyle,

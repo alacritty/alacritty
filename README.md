@@ -95,13 +95,7 @@ nix-env -iA nixos.alacritty
 zypper in alacritty
 ```
 
-### Pop!\_OS / Ubuntu
-
-> If you're not running Pop!_OS, you'll have to add a third party repository first:
->
-> ```sh
-> add-apt-repository ppa:mmstick76/alacritty
-> ```
+### Pop!\_OS
 
 ```sh
 apt install alacritty

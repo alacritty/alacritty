@@ -9,18 +9,14 @@ use std::ptr;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use fnv::FnvHasher;
-use font::{
+use crossfont::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
     Style, Weight,
 };
+use fnv::FnvHasher;
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::cursor;
-use crate::gl;
-use crate::gl::types::*;
-use crate::renderer::rects::RenderRect;
 use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{self, Flags};
@@ -28,11 +24,15 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::thread;
 
-pub mod rects;
-
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
 use crate::config::window::{StartupMode, WindowConfig};
+use crate::cursor;
+use crate::gl;
+use crate::gl::types::*;
+use crate::renderer::rects::RenderRect;
+
+pub mod rects;
 
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.f.glsl");
@@ -166,13 +166,13 @@ pub struct GlyphCache {
     bold_italic_key: FontKey,
 
     /// Font size.
-    font_size: font::Size,
+    font_size: crossfont::Size,
 
     /// Glyph offset.
     glyph_offset: Delta<i8>,
 
     /// Font metrics.
-    metrics: font::Metrics,
+    metrics: crossfont::Metrics,
 }
 
 impl GlyphCache {
@@ -180,7 +180,7 @@ impl GlyphCache {
         mut rasterizer: Rasterizer,
         font: &Font,
         loader: &mut L,
-    ) -> Result<GlyphCache, font::Error>
+    ) -> Result<GlyphCache, crossfont::Error>
     where
         L: LoadGlyph,
     {
@@ -222,7 +222,7 @@ impl GlyphCache {
     fn compute_font_keys(
         font: &Font,
         rasterizer: &mut Rasterizer,
-    ) -> Result<(FontKey, FontKey, FontKey, FontKey), font::Error> {
+    ) -> Result<(FontKey, FontKey, FontKey, FontKey), crossfont::Error> {
         let size = font.size;
 
         // Load regular font.
@@ -261,7 +261,7 @@ impl GlyphCache {
         rasterizer: &mut Rasterizer,
         description: &FontDesc,
         size: Size,
-    ) -> Result<FontKey, font::Error> {
+    ) -> Result<FontKey, crossfont::Error> {
         match rasterizer.load_font(description, size) {
             Ok(font) => Ok(font),
             Err(err) => {
@@ -316,7 +316,7 @@ impl GlyphCache {
         font: &Font,
         dpr: f64,
         loader: &mut L,
-    ) -> Result<(), font::Error> {
+    ) -> Result<(), crossfont::Error> {
         // Update dpi scaling.
         self.rasterizer.update_dpr(dpr as f32);
 
@@ -341,7 +341,7 @@ impl GlyphCache {
         Ok(())
     }
 
-    pub fn font_metrics(&self) -> font::Metrics {
+    pub fn font_metrics(&self) -> crossfont::Metrics {
         self.metrics
     }
 
@@ -354,8 +354,8 @@ impl GlyphCache {
     }
 
     /// Calculate font metrics without access to a glyph cache.
-    pub fn static_metrics(font: Font, dpr: f64) -> Result<font::Metrics, font::Error> {
-        let mut rasterizer = font::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
+    pub fn static_metrics(font: Font, dpr: f64) -> Result<crossfont::Metrics, crossfont::Error> {
+        let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
         let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
         let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size)?;
         rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;

@@ -33,9 +33,7 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
 
-#[cfg(not(windows))]
 use alacritty_terminal::index::Point;
-#[cfg(not(windows))]
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::window::{Decorations, StartupMode, WindowConfig};
@@ -57,7 +55,7 @@ pub enum Error {
     ContextCreation(glutin::CreationError),
 
     /// Error dealing with fonts.
-    Font(font::Error),
+    Font(crossfont::Error),
 
     /// Error manipulating the rendering context.
     Context(glutin::ContextError),
@@ -98,8 +96,8 @@ impl From<glutin::ContextError> for Error {
     }
 }
 
-impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Self {
+impl From<crossfont::Error> for Error {
+    fn from(val: crossfont::Error) -> Self {
         Error::Font(val)
     }
 }
@@ -409,6 +407,10 @@ impl Window {
 
         self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }
+
+    /// No-op, since Windows does not support IME positioning.
+    #[cfg(windows)]
+    pub fn update_ime_position(&mut self, _point: Point, _size_info: &SizeInfo) {}
 
     pub fn swap_buffers(&self) {
         self.windowed_context.swap_buffers().expect("swap buffers");
