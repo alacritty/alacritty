@@ -45,8 +45,8 @@ issues.
 Please note that the minimum supported version of Alacritty is Rust 1.41.0. All patches are expected
 to work with the minimum supported version.
 
-If you have made any breaking changes to `alacritty_terminal`, make sure to bump its version
-according to semver.
+Since `alacritty_terminal`'s version always tracks the next release, make sure that the version is
+bumped according to semver when necessary.
 
 ### Testing
 
@@ -131,10 +131,11 @@ The exact steps for an exemplary `0.2.0` release might look like this:
      major issues are found in the release candidates
   9. In the branch, the version is bumped to `0.2.0`
  10. The new commit in the branch is tagged as `v0.2.0`
- 11. A GitHub release is created for the `v0.2.0` tag
- 12. The changelog since the last stable release (**not** RC) is added to the GitHub release
+ 11. The new version is published to crates.io
+ 12. A GitHub release is created for the `v0.2.0` tag
+ 13. The changelog since the last stable release (**not** RC) is added to the GitHub release
      description
- 13. The `-dev` is stripped from the `0.2.0-dev` changelog entries on master
+ 14. The `-dev` is stripped from the `0.2.0-dev` changelog entries on master
 
 On master and with new planned releases, only the minor version is bumped. This makes it possible to
 create bug fix releases by incrementing the patch version of a previous minor release, without
@@ -148,11 +149,11 @@ The exact steps for an exemplary `0.2.3` release might look like this:
  6. Follow Steps 5-12 of the regular release's example
  7. The release's changelog is ported back to master, removing fixes from the `0.2.3` release
 
-The `alacritty_terminal` crate follows the same process as `alacritty`, tagging its releases as
-`-dev` and `-rc1` at the same time as the `alacritty` crate. New releases are tagged as
-`alacritty_terminal_vX.Y.Z` whenever a new Alacritty stable release is made. Versions are always
-bumped based on semver, increasing just the patch version until there is a breaking change or new
-feature introduced.
+The `alacritty_terminal` crate is released in synchronization with `alacritty`, keeping the `-dev`
+and `-rcX` version suffix identical across the two crates. As soon as the new Alacritty stable
+release is made, releases are tagged as `alacritty_terminal_vX.Y.Z` and pushed to crates.io. During
+a release, only the patch version is bumped on master, since there haven't been any changes since
+the last release yet.
 
 # Contact
 
