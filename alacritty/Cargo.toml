@@ -8,8 +8,12 @@ readme = "../README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
+[dependencies.alacritty_terminal]
+path = "../alacritty_terminal"
+version = "0.10.0-dev"
+default-features = false
+
 [dependencies]
-alacritty_terminal = { path = "../alacritty_terminal", default-features = false }
 clap = "2"
 log = { version = "0.4", features = ["std"] }
 time = "0.1.40"
