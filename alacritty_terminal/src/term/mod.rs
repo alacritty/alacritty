@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{io, iter, mem, ptr, str};
+use std::{env, io, iter, mem, ptr, str};
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -1496,9 +1496,18 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn identify_terminal<W: io::Write>(&mut self, writer: &mut W) {
-        trace!("Reporting terminal identity");
-        let _ = writer.write_all(b"\x1b[?6c");
+    fn identify_terminal<W: io::Write>(&mut self, writer: &mut W, intermediate: Option<char>) {
+        match intermediate {
+            None => {
+                println!("Reporting primary device attributes");
+                let _ = writer.write_all(b"\x1b[?6c");
+            },
+            Some('>') => {
+                println!("Reporting secondary device attributes");
+                let _ = writer.write_all(format!("\x1b[>0;{};1c", version_number()).as_bytes());
+            },
+            _ => println!("Unsupported device attributes intermediate"),
+        }
     }
 
     #[inline]
@@ -2184,6 +2193,28 @@ impl<T: EventListener> Handler for Term<T> {
     }
 }
 
+/// Terminal version for escape sequence reports.
+///
+/// This reports Alacritty's current version as a unique number based on its semver version. The
+/// different versions are padded to ensure that a higher semver version will always report a
+/// higher version number.
+fn version_number() -> usize {
+    let mut version = env::var("CARGO_PKG_VERSION").unwrap_or_default();
+    if let Some(separator) = version.rfind('-') {
+        version.truncate(separator);
+    }
+
+    let mut version_number = 0;
+
+    let semver_versions = version.split('.');
+    for (i, semver_version) in semver_versions.rev().enumerate() {
+        let semver_number = semver_version.parse::<usize>().unwrap_or(0);
+        version_number += usize::pow(100, i as u32) * semver_number;
+    }
+
+    version_number
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClipboardType {
     Clipboard,
@@ -2687,6 +2718,23 @@ mod tests {
         term.title = Some("Test".into());
         term.set_title(None);
         assert_eq!(term.title, None);
+    }
+
+    #[test]
+    fn parse_cargo_version() {
+        assert!(version_number() >= 10_01);
+
+        env::set_var("CARGO_PKG_VERSION", "0.0.1-dev");
+        assert_eq!(version_number(), 1);
+
+        env::set_var("CARGO_PKG_VERSION", "0.1.2-dev");
+        assert_eq!(version_number(), 1_02);
+
+        env::set_var("CARGO_PKG_VERSION", "1.2.3-dev");
+        assert_eq!(version_number(), 1_02_03);
+
+        env::set_var("CARGO_PKG_VERSION", "999.99.99");
+        assert_eq!(version_number(), 9_99_99_99);
     }
 }
 

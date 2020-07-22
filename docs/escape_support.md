@@ -43,7 +43,7 @@ brevity.
 | `CSI B`    | IMPLEMENTED |                                                   |
 | `CSI b`    | IMPLEMENTED |                                                   |
 | `CSI C`    | IMPLEMENTED |                                                   |
-| `CSI c`    | PARTIAL     | No parameter support                              |
+| `CSI c`    | IMPLEMENTED |                                                   |
 | `CSI D`    | IMPLEMENTED |                                                   |
 | `CSI d`    | IMPLEMENTED |                                                   |
 | `CSI E`    | IMPLEMENTED |                                                   |
