@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for Fontconfig embolden and matrix options
 - Opt-out compilation flag `winpty` to disable WinPTY support
 - Scrolling during selection when mouse is at top/bottom of window
-- Expanding existing selections using the right mouse button
+- Expanding existing selections using single, double and triple click with the right mouse button
 - Support for `gopher` and `gemini` URLs
 - Unicode 13 support
 - Option to run command on bell which can be set in `bell.command`
