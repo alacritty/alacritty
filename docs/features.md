@@ -36,16 +36,16 @@ file].
 
 ## Search
 
-Search allows you to find anything in Alacritty's scrollback buffer, it can be
-launched either directly (<kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd>), or
-from vi mode (<kbd>/</kbd>).
+Search allows you to find anything in Alacritty's scrollback buffer. You can
+search forward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd> and
+backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd>.
 
 ### Vi Search
 
-When using search while the vi mode is active, it can be used to quickly move
-around the scrollback buffer. The bindings <kbd>Ctrl</kbd> <kbd>n</kbd> and
-<kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>n</kbd> allow you to navigate within
-matches, which make them useful tools for selecting your matches.
+In vi mode the search is bound to <kbd>/</kbd> for forward and <kbd>?</kbd> for
+backward search. This allows you to move around quickly and help with selecting
+content. The `SearchStart` and `SearchEnd` keybinding actions can be bound if
+you're looking for a way to jump to either end of a match.
 
 ### Normal Search
 
