@@ -1496,9 +1496,19 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn identify_terminal<W: io::Write>(&mut self, writer: &mut W) {
-        trace!("Reporting terminal identity");
-        let _ = writer.write_all(b"\x1b[?6c");
+    fn identify_terminal<W: io::Write>(&mut self, writer: &mut W, intermediate: Option<char>) {
+        match intermediate {
+            None => {
+                trace!("Reporting primary device attributes");
+                let _ = writer.write_all(b"\x1b[?6c");
+            },
+            Some('>') => {
+                trace!("Reporting secondary device attributes");
+                let version = version_number(env!("CARGO_PKG_VERSION"));
+                let _ = writer.write_all(format!("\x1b[>0;{};1c", version).as_bytes());
+            },
+            _ => debug!("Unsupported device attributes intermediate"),
+        }
     }
 
     #[inline]
@@ -2184,6 +2194,27 @@ impl<T: EventListener> Handler for Term<T> {
     }
 }
 
+/// Terminal version for escape sequence reports.
+///
+/// This returns the current terminal version as a unique number based on alacritty_terminal's
+/// semver version. The different versions are padded to ensure that a higher semver version will
+/// always report a higher version number.
+fn version_number(mut version: &str) -> usize {
+    if let Some(separator) = version.rfind('-') {
+        version = &version[..separator];
+    }
+
+    let mut version_number = 0;
+
+    let semver_versions = version.split('.');
+    for (i, semver_version) in semver_versions.rev().enumerate() {
+        let semver_number = semver_version.parse::<usize>().unwrap_or(0);
+        version_number += usize::pow(100, i as u32) * semver_number;
+    }
+
+    version_number
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClipboardType {
     Clipboard,
@@ -2687,6 +2718,15 @@ mod tests {
         term.title = Some("Test".into());
         term.set_title(None);
         assert_eq!(term.title, None);
+    }
+
+    #[test]
+    fn parse_cargo_version() {
+        assert!(version_number(env!("CARGO_PKG_VERSION")) >= 10_01);
+        assert_eq!(version_number("0.0.1-dev"), 1);
+        assert_eq!(version_number("0.1.2-dev"), 1_02);
+        assert_eq!(version_number("1.2.3-dev"), 1_02_03);
+        assert_eq!(version_number("999.99.99"), 9_99_99_99);
     }
 }
 

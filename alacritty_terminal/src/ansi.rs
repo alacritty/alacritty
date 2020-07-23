@@ -164,7 +164,7 @@ pub trait Handler {
     /// Identify the terminal (should write back to the pty stream).
     ///
     /// TODO this should probably return an io::Result
-    fn identify_terminal<W: io::Write>(&mut self, _: &mut W) {}
+    fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {}
 
     /// Report device status.
     fn device_status<W: io::Write>(&mut self, _: &mut W, _: usize) {}
@@ -973,8 +973,8 @@ where
             ('C', None) | ('a', None) => {
                 handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize))
             },
-            ('c', None) if arg_or_default!(idx: 0, default: 0) == 0 => {
-                handler.identify_terminal(writer)
+            ('c', intermediate) if arg_or_default!(idx: 0, default: 0) == 0 => {
+                handler.identify_terminal(writer, intermediate.map(|&i| i as char))
             },
             ('D', None) => {
                 handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize))
@@ -1148,7 +1148,7 @@ where
             },
             (b'H', None) => self.handler.set_horizontal_tabstop(),
             (b'M', None) => self.handler.reverse_index(),
-            (b'Z', None) => self.handler.identify_terminal(self.writer),
+            (b'Z', None) => self.handler.identify_terminal(self.writer, None),
             (b'c', None) => self.handler.reset_state(),
             (b'0', intermediate) => {
                 configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing, intermediate)
@@ -1408,7 +1408,7 @@ mod tests {
             self.index = index;
         }
 
-        fn identify_terminal<W: io::Write>(&mut self, _: &mut W) {
+        fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {
             self.identity_reported = true;
         }
 

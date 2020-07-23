@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.6.0-dev
 
+### Added
+
+- Secondary device attributes escape (`CSI > 0 c`)
+
 ## 0.5.0-dev
 
 ### Packaging
