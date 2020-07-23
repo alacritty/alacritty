@@ -61,4 +61,12 @@ Double-clicking will expand the selection semantically, while triple-clicking
 will perform line selection. If you hold <kbd>Ctrl</kbd> while expanding the
 selection, it will switch to the block selection mode.
 
+## Opening URLs with the mouse
+
+You can open URLs with your mouse by clicking on them. The modifiers required to
+be held and program which should open the URL can be setup in the configuration
+file. If an application captures your mouse clicks, which is indicated by a
+change in mouse cursor shape, you're required to hold <kbd>Shift</kbd> to bypass
+that.
+
 [configuration file]: ../alacritty.yml
