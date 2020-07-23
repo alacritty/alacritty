@@ -45,7 +45,7 @@ backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd>.
 In vi mode the search is bound to <kbd>/</kbd> for forward and <kbd>?</kbd> for
 backward search. This allows you to move around quickly and help with selecting
 content. The `SearchStart` and `SearchEnd` keybinding actions can be bound if
-you're looking for a way to jump to either end of a match.
+you're looking for a way to jump to the start or the end of a match.
 
 ### Normal Search
 
