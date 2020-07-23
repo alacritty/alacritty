@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{env, io, iter, mem, ptr, str};
+use std::{io, iter, mem, ptr, str};
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -1504,7 +1504,8 @@ impl<T: EventListener> Handler for Term<T> {
             },
             Some('>') => {
                 trace!("Reporting secondary device attributes");
-                let _ = writer.write_all(format!("\x1b[>0;{};1c", version_number()).as_bytes());
+                let version = version_number(env!("CARGO_PKG_VERSION"));
+                let _ = writer.write_all(format!("\x1b[>0;{};1c", version).as_bytes());
             },
             _ => debug!("Unsupported device attributes intermediate"),
         }
@@ -2195,13 +2196,12 @@ impl<T: EventListener> Handler for Term<T> {
 
 /// Terminal version for escape sequence reports.
 ///
-/// This reports Alacritty's current version as a unique number based on its semver version. The
-/// different versions are padded to ensure that a higher semver version will always report a
-/// higher version number.
-fn version_number() -> usize {
-    let mut version = env::var("CARGO_PKG_VERSION").unwrap_or_default();
+/// This returns the current terminal version as a unique number based on alacritty_terminal's
+/// semver version. The different versions are padded to ensure that a higher semver version will
+/// always report a higher version number.
+fn version_number(mut version: &str) -> usize {
     if let Some(separator) = version.rfind('-') {
-        version.truncate(separator);
+        version = &version[..separator];
     }
 
     let mut version_number = 0;
@@ -2722,19 +2722,11 @@ mod tests {
 
     #[test]
     fn parse_cargo_version() {
-        assert!(version_number() >= 10_01);
-
-        env::set_var("CARGO_PKG_VERSION", "0.0.1-dev");
-        assert_eq!(version_number(), 1);
-
-        env::set_var("CARGO_PKG_VERSION", "0.1.2-dev");
-        assert_eq!(version_number(), 1_02);
-
-        env::set_var("CARGO_PKG_VERSION", "1.2.3-dev");
-        assert_eq!(version_number(), 1_02_03);
-
-        env::set_var("CARGO_PKG_VERSION", "999.99.99");
-        assert_eq!(version_number(), 9_99_99_99);
+        assert!(version_number(env!("CARGO_PKG_VERSION")) >= 10_01);
+        assert_eq!(version_number("0.0.1-dev"), 1);
+        assert_eq!(version_number("0.1.2-dev"), 1_02);
+        assert_eq!(version_number("1.2.3-dev"), 1_02_03);
+        assert_eq!(version_number("999.99.99"), 9_99_99_99);
     }
 }
 
