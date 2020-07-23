@@ -1499,14 +1499,14 @@ impl<T: EventListener> Handler for Term<T> {
     fn identify_terminal<W: io::Write>(&mut self, writer: &mut W, intermediate: Option<char>) {
         match intermediate {
             None => {
-                println!("Reporting primary device attributes");
+                trace!("Reporting primary device attributes");
                 let _ = writer.write_all(b"\x1b[?6c");
             },
             Some('>') => {
-                println!("Reporting secondary device attributes");
+                trace!("Reporting secondary device attributes");
                 let _ = writer.write_all(format!("\x1b[>0;{};1c", version_number()).as_bytes());
             },
-            _ => println!("Unsupported device attributes intermediate"),
+            _ => debug!("Unsupported device attributes intermediate"),
         }
     }
 
