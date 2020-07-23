@@ -61,13 +61,4 @@ Double-clicking will expand the selection semantically, while triple-clicking
 will perform line selection. If you hold <kbd>Ctrl</kbd> while expanding the
 selection, it will switch to the block selection mode.
 
-## Emojis
-
-TODO: -> Should this be mentioned at all?  -> Fontconfig instructions for
-debugging?  -> Maybe a troubleshooting section in the wiki is better?
-
-## URLs
-
-TODO: -> Should this be mentioned at all?  -> Tell people about shift?
-
 [configuration file]: ../alacritty.yml
