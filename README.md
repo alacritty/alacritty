@@ -13,6 +13,36 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
        src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
 </p>
 
+- [About](#about)
+- [Features](#features)
+- [Further information](#further-information)
+- [Installation](#installation)
+  - [Alpine Linux](#alpine-linux)
+  - [Arch Linux](#arch-linux)
+  - [Fedora](#fedora)
+  - [Gentoo Linux](#gentoo-linux)
+  - [GNU Guix](#gnu-guix)
+  - [Mageia](#mageia)
+  - [NixOS](#nixos)
+  - [openSUSE Tumbleweed](#opensuse-tumbleweed)
+  - [Pop!\_OS](#pop_os)
+  - [Solus](#solus)
+  - [Void Linux](#void-linux)
+  - [FreeBSD](#freebsd)
+  - [macOS](#macos)
+  - [Windows](#windows)
+    - [Via Chocolatey](#via-chocolatey)
+    - [Via Scoop](#via-scoop)
+  - [Other](#other)
+- [Configuration](#configuration)
+  - [Windows](#windows-1)
+- [Contributing](#contributing)
+- [Issues (known, unknown, feature requests, etc.)](#issues-known-unknown-feature-requests-etc)
+- [FAQ](#faq)
+- [IRC](#irc)
+- [Wayland](#wayland)
+- [License](#license)
+
 ## About
 
 Alacritty is a terminal emulator with a strong focus on simplicity and
