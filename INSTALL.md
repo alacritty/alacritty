@@ -234,6 +234,9 @@ sudo desktop-file-install extra/linux/Alacritty.desktop
 sudo update-desktop-database
 ```
 
+You can find a prerendered SVG logo as well as simplified versions of the SVG in
+the `extra/logo/compat` directory.
+
 ### MacOS
 
 To build an application for macOS, run
