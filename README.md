@@ -150,11 +150,8 @@ scoop install alacritty
 
 ### Other
 
-Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the
-[GitHub releases page](https://github.com/alacritty/alacritty/releases). If your
-desktop environment has trouble rendering the default SVG icons, you can find
-a prerendered SVG as well as simplified versions of the SVG in the
-`extra/logo/compat` directory.
+Prebuilt binaries for macOS, and Windows can be downloaded from the
+[GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
 On Windows, Alacritty also requires Microsoft's VC++ redistributable.
 
