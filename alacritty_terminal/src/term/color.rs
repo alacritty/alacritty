@@ -26,6 +26,8 @@ pub struct Rgb {
 }
 
 impl Rgb {
+    /// Implementation of W3C's luminance algorithm:
+    /// https://www.w3.org/TR/WCAG20/#relativeluminancedef
     fn luminance(&self) -> f64 {
         let channel_luminance = |channel| {
             let channel = channel as f64 / 255.;
@@ -43,6 +45,8 @@ impl Rgb {
         0.2126 * r_luminance + 0.7152 * g_luminance + 0.0722 * b_luminance
     }
 
+    /// Implementation of W3C's contrast algorithm:
+    /// https://www.w3.org/TR/WCAG20/#contrast-ratiodef
     pub fn contrast(&self, other: Rgb) -> f64 {
         let self_luminance = self.luminance();
         let other_luminance = other.luminance();
