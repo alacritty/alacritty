@@ -17,9 +17,8 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
 - [Features](#features)
 - [Further information](#further-information)
 - [Installation](#installation)
-  - [OS package installation](#os-package-installation)
   - [Manual installation](#manual-installation)
-  - [Other](#other)
+  - [Prebuilt binaries](#prebuilt-binaries)
 - [Configuration](#configuration)
   - [Windows](#windows)
 - [Contributing](#contributing)
@@ -58,15 +57,11 @@ You can find an overview over the features available in Alacritty [here](./docs/
 
 ## Installation
 
-### OS package installation
-
-Some operating systems already provide binaries for Alacritty, see instructions [here](OS-PKGS-INSTALL.md). 
-
 ### Manual installation
 
 For everyone else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
-### Other
+### Prebuilt binaries
 
 Prebuilt binaries for macOS, and Windows can be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
