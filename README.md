@@ -13,21 +13,6 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
        src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
 </p>
 
-- [About](#about)
-- [Features](#features)
-- [Further information](#further-information)
-- [Installation](#installation)
-  - [Manual installation](#manual-installation)
-  - [Prebuilt binaries](#prebuilt-binaries)
-- [Configuration](#configuration)
-  - [Windows](#windows)
-- [Contributing](#contributing)
-- [Issues (known, unknown, feature requests, etc.)](#issues-known-unknown-feature-requests-etc)
-- [FAQ](#faq)
-- [IRC](#irc)
-- [Wayland](#wayland)
-- [License](#license)
-
 ## About
 
 Alacritty is a terminal emulator with a strong focus on simplicity and
@@ -57,11 +42,7 @@ You can find an overview over the features available in Alacritty [here](./docs/
 
 ## Installation
 
-### Manual installation
-
-For everyone else the instructions to build Alacritty from source can be found [here](INSTALL.md).
-
-### Prebuilt binaries
+Alacritty can be installed by using various package managers on Linux, BSD, MacOS and Windows.
 
 Prebuilt binaries for macOS, and Windows can be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
@@ -73,6 +54,8 @@ requires winpty to emulate UNIX's PTY API. The agent is a single binary
 (`winpty-agent.exe`) which **must** be in the same directory as the Alacritty
 executable and is available through the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
+
+For everyone else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
 ## Configuration
 
