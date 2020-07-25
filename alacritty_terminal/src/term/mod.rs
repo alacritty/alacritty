@@ -389,13 +389,18 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
             if self.cursor.point.line == self.inner.line()
                 && self.cursor.point.col == self.inner.column()
             {
-                // Handle cell below cursor.
                 if self.cursor.rendered {
+                    // Handle cell below cursor.
                     let cell = self.inner.next()?;
                     let mut cell = RenderableCell::new(self, cell);
 
                     if self.cursor.key.style == CursorStyle::Block {
-                        cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                        // Invert cursor if static background matches the cell's background.
+                        if CellRgb::Rgb(cell.bg) == self.cursor.cursor_color {
+                            cell.fg = cell.bg;
+                        } else {
+                            cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                        }
                     }
 
                     return Some(cell);
@@ -412,7 +417,11 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
 
                     let mut cell = RenderableCell::new(self, cell);
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
-                    cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+
+                    // Only apply static color if it doesn't match the cell's current background.
+                    if CellRgb::Rgb(cell.bg) != self.cursor.cursor_color {
+                        cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+                    }
 
                     return Some(cell);
                 }
