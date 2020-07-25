@@ -31,6 +31,9 @@ mod search;
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
+/// Minimum contrast between a fixed cursor color and the cell's background.
+const MIN_CURSOR_CONTRAST: f64 = 1.5;
+
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 const MAX_SEARCH_LINES: usize = 100;
 
@@ -396,10 +399,11 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
 
                     if self.cursor.key.style == CursorStyle::Block {
                         // Invert cursor if static background matches the cell's background.
-                        if CellRgb::Rgb(cell.bg) == self.cursor.cursor_color {
-                            cell.fg = cell.bg;
-                        } else {
-                            cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                        match self.cursor.cursor_color {
+                            CellRgb::Rgb(col) if col.contrast(cell.bg) >= MIN_CURSOR_CONTRAST => {
+                                cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                            },
+                            _ => cell.fg = cell.bg,
                         }
                     }
 
@@ -419,8 +423,10 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
                     // Only apply static color if it doesn't match the cell's current background.
-                    if CellRgb::Rgb(cell.bg) != self.cursor.cursor_color {
-                        cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+                    if let CellRgb::Rgb(color) = self.cursor.cursor_color {
+                        if color.contrast(cell.bg) >= MIN_CURSOR_CONTRAST {
+                            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+                        }
                     }
 
                     return Some(cell);
