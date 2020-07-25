@@ -17,25 +17,11 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
 - [Features](#features)
 - [Further information](#further-information)
 - [Installation](#installation)
-  - [Alpine Linux](#alpine-linux)
-  - [Arch Linux](#arch-linux)
-  - [Fedora](#fedora)
-  - [Gentoo Linux](#gentoo-linux)
-  - [GNU Guix](#gnu-guix)
-  - [Mageia](#mageia)
-  - [NixOS](#nixos)
-  - [openSUSE Tumbleweed](#opensuse-tumbleweed)
-  - [Pop!\_OS](#pop_os)
-  - [Solus](#solus)
-  - [Void Linux](#void-linux)
-  - [FreeBSD](#freebsd)
-  - [macOS](#macos)
-  - [Windows](#windows)
-    - [Via Chocolatey](#via-chocolatey)
-    - [Via Scoop](#via-scoop)
+  - [OS package installation](#os-package-installation)
+  - [Manual installation](#manual-installation)
   - [Other](#other)
 - [Configuration](#configuration)
-  - [Windows](#windows-1)
+  - [Windows](#windows)
 - [Contributing](#contributing)
 - [Issues (known, unknown, feature requests, etc.)](#issues-known-unknown-feature-requests-etc)
 - [FAQ](#faq)
@@ -72,112 +58,13 @@ You can find an overview over the features available in Alacritty [here](./docs/
 
 ## Installation
 
-Some operating systems already provide binaries for Alacritty, for everyone
-else the instructions to build Alacritty from source can be found [here](INSTALL.md).
+### OS package installation
 
-### Alpine Linux
+Some operating systems already provide binaries for Alacritty, see instructions [here](OS-PKGS-INSTALL.md). 
 
-```sh
-apk add alacritty
-```
+### Manual installation
 
-### Arch Linux
-
-```sh
-pacman -S alacritty
-```
-
-### Fedora
-
-Unofficial builds of stable tags can be found in Fedora Copr:
-[pschyska/alacritty](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty/).
-
-``` sh
-dnf copr enable pschyska/alacritty
-dnf install alacritty
-```
-
-If you want to help test pre-releases, you can additionally enable
-[pschyska/alacritty-testing](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty-testing/).
-
-### Gentoo Linux
-
-```sh
-emerge x11-terms/alacritty
-```
-
-### GNU Guix
-
-```sh
-guix package -i alacritty
-```
-
-### Mageia
-
-```sh
-urpmi alacritty
-```
-
-### NixOS
-
-```sh
-nix-env -iA nixos.alacritty
-```
-
-### openSUSE Tumbleweed
-
-```sh
-zypper in alacritty
-```
-
-### Pop!\_OS
-
-```sh
-apt install alacritty
-```
-
-### Solus
-
-```sh
-eopkg install alacritty
-```
-
-### Void Linux
-
-```sh
-xbps-install alacritty
-```
-
-### FreeBSD
-
-```sh
-pkg install alacritty
-```
-
-### macOS
-
-```sh
-brew cask install alacritty
-```
-
-Once the cask is installed, it is recommended to set up the manual page, shell
-completions, and terminfo definitions. These are located inside the installed
-application's Resources directory: `Alacritty.app/Contents/Resources`.
-
-### Windows
-
-#### Via [Chocolatey](https://chocolatey.org)
-
-```batch
-choco install alacritty
-```
-
-#### Via [Scoop](https://scoop.sh)
-
-```batch
-scoop bucket add extras
-scoop install alacritty
-```
+For everyone else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
 ### Other
 
