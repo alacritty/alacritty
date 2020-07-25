@@ -396,8 +396,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn cancel_search(&mut self) {
         self.terminal.cancel_search();
 
-        // Recover pre-search state.
-        self.search_reset_state();
+        // Recover pre-search state in vi mode.
+        if self.terminal.mode().contains(TermMode::VI) {
+            self.search_reset_state();
+        }
 
         // Move vi cursor down if resize will pull from history.
         if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
@@ -513,6 +515,11 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             // Stop search if there's nothing to search for.
             self.search_reset_state();
             self.terminal.cancel_search();
+
+            // Restart search without vi mode to clear the search origin.
+            if !self.terminal.mode().contains(TermMode::VI) {
+                self.start_search(self.search_state.direction);
+            }
         } else {
             // Create terminal search from the new regex string.
             self.terminal.start_search(&regex);
