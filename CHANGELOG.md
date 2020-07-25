@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Cursors are now inverted when their fixed color matches the cell's background
+- Cursors are now inverted when their fixed color is similar to the cell's background
 
 ## 0.5.0-dev
 
