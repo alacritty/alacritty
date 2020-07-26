@@ -403,7 +403,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                             CellRgb::Rgb(col) if col.contrast(cell.bg) >= MIN_CURSOR_CONTRAST => {
                                 cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
                             },
-                            _ => cell.fg = cell.bg,
+                            CellRgb::Rgb(_) => cell.fg = cell.bg,
+                            _ => cell.fg = self.cursor.text_color.color(cell.fg, cell.bg),
                         }
                     }
 
@@ -427,6 +428,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                         if color.contrast(cell.bg) >= MIN_CURSOR_CONTRAST {
                             cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
                         }
+                    } else {
+                        cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
                     }
 
                     return Some(cell);
