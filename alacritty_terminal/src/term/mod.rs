@@ -31,6 +31,9 @@ mod search;
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
+/// Minimum contrast between a fixed cursor color and the cell's background.
+const MIN_CURSOR_CONTRAST: f64 = 1.5;
+
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 const MAX_SEARCH_LINES: usize = 100;
 
@@ -389,13 +392,19 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
             if self.cursor.point.line == self.inner.line()
                 && self.cursor.point.col == self.inner.column()
             {
-                // Handle cell below cursor.
                 if self.cursor.rendered {
+                    // Handle cell below cursor.
                     let cell = self.inner.next()?;
                     let mut cell = RenderableCell::new(self, cell);
 
                     if self.cursor.key.style == CursorStyle::Block {
-                        cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                        // Invert cursor if static background is close to the cell's background.
+                        match self.cursor.cursor_color {
+                            CellRgb::Rgb(col) if col.contrast(cell.bg) >= MIN_CURSOR_CONTRAST => {
+                                cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                            },
+                            _ => cell.fg = cell.bg,
+                        }
                     }
 
                     return Some(cell);
@@ -412,7 +421,13 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
 
                     let mut cell = RenderableCell::new(self, cell);
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
-                    cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+
+                    // Only apply static color if it isn't close to the cell's current background.
+                    if let CellRgb::Rgb(color) = self.cursor.cursor_color {
+                        if color.contrast(cell.bg) >= MIN_CURSOR_CONTRAST {
+                            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+                        }
+                    }
 
                     return Some(cell);
                 }

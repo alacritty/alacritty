@@ -25,6 +25,42 @@ pub struct Rgb {
     pub b: u8,
 }
 
+impl Rgb {
+    /// Implementation of W3C's luminance algorithm:
+    /// https://www.w3.org/TR/WCAG20/#relativeluminancedef
+    fn luminance(self) -> f64 {
+        let channel_luminance = |channel| {
+            let channel = channel as f64 / 255.;
+            if channel <= 0.03928 {
+                channel / 12.92
+            } else {
+                f64::powf((channel + 0.055) / 1.055, 2.4)
+            }
+        };
+
+        let r_luminance = channel_luminance(self.r);
+        let g_luminance = channel_luminance(self.g);
+        let b_luminance = channel_luminance(self.b);
+
+        0.2126 * r_luminance + 0.7152 * g_luminance + 0.0722 * b_luminance
+    }
+
+    /// Implementation of W3C's contrast algorithm:
+    /// https://www.w3.org/TR/WCAG20/#contrast-ratiodef
+    pub fn contrast(self, other: Rgb) -> f64 {
+        let self_luminance = self.luminance();
+        let other_luminance = other.luminance();
+
+        let (darker, lighter) = if self_luminance > other_luminance {
+            (other_luminance, self_luminance)
+        } else {
+            (self_luminance, other_luminance)
+        };
+
+        (lighter + 0.05) / (darker + 0.05)
+    }
+}
+
 // A multiply function for Rgb, as the default dim is just *2/3.
 impl Mul<f32> for Rgb {
     type Output = Rgb;
@@ -368,5 +404,30 @@ impl IndexMut<u8> for List {
     #[inline]
     fn index_mut(&mut self, idx: u8) -> &mut Self::Output {
         &mut self.0[idx as usize]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::f64::EPSILON;
+
+    #[test]
+    fn contrast() {
+        let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
+        let rgb2 = Rgb { r: 0x00, g: 0x00, b: 0x00 };
+        assert!((rgb1.contrast(rgb2) - 21.).abs() < EPSILON);
+
+        let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
+        assert!((rgb1.contrast(rgb1) - 1.).abs() < EPSILON);
+
+        let rgb1 = Rgb { r: 0xff, g: 0x00, b: 0xff };
+        let rgb2 = Rgb { r: 0x00, g: 0xff, b: 0x00 };
+        assert!((rgb1.contrast(rgb2) - 2.285_543_608_124_253_3).abs() < EPSILON);
+
+        let rgb1 = Rgb { r: 0x12, g: 0x34, b: 0x56 };
+        let rgb2 = Rgb { r: 0xfe, g: 0xdc, b: 0xba };
+        assert!((rgb1.contrast(rgb2) - 9.786_558_997_257_74).abs() < EPSILON);
     }
 }
