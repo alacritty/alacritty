@@ -55,7 +55,7 @@ requires winpty to emulate UNIX's PTY API. The agent is a single binary
 executable and is available through the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
-For everyone else the instructions to build Alacritty from source can be found [here](INSTALL.md).
+For everyone else, the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
 ## Configuration
 
