@@ -424,10 +424,10 @@ mod tests {
 
         let rgb1 = Rgb { r: 0xff, g: 0x00, b: 0xff };
         let rgb2 = Rgb { r: 0x00, g: 0xff, b: 0x00 };
-        assert!((rgb1.contrast(rgb2) - 2.2855436081242533).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb2) - 2.285_543_608_124_253_3).abs() < EPSILON);
 
         let rgb1 = Rgb { r: 0x12, g: 0x34, b: 0x56 };
         let rgb2 = Rgb { r: 0xfe, g: 0xdc, b: 0xba };
-        assert!((rgb1.contrast(rgb2) - 9.78655899725774).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb2) - 9.786_558_997_257_74).abs() < EPSILON);
     }
 }
