@@ -42,7 +42,7 @@ You can find an overview over the features available in Alacritty [here](./docs/
 
 ## Installation
 
-Alacritty can be installed by using various package managers on Linux, BSD, MacOS and Windows.
+Alacritty can be installed by using various package managers on Linux, BSD, macOS and Windows.
 
 Prebuilt binaries for macOS and Windows can also be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
