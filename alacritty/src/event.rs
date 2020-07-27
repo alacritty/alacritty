@@ -830,14 +830,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 self.submit_display_update(&mut terminal, old_is_searching, display_update_pending);
             }
 
+            // Skip rendering on Wayland until we get frame event from compositor.
             #[cfg(not(any(target_os = "macos", windows)))]
-            {
-                // Skip rendering on Wayland until we get frame event from compositor.
-                if event_loop.is_wayland()
-                    && !self.display.window.should_draw.load(Ordering::Relaxed)
-                {
-                    return;
-                }
+            if event_loop.is_wayland() && !self.display.window.should_draw.load(Ordering::Relaxed) {
+                return;
             }
 
             if terminal.dirty {
@@ -934,15 +930,13 @@ impl<N: Notify + OnResize> Processor<N> {
                 match event {
                     WindowEvent::CloseRequested => processor.ctx.terminal.exit(),
                     WindowEvent::Resized(size) => {
+                        // Minimizing the window sends a Resize event with zero width and
+                        // height. But there's no need to ever actually resize to this.
+                        // Both WinPTY & ConPTY have issues when resizing down to zero size
+                        // and back.
                         #[cfg(windows)]
-                        {
-                            // Minimizing the window sends a Resize event with zero width and
-                            // height. But there's no need to ever actually resize to this.
-                            // Both WinPTY & ConPTY have issues when resizing down to zero size
-                            // and back.
-                            if size.width == 0 && size.height == 0 {
-                                return;
-                            }
+                        if size.width == 0 && size.height == 0 {
+                            return;
                         }
 
                         processor.ctx.display_update_pending.set_dimensions(size);
@@ -1091,10 +1085,8 @@ impl<N: Notify + OnResize> Processor<N> {
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if processor.ctx.event_loop.is_wayland() {
-                processor.ctx.window.set_wayland_theme(&config.colors);
-            }
+        if processor.ctx.event_loop.is_wayland() {
+            processor.ctx.window.set_wayland_theme(&config.colors);
         }
 
         // Set subpixel anti-aliasing.

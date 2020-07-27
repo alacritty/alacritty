@@ -15,8 +15,6 @@ use std::fs;
 use std::io::{self, Write};
 use std::sync::Arc;
 
-#[cfg(target_os = "macos")]
-use dirs;
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::{error, info};
 #[cfg(windows)]

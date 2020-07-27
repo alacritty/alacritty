@@ -34,7 +34,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
         None, // appname.
         Some(&cmdline),
-        config.working_directory.as_ref().map(|p| p.as_path()),
+        config.working_directory.as_deref(),
         None, // Env.
     )
     .unwrap();

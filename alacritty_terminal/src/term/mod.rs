@@ -425,9 +425,11 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
 
                     // Apply cursor color, or invert the cursor if it has a fixed background close
                     // to the cell's background.
-                    match self.cursor.cursor_color {
-                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST => (),
-                        _ => cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg),
+                    if !matches!(
+                        self.cursor.cursor_color,
+                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
+                    ) {
+                        cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
                     }
 
                     return Some(cell);

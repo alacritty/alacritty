@@ -29,15 +29,10 @@ impl Clipboard {
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn new(_display: Option<*mut c_void>) -> Self {
         #[cfg(feature = "wayland")]
-        {
-            if let Some(display) = _display {
-                let (selection, clipboard) =
-                    unsafe { wayland_clipboard::create_clipboards_from_external(display) };
-                return Self {
-                    clipboard: Box::new(clipboard),
-                    selection: Some(Box::new(selection)),
-                };
-            }
+        if let Some(display) = _display {
+            let (selection, clipboard) =
+                unsafe { wayland_clipboard::create_clipboards_from_external(display) };
+            return Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) };
         }
 
         #[cfg(feature = "x11")]

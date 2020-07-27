@@ -4,8 +4,6 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-#[cfg(windows)]
-use dirs;
 use log::{error, warn};
 
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
