@@ -423,14 +423,12 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut cell = RenderableCell::new(self, cell);
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
-                    cell.fg = match self.cursor.cursor_color {
-                        // Only apply static color if it isn't close to the cell's current
-                        // background.
-                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST => {
-                            cell.fg
-                        },
-                        _ => self.cursor.cursor_color.color(cell.fg, cell.bg),
-                    };
+                    // Only apply static color if it isn't close to the cell's current
+                    // background or refers to cell colors.
+                    match self.cursor.cursor_color {
+                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST => (),
+                        _ => cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg),
+                    }
 
                     return Some(cell);
                 }
