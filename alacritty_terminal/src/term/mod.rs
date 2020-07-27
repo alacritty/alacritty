@@ -398,13 +398,14 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut cell = RenderableCell::new(self, cell);
 
                     if self.cursor.key.style == CursorStyle::Block {
-                        // Invert cursor if static background is close to the cell's background.
-                        match self.cursor.cursor_color {
-                            CellRgb::Rgb(col) if col.contrast(cell.bg) >= MIN_CURSOR_CONTRAST => {
-                                cell.fg = self.cursor.text_color.color(cell.fg, cell.bg);
+                        cell.fg = match self.cursor.cursor_color {
+                            // Apply cursor color, or invert the cursor if it has a fixed background
+                            // close to the cell's background.
+                            CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => {
+                                cell.bg
                             },
-                            _ => cell.fg = cell.bg,
-                        }
+                            _ => self.cursor.text_color.color(cell.fg, cell.bg),
+                        };
                     }
 
                     return Some(cell);
@@ -422,11 +423,11 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut cell = RenderableCell::new(self, cell);
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
-                    // Only apply static color if it isn't close to the cell's current background.
-                    if let CellRgb::Rgb(color) = self.cursor.cursor_color {
-                        if color.contrast(cell.bg) >= MIN_CURSOR_CONTRAST {
-                            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
-                        }
+                    // Apply cursor color, or invert the cursor if it has a fixed background close
+                    // to the cell's background.
+                    match self.cursor.cursor_color {
+                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST => (),
+                        _ => cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg),
                     }
 
                     return Some(cell);
