@@ -399,8 +399,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
 
                     if self.cursor.key.style == CursorStyle::Block {
                         cell.fg = match self.cursor.cursor_color {
-                            // Invert cursor if static background is close to the cell's
-                            // background.
+                            // Apply cursor color, or invert the cursor if it has a fixed background
+                            // close to the cell's background.
                             CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => {
                                 cell.bg
                             },
@@ -423,8 +423,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                     let mut cell = RenderableCell::new(self, cell);
                     cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
-                    // Only apply static color if it isn't close to the cell's current
-                    // background or refers to cell colors.
+                    // Apply cursor color, or invert the cursor if it has a fixed background close
+                    // to the cell's background.
                     match self.cursor.cursor_color {
                         CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST => (),
                         _ => cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg),
