@@ -366,7 +366,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let (x, y) = position.into();
 
         let lmb_pressed = self.ctx.mouse().left_button_state == ElementState::Pressed;
-        if !self.ctx.selection_is_empty() && lmb_pressed && !search_active {
+        let rmb_pressed = self.ctx.mouse().right_button_state == ElementState::Pressed;
+        if !self.ctx.selection_is_empty() && (lmb_pressed || rmb_pressed) && !search_active {
             self.update_selection_scrolling(y);
         }
 
@@ -405,7 +406,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         let last_term_line = self.ctx.terminal().grid().screen_lines() - 1;
-        if (lmb_pressed || self.ctx.mouse().right_button_state == ElementState::Pressed)
+        if (lmb_pressed || rmb_pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
             && !search_active
         {
