@@ -167,7 +167,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
-        } else if ElementState::Pressed == self.mouse().left_button_state {
+        } else if self.mouse().left_button_state == ElementState::Pressed
+            || self.mouse().right_button_state == ElementState::Pressed
+        {
             let (x, y) = (self.mouse().x, self.mouse().y);
             let size_info = self.size_info();
             let point = size_info.pixels_to_coords(x, y);
