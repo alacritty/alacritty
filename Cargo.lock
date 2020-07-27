@@ -20,9 +20,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.5.0-rc3"
+version = "0.5.0-rc4"
 dependencies = [
- "alacritty_terminal 0.10.0-rc3",
+ "alacritty_terminal 0.10.0-rc4",
  "clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossfont 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.10.0-rc3"
+version = "0.10.0-rc4"
 dependencies = [
  "base64 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
