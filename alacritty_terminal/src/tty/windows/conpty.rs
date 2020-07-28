@@ -5,7 +5,6 @@ use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
-use miow;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
 use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};

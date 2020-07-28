@@ -1,6 +1,7 @@
 //! TTY related functionality.
 
 use std::borrow::Cow;
+#[cfg(not(target_os = "macos"))]
 use std::env;
 use std::ffi::CStr;
 use std::fs::File;
@@ -148,12 +149,10 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     let (master, slave) = make_pty(size.to_winsize());
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        if let Ok(mut termios) = termios::tcgetattr(master) {
-            // Set character encoding to UTF-8.
-            termios.input_flags.set(InputFlags::IUTF8, true);
-            let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
-        }
+    if let Ok(mut termios) = termios::tcgetattr(master) {
+        // Set character encoding to UTF-8.
+        termios.input_flags.set(InputFlags::IUTF8, true);
+        let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
     }
 
     let mut buf = [0; 1024];

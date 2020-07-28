@@ -13,7 +13,7 @@ os:
   - osx
 
 rust:
-  - 1.41.0
+  - 1.43.1
   - stable
 
 matrix:
@@ -26,18 +26,18 @@ matrix:
     - name: "Clippy Linux"
       os: linux
       env: CLIPPY=true
-      rust: 1.41.0
+      rust: 1.43.1
     - name: "Clippy OSX"
       os: osx
       env: CLIPPY=true
-      rust: 1.41.0
+      rust: 1.43.1
     - name: "Clippy Windows"
       os: windows
       env: CLIPPY=true
-      rust: 1.41.0-x86_64-pc-windows-msvc
-    - name: "Windows 1.41.0"
+      rust: 1.43.1-x86_64-pc-windows-msvc
+    - name: "Windows 1.43.1"
       os: windows
-      rust: 1.41.0-x86_64-pc-windows-msvc
+      rust: 1.43.1-x86_64-pc-windows-msvc
     - name: "Windows Stable"
       os: windows
       rust: stable-x86_64-pc-windows-msvc

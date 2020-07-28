@@ -355,26 +355,22 @@ where
                                 || token == self.pty.write_token() =>
                         {
                             #[cfg(unix)]
-                            {
-                                if UnixReady::from(event.readiness()).is_hup() {
-                                    // Don't try to do I/O on a dead PTY.
-                                    continue;
-                                }
+                            if UnixReady::from(event.readiness()).is_hup() {
+                                // Don't try to do I/O on a dead PTY.
+                                continue;
                             }
 
                             if event.readiness().is_readable() {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
                                 {
+                                    // On Linux, a `read` on the master side of a PTY can fail
+                                    // with `EIO` if the client side hangs up.  In that case,
+                                    // just loop back round for the inevitable `Exited` event.
+                                    // This sucks, but checking the process is either racy or
+                                    // blocking.
                                     #[cfg(target_os = "linux")]
-                                    {
-                                        // On Linux, a `read` on the master side of a PTY can fail
-                                        // with `EIO` if the client side hangs up.  In that case,
-                                        // just loop back round for the inevitable `Exited` event.
-                                        // This sucks, but checking the process is either racy or
-                                        // blocking.
-                                        if err.kind() == ErrorKind::Other {
-                                            continue;
-                                        }
+                                    if err.kind() == ErrorKind::Other {
+                                        continue;
                                     }
 
                                     error!("Error reading from PTY in event loop: {}", err);

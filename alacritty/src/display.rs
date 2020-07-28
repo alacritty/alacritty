@@ -188,11 +188,9 @@ impl Display {
 
         // Initialize Wayland event queue, to handle Wayland callbacks.
         #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if let Some(display) = event_loop.wayland_display() {
-                let display = unsafe { WaylandDisplay::from_external_display(display as _) };
-                wayland_event_queue = Some(display.create_event_queue());
-            }
+        if let Some(display) = event_loop.wayland_display() {
+            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
+            wayland_event_queue = Some(display.create_event_queue());
         }
 
         // Create the window where Alacritty will be displayed.
@@ -271,16 +269,14 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         let is_x11 = event_loop.is_x11();
 
+        // On Wayland we can safely ignore this call, since the window isn't visible until you
+        // actually draw something into it and commit those changes.
         #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            // On Wayland we can safely ignore this call, since the window isn't visible until you
-            // actually draw something into it and commit those changes.
-            if is_x11 {
-                window.swap_buffers();
-                renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
-                    api.finish();
-                });
-            }
+        if is_x11 {
+            window.swap_buffers();
+            renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+                api.finish();
+            });
         }
 
         window.set_visible(true);
@@ -608,15 +604,13 @@ impl Display {
         self.window.swap_buffers();
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if self.is_x11 {
-                // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
-                // will block to synchronize (this is `glClear` in Alacritty), which causes a
-                // permanent one frame delay.
-                self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
-                    api.finish();
-                });
-            }
+        if self.is_x11 {
+            // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
+            // will block to synchronize (this is `glClear` in Alacritty), which causes a
+            // permanent one frame delay.
+            self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+                api.finish();
+            });
         }
     }
 
