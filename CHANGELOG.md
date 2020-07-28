@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Cursors are now inverted when their fixed color is similar to the cell's background
 
+### Fixed
+
+- Wide characters (like cjk words) sometimes cut off
+
 ## 0.5.0-dev
 
 ### Packaging

@@ -421,6 +421,8 @@ struct InstanceData {
     bg_a: f32,
     // Flag indicating that glyph uses multiple colors, like an Emoji.
     multicolor: u8,
+    // Set to 1 if glyph is a WIDE_CHAR.
+    is_wide_char: u8,
 }
 
 #[derive(Debug)]
@@ -497,6 +499,7 @@ impl Batch {
             bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
             multicolor: glyph.colored as u8,
+            is_wide_char: cell.flags.contains(Flags::WIDE_CHAR) as u8,
         });
     }
 
@@ -651,6 +654,17 @@ impl QuadRenderer {
             );
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribDivisor(5, 1);
+            // WideChar flag.
+            gl::VertexAttribPointer(
+                6,
+                1,
+                gl::BYTE,
+                gl::FALSE,
+                size_of::<InstanceData>() as i32,
+                (17 * size_of::<f32>() + 1) as *const _,
+            );
+            gl::EnableVertexAttribArray(6);
+            gl::VertexAttribDivisor(6, 1);
 
             // Rectangle setup.
             gl::GenVertexArrays(1, &mut rect_vao);
@@ -1023,6 +1037,12 @@ impl<'a> RenderApi<'a> {
 
     #[inline]
     fn add_render_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+        if cell.flags.contains(Flags::WIDE_CHAR_SPACER)
+            && !cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
+        {
+            return;
+        }
+
         // Flush batch if tex changing.
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
             self.render_batch();

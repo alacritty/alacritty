@@ -30,6 +30,9 @@ layout (location = 4) in vec4 backgroundColor;
 // Set to 1 if the glyph colors should be kept.
 layout (location = 5) in int coloredGlyph;
 
+// Set to 1 if the glyph is a WIDE CHAR.
+layout (location = 6) in int isWideChar;
+
 out vec2 TexCoords;
 flat out vec3 fg;
 flat out vec4 bg;
@@ -56,7 +59,9 @@ void main()
     vec2 cellPosition = cellDim * gridCoords;
 
     if (backgroundPass != 0) {
-        vec2 finalPosition = cellPosition + cellDim * position;
+        vec2 dim = cellDim;
+        if (isWideChar != 0) { dim = vec2(dim.x*2, dim.y); }
+        vec2 finalPosition = cellPosition + dim * position;
         gl_Position = vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
 
         TexCoords = vec2(0, 0);
