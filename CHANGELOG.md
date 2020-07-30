@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Environment variable `RUST_LOG` for selecting the log level
+- Deprecated `window.start_maximized` config field
+- Deprecated `render_timer` config field
+- Deprecated `persistent_logging` config field
 
 ### Added
 
@@ -88,12 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ingoring of default FreeType properties
 - Alacritty crashing at startup when the configured font does not exist
 - Font size rounding error
-
-### Removed
-
-- Deprecated `window.start_maximized` config field
-- Deprecated `render_timer` config field
-- Deprecated `persistent_logging` config field
 
 ## 0.4.3
 
