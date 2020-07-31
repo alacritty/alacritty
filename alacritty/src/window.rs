@@ -42,7 +42,7 @@ use crate::gl;
 
 // It's required to be in this directory due to the `windows.rc` file.
 #[cfg(not(any(target_os = "macos", windows)))]
-static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
+static WINDOW_ICON: &[u8] = include_bytes!("../alacritty.ico");
 
 // This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
