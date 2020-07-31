@@ -38,6 +38,7 @@ You can find an overview over the features available in Alacritty [here](./docs/
 - [A short talk about Alacritty at the Rust Meetup January 2017](https://air.mozilla.org/rust-meetup-january-2017/) (starts at 57:00)
 - [Alacritty Lands Scrollback, Publishes Benchmarks](https://jwilm.io/blog/alacritty-lands-scrollback/) September 17, 2018
 - [Version 0.3.0 Release Announcement](https://blog.christianduerr.com/alacritty_030_announcement) April 07, 2019
+- [Version 0.5.0 Release Announcement](https://blog.christianduerr.com/alacritty_0_5_0_announcement) July 31, 2020
 
 ## Installation
 
