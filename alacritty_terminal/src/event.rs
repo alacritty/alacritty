@@ -14,6 +14,9 @@ pub enum Event {
     Wakeup,
     Bell,
     Exit,
+    CursorStartBlinking,
+    CursorBlink,
+    CursorStopBlinking,
 }
 
 impl Debug for Event {
@@ -27,6 +30,9 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
+            Event::CursorStartBlinking => write!(f, "CursorStartBlinking"),
+            Event::CursorBlink => write!(f, "CursorBlink"),
+            Event::CursorStopBlinking => write!(f, "CursorStopBlinking"),
         }
     }
 }

@@ -165,7 +165,10 @@ impl<T: EventListener> Execute<T> for Action {
                 start_daemon(program, args);
             },
             Action::ClearSelection => ctx.clear_selection(),
-            Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),
+            Action::ToggleViMode => {
+                ctx.terminal_mut().toggle_vi_mode();
+                ctx.terminal().update_blinking_cursor_context();
+            },
             Action::ViMotion(motion) => {
                 if ctx.config().ui_config.mouse.hide_when_typing {
                     ctx.window_mut().set_mouse_visible(false);
@@ -857,6 +860,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.process_key_bindings(input);
             },
             ElementState::Released => (),
+        }
+
+        // Disable cursor blinking while the user is typing.
+        let cursor_blink_rate = self.ctx.config().cursor.blink_rate;
+        if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::CursorBlinking) {
+            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
+            self.ctx.terminal_mut().cursor_blinking_out = false;
         }
     }
 

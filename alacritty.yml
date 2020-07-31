@@ -338,12 +338,17 @@
 
 #cursor:
   # Cursor style
-  #
-  # Values for `style`:
-  #   - ▇ Block
-  #   - _ Underline
-  #   - | Beam
-  #style: Block
+  #style:
+      # The shape of the cursor
+      #
+      # Values for `shape`:
+      #   - ▇ Block
+      #   - _ Underline
+      #   - | Beam
+      #shape: Block
+
+      # Whether the cursor should blink by default or not.
+      #blinking: false
 
   # Vi mode cursor style
   #
@@ -352,6 +357,11 @@
   #
   # See `cursor.style` for available options.
   #vi_mode_style: None
+
+  # Cursor blinking interval
+  #
+  # Rate in milliseconds used for cursor blinking when a blinking cursor style is active. A `blink_rate` of `0` will completely disable cursor blinking.
+  #blink_rate: 500
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.

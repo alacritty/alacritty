@@ -326,7 +326,7 @@ pub trait Handler {
 
 /// Describes shape of cursor.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
-pub enum CursorStyle {
+pub enum CursorShape {
     /// Cursor is a block like `▒`.
     Block,
 
@@ -345,9 +345,21 @@ pub enum CursorStyle {
     Hidden,
 }
 
+impl Default for CursorShape {
+    fn default() -> CursorShape {
+        CursorShape::Block
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+pub struct CursorStyle {
+    pub shape: CursorShape,
+    pub blinking: bool,
+}
+
 impl Default for CursorStyle {
     fn default() -> CursorStyle {
-        CursorStyle::Block
+        CursorStyle { shape: CursorShape::default(), blinking: false }
     }
 }
 
@@ -874,12 +886,13 @@ where
                     && params[1].len() >= 13
                     && params[1][0..12] == *b"CursorShape="
                 {
-                    let style = match params[1][12] as char {
-                        '0' => CursorStyle::Block,
-                        '1' => CursorStyle::Beam,
-                        '2' => CursorStyle::Underline,
+                    let shape = match params[1][12] as char {
+                        '0' => CursorShape::Block,
+                        '1' => CursorShape::Beam,
+                        '2' => CursorShape::Underline,
                         _ => return unhandled(params),
                     };
+                    let style = CursorStyle { shape, blinking: false };
                     self.handler.set_cursor_style(Some(style));
                     return;
                 }
@@ -1065,11 +1078,12 @@ where
             ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let style = match next_param_or(0) {
+                let param = next_param_or(0);
+                let style = match param {
                     0 => None,
-                    1 | 2 => Some(CursorStyle::Block),
-                    3 | 4 => Some(CursorStyle::Underline),
-                    5 | 6 => Some(CursorStyle::Beam),
+                    1 | 2 => Some(CursorStyle { shape: CursorShape::Block, blinking: param == 1 }),
+                    3 | 4 => Some(CursorStyle { shape: CursorShape::Underline, blinking: param == 3 }),
+                    5 | 6 => Some(CursorStyle { shape: CursorShape::Beam, blinking: param == 5 }),
                     _ => {
                         unhandled!();
                         return;

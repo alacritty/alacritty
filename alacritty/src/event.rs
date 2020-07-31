@@ -22,7 +22,7 @@ use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindow
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use log::info;
+use log::{info, warn};
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
@@ -804,6 +804,15 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         let mut scheduler = Scheduler::new();
 
+        if self.config.cursor.style.blinking {
+            if let Err(err) = event_loop
+                .create_proxy()
+                .send_event(Event::TerminalEvent(TerminalEvent::CursorStartBlinking))
+            {
+                warn!("Could not make the cursor blink at startup: {}", err);
+            }
+        }
+
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.ui_config.debug.print_events {
                 info!("glutin event: {:?}", event);
@@ -983,6 +992,29 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
+                    TerminalEvent::CursorStartBlinking => {
+                        let rate = processor.ctx.config.cursor.blink_rate;
+                        let scheduler = &mut processor.ctx.scheduler;
+                        if rate != 0 && scheduler.get_mut(TimerId::CursorBlinking).is_none() {
+                            scheduler.schedule(
+                                GlutinEvent::UserEvent(Event::TerminalEvent(
+                                    TerminalEvent::CursorBlink,
+                                )),
+                                Duration::from_millis(rate),
+                                true,
+                                TimerId::CursorBlinking,
+                            )
+                        }
+                    },
+                    TerminalEvent::CursorBlink => {
+                        processor.ctx.terminal.cursor_blinking_out ^= true;
+                        processor.ctx.terminal.dirty = true;
+                    },
+                    TerminalEvent::CursorStopBlinking => {
+                        let _ = processor.ctx.scheduler.unschedule(TimerId::CursorBlinking);
+                        processor.ctx.terminal.cursor_blinking_out = false;
+                        processor.ctx.terminal.dirty = true;
+                    },
                 },
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,

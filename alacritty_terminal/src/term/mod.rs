@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
 use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
@@ -63,6 +63,8 @@ struct RenderableCursor {
 pub struct CursorKey {
     pub style: CursorStyle,
     pub is_wide: bool,
+    /// For Blinking* cursors, true if the cursor is currently hidden
+    pub blinking_out: bool,
 }
 
 type MatchIter<'a> = Box<dyn Iterator<Item = RangeInclusive<Point<usize>>> + 'a>;
@@ -202,7 +204,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cell = self.inner.next()?;
         let mut cell = RenderableCell::new(self, cell);
 
-        if self.cursor.key.style == CursorStyle::Block {
+        if self.cursor.key.style.shape == CursorShape::Block {
             cell.fg = match self.cursor.cursor_color {
                 // Apply cursor color, or invert the cursor if it has a fixed background
                 // close to the cell's background.
@@ -249,7 +251,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         };
 
         // Do not invert block cursor at selection boundaries.
-        if self.cursor.key.style == CursorStyle::Block
+        if self.cursor.key.style.shape == CursorShape::Block
             && self.cursor.point == point
             && (selection.start == point
                 || selection.end == point
@@ -751,6 +753,9 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
+    /// Blinking state of the current cursor, true is hidden (used only blinking cursor styles)
+    pub cursor_blinking_out: bool,
+
     /// Currently active grid.
     ///
     /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
@@ -847,6 +852,7 @@ impl<T> Term<T> {
             inactive_grid: alt,
             active_charset: Default::default(),
             vi_mode_cursor: Default::default(),
+            cursor_blinking_out: false,
             tabs,
             mode: Default::default(),
             scroll_region,
@@ -900,6 +906,29 @@ impl<T> Term<T> {
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
+
+        self.update_blinking_cursor_context();
+    }
+
+    /// Depending on current mode and cursor configuration, decide whether to start or stop
+    /// blinking the cursor.
+    ///
+    /// Typically used after a configuration update or vi_mode toggle.
+    pub fn update_blinking_cursor_context(&self)
+    where
+        T: EventListener,
+    {
+        let blinking_event = {
+            let vi_mode = self.mode.contains(TermMode::VI);
+            let normal_style = self.cursor_style.unwrap_or(self.default_cursor_style);
+            let vi_style = self.vi_mode_cursor_style.unwrap_or(normal_style);
+            if vi_mode && vi_style.blinking || !vi_mode && normal_style.blinking {
+                Event::CursorStartBlinking
+            } else {
+                Event::CursorStopBlinking
+            }
+        };
+        self.event_proxy.send_event(blinking_event);
     }
 
     /// Convert the active selection to a String.
@@ -1397,9 +1426,9 @@ impl<T> Term<T> {
             !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.screen_lines();
         let cursor_style = if hidden && !vi_mode {
             point.line = Line(0);
-            CursorStyle::Hidden
+            CursorStyle { shape: CursorShape::Hidden, blinking: false }
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
-            CursorStyle::HollowBlock
+            CursorStyle { shape: CursorShape::HollowBlock, blinking: false }
         } else {
             let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
 
@@ -1432,7 +1461,7 @@ impl<T> Term<T> {
         RenderableCursor {
             text_color,
             cursor_color,
-            key: CursorKey { style: cursor_style, is_wide },
+            key: CursorKey { style: cursor_style, is_wide, blinking_out: self.cursor_blinking_out },
             point,
             rendered: false,
         }
@@ -2198,9 +2227,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => {
-                trace!("... unimplemented mode");
-            },
+            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorStartBlinking),
         }
     }
 
@@ -2238,9 +2265,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => {
-                trace!("... unimplemented mode");
-            },
+            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorStopBlinking),
         }
     }
 
@@ -2296,6 +2321,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("Setting cursor style {:?}", style);
         self.cursor_style = style;
+        self.update_blinking_cursor_context();
     }
 
     #[inline]

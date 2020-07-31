@@ -14,6 +14,7 @@ type Event = GlutinEvent<'static, AlacrittyEvent>;
 pub enum TimerId {
     SelectionScrolling,
     DelayedSearch,
+    CursorBlinking,
 }
 
 /// Event scheduled to be emitted at a specific time.
