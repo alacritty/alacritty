@@ -137,6 +137,9 @@ The exact steps for an exemplary `0.2.0` release might look like this:
      description
  14. The `-dev` is stripped from the `0.2.0-dev` changelog entries on master
 
+All commits to master branch, which speculates with version number, like on
+steps `3` and `14`, should state that they don't represent a stable release.
+
 On master and with new planned releases, only the minor version is bumped. This makes it possible to
 create bug fix releases by incrementing the patch version of a previous minor release, without
 having to adjust the next planned release's version number.
