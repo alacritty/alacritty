@@ -4,7 +4,7 @@ version = "0.6.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
-readme = "../README.md"
+readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
