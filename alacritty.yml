@@ -210,17 +210,16 @@
   # Search colors
   #
   # Colors used for the search bar and match highlighting.
-  #
-  # Allowed values are CellForeground and CellBackground, which reference the
-  # affected cell, or hexadecimal colors like #ff00ff.
   #search:
-  #  matches:
-  #    foreground: '#000000'
-  #    background: '#ffffff'
-  #
-  #  bar:
-  #    background: CellForeground
-  #    foreground: CellBackground
+    # Allowed values are CellForeground and CellBackground, which reference the
+    # affected cell, or hexadecimal colors like #ff00ff.
+    #matches:
+    #  foreground: '#000000'
+    #  background: '#ffffff'
+
+    #bar:
+    #  background: '#c5c8c6'
+    #  foreground: '#1d1f21'
 
   # Normal colors
   #normal:
