@@ -43,6 +43,13 @@ git clone https://github.com/alacritty/alacritty.git
 cd alacritty
 ```
 
+You may then also want to pick a specific (stable) release to compile, e.g.:
+
+```sh
+git tag
+git checkout v0.5.0
+```
+
 ### Install the Rust compiler with `rustup`
 
 1. Install [`rustup.rs`](https://rustup.rs/).
