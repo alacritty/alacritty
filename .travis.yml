@@ -12,6 +12,7 @@ os:
   - linux
 
 rust:
+  - 1.43.1
   - stable
 
 matrix:
