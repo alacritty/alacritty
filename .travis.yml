@@ -20,7 +20,7 @@ matrix:
     - name: "Clippy Linux"
       os: linux
       env: CLIPPY=true
-      rust: 1.43.1
+      rust: stable
 
 install: ci/install.sh
 script: ci/script.sh
