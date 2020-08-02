@@ -10,37 +10,17 @@ git:
 
 os:
   - linux
-  - osx
 
 rust:
-  - 1.43.1
   - stable
 
 matrix:
   fast_finish: true
   include:
-    - if: tag IS present
-      os: linux
-      rust: stable
-      env: ARCH=i386
     - name: "Clippy Linux"
       os: linux
       env: CLIPPY=true
       rust: 1.43.1
-    - name: "Clippy OSX"
-      os: osx
-      env: CLIPPY=true
-      rust: 1.43.1
-    - name: "Clippy Windows"
-      os: windows
-      env: CLIPPY=true
-      rust: 1.43.1-x86_64-pc-windows-msvc
-    - name: "Windows 1.43.1"
-      os: windows
-      rust: 1.43.1-x86_64-pc-windows-msvc
-    - name: "Windows Stable"
-      os: windows
-      rust: stable-x86_64-pc-windows-msvc
 
 install: ci/install.sh
 script: ci/script.sh
@@ -49,7 +29,7 @@ before_deploy: ci/before_deploy.sh
 deploy:
   - provider: releases
     api_key:
-      secure: G6JZgC5qKZyxEmuu2eMscDO45iOhBjiCSKuO8gxywqm+4DbMZm7y2OSbQCEmnIFqEgi+DLkrH/A7e8LDngQj3lBvRnWkIcszG5ubDm8jsqckXXxjI0cy5q8jJ7s5zZXH2IdXifY59KN9V4iHPwCJlyEE7Aj9JrJLFaVhvaowlSYib9DuDibDX/2u8qZ+gP2D/TntiBlFi8SgiDPd7GrZWmNsxJR9edyYbKx9izROp+4q7KAa0Xqak/Zvg72JZnARiKPmBxESEoYYXFcRgRZD9VvjmQ/il6WcHlGSqqn1TRBtIVl8L/1I5/xBJ6KMegP9Jlh7ybm1JPfX108V5d9a9CyqvRYHrhbkHkf5oktizsgw2WyANwiBhEngliMFuUyT0826BEPtkA4TiD7lQXyvO749INdJsqUlMLLuQNpU9/7ShBcRapbGp6AjWH8yxV9ciNMpNexAaxkupYc2NaU6EAC/C34HAtTdfN+gyvrtnF1ISrPmmGj8YQRiBUsa4TxghsNPbPHWAgMfR5lFp3dONz0oIydhW/AFgpn+7BVvoIW2z8hXiRttseZHv6akeSjFC5vYObR3UdL/NiuvCjZRiYryL0Be/rI83ug8xELVFBBcv4PxcHEsXWT7EMd3QTiPoCwNKoSoBLk8hPFPAGRXULiSDFENKoJAc4A7zJyMiYY=
+      secure: borked
     skip_cleanup: true
     file_glob: true
     file: "./target/deploy/*"
@@ -59,17 +39,4 @@ deploy:
       condition:
         - $CLIPPY != true
         - "$TRAVIS_TAG" =~ ^v[0-9]*\.[0-9]*\.[0-9]*$
-      repo: alacritty/alacritty
-  - provider: releases
-    api_key:
-      secure: G6JZgC5qKZyxEmuu2eMscDO45iOhBjiCSKuO8gxywqm+4DbMZm7y2OSbQCEmnIFqEgi+DLkrH/A7e8LDngQj3lBvRnWkIcszG5ubDm8jsqckXXxjI0cy5q8jJ7s5zZXH2IdXifY59KN9V4iHPwCJlyEE7Aj9JrJLFaVhvaowlSYib9DuDibDX/2u8qZ+gP2D/TntiBlFi8SgiDPd7GrZWmNsxJR9edyYbKx9izROp+4q7KAa0Xqak/Zvg72JZnARiKPmBxESEoYYXFcRgRZD9VvjmQ/il6WcHlGSqqn1TRBtIVl8L/1I5/xBJ6KMegP9Jlh7ybm1JPfX108V5d9a9CyqvRYHrhbkHkf5oktizsgw2WyANwiBhEngliMFuUyT0826BEPtkA4TiD7lQXyvO749INdJsqUlMLLuQNpU9/7ShBcRapbGp6AjWH8yxV9ciNMpNexAaxkupYc2NaU6EAC/C34HAtTdfN+gyvrtnF1ISrPmmGj8YQRiBUsa4TxghsNPbPHWAgMfR5lFp3dONz0oIydhW/AFgpn+7BVvoIW2z8hXiRttseZHv6akeSjFC5vYObR3UdL/NiuvCjZRiYryL0Be/rI83ug8xELVFBBcv4PxcHEsXWT7EMd3QTiPoCwNKoSoBLk8hPFPAGRXULiSDFENKoJAc4A7zJyMiYY=
-    skip_cleanup: true
-    file_glob: true
-    file: "./target/deploy/*"
-    on:
-      tags: true
-      rust: stable-x86_64-pc-windows-msvc
-      condition:
-        - $CLIPPY != true
-        - "$TRAVIS_TAG" =~ ^v[0-9]*\.[0-9]*\.[0-9]*$
-      repo: alacritty/alacritty
+      repo: chrisduerr/alacritty
