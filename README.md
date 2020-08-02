@@ -130,7 +130,7 @@ pkg install alacritty
 brew cask install alacritty
 ```
 
-Once the cask is installed, it is recommended to setup the manual page, shell
+Once the cask is installed, it is recommended to set up the manual page, shell
 completions, and terminfo definitions. These are located inside the installed
 application's Resources directory: `Alacritty.app/Contents/Resources`.
 
