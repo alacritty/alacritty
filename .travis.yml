@@ -38,4 +38,5 @@ deploy:
       rust: stable
       condition:
         - $CLIPPY != true
+        - "$TRAVIS_TAG" =~ ^v[0-9]*\.[0-9]*\.[0-9]*$
       repo: chrisduerr/alacritty
