@@ -58,7 +58,7 @@ deploy:
       rust: stable
       condition:
         - $CLIPPY != true
-        - "$TRAVIS_TAG" =~ ^v[0-9]*\.[0-9]*\.[0-9]*$
+        - $TRAVIS_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$
       repo: alacritty/alacritty
   - provider: releases
     api_key:
@@ -71,5 +71,5 @@ deploy:
       rust: stable-x86_64-pc-windows-msvc
       condition:
         - $CLIPPY != true
-        - "$TRAVIS_TAG" =~ ^v[0-9]*\.[0-9]*\.[0-9]*$
+        - $TRAVIS_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$
       repo: alacritty/alacritty
