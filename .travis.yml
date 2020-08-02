@@ -37,6 +37,6 @@ deploy:
       tags: true
       rust: stable
       condition:
-        - "$TRAVIS_TAG" =~ aoeu
+        - $TRAVIS_TAG =~ aoeu
         - $CLIPPY != true
       repo: chrisduerr/alacritty
