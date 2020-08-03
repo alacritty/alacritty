@@ -407,9 +407,9 @@ struct InstanceData {
     uv_width: f32,
     uv_height: f32,
     // Color.
-    r: u8,
-    g: u8,
-    b: u8,
+    r: f32,
+    g: f32,
+    b: f32,
     // Background color.
     bg_r: u8,
     bg_g: u8,
@@ -484,9 +484,9 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: cell.fg.r,
-            g: cell.fg.g,
-            b: cell.fg.b,
+            r: f32::from(cell.fg.r),
+            g: f32::from(cell.fg.g),
+            b: f32::from(cell.fg.b),
 
             bg_r: cell.bg.r,
             bg_g: cell.bg.g,
@@ -622,14 +622,14 @@ impl QuadRenderer {
             gl::VertexAttribPointer(
                 3,
                 3,
-                gl::UNSIGNED_BYTE,
+                gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 size as *const _,
             );
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribDivisor(3, 1);
-            size += 3 * size_of::<u8>();
+            size += 3 * size_of::<f32>();
             // Background color.
             gl::VertexAttribPointer(
                 4,
