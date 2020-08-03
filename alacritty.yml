@@ -521,7 +521,7 @@
 #   - Up
 #       Move the vi mode cursor up by one line.
 #   - Down
-#       Move the vi mode cursor down by one linee.
+#       Move the vi mode cursor down by one line.
 #   - Left
 #       Move the vi mode cursor left by one character.
 #   - Right
