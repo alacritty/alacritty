@@ -124,7 +124,7 @@ pub struct RectShaderProgram {
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
-    colored: bool,
+    multicolor: i8,
     top: i16,
     left: i16,
     width: i16,
@@ -397,10 +397,10 @@ struct InstanceData {
     // Glyph offset.
     left: i16,
     top: i16,
-    // Glyph scale.
+    // Glyph size.
     width: i16,
     height: i16,
-    // uv offset.
+    // UV offset.
     uv_left: f32,
     uv_bot: f32,
     // uv scale.
@@ -416,7 +416,7 @@ struct InstanceData {
     bg_b: u8,
     bg_a: u8,
     // Flag indicating that glyph uses multiple colors, like an Emoji.
-    multicolor: u8,
+    multicolor: i8,
 }
 
 #[derive(Debug)]
@@ -492,7 +492,7 @@ impl Batch {
             bg_g: cell.bg.g,
             bg_b: cell.bg.b,
             bg_a: (cell.bg_alpha * 255.0) as u8,
-            multicolor: glyph.colored as u8,
+            multicolor: glyph.multicolor,
         });
     }
 
@@ -581,78 +581,48 @@ impl QuadRenderer {
                 ptr::null(),
                 gl::STREAM_DRAW,
             );
-            // Coords.
+
+            let mut index = 0;
             let mut size = 0;
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::UNSIGNED_SHORT,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribDivisor(0, 1);
-            size += 2 * size_of::<u16>();
-            // Glyph offset.
-            gl::VertexAttribPointer(
-                1,
-                4,
-                gl::SHORT,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                size as *const _,
-            );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribDivisor(1, 1);
-            size += 4 * size_of::<i16>();
-            // uv.
-            gl::VertexAttribPointer(
-                2,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                size as *const _,
-            );
-            gl::EnableVertexAttribArray(2);
-            gl::VertexAttribDivisor(2, 1);
-            size += 4 * size_of::<f32>();
+
+            macro_rules! add_attr {
+                ($count:expr, $gl_type:expr, $type:ty) => {
+                    gl::VertexAttribPointer(
+                        index,
+                        $count,
+                        $gl_type,
+                        gl::FALSE,
+                        size_of::<InstanceData>() as i32,
+                        size as *const _,
+                    );
+                    gl::EnableVertexAttribArray(index);
+                    gl::VertexAttribDivisor(index, 1);
+
+                    #[allow(unused_assignments)]
+                    {
+                        size += $count * size_of::<$type>();
+                        index += 1;
+                    }
+                };
+            }
+
+            // Coords.
+            add_attr!(2, gl::UNSIGNED_SHORT, u16);
+
+            // Glyph offset and size.
+            add_attr!(4, gl::SHORT, i16);
+
+            // UV offset.
+            add_attr!(4, gl::FLOAT, f32);
+
             // Color.
-            gl::VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                size as *const _,
-            );
-            gl::EnableVertexAttribArray(3);
-            gl::VertexAttribDivisor(3, 1);
-            size += 3 * size_of::<f32>();
+            add_attr!(3, gl::FLOAT, f32);
+
             // Background color.
-            gl::VertexAttribPointer(
-                4,
-                4,
-                gl::UNSIGNED_BYTE,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                size as *const _,
-            );
-            gl::EnableVertexAttribArray(4);
-            gl::VertexAttribDivisor(4, 1);
-            size += 4 * size_of::<u8>();
+            add_attr!(4, gl::UNSIGNED_BYTE, u8);
+
             // Multicolor flag.
-            gl::VertexAttribPointer(
-                5,
-                1,
-                gl::BYTE,
-                gl::FALSE,
-                size_of::<InstanceData>() as i32,
-                size as *const _,
-            );
-            gl::EnableVertexAttribArray(5);
-            gl::VertexAttribDivisor(5, 1);
+            add_attr!(1, gl::BYTE, i8);
 
             // Rectangle setup.
             gl::GenVertexArrays(1, &mut rect_vao);
@@ -1127,7 +1097,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
-            colored: false,
+            multicolor: 0,
             top: 0 as _,
             left: 0 as _,
             width: 0 as _,
@@ -1596,7 +1566,7 @@ impl Atlas {
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
         let width = glyph.width as i32;
-        let colored;
+        let multicolor;
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
@@ -1604,11 +1574,11 @@ impl Atlas {
             // Load data into OpenGL.
             let (format, buf) = match &glyph.buf {
                 BitmapBuffer::RGB(buf) => {
-                    colored = false;
+                    multicolor = false;
                     (gl::RGB, buf)
                 },
                 BitmapBuffer::RGBA(buf) => {
-                    colored = true;
+                    multicolor = true;
                     (gl::RGBA, buf)
                 },
             };
@@ -1643,11 +1613,11 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            colored,
+            multicolor: multicolor as i8,
             top: glyph.top as i16,
+            left: glyph.left as i16,
             width: width as i16,
             height: height as i16,
-            left: glyph.left as i16,
             uv_bot,
             uv_left,
             uv_width,
