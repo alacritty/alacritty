@@ -15,7 +15,7 @@
 in vec2 TexCoords;
 flat in vec3 fg;
 flat in vec4 bg;
-flat in int colored;
+flat in int multicolor;
 uniform int backgroundPass;
 
 layout(location = 0, index = 0) out vec4 color;
@@ -32,7 +32,7 @@ void main()
         alphaMask = vec4(1.0);
         color = vec4(bg.rgb, 1.0);
     } else {
-        if (colored != 0) {
+        if (multicolor != 0) {
             // Color glyphs, like emojis.
             vec4 glyphColor = texture(mask, TexCoords);
             alphaMask = vec4(glyphColor.a);

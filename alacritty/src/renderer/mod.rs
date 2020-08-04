@@ -124,7 +124,7 @@ pub struct RectShaderProgram {
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
-    multicolor: i8,
+    multicolor: u8,
     top: i16,
     left: i16,
     width: i16,
@@ -407,16 +407,16 @@ struct InstanceData {
     uv_width: f32,
     uv_height: f32,
     // Color.
-    r: f32,
-    g: f32,
-    b: f32,
+    r: u8,
+    g: u8,
+    b: u8,
+    // Flag indicating that a glyph uses multiple colors; like an Emoji.
+    multicolor: u8,
     // Background color.
     bg_r: u8,
     bg_g: u8,
     bg_b: u8,
     bg_a: u8,
-    // Flag indicating that glyph uses multiple colors, like an Emoji.
-    multicolor: i8,
 }
 
 #[derive(Debug)]
@@ -484,9 +484,9 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: f32::from(cell.fg.r),
-            g: f32::from(cell.fg.g),
-            b: f32::from(cell.fg.b),
+            r: cell.fg.r,
+            g: cell.fg.g,
+            b: cell.fg.b,
 
             bg_r: cell.bg.r,
             bg_g: cell.bg.g,
@@ -615,14 +615,11 @@ impl QuadRenderer {
             // UV offset.
             add_attr!(4, gl::FLOAT, f32);
 
-            // Color.
-            add_attr!(3, gl::FLOAT, f32);
+            // Color and multicolor flag.
+            add_attr!(4, gl::UNSIGNED_BYTE, u8);
 
             // Background color.
             add_attr!(4, gl::UNSIGNED_BYTE, u8);
-
-            // Multicolor flag.
-            add_attr!(1, gl::BYTE, i8);
 
             // Rectangle setup.
             gl::GenVertexArrays(1, &mut rect_vao);
@@ -1613,7 +1610,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            multicolor: multicolor as i8,
+            multicolor: multicolor as u8,
             top: glyph.top as i16,
             left: glyph.left as i16,
             width: width as i16,
