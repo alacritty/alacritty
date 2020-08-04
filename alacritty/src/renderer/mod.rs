@@ -616,6 +616,10 @@ impl QuadRenderer {
             add_attr!(4, gl::FLOAT, f32);
 
             // Color and multicolor flag.
+            //
+            // These are packed together because of an OpenGL driver issue on macOS, which caused a
+            // `vec3(u8)` text color and a `u8` multicolor flag to increase the rendering time by a
+            // huge margin.
             add_attr!(4, gl::UNSIGNED_BYTE, u8);
 
             // Background color.
