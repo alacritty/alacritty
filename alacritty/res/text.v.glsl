@@ -21,16 +21,15 @@ layout (location = 1) in vec4 glyph;
 // uv mapping.
 layout (location = 2) in vec4 uv;
 
-// Text fg color.
+// Text foreground rgb packed together with multicolor flag.
 layout (location = 3) in vec4 textColor;
 
 // Background color.
 layout (location = 4) in vec4 backgroundColor;
 
 out vec2 TexCoords;
-flat out vec3 fg;
+flat out vec4 fg;
 flat out vec4 bg;
-flat out int multicolor;
 
 // Terminal properties
 uniform vec2 cellDim;
@@ -71,6 +70,5 @@ void main()
     }
 
     bg = vec4(backgroundColor.rgb / 255.0, backgroundColor.a);
-    fg = textColor.rgb / 255.0;
-    multicolor = int(textColor.a);
+    fg = vec4(textColor.rgb / 255.0, textColor.a);
 }
