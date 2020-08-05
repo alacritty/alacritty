@@ -209,10 +209,7 @@ impl Program {
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SearchString {
     Just(String),
-    WithArgs {
-        string: String,
-        direction: String,
-    },
+    WithArgs { string: String, direction: String },
 }
 
 impl SearchString {
@@ -224,7 +221,7 @@ impl SearchString {
                     "left" | "backward" | "back" | "backwards" => Direction::Left,
                     _ => Direction::Right,
                 }
-            }
+            },
         }
     }
 
@@ -235,7 +232,6 @@ impl SearchString {
         }
     }
 }
-
 
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
 #[derive(Clone, Copy, Debug, PartialEq)]

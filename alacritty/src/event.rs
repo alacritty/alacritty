@@ -351,22 +351,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    /*
-    #[inline]
-    fn string_search(&mut self, string:String, direction: Direction) {
-        self.start_search(direction);
-        self.search_state.regex = Some(string);
-        self.update_search();
-
-        // submit the search in Vi mode or exit the search
-        if self.terminal.mode().contains(TermMode::VI) {
-            self.confirm_search();
-        } /* else {
-            self.cancel_search();
-        } */
-    }
-    */
-
     #[inline]
     fn start_search(&mut self, string: String, direction: Direction) {
         let num_lines = self.terminal.screen_lines();

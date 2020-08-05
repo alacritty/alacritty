@@ -714,7 +714,8 @@ impl<'a> Deserialize<'a> for RawBinding {
     where
         D: Deserializer<'a>,
     {
-        const FIELDS: &[&str] = &["key", "mods", "mode", "action", "chars", "mouse", "command", "search"];
+        const FIELDS: &[&str] =
+            &["key", "mods", "mode", "action", "chars", "mouse", "command", "search"];
 
         enum Field {
             Key,
