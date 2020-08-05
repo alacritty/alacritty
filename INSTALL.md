@@ -14,9 +14,9 @@ proceed with caution.
 ## Cargo
 
 If you're just interested in the Alacritty binary and you don't need the
-[manual page](#manual-page), [shell completions](#shell-completions),
-[terminfo file](#terminfo) or [desktop entry](#desktop-entry), you can install
-it directly through cargo:
+[terminfo file](#terminfo), [desktop entry](#desktop-entry),
+[manual page](#manual-page) or [shell completions](#shell-completions), you can
+install it directly through cargo:
 
 ```sh
 cargo install alacritty
@@ -237,8 +237,6 @@ filling in this section of the README.
 
 ### Linux / Windows
 
-Once all the prerequisites are installed, compiling Alacritty should be easy:
-
 ```sh
 cargo build --release
 ```
@@ -248,8 +246,6 @@ On Windows this directory should also contain the `winpty-agent.exe`.
 
 ### MacOS
 
-To build an application for macOS, run
-
 ```sh
 make app
 cp -r target/release/osx/Alacritty.app /Applications/
@@ -257,7 +253,7 @@ cp -r target/release/osx/Alacritty.app /Applications/
 
 ## Post Build
 
-There are some extra things you might want to setup after installing Alacritty.
+There are some extra things you might want to set up after installing Alacritty.
 All the post build instruction assume you're still inside the Alacritty
 repository.
 
@@ -267,8 +263,8 @@ To make sure Alacritty works correctly, either the `alacritty` or
 `alacritty-direct` terminfo must be used. The `alacritty` terminfo will be
 picked up automatically if it is installed.
 
-To check if the `alacritty` terminfo is installed, you can check if the
-following command returns without an error:
+If the following command returns without any errors, the `alacritty` terminfo is
+already installed:
 
 ```sh
 infocmp alacritty
@@ -308,7 +304,7 @@ gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz 
 
 ### Shell completions
 
-To get automatic completions for alacritty's flags and arguments you can install the provided shell completions.
+To get automatic completions for Alacritty's flags and arguments you can install the provided shell completions.
 
 #### Zsh
 
