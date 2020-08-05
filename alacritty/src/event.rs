@@ -351,12 +351,29 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /*
     #[inline]
-    fn start_search(&mut self, direction: Direction) {
+    fn string_search(&mut self, string:String, direction: Direction) {
+        self.start_search(direction);
+        self.search_state.regex = Some(string);
+        self.update_search();
+
+        // submit the search in Vi mode or exit the search
+        if self.terminal.mode().contains(TermMode::VI) {
+            self.confirm_search();
+        } /* else {
+            self.cancel_search();
+        } */
+    }
+    */
+
+    #[inline]
+    fn start_search(&mut self, string: String, direction: Direction) {
         let num_lines = self.terminal.screen_lines();
         let num_cols = self.terminal.cols();
+        let string_len = string.len();
 
-        self.search_state.regex = Some(String::new());
+        self.search_state.regex = Some(string);
         self.search_state.direction = direction;
 
         // Store original search position as origin and reset location.
@@ -372,6 +389,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 Direction::Left => Point::new(num_lines - 2, num_cols - 1),
             }
         };
+
+        if string_len != 0 {
+            self.update_search();
+            if self.terminal.mode().contains(TermMode::VI) {
+                self.confirm_search();
+            }
+        }
 
         self.display_update_pending.dirty = true;
         self.terminal.dirty = true;
@@ -520,7 +544,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
             // Restart search without vi mode to clear the search origin.
             if !self.terminal.mode().contains(TermMode::VI) {
-                self.start_search(self.search_state.direction);
+                self.start_search(String::new(), self.search_state.direction);
             }
         } else {
             // Create terminal search from the new regex string.

@@ -94,7 +94,7 @@ pub trait ActionContext<T: EventListener> {
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
-    fn start_search(&mut self, direction: Direction);
+    fn start_search(&mut self, string: String, direction: Direction);
     fn confirm_search(&mut self);
     fn cancel_search(&mut self);
     fn push_search(&mut self, c: char);
@@ -225,8 +225,13 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                 }
             },
-            Action::SearchForward => ctx.start_search(Direction::Right),
-            Action::SearchBackward => ctx.start_search(Direction::Left),
+            Action::SearchForward => ctx.start_search(String::new(), Direction::Right),
+            Action::SearchBackward => ctx.start_search(String::new(), Direction::Left),
+            Action::Search(ref searchstring) => {
+                let string = searchstring.string();
+                let direction = searchstring.direction();
+                ctx.start_search(string, direction);
+            },
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
@@ -839,7 +844,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     (Some(VirtualKeyCode::U), ModifiersState::CTRL) => {
                         let direction = self.ctx.search_direction();
                         self.ctx.cancel_search();
-                        self.ctx.start_search(direction);
+                        self.ctx.start_search(String::new(), direction);
                         *self.ctx.suppress_chars() = true;
                     },
                     (Some(VirtualKeyCode::H), ModifiersState::CTRL) => {
@@ -1147,7 +1152,7 @@ mod tests {
 
         fn reset_font_size(&mut self) {}
 
-        fn start_search(&mut self, _direction: Direction) {}
+        fn start_search(&mut self, _string: String, _direction: Direction) {}
 
         fn confirm_search(&mut self) {}
 

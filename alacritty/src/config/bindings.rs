@@ -9,7 +9,7 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
-use alacritty_terminal::config::Program;
+use alacritty_terminal::config::{Program, SearchString};
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
@@ -181,6 +181,9 @@ pub enum Action {
 
     /// Start a backward buffer search.
     SearchBackward,
+    /// Perform a directional buffer search.
+    #[serde(skip)]
+    Search(SearchString),
 
     /// No action.
     None,
@@ -711,7 +714,7 @@ impl<'a> Deserialize<'a> for RawBinding {
     where
         D: Deserializer<'a>,
     {
-        const FIELDS: &[&str] = &["key", "mods", "mode", "action", "chars", "mouse", "command"];
+        const FIELDS: &[&str] = &["key", "mods", "mode", "action", "chars", "mouse", "command", "search"];
 
         enum Field {
             Key,
@@ -721,6 +724,7 @@ impl<'a> Deserialize<'a> for RawBinding {
             Chars,
             Mouse,
             Command,
+            Search,
         }
 
         impl<'a> Deserialize<'a> for Field {
@@ -749,6 +753,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
                             "command" => Ok(Field::Command),
+                            "search" => Ok(Field::Search),
                             _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
@@ -778,6 +783,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
                 let mut command: Option<Program> = None;
+                let mut search: Option<SearchString> = None;
 
                 use de::Error;
 
@@ -876,6 +882,13 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             command = Some(map.next_value::<Program>()?);
                         },
+                        Field::Search => {
+                            if search.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("search"));
+                            }
+
+                            search = Some(map.next_value::<SearchString>()?);
+                        },
                     }
                 }
 
@@ -883,9 +896,9 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let not_mode = not_mode.unwrap_or_else(TermMode::empty);
                 let mods = mods.unwrap_or_else(ModifiersState::default);
 
-                let action = match (action, chars, command) {
-                    (Some(action @ Action::ViMotion(_)), None, None)
-                    | (Some(action @ Action::ViAction(_)), None, None) => {
+                let action = match (action, chars, command, search) {
+                    (Some(action @ Action::ViMotion(_)), None, None, None)
+                    | (Some(action @ Action::ViAction(_)), None, None, None) => {
                         if !mode.intersects(TermMode::VI) || not_mode.intersects(TermMode::VI) {
                             return Err(V::Error::custom(format!(
                                 "action `{}` is only available in vi mode, try adding `mode: Vi`",
@@ -894,9 +907,10 @@ impl<'a> Deserialize<'a> for RawBinding {
                         }
                         action
                     },
-                    (Some(action), None, None) => action,
-                    (None, Some(chars), None) => Action::Esc(chars),
-                    (None, None, Some(cmd)) => Action::Command(cmd),
+                    (Some(action), None, None, None) => action,
+                    (None, Some(chars), None, None) => Action::Esc(chars),
+                    (None, None, Some(cmd), None) => Action::Command(cmd),
+                    (None, None, None, Some(search)) => Action::Search(search),
                     _ => {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",

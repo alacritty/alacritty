@@ -15,6 +15,7 @@ use crate::ansi::CursorStyle;
 pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
+pub use crate::index::Direction;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
@@ -203,6 +204,38 @@ impl Program {
         }
     }
 }
+
+#[serde(untagged)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum SearchString {
+    Just(String),
+    WithArgs {
+        string: String,
+        direction: String,
+    },
+}
+
+impl SearchString {
+    pub fn direction(&self) -> Direction {
+        match self {
+            SearchString::Just(_) => Direction::Right,
+            SearchString::WithArgs { direction, .. } => {
+                match direction.trim().to_lowercase().as_str() {
+                    "left" | "backward" | "back" | "backwards" => Direction::Left,
+                    _ => Direction::Right,
+                }
+            }
+        }
+    }
+
+    pub fn string(&self) -> String {
+        match self {
+            SearchString::Just(string) => string.clone(),
+            SearchString::WithArgs { string, .. } => string.clone(),
+        }
+    }
+}
+
 
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
 #[derive(Clone, Copy, Debug, PartialEq)]

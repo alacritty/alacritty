@@ -587,6 +587,17 @@
 #    `args` array of command line parameter strings. For example:
 #       `{ program: "alacritty", args: ["-e", "vttest"] }`
 #
+# - 'search': Search the buffer either forwards (default) or backwards for a string
+#
+#   The search field can be either a string or a map containing a regex `string` and
+#   `direction` string specifying one of "Right" | "Forward" | "Left" | "Backward". For example:
+#       `"http.?:"` or
+#       `{ string: "http.?", direction: "Backward" }`
+#
+#   If the string is empty a prompt is triggered for input. For example:
+#       `""` or
+#       `{ string: "", direction: "Backward" }`
+#
 # And optionally:
 #
 # - `mods`: Key modifiers to filter binding actions
