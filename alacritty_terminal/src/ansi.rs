@@ -1,10 +1,11 @@
 //! ANSI Terminal Stream Parsing.
 
-use std::io;
-use std::str;
+use std::convert::TryFrom;
+use std::{io, iter, str};
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
+use vte::{Params, ParamsIter};
 
 use crate::index::{Column, Line};
 use crate::term::color::Rgb;
@@ -750,7 +751,7 @@ where
     }
 
     #[inline]
-    fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool, _c: char) {
+    fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, _c: char) {
         debug!(
             "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
             params, intermediates, ignore
@@ -923,7 +924,7 @@ where
     #[inline]
     fn csi_dispatch(
         &mut self,
-        args: &[i64],
+        params: &Params,
         intermediates: &[u8],
         has_ignored_intermediates: bool,
         action: char,
@@ -931,16 +932,10 @@ where
         macro_rules! unhandled {
             () => {{
                 debug!(
-                    "[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
-                    action, args, intermediates
+                    "[Unhandled CSI] action={:?}, params={:?}, intermediates={:?}",
+                    action, params, intermediates
                 );
             }};
-        }
-
-        macro_rules! arg_or_default {
-            (idx: $idx:expr, default: $default:expr) => {
-                args.get($idx).copied().filter(|&v| v != 0).unwrap_or($default)
-            };
         }
 
         if has_ignored_intermediates || intermediates.len() > 1 {
@@ -948,51 +943,40 @@ where
             return;
         }
 
+        let mut params_iter = params.iter();
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
+        let mut next_param_or = |default: i64| {
+            params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
+        };
+
         match (action, intermediates.get(0)) {
-            ('@', None) => {
-                handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize))
-            },
+            ('@', None) => handler.insert_blank(Column(next_param_or(1) as usize)),
             ('A', None) => {
-                handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
+                handler.move_up(Line(next_param_or(1) as usize));
             },
-            ('B', None) | ('e', None) => {
-                handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize))
-            },
+            ('B', None) | ('e', None) => handler.move_down(Line(next_param_or(1) as usize)),
             ('b', None) => {
                 if let Some(c) = self.state.preceding_char {
-                    for _ in 0..arg_or_default!(idx: 0, default: 1) {
+                    for _ in 0..next_param_or(1) {
                         handler.input(c);
                     }
                 } else {
                     debug!("tried to repeat with no preceding char");
                 }
             },
-            ('C', None) | ('a', None) => {
-                handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize))
-            },
-            ('c', intermediate) if arg_or_default!(idx: 0, default: 0) == 0 => {
+            ('C', None) | ('a', None) => handler.move_forward(Column(next_param_or(1) as usize)),
+            ('c', intermediate) if next_param_or(0) == 0 => {
                 handler.identify_terminal(writer, intermediate.map(|&i| i as char))
             },
-            ('D', None) => {
-                handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize))
-            },
-            ('d', None) => {
-                handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1))
-            },
-            ('E', None) => {
-                handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize))
-            },
-            ('F', None) => {
-                handler.move_up_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize))
-            },
-            ('G', None) | ('`', None) => {
-                handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1))
-            },
+            ('D', None) => handler.move_backward(Column(next_param_or(1) as usize)),
+            ('d', None) => handler.goto_line(Line(next_param_or(1) as usize - 1)),
+            ('E', None) => handler.move_down_and_cr(Line(next_param_or(1) as usize)),
+            ('F', None) => handler.move_up_and_cr(Line(next_param_or(1) as usize)),
+            ('G', None) | ('`', None) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
             ('g', None) => {
-                let mode = match arg_or_default!(idx: 0, default: 0) {
+                let mode = match next_param_or(0) {
                     0 => TabulationClearMode::Current,
                     3 => TabulationClearMode::All,
                     _ => {
@@ -1004,21 +988,21 @@ where
                 handler.clear_tabs(mode);
             },
             ('H', None) | ('f', None) => {
-                let y = arg_or_default!(idx: 0, default: 1) as usize;
-                let x = arg_or_default!(idx: 1, default: 1) as usize;
+                let y = next_param_or(1) as usize;
+                let x = next_param_or(1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
             },
             ('h', intermediate) => {
-                for arg in args {
-                    match Mode::from_primitive(intermediate, *arg) {
+                for param in params_iter.map(|param| param[0]) {
+                    match Mode::from_primitive(intermediate, param) {
                         Some(mode) => handler.set_mode(mode),
                         None => unhandled!(),
                     }
                 }
             },
-            ('I', None) => handler.move_forward_tabs(arg_or_default!(idx: 0, default: 1)),
+            ('I', None) => handler.move_forward_tabs(next_param_or(1)),
             ('J', None) => {
-                let mode = match arg_or_default!(idx: 0, default: 0) {
+                let mode = match next_param_or(0) {
                     0 => ClearMode::Below,
                     1 => ClearMode::Above,
                     2 => ClearMode::All,
@@ -1032,7 +1016,7 @@ where
                 handler.clear_screen(mode);
             },
             ('K', None) => {
-                let mode = match arg_or_default!(idx: 0, default: 0) {
+                let mode = match next_param_or(0) {
                     0 => LineClearMode::Right,
                     1 => LineClearMode::Left,
                     2 => LineClearMode::All,
@@ -1044,23 +1028,21 @@ where
 
                 handler.clear_line(mode);
             },
-            ('L', None) => {
-                handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize))
-            },
+            ('L', None) => handler.insert_blank_lines(Line(next_param_or(1) as usize)),
             ('l', intermediate) => {
-                for arg in args {
-                    match Mode::from_primitive(intermediate, *arg) {
+                for param in params_iter.map(|param| param[0]) {
+                    match Mode::from_primitive(intermediate, param) {
                         Some(mode) => handler.unset_mode(mode),
                         None => unhandled!(),
                     }
                 }
             },
-            ('M', None) => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('M', None) => handler.delete_lines(Line(next_param_or(1) as usize)),
             ('m', None) => {
-                if args.is_empty() {
+                if params.is_empty() {
                     handler.terminal_attribute(Attr::Reset);
                 } else {
-                    for attr in attrs_from_sgr_parameters(args) {
+                    for attr in attrs_from_sgr_parameters(&mut params_iter) {
                         match attr {
                             Some(attr) => handler.terminal_attribute(attr),
                             None => unhandled!(),
@@ -1068,15 +1050,11 @@ where
                     }
                 }
             },
-            ('n', None) => {
-                handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize)
-            },
-            ('P', None) => {
-                handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize))
-            },
+            ('n', None) => handler.device_status(writer, next_param_or(0) as usize),
+            ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let style = match arg_or_default!(idx: 0, default: 0) {
+                let style = match next_param_or(0) {
                     0 => None,
                     1 | 2 => Some(CursorStyle::Block),
                     3 | 4 => Some(CursorStyle::Underline),
@@ -1090,24 +1068,23 @@ where
                 handler.set_cursor_style(style);
             },
             ('r', None) => {
-                let top = arg_or_default!(idx: 0, default: 1) as usize;
-                let bottom = args.get(1).map(|&b| b as usize).filter(|&b| b != 0);
+                let top = next_param_or(1) as usize;
+                let bottom =
+                    params_iter.next().map(|param| param[0] as usize).filter(|&param| param != 0);
 
                 handler.set_scrolling_region(top, bottom);
             },
-            ('S', None) => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('S', None) => handler.scroll_up(Line(next_param_or(1) as usize)),
             ('s', None) => handler.save_cursor_position(),
-            ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('t', None) => match arg_or_default!(idx: 0, default: 1) as usize {
+            ('T', None) => handler.scroll_down(Line(next_param_or(1) as usize)),
+            ('t', None) => match next_param_or(1) as usize {
                 22 => handler.push_title(),
                 23 => handler.pop_title(),
                 _ => unhandled!(),
             },
             ('u', None) => handler.restore_cursor_position(),
-            ('X', None) => {
-                handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize))
-            },
-            ('Z', None) => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
+            ('X', None) => handler.erase_chars(Column(next_param_or(1) as usize)),
+            ('Z', None) => handler.move_backward_tabs(next_param_or(1)),
             _ => unhandled!(),
         }
     }
@@ -1165,143 +1142,103 @@ where
     }
 }
 
-fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
-    let mut i = 0;
-    let mut attrs = Vec::with_capacity(parameters.len());
-    loop {
-        if i >= parameters.len() {
-            break;
-        }
+fn attrs_from_sgr_parameters(params: &mut ParamsIter) -> Vec<Option<Attr>> {
+    let mut attrs = Vec::with_capacity(params.size_hint().0);
 
-        let attr = match parameters[i] {
-            0 => Some(Attr::Reset),
-            1 => Some(Attr::Bold),
-            2 => Some(Attr::Dim),
-            3 => Some(Attr::Italic),
-            4 => Some(Attr::Underline),
-            5 => Some(Attr::BlinkSlow),
-            6 => Some(Attr::BlinkFast),
-            7 => Some(Attr::Reverse),
-            8 => Some(Attr::Hidden),
-            9 => Some(Attr::Strike),
-            21 => Some(Attr::CancelBold),
-            22 => Some(Attr::CancelBoldDim),
-            23 => Some(Attr::CancelItalic),
-            24 => Some(Attr::CancelUnderline),
-            25 => Some(Attr::CancelBlink),
-            27 => Some(Attr::CancelReverse),
-            28 => Some(Attr::CancelHidden),
-            29 => Some(Attr::CancelStrike),
-            30 => Some(Attr::Foreground(Color::Named(NamedColor::Black))),
-            31 => Some(Attr::Foreground(Color::Named(NamedColor::Red))),
-            32 => Some(Attr::Foreground(Color::Named(NamedColor::Green))),
-            33 => Some(Attr::Foreground(Color::Named(NamedColor::Yellow))),
-            34 => Some(Attr::Foreground(Color::Named(NamedColor::Blue))),
-            35 => Some(Attr::Foreground(Color::Named(NamedColor::Magenta))),
-            36 => Some(Attr::Foreground(Color::Named(NamedColor::Cyan))),
-            37 => Some(Attr::Foreground(Color::Named(NamedColor::White))),
-            38 => {
-                let mut start = 0;
-                if let Some(color) = parse_sgr_color(&parameters[i..], &mut start) {
-                    i += start;
-                    Some(Attr::Foreground(color))
-                } else {
-                    None
-                }
+    while let Some(param) = params.next() {
+        let attr = match param {
+            [0] => Some(Attr::Reset),
+            [1] => Some(Attr::Bold),
+            [2] => Some(Attr::Dim),
+            [3] => Some(Attr::Italic),
+            [4] => Some(Attr::Underline),
+            [5] => Some(Attr::BlinkSlow),
+            [6] => Some(Attr::BlinkFast),
+            [7] => Some(Attr::Reverse),
+            [8] => Some(Attr::Hidden),
+            [9] => Some(Attr::Strike),
+            [21] => Some(Attr::CancelBold),
+            [22] => Some(Attr::CancelBoldDim),
+            [23] => Some(Attr::CancelItalic),
+            [24] => Some(Attr::CancelUnderline),
+            [25] => Some(Attr::CancelBlink),
+            [27] => Some(Attr::CancelReverse),
+            [28] => Some(Attr::CancelHidden),
+            [29] => Some(Attr::CancelStrike),
+            [30] => Some(Attr::Foreground(Color::Named(NamedColor::Black))),
+            [31] => Some(Attr::Foreground(Color::Named(NamedColor::Red))),
+            [32] => Some(Attr::Foreground(Color::Named(NamedColor::Green))),
+            [33] => Some(Attr::Foreground(Color::Named(NamedColor::Yellow))),
+            [34] => Some(Attr::Foreground(Color::Named(NamedColor::Blue))),
+            [35] => Some(Attr::Foreground(Color::Named(NamedColor::Magenta))),
+            [36] => Some(Attr::Foreground(Color::Named(NamedColor::Cyan))),
+            [37] => Some(Attr::Foreground(Color::Named(NamedColor::White))),
+            [38] => {
+                let mut iter = params.map(|param| param[0]);
+                parse_sgr_color(&mut iter).map(Attr::Foreground)
             },
-            39 => Some(Attr::Foreground(Color::Named(NamedColor::Foreground))),
-            40 => Some(Attr::Background(Color::Named(NamedColor::Black))),
-            41 => Some(Attr::Background(Color::Named(NamedColor::Red))),
-            42 => Some(Attr::Background(Color::Named(NamedColor::Green))),
-            43 => Some(Attr::Background(Color::Named(NamedColor::Yellow))),
-            44 => Some(Attr::Background(Color::Named(NamedColor::Blue))),
-            45 => Some(Attr::Background(Color::Named(NamedColor::Magenta))),
-            46 => Some(Attr::Background(Color::Named(NamedColor::Cyan))),
-            47 => Some(Attr::Background(Color::Named(NamedColor::White))),
-            48 => {
-                let mut start = 0;
-                if let Some(color) = parse_sgr_color(&parameters[i..], &mut start) {
-                    i += start;
-                    Some(Attr::Background(color))
-                } else {
-                    None
-                }
+            [38, params @ ..] => {
+                let rgb_start = if params.len() > 4 { 2 } else { 1 };
+                let rgb_iter = params[rgb_start..].iter().copied();
+                let mut iter = iter::once(params[0]).chain(rgb_iter);
+
+                parse_sgr_color(&mut iter).map(Attr::Foreground)
             },
-            49 => Some(Attr::Background(Color::Named(NamedColor::Background))),
-            90 => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlack))),
-            91 => Some(Attr::Foreground(Color::Named(NamedColor::BrightRed))),
-            92 => Some(Attr::Foreground(Color::Named(NamedColor::BrightGreen))),
-            93 => Some(Attr::Foreground(Color::Named(NamedColor::BrightYellow))),
-            94 => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlue))),
-            95 => Some(Attr::Foreground(Color::Named(NamedColor::BrightMagenta))),
-            96 => Some(Attr::Foreground(Color::Named(NamedColor::BrightCyan))),
-            97 => Some(Attr::Foreground(Color::Named(NamedColor::BrightWhite))),
-            100 => Some(Attr::Background(Color::Named(NamedColor::BrightBlack))),
-            101 => Some(Attr::Background(Color::Named(NamedColor::BrightRed))),
-            102 => Some(Attr::Background(Color::Named(NamedColor::BrightGreen))),
-            103 => Some(Attr::Background(Color::Named(NamedColor::BrightYellow))),
-            104 => Some(Attr::Background(Color::Named(NamedColor::BrightBlue))),
-            105 => Some(Attr::Background(Color::Named(NamedColor::BrightMagenta))),
-            106 => Some(Attr::Background(Color::Named(NamedColor::BrightCyan))),
-            107 => Some(Attr::Background(Color::Named(NamedColor::BrightWhite))),
+            [39] => Some(Attr::Foreground(Color::Named(NamedColor::Foreground))),
+            [40] => Some(Attr::Background(Color::Named(NamedColor::Black))),
+            [41] => Some(Attr::Background(Color::Named(NamedColor::Red))),
+            [42] => Some(Attr::Background(Color::Named(NamedColor::Green))),
+            [43] => Some(Attr::Background(Color::Named(NamedColor::Yellow))),
+            [44] => Some(Attr::Background(Color::Named(NamedColor::Blue))),
+            [45] => Some(Attr::Background(Color::Named(NamedColor::Magenta))),
+            [46] => Some(Attr::Background(Color::Named(NamedColor::Cyan))),
+            [47] => Some(Attr::Background(Color::Named(NamedColor::White))),
+            [48] => {
+                let mut iter = params.map(|param| param[0]);
+                parse_sgr_color(&mut iter).map(Attr::Background)
+            },
+            [48, params @ ..] => {
+                let rgb_start = if params.len() > 4 { 2 } else { 1 };
+                let rgb_iter = params[rgb_start..].iter().copied();
+                let mut iter = iter::once(params[0]).chain(rgb_iter);
+
+                parse_sgr_color(&mut iter).map(Attr::Background)
+            },
+            [49] => Some(Attr::Background(Color::Named(NamedColor::Background))),
+            [90] => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlack))),
+            [91] => Some(Attr::Foreground(Color::Named(NamedColor::BrightRed))),
+            [92] => Some(Attr::Foreground(Color::Named(NamedColor::BrightGreen))),
+            [93] => Some(Attr::Foreground(Color::Named(NamedColor::BrightYellow))),
+            [94] => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlue))),
+            [95] => Some(Attr::Foreground(Color::Named(NamedColor::BrightMagenta))),
+            [96] => Some(Attr::Foreground(Color::Named(NamedColor::BrightCyan))),
+            [97] => Some(Attr::Foreground(Color::Named(NamedColor::BrightWhite))),
+            [100] => Some(Attr::Background(Color::Named(NamedColor::BrightBlack))),
+            [101] => Some(Attr::Background(Color::Named(NamedColor::BrightRed))),
+            [102] => Some(Attr::Background(Color::Named(NamedColor::BrightGreen))),
+            [103] => Some(Attr::Background(Color::Named(NamedColor::BrightYellow))),
+            [104] => Some(Attr::Background(Color::Named(NamedColor::BrightBlue))),
+            [105] => Some(Attr::Background(Color::Named(NamedColor::BrightMagenta))),
+            [106] => Some(Attr::Background(Color::Named(NamedColor::BrightCyan))),
+            [107] => Some(Attr::Background(Color::Named(NamedColor::BrightWhite))),
             _ => None,
         };
-
         attrs.push(attr);
-
-        i += 1;
     }
+
     attrs
 }
 
 /// Parse a color specifier from list of attributes.
-fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
-    if attrs.len() < 2 {
-        return None;
-    }
-
-    match attrs[*i + 1] {
-        2 => {
-            // RGB color spec.
-            if attrs.len() < 5 {
-                debug!("Expected RGB color spec; got {:?}", attrs);
-                return None;
-            }
-
-            let r = attrs[*i + 2];
-            let g = attrs[*i + 3];
-            let b = attrs[*i + 4];
-
-            *i += 4;
-
-            let range = 0..256;
-            if !range.contains(&r) || !range.contains(&g) || !range.contains(&b) {
-                debug!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
-                return None;
-            }
-
-            Some(Color::Spec(Rgb { r: r as u8, g: g as u8, b: b as u8 }))
-        },
-        5 => {
-            if attrs.len() < 3 {
-                debug!("Expected color index; got {:?}", attrs);
-                None
-            } else {
-                *i += 2;
-                let idx = attrs[*i];
-                match idx {
-                    0..=255 => Some(Color::Indexed(idx as u8)),
-                    _ => {
-                        debug!("Invalid color index: {}", idx);
-                        None
-                    },
-                }
-            }
-        },
-        _ => {
-            debug!("Unexpected color attr: {}", attrs[*i + 1]);
-            None
-        },
+fn parse_sgr_color(params: &mut dyn Iterator<Item = i64>) -> Option<Color> {
+    match params.next() {
+        Some(2) => Some(Color::Spec(Rgb {
+            r: u8::try_from(params.next()?).ok()?,
+            g: u8::try_from(params.next()?).ok()?,
+            b: u8::try_from(params.next()?).ok()?,
+        })),
+        Some(5) => Some(Color::Indexed(u8::try_from(params.next()?).ok()?)),
+        _ => None,
     }
 }
 
