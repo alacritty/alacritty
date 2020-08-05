@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Incorrect window location with negative `window.position` config options
+- Slow rendering performance with HiDPI displays, especially on macOS
 
 ## 0.5.0
 
