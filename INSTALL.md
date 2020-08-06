@@ -46,7 +46,7 @@ cargo install alacritty
         16. [Other](#other)
 2. [Building](#building)
     1. [Linux/Windows](#linux--windows)
-    2. [MacOS](#macos)
+    2. [macOS](#macos)
 3. [Post Build](#post-build)
     1. [Terminfo](#terminfo)
     2. [Desktop Entry](#desktop-entry)
@@ -244,7 +244,7 @@ cargo build --release
 If all goes well, this should place a binary at `target/release/alacritty`.
 On Windows this directory should also contain the `winpty-agent.exe`.
 
-### MacOS
+### macOS
 
 ```sh
 make app
