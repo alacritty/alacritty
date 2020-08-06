@@ -72,7 +72,7 @@ dependencies = [
  "signal-hook 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "terminfo 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-width 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "vte 0.8.0 (git+https://github.com/alacritty/vte)",
+ "vte 0.8.0 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)",
  "winapi 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "winpty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1890,7 +1890,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "utf8parse"
 version = "0.2.0"
-source = "git+https://github.com/alacritty/vte#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
+source = "git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
 
 [[package]]
 name = "vcpkg"
@@ -1933,16 +1933,16 @@ dependencies = [
 [[package]]
 name = "vte"
 version = "0.8.0"
-source = "git+https://github.com/alacritty/vte#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
+source = "git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
 dependencies = [
- "utf8parse 0.2.0 (git+https://github.com/alacritty/vte)",
- "vte_generate_state_changes 0.1.1 (git+https://github.com/alacritty/vte)",
+ "utf8parse 0.2.0 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)",
+ "vte_generate_state_changes 0.1.1 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)",
 ]
 
 [[package]]
 name = "vte_generate_state_changes"
 version = "0.1.1"
-source = "git+https://github.com/alacritty/vte#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
+source = "git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e#4f44023dab081f7da74fee14bc53b10ee8f96a1e"
 dependencies = [
  "proc-macro2 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2488,15 +2488,15 @@ dependencies = [
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 "checksum unicode-xid 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 "checksum urlocator 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "14e39a4f106dafb0a748b951494667a44e62b55fd7942b4fc12706d63cc535a0"
-"checksum utf8parse 0.2.0 (git+https://github.com/alacritty/vte)" = "<none>"
+"checksum utf8parse 0.2.0 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)" = "<none>"
 "checksum vcpkg 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "6454029bf181f092ad1b853286f23e2c507d8e8194d01d92da4a55c274a5508c"
 "checksum vec_map 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 "checksum version_check 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 "checksum vswhom 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "be979b7f07507105799e854203b470ff7c78a1639e330a58f183b5fea574608b"
 "checksum vswhom-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc2f5402d3d0e79a069714f7b48e3ecc60be7775a2c049cb839457457a239532"
-"checksum vte 0.8.0 (git+https://github.com/alacritty/vte)" = "<none>"
-"checksum vte_generate_state_changes 0.1.1 (git+https://github.com/alacritty/vte)" = "<none>"
+"checksum vte 0.8.0 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)" = "<none>"
+"checksum vte_generate_state_changes 0.1.1 (git+https://github.com/alacritty/vte?rev=4f44023dab081f7da74fee14bc53b10ee8f96a1e)" = "<none>"
 "checksum walkdir 2.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "777182bc735b6424e1a57516d35ed72cb8019d85c8c9bf536dccb3445c1a2f7d"
 "checksum wasi 0.9.0+wasi-snapshot-preview1 (registry+https://github.com/rust-lang/crates.io-index)" = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 "checksum wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)" = "af1080ebe0efabcf12aef2132152f616038f2d7dcbbccf7b2d8c5270fe14bcda"
