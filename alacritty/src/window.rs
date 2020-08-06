@@ -244,11 +244,6 @@ impl Window {
 
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        let decorations = match window_config.decorations {
-            Decorations::None => false,
-            _ => true,
-        };
-
         let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
             .expect("loading icon")
             .to_rgba();
@@ -261,7 +256,7 @@ impl Window {
             .with_title(title)
             .with_visible(false)
             .with_transparent(true)
-            .with_decorations(decorations)
+            .with_decorations(window_config.decorations != Decorations::None)
             .with_maximized(window_config.startup_mode == StartupMode::Maximized)
             .with_window_icon(icon.ok())
             // X11.
@@ -278,17 +273,12 @@ impl Window {
 
     #[cfg(windows)]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        let decorations = match window_config.decorations {
-            Decorations::None => false,
-            _ => true,
-        };
-
         let icon = Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
             .with_title(title)
             .with_visible(false)
-            .with_decorations(decorations)
+            .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
             .with_maximized(window_config.startup_mode == StartupMode::Maximized)
             .with_window_icon(icon.ok())

@@ -1017,18 +1017,18 @@ impl<N: Notify + OnResize> Processor<N> {
     /// Check if an event is irrelevant and can be skipped.
     fn skip_event(event: &GlutinEvent<Event>) -> bool {
         match event {
-            GlutinEvent::WindowEvent { event, .. } => match event {
+            GlutinEvent::WindowEvent { event, .. } => matches!(
+                event,
                 WindowEvent::KeyboardInput { is_synthetic: true, .. }
-                | WindowEvent::TouchpadPressure { .. }
-                | WindowEvent::CursorEntered { .. }
-                | WindowEvent::AxisMotion { .. }
-                | WindowEvent::HoveredFileCancelled
-                | WindowEvent::Destroyed
-                | WindowEvent::HoveredFile(_)
-                | WindowEvent::Touch(_)
-                | WindowEvent::Moved(_) => true,
-                _ => false,
-            },
+                    | WindowEvent::TouchpadPressure { .. }
+                    | WindowEvent::CursorEntered { .. }
+                    | WindowEvent::AxisMotion { .. }
+                    | WindowEvent::HoveredFileCancelled
+                    | WindowEvent::Destroyed
+                    | WindowEvent::HoveredFile(_)
+                    | WindowEvent::Touch(_)
+                    | WindowEvent::Moved(_)
+            ),
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::MainEventsCleared
