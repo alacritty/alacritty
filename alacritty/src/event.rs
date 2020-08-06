@@ -299,7 +299,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let args = {
             // Use working directory of controlling process, or fallback to initial shell.
             let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-            if pid == -1 {
+            if pid < 0 {
                 pid = tty::child_pid();
             }
 
