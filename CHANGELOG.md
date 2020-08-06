@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Cursors are now inverted when their fixed color is similar to the cell's background
+- Use working directory of active process instead of shell for SpawnNewInstance action
 
 ### Fixed
 

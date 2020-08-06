@@ -297,16 +297,20 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         #[cfg(unix)]
         let args = {
-            #[cfg(not(target_os = "freebsd"))]
-            let proc_prefix = "";
-            #[cfg(target_os = "freebsd")]
-            let proc_prefix = "/compat/linux";
-            let link_path = format!("{}/proc/{}/cwd", proc_prefix, tty::child_pid());
-            if let Ok(path) = fs::read_link(link_path) {
-                vec!["--working-directory".into(), path]
-            } else {
-                Vec::new()
+            // Use working directory of controlling process, or fallback to initial shell.
+            let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
+            if pid < 0 {
+                pid = tty::child_pid();
             }
+
+            #[cfg(not(target_os = "freebsd"))]
+            let link_path = format!("/proc/{}/cwd", pid);
+            #[cfg(target_os = "freebsd")]
+            let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+
+            fs::read_link(link_path)
+                .map(|path| vec!["--working-directory".into(), path])
+                .unwrap_or_default()
         };
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
