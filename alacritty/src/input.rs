@@ -832,7 +832,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
                         *self.ctx.suppress_chars() = true;
                     },
-                    (Some(VirtualKeyCode::Escape), _) => {
+                    (Some(VirtualKeyCode::Escape), _)
+                    | (Some(VirtualKeyCode::C), ModifiersState::CTRL) => {
                         self.ctx.cancel_search();
                         *self.ctx.suppress_chars() = true;
                     },
