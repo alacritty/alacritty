@@ -13,7 +13,7 @@ use std::os::unix::{
 };
 use std::process::{Child, Command, Stdio};
 use std::ptr;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;
@@ -33,6 +33,9 @@ use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 /// Necessary to put this in static storage for `SIGCHLD` to have access.
 static PID: AtomicUsize = AtomicUsize::new(0);
 
+/// File descriptor of terminal master.
+static FD: AtomicI32 = AtomicI32::new(-1);
+
 macro_rules! die {
     ($($arg:tt)*) => {{
         error!($($arg)*);
@@ -42,6 +45,10 @@ macro_rules! die {
 
 pub fn child_pid() -> pid_t {
     PID.load(Ordering::Relaxed) as pid_t
+}
+
+pub fn master_fd() -> RawFd {
+    FD.load(Ordering::Relaxed) as RawFd
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
@@ -224,8 +231,9 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
 
     match builder.spawn() {
         Ok(child) => {
-            // Remember child PID so other modules can use it.
+            // Remember master FD and child PID so other modules can use it.
             PID.store(child.id() as usize, Ordering::Relaxed);
+            FD.store(master, Ordering::Relaxed);
 
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
