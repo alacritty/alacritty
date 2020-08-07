@@ -64,7 +64,7 @@ brevity.
 | `CSI l`    | PARTIAL     | See `CSI h` for supported modes                   |
 | `CSI ? l`  | PARTIAL     | See `CSI ? h` for supported modes                 |
 | `CSI M`    | IMPLEMENTED |                                                   |
-| `CSI m`    | PARTIAL     | Colon separators are not supported                |
+| `CSI m`    | PARTIAL     | Only singular straight underlines are supported   |
 | `CSI n`    | IMPLEMENTED |                                                   |
 | `CSI P`    | IMPLEMENTED |                                                   |
 | `CSI SP q` | PARTIAL     | No blinking support                               |
