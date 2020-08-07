@@ -42,125 +42,20 @@ You can find an overview over the features available in Alacritty [here](./docs/
 
 ## Installation
 
-Some operating systems already provide binaries for Alacritty, for everyone
-else the instructions to build Alacritty from source can be found [here](INSTALL.md).
+Alacritty can be installed by using various package managers on Linux, BSD,
+macOS and Windows.
 
-### Alpine Linux
-
-```sh
-apk add alacritty
-```
-
-### Arch Linux
-
-```sh
-pacman -S alacritty
-```
-
-### Fedora
-
-Unofficial builds of stable tags can be found in Fedora Copr:
-[pschyska/alacritty](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty/).
-
-``` sh
-dnf copr enable pschyska/alacritty
-dnf install alacritty
-```
-
-If you want to help test pre-releases, you can additionally enable
-[pschyska/alacritty-testing](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty-testing/).
-
-### Gentoo Linux
-
-```sh
-emerge x11-terms/alacritty
-```
-
-### GNU Guix
-
-```sh
-guix package -i alacritty
-```
-
-### Mageia
-
-```sh
-urpmi alacritty
-```
-
-### NixOS
-
-```sh
-nix-env -iA nixos.alacritty
-```
-
-### openSUSE Tumbleweed
-
-```sh
-zypper in alacritty
-```
-
-### Pop!\_OS
-
-```sh
-apt install alacritty
-```
-
-### Solus
-
-```sh
-eopkg install alacritty
-```
-
-### Void Linux
-
-```sh
-xbps-install alacritty
-```
-
-### FreeBSD
-
-```sh
-pkg install alacritty
-```
-
-### macOS
-
-```sh
-brew cask install alacritty
-```
-
-Once the cask is installed, it is recommended to set up the manual page, shell
-completions, and terminfo definitions. These are located inside the installed
-application's Resources directory: `Alacritty.app/Contents/Resources`.
-
-### Windows
-
-#### Via [Chocolatey](https://chocolatey.org)
-
-```batch
-choco install alacritty
-```
-
-#### Via [Scoop](https://scoop.sh)
-
-```batch
-scoop bucket add extras
-scoop install alacritty
-```
-
-### Other
-
-Prebuilt binaries for macOS, and Windows can be downloaded from the
+Prebuilt binaries for macOS and Windows can also be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
-On Windows, Alacritty also requires Microsoft's VC++ redistributable.
-
-For Windows versions older than Windows 10 (October 2018 Update), Alacritty
-requires winpty to emulate UNIX's PTY API. The agent is a single binary
-(`winpty-agent.exe`) which **must** be in the same directory as the Alacritty
-executable and is available through the
+On Windows, Alacritty requires winpty to emulate UNIX's PTY API for versions
+older than Windows 10 (October 2018 Update) and Microsoft's VC++
+redistributable. The winpty agent (`winpty-agent.exe`) **must** be in the same
+directory as the Alacritty executable and is available through the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
+
+For everyone else, the detailed instructions to install Alacritty can be found
+[here](INSTALL.md).
 
 ## Configuration
 

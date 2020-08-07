@@ -1,3 +1,27 @@
+# Third Party Repositories
+
+For distributions that do not ship Alacritty officially, there are some third
+party packages available. Only the cargo package is maintained officially, so
+proceed with caution.
+
+## [Fedora](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty)
+
+```
+# dnf copr enable pschyska/alacritty
+# dnf install alacritty
+```
+
+## Cargo
+
+If you're just interested in the Alacritty binary and you don't need the
+[terminfo file](#terminfo), [desktop entry](#desktop-entry),
+[manual page](#manual-page) or [shell completions](#shell-completions), you can
+install it directly through cargo:
+
+```sh
+cargo install alacritty
+```
+
 # Manual Installation
 
 1. [Prerequisites](#prerequisites)
@@ -22,15 +46,15 @@
         16. [Other](#other)
 2. [Building](#building)
     1. [Linux/Windows](#linux--windows)
-        1. [Desktop Entry](#desktop-entry)
-    2. [MacOS](#macos)
-    3. [Cargo](#cargo)
-3. [Manual Page](#manual-page)
-4. [Shell Completions](#shell-completions)
-    1. [Zsh](#zsh)
-    2. [Bash](#bash)
-    3. [Fish](#fish)
-5. [Terminfo](#terminfo)
+    2. [macOS](#macos)
+3. [Post Build](#post-build)
+    1. [Terminfo](#terminfo)
+    2. [Desktop Entry](#desktop-entry)
+    3. [Manual Page](#manual-page)
+    4. [Shell completions](#shell-completions)
+        1. [Zsh](#zsh)
+        2. [Bash](#bash)
+        3. [Fish](#fish)
 
 ## Prerequisites
 
@@ -213,8 +237,6 @@ filling in this section of the README.
 
 ### Linux / Windows
 
-Once all the prerequisites are installed, compiling Alacritty should be easy:
-
 ```sh
 cargo build --release
 ```
@@ -222,10 +244,43 @@ cargo build --release
 If all goes well, this should place a binary at `target/release/alacritty`.
 On Windows this directory should also contain the `winpty-agent.exe`.
 
-#### Desktop Entry
+### macOS
 
-Many linux distributions support desktop entries for adding applications to
-system menus. To install the desktop entry for Alacritty, run
+```sh
+make app
+cp -r target/release/osx/Alacritty.app /Applications/
+```
+
+## Post Build
+
+There are some extra things you might want to set up after installing Alacritty.
+All the post build instruction assume you're still inside the Alacritty
+repository.
+
+### Terminfo
+
+To make sure Alacritty works correctly, either the `alacritty` or
+`alacritty-direct` terminfo must be used. The `alacritty` terminfo will be
+picked up automatically if it is installed.
+
+If the following command returns without any errors, the `alacritty` terminfo is
+already installed:
+
+```sh
+infocmp alacritty
+```
+
+If it is not present already, you can install it globally with the following
+command:
+
+```
+sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
+```
+
+### Desktop Entry
+
+Many Linux and BSD distributions support desktop entries for adding applications
+to system menus. This will install the desktop entry for Alacritty:
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
@@ -234,41 +289,24 @@ sudo desktop-file-install extra/linux/Alacritty.desktop
 sudo update-desktop-database
 ```
 
-You can find a prerendered SVG logo as well as simplified versions of the SVG in
-the `extra/logo/compat` directory.
+If you are having problems with Alacritty's logo, you can replace it with
+prerendered PNGs and simplified SVGs available in the `extra/logo/compat`
+directory.
 
-### MacOS
-
-To build an application for macOS, run
-
-```sh
-make app
-cp -r target/release/osx/Alacritty.app /Applications/
-```
-
-### Cargo
-
-If you don't want to clone the repository, you can install Alacritty directly using cargo:
-
-```sh
-cargo install --git https://github.com/alacritty/alacritty
-```
-
-## Manual Page
+### Manual Page
 
 Installing the manual page requires the additional dependency `gzip`.
-To install the manual page, run
 
 ```sh
 sudo mkdir -p /usr/local/share/man/man1
 gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
 ```
 
-## Shell completions
+### Shell completions
 
-To get automatic completions for alacritty's flags and arguments you can install the provided shell completions.
+To get automatic completions for Alacritty's flags and arguments you can install the provided shell completions.
 
-### Zsh
+#### Zsh
 
 To install the completions for zsh, you can place the `extra/completions/_alacritty` file in any
 directory referenced by `$fpath`.
@@ -286,7 +324,7 @@ Then copy the completion file to this directory:
 cp extra/completions/_alacritty ${ZDOTDIR:-~}/.zsh_functions/_alacritty
 ```
 
-### Bash
+#### Bash
 
 To install the completions for bash, you can `source` the `extra/completions/alacritty.bash` file
 in your `~/.bashrc` file.
@@ -305,32 +343,11 @@ cp extra/completions/alacritty.bash ~/.bash_completion/alacritty
 echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 ```
 
-### Fish
+#### Fish
 
 To install the completions for fish, run
 
 ```
 mkdir -p $fish_complete_path[1]
 cp extra/completions/alacritty.fish $fish_complete_path[1]/alacritty.fish
-```
-
-## Terminfo
-
-The terminfo database contains entries describing the terminal
-emulator's capabilities. Programs need these in order to function
-properly.
-
-Alacritty should work with the standard `xterm-256color` definition,
-but to allow programs to make best use of alacritty's capabilities,
-use its own terminfo definition instead.
-
-Unless the user has set the `TERM` environment variable in the
-alacritty configuration, the `alacritty` terminfo definition will be
-used if it has been installed. If not, then `xterm-256color` is used
-instead.
-
-To install alacritty's terminfo entry globally:
-
-```sh
-sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
 ```
