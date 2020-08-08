@@ -7,14 +7,16 @@ URL:           https://github.com/alacritty/alacritty
 VCS:           https://github.com/alacritty/alacritty.git
 Source:        alacritty-%{version}.tar
 
-BuildRequires: rust >= 1.41.0
+BuildRequires: rust >= 1.43.0
 BuildRequires: cargo
 BuildRequires: cmake
-BuildRequires: freetype-devel
-BuildRequires: fontconfig-devel
-BuildRequires: libxcb-devel
+BuildRequires: gcc-c++
+BuildRequires: python3
+BuildRequires: freetype-devel 
+BuildRequires: fontconfig-devel 
+BuildRequires: libxcb-devel 
 BuildRequires: desktop-file-utils
-BuildRequires: python36
+BuildRequires: ncurses
 
 %description
 Alacritty is a terminal emulator with a strong focus on simplicity and
