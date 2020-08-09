@@ -863,7 +863,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 *self.ctx.received_count() = 0;
                 self.process_key_bindings(input);
             },
-            ElementState::Released => *self.ctx.suppress_chars() = false,
+            ElementState::Released => (),
         }
     }
 
@@ -891,6 +891,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.push_search(c);
                 }
             }
+
+            *self.ctx.suppress_chars() = false;
 
             return;
         }
@@ -951,7 +953,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 let binding = binding.clone();
                 binding.execute(&mut self.ctx);
 
-                // Don't suppress when there has been a `ReceiveChar` action.
+                // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
             }
         }
