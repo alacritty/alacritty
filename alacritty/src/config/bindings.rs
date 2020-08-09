@@ -368,6 +368,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Escape,                        +TermMode::VI; Action::ClearSelection;
         I,                             +TermMode::VI; Action::ScrollToBottom;
         I,                             +TermMode::VI; Action::ToggleViMode;
+        C,      ModifiersState::CTRL,  +TermMode::VI; Action::ToggleViMode;
         Y,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollLineUp;
         E,      ModifiersState::CTRL,  +TermMode::VI; Action::ScrollLineDown;
         G,                             +TermMode::VI; Action::ScrollToTop;

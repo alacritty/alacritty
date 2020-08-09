@@ -17,10 +17,10 @@ alacritty-direct|alacritty with direct color indexing,
     RGB,
     colors#0x1000000, pairs#0x7FFF,
     initc@, op=\E[39;49m,
-    setab=\E[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}
-          %/%{255}%&%d;%p1%{255}%&%d%;m,
-    setaf=\E[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}
-          %/%{255}%&%d;%p1%{255}%&%d%;m,
+    setab=\E[%?%p1%{8}%<%t4%p1%d%e48\:2\:\:%p1%{65536}%/%d\:%p1%{256}
+          %/%{255}%&%d\:%p1%{255}%&%d%;m,
+	setaf=\E[%?%p1%{8}%<%t3%p1%d%e38\:2\:\:%p1%{65536}%/%d\:%p1%{256}
+          %/%{255}%&%d\:%p1%{255}%&%d%;m,
     setb@, setf@,
 
 alacritty+common|base fragment for alacritty,
