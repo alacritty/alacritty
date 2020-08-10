@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Secondary device attributes escape (`CSI > 0 c`)
 - Support for colon separated SGR 38/48
+- New Ctrl+C binding to cancel search and leave vi mode
 
 ### Changed
 
@@ -27,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Incorrect window location with negative `window.position` config options
 - Slow rendering performance with HiDPI displays, especially on macOS
+- Keys swallowed during search when pressing them right before releasing backspace
 
 ## 0.5.0
 
