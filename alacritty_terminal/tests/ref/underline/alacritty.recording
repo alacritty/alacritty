@@ -1,0 +1,11 @@
+[undeadleech@undeadlap underline]$ [K[undeadleech@undeadlap underline]$ : 1597114803:0;../../../../target/debug/alacritty --ref-test --config-file /tmp/test.yml -e bash[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C799:0;rm *[K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C803:0;../../../../target/debug/alacritty --ref-test --config-file /tmp/test.yml -e bash[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K
+[K[A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Cecho -e "\e[4mUNDERLINED\e0m"[0m"
+[4mUNDERLINED[0m
+[undeadleech@undeadlap underline]$ echo -e "\e[4:1mUNDERLINED\e[4:1[K0m"
+[4:1mUNDERLINED[4:0m
+[undeadleech@undeadlap underline]$ echo -e "\e[4:2mUNDERLINED\e[4:0m"
+[4:2mUNDERLINED[4:0m
+[undeadleech@undeadlap underline]$ echo -e "\e[4:3m [KUNDEL[KRLINED"\"e"["2"1"m"
+[4:3mUNDERLINED[21m
+[undeadleech@undeadlap underline]$ 

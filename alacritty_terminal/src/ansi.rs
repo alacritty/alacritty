@@ -618,6 +618,8 @@ pub enum Attr {
     Italic,
     /// Underline text.
     Underline,
+    /// Underlined twice.
+    DoubleUnderline,
     /// Blink cursor slowly.
     BlinkSlow,
     /// Blink cursor fast.
@@ -634,7 +636,7 @@ pub enum Attr {
     CancelBoldDim,
     /// Cancel italic.
     CancelItalic,
-    /// Cancel underline.
+    /// Cancel all underlines.
     CancelUnderline,
     /// Cancel blink.
     CancelBlink,
@@ -1151,7 +1153,9 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter) -> Vec<Option<Attr>> {
             [1] => Some(Attr::Bold),
             [2] => Some(Attr::Dim),
             [3] => Some(Attr::Italic),
-            [4] => Some(Attr::Underline),
+            [4, 0] => Some(Attr::CancelUnderline),
+            [4, 2] => Some(Attr::DoubleUnderline),
+            [4, ..] => Some(Attr::Underline),
             [5] => Some(Attr::BlinkSlow),
             [6] => Some(Attr::BlinkFast),
             [7] => Some(Attr::Reverse),
