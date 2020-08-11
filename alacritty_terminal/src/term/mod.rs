@@ -2017,8 +2017,14 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::CancelBoldDim => cursor.template.flags.remove(Flags::BOLD | Flags::DIM),
             Attr::Italic => cursor.template.flags.insert(Flags::ITALIC),
             Attr::CancelItalic => cursor.template.flags.remove(Flags::ITALIC),
-            Attr::Underline => cursor.template.flags.insert(Flags::UNDERLINE),
-            Attr::DoubleUnderline => cursor.template.flags.insert(Flags::DOUBLE_UNDERLINE),
+            Attr::Underline => {
+                cursor.template.flags.remove(Flags::DOUBLE_UNDERLINE);
+                cursor.template.flags.insert(Flags::UNDERLINE);
+            },
+            Attr::DoubleUnderline => {
+                cursor.template.flags.remove(Flags::UNDERLINE);
+                cursor.template.flags.insert(Flags::DOUBLE_UNDERLINE);
+            },
             Attr::CancelUnderline => {
                 cursor.template.flags.remove(Flags::UNDERLINE | Flags::DOUBLE_UNDERLINE);
             },

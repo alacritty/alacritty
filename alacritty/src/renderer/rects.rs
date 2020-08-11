@@ -130,10 +130,12 @@ pub struct RenderLines {
 }
 
 impl RenderLines {
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[inline]
     pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         self.inner
             .iter()
@@ -145,6 +147,7 @@ impl RenderLines {
     }
 
     /// Update the stored lines with the next cell info.
+    #[inline]
     pub fn update(&mut self, cell: RenderableCell) {
         self.update_flag(cell, Flags::UNDERLINE);
         self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
