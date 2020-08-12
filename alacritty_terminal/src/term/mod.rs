@@ -311,7 +311,7 @@ impl RenderableCell {
 
     fn is_empty(&self) -> bool {
         self.bg_alpha == 0.
-            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT)
+            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
             && self.inner == RenderableCellContent::Chars([' '; cell::MAX_ZEROWIDTH_CHARS + 1])
     }
 
