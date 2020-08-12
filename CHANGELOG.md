@@ -18,11 +18,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Secondary device attributes escape (`CSI > 0 c`)
 - Support for colon separated SGR 38/48
 - New Ctrl+C binding to cancel search and leave vi mode
+- Escapes for double underlines (`CSI 4 : 2 m`) and underline reset (`CSI 4 : 0 m`)
 
 ### Changed
 
 - Cursors are now inverted when their fixed color is similar to the cell's background
 - Use working directory of active process instead of shell for SpawnNewInstance action
+- Fallback to normal underline for unsupported underline types in `CSI 4 : ? m` escapes
 
 ### Fixed
 
