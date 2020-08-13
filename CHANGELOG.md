@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use working directory of active process instead of shell for SpawnNewInstance action
 - Fallback to normal underline for unsupported underline types in `CSI 4 : ? m` escapes
 - The user's background color is now used as the foreground for the render timer
+- Use yellow/red from the config for error and warning messages instead of fixed colors
 
 ### Fixed
 
@@ -33,7 +34,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Slow rendering performance with HiDPI displays, especially on macOS
 - Keys swallowed during search when pressing them right before releasing backspace
 - Crash when a wrapped line is rotated into the last line
-- Yellow/Red colors for message bar not being picked from user's config
 
 ## 0.5.0
 

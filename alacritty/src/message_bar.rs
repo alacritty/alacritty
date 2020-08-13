@@ -15,8 +15,8 @@ pub struct Message {
     target: Option<String>,
 }
 
+/// Purpose of the message.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-/// Message's contents hint.
 pub enum MessageType {
     /// A message represents an error.
     Error,
