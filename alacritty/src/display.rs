@@ -674,7 +674,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let fg = config.colors.normal().black;
+        let fg = config.colors.primary.background;
         let bg = config.colors.normal().red;
 
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
