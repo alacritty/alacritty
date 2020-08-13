@@ -15,11 +15,9 @@ use std::sync::{Arc, Mutex};
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
 
-use alacritty_terminal::term::color;
-
 use crate::cli::Options;
 use crate::event::Event;
-use crate::message_bar::Message;
+use crate::message_bar::{Message, MessageType};
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
@@ -97,14 +95,14 @@ impl log::Log for Logger {
                         env_var,
                         record.args(),
                     );
-                    let color = match record.level() {
-                        Level::Error => color::RED,
-                        Level::Warn => color::YELLOW,
+                    let message_type = match record.level() {
+                        Level::Error => MessageType::Error,
+                        Level::Warn => MessageType::Warning,
                         _ => unreachable!(),
                     };
 
                     if let Ok(event_proxy) = self.event_proxy.lock() {
-                        let mut message = Message::new(msg, color);
+                        let mut message = Message::new(msg, message_type);
                         message.set_target(record.target().to_owned());
 
                         let _ = event_proxy.send_event(Event::Message(message));

@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Slow rendering performance with HiDPI displays, especially on macOS
 - Keys swallowed during search when pressing them right before releasing backspace
 - Crash when a wrapped line is rotated into the last line
+- Yellow/Red colors for message bar not being picked from user's config
 
 ## 0.5.0
 
