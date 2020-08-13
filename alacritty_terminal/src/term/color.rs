@@ -15,9 +15,6 @@ pub const COUNT: usize = 269;
 /// Factor for automatic computation of dim colors used by terminal.
 pub const DIM_FACTOR: f32 = 0.66;
 
-pub const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
-pub const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
-
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize)]
 pub struct Rgb {
     pub r: u8,

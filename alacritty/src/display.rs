@@ -25,8 +25,7 @@ use crossfont::set_font_smoothing;
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
-use alacritty_terminal::index::{Column, Point};
-use alacritty_terminal::index::{Direction, Line};
+use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
@@ -34,7 +33,7 @@ use crate::config::font::Font;
 use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::event::{Mouse, SearchState};
-use crate::message_bar::MessageBuffer;
+use crate::message_bar::{MessageBuffer, MessageType};
 use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
@@ -545,8 +544,14 @@ impl Display {
             // Create a new rectangle for the background.
             let start_line = size_info.lines().0 - message_bar_lines;
             let y = size_info.cell_height.mul_add(start_line as f32, size_info.padding_y);
+
+            let color = match message.ty() {
+                MessageType::Error => config.colors.normal().red,
+                MessageType::Warning => config.colors.normal().yellow,
+            };
+
             let message_bar_rect =
-                RenderRect::new(0., y, size_info.width, size_info.height - y, message.color(), 1.);
+                RenderRect::new(0., y, size_info.width, size_info.height - y, color, 1.);
 
             // Push message_bar in the end, so it'll be above all other content.
             rects.push(message_bar_rect);
