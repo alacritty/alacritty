@@ -170,9 +170,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {
-            let (x, y) = (self.mouse().x, self.mouse().y);
-            let size_info = self.size_info();
-            let point = size_info.pixels_to_coords(x, y);
+            let point = self.size_info().pixels_to_coords(self.mouse().x, self.mouse().y);
             let cell_side = self.mouse().cell_side;
             self.update_selection(Point { line: point.line, col: point.col }, cell_side);
         }
@@ -195,20 +193,27 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.dirty = true;
     }
 
-    fn update_selection(&mut self, point: Point, side: Side) {
-        let point = self.terminal.visible_to_buffer(point);
+    fn update_selection(&mut self, mut point: Point, side: Side) {
+        let mut selection = match self.terminal.selection.take() {
+            Some(selection) => selection,
+            None => return,
+        };
 
-        // Update selection if one exists.
-        let vi_mode = self.terminal.mode().contains(TermMode::VI);
-        if let Some(selection) = &mut self.terminal.selection {
-            selection.update(point, side);
+        // Treat motion over message bar like motion over the last line.
+        point.line = min(point.line, self.terminal.screen_lines() - 1);
 
-            if vi_mode {
-                selection.include_all();
-            }
+        // Update selection.
+        let absolute_point = self.terminal.visible_to_buffer(point);
+        selection.update(absolute_point, side);
 
-            self.terminal.dirty = true;
+        // Move vi cursor and expand selection.
+        if self.terminal.mode().contains(TermMode::VI) {
+            self.terminal.vi_mode_cursor.point = point;
+            selection.include_all();
         }
+
+        self.terminal.selection = Some(selection);
+        self.terminal.dirty = true;
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -646,7 +651,7 @@ pub struct Mouse {
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
-    pub inside_grid: bool,
+    pub inside_text_area: bool,
 }
 
 impl Default for Mouse {
@@ -666,7 +671,7 @@ impl Default for Mouse {
             cell_side: Side::Left,
             lines_scrolled: 0.,
             block_url_launcher: false,
-            inside_grid: false,
+            inside_text_area: false,
         }
     }
 }
@@ -985,7 +990,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.write_to_pty((path + " ").into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
-                        processor.ctx.mouse.inside_grid = false;
+                        processor.ctx.mouse.inside_text_area = false;
 
                         if processor.highlighted_url.is_some() {
                             processor.ctx.terminal.dirty = true;

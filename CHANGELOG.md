@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Slow rendering performance with HiDPI displays, especially on macOS
 - Keys swallowed during search when pressing them right before releasing backspace
 - Crash when a wrapped line is rotated into the last line
+- Selection wrapping to the top when selecting below the error/warning bar
 
 ## 0.5.0
 
