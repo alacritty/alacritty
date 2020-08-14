@@ -19,7 +19,11 @@ use crate::cli::Options;
 use crate::event::Event;
 use crate::message_bar::{Message, MessageType};
 
+/// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
+/// List of targets which will be logged by Alacritty.
+const ALLOWED_TARGETS: [&str; 4] =
+    ["alacritty_terminal", "alacritty_config", "alacritty", "crossfont"];
 
 pub fn initialize(
     options: &Options,
@@ -55,6 +59,37 @@ impl Logger {
             None
         }
     }
+
+    /// Log a record to the message bar.
+    fn message_bar_log(&self, record: &log::Record<'_>, logfile_path: &str) {
+        let event_proxy = match self.event_proxy.lock() {
+            Ok(event_proxy) => event_proxy,
+            Err(_) => return,
+        };
+
+        #[cfg(not(windows))]
+        let env_var = format!("${}", ALACRITTY_LOG_ENV);
+        #[cfg(windows)]
+        let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
+
+        let msg = format!(
+            "[{}] See log at {} ({}):\n{}",
+            record.level(),
+            logfile_path,
+            env_var,
+            record.args(),
+        );
+        let message_type = match record.level() {
+            Level::Error => MessageType::Error,
+            Level::Warn => MessageType::Warning,
+            _ => unreachable!(),
+        };
+
+        let mut message = Message::new(msg, message_type);
+        message.set_target(record.target().to_owned());
+
+        let _ = event_proxy.send_event(Event::Message(message));
+    }
 }
 
 impl log::Log for Logger {
@@ -63,55 +98,30 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
-            let now = time::strftime("%F %T.%f", &time::now()).unwrap();
+        // Get target crate.
+        let index = record.target().find(':').unwrap_or_else(|| record.target().len());
+        let target = &record.target()[..index];
 
-            let msg = if record.level() >= Level::Trace {
-                format!(
-                    "[{}] [{}] [{}:{}] {}\n",
-                    now,
-                    record.level(),
-                    record.file().unwrap_or("?"),
-                    record.line().map(|l| l.to_string()).unwrap_or_else(|| "?".into()),
-                    record.args()
-                )
-            } else {
-                format!("[{}] [{}] {}\n", now, record.level(), record.args())
-            };
+        // Only log our own crates.
+        if !self.enabled(record.metadata()) || !ALLOWED_TARGETS.contains(&target) {
+            return;
+        }
 
-            if let Ok(ref mut logfile) = self.logfile.lock() {
-                let _ = logfile.write_all(msg.as_ref());
+        let now = time::strftime("%F %T.%f", &time::now()).unwrap();
+        let msg = format!("[{}] [{:<5}] [{}] {}\n", now, record.level(), target, record.args());
 
-                if record.level() <= Level::Warn {
-                    #[cfg(not(windows))]
-                    let env_var = format!("${}", ALACRITTY_LOG_ENV);
-                    #[cfg(windows)]
-                    let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
+        // Write to stdout.
+        if let Ok(mut stdout) = self.stdout.lock() {
+            let _ = stdout.write_all(msg.as_ref());
+        }
 
-                    let msg = format!(
-                        "[{}] See log at {} ({}):\n{}",
-                        record.level(),
-                        logfile.path.to_string_lossy(),
-                        env_var,
-                        record.args(),
-                    );
-                    let message_type = match record.level() {
-                        Level::Error => MessageType::Error,
-                        Level::Warn => MessageType::Warning,
-                        _ => unreachable!(),
-                    };
+        if let Ok(mut logfile) = self.logfile.lock() {
+            // Write to logfile.
+            let _ = logfile.write_all(msg.as_ref());
 
-                    if let Ok(event_proxy) = self.event_proxy.lock() {
-                        let mut message = Message::new(msg, message_type);
-                        message.set_target(record.target().to_owned());
-
-                        let _ = event_proxy.send_event(Event::Message(message));
-                    }
-                }
-            }
-
-            if let Ok(ref mut stdout) = self.stdout.lock() {
-                let _ = stdout.write_all(msg.as_ref());
+            // Write to message bar.
+            if record.level() <= Level::Warn {
+                self.message_bar_log(record, &logfile.path.to_string_lossy());
             }
         }
     }
