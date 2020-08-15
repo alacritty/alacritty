@@ -36,7 +36,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, StartupMode, WindowConfig};
+use crate::config::window::{Energy, Decorations, StartupMode, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
@@ -105,6 +105,7 @@ impl From<crossfont::Error> for Error {
 fn create_gl_window<E>(
     mut window: WindowBuilder,
     event_loop: &EventLoop<E>,
+    window_config: &WindowConfig,
     srgb: bool,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
@@ -113,10 +114,16 @@ fn create_gl_window<E>(
         window = window.with_inner_size(dimensions);
     }
 
+    let hardware_acceleration = match window_config.energy {
+        Energy::Performance => Some(true),
+        Energy::Powersave => Some(false),
+        Energy::Auto => None,
+    };
+
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(vsync)
-        .with_hardware_acceleration(None)
+        .with_hardware_acceleration(hardware_acceleration)
         .build_windowed(window, event_loop)?;
 
     // Make the context current so OpenGL operations can run.
@@ -153,7 +160,7 @@ impl Window {
         #[cfg(not(any(target_os = "macos", windows)))] wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let window_config = &config.ui_config.window;
-        let window_builder = Window::get_platform_window(&window_config.title, &window_config);
+        let window_builder = Window::get_platform_window(&window_config);
 
         // Disable vsync on Wayland.
         #[cfg(not(any(target_os = "macos", windows)))]
@@ -161,9 +168,17 @@ impl Window {
         #[cfg(any(target_os = "macos", windows))]
         let vsync = true;
 
-        let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, vsync, size))?;
+        let windowed_context = create_gl_window(
+            window_builder.clone(),
+            &event_loop,
+            &window_config,
+            false,
+            vsync,
+            size,
+        )
+        .or_else(|_| {
+            create_gl_window(window_builder, &event_loop, &window_config, true, vsync, size)
+        })?;
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
@@ -243,7 +258,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(window_config: &WindowConfig) -> WindowBuilder {
         let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
             .expect("loading icon")
             .to_rgba();
@@ -253,7 +268,7 @@ impl Window {
         let class = &window_config.class;
 
         let mut builder = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&window_config.title)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
@@ -272,11 +287,11 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(window_config: &WindowConfig) -> WindowBuilder {
         let icon = Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(title)
+            .with_title(&window_config.title)
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
@@ -285,9 +300,9 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&window_config.title)
             .with_visible(false)
             .with_transparent(true)
             .with_maximized(window_config.startup_mode == StartupMode::Maximized);

@@ -81,6 +81,18 @@
   # Set this to `None` to use the default theme variant.
   #gtk_theme_variant: None
 
+  # Power management mode
+  #
+  # This will control things like the GPU used to render Alacritty. When set to
+  # `Auto`, Alacritty will automatically switch to low power mode when on
+  # battery.
+  #
+  # Values for `energy`:
+  #   - Performance
+  #   - Powersave
+  #   - Auto
+  #energy: Auto
+
 #scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.

@@ -55,8 +55,12 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "option_explicit_none")]
     pub gtk_theme_variant: Option<String>,
 
+    /// Power management.
+    #[serde(deserialize_with = "failure_default")]
+    pub energy: Energy,
+
     /// Use dynamic title.
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     dynamic_title: DefaultTrueBool,
 }
 
@@ -90,7 +94,22 @@ impl Default for WindowConfig {
             gtk_theme_variant: Default::default(),
             title: default_title(),
             dynamic_title: Default::default(),
+            energy: Default::default(),
         }
+    }
+}
+
+/// Power management modes.
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Energy {
+    Performance,
+    Powersave,
+    Auto,
+}
+
+impl Default for Energy {
+    fn default() -> Self {
+        Self::Auto
     }
 }
 
