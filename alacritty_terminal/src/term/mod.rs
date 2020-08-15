@@ -311,7 +311,7 @@ impl RenderableCell {
 
     fn is_empty(&self) -> bool {
         self.bg_alpha == 0.
-            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT)
+            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
             && self.inner == RenderableCellContent::Chars([' '; cell::MAX_ZEROWIDTH_CHARS + 1])
     }
 
@@ -2017,8 +2017,17 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::CancelBoldDim => cursor.template.flags.remove(Flags::BOLD | Flags::DIM),
             Attr::Italic => cursor.template.flags.insert(Flags::ITALIC),
             Attr::CancelItalic => cursor.template.flags.remove(Flags::ITALIC),
-            Attr::Underline => cursor.template.flags.insert(Flags::UNDERLINE),
-            Attr::CancelUnderline => cursor.template.flags.remove(Flags::UNDERLINE),
+            Attr::Underline => {
+                cursor.template.flags.remove(Flags::DOUBLE_UNDERLINE);
+                cursor.template.flags.insert(Flags::UNDERLINE);
+            },
+            Attr::DoubleUnderline => {
+                cursor.template.flags.remove(Flags::UNDERLINE);
+                cursor.template.flags.insert(Flags::DOUBLE_UNDERLINE);
+            },
+            Attr::CancelUnderline => {
+                cursor.template.flags.remove(Flags::UNDERLINE | Flags::DOUBLE_UNDERLINE);
+            },
             Attr::Hidden => cursor.template.flags.insert(Flags::HIDDEN),
             Attr::CancelHidden => cursor.template.flags.remove(Flags::HIDDEN),
             Attr::Strike => cursor.template.flags.insert(Flags::STRIKEOUT),

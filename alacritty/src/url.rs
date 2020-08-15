@@ -163,7 +163,7 @@ impl Urls {
 
         // Make sure all prerequisites for highlighting are met.
         if selection
-            || !mouse.inside_grid
+            || !mouse.inside_text_area
             || config.ui_config.mouse.url.launcher.is_none()
             || required_mods != mods
             || mouse.left_button_state == ElementState::Pressed

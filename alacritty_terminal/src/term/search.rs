@@ -420,7 +420,9 @@ impl<T> Term<T> {
 
     /// Find the end of the current line across linewraps.
     pub fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
-        while self.grid[point.line][self.cols() - 1].flags.contains(Flags::WRAPLINE) {
+        while point.line > 0
+            && self.grid[point.line][self.cols() - 1].flags.contains(Flags::WRAPLINE)
+        {
             point.line -= 1;
         }
 

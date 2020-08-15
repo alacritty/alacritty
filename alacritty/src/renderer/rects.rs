@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crossfont::Metrics;
 
-use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::index::{Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo};
@@ -35,51 +35,91 @@ impl RenderLine {
         let mut rects = Vec::new();
 
         let mut start = self.start;
-        while start.line < self.end.line {
-            let mut end = start;
-            end.col = size.cols() - 1;
-            rects.push(Self::create_rect(metrics, size, flag, start, end, self.color));
+        for line in start.line.0..=self.end.line.0 {
+            let mut end = Point::new(Line(line), self.end.col);
+            if line != self.end.line.0 {
+                end.col = size.cols() - 1;
+            }
 
-            start.col = Column(0);
-            start.line += 1;
+            Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
+
+            start.col.0 = 0;
         }
-
-        rects.push(Self::create_rect(metrics, size, flag, start, self.end, self.color));
 
         rects
     }
 
-    fn create_rect(
+    /// Push all rects required to draw the cell's line.
+    fn push_rects(
+        rects: &mut Vec<RenderRect>,
         metrics: &Metrics,
         size: &SizeInfo,
         flag: Flags,
         start: Point,
         end: Point,
         color: Rgb,
-    ) -> RenderRect {
-        let start_x = start.col.0 as f32 * size.cell_width;
-        let end_x = (end.col.0 + 1) as f32 * size.cell_width;
-        let width = end_x - start_x;
+    ) {
+        let (position, thickness) = match flag {
+            Flags::DOUBLE_UNDERLINE => {
+                // Position underlines so each one has 50% of descent available.
+                let top_pos = 0.25 * metrics.descent;
+                let bottom_pos = 0.75 * metrics.descent;
 
-        let (position, mut height) = match flag {
+                rects.push(Self::create_rect(
+                    size,
+                    metrics.descent,
+                    start,
+                    end,
+                    top_pos,
+                    metrics.underline_thickness,
+                    color,
+                ));
+
+                (bottom_pos, metrics.underline_thickness)
+            },
             Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
             Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
             _ => unimplemented!("Invalid flag for cell line drawing specified"),
         };
 
+        rects.push(Self::create_rect(
+            size,
+            metrics.descent,
+            start,
+            end,
+            position,
+            thickness,
+            color,
+        ));
+    }
+
+    /// Create a line's rect at a position relative to the baseline.
+    fn create_rect(
+        size: &SizeInfo,
+        descent: f32,
+        start: Point,
+        end: Point,
+        position: f32,
+        mut thickness: f32,
+        color: Rgb,
+    ) -> RenderRect {
+        let start_x = start.col.0 as f32 * size.cell_width;
+        let end_x = (end.col.0 + 1) as f32 * size.cell_width;
+        let width = end_x - start_x;
+
         // Make sure lines are always visible.
-        height = height.max(1.);
+        thickness = thickness.max(1.);
 
         let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
-        let baseline = line_bottom + metrics.descent;
+        let baseline = line_bottom + descent;
 
-        let mut y = (baseline - position - height / 2.).ceil();
-        let max_y = line_bottom - height;
+        let mut y = (baseline - position - thickness / 2.).ceil();
+        let max_y = line_bottom - thickness;
         if y > max_y {
             y = max_y;
         }
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, color, 1.)
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, thickness, color, 1.)
     }
 }
 
@@ -90,10 +130,12 @@ pub struct RenderLines {
 }
 
 impl RenderLines {
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[inline]
     pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         self.inner
             .iter()
@@ -105,32 +147,38 @@ impl RenderLines {
     }
 
     /// Update the stored lines with the next cell info.
+    #[inline]
     pub fn update(&mut self, cell: RenderableCell) {
-        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
-            if !cell.flags.contains(*flag) {
-                continue;
-            }
+        self.update_flag(cell, Flags::UNDERLINE);
+        self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
+        self.update_flag(cell, Flags::STRIKEOUT);
+    }
 
-            // Check if there's an active line.
-            if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
-                if cell.fg == line.color
-                    && cell.column == line.end.col + 1
-                    && cell.line == line.end.line
-                {
-                    // Update the length of the line.
-                    line.end = cell.into();
-                    continue;
-                }
-            }
+    /// Update the lines for a specific flag.
+    fn update_flag(&mut self, cell: RenderableCell, flag: Flags) {
+        if !cell.flags.contains(flag) {
+            return;
+        }
 
-            // Start new line if there currently is none.
-            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
-            match self.inner.get_mut(flag) {
-                Some(lines) => lines.push(line),
-                None => {
-                    self.inner.insert(*flag, vec![line]);
-                },
+        // Check if there's an active line.
+        if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
+            if cell.fg == line.color
+                && cell.column == line.end.col + 1
+                && cell.line == line.end.line
+            {
+                // Update the length of the line.
+                line.end = cell.into();
+                return;
             }
+        }
+
+        // Start new line if there currently is none.
+        let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
+        match self.inner.get_mut(&flag) {
+            Some(lines) => lines.push(line),
+            None => {
+                self.inner.insert(flag, vec![line]);
+            },
         }
     }
 }

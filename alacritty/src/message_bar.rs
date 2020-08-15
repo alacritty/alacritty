@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
@@ -12,14 +11,24 @@ const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
     text: String,
-    color: Rgb,
+    ty: MessageType,
     target: Option<String>,
+}
+
+/// Purpose of the message.
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum MessageType {
+    /// A message represents an error.
+    Error,
+
+    /// A message represents a warning.
+    Warning,
 }
 
 impl Message {
     /// Create a new message.
-    pub fn new(text: String, color: Rgb) -> Message {
-        Message { text, color, target: None }
+    pub fn new(text: String, ty: MessageType) -> Message {
+        Message { text, ty, target: None }
     }
 
     /// Formatted message text lines.
@@ -78,10 +87,10 @@ impl Message {
         lines
     }
 
-    /// Message color.
+    /// Message type.
     #[inline]
-    pub fn color(&self) -> Rgb {
-        self.color
+    pub fn ty(&self) -> MessageType {
+        self.ty
     }
 
     /// Message target.
@@ -160,14 +169,14 @@ impl MessageBuffer {
 
 #[cfg(test)]
 mod tests {
-    use super::{Message, MessageBuffer, MIN_FREE_LINES};
-    use alacritty_terminal::term::{color, SizeInfo};
+    use super::{Message, MessageBuffer, MessageType, MIN_FREE_LINES};
+    use alacritty_terminal::term::SizeInfo;
 
     #[test]
     fn appends_close_button() {
         let input = "a";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 7.,
             height: 10.,
@@ -187,7 +196,7 @@ mod tests {
     fn multiline_close_button_first_line() {
         let input = "fo\nbar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -207,7 +216,7 @@ mod tests {
     fn splits_on_newline() {
         let input = "a\nb";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -227,7 +236,7 @@ mod tests {
     fn splits_on_length() {
         let input = "foobar1";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -247,7 +256,7 @@ mod tests {
     fn empty_with_shortterm() {
         let input = "foobar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 6.,
             height: 0.,
@@ -267,7 +276,7 @@ mod tests {
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 22.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -290,7 +299,7 @@ mod tests {
     fn hide_button_when_too_narrow() {
         let input = "ha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 2.,
             height: 10.,
@@ -310,7 +319,7 @@ mod tests {
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 2.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -330,7 +339,7 @@ mod tests {
     fn add_newline_for_button() {
         let input = "test";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -350,7 +359,7 @@ mod tests {
     fn remove_target() {
         let mut message_buffer = MessageBuffer::new();
         for i in 0..10 {
-            let mut msg = Message::new(i.to_string(), color::RED);
+            let mut msg = Message::new(i.to_string(), MessageType::Error);
             if i % 2 == 0 && i < 5 {
                 msg.set_target("target".into());
             }
@@ -372,9 +381,9 @@ mod tests {
     #[test]
     fn pop() {
         let mut message_buffer = MessageBuffer::new();
-        let one = Message::new(String::from("one"), color::RED);
+        let one = Message::new(String::from("one"), MessageType::Error);
         message_buffer.push(one.clone());
-        let two = Message::new(String::from("two"), color::YELLOW);
+        let two = Message::new(String::from("two"), MessageType::Warning);
         message_buffer.push(two.clone());
 
         assert_eq!(message_buffer.message(), Some(&one));
@@ -388,7 +397,7 @@ mod tests {
     fn wrap_on_words() {
         let input = "a\nbc defg";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.push(Message::new(input.into(), color::RED));
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -412,11 +421,11 @@ mod tests {
     fn remove_duplicates() {
         let mut message_buffer = MessageBuffer::new();
         for _ in 0..10 {
-            let msg = Message::new(String::from("test"), color::RED);
+            let msg = Message::new(String::from("test"), MessageType::Error);
             message_buffer.push(msg);
         }
-        message_buffer.push(Message::new(String::from("other"), color::RED));
-        message_buffer.push(Message::new(String::from("test"), color::YELLOW));
+        message_buffer.push(Message::new(String::from("other"), MessageType::Error));
+        message_buffer.push(Message::new(String::from("test"), MessageType::Warning));
         let _ = message_buffer.message();
 
         message_buffer.pop();

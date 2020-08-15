@@ -377,7 +377,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
-        let inside_grid = size_info.contains_point(x, y);
+        let inside_text_area = size_info.contains_point(x, y);
         let point = size_info.pixels_to_coords(x, y);
         let cell_side = self.get_mouse_side();
 
@@ -387,12 +387,12 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
             && self.ctx.mouse().cell_side == cell_side
-            && self.ctx.mouse().inside_grid == inside_grid
+            && self.ctx.mouse().inside_text_area == inside_text_area
         {
             return;
         }
 
-        self.ctx.mouse_mut().inside_grid = inside_grid;
+        self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
         self.ctx.mouse_mut().line = point.line;
         self.ctx.mouse_mut().column = point.col;
@@ -405,23 +405,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.update_url_state(&mouse_state);
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
-        let last_term_line = self.ctx.terminal().grid().screen_lines() - 1;
         if (lmb_pressed || rmb_pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
             && !search_active
         {
-            // Treat motion over message bar like motion over the last line.
-            let line = min(point.line, last_term_line);
-
-            // Move vi mode cursor to mouse cursor position.
-            if self.ctx.terminal().mode().contains(TermMode::VI) {
-                self.ctx.terminal_mut().vi_mode_cursor.point = point;
-            }
-
-            self.ctx.update_selection(Point { line, col: point.col }, cell_side);
-        } else if inside_grid
+            self.ctx.update_selection(point, cell_side);
+        } else if inside_text_area
             && cell_changed
-            && point.line <= last_term_line
+            && point.line < self.ctx.terminal().screen_lines()
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -832,7 +823,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
                         *self.ctx.suppress_chars() = true;
                     },
-                    (Some(VirtualKeyCode::Escape), _) => {
+                    (Some(VirtualKeyCode::Escape), _)
+                    | (Some(VirtualKeyCode::C), ModifiersState::CTRL) => {
                         self.ctx.cancel_search();
                         *self.ctx.suppress_chars() = true;
                     },
@@ -862,7 +854,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 *self.ctx.received_count() = 0;
                 self.process_key_bindings(input);
             },
-            ElementState::Released => *self.ctx.suppress_chars() = false,
+            ElementState::Released => (),
         }
     }
 
@@ -890,6 +882,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.push_search(c);
                 }
             }
+
+            *self.ctx.suppress_chars() = false;
 
             return;
         }
@@ -950,7 +944,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 let binding = binding.clone();
                 binding.execute(&mut self.ctx);
 
-                // Don't suppress when there has been a `ReceiveChar` action.
+                // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
             }
         }
@@ -994,7 +988,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         // Since search is above the message bar, the button is offset by search's height.
         let search_height = if self.ctx.search_active() { 1 } else { 0 };
 
-        mouse.inside_grid
+        mouse.inside_text_area
             && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols()
             && mouse.line == self.ctx.terminal().grid().screen_lines() + search_height
     }
