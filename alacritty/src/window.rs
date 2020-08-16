@@ -36,7 +36,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Energy, Decorations, StartupMode, WindowConfig};
+use crate::config::window::{Decorations, Energy, StartupMode, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
