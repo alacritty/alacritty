@@ -2233,14 +2233,14 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn window_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
+    fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
         let width = self.cell_width * self.grid.cols().0 as f32;
         let height = self.cell_height * self.grid.screen_lines().0 as f32;
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 
     #[inline]
-    fn area_size_chars<W: io::Write>(&mut self, writer: &mut W) {
+    fn text_area_size_chars<W: io::Write>(&mut self, writer: &mut W) {
         let _ = write!(writer, "\x1b[8;{};{}t", self.grid.screen_lines(), self.grid.cols());
     }
 }
