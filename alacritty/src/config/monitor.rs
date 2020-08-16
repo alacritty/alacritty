@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -13,28 +14,32 @@ pub struct Monitor {
 }
 
 impl Monitor {
-    pub fn new<P>(path: P, event_proxy: EventProxy) -> Monitor
-    where
-        P: Into<PathBuf>,
-    {
-        let path = path.into();
-
+    pub fn new(paths: Vec<PathBuf>, event_proxy: EventProxy) -> Monitor {
         Monitor {
             _thread: thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher =
                     watcher(tx, Duration::from_millis(10)).expect("Unable to spawn file watcher");
-                let config_path = ::std::fs::canonicalize(path).expect("canonicalize config path");
 
-                // Get directory of config.
-                let mut parent = config_path.clone();
-                parent.pop();
+                // Get all unique parent directories.
+                let mut parents = paths
+                    .iter()
+                    .map(|path| {
+                        let mut path = fs::canonicalize(path).expect("canonicalize config path");
+                        path.pop();
+                        path
+                    })
+                    .collect::<Vec<PathBuf>>();
+                parents.sort_unstable();
+                parents.dedup();
 
-                // Watch directory.
-                watcher
-                    .watch(&parent, RecursiveMode::NonRecursive)
-                    .expect("watch alacritty.yml dir");
+                // Watch all configuration file directories.
+                for parent in &parents {
+                    watcher
+                        .watch(&parent, RecursiveMode::NonRecursive)
+                        .expect("watch alacritty.yml dir");
+                }
 
                 loop {
                     match rx.recv().expect("watcher event") {
@@ -42,11 +47,12 @@ impl Monitor {
                         DebouncedEvent::Write(path)
                         | DebouncedEvent::Create(path)
                         | DebouncedEvent::Chmod(path) => {
-                            if path != config_path {
+                            if !paths.contains(&path) {
                                 continue;
                             }
 
-                            event_proxy.send_event(Event::ConfigReload(path));
+                            // Always reload the primary configuration file.
+                            event_proxy.send_event(Event::ConfigReload(paths[0].clone()));
                         },
                         _ => {},
                     }

@@ -1051,7 +1051,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.dirty = true;
         }
 
-        let config = match config::reload_from(&path) {
+        let config = match config::load_from(&path) {
             Ok(config) => config,
             Err(_) => return,
         };
