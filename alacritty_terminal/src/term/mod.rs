@@ -2774,43 +2774,6 @@ mod tests {
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
     }
-
-    #[test]
-    fn report_size_in_pixels_and_chars() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-
-        let mut term = Term::new(&MockConfig::default(), &size, Mock);
-        let mut processor = ansi::Processor::default();
-
-        macro_rules! run_sequence {
-            ($input:expr, $output:expr) => {
-                let mut writer = Vec::new();
-                for &i in &$input[..] {
-                    processor.advance(&mut term, i, &mut writer);
-                }
-
-                assert_eq!(&$output[..], &writer[..]);
-            };
-        }
-
-        run_sequence!(b"\x1b[14t", b"\x1b[4;51;21t");
-        run_sequence!(b"\x1b[18t", b"\x1b[8;17;7t");
-
-        // Resize
-        let size = SizeInfo { width: 210.0, height: 510.0, ..size };
-        term.resize(&size);
-
-        run_sequence!(b"\x1b[14t", b"\x1b[4;510;210t");
-        run_sequence!(b"\x1b[18t", b"\x1b[8;170;70t");
-    }
 }
 
 #[cfg(all(test, feature = "bench"))]
