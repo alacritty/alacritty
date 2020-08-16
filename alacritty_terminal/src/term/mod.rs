@@ -746,11 +746,8 @@ pub struct Term<T> {
     /// Current forward and backward buffer search regexes.
     regex_search: Option<RegexSearch>,
 
-    /// Width of individual cell.
-    cell_width: f32,
-
-    /// Height of individual cell.
-    cell_height: f32,
+    /// Terminal size info.
+    size: SizeInfo,
 }
 
 impl<T> Term<T> {
@@ -801,8 +798,7 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             selection: None,
             regex_search: None,
-            cell_width: size.cell_width,
-            cell_height: size.cell_height,
+            size: *size,
         }
     }
 
@@ -1014,9 +1010,8 @@ impl<T> Term<T> {
         // Reset scrolling region.
         self.scroll_region = Line(0)..self.screen_lines();
 
-        // Save cell size
-        self.cell_width = size.cell_width;
-        self.cell_height = size.cell_height;
+        // Save term size.
+        self.size = *size;
     }
 
     /// Active terminal modes.
@@ -2234,8 +2229,8 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.cell_width * self.grid.cols().0 as f32;
-        let height = self.cell_height * self.grid.screen_lines().0 as f32;
+        let width = self.size.cell_width * self.grid.cols().0 as f32;
+        let height = self.size.cell_height * self.grid.screen_lines().0 as f32;
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 
