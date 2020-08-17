@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for colon separated SGR 38/48
 - New Ctrl+C binding to cancel search and leave vi mode
 - Escapes for double underlines (`CSI 4 : 2 m`) and underline reset (`CSI 4 : 0 m`)
+- Configuration file option for sourcing other files (`import`)
 
 ### Changed
 
