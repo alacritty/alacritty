@@ -28,6 +28,7 @@ pub fn get_cursor_glyph(
     match cursor {
         CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width),
         CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
+        CursorStyle::Plan9 => get_plan9_cursor(height, line_width),
         CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
         CursorStyle::Block => get_block_cursor_glyph(height, width),
         CursorStyle::Hidden => RasterizedGlyph::default(),
@@ -64,6 +65,27 @@ pub fn get_beam_cursor_glyph(height: i32, line_width: i32) -> RasterizedGlyph {
         width: line_width,
         buf: BitmapBuffer::RGB(buf),
     }
+}
+
+/// Draw a cursor that looks like the cursor in Plan 9
+pub fn get_plan9_cursor(height: i32, line_width: i32) -> RasterizedGlyph {
+    let l = 3 * line_width;
+    let mut buf = Vec::with_capacity((l * height * 3) as usize);
+
+    for y in 0..height {
+        for x in 0..l {
+            if y < l-1 || y > height - l {
+                buf.append(&mut vec![255u8; 3]);
+            } else if x >= line_width && x < 2 * line_width {
+                buf.append(&mut vec![255u8; 3]);
+            } else {
+                buf.append(&mut vec![0u8; 3]);
+            };
+        }
+    }
+
+    // Create a custom glyph with the rectangle data attached to it.
+    RasterizedGlyph { c: ' ', top: height, left: 0, height, width: line_width * 3, buf: BitmapBuffer::RGB(buf) }
 }
 
 /// Returns a custom box cursor character.

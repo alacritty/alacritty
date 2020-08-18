@@ -334,6 +334,10 @@ pub enum CursorStyle {
     #[serde(skip)]
     HollowBlock,
 
+    /// Cursor is vertical bar, but with thicker squares at both ends (like the
+    /// Plan 9 cursor)
+    Plan9,
+
     /// Invisible cursor.
     #[serde(skip)]
     Hidden,
