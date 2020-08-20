@@ -311,6 +311,11 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_motion(ViMotion::FirstOccupied);
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
+            Action::ResetAndClear => {
+                ctx.terminal_mut().clear_screen(ClearMode::All);
+                ctx.terminal_mut().reset_state();
+                ctx.terminal_mut().dirty = true;
+            },
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             Action::ReceiveChar | Action::None => (),

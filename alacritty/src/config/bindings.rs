@@ -145,6 +145,9 @@ pub enum Action {
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
+    /// Reset and clear the display
+    ResetAndClear,
+
     /// Hide the Alacritty window.
     Hide,
 
