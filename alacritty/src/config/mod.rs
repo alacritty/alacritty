@@ -15,12 +15,11 @@ pub mod monitor;
 pub mod ui_config;
 pub mod window;
 
+mod serde_utils;
 mod bindings;
-mod merge;
 mod mouse;
 
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
-use crate::config::merge::merge;
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UIConfig;
@@ -187,12 +186,12 @@ fn parse_config(
 
     // Merge config with imports.
     let imports = load_imports(&config, config_paths, recursion_limit);
-    Ok(merge(imports, config))
+    Ok(serde_utils::merge(imports, config))
 }
 
 /// Load all referenced configuration files.
 fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
-    let mut merged = Value::Mapping(Mapping::new());
+    let mut merged = Value::Null;
 
     let imports = match config.get("import") {
         Some(Value::Sequence(imports)) => imports,
@@ -215,7 +214,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         };
 
         if let Ok(config) = parse_config(&path, config_paths, recursion_limit - 1) {
-            merged = merge(merged, config);
+            merged = serde_utils::merge(merged, config);
         }
     }
 

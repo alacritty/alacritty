@@ -1,4 +1,4 @@
-//! Merge multiple configuration files together.
+//! Serde helpers.
 
 use serde_yaml::mapping::Mapping;
 use serde_yaml::Value;
@@ -39,6 +39,10 @@ mod tests {
 
     #[test]
     fn merge_primitive() {
+        let base = Value::Null;
+        let replacement = Value::Bool(true);
+        assert_eq!(merge(base, replacement.clone()), replacement);
+
         let base = Value::Bool(false);
         let replacement = Value::Bool(true);
         assert_eq!(merge(base, replacement.clone()), replacement);
