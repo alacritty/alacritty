@@ -193,10 +193,11 @@ fn parse_config(
 fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
     let imports = match config.get("import") {
         Some(Value::Sequence(imports)) => imports,
-        _ => {
+        Some(_) => {
             error!(target: LOG_TARGET_CONFIG, "Invalid import type: expected a sequence");
             return Value::Null;
         },
+        None => return Value::Null,
     };
 
     // Limit recursion to prevent infinite loops.
