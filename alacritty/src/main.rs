@@ -188,8 +188,13 @@ fn run(
     let message_buffer = MessageBuffer::new();
 
     // Event processor.
-    let mut processor =
-        Processor::new(event_loop::Notifier(loop_tx.clone()), message_buffer, config, display, options);
+    let mut processor = Processor::new(
+        event_loop::Notifier(loop_tx.clone()),
+        message_buffer,
+        config,
+        display,
+        options,
+    );
 
     // Kick off the I/O thread.
     let io_thread = event_loop.spawn();

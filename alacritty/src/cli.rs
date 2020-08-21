@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use alacritty_terminal::config::Program;
 use alacritty_terminal::index::{Column, Line};
 
-use crate::config::merge::merge;
+use crate::config::serde_utils;
 use crate::config::ui_config::Delta;
 use crate::config::window::{Dimensions, DEFAULT_NAME};
 use crate::config::Config;
@@ -265,7 +265,9 @@ impl Options {
         if let Some(config_options) = matches.values_of("option") {
             for option in config_options {
                 match option_as_value(option) {
-                    Ok(value) => options.config_options = merge(options.config_options, value),
+                    Ok(value) => {
+                        options.config_options = serde_utils::merge(options.config_options, value);
+                    },
                     Err(_) => eprintln!("Invalid CLI config option: {:?}", option),
                 }
             }
@@ -274,20 +276,23 @@ impl Options {
         options
     }
 
+    /// Configuration file path.
     pub fn config_path(&self) -> Option<PathBuf> {
         self.config_path.clone()
     }
 
+    /// CLI config options as deserializable serde value.
     pub fn config_options(&self) -> &Value {
         &self.config_options
     }
 
+    /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut Config) {
         if let Some(wd) = &self.working_directory {
-            if !wd.is_dir() {
-                error!("Invalid working directory: {:?}", wd);
-            } else {
+            if wd.is_dir() {
                 config.working_directory = Some(wd.to_owned());
+            } else {
+                error!("Invalid working directory: {:?}", wd);
             }
         }
 
@@ -358,21 +363,21 @@ mod tests {
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let config = Config::default();
+        let mut config = Config::default();
         let old_dynamic_title = config.ui_config.dynamic_title();
 
-        let config = Options::default().into_config(config);
+        Options::default().override_config(&mut config);
 
         assert_eq!(old_dynamic_title, config.ui_config.dynamic_title());
     }
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let config = Config::default();
+        let mut config = Config::default();
 
         let mut options = Options::default();
         options.title = Some("foo".to_owned());
-        let config = options.into_config(config);
+        options.override_config(&mut config);
 
         assert!(!config.ui_config.dynamic_title());
     }
@@ -382,7 +387,7 @@ mod tests {
         let mut config = Config::default();
 
         config.ui_config.window.title = "foo".to_owned();
-        let config = Options::default().into_config(config);
+        Options::default().override_config(&mut config);
 
         assert!(config.ui_config.dynamic_title());
     }

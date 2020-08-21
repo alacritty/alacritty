@@ -11,14 +11,13 @@ use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
 pub mod debug;
 pub mod font;
-pub mod merge;
 pub mod monitor;
+pub mod serde_utils;
 pub mod ui_config;
 pub mod window;
 
 mod bindings;
 mod mouse;
-mod serde_utils;
 
 use crate::cli::Options;
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
@@ -129,6 +128,7 @@ pub fn reload(config_path: &PathBuf, options: &Options) -> Result<Config> {
     Ok(config)
 }
 
+/// Load configuration file and log errors.
 fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
     match read_config(path, cli_config) {
         Ok(config) => Ok(config),
@@ -139,12 +139,13 @@ fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
     }
 }
 
+/// Deserialize configuration file from path.
 fn read_config(path: &PathBuf, cli_config: Value) -> Result<Config> {
     let mut config_paths = Vec::new();
     let mut config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
     // Override config with CLI options.
-    config_value = merge(config_value, cli_config);
+    config_value = serde_utils::merge(config_value, cli_config);
 
     // Deserialize to concrete type.
     let mut config = Config::deserialize(config_value)?;
