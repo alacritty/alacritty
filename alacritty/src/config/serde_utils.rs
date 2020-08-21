@@ -16,6 +16,7 @@ pub fn merge(base: Value, replacement: Value) -> Value {
         (Value::Mapping(base), Value::Mapping(replacement)) => {
             Value::Mapping(merge_mapping(base, replacement))
         },
+        (value, Value::Null) => value,
         (_, value) => value,
     }
 }
@@ -54,6 +55,10 @@ mod tests {
         let base = Value::String(String::new());
         let replacement = Value::String(String::from("test"));
         assert_eq!(merge(base, replacement.clone()), replacement);
+
+        let base = Value::Mapping(Mapping::new());
+        let replacement = Value::Null;
+        assert_eq!(merge(base.clone(), replacement), base);
     }
 
     #[test]
