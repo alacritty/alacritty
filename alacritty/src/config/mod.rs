@@ -15,9 +15,9 @@ pub mod monitor;
 pub mod ui_config;
 pub mod window;
 
-mod serde_utils;
 mod bindings;
 mod mouse;
+mod serde_utils;
 
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
 #[cfg(test)]
@@ -213,8 +213,11 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
             },
         };
 
-        if let Ok(config) = parse_config(&path, config_paths, recursion_limit - 1) {
-            merged = serde_utils::merge(merged, config);
+        match parse_config(&path, config_paths, recursion_limit - 1) {
+            Ok(config) => merged = serde_utils::merge(merged, config),
+            Err(err) => {
+                error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
+            },
         }
     }
 
