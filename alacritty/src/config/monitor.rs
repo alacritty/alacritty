@@ -35,7 +35,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
         Err(err) => {
             error!("Unable to watch config file: {}", err);
             return;
-        }
+        },
     };
 
     thread::spawn_named("config watcher", move || {
@@ -64,7 +64,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
                 Err(err) => {
                     debug!("Config watcher channel dropped unexpectedly: {}", err);
                     break;
-                }
+                },
             };
 
             match event {
