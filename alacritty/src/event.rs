@@ -39,7 +39,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 
-use crate::cli::Options;
+use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
 use crate::config;
 use crate::config::Config;
@@ -139,6 +139,7 @@ pub struct ActionContext<'a, N, T> {
     pub urls: &'a Urls,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
+    cli_options: &'a CLIOptions,
     font_size: &'a mut Size,
 }
 
@@ -693,6 +694,7 @@ pub struct Processor<N> {
     font_size: Size,
     event_queue: Vec<GlutinEvent<'static, Event>>,
     search_state: SearchState,
+    cli_options: CLIOptions,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -704,6 +706,7 @@ impl<N: Notify + OnResize> Processor<N> {
         message_buffer: MessageBuffer,
         config: Config,
         display: Display,
+        cli_options: CLIOptions,
     ) -> Processor<N> {
         #[cfg(not(any(target_os = "macos", windows)))]
         let clipboard = Clipboard::new(display.window.wayland_display());
@@ -723,6 +726,7 @@ impl<N: Notify + OnResize> Processor<N> {
             event_queue: Vec::new(),
             clipboard,
             search_state: SearchState::new(),
+            cli_options,
         }
     }
 
@@ -826,6 +830,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 urls: &self.display.urls,
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
+                cli_options: &self.cli_options,
                 event_loop,
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
@@ -1051,13 +1056,10 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.dirty = true;
         }
 
-        let config = match config::load_from(&path) {
+        let config = match config::reload(&path, &processor.ctx.cli_options) {
             Ok(config) => config,
             Err(_) => return,
         };
-
-        let options = Options::new();
-        let config = options.into_config(config);
 
         processor.ctx.terminal.update_config(&config);
 
