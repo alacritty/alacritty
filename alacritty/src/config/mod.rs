@@ -1,25 +1,31 @@
-use std::env;
 use std::fmt::{self, Display, Formatter};
-use std::fs;
-use std::io;
 use std::path::PathBuf;
+use std::{env, fs, io};
 
 use log::{error, warn};
+use serde::Deserialize;
+use serde_yaml::mapping::Mapping;
+use serde_yaml::Value;
 
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
-mod bindings;
 pub mod debug;
 pub mod font;
 pub mod monitor;
-mod mouse;
 pub mod ui_config;
 pub mod window;
+
+mod bindings;
+mod mouse;
+mod serde_utils;
 
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UIConfig;
+
+/// Maximum number of depth for the configuration file imports.
+const IMPORT_RECURSION_LIMIT: usize = 5;
 
 pub type Config = TermConfig<UIConfig>;
 
@@ -128,13 +134,7 @@ pub fn installed_config() -> Option<PathBuf> {
     dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
 }
 
-pub fn load_from(path: PathBuf) -> Config {
-    let mut config = reload_from(&path).unwrap_or_else(|_| Config::default());
-    config.config_path = Some(path);
-    config
-}
-
-pub fn reload_from(path: &PathBuf) -> Result<Config> {
+pub fn load_from(path: &PathBuf) -> Result<Config> {
     match read_config(path) {
         Ok(config) => Ok(config),
         Err(err) => {
@@ -145,6 +145,25 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
+    let mut config_paths = Vec::new();
+    let config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
+
+    let mut config = Config::deserialize(config_value)?;
+    config.ui_config.config_paths = config_paths;
+
+    print_deprecation_warnings(&config);
+
+    Ok(config)
+}
+
+/// Deserialize all configuration files as generic Value.
+fn parse_config(
+    path: &PathBuf,
+    config_paths: &mut Vec<PathBuf>,
+    recursion_limit: usize,
+) -> Result<Value> {
+    config_paths.push(path.to_owned());
+
     let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM.
@@ -152,24 +171,57 @@ fn read_config(path: &PathBuf) -> Result<Config> {
         contents = contents.split_off(3);
     }
 
-    parse_config(&contents)
-}
-
-fn parse_config(contents: &str) -> Result<Config> {
-    match serde_yaml::from_str(contents) {
+    // Load configuration file as Value.
+    let config: Value = match serde_yaml::from_str(&contents) {
+        Ok(config) => config,
         Err(error) => {
             // Prevent parsing error with an empty string and commented out file.
             if error.to_string() == "EOF while parsing a value" {
-                Ok(Config::default())
+                Value::Mapping(Mapping::new())
             } else {
-                Err(Error::Yaml(error))
+                return Err(Error::Yaml(error));
             }
         },
-        Ok(config) => {
-            print_deprecation_warnings(&config);
-            Ok(config)
-        },
+    };
+
+    // Merge config with imports.
+    let imports = load_imports(&config, config_paths, recursion_limit);
+    Ok(serde_utils::merge(imports, config))
+}
+
+/// Load all referenced configuration files.
+fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
+    let mut merged = Value::Null;
+
+    let imports = match config.get("import") {
+        Some(Value::Sequence(imports)) => imports,
+        _ => return merged,
+    };
+
+    // Limit recursion to prevent infinite loops.
+    if !imports.is_empty() && recursion_limit == 0 {
+        error!(target: LOG_TARGET_CONFIG, "Exceeded maximum configuration import depth");
+        return merged;
     }
+
+    for import in imports {
+        let path = match import {
+            Value::String(path) => PathBuf::from(path),
+            _ => {
+                error!(target: LOG_TARGET_CONFIG, "Encountered invalid configuration file import");
+                continue;
+            },
+        };
+
+        match parse_config(&path, config_paths, recursion_limit - 1) {
+            Ok(config) => merged = serde_utils::merge(merged, config),
+            Err(err) => {
+                error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
+            },
+        }
+    }
+
+    merged
 }
 
 fn print_deprecation_warnings(config: &Config) {
@@ -215,13 +267,16 @@ fn print_deprecation_warnings(config: &Config) {
 
 #[cfg(test)]
 mod tests {
-    static DEFAULT_ALACRITTY_CONFIG: &str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
+    use super::*;
 
-    use super::Config;
+    static DEFAULT_ALACRITTY_CONFIG: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml");
 
     #[test]
     fn config_read_eof() {
-        assert_eq!(super::parse_config(DEFAULT_ALACRITTY_CONFIG).unwrap(), Config::default());
+        let config_path: PathBuf = DEFAULT_ALACRITTY_CONFIG.into();
+        let mut config = read_config(&config_path).unwrap();
+        config.ui_config.config_paths = Vec::new();
+        assert_eq!(config, Config::default());
     }
 }

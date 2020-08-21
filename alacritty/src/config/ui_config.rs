@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use log::error;
 use serde::{Deserialize, Deserializer};
 
@@ -46,6 +48,10 @@ pub struct UIConfig {
     #[serde(default, deserialize_with = "failure_default")]
     background_opacity: Percentage,
 
+    /// Path where config was loaded from.
+    #[serde(skip)]
+    pub config_paths: Vec<PathBuf>,
+
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub dynamic_title: Option<bool>,
@@ -64,6 +70,7 @@ impl Default for UIConfig {
             background_opacity: Default::default(),
             live_config_reload: Default::default(),
             dynamic_title: Default::default(),
+            config_paths: Default::default(),
         }
     }
 }

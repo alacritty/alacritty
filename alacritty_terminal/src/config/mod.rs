@@ -43,10 +43,6 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub shell: Option<Program>,
 
-    /// Path where config was loaded from.
-    #[serde(default, deserialize_with = "failure_default")]
-    pub config_path: Option<PathBuf>,
-
     /// Bell configuration.
     #[serde(default, deserialize_with = "failure_default")]
     bell: BellConfig,
