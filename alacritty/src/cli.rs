@@ -288,11 +288,11 @@ impl Options {
 
     /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut Config) {
-        if let Some(wd) = &self.working_directory {
-            if wd.is_dir() {
-                config.working_directory = Some(wd.to_owned());
+        if let Some(working_directory) = &self.working_directory {
+            if working_directory.is_dir() {
+                config.working_directory = Some(working_directory.to_owned());
             } else {
-                error!("Invalid working directory: {:?}", wd);
+                error!("Invalid working directory: {:?}", working_directory);
             }
         }
 
@@ -339,9 +339,13 @@ fn option_as_value(option: &str) -> Result<Value, serde_yaml::Error> {
     let mut yaml_text = String::with_capacity(option.len());
     let mut closing_brackets = String::new();
 
-    for c in option.chars() {
+    for (i, c) in option.chars().enumerate() {
         match c {
-            '=' => yaml_text.push_str(": "),
+            '=' => {
+                yaml_text.push_str(": ");
+                yaml_text.push_str(&option[i + 1..]);
+                break;
+            },
             '.' => {
                 yaml_text.push_str(": {");
                 closing_brackets.push('}');
@@ -417,5 +421,15 @@ mod tests {
     fn invalid_option_as_value() {
         let value = option_as_value("}");
         assert!(value.is_err());
+    }
+
+    #[test]
+    fn float_option_as_value() {
+        let value = option_as_value("float=3.4").unwrap();
+
+        let mut expected = Mapping::new();
+        expected.insert(Value::String(String::from("float")), Value::Number(3.4.into()));
+
+        assert_eq!(value, Value::Mapping(expected));
     }
 }
