@@ -83,12 +83,7 @@ fn main() {
         .expect("Unable to initialize logger");
 
     // Load configuration file.
-    let config_path = options.config_path().or_else(config::installed_config);
-    let config = config_path
-        .as_ref()
-        .and_then(|path| config::load_from(path).ok())
-        .unwrap_or_else(Config::default);
-    let config = options.into_config(config);
+    let config = config::load(&options);
 
     // Update the log level from config.
     log::set_max_level(config.ui_config.debug.log_level);
@@ -104,7 +99,7 @@ fn main() {
     let persistent_logging = config.ui_config.debug.persistent_logging;
 
     // Run Alacritty.
-    if let Err(err) = run(window_event_loop, config) {
+    if let Err(err) = run(window_event_loop, config, options) {
         error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
         std::process::exit(1);
     }
@@ -121,7 +116,11 @@ fn main() {
 ///
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), Box<dyn Error>> {
+fn run(
+    window_event_loop: GlutinEventLoop<Event>,
+    config: Config,
+    options: Options,
+) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
 
     info!("Configuration files loaded from:");
@@ -189,8 +188,13 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     let message_buffer = MessageBuffer::new();
 
     // Event processor.
-    let mut processor =
-        Processor::new(event_loop::Notifier(loop_tx.clone()), message_buffer, config, display);
+    let mut processor = Processor::new(
+        event_loop::Notifier(loop_tx.clone()),
+        message_buffer,
+        config,
+        display,
+        options,
+    );
 
     // Kick off the I/O thread.
     let io_thread = event_loop.spawn();

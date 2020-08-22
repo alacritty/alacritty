@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::{env, fs, io};
 
-use log::{error, warn};
+use log::{error, info, warn};
 use serde::Deserialize;
 use serde_yaml::mapping::Mapping;
 use serde_yaml::Value;
@@ -12,13 +12,14 @@ use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 pub mod debug;
 pub mod font;
 pub mod monitor;
+pub mod serde_utils;
 pub mod ui_config;
 pub mod window;
 
 mod bindings;
 mod mouse;
-mod serde_utils;
 
+use crate::cli::Options;
 pub use crate::config::bindings::{Action, Binding, Key, ViAction};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
@@ -94,48 +95,42 @@ impl From<serde_yaml::Error> for Error {
     }
 }
 
-/// Get the location of the first found default config file paths
-/// according to the following order:
-///
-/// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
-/// 2. $XDG_CONFIG_HOME/alacritty.yml
-/// 3. $HOME/.config/alacritty/alacritty.yml
-/// 4. $HOME/.alacritty.yml
-#[cfg(not(windows))]
-pub fn installed_config() -> Option<PathBuf> {
-    // Try using XDG location by default.
-    xdg::BaseDirectories::with_prefix("alacritty")
-        .ok()
-        .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
-        .or_else(|| {
-            xdg::BaseDirectories::new()
-                .ok()
-                .and_then(|fallback| fallback.find_config_file("alacritty.yml"))
-        })
-        .or_else(|| {
-            if let Ok(home) = env::var("HOME") {
-                // Fallback path: $HOME/.config/alacritty/alacritty.yml.
-                let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
-                if fallback.exists() {
-                    return Some(fallback);
-                }
-                // Fallback path: $HOME/.alacritty.yml.
-                let fallback = PathBuf::from(&home).join(".alacritty.yml");
-                if fallback.exists() {
-                    return Some(fallback);
-                }
-            }
-            None
-        })
+/// Load the configuration file.
+pub fn load(options: &Options) -> Config {
+    // Get config path.
+    let config_path = match options.config_path().or_else(installed_config) {
+        Some(path) => path,
+        None => {
+            info!(target: LOG_TARGET_CONFIG, "No config file found; using default");
+            return Config::default();
+        },
+    };
+
+    // Load config, falling back to the default on error.
+    let config_options = options.config_options().clone();
+    let mut config = load_from(&config_path, config_options).unwrap_or_default();
+
+    // Override config with CLI options.
+    options.override_config(&mut config);
+
+    config
 }
 
-#[cfg(windows)]
-pub fn installed_config() -> Option<PathBuf> {
-    dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
+/// Attempt to reload the configuration file.
+pub fn reload(config_path: &PathBuf, options: &Options) -> Result<Config> {
+    // Load config, propagating errors.
+    let config_options = options.config_options().clone();
+    let mut config = load_from(&config_path, config_options)?;
+
+    // Override config with CLI options.
+    options.override_config(&mut config);
+
+    Ok(config)
 }
 
-pub fn load_from(path: &PathBuf) -> Result<Config> {
-    match read_config(path) {
+/// Load configuration file and log errors.
+fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
+    match read_config(path, cli_config) {
         Ok(config) => Ok(config),
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
@@ -144,10 +139,15 @@ pub fn load_from(path: &PathBuf) -> Result<Config> {
     }
 }
 
-fn read_config(path: &PathBuf) -> Result<Config> {
+/// Deserialize configuration file from path.
+fn read_config(path: &PathBuf, cli_config: Value) -> Result<Config> {
     let mut config_paths = Vec::new();
-    let config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
+    let mut config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
+    // Override config with CLI options.
+    config_value = serde_utils::merge(config_value, cli_config);
+
+    // Deserialize to concrete type.
     let mut config = Config::deserialize(config_value)?;
     config.ui_config.config_paths = config_paths;
 
@@ -231,6 +231,46 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
     merged
 }
 
+/// Get the location of the first found default config file paths
+/// according to the following order:
+///
+/// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
+/// 2. $XDG_CONFIG_HOME/alacritty.yml
+/// 3. $HOME/.config/alacritty/alacritty.yml
+/// 4. $HOME/.alacritty.yml
+#[cfg(not(windows))]
+fn installed_config() -> Option<PathBuf> {
+    // Try using XDG location by default.
+    xdg::BaseDirectories::with_prefix("alacritty")
+        .ok()
+        .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
+        .or_else(|| {
+            xdg::BaseDirectories::new()
+                .ok()
+                .and_then(|fallback| fallback.find_config_file("alacritty.yml"))
+        })
+        .or_else(|| {
+            if let Ok(home) = env::var("HOME") {
+                // Fallback path: $HOME/.config/alacritty/alacritty.yml.
+                let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
+                if fallback.exists() {
+                    return Some(fallback);
+                }
+                // Fallback path: $HOME/.alacritty.yml.
+                let fallback = PathBuf::from(&home).join(".alacritty.yml");
+                if fallback.exists() {
+                    return Some(fallback);
+                }
+            }
+            None
+        })
+}
+
+#[cfg(windows)]
+fn installed_config() -> Option<PathBuf> {
+    dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
+}
+
 fn print_deprecation_warnings(config: &Config) {
     if config.scrolling.faux_multiplier().is_some() {
         warn!(
@@ -282,7 +322,7 @@ mod tests {
     #[test]
     fn config_read_eof() {
         let config_path: PathBuf = DEFAULT_ALACRITTY_CONFIG.into();
-        let mut config = read_config(&config_path).unwrap();
+        let mut config = read_config(&config_path, Value::Null).unwrap();
         config.ui_config.config_paths = Vec::new();
         assert_eq!(config, Config::default());
     }

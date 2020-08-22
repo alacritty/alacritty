@@ -64,14 +64,17 @@ On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty
 \fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
 Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
 .TP
+\fB\-\-embed\fR <parent>
+Defines the X11 window ID (as a decimal integer) to embed Alacritty within
+.TP
+\fB\-o\fR, \fB\-\-option\fR <option>...
+Override configuration file options [example: window.title=Alacritty]
+.TP
 \fB\-\-position\fR <x-pos> <y-pos>
 Defines the window position. Falls back to position specified by window manager if unset [default: unset]
 .TP
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
-.TP
-\fB\-\-embed\fR <parent>
-Defines the X11 window ID (as a decimal integer) to embed Alacritty within
 .TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
