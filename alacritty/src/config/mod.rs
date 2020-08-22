@@ -191,24 +191,31 @@ fn parse_config(
 
 /// Load all referenced configuration files.
 fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
-    let mut merged = Value::Null;
-
     let imports = match config.get("import") {
         Some(Value::Sequence(imports)) => imports,
-        _ => return merged,
+        Some(_) => {
+            error!(target: LOG_TARGET_CONFIG, "Invalid import type: expected a sequence");
+            return Value::Null;
+        },
+        None => return Value::Null,
     };
 
     // Limit recursion to prevent infinite loops.
     if !imports.is_empty() && recursion_limit == 0 {
         error!(target: LOG_TARGET_CONFIG, "Exceeded maximum configuration import depth");
-        return merged;
+        return Value::Null;
     }
+
+    let mut merged = Value::Null;
 
     for import in imports {
         let path = match import {
             Value::String(path) => PathBuf::from(path),
             _ => {
-                error!(target: LOG_TARGET_CONFIG, "Encountered invalid configuration file import");
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Invalid import element type: expected path string"
+                );
                 continue;
             },
         };
