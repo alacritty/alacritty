@@ -418,7 +418,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&MockConfig::default(), &size, Mock)
+        Term::new(&MockConfig::default(), size, Mock)
     }
 
     /// Test case of single cell selection.

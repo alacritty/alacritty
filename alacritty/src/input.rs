@@ -1295,7 +1295,7 @@ mod tests {
 
                 let mut clipboard = Clipboard::new_nop();
 
-                let mut terminal = Term::new(&cfg, &size, MockEventProxy);
+                let mut terminal = Term::new(&cfg, size, MockEventProxy);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
