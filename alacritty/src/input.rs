@@ -242,7 +242,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.grid().screen_lines().0 as isize;
+                let scroll_lines = term.screen_lines().0 as isize;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
@@ -250,7 +250,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.grid().screen_lines().0 as isize);
+                let scroll_lines = -(term.screen_lines().0 as isize);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
@@ -258,7 +258,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.grid().screen_lines().0 as isize / 2;
+                let scroll_lines = term.screen_lines().0 as isize / 2;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -266,7 +266,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.grid().screen_lines().0 as isize / 2);
+                let scroll_lines = -(term.screen_lines().0 as isize / 2);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -274,8 +274,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollLineUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal();
-                if term.grid().display_offset() != term.grid().history_size()
-                    && term.vi_mode_cursor.point.line + 1 != term.grid().screen_lines()
+                if term.grid().display_offset() != term.history_size()
+                    && term.vi_mode_cursor.point.line + 1 != term.screen_lines()
                 {
                     ctx.terminal_mut().vi_mode_cursor.point.line += 1;
                 }
@@ -304,7 +304,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                term.vi_mode_cursor.point.line = term.grid().screen_lines() - 1;
+                term.vi_mode_cursor.point.line = term.screen_lines() - 1;
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
@@ -557,7 +557,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             // Load mouse point, treating message bar and padding as the closest cell.
             let mouse = self.ctx.mouse();
             let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
-            point.line = min(point.line, self.ctx.terminal().grid().screen_lines() - 1);
+            point.line = min(point.line, self.ctx.terminal().screen_lines() - 1);
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -770,7 +770,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
             // Reset cursor when message bar height changed or all messages are gone.
             let size = self.ctx.size_info();
-            let current_lines = (size.lines() - self.ctx.terminal().grid().screen_lines()).0;
+            let current_lines = (size.lines() - self.ctx.terminal().screen_lines()).0;
             let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
 
             let new_icon = match current_lines.cmp(&new_lines) {
@@ -978,7 +978,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Check if the cursor is hovering above the message bar.
     fn message_at_cursor(&mut self) -> bool {
-        self.ctx.mouse().line >= self.ctx.terminal().grid().screen_lines()
+        self.ctx.mouse().line >= self.ctx.terminal().screen_lines()
     }
 
     /// Whether the point is over the message bar's close button.
@@ -990,7 +990,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         mouse.inside_text_area
             && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols()
-            && mouse.line == self.ctx.terminal().grid().screen_lines() + search_height
+            && mouse.line == self.ctx.terminal().screen_lines() + search_height
     }
 
     /// Copy text selection.

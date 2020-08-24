@@ -71,12 +71,12 @@ impl<'a> RenderableSearch<'a> {
     /// Create a new renderable search iterator.
     fn new<T>(term: &'a Term<T>) -> Self {
         let viewport_end = term.grid().display_offset();
-        let viewport_start = viewport_end + term.grid().screen_lines().0 - 1;
+        let viewport_start = viewport_end + term.screen_lines().0 - 1;
 
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));
         let mut start = term.line_search_left(start_point);
-        let end_point = Point::new(viewport_end, term.grid().cols() - 1);
+        let end_point = Point::new(viewport_end, term.cols() - 1);
         let mut end = term.line_search_right(end_point);
 
         // Set upper bound on search before/after the viewport to prevent excessive blocking.
@@ -986,7 +986,7 @@ impl<T> Term<T> {
         } else if let Some(selection) = self.selection.take() {
             // Move the selection if only number of lines changed.
             let delta = if num_lines > old_lines {
-                (num_lines - old_lines.0).saturating_sub(self.grid.history_size()) as isize
+                (num_lines - old_lines.0).saturating_sub(self.history_size()) as isize
             } else {
                 let cursor_line = self.grid.cursor.point.line;
                 -(min(old_lines - cursor_line - 1, old_lines - num_lines).0 as isize)
@@ -1812,7 +1812,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
         }
 
-        let cursor_buffer_line = (self.grid.screen_lines() - self.grid.cursor.point.line - 1).0;
+        let cursor_buffer_line = (self.screen_lines() - self.grid.cursor.point.line - 1).0;
         self.selection = self
             .selection
             .take()
@@ -1941,7 +1941,7 @@ impl<T: EventListener> Handler for Term<T> {
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));
             },
-            ansi::ClearMode::Saved if self.grid.history_size() > 0 => {
+            ansi::ClearMode::Saved if self.history_size() > 0 => {
                 self.grid.clear_history();
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(num_lines..));
@@ -2584,14 +2584,14 @@ mod tests {
         for _ in 0..19 {
             term.newline();
         }
-        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.history_size(), 10);
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Increase visible lines.
         size.height = 30.;
         term.resize(&size);
 
-        assert_eq!(term.grid.history_size(), 0);
+        assert_eq!(term.history_size(), 0);
         assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
     }
 
@@ -2612,7 +2612,7 @@ mod tests {
         for _ in 0..19 {
             term.newline();
         }
-        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.history_size(), 10);
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Enter alt screen.
@@ -2625,7 +2625,7 @@ mod tests {
         // Leave alt screen.
         term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
 
-        assert_eq!(term.grid().history_size(), 0);
+        assert_eq!(term.history_size(), 0);
         assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
     }
 
@@ -2646,14 +2646,14 @@ mod tests {
         for _ in 0..19 {
             term.newline();
         }
-        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.history_size(), 10);
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Increase visible lines.
         size.height = 5.;
         term.resize(&size);
 
-        assert_eq!(term.grid().history_size(), 15);
+        assert_eq!(term.history_size(), 15);
         assert_eq!(term.grid.cursor.point, Point::new(Line(4), Column(0)));
     }
 
@@ -2674,7 +2674,7 @@ mod tests {
         for _ in 0..19 {
             term.newline();
         }
-        assert_eq!(term.grid.history_size(), 10);
+        assert_eq!(term.history_size(), 10);
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Enter alt screen.
@@ -2687,7 +2687,7 @@ mod tests {
         // Leave alt screen.
         term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
 
-        assert_eq!(term.grid().history_size(), 15);
+        assert_eq!(term.history_size(), 15);
         assert_eq!(term.grid.cursor.point, Point::new(Line(4), Column(0)));
     }
 
