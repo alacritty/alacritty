@@ -66,14 +66,14 @@ impl ViModeCursor {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion) -> Self {
         let display_offset = term.grid().display_offset();
-        let lines = term.grid().screen_lines();
-        let cols = term.grid().cols();
+        let lines = term.screen_lines();
+        let cols = term.cols();
 
         let mut buffer_point = term.visible_to_buffer(self.point);
 
         match motion {
             ViMotion::Up => {
-                if buffer_point.line + 1 < term.grid().total_lines() {
+                if buffer_point.line + 1 < term.total_lines() {
                     buffer_point.line += 1;
                 }
             },
@@ -82,7 +82,7 @@ impl ViModeCursor {
                 buffer_point = term.expand_wide(buffer_point, Direction::Left);
                 let wrap_point = Point::new(buffer_point.line + 1, cols - 1);
                 if buffer_point.col.0 == 0
-                    && buffer_point.line + 1 < term.grid().total_lines()
+                    && buffer_point.line + 1 < term.total_lines()
                     && is_wrap(term, wrap_point)
                 {
                     buffer_point = wrap_point;
@@ -101,7 +101,7 @@ impl ViModeCursor {
             ViMotion::First => {
                 buffer_point = term.expand_wide(buffer_point, Direction::Left);
                 while buffer_point.col.0 == 0
-                    && buffer_point.line + 1 < term.grid().total_lines()
+                    && buffer_point.line + 1 < term.total_lines()
                     && is_wrap(term, Point::new(buffer_point.line + 1, cols - 1))
                 {
                     buffer_point.line += 1;
@@ -165,7 +165,7 @@ impl ViModeCursor {
     pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: isize) -> Self {
         // Check number of lines the cursor needs to be moved.
         let overscroll = if lines > 0 {
-            let max_scroll = term.grid().history_size() - term.grid().display_offset();
+            let max_scroll = term.history_size() - term.grid().display_offset();
             max(0, lines - max_scroll as isize)
         } else {
             let max_scroll = term.grid().display_offset();
@@ -175,12 +175,12 @@ impl ViModeCursor {
         // Clamp movement to within visible region.
         let mut line = self.point.line.0 as isize;
         line -= overscroll;
-        line = max(0, min(term.grid().screen_lines().0 as isize - 1, line));
+        line = max(0, min(term.screen_lines().0 as isize - 1, line));
 
         // Find the first occupied cell after scrolling has been performed.
         let buffer_point = term.visible_to_buffer(self.point);
         let mut target_line = buffer_point.line as isize + lines;
-        target_line = max(0, min(term.grid().total_lines() as isize - 1, target_line));
+        target_line = max(0, min(term.total_lines() as isize - 1, target_line));
         let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().col;
 
         // Move cursor.
@@ -192,7 +192,7 @@ impl ViModeCursor {
 
 /// Find next end of line to move to.
 fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
-    let cols = term.grid().cols();
+    let cols = term.cols();
 
     // Expand across wide cells.
     point = term.expand_wide(point, Direction::Right);
@@ -218,7 +218,7 @@ fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
 
 /// Find next non-empty cell to move to.
 fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
-    let cols = term.grid().cols();
+    let cols = term.cols();
 
     // Expand left across wide chars, since we're searching lines left to right.
     point = term.expand_wide(point, Direction::Left);
@@ -232,7 +232,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
         let mut occupied = None;
 
         // Search for non-empty cell in previous lines.
-        for line in (point.line + 1)..term.grid().total_lines() {
+        for line in (point.line + 1)..term.total_lines() {
             if !is_wrap(term, Point::new(line, cols - 1)) {
                 break;
             }
@@ -352,14 +352,14 @@ fn word<T: EventListener>(
 
 /// Find first non-empty cell in line.
 fn first_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
-    (0..term.grid().cols().0)
+    (0..term.cols().0)
         .map(|col| Point::new(line, Column(col)))
         .find(|&point| !is_space(term, point))
 }
 
 /// Find last non-empty cell in line.
 fn last_occupied_in_line<T>(term: &Term<T>, line: usize) -> Option<Point<usize>> {
-    (0..term.grid().cols().0)
+    (0..term.cols().0)
         .map(|col| Point::new(line, Column(col)))
         .rfind(|&point| !is_space(term, point))
 }
@@ -386,8 +386,8 @@ fn is_wrap<T>(term: &Term<T>, point: Point<usize>) -> bool {
 
 /// Check if point is at screen boundary.
 fn is_boundary<T>(term: &Term<T>, point: Point<usize>, direction: Direction) -> bool {
-    let total_lines = term.grid().total_lines();
-    let num_cols = term.grid().cols();
+    let total_lines = term.total_lines();
+    let num_cols = term.cols();
     (point.line + 1 >= total_lines && point.col.0 == 0 && direction == Direction::Left)
         || (point.line == 0 && point.col + 1 >= num_cols && direction == Direction::Right)
 }
