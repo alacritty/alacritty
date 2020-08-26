@@ -11,6 +11,14 @@ proceed with caution.
 # dnf install alacritty
 ```
 
+## [openSUSE](https://www.opensuse.org/)
+
+alacritty is included in the distributions
+
+```
+sudo zypper in alacritty
+```
+
 ## Cargo
 
 If you're just interested in the Alacritty binary and you don't need the
