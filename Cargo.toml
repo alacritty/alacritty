@@ -8,3 +8,6 @@ members = [
 lto = true
 debug = 1
 incremental = false
+
+[patch.crates-io]
+calloop = { git = "https://github.com/kchibisov/calloop", branch = "fix-crash" }

@@ -21,7 +21,7 @@ fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.24.0", features = ["serde"] }
+glutin = { git = "https://github.com/kchibisov/glutin", branch = "wayland-rework", features = ["serde"] }
 notify = "4"
 parking_lot = "0.10.2"
 crossfont = { version = "0.1.0", features = ["force_system_fontconfig"] }
