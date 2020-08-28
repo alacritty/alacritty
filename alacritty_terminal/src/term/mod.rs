@@ -2228,8 +2228,8 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.size.cell_width * self.cols().0 as f32;
-        let height = self.size.cell_height * self.screen_lines().0 as f32;
+        let width = self.size.cell_width as usize * self.cols().0;
+        let height = self.size.cell_height as usize * self.screen_lines().0;
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 
