@@ -969,6 +969,8 @@ impl<T> Term<T> {
 
     /// Resize terminal to new dimensions.
     pub fn resize(&mut self, size: SizeInfo) {
+        self.size = size;
+
         let old_cols = self.cols();
         let old_lines = self.screen_lines();
         let num_cols = max(size.cols(), Column(MIN_SIZE));
@@ -1002,8 +1004,6 @@ impl<T> Term<T> {
 
         self.grid.resize(!is_alt, num_lines, num_cols);
         self.inactive_grid.resize(is_alt, num_lines, num_cols);
-
-        self.size = size;
 
         // Clamp vi cursor to viewport.
         self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
