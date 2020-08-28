@@ -145,7 +145,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, &display.size_info, event_proxy.clone());
+    let terminal = Term::new(&config, display.size_info, event_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Create the PTY.

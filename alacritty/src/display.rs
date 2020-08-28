@@ -427,7 +427,7 @@ impl Display {
         pty_resize_handle.on_resize(&pty_size);
 
         // Resize terminal.
-        terminal.resize(&pty_size);
+        terminal.resize(pty_size);
 
         // Resize renderer.
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);

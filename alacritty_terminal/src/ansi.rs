@@ -316,6 +316,12 @@ pub trait Handler {
 
     /// Pop the last title from the stack.
     fn pop_title(&mut self) {}
+
+    /// Report text area size in pixels.
+    fn text_area_size_pixels<W: io::Write>(&mut self, _: &mut W) {}
+
+    /// Report text area size in characters.
+    fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
 }
 
 /// Describes shape of cursor.
@@ -1080,6 +1086,8 @@ where
             ('s', None) => handler.save_cursor_position(),
             ('T', None) => handler.scroll_down(Line(next_param_or(1) as usize)),
             ('t', None) => match next_param_or(1) as usize {
+                14 => handler.text_area_size_pixels(writer),
+                18 => handler.text_area_size_chars(writer),
                 22 => handler.push_title(),
                 23 => handler.pop_title(),
                 _ => unhandled!(),
