@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crossfont::Metrics;
 
-use alacritty_terminal::index::{Line, Point};
+use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo};
@@ -35,16 +35,12 @@ impl RenderLine {
         let mut rects = Vec::new();
 
         let mut start = self.start;
-        for line in start.line.0..=self.end.line.0 {
-            let mut end = Point::new(Line(line), self.end.col);
-            if line != self.end.line.0 {
-                end.col = size.cols() - 1;
-            }
-
+        while start.line < self.end.line {
+            let end = Point::new(start.line, size.cols() - 1);
             Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
-
-            start.col.0 = 0;
+            start = Point::new(start.line + 1, Column(0));
         }
+        Self::push_rects(&mut rects, metrics, size, flag, start, self.end, self.color);
 
         rects
     }
