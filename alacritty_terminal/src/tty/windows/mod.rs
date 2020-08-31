@@ -10,19 +10,19 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
-#[cfg(feature = "winpty")]
+#[cfg(all(feature = "winpty", target_env = "msvc"))]
 mod automatic_backend;
 mod child;
 mod conpty;
-#[cfg(feature = "winpty")]
+#[cfg(all(feature = "winpty", target_env = "msvc"))]
 mod winpty;
 
-#[cfg(not(feature = "winpty"))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use conpty::Conpty as Backend;
-#[cfg(not(feature = "winpty"))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 
-#[cfg(feature = "winpty")]
+#[cfg(all(feature = "winpty", target_env = "msvc"))]
 use automatic_backend::{
     EventedReadablePipe as ReadPipe, EventedWritablePipe as WritePipe, PtyBackend as Backend,
 };
@@ -39,12 +39,12 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-#[cfg(not(feature = "winpty"))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     conpty::new(config, size, window_id).expect("Failed to create ConPTY backend")
 }
 
-#[cfg(feature = "winpty")]
+#[cfg(all(feature = "winpty", target_env = "msvc"))]
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     automatic_backend::new(config, size, window_id)
 }

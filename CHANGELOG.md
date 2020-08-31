@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Minimum Rust version has been bumped to 1.43.0
 - The snapcraft.yaml file has been removed
 - Updated `setab`/`setaf` capabilities in `alacritty-direct` to use colons
+- WinPTY is now enabled only when targeting MSVC
 
 ### Added
 
