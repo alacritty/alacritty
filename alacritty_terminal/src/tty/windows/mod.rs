@@ -17,9 +17,9 @@ mod conpty;
 #[cfg(all(feature = "winpty", target_env = "msvc"))]
 mod winpty;
 
-#[cfg(any(not(feature = "winpty"), not(target_env = "msvc")))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use conpty::Conpty as Backend;
-#[cfg(any(not(feature = "winpty"), not(target_env = "msvc")))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 
 #[cfg(all(feature = "winpty", target_env = "msvc"))]
@@ -39,7 +39,7 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-#[cfg(any(not(feature = "winpty"), not(target_env = "msvc")))]
+#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     conpty::new(config, size, window_id).expect("Failed to create ConPTY backend")
 }
