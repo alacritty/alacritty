@@ -314,9 +314,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             #[cfg(target_os = "freebsd")]
             let link_path = format!("/compat/linux/proc/{}/cwd", pid);
 
-            fs::read_link(link_path)
+            let mut args = fs::read_link(link_path)
                 .map(|path| vec!["--working-directory".into(), path])
-                .unwrap_or_default()
+                .unwrap_or_default();
+
+            // Adding currently loaded config-file in arguments.
+            args.push("--config-file".into());
+            args.extend(self.config.ui_config.config_paths.clone());
+
+            args
         };
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
