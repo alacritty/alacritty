@@ -40,6 +40,10 @@ pub struct UIConfig {
     #[serde(default, deserialize_with = "failure_default")]
     alt_send_esc: DefaultTrueBool,
 
+    /// Make logo key convert characters to control characters, too. On X11.
+    #[serde(default, deserialize_with = "failure_default")]
+    logo_as_ctrl: bool,
+
     /// Live config reload.
     #[serde(default, deserialize_with = "failure_default")]
     live_config_reload: DefaultTrueBool,
@@ -67,6 +71,7 @@ impl Default for UIConfig {
             mouse_bindings: default_mouse_bindings(),
             debug: Default::default(),
             alt_send_esc: Default::default(),
+            logo_as_ctrl: Default::default(),
             background_opacity: Default::default(),
             live_config_reload: Default::default(),
             dynamic_title: Default::default(),
@@ -106,6 +111,12 @@ impl UIConfig {
     #[inline]
     pub fn alt_send_esc(&self) -> bool {
         self.alt_send_esc.0
+    }
+
+    /// Make logo key convert characters to control characters, too. On X11.
+    #[inline]
+    pub fn logo_as_ctrl(&self) -> bool {
+        self.logo_as_ctrl
     }
 }
 

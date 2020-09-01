@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Configuration file option for sourcing other files (`import`)
 - CLI parameter `--option`/`-o` to override any configuration field
 - Escape sequences to report text area size in pixels (`CSI 14 t`) and in characters (`CSI 18 t`)
+- New `logo_as_ctrl` option for controlling if logo key should convert written
+  characters to control characters, like the ctrl key does. On X11 only.
 
 ### Changed
 

@@ -390,6 +390,10 @@
 # Send ESC (\x1b) before characters when alt is pressed.
 #alt_send_esc: true
 
+# Make logo key convert characters written to the terminal to
+# control characters, like the ctrl key does. On X11 only.
+#logo_as_ctrl: false
+
 #mouse:
   # Click settings
   #
