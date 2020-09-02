@@ -299,7 +299,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn spawn_new_instance(&mut self) {
-        let alacritty = env::args().next().unwrap();
+        let mut env_args = env::args();
+        let alacritty = env_args.next().unwrap();
 
         #[cfg(unix)]
         let args = {
@@ -318,12 +319,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 .map(|path| vec!["--working-directory".into(), path])
                 .unwrap_or_default();
 
-            // Adding currently loaded config-file in arguments.
-            args.push("--config-file".into());
-            args.extend(self.config.ui_config.config_paths.clone());
-
+            args.extend(env_args.map(|x| x.into()));
             args
         };
+
         #[cfg(not(unix))]
         let args: Vec<String> = Vec::new();
 
