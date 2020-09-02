@@ -2823,7 +2823,7 @@ mod benches {
 
         let config = MockConfig::default();
 
-        let mut terminal = Term::new(&config, &size, Mock);
+        let mut terminal = Term::new(&config, size, Mock);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

@@ -302,8 +302,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
+        let working_directory_set;
+
         #[cfg(unix)]
-        let args = {
+        let mut args = {
             // Use working directory of controlling process, or fallback to initial shell.
             let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
             if pid < 0 {
@@ -316,27 +318,30 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let link_path = format!("/compat/linux/proc/{}/cwd", pid);
 
             // Add the current working directory as parameter.
-            let mut args = fs::read_link(link_path)
+            let args = fs::read_link(link_path)
                 .map(|path| vec!["--working-directory".into(), path])
                 .unwrap_or_default();
-            let working_directory_set = !args.is_empty();
-
-            // Reuse the arguments passed to Alacritty for the new instance.
-            while let Some(arg) = env_args.next() {
-                // Drop working directory from existing parameters.
-                if working_directory_set && arg == "--working-directory" {
-                    let _ = env_args.next();
-                    continue;
-                }
-
-                args.push(arg.into());
-            }
+            working_directory_set = !args.is_empty();
 
             args
         };
 
         #[cfg(not(unix))]
-        let args: Vec<String> = Vec::new();
+        let mut args: Vec<PathBuf> = {
+            working_directory_set = false;
+            Vec::new()
+        };
+
+        // Reuse the arguments passed to Alacritty for the new instance.
+        while let Some(arg) = env_args.next() {
+            // Drop working directory from existing parameters.
+            if working_directory_set && arg == "--working-directory" {
+                let _ = env_args.next();
+                continue;
+            }
+
+            args.push(arg.into());
+        }
 
         start_daemon(&alacritty, &args);
     }
