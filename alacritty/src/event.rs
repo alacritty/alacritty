@@ -315,11 +315,23 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             #[cfg(target_os = "freebsd")]
             let link_path = format!("/compat/linux/proc/{}/cwd", pid);
 
+            // Add the current working directory as parameter.
             let mut args = fs::read_link(link_path)
                 .map(|path| vec!["--working-directory".into(), path])
                 .unwrap_or_default();
+            let working_directory_set = !args.is_empty();
 
-            args.extend(env_args.map(|x| x.into()));
+            // Reuse the arguments passed to Alacritty for the new instance.
+            while let Some(arg) = env_args.next() {
+                // Drop working directory from existing parameters.
+                if working_directory_set && arg == "--working-directory" {
+                    let _ = env_args.next();
+                    continue;
+                }
+
+                args.push(arg.into());
+            }
+
             args
         };
 
