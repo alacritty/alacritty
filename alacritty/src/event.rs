@@ -302,8 +302,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
-        let working_directory_set;
-
         #[cfg(unix)]
         let mut args = {
             // Use working directory of controlling process, or fallback to initial shell.
@@ -321,16 +319,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let args = fs::read_link(link_path)
                 .map(|path| vec!["--working-directory".into(), path])
                 .unwrap_or_default();
-            working_directory_set = !args.is_empty();
 
             args
         };
 
         #[cfg(not(unix))]
-        let mut args: Vec<PathBuf> = {
-            working_directory_set = false;
-            Vec::new()
-        };
+        let mut args: Vec<PathBuf> = Vec::new();
+
+        let working_directory_set = !args.is_empty();
 
         // Reuse the arguments passed to Alacritty for the new instance.
         while let Some(arg) = env_args.next() {
