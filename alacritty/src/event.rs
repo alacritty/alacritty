@@ -316,11 +316,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let link_path = format!("/compat/linux/proc/{}/cwd", pid);
 
             // Add the current working directory as parameter.
-            let args = fs::read_link(link_path)
+            fs::read_link(link_path)
                 .map(|path| vec!["--working-directory".into(), path])
-                .unwrap_or_default();
-
-            args
+                .unwrap_or_default()
         };
 
         #[cfg(not(unix))]
