@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fallback to normal underline for unsupported underline types in `CSI 4 : ? m` escapes
 - The user's background color is now used as the foreground for the render timer
 - Use yellow/red from the config for error and warning messages instead of fixed colors
+- Existing CLI parameters are now passed to instances spawned using `SpawnNewInstance`
 
 ### Fixed
 
