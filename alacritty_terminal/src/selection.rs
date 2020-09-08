@@ -432,7 +432,7 @@ mod tests {
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
+        assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false
@@ -450,7 +450,7 @@ mod tests {
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
+        assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false

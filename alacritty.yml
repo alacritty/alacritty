@@ -25,6 +25,8 @@
   #
   # Specified in number of columns/lines, not pixels.
   # If both are `0`, this setting is ignored.
+  # In order to support wide characters, when the number of columns is set to 1,
+  # we will create a terminal with 2 columns.
   #dimensions:
   #  columns: 0
   #  lines: 0

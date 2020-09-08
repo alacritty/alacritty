@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Configuration file option for sourcing other files (`import`)
 - CLI parameter `--option`/`-o` to override any configuration field
 - Escape sequences to report text area size in pixels (`CSI 14 t`) and in characters (`CSI 18 t`)
+- Support for single line terminals dimensions
 
 ### Changed
 

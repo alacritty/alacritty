@@ -40,8 +40,12 @@ const MAX_SEARCH_LINES: usize = 100;
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
 
-/// Minimum number of columns and lines.
-const MIN_SIZE: usize = 2;
+/// Minimum number of columns.
+/// This is 2 because we need to hold wide characters.
+pub const MIN_COLS: usize = 2;
+
+/// Minimum number of lines.
+pub const MIN_LINES: usize = 1;
 
 /// Cursor storing all information relevant for rendering.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
@@ -767,6 +771,8 @@ impl<T> Term<T> {
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
+        debug_assert!(size.cols() >= Column(MIN_COLS));
+        debug_assert!(size.lines() >= Line(MIN_LINES));
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -978,8 +984,11 @@ impl<T> Term<T> {
 
         let old_cols = self.cols();
         let old_lines = self.screen_lines();
-        let num_cols = max(size.cols(), Column(MIN_SIZE));
-        let num_lines = max(size.lines(), Line(MIN_SIZE));
+
+        debug_assert!(size.cols() >= Column(MIN_COLS));
+        debug_assert!(size.lines() >= Line(MIN_LINES));
+        let num_cols = size.cols();
+        let num_lines = size.lines();
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");
