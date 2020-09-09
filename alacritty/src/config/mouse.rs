@@ -18,6 +18,8 @@ pub struct Mouse {
     #[serde(deserialize_with = "failure_default")]
     pub hide_when_typing: bool,
     #[serde(deserialize_with = "failure_default")]
+    pub force_default_cursor: bool,
+    #[serde(deserialize_with = "failure_default")]
     pub url: Url,
 }
 

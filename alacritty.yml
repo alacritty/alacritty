@@ -402,6 +402,9 @@
   # If this is `true`, the cursor is temporarily hidden when typing.
   #hide_when_typing: false
 
+  # If this is `true`, "default" cursor style will be used instead of "text".
+  #force_default_cursor: false
+
   #url:
     # URL launcher
     #
