@@ -182,7 +182,7 @@ impl Options {
                     .short("o")
                     .multiple(true)
                     .takes_value(true)
-                    .help("Override configuration file options [example: window.title=Alacritty]"),
+                    .help("Override configuration file options [example: cursor.style=Beam]"),
             )
             .get_matches();
 

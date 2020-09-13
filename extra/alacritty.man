@@ -68,7 +68,7 @@ Defines the window dimensions. Falls back to size specified by window manager if
 Defines the X11 window ID (as a decimal integer) to embed Alacritty within
 .TP
 \fB\-o\fR, \fB\-\-option\fR <option>...
-Override configuration file options [example: window.title=Alacritty]
+Override configuration file options [example: cursor.style=Beam]
 .TP
 \fB\-\-position\fR <x-pos> <y-pos>
 Defines the window position. Falls back to position specified by window manager if unset [default: unset]
