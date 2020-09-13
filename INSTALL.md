@@ -228,6 +228,10 @@ guix environment alacritty
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
 installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
+#### MacOS
+
+You should be good to go.
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
