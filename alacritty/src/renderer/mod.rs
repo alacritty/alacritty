@@ -19,7 +19,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
-use alacritty_terminal::term::cell::{self, Flags};
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::thread;
@@ -436,7 +436,7 @@ impl Batch {
         Self { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
-    pub fn add_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+    pub fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
@@ -953,11 +953,7 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: Column(i),
-                inner: RenderableCellContent::Chars({
-                    let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
-                    chars[0] = c;
-                    chars
-                }),
+                inner: RenderableCellContent::Chars((c, Vec::new())),
                 flags: Flags::empty(),
                 bg_alpha,
                 fg,
@@ -971,7 +967,7 @@ impl<'a> RenderApi<'a> {
     }
 
     #[inline]
-    fn add_render_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+    fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         // Flush batch if tex changing.
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
             self.render_batch();
@@ -986,7 +982,7 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        let chars = match cell.inner {
+        let (mut c, zerowidth) = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup.
                 let metrics = glyph_cache.metrics;
@@ -1000,10 +996,10 @@ impl<'a> RenderApi<'a> {
                         self.cursor_config.thickness(),
                     ))
                 });
-                self.add_render_item(cell, glyph);
+                self.add_render_item(&cell, glyph);
                 return;
             },
-            RenderableCellContent::Chars(chars) => chars,
+            RenderableCellContent::Chars(ref chars) => chars,
         };
 
         // Get font key for cell.
@@ -1014,26 +1010,25 @@ impl<'a> RenderApi<'a> {
             _ => glyph_cache.font_key,
         };
 
-        // Don't render text of HIDDEN cells.
-        let mut chars = if cell.flags.contains(Flags::HIDDEN) {
-            [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
-        } else {
-            chars
-        };
-
-        // Render tabs as spaces in case the font doesn't support it.
-        if chars[0] == '\t' {
-            chars[0] = ' ';
+        // Ignore hidden cells and render tabs as spaces to prevent font issues.
+        let hidden = cell.flags.contains(Flags::HIDDEN);
+        if c == '\t' || hidden {
+            c = ' ';
         }
 
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: chars[0] };
+        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c };
 
         // Add cell to batch.
         let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(cell, glyph);
+        self.add_render_item(&cell, glyph);
+
+        // Skip zerowidth characters when hidden.
+        if hidden {
+            return;
+        }
 
         // Render zero-width characters.
-        for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
+        for c in zerowidth {
             glyph_key.c = *c;
             let mut glyph = *glyph_cache.get(glyph_key, self);
 
@@ -1044,7 +1039,7 @@ impl<'a> RenderApi<'a> {
             // anchor has been moved to the right by one cell.
             glyph.left += glyph_cache.metrics.average_advance as i16;
 
-            self.add_render_item(cell, &glyph);
+            self.add_render_item(&cell, &glyph);
         }
     }
 }

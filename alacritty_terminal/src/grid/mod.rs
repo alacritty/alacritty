@@ -5,7 +5,7 @@ use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
-use crate::ansi::{CharsetIndex, StandardCharset};
+use crate::ansi::{CharsetIndex, StandardCharset, Color};
 use crate::index::{Column, IndexRange, Line, Point};
 use crate::term::cell::{Cell, Flags};
 
@@ -53,15 +53,16 @@ pub trait GridCell {
     fn is_empty(&self) -> bool;
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
+    fn background(&self) -> Color;
 
-    /// Fast equality approximation.
+    /// Clone the cell without any content.
     ///
-    /// This is a faster alternative to [`PartialEq`],
-    /// but might report unequal cells as equal.
-    fn fast_eq(&self, other: Self) -> bool;
+    /// This includes foreground, background and flags, but does not include any text. Neither
+    /// zerowidth nor the primary cell character.
+    fn shallow_clone(&self) -> Self;
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cursor {
     /// The location of this cursor.
     pub point: Point,
@@ -167,10 +168,10 @@ pub enum Scroll {
     Bottom,
 }
 
-impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
-    pub fn new(lines: Line, cols: Column, max_scroll_limit: usize, template: T) -> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+    pub fn new(lines: Line, cols: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
-            raw: Storage::with_capacity(lines, Row::new(cols, template)),
+            raw: Storage::with_capacity(lines, Row::new(cols, T::default())),
             max_scroll_limit,
             display_offset: 0,
             saved_cursor: Cursor::default(),
@@ -203,7 +204,15 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         };
     }
 
-    fn increase_scroll_limit(&mut self, count: usize, template: T) {
+    fn increase_scroll_limit<I>(&mut self, count: usize, template: I)
+    where
+        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
+        // only used from resize. Alternatively we can change this back to Copy and pass a template
+        // to the grid's resize method.
+        // If the clone stays the way it is right now, it would probably make sense to avoid the
+        // last clone during the reset iteration though.
+        I: Into<T> + Clone,
+    {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
             self.raw.initialize(count, template, self.cols);
@@ -219,7 +228,10 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     #[inline]
-    pub fn scroll_down(&mut self, region: &Range<Line>, positions: Line, template: T) {
+    pub fn scroll_down<I>(&mut self, region: &Range<Line>, positions: Line, template: I)
+    where
+        I: Into<T> + Copy,
+    {
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
@@ -255,7 +267,15 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: T) {
+    pub fn scroll_up<I>(&mut self, region: &Range<Line>, positions: Line, template: I)
+    where
+        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
+        // only used from resize. Alternatively we can change this back to Copy and pass a template
+        // to the grid's resize method.
+        // If the clone stays the way it is right now, it would probably make sense to avoid the
+        // last clone during the reset iteration though.
+        I: Into<T> + Clone,
+    {
         let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
@@ -264,7 +284,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
-            self.increase_scroll_limit(*positions, template);
+            self.increase_scroll_limit(*positions, template.clone());
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
@@ -284,7 +304,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[i + fixed_lines].reset(template);
+                self.raw[i + fixed_lines].reset(template.clone());
             }
         } else {
             // Subregion rotation.
@@ -294,12 +314,15 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
             // Clear reused lines.
             for line in IndexRange((region.end - positions)..region.end) {
-                self.raw[line].reset(template);
+                self.raw[line].reset(template.clone());
             }
         }
     }
 
-    pub fn clear_viewport(&mut self, template: T) {
+    pub fn clear_viewport<I>(&mut self, template: I)
+    where
+        I: Into<T> + Copy,
+    {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.cols() };
         let mut iter = self.iter_from(end);
@@ -325,12 +348,13 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     /// Completely reset the grid state.
-    pub fn reset(&mut self, template: T) {
+    pub fn reset(&mut self) {
         self.clear_history();
 
         // Reset all visible lines.
         for row in 0..self.raw.len() {
-            self.raw[row].reset(template);
+            // TODO: NamedColor here is kinda shitty?
+            self.raw[row].reset(T::default());
         }
 
         self.saved_cursor = Cursor::default();
@@ -372,15 +396,15 @@ impl<T> Grid<T> {
 
     /// This is used only for initializing after loading ref-tests.
     #[inline]
-    pub fn initialize_all(&mut self, template: T)
+    pub fn initialize_all(&mut self)
     where
-        T: Copy + GridCell,
+        T: GridCell + Clone + Default,
     {
         // Remove all cached lines to clear them of any content.
         self.truncate();
 
         // Initialize everything with empty new lines.
-        self.raw.initialize(self.max_scroll_limit - self.history_size(), template, self.cols);
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), T::default(), self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests.
@@ -753,8 +777,8 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
     }
 }
 
-impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
-    type Item = Indexed<T>;
+impl<'a, T: 'a> Iterator for DisplayIter<'a, T> {
+    type Item = Indexed<&'a T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -765,7 +789,7 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
 
         // Get the next item.
         let item = Some(Indexed {
-            inner: self.grid.raw[self.offset][self.col],
+            inner: &self.grid.raw[self.offset][self.col],
             line: self.line,
             column: self.col,
         });

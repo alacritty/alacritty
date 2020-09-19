@@ -34,7 +34,6 @@ use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
@@ -1174,7 +1173,7 @@ impl<N: Notify + OnResize> Processor<N> {
     fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
         // Dump grid state.
         let mut grid = terminal.grid().clone();
-        grid.initialize_all(Cell::default());
+        grid.initialize_all();
         grid.truncate();
 
         let serialized_grid = json::to_string(&grid).expect("serialize grid");

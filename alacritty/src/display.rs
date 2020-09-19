@@ -473,10 +473,10 @@ impl Display {
                 // Iterate over all non-empty cells in the grid.
                 for cell in grid_cells {
                     // Update URL underlines.
-                    urls.update(size_info.cols(), cell);
+                    urls.update(size_info.cols(), &cell);
 
                     // Update underline/strikeout.
-                    lines.update(cell);
+                    lines.update(&cell);
 
                     // Draw the cell.
                     api.render_cell(cell, glyph_cache);

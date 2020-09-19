@@ -142,16 +142,25 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize(&mut self, additional_rows: usize, template: T, cols: Column)
+    pub fn initialize<I>(&mut self, additional_rows: usize, template: I, cols: Column)
     where
-        T: GridCell + Copy,
+        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
+        // only used from resize. Alternatively we can change this back to Copy and pass a template
+        // to the grid's resize method.
+        // If the clone stays the way it is right now, it would probably make sense to avoid the
+        // last clone during the reset iteration though.
+        I: Into<T> + Clone,
+        T: GridCell + Clone,
     {
         if self.len + additional_rows > self.inner.len() {
+            // TODO: Creating new rows here is expensive when scrolling
+            // TODO: Maybe add special branch for zero == 0?
             let realloc_size = max(additional_rows, MAX_CACHE_SIZE);
-            let mut new = vec![Row::new(cols, template); realloc_size];
             let mut split = self.inner.split_off(self.zero);
-            self.inner.append(&mut new);
+            self.inner.resize_with(realloc_size, || Row::new(cols, template.clone()));
             self.inner.append(&mut split);
+
+            // TODO: Push split in opposite direction, to keep zero at 0?
             self.zero += realloc_size;
         }
 
@@ -319,8 +328,8 @@ mod tests {
             unimplemented!();
         }
 
-        fn fast_eq(&self, other: Self) -> bool {
-            self == &other
+        fn fast_eq(&self, other: &Self) -> bool {
+            self == other
         }
     }
 
@@ -795,7 +804,7 @@ mod tests {
 
         // Initialize additional lines.
         let init_size = 3;
-        storage.initialize(init_size, '-', Column(1));
+        storage.initialize(init_size, &'-', Column(1));
 
         // Make sure the lines are present and at the right location.
 

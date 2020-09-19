@@ -17,8 +17,8 @@ impl GridCell for usize {
         unimplemented!();
     }
 
-    fn fast_eq(&self, other: Self) -> bool {
-        self == &other
+    fn fast_eq(&self, other: &Self) -> bool {
+        self == other
     }
 }
 
@@ -64,7 +64,7 @@ fn scroll_up() {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_up(&(Line(0)..Line(10)), Line(2), 0);
+    grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);

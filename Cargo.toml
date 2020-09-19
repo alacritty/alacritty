@@ -8,3 +8,5 @@ members = [
 lto = true
 debug = 1
 incremental = false
+
+# TODO: Test 48 codegen-units thinlto/debug

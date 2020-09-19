@@ -1,6 +1,7 @@
 //! Grid resize and reflow.
 
 use std::cmp::{min, Ordering};
+use std::mem;
 
 use crate::index::{Column, Line};
 use crate::term::cell::Flags;
@@ -8,7 +9,7 @@ use crate::term::cell::Flags;
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
 
-impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
     pub fn resize(&mut self, reflow: bool, lines: Line, cols: Column) {
         match self.lines.cmp(&lines) {
@@ -269,11 +270,11 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
                 // Insert spacer if a wide char would be wrapped into the last column.
                 if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
-                    wrapped.insert(0, row[cols - 1]);
-
                     let mut spacer = T::default();
                     spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
-                    row[cols - 1] = spacer;
+
+                    let wide_char = mem::replace(&mut row[cols-1], spacer);
+                    wrapped.insert(0, wide_char);
                 }
 
                 // Remove wide char spacer before shrinking.
