@@ -97,18 +97,20 @@ impl From<serde_yaml::Error> for Error {
 
 /// Load the configuration file.
 pub fn load(options: &Options) -> Config {
-    // Get config path.
-    let config_path = match options.config_path().or_else(installed_config) {
-        Some(path) => path,
-        None => {
-            info!(target: LOG_TARGET_CONFIG, "No config file found; using default");
-            return Config::default();
-        },
-    };
-
-    // Load config, falling back to the default on error.
     let config_options = options.config_options().clone();
-    let mut config = load_from(&config_path, config_options).unwrap_or_default();
+    let config_path = options.config_path().or_else(installed_config);
+
+    if config_path.is_none() {
+        info!(target: LOG_TARGET_CONFIG, "No config file found; using default");
+    }
+
+    // Load the config using the following fallback behavior:
+    //  - Config path + CLI overrides
+    //  - CLI overrides
+    //  - Default
+    let mut config = config_path
+        .and_then(|config_path| load_from(&config_path, config_options.clone()).ok())
+        .unwrap_or_else(|| Config::deserialize(config_options).unwrap_or_default());
 
     // Override config with CLI options.
     options.override_config(&mut config);
