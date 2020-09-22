@@ -13,7 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The snapcraft.yaml file has been removed
 - Updated `setab`/`setaf` capabilities in `alacritty-direct` to use colons
 - WinPTY is now enabled only when targeting MSVC
-- Minimum FreeType version has been bumped to 2.8 on Linux
 
 ### Added
 
@@ -53,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Prebuilt Linux binaries have been removed
 - Added manpage, terminfo, and completions to macOS application bundle
 - On Linux/BSD the build will fail without Fontconfig installed, instead of building it from source
+- Minimum FreeType version has been bumped to 2.8 on Linux
 
 ### Added
 
