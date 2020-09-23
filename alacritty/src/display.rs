@@ -434,7 +434,6 @@ impl Display {
         // Resize renderer.
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
         self.window.resize(physical);
-
         self.renderer.resize(&self.size_info);
         
         info!("Padding: {} x {}", self.size_info.padding_x, self.size_info.padding_y);
