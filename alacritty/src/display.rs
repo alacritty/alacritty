@@ -220,13 +220,7 @@ impl Display {
             info!("Estimated DPR correctly, skipping resize");
         } else if let Some(dimensions) = dimensions {
             // Resize the window again if the DPR was not estimated correctly.
-            let size = window_size(
-                dimensions,
-                padding_x,
-                padding_y,
-                cell_width,
-                cell_height,
-            );
+            let size = window_size(dimensions, padding_x, padding_y, cell_width, cell_height);
             window.set_inner_size(size);
         } else if config.ui_config.window.dynamic_padding {
             // Make sure additional padding is spread evenly.
