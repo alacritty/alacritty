@@ -171,30 +171,17 @@ impl Display {
         // Guess the target window dimensions.
         let metrics = GlyphCache::static_metrics(config.ui_config.font.clone(), estimated_dpr)?;
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
-        let (padding_x, padding_y) = compute_padding_size(config, estimated_dpr);
 
-        // Determine whether we should set the window size ourselves or leave it to the window
-        // manager
-        let flag_should_set_window_size = should_set_window_size(config);
-
-        // Guess the physical size of the window. `size` is an Option because it is possible that
-        // we want to leave it to the windowing system to determine the size, for example when
-        // the window should be maximized.
-        let size = if flag_should_set_window_size {
-            Some(window_size(
-                config.ui_config.window.dimensions,
-                padding_x,
-                padding_y,
-                cell_width,
-                cell_height,
-            ))
-        } else {
-            None
-        };
+        // Guess the target window size if the user has specified the number of lines/columns.
+        let dimensions = config.ui_config.window.dimensions();
+        let estimated_size = dimensions.map(|dimensions| {
+            let (padding_x, padding_y) = scale_padding(config, estimated_dpr);
+            window_size(dimensions, padding_x, padding_y, cell_width, cell_height)
+        });
 
         debug!("Estimated DPR: {}", estimated_dpr);
-        debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);
-        debug!("Estimated Dimensions: {:?}", size);
+        debug!("Estimated window size: {:?}", estimated_size);
+        debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
         #[cfg(not(any(target_os = "macos", windows)))]
         let mut wayland_event_queue = None;
@@ -206,11 +193,11 @@ impl Display {
             wayland_event_queue = Some(display.create_event_queue());
         }
 
-        // Spawn the window where Alacritty will be displayed.
+        // Spawn the Alacritty window.
         let mut window = Window::new(
             event_loop,
             &config,
-            size,
+            estimated_size,
             #[cfg(not(any(target_os = "macos", windows)))]
             wayland_event_queue.as_ref(),
         )?;
@@ -227,31 +214,20 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let (mut padding_x, mut padding_y) = compute_padding_size(config, dpr);
+        let (mut padding_x, mut padding_y) = scale_padding(config, dpr);
 
-        // Get the minimum size of the Alacritty window.
-        let min_size = window_size(
-            Dimensions::new(Column(MIN_COLS), Line(MIN_LINES)),
-            padding_x,
-            padding_y,
-            cell_width,
-            cell_height,
-        );
-
-        if flag_should_set_window_size {
-            let PhysicalSize { width, height } = window_size(
-                config.ui_config.window.dimensions,
+        if (estimated_dpr - dpr).abs() < f64::EPSILON {
+            info!("Estimated DPR correctly, skipping resize");
+        } else if let Some(dimensions) = dimensions {
+            // Resize the window again if the DPR was not estimated correctly.
+            let size = window_size(
+                dimensions,
                 padding_x,
                 padding_y,
                 cell_width,
                 cell_height,
             );
-            let PhysicalSize { width: actual_width, height: actual_height } = window.inner_size();
-            if actual_width == width && actual_height == height {
-                info!("Estimated DPR correctly, skipping resize");
-            } else {
-                window.set_inner_size(PhysicalSize::new(width, height));
-            }
+            window.set_inner_size(size);
         } else if config.ui_config.window.dynamic_padding {
             // Make sure additional padding is spread evenly.
             padding_x = dynamic_padding(padding_x, viewport_size.width as f32, cell_width);
@@ -267,8 +243,8 @@ impl Display {
         // Create new size with at least one column and row.
         let size_info = SizeInfo {
             dpr,
-            width: viewport_size.width.max(min_size.width) as f32,
-            height: viewport_size.height.max(min_size.height) as f32,
+            width: viewport_size.width as f32,
+            height: viewport_size.height as f32,
             cell_width,
             cell_height,
             padding_x,
@@ -414,25 +390,16 @@ impl Display {
         let cell_width = self.size_info.cell_width;
         let cell_height = self.size_info.cell_height;
 
-        // Recalculate padding.
-        let (mut padding_x, mut padding_y) = compute_padding_size(config, self.size_info.dpr);
-
-        let min_size = window_size(
-            Dimensions::new(Column(MIN_COLS), Line(MIN_LINES)),
-            padding_x,
-            padding_y,
-            cell_width,
-            cell_height,
-        );
-
         // Update the window dimensions.
         if let Some(size) = update_pending.dimensions() {
-            self.size_info.width = size.width.max(min_size.width) as f32;
-            self.size_info.height = size.height.max(min_size.height) as f32;
+            self.size_info.width = size.width as f32;
+            self.size_info.height = size.height as f32;
         }
 
-        // Distribute excess padding equally on all sides.
+        // Recalculate padding.
+        let (mut padding_x, mut padding_y) = scale_padding(config, self.size_info.dpr);
         if config.ui_config.window.dynamic_padding {
+            // Distribute excess padding equally on all sides.
             padding_x = dynamic_padding(padding_x, self.size_info.width, cell_width);
             padding_y = dynamic_padding(padding_y, self.size_info.height, cell_height);
         }
@@ -759,24 +726,14 @@ fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32
     )
 }
 
-/// Calculate the padding size based on dpr.
+/// Scale the padding size by the scale factor.
 #[inline]
-fn compute_padding_size(config: &Config, dpr: f64) -> (f32, f32) {
+fn scale_padding(config: &Config, dpr: f64) -> (f32, f32) {
     let padding = config.ui_config.window.padding;
     (f32::from(padding.x) * dpr as f32, f32::from(padding.y) * dpr as f32)
 }
 
-/// Whether we should set the window's size ourselves or leave it to the windowing system.
-#[inline]
-fn should_set_window_size(config: &Config) -> bool {
-    let dimensions = config.ui_config.window.dimensions;
-    dimensions.columns_u32() != 0
-        && dimensions.lines_u32() != 0
-        && config.ui_config.window.startup_mode != StartupMode::Maximized
-}
-
-/// Get the physical size of a window given padding, terminal dimensions and cell dimensions
-/// infomation.
+/// Calculate the size of the window given padding, terminal dimensions and cell size.
 fn window_size(
     dimensions: Dimensions,
     padding_x: f32,
@@ -784,9 +741,8 @@ fn window_size(
     cell_width: f32,
     cell_height: f32,
 ) -> PhysicalSize<u32> {
-    // Calculate new size based on cols/lines specified in config.
-    let grid_width = cell_width as u32 * dimensions.columns_u32().max(MIN_COLS as u32);
-    let grid_height = cell_height as u32 * dimensions.lines_u32().max(MIN_LINES as u32);
+    let grid_width = cell_width as u32 * dimensions.columns.0.max(MIN_COLS) as u32;
+    let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_LINES) as u32;
 
     let width = f64::from(padding_x).mul_add(2., f64::from(grid_width)).floor();
     let height = f64::from(padding_y).mul_add(2., f64::from(grid_height)).floor();

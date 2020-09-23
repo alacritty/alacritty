@@ -23,10 +23,9 @@
 #window:
   # Window dimensions (changes require restart)
   #
-  # Specified in number of columns/lines, not pixels.
-  # If both are `0`, this setting is ignored.
-  # In order to support wide characters, when the number of columns is set to 1,
-  # we will create a terminal with 2 columns.
+  # Number of lines/columns (not pixels) in the terminal. Allowed values are
+  # integers above 1 line and 2 columns; using `0` will follow the window
+  # manager's recommended size. we will create a terminal with 2 columns.
   #dimensions:
   #  columns: 0
   #  lines: 0

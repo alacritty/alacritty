@@ -755,8 +755,9 @@ pub struct Term<T> {
     /// Current forward and backward buffer search regexes.
     regex_search: Option<RegexSearch>,
 
-    /// Information about window dimensions.
-    size: SizeInfo,
+    /// Information about cell dimensions.
+    cell_width: f32,
+    cell_height: f32,
 }
 
 impl<T> Term<T> {
@@ -771,10 +772,8 @@ impl<T> Term<T> {
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
-        debug_assert!(size.cols() >= Column(MIN_COLS));
-        debug_assert!(size.lines() >= Line(MIN_LINES));
-        let num_cols = size.cols();
-        let num_lines = size.lines();
+        let num_cols = max(size.cols(), Column(MIN_COLS));
+        let num_lines = max(size.lines(), Line(MIN_LINES));
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
@@ -809,7 +808,8 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             selection: None,
             regex_search: None,
-            size,
+            cell_width: size.cell_width,
+            cell_height: size.cell_height,
         }
     }
 
@@ -980,15 +980,14 @@ impl<T> Term<T> {
 
     /// Resize terminal to new dimensions.
     pub fn resize(&mut self, size: SizeInfo) {
-        self.size = size;
+        self.cell_width = size.cell_width;
+        self.cell_height = size.cell_height;
 
         let old_cols = self.cols();
         let old_lines = self.screen_lines();
 
-        debug_assert!(size.cols() >= Column(MIN_COLS));
-        debug_assert!(size.lines() >= Line(MIN_LINES));
-        let num_cols = size.cols();
-        let num_lines = size.lines();
+        let num_cols = max(size.cols(), Column(MIN_COLS));
+        let num_lines = max(size.lines(), Line(MIN_LINES));
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");
@@ -2242,8 +2241,8 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.size.cell_width as usize * self.cols().0;
-        let height = self.size.cell_height as usize * self.screen_lines().0;
+        let width = self.cell_width as usize * self.cols().0;
+        let height = self.cell_height as usize * self.screen_lines().0;
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 

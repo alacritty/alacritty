@@ -15,10 +15,6 @@ pub const DEFAULT_NAME: &str = "Alacritty";
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct WindowConfig {
-    /// Initial dimensions.
-    #[serde(deserialize_with = "failure_default")]
-    pub dimensions: Dimensions,
-
     /// Initial position.
     #[serde(deserialize_with = "failure_default")]
     pub position: Option<Delta<i32>>,
@@ -58,6 +54,10 @@ pub struct WindowConfig {
     /// Use dynamic title.
     #[serde(default, deserialize_with = "failure_default")]
     dynamic_title: DefaultTrueBool,
+
+    /// Initial dimensions.
+    #[serde(deserialize_with = "failure_default")]
+    dimensions: Dimensions,
 }
 
 pub fn default_title() -> String {
@@ -73,6 +73,23 @@ impl WindowConfig {
     #[inline]
     pub fn set_dynamic_title(&mut self, dynamic_title: bool) {
         self.dynamic_title.0 = dynamic_title;
+    }
+
+    #[inline]
+    pub fn set_dimensions(&mut self, dimensions: Dimensions) {
+        self.dimensions = dimensions;
+    }
+
+    #[inline]
+    pub fn dimensions(&self) -> Option<Dimensions> {
+        if self.dimensions.columns.0 != 0
+            && self.dimensions.lines.0 != 0
+            && self.startup_mode != StartupMode::Maximized
+        {
+            Some(self.dimensions)
+        } else {
+            None
+        }
     }
 }
 
@@ -137,29 +154,11 @@ impl Default for Decorations {
 pub struct Dimensions {
     /// Window width in character columns.
     #[serde(deserialize_with = "failure_default")]
-    columns: Column,
+    pub columns: Column,
 
     /// Window Height in character lines.
     #[serde(deserialize_with = "failure_default")]
-    lines: Line,
-}
-
-impl Dimensions {
-    pub fn new(columns: Column, lines: Line) -> Self {
-        Dimensions { columns, lines }
-    }
-
-    /// Get lines.
-    #[inline]
-    pub fn lines_u32(&self) -> u32 {
-        self.lines.0 as u32
-    }
-
-    /// Get columns.
-    #[inline]
-    pub fn columns_u32(&self) -> u32 {
-        self.columns.0 as u32
-    }
+    pub lines: Line,
 }
 
 /// Window class hint.

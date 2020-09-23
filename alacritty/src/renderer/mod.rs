@@ -230,7 +230,7 @@ impl GlyphCache {
             if desc == regular_desc {
                 regular
             } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                rasterizer.load_font(&desc, size).unwrap_or(regular)
             }
         };
 
