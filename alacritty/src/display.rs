@@ -357,6 +357,8 @@ impl Display {
         let (cell_width, cell_height) = compute_cell_size(config, &self.glyph_cache.font_metrics());
         size_info.cell_width = cell_width;
         size_info.cell_height = cell_height;
+
+        info!("Cell Size: {} x {}", cell_width, cell_height);
     }
 
     /// Clear glyph cache.
@@ -432,6 +434,10 @@ impl Display {
         // Resize renderer.
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
         self.window.resize(physical);
+
+        info!("Padding: {} x {}", self.size_info.padding_x, self.size_info.padding_y);
+        info!("Width: {}, Height: {}", self.size_info.width, self.size_info.height);
+
         self.renderer.resize(&self.size_info);
     }
 
