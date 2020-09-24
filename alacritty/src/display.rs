@@ -640,10 +640,11 @@ impl Display {
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
         let num_cols = size_info.cols().0;
-        let label_len = search_label.len();
-        let regex_len = formatted_regex.len();
+        let label_len = search_label.chars().count();
+        let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
-        let truncated_regex = &formatted_regex[truncate_len..];
+        let index = formatted_regex.char_indices().nth(truncate_len).map(|(i, _c)| i).unwrap_or(0);
+        let truncated_regex = &formatted_regex[index..];
 
         // Add search label to the beginning of the search regex.
         let mut bar_text = format!("{}{}", search_label, truncated_regex);
