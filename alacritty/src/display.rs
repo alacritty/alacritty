@@ -598,7 +598,7 @@ impl Display {
                 self.draw_search(config, &size_info, message_bar_lines, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.lines() - 1, Column(search_text.len() - 1))
+                Point::new(size_info.lines() - 1, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
         };
