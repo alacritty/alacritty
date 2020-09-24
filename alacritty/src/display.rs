@@ -535,14 +535,13 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
-        let mut message_bar_lines = 0;
         if let Some(message) = message_buffer.message() {
+            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
             let text = message.text(&size_info);
-            message_bar_lines = text.len();
 
             // Create a new rectangle for the background.
-            let start_line = size_info.screen_lines.0 as f32;
-            let y = size_info.cell_height.mul_add(start_line, size_info.padding_y);
+            let start_line = size_info.screen_lines + search_offset;
+            let y = size_info.cell_height.mul_add(start_line.0 as f32, size_info.padding_y);
 
             let color = match message.ty() {
                 MessageType::Error => config.colors.normal().red,
@@ -564,7 +563,7 @@ impl Display {
                 self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
                     api.render_string(
                         glyph_cache,
-                        size_info.screen_lines + i,
+                        start_line + i,
                         &message_text,
                         fg,
                         None,
@@ -589,10 +588,10 @@ impl Display {
                 let search_text = Self::format_search(&size_info, regex, search_label);
 
                 // Render the search bar.
-                self.draw_search(config, &size_info, message_bar_lines, &search_text);
+                self.draw_search(config, &size_info, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.screen_lines - 1, Column(search_text.chars().count() - 1))
+                Point::new(size_info.screen_lines + 1, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
         };
@@ -650,13 +649,7 @@ impl Display {
     }
 
     /// Draw current search regex.
-    fn draw_search(
-        &mut self,
-        config: &Config,
-        size_info: &SizeInfo,
-        message_bar_lines: usize,
-        text: &str,
-    ) {
+    fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
         let num_cols = size_info.cols.0;
 
@@ -665,9 +658,8 @@ impl Display {
 
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
-        let line = size_info.screen_lines - message_bar_lines - 1;
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
-            api.render_string(glyph_cache, line, &text, fg, Some(bg));
+            api.render_string(glyph_cache, size_info.screen_lines, &text, fg, Some(bg));
         });
     }
 
