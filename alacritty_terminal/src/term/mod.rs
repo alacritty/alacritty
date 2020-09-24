@@ -658,9 +658,10 @@ impl SizeInfo {
 
     /// Update the number of columns/lines based on window dimensions.
     #[inline]
-    pub fn update_dimensions(&mut self) {
+    pub fn update_dimensions(&mut self, reserved_lines: usize) {
         let lines = (self.height - 2. * self.padding_y) / self.cell_height;
-        self.screen_lines = Line(max(lines as usize, MIN_SCREEN_LINES));
+        let free_lines = (lines as usize).saturating_sub(reserved_lines);
+        self.screen_lines = Line(max(free_lines, MIN_SCREEN_LINES));
 
         let cols = (self.width - 2. * self.padding_x) / self.cell_width;
         self.cols = Column(max(cols as usize, MIN_COLS))

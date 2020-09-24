@@ -248,7 +248,7 @@ impl Display {
             screen_lines: Line(0),
             cols: Column(0),
         };
-        size_info.update_dimensions();
+        size_info.update_dimensions(0);
 
         // Update OpenGL projection.
         renderer.resize(&size_info);
@@ -407,17 +407,10 @@ impl Display {
         self.size_info.padding_y = padding_y.floor() as f32;
 
         // Update number of column/lines in the viewport.
-        self.size_info.update_dimensions();
-
-        // Subtract search line from size.
-        if search_active {
-            self.size_info.screen_lines -= 1;
-        }
-
-        // Subtract message bar lines from size.
-        if let Some(message) = message_buffer.message() {
-            self.size_info.screen_lines -= message.text(&self.size_info).len();
-        }
+        let message_bar_lines =
+            message_buffer.message().map(|m| m.text(&self.size_info).len()).unwrap_or(0);
+        let search_lines = if search_active { 1 } else { 0 };
+        self.size_info.update_dimensions(message_bar_lines + search_lines);
 
         // Resize PTY.
         pty_resize_handle.on_resize(&self.size_info);
