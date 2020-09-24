@@ -220,28 +220,6 @@ impl fmt::Display for Column {
     }
 }
 
-/// A linear index.
-///
-/// Newtype to avoid passing values incorrectly.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct Linear(pub usize);
-
-impl Linear {
-    pub fn new(columns: Column, column: Column, line: Line) -> Self {
-        Linear(line.0 * columns.0 + column.0)
-    }
-
-    pub fn from_point(columns: Column, point: Point<usize>) -> Self {
-        Linear(point.line * columns.0 + point.col.0)
-    }
-}
-
-impl fmt::Display for Linear {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Linear({})", self.0)
-    }
-}
-
 // Copyright 2015 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -485,7 +463,6 @@ macro_rules! ops {
 
 ops!(Line, Line);
 ops!(Column, Column);
-ops!(Linear, Linear);
 
 #[cfg(test)]
 mod tests {
