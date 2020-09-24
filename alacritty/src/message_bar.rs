@@ -172,8 +172,8 @@ impl MessageBuffer {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::term::SizeInfo;
     use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::term::SizeInfo;
 
     #[test]
     fn appends_close_button() {
