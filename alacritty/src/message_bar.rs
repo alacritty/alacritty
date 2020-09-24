@@ -33,8 +33,9 @@ impl Message {
 
     /// Formatted message text lines.
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
-        let num_cols = size_info.cols().0;
-        let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
+        let num_cols = size_info.cols.0;
+        let total_lines = (size_info.height - 2. * size_info.padding_y) / size_info.cell_height;
+        let max_lines = (total_lines as usize).saturating_sub(MIN_FREE_LINES);
         let button_len = CLOSE_BUTTON_TEXT.len();
 
         // Split line to fit the screen.
@@ -169,8 +170,10 @@ impl MessageBuffer {
 
 #[cfg(test)]
 mod tests {
-    use super::{Message, MessageBuffer, MessageType, MIN_FREE_LINES};
+    use super::*;
+
     use alacritty_terminal::term::SizeInfo;
+    use alacritty_terminal::index::{Column, Line};
 
     #[test]
     fn appends_close_button() {
@@ -185,6 +188,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(7),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -205,6 +210,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(6),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -225,6 +232,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(6),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -245,6 +254,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(6),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -265,6 +276,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(1),
+            cols: Column(6),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -285,6 +298,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(MIN_FREE_LINES + 2),
+            cols: Column(22),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -308,6 +323,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(2),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -328,6 +345,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(MIN_FREE_LINES + 2),
+            cols: Column(2),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -348,6 +367,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(5),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);
@@ -406,6 +427,8 @@ mod tests {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 0.,
+            screen_lines: Line(10),
+            cols: Column(5),
         };
 
         let lines = message_buffer.message().unwrap().text(&size);

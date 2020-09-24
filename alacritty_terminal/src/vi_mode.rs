@@ -415,6 +415,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            screen_lines: Line(20),
+            cols: Column(20),
         };
         Term::new(&MockConfig::default(), size, Mock)
     }

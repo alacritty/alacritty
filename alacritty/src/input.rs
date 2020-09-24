@@ -384,6 +384,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let cell_changed =
             point.line != self.ctx.mouse().line || point.col != self.ctx.mouse().column;
 
+        // Update mouse state and check for URL change.
+        let mouse_state = self.mouse_state();
+        self.update_url_state(&mouse_state);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
             && self.ctx.mouse().cell_side == cell_side
@@ -399,11 +404,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_url_launcher = true;
-
-        // Update mouse state and check for URL change.
-        let mouse_state = self.mouse_state();
-        self.update_url_state(&mouse_state);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         if (lmb_pressed || rmb_pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
@@ -764,13 +764,17 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         // Skip normal mouse events if the message bar has been clicked.
-        if self.message_close_at_cursor() && state == ElementState::Pressed {
+        if self.message_bar_mouse_state() == Some(MouseState::MessageBarButton)
+            && state == ElementState::Pressed
+        {
+            let size = self.ctx.size_info();
+
+            let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+
             self.ctx.clear_selection();
             self.ctx.pop_message();
 
             // Reset cursor when message bar height changed or all messages are gone.
-            let size = self.ctx.size_info();
-            let current_lines = (size.lines() - self.ctx.terminal().screen_lines()).0;
             let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
 
             let new_icon = match current_lines.cmp(&new_lines) {
@@ -976,21 +980,26 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    /// Check if the cursor is hovering above the message bar.
-    fn message_at_cursor(&mut self) -> bool {
-        self.ctx.mouse().line >= self.ctx.terminal().screen_lines()
-    }
-
-    /// Whether the point is over the message bar's close button.
-    fn message_close_at_cursor(&self) -> bool {
-        let mouse = self.ctx.mouse();
-
+    /// Check mouse state in relation to the message bar.
+    fn message_bar_mouse_state(&self) -> Option<MouseState> {
         // Since search is above the message bar, the button is offset by search's height.
         let search_height = if self.ctx.search_active() { 1 } else { 0 };
 
-        mouse.inside_text_area
-            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols()
-            && mouse.line == self.ctx.terminal().screen_lines() + search_height
+        // Calculate Y position of the end of the last terminal line.
+        let size = self.ctx.size_info();
+        let terminal_end = size.padding_y as usize
+            + size.cell_height as usize * (size.screen_lines.0 + search_height);
+
+        let mouse = self.ctx.mouse();
+        if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
+            None
+        } else if mouse.y <= terminal_end + size.cell_height as usize
+            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols
+        {
+            Some(MouseState::MessageBarButton)
+        } else {
+            Some(MouseState::MessageBar)
+        }
     }
 
     /// Copy text selection.
@@ -1016,10 +1025,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// Location of the mouse cursor.
     fn mouse_state(&mut self) -> MouseState {
         // Check message bar before URL to ignore URLs in the message bar.
-        if self.message_close_at_cursor() {
-            return MouseState::MessageBarButton;
-        } else if self.message_at_cursor() {
-            return MouseState::MessageBar;
+        if let Some(mouse_state) = self.message_bar_mouse_state() {
+            return mouse_state;
         }
 
         let mouse_mode = self.ctx.mouse_mode();
@@ -1291,6 +1298,8 @@ mod tests {
                     padding_x: 0.,
                     padding_y: 0.,
                     dpr: 1.0,
+                    screen_lines: Line(21),
+                    cols: Column(51),
                 };
 
                 let mut clipboard = Clipboard::new_nop();

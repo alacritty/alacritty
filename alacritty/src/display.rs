@@ -28,7 +28,7 @@ use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
-use alacritty_terminal::term::{MIN_COLS, MIN_LINES};
+use alacritty_terminal::term::{MIN_COLS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 use crate::config::window::{Dimensions, StartupMode};
@@ -237,15 +237,20 @@ impl Display {
         info!("Padding: {} x {}", padding_x, padding_y);
 
         // Create new size with at least one column and row.
-        let size_info = SizeInfo {
+        let width = viewport_size.width as f32;
+        let height = viewport_size.height as f32;
+        let mut size_info = SizeInfo {
             dpr,
-            width: viewport_size.width as f32,
-            height: viewport_size.height as f32,
+            width,
+            height,
             cell_width,
             cell_height,
             padding_x,
             padding_y,
+            screen_lines: Line(0),
+            cols: Column(0),
         };
+        size_info.update_dimensions();
 
         // Update OpenGL projection.
         renderer.resize(&size_info);
@@ -403,24 +408,24 @@ impl Display {
         self.size_info.padding_x = padding_x.floor() as f32;
         self.size_info.padding_y = padding_y.floor() as f32;
 
-        let mut pty_size = self.size_info;
+        // Update number of column/lines in the viewport.
+        self.size_info.update_dimensions();
 
-        // Subtract message bar lines from pty size.
-        if let Some(message) = message_buffer.message() {
-            let lines = message.text(&self.size_info).len();
-            pty_size.height -= pty_size.cell_height * lines as f32;
+        // Subtract search line from size.
+        if search_active {
+            self.size_info.screen_lines -= 1;
         }
 
-        // Add an extra line for the current search regex.
-        if search_active {
-            pty_size.height -= pty_size.cell_height;
+        // Subtract message bar lines from size.
+        if let Some(message) = message_buffer.message() {
+            self.size_info.screen_lines -= message.text(&self.size_info).len();
         }
 
         // Resize PTY.
-        pty_resize_handle.on_resize(&pty_size);
+        pty_resize_handle.on_resize(&self.size_info);
 
         // Resize terminal.
-        terminal.resize(pty_size);
+        terminal.resize(self.size_info);
 
         // Resize renderer.
         let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
@@ -481,7 +486,7 @@ impl Display {
                 // Iterate over all non-empty cells in the grid.
                 for cell in grid_cells {
                     // Update URL underlines.
-                    urls.update(size_info.cols(), cell);
+                    urls.update(size_info.cols, cell);
 
                     // Update underline/strikeout.
                     lines.update(cell);
@@ -538,8 +543,8 @@ impl Display {
             message_bar_lines = text.len();
 
             // Create a new rectangle for the background.
-            let start_line = size_info.lines().0 - message_bar_lines;
-            let y = size_info.cell_height.mul_add(start_line as f32, size_info.padding_y);
+            let start_line = size_info.screen_lines.0 as f32;
+            let y = size_info.cell_height.mul_add(start_line, size_info.padding_y);
 
             let color = match message.ty() {
                 MessageType::Error => config.colors.normal().red,
@@ -557,11 +562,11 @@ impl Display {
 
             // Relay messages to the user.
             let fg = config.colors.primary.background;
-            for (i, message_text) in text.iter().rev().enumerate() {
+            for (i, message_text) in text.iter().enumerate() {
                 self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
                     api.render_string(
                         glyph_cache,
-                        Line(size_info.lines().saturating_sub(i + 1)),
+                        size_info.screen_lines + i,
                         &message_text,
                         fg,
                         None,
@@ -589,7 +594,7 @@ impl Display {
                 self.draw_search(config, &size_info, message_bar_lines, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.lines() - 1, Column(search_text.chars().count() - 1))
+                Point::new(size_info.screen_lines - 1, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
         };
@@ -630,7 +635,7 @@ impl Display {
         formatted_regex.push('_');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.cols.0;
         let label_len = search_label.chars().count();
         let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
@@ -655,14 +660,14 @@ impl Display {
         text: &str,
     ) {
         let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.cols.0;
 
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
 
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
-        let line = size_info.lines() - message_bar_lines - 1;
+        let line = size_info.screen_lines - message_bar_lines - 1;
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
             api.render_string(glyph_cache, line, &text, fg, Some(bg));
         });
@@ -680,7 +685,7 @@ impl Display {
         let bg = config.colors.normal().red;
 
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
-            api.render_string(glyph_cache, size_info.lines() - 2, &timing[..], fg, Some(bg));
+            api.render_string(glyph_cache, size_info.screen_lines - 2, &timing[..], fg, Some(bg));
         });
     }
 
@@ -738,7 +743,7 @@ fn window_size(
     cell_height: f32,
 ) -> PhysicalSize<u32> {
     let grid_width = cell_width as u32 * dimensions.columns.0.max(MIN_COLS) as u32;
-    let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_LINES) as u32;
+    let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_SCREEN_LINES) as u32;
 
     let width = f64::from(padding_x).mul_add(2., f64::from(grid_width)).floor();
     let height = f64::from(padding_y).mul_add(2., f64::from(grid_height)).floor();

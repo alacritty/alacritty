@@ -45,8 +45,8 @@ const INITIAL_TABSTOPS: usize = 8;
 /// A minimum of 2 is necessary to hold fullwidth unicode characters.
 pub const MIN_COLS: usize = 2;
 
-/// Minimum number of lines.
-pub const MIN_LINES: usize = 1;
+/// Minimum number of visible lines.
+pub const MIN_SCREEN_LINES: usize = 1;
 
 /// Cursor storing all information relevant for rendering.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
@@ -634,22 +634,18 @@ pub struct SizeInfo {
     /// Horizontal window padding.
     pub padding_y: f32,
 
+    /// Number of lines in the viewport.
+    pub screen_lines: Line,
+
+    /// Number of columns in the viewport.
+    pub cols: Column,
+
     /// DPR of the current window.
     #[serde(default)]
     pub dpr: f64,
 }
 
 impl SizeInfo {
-    #[inline]
-    pub fn lines(&self) -> Line {
-        Line(((self.height - 2. * self.padding_y) / self.cell_height) as usize)
-    }
-
-    #[inline]
-    pub fn cols(&self) -> Column {
-        Column(((self.width - 2. * self.padding_x) / self.cell_width) as usize)
-    }
-
     #[inline]
     pub fn padding_right(&self) -> usize {
         (self.padding_x + (self.width - 2. * self.padding_x) % self.cell_width) as usize
@@ -658,6 +654,16 @@ impl SizeInfo {
     #[inline]
     pub fn padding_bottom(&self) -> usize {
         (self.padding_y + (self.height - 2. * self.padding_y) % self.cell_height) as usize
+    }
+
+    /// Update the number of columns/lines based on window dimensions.
+    #[inline]
+    pub fn update_dimensions(&mut self) {
+        let lines = (self.height - 2. * self.padding_y) / self.cell_height;
+        self.screen_lines = Line(max(lines as usize, MIN_SCREEN_LINES));
+
+        let cols = (self.width - 2. * self.padding_x) / self.cell_width;
+        self.cols = Column(max(cols as usize, MIN_COLS))
     }
 
     /// Check if coordinates are inside the terminal grid.
@@ -676,8 +682,8 @@ impl SizeInfo {
         let line = Line(y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize));
 
         Point {
-            line: min(line, Line(self.lines().saturating_sub(1))),
-            col: min(col, Column(self.cols().saturating_sub(1))),
+            line: min(line, Line(self.screen_lines.saturating_sub(1))),
+            col: min(col, Column(self.cols.saturating_sub(1))),
         }
     }
 }
@@ -773,8 +779,8 @@ impl<T> Term<T> {
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
-        let num_cols = max(size.cols(), Column(MIN_COLS));
-        let num_lines = max(size.lines(), Line(MIN_LINES));
+        let num_cols = size.cols;
+        let num_lines = size.screen_lines;
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
@@ -987,8 +993,8 @@ impl<T> Term<T> {
         let old_cols = self.cols();
         let old_lines = self.screen_lines();
 
-        let num_cols = max(size.cols(), Column(MIN_COLS));
-        let num_lines = max(size.lines(), Line(MIN_LINES));
+        let num_cols = size.cols;
+        let num_lines = size.screen_lines;
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");
@@ -2373,6 +2379,8 @@ pub mod test {
             padding_x: 0.,
             padding_y: 0.,
             dpr: 1.,
+            screen_lines: Line(lines.len()),
+            cols: Column(num_cols),
         };
         let mut term = Term::new(&Config::<()>::default(), size, ());
 
@@ -2430,6 +2438,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
@@ -2486,6 +2496,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
@@ -2515,6 +2527,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
@@ -2560,6 +2574,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
         let cursor = Point::new(Line(0), Column(0));
@@ -2579,6 +2595,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
@@ -2609,6 +2627,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(100),
+            screen_lines: Line(10),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
@@ -2620,7 +2640,7 @@ mod tests {
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Increase visible lines.
-        size.height = 30.;
+        size.screen_lines.0 = 30;
         term.resize(size);
 
         assert_eq!(term.history_size(), 0);
@@ -2637,6 +2657,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(100),
+            screen_lines: Line(10),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
@@ -2651,7 +2673,7 @@ mod tests {
         term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
 
         // Increase visible lines.
-        size.height = 30.;
+        size.screen_lines.0 = 30;
         term.resize(size);
 
         // Leave alt screen.
@@ -2671,6 +2693,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(100),
+            screen_lines: Line(10),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
@@ -2682,7 +2706,7 @@ mod tests {
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Increase visible lines.
-        size.height = 5.;
+        size.screen_lines.0 = 5;
         term.resize(size);
 
         assert_eq!(term.history_size(), 15);
@@ -2699,6 +2723,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(100),
+            screen_lines: Line(10),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
@@ -2713,7 +2739,7 @@ mod tests {
         term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
 
         // Increase visible lines.
-        size.height = 5.;
+        size.screen_lines.0 = 5;
         term.resize(size);
 
         // Leave alt screen.
@@ -2733,6 +2759,8 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
             dpr: 1.0,
+            cols: Column(21),
+            screen_lines: Line(51),
         };
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
