@@ -561,13 +561,7 @@ impl Display {
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
-                    api.render_string(
-                        glyph_cache,
-                        start_line + i,
-                        &message_text,
-                        fg,
-                        None,
-                    );
+                    api.render_string(glyph_cache, start_line + i, &message_text, fg, None);
                 });
             }
         } else {
