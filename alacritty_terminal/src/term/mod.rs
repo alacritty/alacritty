@@ -41,7 +41,8 @@ const MAX_SEARCH_LINES: usize = 100;
 const INITIAL_TABSTOPS: usize = 8;
 
 /// Minimum number of columns.
-/// This is 2 because we need to hold wide characters.
+///
+/// A minimum of 2 is necessary to hold fullwidth unicode characters.
 pub const MIN_COLS: usize = 2;
 
 /// Minimum number of lines.

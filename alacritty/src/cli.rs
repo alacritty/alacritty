@@ -205,8 +205,8 @@ impl Options {
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
-            let columns = dimensions.next().map(|c| c.parse().map(Column));
-            let lines = dimensions.next().map(|l| l.parse().map(Line));
+            let columns = dimensions.next().map(|columns| columns.parse().map(Column));
+            let lines = dimensions.next().map(|lines| lines.parse().map(Line));
             if let (Some(Ok(columns)), Some(Ok(lines))) = (columns, lines) {
                 options.dimensions = Some(Dimensions { columns, lines });
             }

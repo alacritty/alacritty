@@ -25,7 +25,7 @@
   #
   # Number of lines/columns (not pixels) in the terminal. Allowed values are
   # integers above 1 line and 2 columns; using `0` will follow the window
-  # manager's recommended size. we will create a terminal with 2 columns.
+  # manager's recommended size.
   #dimensions:
   #  columns: 0
   #  lines: 0
