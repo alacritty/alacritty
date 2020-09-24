@@ -237,12 +237,10 @@ impl Display {
         info!("Padding: {} x {}", padding_x, padding_y);
 
         // Create new size with at least one column and row.
-        let width = viewport_size.width as f32;
-        let height = viewport_size.height as f32;
         let mut size_info = SizeInfo {
             dpr,
-            width,
-            height,
+            width: viewport_size.width as f32,
+            height: viewport_size.height as f32,
             cell_width,
             cell_height,
             padding_x,

@@ -668,13 +668,13 @@ impl SizeInfo {
 
     /// Check if coordinates are inside the terminal grid.
     ///
-    /// The padding is not counted as part of the grid.
+    /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x < (self.width as usize - self.padding_right())
-            && x >= self.padding_x as usize
-            && y < (self.height as usize - self.padding_bottom())
-            && y >= self.padding_y as usize
+        x <= (self.width as usize - self.padding_right())
+            && x > self.padding_x as usize
+            && y <= (self.padding_y + self.screen_lines.0 as f32 * self.cell_height) as usize
+            && y > self.padding_y as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
