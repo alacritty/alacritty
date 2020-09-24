@@ -1219,8 +1219,6 @@ impl TextShaderProgram {
         let offset_x = -1.;
         let offset_y = 1.;
 
-        info!("Width: {}, Height: {}", width, height);
-
         unsafe {
             gl::Uniform4f(self.u_projection, offset_x, offset_y, scale_x, scale_y);
         }
