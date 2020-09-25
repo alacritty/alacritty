@@ -764,8 +764,8 @@ pub struct Term<T> {
     regex_search: Option<RegexSearch>,
 
     /// Information about cell dimensions.
-    cell_width: f32,
-    cell_height: f32,
+    cell_width: usize,
+    cell_height: usize,
 }
 
 impl<T> Term<T> {
@@ -816,8 +816,8 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             selection: None,
             regex_search: None,
-            cell_width: size.cell_width,
-            cell_height: size.cell_height,
+            cell_width: size.cell_width as usize,
+            cell_height: size.cell_height as usize,
         }
     }
 
@@ -988,8 +988,8 @@ impl<T> Term<T> {
 
     /// Resize terminal to new dimensions.
     pub fn resize(&mut self, size: SizeInfo) {
-        self.cell_width = size.cell_width;
-        self.cell_height = size.cell_height;
+        self.cell_width = size.cell_width as usize;
+        self.cell_height = size.cell_height as usize;
 
         let old_cols = self.cols();
         let old_lines = self.screen_lines();
@@ -2249,8 +2249,8 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.cell_width as usize * self.cols().0;
-        let height = self.cell_height as usize * self.screen_lines().0;
+        let width = self.cell_width * self.cols().0;
+        let height = self.cell_height * self.screen_lines().0;
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 
