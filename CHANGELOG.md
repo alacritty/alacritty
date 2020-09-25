@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pasting into clients only supporting `UTF8_STRING` mime type on Wayland
 - Crash when copying/pasting with neither pointer nor keyboard focus on Wayland
 - Crash due to fd leak on Wayland
+- IME window position with fullwidth characters in the search bar
 
 ## 0.5.0
 
