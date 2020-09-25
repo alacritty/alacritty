@@ -25,7 +25,7 @@ use crossfont::set_font_smoothing;
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
-use alacritty_terminal::index::{Column, Direction, Line, Point};
+use alacritty_terminal::index::{Column, Direction, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 use alacritty_terminal::term::{MIN_COLS, MIN_SCREEN_LINES};
@@ -110,8 +110,8 @@ pub struct DisplayUpdate {
     pub dirty: bool,
 
     dimensions: Option<PhysicalSize<u32>>,
-    font: Option<Font>,
     cursor_dirty: bool,
+    font: Option<Font>,
 }
 
 impl DisplayUpdate {
@@ -175,8 +175,7 @@ impl Display {
         // Guess the target window size if the user has specified the number of lines/columns.
         let dimensions = config.ui_config.window.dimensions();
         let estimated_size = dimensions.map(|dimensions| {
-            let (padding_x, padding_y) = scale_padding(config, estimated_dpr);
-            window_size(dimensions, padding_x, padding_y, cell_width, cell_height)
+            window_size(config, dimensions, cell_width, cell_height, estimated_dpr)
         });
 
         debug!("Estimated DPR: {}", estimated_dpr);
@@ -214,41 +213,30 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let (mut padding_x, mut padding_y) = scale_padding(config, dpr);
-
         if let Some(dimensions) = dimensions {
             if (estimated_dpr - dpr).abs() < f64::EPSILON {
                 info!("Estimated DPR correctly, skipping resize");
             } else {
                 // Resize the window again if the DPR was not estimated correctly.
-                let size = window_size(dimensions, padding_x, padding_y, cell_width, cell_height);
+                let size = window_size(config, dimensions, cell_width, cell_height, dpr);
                 window.set_inner_size(size);
             }
-        } else if config.ui_config.window.dynamic_padding {
-            // Make sure additional padding is spread evenly.
-            padding_x = dynamic_padding(padding_x, viewport_size.width as f32, cell_width);
-            padding_y = dynamic_padding(padding_y, viewport_size.height as f32, cell_height);
         }
 
-        padding_x = padding_x.floor();
-        padding_y = padding_y.floor();
-
-        info!("Cell Size: {} x {}", cell_width, cell_height);
-        info!("Padding: {} x {}", padding_x, padding_y);
-
         // Create new size with at least one column and row.
-        let mut size_info = SizeInfo {
-            dpr,
-            width: viewport_size.width as f32,
-            height: viewport_size.height as f32,
+        let size_info = SizeInfo::new(
+            viewport_size.width as f32,
+            viewport_size.height as f32,
             cell_width,
             cell_height,
-            padding_x,
-            padding_y,
-            screen_lines: Line(0),
-            cols: Column(0),
-        };
-        size_info.update_dimensions(0);
+            f32::from(config.ui_config.window.padding.x),
+            f32::from(config.ui_config.window.padding.y),
+            dpr,
+            config.ui_config.window.dynamic_padding,
+        );
+
+        info!("Cell Size: {} x {}", cell_width, cell_height);
+        info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
 
         // Update OpenGL projection.
         renderer.resize(&size_info);
@@ -343,7 +331,7 @@ impl Display {
     }
 
     /// Update font size and cell dimensions.
-    fn update_glyph_cache(&mut self, config: &Config, font: &Font) {
+    fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
         let size_info = &mut self.size_info;
         let cache = &mut self.glyph_cache;
 
@@ -351,12 +339,8 @@ impl Display {
             let _ = cache.update_font_size(font, size_info.dpr, &mut api);
         });
 
-        // Update cell size.
-        let (cell_width, cell_height) = compute_cell_size(config, &self.glyph_cache.font_metrics());
-        size_info.cell_width = cell_width;
-        size_info.cell_height = cell_height;
-
-        info!("Cell Size: {} x {}", cell_width, cell_height);
+        // Compute new cell sizes.
+        compute_cell_size(config, &self.glyph_cache.font_metrics())
     }
 
     /// Clear glyph cache.
@@ -379,38 +363,46 @@ impl Display {
     ) where
         T: EventListener,
     {
+        let (mut cell_width, mut cell_height) =
+            (self.size_info.cell_width(), self.size_info.cell_height());
+
         // Update font size and cell dimensions.
         if let Some(font) = update_pending.font() {
-            self.update_glyph_cache(config, font);
+            let cell_dimensions = self.update_glyph_cache(config, font);
+            cell_width = cell_dimensions.0;
+            cell_height = cell_dimensions.1;
+
+            info!("Cell Size: {} x {}", cell_width, cell_height);
         } else if update_pending.cursor_dirty() {
             self.clear_glyph_cache();
         }
 
-        let cell_width = self.size_info.cell_width;
-        let cell_height = self.size_info.cell_height;
+        // TODO: Maybe combine, potentiall shorten to one line
+        let width = update_pending
+            .dimensions()
+            .map(|size| size.width as f32)
+            .unwrap_or_else(|| self.size_info.width());
+        let height = update_pending
+            .dimensions()
+            .map(|size| size.height as f32)
+            .unwrap_or_else(|| self.size_info.height());
 
-        // Update the window dimensions.
-        if let Some(size) = update_pending.dimensions() {
-            self.size_info.width = size.width as f32;
-            self.size_info.height = size.height as f32;
-        }
-
-        // Recalculate padding.
-        let (mut padding_x, mut padding_y) = scale_padding(config, self.size_info.dpr);
-        if config.ui_config.window.dynamic_padding {
-            // Distribute excess padding equally on all sides.
-            padding_x = dynamic_padding(padding_x, self.size_info.width, cell_width);
-            padding_y = dynamic_padding(padding_y, self.size_info.height, cell_height);
-        }
-
-        self.size_info.padding_x = padding_x.floor() as f32;
-        self.size_info.padding_y = padding_y.floor() as f32;
+        self.size_info = SizeInfo::new(
+            width,
+            height,
+            cell_width,
+            cell_height,
+            f32::from(config.ui_config.window.padding.x),
+            f32::from(config.ui_config.window.padding.y),
+            self.size_info.dpr,
+            config.ui_config.window.dynamic_padding,
+        );
 
         // Update number of column/lines in the viewport.
         let message_bar_lines =
             message_buffer.message().map(|m| m.text(&self.size_info).len()).unwrap_or(0);
         let search_lines = if search_active { 1 } else { 0 };
-        self.size_info.update_dimensions(message_bar_lines + search_lines);
+        self.size_info.reserve_lines(message_bar_lines + search_lines);
 
         // Resize PTY.
         pty_resize_handle.on_resize(&self.size_info);
@@ -419,12 +411,13 @@ impl Display {
         terminal.resize(self.size_info);
 
         // Resize renderer.
-        let physical = PhysicalSize::new(self.size_info.width as u32, self.size_info.height as u32);
+        let physical =
+            PhysicalSize::new(self.size_info.width() as u32, self.size_info.height() as u32);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
 
-        info!("Padding: {} x {}", self.size_info.padding_x, self.size_info.padding_y);
-        info!("Width: {}, Height: {}", self.size_info.width, self.size_info.height);
+        info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
+        info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
     }
 
     /// Draw the screen.
@@ -477,7 +470,7 @@ impl Display {
                 // Iterate over all non-empty cells in the grid.
                 for cell in grid_cells {
                     // Update URL underlines.
-                    urls.update(size_info.cols, cell);
+                    urls.update(size_info.cols(), cell);
 
                     // Update underline/strikeout.
                     lines.update(cell);
@@ -520,8 +513,8 @@ impl Display {
             let visual_bell_rect = RenderRect::new(
                 0.,
                 0.,
-                size_info.width,
-                size_info.height,
+                size_info.width(),
+                size_info.height(),
                 config.bell().color,
                 visual_bell_intensity as f32,
             );
@@ -533,8 +526,8 @@ impl Display {
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
-            let start_line = size_info.screen_lines + search_offset;
-            let y = size_info.cell_height.mul_add(start_line.0 as f32, size_info.padding_y);
+            let start_line = size_info.screen_lines() + search_offset;
+            let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
 
             let color = match message.ty() {
                 MessageType::Error => config.colors.normal().red,
@@ -542,7 +535,7 @@ impl Display {
             };
 
             let message_bar_rect =
-                RenderRect::new(0., y, size_info.width, size_info.height - y, color, 1.);
+                RenderRect::new(0., y, size_info.width(), size_info.height() - y, color, 1.);
 
             // Push message_bar in the end, so it'll be above all other content.
             rects.push(message_bar_rect);
@@ -578,7 +571,7 @@ impl Display {
                 self.draw_search(config, &size_info, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.screen_lines + 1, Column(search_text.chars().count() - 1))
+                Point::new(size_info.screen_lines() + 1, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
         };
@@ -619,7 +612,7 @@ impl Display {
         formatted_regex.push('_');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.cols.0;
+        let num_cols = size_info.cols().0;
         let label_len = search_label.chars().count();
         let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
@@ -638,7 +631,7 @@ impl Display {
     /// Draw current search regex.
     fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.cols.0;
+        let num_cols = size_info.cols().0;
 
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
@@ -646,7 +639,7 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
-            api.render_string(glyph_cache, size_info.screen_lines, &text, fg, Some(bg));
+            api.render_string(glyph_cache, size_info.screen_lines(), &text, fg, Some(bg));
         });
     }
 
@@ -662,7 +655,7 @@ impl Display {
         let bg = config.colors.normal().red;
 
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
-            api.render_string(glyph_cache, size_info.screen_lines - 2, &timing[..], fg, Some(bg));
+            api.render_string(glyph_cache, size_info.screen_lines() - 2, &timing[..], fg, Some(bg));
         });
     }
 
@@ -687,12 +680,6 @@ impl Display {
     }
 }
 
-/// Calculate padding to spread it evenly around the terminal content.
-#[inline]
-fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
-    padding + ((dimension - 2. * padding) % cell_dimension) / 2.
-}
-
 /// Calculate the cell dimensions based on font metrics.
 #[inline]
 fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32) {
@@ -704,21 +691,17 @@ fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32
     )
 }
 
-/// Scale the padding size by the scale factor.
-#[inline]
-fn scale_padding(config: &Config, dpr: f64) -> (f32, f32) {
-    let padding = config.ui_config.window.padding;
-    (f32::from(padding.x) * dpr as f32, f32::from(padding.y) * dpr as f32)
-}
-
 /// Calculate the size of the window given padding, terminal dimensions and cell size.
 fn window_size(
+    config: &Config,
     dimensions: Dimensions,
-    padding_x: f32,
-    padding_y: f32,
     cell_width: f32,
     cell_height: f32,
+    dpr: f64,
 ) -> PhysicalSize<u32> {
+    let padding_x = f32::from(config.ui_config.window.padding.x) * dpr as f32;
+    let padding_y = f32::from(config.ui_config.window.padding.y) * dpr as f32;
+
     let grid_width = cell_width as u32 * dimensions.columns.0.max(MIN_COLS) as u32;
     let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_SCREEN_LINES) as u32;
 

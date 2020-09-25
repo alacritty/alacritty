@@ -407,17 +407,7 @@ mod tests {
     }
 
     fn term() -> Term<Mock> {
-        let size = SizeInfo {
-            width: 20.,
-            height: 20.,
-            cell_width: 1.0,
-            cell_height: 1.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-            screen_lines: Line(20),
-            cols: Column(20),
-        };
+        let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, 1.0, false);
         Term::new(&MockConfig::default(), size, Mock)
     }
 

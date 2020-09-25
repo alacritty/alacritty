@@ -33,8 +33,9 @@ impl Message {
 
     /// Formatted message text lines.
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
-        let num_cols = size_info.cols.0;
-        let total_lines = (size_info.height - 2. * size_info.padding_y) / size_info.cell_height;
+        let num_cols = size_info.cols().0;
+        let total_lines =
+            (size_info.height() - 2. * size_info.padding_y()) / size_info.cell_height();
         let max_lines = (total_lines as usize).saturating_sub(MIN_FREE_LINES);
         let button_len = CLOSE_BUTTON_TEXT.len();
 
@@ -172,7 +173,6 @@ impl MessageBuffer {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::index::{Column, Line};
     use alacritty_terminal::term::SizeInfo;
 
     #[test]
@@ -180,17 +180,7 @@ mod tests {
         let input = "a";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 7.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(7),
-        };
+        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -202,17 +192,7 @@ mod tests {
         let input = "fo\nbar";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 6.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(6),
-        };
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -224,17 +204,7 @@ mod tests {
         let input = "a\nb";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 6.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(6),
-        };
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -246,17 +216,7 @@ mod tests {
         let input = "foobar1";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 6.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(6),
-        };
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -268,17 +228,7 @@ mod tests {
         let input = "foobar";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 6.,
-            height: 0.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(1),
-            cols: Column(6),
-        };
+        let size = SizeInfo::new(6., 0., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -290,17 +240,7 @@ mod tests {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 22.,
-            height: (MIN_FREE_LINES + 2) as f32,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(MIN_FREE_LINES + 2),
-            cols: Column(22),
-        };
+        let size = SizeInfo::new(22., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -315,17 +255,7 @@ mod tests {
         let input = "ha";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 2.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(2),
-        };
+        let size = SizeInfo::new(2., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -337,17 +267,7 @@ mod tests {
         let input = "hahahahahahahahaha";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 2.,
-            height: (MIN_FREE_LINES + 2) as f32,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(MIN_FREE_LINES + 2),
-            cols: Column(2),
-        };
+        let size = SizeInfo::new(2., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -359,17 +279,7 @@ mod tests {
         let input = "test";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 5.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(5),
-        };
+        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -419,17 +329,7 @@ mod tests {
         let input = "a\nbc defg";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo {
-            width: 5.,
-            height: 10.,
-            cell_width: 1.,
-            cell_height: 1.,
-            padding_x: 0.,
-            padding_y: 0.,
-            dpr: 0.,
-            screen_lines: Line(10),
-            cols: Column(5),
-        };
+        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 

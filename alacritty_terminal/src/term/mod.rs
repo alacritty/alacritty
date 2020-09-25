@@ -617,28 +617,28 @@ impl From<&BellConfig> for VisualBell {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
 pub struct SizeInfo {
     /// Terminal window width.
-    pub width: f32,
+    width: f32,
 
     /// Terminal window height.
-    pub height: f32,
+    height: f32,
 
     /// Width of individual cell.
-    pub cell_width: f32,
+    cell_width: f32,
 
     /// Height of individual cell.
-    pub cell_height: f32,
+    cell_height: f32,
 
     /// Horizontal window padding.
-    pub padding_x: f32,
+    padding_x: f32,
 
     /// Horizontal window padding.
-    pub padding_y: f32,
+    padding_y: f32,
 
     /// Number of lines in the viewport.
-    pub screen_lines: Line,
+    screen_lines: Line,
 
     /// Number of columns in the viewport.
-    pub cols: Column,
+    cols: Column,
 
     /// DPR of the current window.
     #[serde(default)]
@@ -646,6 +646,49 @@ pub struct SizeInfo {
 }
 
 impl SizeInfo {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        width: f32,
+        height: f32,
+        cell_width: f32,
+        cell_height: f32,
+        padding_x: f32,
+        padding_y: f32,
+        dpr: f64,
+        dynamic_padding: bool,
+    ) -> SizeInfo {
+        let lines = (height - 2. * padding_y) / cell_height;
+        let screen_lines = Line(max(lines as usize, MIN_SCREEN_LINES));
+
+        let cols = (width - 2. * padding_x) / cell_width;
+        let cols = Column(max(cols as usize, MIN_COLS));
+
+        let mut padding_x = padding_x * dpr as f32;
+        let mut padding_y = padding_y * dpr as f32;
+
+        if dynamic_padding {
+            padding_x = Self::dynamic_padding(padding_x, width, cell_width);
+            padding_y = Self::dynamic_padding(padding_y, width, cell_width);
+        }
+
+        SizeInfo {
+            width,
+            height,
+            cell_width,
+            cell_height,
+            padding_x: padding_x.floor(),
+            padding_y: padding_y.floor(),
+            screen_lines,
+            cols,
+            dpr,
+        }
+    }
+
+    #[inline]
+    pub fn reserve_lines(&mut self, count: usize) {
+        self.screen_lines = Line(max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES));
+    }
+
     #[inline]
     pub fn padding_right(&self) -> usize {
         (self.padding_x + (self.width - 2. * self.padding_x) % self.cell_width) as usize
@@ -654,17 +697,6 @@ impl SizeInfo {
     #[inline]
     pub fn padding_bottom(&self) -> usize {
         (self.padding_y + (self.height - 2. * self.padding_y) % self.cell_height) as usize
-    }
-
-    /// Update the number of columns/lines based on window dimensions.
-    #[inline]
-    pub fn update_dimensions(&mut self, reserved_lines: usize) {
-        let lines = (self.height - 2. * self.padding_y) / self.cell_height;
-        let free_lines = (lines as usize).saturating_sub(reserved_lines);
-        self.screen_lines = Line(max(free_lines, MIN_SCREEN_LINES));
-
-        let cols = (self.width - 2. * self.padding_x) / self.cell_width;
-        self.cols = Column(max(cols as usize, MIN_COLS))
     }
 
     /// Check if coordinates are inside the terminal grid.
@@ -678,6 +710,10 @@ impl SizeInfo {
             && y > self.padding_y as usize
     }
 
+    /// Convert window space pixels to terminal grid coordinates.
+    ///
+    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
+    /// coordinates will be clamped to the closest grid coordinates.
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
         let col = Column(x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize));
         let line = Line(y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize));
@@ -686,6 +722,52 @@ impl SizeInfo {
             line: min(line, Line(self.screen_lines.saturating_sub(1))),
             col: min(col, Column(self.cols.saturating_sub(1))),
         }
+    }
+
+    #[inline]
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    #[inline]
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+
+    #[inline]
+    pub fn cell_width(&self) -> f32 {
+        self.cell_width
+    }
+
+    #[inline]
+    pub fn cell_height(&self) -> f32 {
+        self.cell_height
+    }
+
+    #[inline]
+    pub fn padding_x(&self) -> f32 {
+        self.padding_x
+    }
+
+    #[inline]
+    pub fn padding_y(&self) -> f32 {
+        self.padding_y
+    }
+
+    #[inline]
+    pub fn screen_lines(&self) -> Line {
+        self.screen_lines
+    }
+
+    #[inline]
+    pub fn cols(&self) -> Column {
+        self.cols
+    }
+
+    /// Calculate padding to spread it evenly around the terminal content.
+    #[inline]
+    fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
+        padding + ((dimension - 2. * padding) % cell_dimension) / 2.
     }
 }
 

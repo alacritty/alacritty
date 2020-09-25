@@ -371,8 +371,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.update_selection_scrolling(y);
         }
 
-        let x = min(max(x, 0), size_info.width as i32 - 1) as usize;
-        let y = min(max(y, 0), size_info.height as i32 - 1) as usize;
+        let x = min(max(x, 0), size_info.width() as i32 - 1) as usize;
+        let y = min(max(y, 0), size_info.height() as i32 - 1) as usize;
 
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
@@ -431,12 +431,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let size_info = self.ctx.size_info();
         let x = self.ctx.mouse().x;
 
-        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
-        let half_cell_width = (size_info.cell_width / 2.0) as usize;
+        let cell_x =
+            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+        let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
         let additional_padding =
-            (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
-        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
+            (size_info.width() - size_info.padding_x() * 2.) % size_info.cell_width();
+        let end_of_grid = size_info.width() - size_info.padding_x() - additional_padding;
 
         if cell_x > half_cell_width
             // Edge case when mouse leaves the window.
@@ -661,7 +662,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let new_scroll_px = lines * self.ctx.size_info().cell_height;
+                let new_scroll_px = lines * self.ctx.size_info().cell_height();
                 self.scroll_terminal(f64::from(new_scroll_px));
             },
             MouseScrollDelta::PixelDelta(lpos) => {
@@ -680,7 +681,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     fn scroll_terminal(&mut self, new_scroll_px: f64) {
-        let height = f64::from(self.ctx.size_info().cell_height);
+        let height = f64::from(self.ctx.size_info().cell_height());
 
         if self.ctx.mouse_mode() {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
@@ -987,14 +988,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         // Calculate Y position of the end of the last terminal line.
         let size = self.ctx.size_info();
-        let terminal_end = size.padding_y as usize
-            + size.cell_height as usize * (size.screen_lines.0 + search_height);
+        let terminal_end = size.padding_y() as usize
+            + size.cell_height() as usize * (size.screen_lines().0 + search_height);
 
         let mouse = self.ctx.mouse();
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
             None
-        } else if mouse.y <= terminal_end + size.cell_height as usize
-            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols
+        } else if mouse.y <= terminal_end + size.cell_height() as usize
+            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
         {
             Some(MouseState::MessageBarButton)
         } else {
@@ -1063,9 +1064,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let step = (SELECTION_SCROLLING_STEP * size_info.dpr) as i32;
 
         // Compute the height of the scrolling areas.
-        let end_top = max(min_height, size_info.padding_y as i32);
+        let end_top = max(min_height, size_info.padding_y() as i32);
+        // TODO: padding_bottom rework maybe and make it non-pub?
         let height_bottom = max(min_height, size_info.padding_bottom() as i32);
-        let start_bottom = size_info.height as i32 - height_bottom;
+        let start_bottom = size_info.height() as i32 - height_bottom;
 
         // Get distance from closest window boundary.
         let delta = if mouse_y < end_top {
@@ -1290,17 +1292,16 @@ mod tests {
                     url: Default::default(),
                 };
 
-                let size = SizeInfo {
-                    width: 21.0,
-                    height: 51.0,
-                    cell_width: 3.0,
-                    cell_height: 3.0,
-                    padding_x: 0.,
-                    padding_y: 0.,
-                    dpr: 1.0,
-                    screen_lines: Line(21),
-                    cols: Column(51),
-                };
+                let size = SizeInfo::new(
+                    21.0,
+                    51.0,
+                    3.0,
+                    3.0,
+                    0.,
+                    0.,
+                    1.0,
+                    false,
+                );
 
                 let mut clipboard = Clipboard::new_nop();
 
