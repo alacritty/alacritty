@@ -411,7 +411,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Move vi cursor down if resize will pull content from history.
-        if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
+        if self.terminal.history_size() != 0
+            && self.terminal.grid().display_offset() == 0
+            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
+        {
             self.terminal.vi_mode_cursor.point.line += 1;
         }
 
