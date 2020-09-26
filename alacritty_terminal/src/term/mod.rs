@@ -211,8 +211,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
 
         let num_cols = self.grid.cols();
 
-        // Since we can have non zero display offset, we must take points from a grid in buffer
-        // coordinates.
+        // Convert to absolute coordinates to adjust for the display offset.
         let buffer_point = self.grid.visible_to_buffer(point);
         let cell = self.grid[buffer_point];
 
