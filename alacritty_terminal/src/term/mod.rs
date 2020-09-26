@@ -210,23 +210,28 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         }
 
         let num_cols = self.grid.cols();
-        let cell = self.grid[&point];
+
+        // Convert to absolute coordinates to adjust for the display offset.
+        let buffer_point = self.grid.visible_to_buffer(point);
+        let cell = self.grid[buffer_point];
 
         // Check if wide char's spacers are selected.
         if cell.flags.contains(Flags::WIDE_CHAR) {
             let prev = point.sub(num_cols, 1);
+            let buffer_prev = self.grid.visible_to_buffer(prev);
             let next = point.add(num_cols, 1);
 
             // Check trailing spacer.
             selection.contains(next.col, next.line)
                 // Check line-wrapping, leading spacer.
-                || (self.grid[&prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
+                || (self.grid[buffer_prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
                     && selection.contains(prev.col, prev.line))
         } else if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
             // Check if spacer's wide char is selected.
             let prev = point.sub(num_cols, 1);
+            let buffer_prev = self.grid.visible_to_buffer(prev);
 
-            if self.grid[&prev].flags.contains(Flags::WIDE_CHAR) {
+            if self.grid[buffer_prev].flags.contains(Flags::WIDE_CHAR) {
                 // Check previous cell for trailing spacer.
                 self.is_selected(prev)
             } else {
