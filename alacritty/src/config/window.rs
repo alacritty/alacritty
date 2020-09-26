@@ -19,17 +19,9 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "failure_default")]
     pub position: Option<Delta<i32>>,
 
-    /// Pixel padding.
-    #[serde(deserialize_with = "failure_default")]
-    pub padding: Delta<u8>,
-
     /// Draw the window with title bar / borders.
     #[serde(deserialize_with = "failure_default")]
     pub decorations: Decorations,
-
-    /// Spread out additional padding evenly.
-    #[serde(deserialize_with = "failure_default")]
-    pub dynamic_padding: bool,
 
     /// Startup mode.
     #[serde(deserialize_with = "failure_default")]
@@ -50,6 +42,14 @@ pub struct WindowConfig {
     /// GTK theme variant.
     #[serde(deserialize_with = "option_explicit_none")]
     pub gtk_theme_variant: Option<String>,
+
+    /// Spread out additional padding evenly.
+    #[serde(deserialize_with = "failure_default")]
+    pub dynamic_padding: bool,
+
+    /// Pixel padding.
+    #[serde(deserialize_with = "failure_default")]
+    padding: Delta<u8>,
 
     /// Use dynamic title.
     #[serde(default, deserialize_with = "failure_default")]
@@ -90,6 +90,11 @@ impl WindowConfig {
         } else {
             None
         }
+    }
+
+    #[inline]
+    pub fn padding(&self, dpr: f64) -> (f32, f32) {
+        (f32::from(self.padding.x) * dpr as f32, f32::from(self.padding.y) * dpr as f32)
     }
 }
 

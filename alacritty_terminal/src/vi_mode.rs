@@ -407,7 +407,7 @@ mod tests {
     }
 
     fn term() -> Term<Mock> {
-        let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, 1.0, false);
+        let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, false);
         Term::new(&MockConfig::default(), size, Mock)
     }
 

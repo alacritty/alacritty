@@ -1099,7 +1099,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Update display if padding options were changed.
         let window_config = &processor.ctx.config.ui_config.window;
-        if window_config.padding != config.ui_config.window.padding
+        if window_config.padding(1.) != config.ui_config.window.padding(1.)
             || window_config.dynamic_padding != config.ui_config.window.dynamic_padding
         {
             processor.ctx.display_update_pending.dirty = true;

@@ -222,15 +222,16 @@ impl Display {
             }
         }
 
+        let padding = config.ui_config.window.padding(window.dpr);
+
         // Create new size with at least one column and row.
         let size_info = SizeInfo::new(
             viewport_size.width as f32,
             viewport_size.height as f32,
             cell_width,
             cell_height,
-            f32::from(config.ui_config.window.padding.x),
-            f32::from(config.ui_config.window.padding.y),
-            window.dpr,
+            padding.0,
+            padding.1,
             config.ui_config.window.dynamic_padding,
         );
 
@@ -386,14 +387,15 @@ impl Display {
             .map(|size| size.height as f32)
             .unwrap_or_else(|| self.size_info.height());
 
+        let padding = config.ui_config.window.padding(self.window.dpr);
+
         self.size_info = SizeInfo::new(
             width,
             height,
             cell_width,
             cell_height,
-            f32::from(config.ui_config.window.padding.x),
-            f32::from(config.ui_config.window.padding.y),
-            self.window.dpr,
+            padding.0,
+            padding.1,
             config.ui_config.window.dynamic_padding,
         );
 
@@ -698,14 +700,13 @@ fn window_size(
     cell_height: f32,
     dpr: f64,
 ) -> PhysicalSize<u32> {
-    let padding_x = f32::from(config.ui_config.window.padding.x) * dpr as f32;
-    let padding_y = f32::from(config.ui_config.window.padding.y) * dpr as f32;
+    let padding = config.ui_config.window.padding(dpr);
 
     let grid_width = cell_width as u32 * dimensions.columns.0.max(MIN_COLS) as u32;
     let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_SCREEN_LINES) as u32;
 
-    let width = f64::from(padding_x).mul_add(2., f64::from(grid_width)).floor();
-    let height = f64::from(padding_y).mul_add(2., f64::from(grid_height)).floor();
+    let width = f64::from(padding.0).mul_add(2., f64::from(grid_width)).floor();
+    let height = f64::from(padding.1).mul_add(2., f64::from(grid_height)).floor();
 
     PhysicalSize::new(width as u32, height as u32)
 }
