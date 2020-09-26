@@ -331,6 +331,8 @@ impl Display {
     }
 
     /// Update font size and cell dimensions.
+    ///
+    /// This will return a tuple of the cell width and height.
     fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
         let cache = &mut self.glyph_cache;
         let dpr = self.window.dpr;
@@ -678,6 +680,8 @@ impl Display {
 }
 
 /// Calculate the cell dimensions based on font metrics.
+///
+/// This will return a tuple of the cell width and height.
 #[inline]
 fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32) {
     let offset_x = f64::from(config.ui_config.font.offset.x);
