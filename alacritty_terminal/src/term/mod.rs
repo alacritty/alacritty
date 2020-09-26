@@ -657,12 +657,6 @@ impl SizeInfo {
         dpr: f64,
         dynamic_padding: bool,
     ) -> SizeInfo {
-        let lines = (height - 2. * padding_y) / cell_height;
-        let screen_lines = Line(max(lines as usize, MIN_SCREEN_LINES));
-
-        let cols = (width - 2. * padding_x) / cell_width;
-        let cols = Column(max(cols as usize, MIN_COLS));
-
         let mut padding_x = padding_x * dpr as f32;
         let mut padding_y = padding_y * dpr as f32;
 
@@ -670,6 +664,12 @@ impl SizeInfo {
             padding_x = Self::dynamic_padding(padding_x, width, cell_width);
             padding_y = Self::dynamic_padding(padding_y, width, cell_width);
         }
+
+        let lines = (height - 2. * padding_y) / cell_height;
+        let screen_lines = Line(max(lines as usize, MIN_SCREEN_LINES));
+
+        let cols = (width - 2. * padding_x) / cell_width;
+        let cols = Column(max(cols as usize, MIN_COLS));
 
         SizeInfo {
             width,

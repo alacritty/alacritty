@@ -235,7 +235,7 @@ impl Display {
             config.ui_config.window.dynamic_padding,
         );
 
-        info!("Cell Size: {} x {}", cell_width, cell_height);
+        info!("Cell size: {} x {}", cell_width, cell_height);
         info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
 
         // Update OpenGL projection.
@@ -372,7 +372,7 @@ impl Display {
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
-            info!("Cell Size: {} x {}", cell_width, cell_height);
+            info!("Cell size: {} x {}", cell_width, cell_height);
         } else if update_pending.cursor_dirty() {
             self.clear_glyph_cache();
         }
