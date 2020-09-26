@@ -1056,12 +1056,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Handle automatic scrolling when selecting above/below the window.
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
+        let dpr = self.ctx.window().dpr;
         let size_info = self.ctx.size_info();
         let scheduler = self.ctx.scheduler_mut();
 
         // Scale constants by DPI.
-        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * size_info.dpr) as i32;
-        let step = (SELECTION_SCROLLING_STEP * size_info.dpr) as i32;
+        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * dpr) as i32;
+        let step = (SELECTION_SCROLLING_STEP * dpr) as i32;
 
         // Compute the height of the scrolling areas.
         let end_top = max(min_height, size_info.padding_y() as i32);

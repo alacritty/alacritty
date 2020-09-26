@@ -201,8 +201,7 @@ impl Display {
             wayland_event_queue.as_ref(),
         )?;
 
-        let dpr = window.scale_factor();
-        info!("Device pixel ratio: {}", dpr);
+        info!("Device pixel ratio: {}", window.dpr);
 
         // get window properties for initializing the other subsystems.
         let viewport_size = window.inner_size();
@@ -211,14 +210,14 @@ impl Display {
         let mut renderer = QuadRenderer::new()?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(dpr, &mut renderer, config)?;
+            Self::new_glyph_cache(window.dpr, &mut renderer, config)?;
 
         if let Some(dimensions) = dimensions {
-            if (estimated_dpr - dpr).abs() < f64::EPSILON {
+            if (estimated_dpr - window.dpr).abs() < f64::EPSILON {
                 info!("Estimated DPR correctly, skipping resize");
             } else {
                 // Resize the window again if the DPR was not estimated correctly.
-                let size = window_size(config, dimensions, cell_width, cell_height, dpr);
+                let size = window_size(config, dimensions, cell_width, cell_height, window.dpr);
                 window.set_inner_size(size);
             }
         }
@@ -231,7 +230,7 @@ impl Display {
             cell_height,
             f32::from(config.ui_config.window.padding.x),
             f32::from(config.ui_config.window.padding.y),
-            dpr,
+            window.dpr,
             config.ui_config.window.dynamic_padding,
         );
 
@@ -332,11 +331,11 @@ impl Display {
 
     /// Update font size and cell dimensions.
     fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
-        let size_info = &mut self.size_info;
         let cache = &mut self.glyph_cache;
+        let dpr = self.window.dpr;
 
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(font, size_info.dpr, &mut api);
+            let _ = cache.update_font_size(font, dpr, &mut api);
         });
 
         // Compute new cell sizes.
@@ -394,7 +393,7 @@ impl Display {
             cell_height,
             f32::from(config.ui_config.window.padding.x),
             f32::from(config.ui_config.window.padding.y),
-            self.size_info.dpr,
+            self.window.dpr,
             config.ui_config.window.dynamic_padding,
         );
 

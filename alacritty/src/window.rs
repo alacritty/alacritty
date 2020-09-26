@@ -137,6 +137,9 @@ pub struct Window {
     #[cfg(not(any(target_os = "macos", windows)))]
     pub wayland_surface: Option<Attached<WlSurface>>,
 
+    /// Cached DPR for quickly scaling pixel sizes.
+    pub dpr: f64,
+
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
@@ -192,6 +195,8 @@ impl Window {
             wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
         }
 
+        let dpr = windowed_context.window().scale_factor();
+
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
@@ -200,6 +205,7 @@ impl Window {
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(not(any(target_os = "macos", windows)))]
             wayland_surface,
+            dpr,
         })
     }
 
@@ -209,10 +215,6 @@ impl Window {
 
     pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window().inner_size()
-    }
-
-    pub fn scale_factor(&self) -> f64 {
-        self.window().scale_factor()
     }
 
     #[inline]
