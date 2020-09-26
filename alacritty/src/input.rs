@@ -1066,9 +1066,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         // Compute the height of the scrolling areas.
         let end_top = max(min_height, size_info.padding_y() as i32);
-        // TODO: padding_bottom rework maybe and make it non-pub?
-        let height_bottom = max(min_height, size_info.padding_bottom() as i32);
-        let start_bottom = size_info.height() as i32 - height_bottom;
+        let text_area_bottom = size_info.padding_y()
+            + size_info.screen_lines().0 as f32 * size_info.cell_height();
+        let start_bottom = min(size_info.height() as i32 - min_height, text_area_bottom as i32);
 
         // Get distance from closest window boundary.
         let delta = if mouse_y < end_top {

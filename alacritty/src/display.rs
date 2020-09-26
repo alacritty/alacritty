@@ -377,15 +377,11 @@ impl Display {
             self.clear_glyph_cache();
         }
 
-        // TODO: Maybe combine, potentiall shorten to one line
-        let width = update_pending
-            .dimensions()
-            .map(|size| size.width as f32)
-            .unwrap_or_else(|| self.size_info.width());
-        let height = update_pending
-            .dimensions()
-            .map(|size| size.height as f32)
-            .unwrap_or_else(|| self.size_info.height());
+        let (mut width, mut height) = (self.size_info.width(), self.size_info.height());
+        if let Some(dimensions) = update_pending.dimensions() {
+            width = dimensions.width as f32;
+            height = dimensions.height as f32;
+        }
 
         let padding = config.ui_config.window.padding(self.window.dpr);
 

@@ -654,7 +654,7 @@ impl SizeInfo {
     ) -> SizeInfo {
         if dynamic_padding {
             padding_x = Self::dynamic_padding(padding_x, width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y, width, cell_width);
+            padding_y = Self::dynamic_padding(padding_y, height, cell_height);
         }
 
         let lines = (height - 2. * padding_y) / cell_height;
@@ -680,22 +680,12 @@ impl SizeInfo {
         self.screen_lines = Line(max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES));
     }
 
-    #[inline]
-    pub fn padding_right(&self) -> usize {
-        (self.padding_x + (self.width - 2. * self.padding_x) % self.cell_width) as usize
-    }
-
-    #[inline]
-    pub fn padding_bottom(&self) -> usize {
-        (self.padding_y + (self.height - 2. * self.padding_y) % self.cell_height) as usize
-    }
-
     /// Check if coordinates are inside the terminal grid.
     ///
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.width as usize - self.padding_right())
+        x <= (self.padding_x + self.cols.0 as f32 * self.cell_width) as usize
             && x > self.padding_x as usize
             && y <= (self.padding_y + self.screen_lines.0 as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
