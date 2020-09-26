@@ -410,17 +410,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.goto_match(None);
         }
 
-        // Move vi cursor down if resize will pull content from history.
-        if self.terminal.history_size() != 0
-            && self.terminal.grid().display_offset() == 0
-            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
-        {
-            self.terminal.vi_mode_cursor.point.line += 1;
-        }
-
-        self.display_update_pending.dirty = true;
-        self.search_state.regex = None;
-        self.terminal.dirty = true;
+        self.exit_search();
     }
 
     #[inline]
@@ -432,17 +422,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         }
 
-        // Move vi cursor down if resize will pull from history.
-        if self.terminal.history_size() != 0
-            && self.terminal.grid().display_offset() == 0
-            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
-        {
-            self.terminal.vi_mode_cursor.point.line += 1;
-        }
-
-        self.display_update_pending.dirty = true;
-        self.search_state.regex = None;
-        self.terminal.dirty = true;
+        self.exit_search();
     }
 
     #[inline]
@@ -632,6 +612,21 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         }
 
         self.search_state.regex = Some(regex);
+    }
+
+    /// Close the search bar.
+    fn exit_search(&mut self) {
+        // Move vi cursor down if resize will pull content from history.
+        if self.terminal.history_size() != 0
+            && self.terminal.grid().display_offset() == 0
+            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
+        {
+            self.terminal.vi_mode_cursor.point.line += 1;
+        }
+
+        self.display_update_pending.dirty = true;
+        self.search_state.regex = None;
+        self.terminal.dirty = true;
     }
 
     /// Get the absolute position of the search origin.
