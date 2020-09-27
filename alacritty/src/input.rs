@@ -371,8 +371,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             self.update_selection_scrolling(y);
         }
 
-        let x = min(max(x, 0), size_info.width as i32 - 1) as usize;
-        let y = min(max(y, 0), size_info.height as i32 - 1) as usize;
+        let x = min(max(x, 0), size_info.width() as i32 - 1) as usize;
+        let y = min(max(y, 0), size_info.height() as i32 - 1) as usize;
 
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
@@ -383,6 +383,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         let cell_changed =
             point.line != self.ctx.mouse().line || point.col != self.ctx.mouse().column;
+
+        // Update mouse state and check for URL change.
+        let mouse_state = self.mouse_state();
+        self.update_url_state(&mouse_state);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
@@ -399,11 +404,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_url_launcher = true;
-
-        // Update mouse state and check for URL change.
-        let mouse_state = self.mouse_state();
-        self.update_url_state(&mouse_state);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
 
         if (lmb_pressed || rmb_pressed)
             && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
@@ -431,12 +431,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let size_info = self.ctx.size_info();
         let x = self.ctx.mouse().x;
 
-        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
-        let half_cell_width = (size_info.cell_width / 2.0) as usize;
+        let cell_x =
+            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+        let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
         let additional_padding =
-            (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
-        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
+            (size_info.width() - size_info.padding_x() * 2.) % size_info.cell_width();
+        let end_of_grid = size_info.width() - size_info.padding_x() - additional_padding;
 
         if cell_x > half_cell_width
             // Edge case when mouse leaves the window.
@@ -661,7 +662,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let new_scroll_px = lines * self.ctx.size_info().cell_height;
+                let new_scroll_px = lines * self.ctx.size_info().cell_height();
                 self.scroll_terminal(f64::from(new_scroll_px));
             },
             MouseScrollDelta::PixelDelta(lpos) => {
@@ -680,7 +681,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     fn scroll_terminal(&mut self, new_scroll_px: f64) {
-        let height = f64::from(self.ctx.size_info().cell_height);
+        let height = f64::from(self.ctx.size_info().cell_height());
 
         if self.ctx.mouse_mode() {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
@@ -764,13 +765,17 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
 
         // Skip normal mouse events if the message bar has been clicked.
-        if self.message_close_at_cursor() && state == ElementState::Pressed {
+        if self.message_bar_mouse_state() == Some(MouseState::MessageBarButton)
+            && state == ElementState::Pressed
+        {
+            let size = self.ctx.size_info();
+
+            let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+
             self.ctx.clear_selection();
             self.ctx.pop_message();
 
             // Reset cursor when message bar height changed or all messages are gone.
-            let size = self.ctx.size_info();
-            let current_lines = (size.lines() - self.ctx.terminal().screen_lines()).0;
             let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
 
             let new_icon = match current_lines.cmp(&new_lines) {
@@ -976,21 +981,26 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    /// Check if the cursor is hovering above the message bar.
-    fn message_at_cursor(&mut self) -> bool {
-        self.ctx.mouse().line >= self.ctx.terminal().screen_lines()
-    }
-
-    /// Whether the point is over the message bar's close button.
-    fn message_close_at_cursor(&self) -> bool {
-        let mouse = self.ctx.mouse();
-
+    /// Check mouse state in relation to the message bar.
+    fn message_bar_mouse_state(&self) -> Option<MouseState> {
         // Since search is above the message bar, the button is offset by search's height.
         let search_height = if self.ctx.search_active() { 1 } else { 0 };
 
-        mouse.inside_text_area
-            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols()
-            && mouse.line == self.ctx.terminal().screen_lines() + search_height
+        // Calculate Y position of the end of the last terminal line.
+        let size = self.ctx.size_info();
+        let terminal_end = size.padding_y() as usize
+            + size.cell_height() as usize * (size.screen_lines().0 + search_height);
+
+        let mouse = self.ctx.mouse();
+        if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
+            None
+        } else if mouse.y <= terminal_end + size.cell_height() as usize
+            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+        {
+            Some(MouseState::MessageBarButton)
+        } else {
+            Some(MouseState::MessageBar)
+        }
     }
 
     /// Copy text selection.
@@ -1016,10 +1026,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// Location of the mouse cursor.
     fn mouse_state(&mut self) -> MouseState {
         // Check message bar before URL to ignore URLs in the message bar.
-        if self.message_close_at_cursor() {
-            return MouseState::MessageBarButton;
-        } else if self.message_at_cursor() {
-            return MouseState::MessageBar;
+        if let Some(mouse_state) = self.message_bar_mouse_state() {
+            return mouse_state;
         }
 
         let mouse_mode = self.ctx.mouse_mode();
@@ -1048,17 +1056,18 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Handle automatic scrolling when selecting above/below the window.
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
-        let size_info = self.ctx.size_info();
+        let dpr = self.ctx.window().dpr;
+        let size = self.ctx.size_info();
         let scheduler = self.ctx.scheduler_mut();
 
         // Scale constants by DPI.
-        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * size_info.dpr) as i32;
-        let step = (SELECTION_SCROLLING_STEP * size_info.dpr) as i32;
+        let min_height = (MIN_SELECTION_SCROLLING_HEIGHT * dpr) as i32;
+        let step = (SELECTION_SCROLLING_STEP * dpr) as i32;
 
         // Compute the height of the scrolling areas.
-        let end_top = max(min_height, size_info.padding_y as i32);
-        let height_bottom = max(min_height, size_info.padding_bottom() as i32);
-        let start_bottom = size_info.height as i32 - height_bottom;
+        let end_top = max(min_height, size.padding_y() as i32);
+        let text_area_bottom = size.padding_y() + size.screen_lines().0 as f32 * size.cell_height();
+        let start_bottom = min(size.height() as i32 - min_height, text_area_bottom as i32);
 
         // Get distance from closest window boundary.
         let delta = if mouse_y < end_top {
@@ -1283,15 +1292,15 @@ mod tests {
                     url: Default::default(),
                 };
 
-                let size = SizeInfo {
-                    width: 21.0,
-                    height: 51.0,
-                    cell_width: 3.0,
-                    cell_height: 3.0,
-                    padding_x: 0.,
-                    padding_y: 0.,
-                    dpr: 1.0,
-                };
+                let size = SizeInfo::new(
+                    21.0,
+                    51.0,
+                    3.0,
+                    3.0,
+                    0.,
+                    0.,
+                    false,
+                );
 
                 let mut clipboard = Clipboard::new_nop();
 

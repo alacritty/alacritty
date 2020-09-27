@@ -410,14 +410,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.goto_match(None);
         }
 
-        // Move vi cursor down if resize will pull content from history.
-        if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
-            self.terminal.vi_mode_cursor.point.line += 1;
-        }
-
-        self.display_update_pending.dirty = true;
-        self.search_state.regex = None;
-        self.terminal.dirty = true;
+        self.exit_search();
     }
 
     #[inline]
@@ -429,14 +422,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         }
 
-        // Move vi cursor down if resize will pull from history.
-        if self.terminal.history_size() != 0 && self.terminal.grid().display_offset() == 0 {
-            self.terminal.vi_mode_cursor.point.line += 1;
-        }
-
-        self.display_update_pending.dirty = true;
-        self.search_state.regex = None;
-        self.terminal.dirty = true;
+        self.exit_search();
     }
 
     #[inline]
@@ -626,6 +612,21 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         }
 
         self.search_state.regex = Some(regex);
+    }
+
+    /// Close the search bar.
+    fn exit_search(&mut self) {
+        // Move vi cursor down if resize will pull content from history.
+        if self.terminal.history_size() != 0
+            && self.terminal.grid().display_offset() == 0
+            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
+        {
+            self.terminal.vi_mode_cursor.point.line += 1;
+        }
+
+        self.display_update_pending.dirty = true;
+        self.search_state.regex = None;
+        self.terminal.dirty = true;
     }
 
     /// Get the absolute position of the search origin.
@@ -914,7 +915,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.size_info.dpr = scale_factor;
+                    processor.ctx.window.dpr = scale_factor;
                     processor.ctx.terminal.dirty = true;
                 },
                 Event::Message(message) => {
@@ -1098,7 +1099,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Update display if padding options were changed.
         let window_config = &processor.ctx.config.ui_config.window;
-        if window_config.padding != config.ui_config.window.padding
+        if window_config.padding(1.) != config.ui_config.window.padding(1.)
             || window_config.dynamic_padding != config.ui_config.window.dynamic_padding
         {
             processor.ctx.display_update_pending.dirty = true;

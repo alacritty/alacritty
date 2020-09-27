@@ -357,10 +357,10 @@ pub trait ToWinsize {
 impl<'a> ToWinsize for &'a SizeInfo {
     fn to_winsize(&self) -> winsize {
         winsize {
-            ws_row: self.lines().0 as libc::c_ushort,
+            ws_row: self.screen_lines().0 as libc::c_ushort,
             ws_col: self.cols().0 as libc::c_ushort,
-            ws_xpixel: self.width as libc::c_ushort,
-            ws_ypixel: self.height as libc::c_ushort,
+            ws_xpixel: self.width() as libc::c_ushort,
+            ws_ypixel: self.height() as libc::c_ushort,
         }
     }
 }

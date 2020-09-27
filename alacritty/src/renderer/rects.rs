@@ -99,14 +99,14 @@ impl RenderLine {
         mut thickness: f32,
         color: Rgb,
     ) -> RenderRect {
-        let start_x = start.col.0 as f32 * size.cell_width;
-        let end_x = (end.col.0 + 1) as f32 * size.cell_width;
+        let start_x = start.col.0 as f32 * size.cell_width();
+        let end_x = (end.col.0 + 1) as f32 * size.cell_width();
         let width = end_x - start_x;
 
         // Make sure lines are always visible.
         thickness = thickness.max(1.);
 
-        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
+        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height();
         let baseline = line_bottom + descent;
 
         let mut y = (baseline - position - thickness / 2.).ceil();
@@ -115,7 +115,14 @@ impl RenderLine {
             y = max_y;
         }
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, thickness, color, 1.)
+        RenderRect::new(
+            start_x + size.padding_x(),
+            y + size.padding_y(),
+            width,
+            thickness,
+            color,
+            1.,
+        )
     }
 }
 

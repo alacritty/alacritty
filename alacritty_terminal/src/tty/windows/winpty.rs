@@ -20,7 +20,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     // Create config.
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
-    wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
+    wconfig.set_initial_size(size.cols().0 as i32, size.screen_lines().0 as i32);
     wconfig.set_mouse_mode(&MouseMode::Auto);
 
     // Start agent.
@@ -60,8 +60,8 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
 }
 
 impl OnResize for Agent {
-    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
+    fn on_resize(&mut self, size: &SizeInfo) {
+        let (cols, lines) = (size.cols().0, size.screen_lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
             self.set_size(cols as u16, lines as u16)
                 .unwrap_or_else(|_| info!("Unable to set WinPTY size, did it die?"));

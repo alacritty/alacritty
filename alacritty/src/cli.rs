@@ -205,10 +205,10 @@ impl Options {
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
-            let width = dimensions.next().map(|w| w.parse().map(Column));
-            let height = dimensions.next().map(|h| h.parse().map(Line));
-            if let (Some(Ok(width)), Some(Ok(height))) = (width, height) {
-                options.dimensions = Some(Dimensions::new(width, height));
+            let columns = dimensions.next().map(|columns| columns.parse().map(Column));
+            let lines = dimensions.next().map(|lines| lines.parse().map(Line));
+            if let (Some(Ok(columns)), Some(Ok(lines))) = (columns, lines) {
+                options.dimensions = Some(Dimensions { columns, lines });
             }
         }
 
@@ -309,7 +309,10 @@ impl Options {
         let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
         config.ui_config.set_dynamic_title(dynamic_title);
 
-        replace_if_some(&mut config.ui_config.window.dimensions, self.dimensions);
+        if let Some(dimensions) = self.dimensions {
+            config.ui_config.window.set_dimensions(dimensions);
+        }
+
         replace_if_some(&mut config.ui_config.window.title, self.title.clone());
         replace_if_some(&mut config.ui_config.window.class.instance, self.class_instance.clone());
         replace_if_some(&mut config.ui_config.window.class.general, self.class_general.clone());

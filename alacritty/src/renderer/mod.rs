@@ -26,7 +26,6 @@ use alacritty_terminal::thread;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
-use crate::config::window::{StartupMode, WindowConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
@@ -231,7 +230,7 @@ impl GlyphCache {
             if desc == regular_desc {
                 regular
             } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                rasterizer.load_font(&desc, size).unwrap_or(regular)
             }
         };
 
@@ -357,34 +356,6 @@ impl GlyphCache {
         rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
-    }
-
-    pub fn calculate_dimensions(
-        window_config: &WindowConfig,
-        dpr: f64,
-        cell_width: f32,
-        cell_height: f32,
-    ) -> Option<(u32, u32)> {
-        let dimensions = window_config.dimensions;
-
-        if dimensions.columns_u32() == 0
-            || dimensions.lines_u32() == 0
-            || window_config.startup_mode != StartupMode::Windowed
-        {
-            return None;
-        }
-
-        let padding_x = f64::from(window_config.padding.x) * dpr;
-        let padding_y = f64::from(window_config.padding.y) * dpr;
-
-        // Calculate new size based on cols/lines specified in config.
-        let grid_width = cell_width as u32 * dimensions.columns_u32();
-        let grid_height = cell_height as u32 * dimensions.lines_u32();
-
-        let width = padding_x.mul_add(2., f64::from(grid_width)).floor();
-        let height = padding_y.mul_add(2., f64::from(grid_height)).floor();
-
-        Some((width as u32, height as u32))
     }
 }
 
@@ -705,7 +676,7 @@ impl QuadRenderer {
             gl::UseProgram(self.rect_program.id);
 
             // Remove padding from viewport.
-            gl::Viewport(0, 0, props.width as i32, props.height as i32);
+            gl::Viewport(0, 0, props.width() as i32, props.height() as i32);
 
             // Change blending strategy.
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
@@ -740,10 +711,10 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
 
-            let padding_x = props.padding_x as i32;
-            let padding_y = props.padding_y as i32;
-            let width = props.width as i32;
-            let height = props.height as i32;
+            let padding_x = props.padding_x() as i32;
+            let padding_y = props.padding_y() as i32;
+            let width = props.width() as i32;
+            let height = props.height() as i32;
             gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
 
             // Disable program.
@@ -821,10 +792,10 @@ impl QuadRenderer {
                 unsafe {
                     gl::UseProgram(program.id);
                     program.update_projection(
-                        props.width,
-                        props.height,
-                        props.padding_x,
-                        props.padding_y,
+                        props.width(),
+                        props.height(),
+                        props.padding_x(),
+                        props.padding_y(),
                     );
                     gl::UseProgram(0);
                 }
@@ -847,15 +818,20 @@ impl QuadRenderer {
         // Viewport.
         unsafe {
             gl::Viewport(
-                size.padding_x as i32,
-                size.padding_y as i32,
-                size.width as i32 - 2 * size.padding_x as i32,
-                size.height as i32 - 2 * size.padding_y as i32,
+                size.padding_x() as i32,
+                size.padding_y() as i32,
+                size.width() as i32 - 2 * size.padding_x() as i32,
+                size.height() as i32 - 2 * size.padding_y() as i32,
             );
 
             // Update projection.
             gl::UseProgram(self.program.id);
-            self.program.update_projection(size.width, size.height, size.padding_x, size.padding_y);
+            self.program.update_projection(
+                size.width(),
+                size.height(),
+                size.padding_x(),
+                size.padding_y(),
+            );
             gl::UseProgram(0);
         }
     }
@@ -870,8 +846,8 @@ impl QuadRenderer {
         }
 
         // Calculate rectangle position.
-        let center_x = size.width / 2.;
-        let center_y = size.height / 2.;
+        let center_x = size.width() / 2.;
+        let center_y = size.height() / 2.;
         let x = (rect.x - center_x) / center_x;
         let y = -(rect.y - center_y) / center_y;
         let width = rect.width / center_x;
@@ -1226,7 +1202,7 @@ impl TextShaderProgram {
 
     fn set_term_uniforms(&self, props: &SizeInfo) {
         unsafe {
-            gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
+            gl::Uniform2f(self.u_cell_dim, props.cell_width(), props.cell_height());
         }
     }
 

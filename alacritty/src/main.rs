@@ -138,7 +138,11 @@ fn run(
     // The display manages a window and can draw the terminal.
     let display = Display::new(&config, &window_event_loop)?;
 
-    info!("PTY dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
+    info!(
+        "PTY dimensions: {:?} x {:?}",
+        display.size_info.screen_lines(),
+        display.size_info.cols()
+    );
 
     // Create the terminal.
     //

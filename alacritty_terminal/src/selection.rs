@@ -409,15 +409,7 @@ mod tests {
     }
 
     fn term(height: usize, width: usize) -> Term<Mock> {
-        let size = SizeInfo {
-            width: width as f32,
-            height: height as f32,
-            cell_width: 1.0,
-            cell_height: 1.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
+        let size = SizeInfo::new(width as f32, height as f32, 1.0, 1.0, 0.0, 0.0, false);
         Term::new(&MockConfig::default(), size, Mock)
     }
 
@@ -432,7 +424,7 @@ mod tests {
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
+        assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false
@@ -450,7 +442,7 @@ mod tests {
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.to_range(&term(1, 1)).unwrap(), SelectionRange {
+        assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
             start: location,
             end: location,
             is_block: false

@@ -785,7 +785,7 @@ where
         fn unhandled(params: &[&[u8]]) {
             let mut buf = String::new();
             for items in params {
-                buf.push_str("[");
+                buf.push('[');
                 for item in *items {
                     buf.push_str(&format!("{:?},", *item as char));
                 }
