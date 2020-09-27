@@ -94,7 +94,9 @@ impl WindowConfig {
 
     #[inline]
     pub fn padding(&self, dpr: f64) -> (f32, f32) {
-        (f32::from(self.padding.x) * dpr as f32, f32::from(self.padding.y) * dpr as f32)
+        let padding_x = (f32::from(self.padding.x) * dpr as f32).floor();
+        let padding_y = (f32::from(self.padding.y) * dpr as f32).floor();
+        (padding_x, padding_y)
     }
 }
 

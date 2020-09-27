@@ -232,7 +232,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.ui_config.window.dynamic_padding,
+            config.ui_config.window.dynamic_padding && dimensions.is_none(),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -702,11 +702,11 @@ fn window_size(
 ) -> PhysicalSize<u32> {
     let padding = config.ui_config.window.padding(dpr);
 
-    let grid_width = cell_width as u32 * dimensions.columns.0.max(MIN_COLS) as u32;
-    let grid_height = cell_height as u32 * dimensions.lines.0.max(MIN_SCREEN_LINES) as u32;
+    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLS) as f32;
+    let grid_height = cell_height * dimensions.lines.0.max(MIN_SCREEN_LINES) as f32;
 
-    let width = f64::from(padding.0).mul_add(2., f64::from(grid_width)).floor();
-    let height = f64::from(padding.1).mul_add(2., f64::from(grid_height)).floor();
+    let width = (padding.0).mul_add(2., grid_width).floor();
+    let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)
 }
