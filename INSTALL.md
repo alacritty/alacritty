@@ -123,7 +123,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-yum install cmake freetype-devel fontconfig-devel
+yum install cmake freetype-devel fontconfig-devel libxcb-devel xcb-util-devel
 yum group install "Development Tools"
 ```
 
