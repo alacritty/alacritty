@@ -327,7 +327,7 @@
   # This string contains all characters that are used as separators for "semantic words" in Alacritty.
   #semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
 
-  # When set to `true`, selected text will be copied to the primary clipboard.
+  # When set to `true`, selected text will be copied to `CLIPBOARD`
   #save_to_clipboard: false
 
 #cursor:
