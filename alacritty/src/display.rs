@@ -275,12 +275,12 @@ impl Display {
         }
 
         #[allow(clippy::single_match)]
+        #[cfg(not(windows))]
         match config.ui_config.window.startup_mode {
-            StartupMode::Fullscreen => window.set_fullscreen(true),
             #[cfg(target_os = "macos")]
             StartupMode::SimpleFullscreen => window.set_simple_fullscreen(true),
-            #[cfg(not(any(target_os = "macos", windows)))]
-            StartupMode::Maximized => window.set_maximized(true),
+            #[cfg(not(target_os = "macos"))]
+            StartupMode::Maximized if is_x11 => window.set_maximized(true),
             _ => (),
         }
 
