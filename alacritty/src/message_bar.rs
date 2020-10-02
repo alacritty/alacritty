@@ -111,8 +111,7 @@ impl Message {
     /// Right-pad text to fit a specific number of columns.
     #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
-        let text_len = text.chars().count();
-        let padding_len = num_cols.saturating_sub(text_len);
+        let padding_len = num_cols.saturating_sub(text.chars().count());
         text.extend(vec![' '; padding_len]);
         text
     }
