@@ -47,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME window position with fullwidth characters in the search bar
 - Selection expanding over 2 characters when scrolled in history with fullwidth characters in use
 - Selection scrolling not starting when mouse is over the message bar
+- Instructions how to install `alacritty` on `Gentoo Linux`
+- Configuration file documentation about `saving to CLIPBOARD`
 
 ## 0.5.0
 
