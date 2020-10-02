@@ -43,12 +43,13 @@ impl Message {
         let mut lines = Vec::new();
         let mut line = String::new();
         for c in self.text.trim().chars() {
+            let line_len = line.chars().count();
             if c == '\n'
-                || line.len() == num_cols
+                || line_len == num_cols
                 // Keep space in first line for button.
                 || (lines.is_empty()
                     && num_cols >= button_len
-                    && line.len() == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
+                    && line_len == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
                 // Attempt to wrap on word boundaries.
                 if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
