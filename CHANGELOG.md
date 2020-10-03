@@ -63,6 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash on startup on GNOME since its 3.37.90 version on Wayland
 - Touchpad scrolling scrolled less than it should on macOS/Wayland on scaled outputs
 - Incorrect modifiers at startup on X11
+- `Add` and `Subtract` keys are now named `NumpadAdd` and `NumpadSubtract` respectively
 
 ## 0.5.0
 
