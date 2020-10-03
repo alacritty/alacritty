@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use unicode_width::{ UnicodeWidthChar, UnicodeWidthStr };
 use alacritty_terminal::term::SizeInfo;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -43,7 +43,7 @@ impl Message {
         // Split line to fit the screen.
         let mut lines = Vec::new();
         let mut line = String::new();
-        let mut line_len = 0usize;
+        let mut line_len = 0;
         for c in self.text.trim().chars() {
             if c == '\n'
                 || line_len == num_cols
@@ -53,27 +53,24 @@ impl Message {
                     && line_len == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
                 // Attempt to wrap on word boundaries.
-                if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
-                    let split = line.split_off(index + 1);
-                    line.pop();
+                let new_line = line
+                    .rfind(char::is_whitespace)
+                    .filter(|_| c != '\n')
+                    .map(|index| {
+                        let split = line.split_off(index + 1);
+                        line.pop();
+                        split
+                    })
+                    .unwrap_or_default();
 
-                    lines.push(Self::pad_text(line, num_cols));
-                    line = split;
-                    line_len = line.width();
-                } else {
-                    lines.push(Self::pad_text(line, num_cols));
-                    line = String::new();
-
-                    line_len = 0;
-                }
+                lines.push(Self::pad_text(line, num_cols));
+                line = new_line;
+                line_len = line.width();
             }
 
             if c != '\n' {
                 line.push(c);
-
-                if let Some(char_width) = c.width() {
-                    line_len += char_width;
-                }
+                line_len += c.width().unwrap_or(0);
             }
         }
         lines.push(Self::pad_text(line, num_cols));
@@ -361,7 +358,6 @@ mod tests {
 
         assert_eq!(lines, vec![
             String::from("ab  [X]"),
-            // the "e" would fit in this line but 👩 width is 2
             String::from("c 👩d  "),
             String::from("e fgh  ")
         ]);
