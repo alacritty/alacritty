@@ -52,26 +52,35 @@ impl Message {
                     && num_cols >= button_len
                     && line_len == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
+                let is_whitespace = c.is_whitespace();
+
                 // Attempt to wrap on word boundaries.
-                let new_line = line
-                    .rfind(char::is_whitespace)
-                    .filter(|_| c != '\n')
-                    .map(|index| {
-                        let split = line.split_off(index + 1);
-                        line.pop();
-                        split
-                    })
-                    .unwrap_or_default();
+                let mut new_line = String::new();
+                if let Some(index) = line.rfind(char::is_whitespace).filter(|_| !is_whitespace) {
+                    let split = line.split_off(index + 1);
+                    line.pop();
+                    new_line = split;
+                }
 
                 lines.push(Self::pad_text(line, num_cols));
                 line = new_line;
-                line_len = line.width();
+                line_len = line.chars().count();
+
+                // Do not append whitespace at EOL.
+                if is_whitespace {
+                    continue;
+                }
             }
 
-            if c != '\n' {
-                line.push(c);
-                line_len += c.width().unwrap_or(0);
+            line.push(c);
+
+            // Reserve extra column for fullwidth characters.
+            let width = c.width().unwrap_or(0);
+            if width == 2 {
+                line.push(' ');
             }
+
+            line_len += width
         }
         lines.push(Self::pad_text(line, num_cols));
 
@@ -117,7 +126,7 @@ impl Message {
     /// Right-pad text to fit a specific number of columns.
     #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
-        let padding_len = num_cols.saturating_sub(text.width());
+        let padding_len = num_cols.saturating_sub(text.chars().count());
         text.extend(vec![' '; padding_len]);
         text
     }
@@ -349,7 +358,7 @@ mod tests {
 
     #[test]
     fn wrap_with_unicode() {
-        let input = "ab\nc 👩d e fgh";
+        let input = "ab\nc 👩d fgh";
         let mut message_buffer = MessageBuffer::new();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
@@ -358,9 +367,21 @@ mod tests {
 
         assert_eq!(lines, vec![
             String::from("ab  [X]"),
-            String::from("c 👩d  "),
-            String::from("e fgh  ")
+            String::from("c 👩 d  "),
+            String::from("fgh    ")
         ]);
+    }
+
+    #[test]
+    fn strip_whitespace_at_linebreak() {
+        let input = "\n0 1 2 3";
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
+        let size = SizeInfo::new(3., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("[X]"), String::from("0 1"), String::from("2 3"),]);
     }
 
     #[test]
