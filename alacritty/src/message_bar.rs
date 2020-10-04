@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use alacritty_terminal::term::SizeInfo;
+use unicode_width::UnicodeWidthChar;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -37,34 +38,49 @@ impl Message {
         let total_lines =
             (size_info.height() - 2. * size_info.padding_y()) / size_info.cell_height();
         let max_lines = (total_lines as usize).saturating_sub(MIN_FREE_LINES);
-        let button_len = CLOSE_BUTTON_TEXT.len();
+        let button_len = CLOSE_BUTTON_TEXT.chars().count();
 
         // Split line to fit the screen.
         let mut lines = Vec::new();
         let mut line = String::new();
+        let mut line_len = 0;
         for c in self.text.trim().chars() {
             if c == '\n'
-                || line.len() == num_cols
+                || line_len == num_cols
                 // Keep space in first line for button.
                 || (lines.is_empty()
                     && num_cols >= button_len
-                    && line.len() == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
+                    && line_len == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
+                let is_whitespace = c.is_whitespace();
+
                 // Attempt to wrap on word boundaries.
-                if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
+                let mut new_line = String::new();
+                if let Some(index) = line.rfind(char::is_whitespace).filter(|_| !is_whitespace) {
                     let split = line.split_off(index + 1);
                     line.pop();
-                    lines.push(Self::pad_text(line, num_cols));
-                    line = split
-                } else {
-                    lines.push(Self::pad_text(line, num_cols));
-                    line = String::new();
+                    new_line = split;
+                }
+
+                lines.push(Self::pad_text(line, num_cols));
+                line = new_line;
+                line_len = line.chars().count();
+
+                // Do not append whitespace at EOL.
+                if is_whitespace {
+                    continue;
                 }
             }
 
-            if c != '\n' {
-                line.push(c);
+            line.push(c);
+
+            // Reserve extra column for fullwidth characters.
+            let width = c.width().unwrap_or(0);
+            if width == 2 {
+                line.push(' ');
             }
+
+            line_len += width
         }
         lines.push(Self::pad_text(line, num_cols));
 
@@ -110,7 +126,7 @@ impl Message {
     /// Right-pad text to fit a specific number of columns.
     #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
-        let padding_len = num_cols.saturating_sub(text.len());
+        let padding_len = num_cols.saturating_sub(text.chars().count());
         text.extend(vec![' '; padding_len]);
         text
     }
@@ -338,6 +354,34 @@ mod tests {
             String::from("bc   "),
             String::from("defg ")
         ]);
+    }
+
+    #[test]
+    fn wrap_with_unicode() {
+        let input = "ab\nc 👩d fgh";
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
+        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![
+            String::from("ab  [X]"),
+            String::from("c 👩 d  "),
+            String::from("fgh    ")
+        ]);
+    }
+
+    #[test]
+    fn strip_whitespace_at_linebreak() {
+        let input = "\n0 1 2 3";
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer.push(Message::new(input.into(), MessageType::Error));
+        let size = SizeInfo::new(3., 10., 1., 1., 0., 0., false);
+
+        let lines = message_buffer.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("[X]"), String::from("0 1"), String::from("2 3"),]);
     }
 
     #[test]
