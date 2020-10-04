@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The user's background color is now used as the foreground for the render timer
 - Use yellow/red from the config for error and warning messages instead of fixed colors
 - Existing CLI parameters are now passed to instances spawned using `SpawnNewInstance`
-- Wayland's Client side decorations now refer to search bar colors
+- Wayland's Client side decorations now use the search bar colors
 
 ### Fixed
 
@@ -51,8 +51,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Selection scrolling not starting when mouse is over the message bar
 - Incorrect text width calculation in message bar when the message contains multibyte characters
 - Remapped caps lock to escape not triggering escape bindings on Wayland
-- Crash when requesting overly long title on Wayland
-- Fullscreen/Tiled window state change doesn't restore window sizes on Wayland
+- Crash when setting overly long title on Wayland
+- Switching in and out of various window states, like Fullscreen, not persisting window size on Wayland
 - Crash when providing 0 for `XCURSOR_SIZE` on Wayland
 - Gap between window and server side decorations on KWIN Wayland
 - Wayland's client side decorations not working after tty switch

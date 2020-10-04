@@ -36,7 +36,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, StartupMode, WindowConfig};
+use crate::config::window::{Decorations, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
@@ -254,19 +254,13 @@ impl Window {
 
         let class = &window_config.class;
 
-        let fullscreen = if window_config.startup_mode == StartupMode::Fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        };
-
         let mut builder = WindowBuilder::new()
             .with_title(title)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
-            .with_fullscreen(fullscreen)
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
             // X11.
             .with_class(class.instance.clone(), class.general.clone())
@@ -283,36 +277,25 @@ impl Window {
     #[cfg(windows)]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         let icon = Icon::from_resource(IDI_ICON, None);
-        let fullscreen = if window_config.startup_mode == StartupMode::Fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        };
 
         WindowBuilder::new()
             .with_title(title)
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
-            .with_fullscreen(fullscreen)
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        let fullscreen = if window_config.startup_mode == StartupMode::Fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        };
-
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visible(false)
             .with_transparent(true)
-            .with_fullscreen(fullscreen)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized);
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen());
 
         match window_config.decorations {
             Decorations::Full => window,

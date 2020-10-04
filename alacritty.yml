@@ -701,8 +701,8 @@
   #- { key: Equals,         mods: Control,                 action: IncreaseFontSize }
   #- { key: Plus,           mods: Control,                 action: IncreaseFontSize }
   #- { key: NumpadAdd,      mods: Control,                 action: IncreaseFontSize }
-  #- { key: NumpadSubtract, mods: Control,                 action: DecreaseFontSize }
   #- { key: Minus,          mods: Control,                 action: DecreaseFontSize }
+  #- { key: NumpadSubtract, mods: Control,                 action: DecreaseFontSize }
 
   # (Windows only)
   #- { key: Return,   mods: Alt,           action: ToggleFullscreen }
