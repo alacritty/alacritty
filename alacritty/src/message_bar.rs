@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use alacritty_terminal::term::SizeInfo;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
