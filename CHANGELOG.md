@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CLI parameter `--option`/`-o` to override any configuration field
 - Escape sequences to report text area size in pixels (`CSI 14 t`) and in characters (`CSI 18 t`)
 - Support for single line terminals dimensions
-- Right clicking on Wayland's client side decorations will request application menu
+- Right clicking on Wayland's client side decorations will show application menu
 
 ### Changed
 

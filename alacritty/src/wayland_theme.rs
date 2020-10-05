@@ -5,25 +5,26 @@ use alacritty_terminal::term::color::Rgb;
 
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
-    pub background: Rgb,
-    pub foreground: Rgb,
-    pub dim_foreground: Rgb,
-    pub hovered_close_icon: Rgb,
-    pub hovered_maximize_icon: Rgb,
-    pub hovered_minimize_icon: Rgb,
+    pub background: ARGBColor,
+    pub foreground: ARGBColor,
+    pub dim_foreground: ARGBColor,
+    pub hovered_close_icon: ARGBColor,
+    pub hovered_maximize_icon: ARGBColor,
+    pub hovered_minimize_icon: ARGBColor,
 }
 
 impl AlacrittyWaylandTheme {
     pub fn new(colors: &Colors) -> Self {
-        let hovered_close_icon = colors.normal().red;
-        let hovered_maximize_icon = colors.normal().green;
-        let hovered_minimize_icon = colors.normal().yellow;
-        let foreground = colors.search_bar_foreground();
-        let background = colors.search_bar_background();
+        let hovered_close_icon = colors.normal().red.into_rgba();
+        let hovered_maximize_icon = colors.normal().green.into_rgba();
+        let hovered_minimize_icon = colors.normal().yellow.into_rgba();
+        let foreground = colors.search_bar_foreground().into_rgba();
+        let background = colors.search_bar_background().into_rgba();
 
-        // Blend background and foreground. We use 0.5 to make color look 'equally' with both light
-        // and dark themes.
-        let dim_foreground = foreground * 0.5 + background * 0.5;
+        let mut dim_foreground = foreground;
+
+        // Blend with background with 0.5 for opacity.
+        dim_foreground.a = 127;
 
         Self {
             foreground,
@@ -34,23 +35,14 @@ impl AlacrittyWaylandTheme {
             hovered_maximize_icon,
         }
     }
-
-    fn button_foreground_color(&self, color: Rgb, status: ButtonState, window_active: bool) -> Rgb {
-        match (window_active, status) {
-            (false, _) => self.dim_foreground,
-            (_, ButtonState::Hovered) => color,
-            (_, ButtonState::Idle) => self.foreground,
-            (_, ButtonState::Disabled) => self.dim_foreground,
-        }
-    }
 }
 
 impl WaylandTheme for AlacrittyWaylandTheme {
     fn element_color(&self, element: Element, window_active: bool) -> ARGBColor {
         match element {
-            Element::Bar | Element::Separator => self.background.into_rgba(),
-            Element::Text if window_active => self.foreground.into_rgba(),
-            Element::Text => self.dim_foreground.into_rgba(),
+            Element::Bar | Element::Separator => self.background,
+            Element::Text if window_active => self.foreground,
+            Element::Text => self.dim_foreground,
         }
     }
 
@@ -61,17 +53,18 @@ impl WaylandTheme for AlacrittyWaylandTheme {
         foreground: bool,
         window_active: bool,
     ) -> ARGBColor {
-        match (foreground, button) {
-            (false, _) => ARGBColor { a: 0x00, r: 0x00, g: 0x00, b: 0x00 },
-            (_, Button::Minimize) => self
-                .button_foreground_color(self.hovered_minimize_icon, state, window_active)
-                .into_rgba(),
-            (_, Button::Maximize) => self
-                .button_foreground_color(self.hovered_maximize_icon, state, window_active)
-                .into_rgba(),
-            (_, Button::Close) => self
-                .button_foreground_color(self.hovered_close_icon, state, window_active)
-                .into_rgba(),
+        if !foreground {
+            return ARGBColor { a: 0, r: 0, g: 0, b: 0 };
+        } else if !window_active {
+            return self.dim_foreground;
+        }
+
+        match (state, button) {
+            (ButtonState::Idle, _) => self.foreground,
+            (ButtonState::Disabled, _) => self.dim_foreground,
+            (_, Button::Minimize) => self.hovered_minimize_icon,
+            (_, Button::Maximize) => self.hovered_maximize_icon,
+            (_, Button::Close) => self.hovered_close_icon,
         }
     }
 }

@@ -31,10 +31,9 @@ use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 use alacritty_terminal::term::{MIN_COLS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
-#[cfg(windows)]
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
-use crate::config::window::{Dimensions, StartupMode};
+use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};

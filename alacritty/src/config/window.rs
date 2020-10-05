@@ -1,10 +1,9 @@
 use std::os::raw::c_ulong;
 
+use glutin::window::Fullscreen;
 use log::error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
-
-use glutin::window::Fullscreen;
 
 use alacritty_terminal::config::{failure_default, option_explicit_none, LOG_TARGET_CONFIG};
 use alacritty_terminal::index::{Column, Line};
