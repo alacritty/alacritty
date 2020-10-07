@@ -3,6 +3,8 @@ use glutin::platform::unix::{ARGBColor, Button, ButtonState, Element, Theme as W
 use alacritty_terminal::config::Colors;
 use alacritty_terminal::term::color::Rgb;
 
+const INACTIVE_OPACITY: u8 = 127;
+
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
     pub background: ARGBColor,
@@ -22,9 +24,7 @@ impl AlacrittyWaylandTheme {
         let background = colors.search_bar_background().into_rgba();
 
         let mut dim_foreground = foreground;
-
-        // Blend with background with 0.5 for opacity.
-        dim_foreground.a = 127;
+        dim_foreground.a = INACTIVE_OPACITY;
 
         Self {
             foreground,
