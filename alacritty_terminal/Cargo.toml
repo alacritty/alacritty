@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 libc = "0.2"
 bitflags = "1"
-parking_lot = "0.10.2"
+parking_lot = "0.11.0"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 vte = { git = "https://github.com/alacritty/vte", rev = "4f44023dab081f7da74fee14bc53b10ee8f96a1e", default-features = false }
@@ -24,7 +24,7 @@ terminfo = "0.7.1"
 regex-automata = "0.1.9"
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.17.0"
+nix = "0.18.0"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]

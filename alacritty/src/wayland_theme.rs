@@ -1,26 +1,30 @@
-use glutin::platform::unix::{ButtonState, Theme as WaylandTheme};
+use glutin::platform::unix::{ARGBColor, Button, ButtonState, Element, Theme as WaylandTheme};
 
 use alacritty_terminal::config::Colors;
-use alacritty_terminal::term::color::{Rgb, DIM_FACTOR};
+use alacritty_terminal::term::color::Rgb;
+
+const INACTIVE_OPACITY: u8 = 127;
 
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
-    pub background: Rgb,
-    pub foreground: Rgb,
-    pub dim_foreground: Rgb,
-    pub hovered_close_icon: Rgb,
-    pub hovered_maximize_icon: Rgb,
-    pub hovered_minimize_icon: Rgb,
+    pub background: ARGBColor,
+    pub foreground: ARGBColor,
+    pub dim_foreground: ARGBColor,
+    pub hovered_close_icon: ARGBColor,
+    pub hovered_maximize_icon: ARGBColor,
+    pub hovered_minimize_icon: ARGBColor,
 }
 
 impl AlacrittyWaylandTheme {
     pub fn new(colors: &Colors) -> Self {
-        let hovered_close_icon = colors.normal().red;
-        let hovered_maximize_icon = colors.normal().green;
-        let hovered_minimize_icon = colors.normal().yellow;
-        let foreground = colors.primary.foreground;
-        let background = colors.primary.background;
-        let dim_foreground = colors.primary.dim_foreground.unwrap_or(foreground * DIM_FACTOR);
+        let hovered_close_icon = colors.normal().red.into_rgba();
+        let hovered_maximize_icon = colors.normal().green.into_rgba();
+        let hovered_minimize_icon = colors.normal().yellow.into_rgba();
+        let foreground = colors.search_bar_foreground().into_rgba();
+        let background = colors.search_bar_background().into_rgba();
+
+        let mut dim_foreground = foreground;
+        dim_foreground.a = INACTIVE_OPACITY;
 
         Self {
             foreground,
@@ -31,52 +35,46 @@ impl AlacrittyWaylandTheme {
             hovered_maximize_icon,
         }
     }
+}
 
-    fn color_icon_color(&self, color: Rgb, status: ButtonState) -> [u8; 4] {
-        match status {
-            ButtonState::Hovered => [0xff, color.r, color.g, color.b],
-            ButtonState::Idle => [0xff, self.foreground.r, self.foreground.g, self.foreground.b],
-            ButtonState::Disabled => {
-                [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-            },
+impl WaylandTheme for AlacrittyWaylandTheme {
+    fn element_color(&self, element: Element, window_active: bool) -> ARGBColor {
+        match element {
+            Element::Bar | Element::Separator => self.background,
+            Element::Text if window_active => self.foreground,
+            Element::Text => self.dim_foreground,
+        }
+    }
+
+    fn button_color(
+        &self,
+        button: Button,
+        state: ButtonState,
+        foreground: bool,
+        window_active: bool,
+    ) -> ARGBColor {
+        if !foreground {
+            return ARGBColor { a: 0, r: 0, g: 0, b: 0 };
+        } else if !window_active {
+            return self.dim_foreground;
+        }
+
+        match (state, button) {
+            (ButtonState::Idle, _) => self.foreground,
+            (ButtonState::Disabled, _) => self.dim_foreground,
+            (_, Button::Minimize) => self.hovered_minimize_icon,
+            (_, Button::Maximize) => self.hovered_maximize_icon,
+            (_, Button::Close) => self.hovered_close_icon,
         }
     }
 }
 
-impl WaylandTheme for AlacrittyWaylandTheme {
-    fn primary_color(&self, _window_active: bool) -> [u8; 4] {
-        [0xff, self.background.r, self.background.g, self.background.b]
-    }
+trait IntoARGBColor {
+    fn into_rgba(self) -> ARGBColor;
+}
 
-    fn secondary_color(&self, window_active: bool) -> [u8; 4] {
-        if window_active {
-            [0xff, self.foreground.r, self.foreground.g, self.foreground.b]
-        } else {
-            [0xff, self.dim_foreground.r, self.dim_foreground.g, self.dim_foreground.b]
-        }
-    }
-
-    fn close_button_color(&self, _status: ButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn close_button_icon_color(&self, status: ButtonState) -> [u8; 4] {
-        self.color_icon_color(self.hovered_close_icon, status)
-    }
-
-    fn maximize_button_color(&self, _status: ButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn maximize_button_icon_color(&self, status: ButtonState) -> [u8; 4] {
-        self.color_icon_color(self.hovered_maximize_icon, status)
-    }
-
-    fn minimize_button_color(&self, _status: ButtonState) -> [u8; 4] {
-        [0x00, self.background.r, self.background.g, self.background.b]
-    }
-
-    fn minimize_button_icon_color(&self, status: ButtonState) -> [u8; 4] {
-        self.color_icon_color(self.hovered_minimize_icon, status)
+impl IntoARGBColor for Rgb {
+    fn into_rgba(self) -> ARGBColor {
+        ARGBColor { a: 0xff, r: self.r, g: self.g, b: self.b }
     }
 }

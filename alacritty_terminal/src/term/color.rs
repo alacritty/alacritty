@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::ops::{Index, IndexMut, Mul};
+use std::ops::{Add, Index, IndexMut, Mul};
 use std::str::FromStr;
 
 use log::trace;
@@ -72,6 +72,18 @@ impl Mul<f32> for Rgb {
         trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);
 
         result
+    }
+}
+
+impl Add<Rgb> for Rgb {
+    type Output = Rgb;
+
+    fn add(self, rhs: Rgb) -> Rgb {
+        Rgb {
+            r: self.r.saturating_add(rhs.r),
+            g: self.g.saturating_add(rhs.g),
+            b: self.b.saturating_add(rhs.b),
+        }
     }
 }
 

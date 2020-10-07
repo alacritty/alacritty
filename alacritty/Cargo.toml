@@ -21,9 +21,9 @@ fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.24.0", features = ["serde"] }
+glutin = { version = "0.25.0", features = ["serde"] }
 notify = "4"
-parking_lot = "0.10.2"
+parking_lot = "0.11.0"
 crossfont = { version = "0.1.0", features = ["force_system_fontconfig"] }
 urlocator = "0.1.3"
 copypasta = { version = "0.7.0", default-features = false }
@@ -48,7 +48,7 @@ dirs = "2.0.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = "2"
-wayland-client = { version = "0.27.0", features = ["dlopen"] }
+wayland-client = { version = "0.28.0", features = ["dlopen"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}

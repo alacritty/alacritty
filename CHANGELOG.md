@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CLI parameter `--option`/`-o` to override any configuration field
 - Escape sequences to report text area size in pixels (`CSI 14 t`) and in characters (`CSI 18 t`)
 - Support for single line terminals dimensions
+- Right clicking on Wayland's client side decorations will show application menu
 
 ### Changed
 
@@ -33,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The user's background color is now used as the foreground for the render timer
 - Use yellow/red from the config for error and warning messages instead of fixed colors
 - Existing CLI parameters are now passed to instances spawned using `SpawnNewInstance`
+- Wayland's Client side decorations now use the search bar colors
 
 ### Fixed
 
@@ -48,6 +50,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Selection expanding over 2 characters when scrolled in history with fullwidth characters in use
 - Selection scrolling not starting when mouse is over the message bar
 - Incorrect text width calculation in message bar when the message contains multibyte characters
+- Remapped caps lock to escape not triggering escape bindings on Wayland
+- Crash when setting overly long title on Wayland
+- Switching in and out of various window states, like Fullscreen, not persisting window size on Wayland
+- Crash when providing 0 for `XCURSOR_SIZE` on Wayland
+- Gap between window and server side decorations on KWIN Wayland
+- Wayland's client side decorations not working after tty switch
+- `Fullscreen` startup mode not working on Wayland
+- Window not being rescaled when changing DPR of the current monitor on Wayland
+- Crash in some cases when pointer isn't presented upon startup on Wayland
+- IME not working on Wayland
+- Crash on startup on GNOME since its 3.37.90 version on Wayland
+- Touchpad scrolling scrolled less than it should on macOS/Wayland on scaled outputs
+- Incorrect modifiers at startup on X11
+- `Add` and `Subtract` keys are now named `NumpadAdd` and `NumpadSubtract` respectively
 
 ## 0.5.0
 

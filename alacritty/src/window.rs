@@ -36,7 +36,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, StartupMode, WindowConfig};
+use crate::config::window::{Decorations, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
@@ -259,7 +259,8 @@ impl Window {
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
             // X11.
             .with_class(class.instance.clone(), class.general.clone())
@@ -282,7 +283,8 @@ impl Window {
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized)
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
     }
 
@@ -292,7 +294,8 @@ impl Window {
             .with_title(title)
             .with_visible(false)
             .with_transparent(true)
-            .with_maximized(window_config.startup_mode == StartupMode::Maximized);
+            .with_maximized(window_config.maximized())
+            .with_fullscreen(window_config.fullscreen());
 
         match window_config.decorations {
             Decorations::Full => window,
@@ -360,8 +363,7 @@ impl Window {
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
         if fullscreen {
-            let current_monitor = self.window().current_monitor();
-            self.window().set_fullscreen(Some(Fullscreen::Borderless(current_monitor)));
+            self.window().set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
             self.window().set_fullscreen(None);
         }
