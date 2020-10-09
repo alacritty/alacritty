@@ -1,6 +1,3 @@
-#[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
-compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
-
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 
 use std::env;
