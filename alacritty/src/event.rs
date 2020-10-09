@@ -19,7 +19,7 @@ use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 use serde_json as json;
@@ -726,7 +726,14 @@ impl<N: Notify + OnResize> Processor<N> {
         cli_options: CLIOptions,
     ) -> Processor<N> {
         #[cfg(not(any(target_os = "macos", windows)))]
-        let clipboard = Clipboard::new(display.window.wayland_display());
+        let clipboard = {
+            #[cfg(all(feature = "x11", not(feature = "wayland")))]
+            let wayland_display = None;
+            #[cfg(feature = "wayland")]
+            let wayland_display = display.window.wayland_display();
+
+            Clipboard::new(wayland_display)
+        };
         #[cfg(any(target_os = "macos", windows))]
         let clipboard = Clipboard::new();
 
@@ -749,7 +756,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
     /// Return `true` if `event_queue` is empty, `false` otherwise.
     #[inline]
-    #[cfg(not(any(target_os = "macos", windows)))]
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     fn event_queue_empty(&mut self) -> bool {
         let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
             Some(wayland_event_queue) => wayland_event_queue,
@@ -767,7 +774,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
     /// Return `true` if `event_queue` is empty, `false` otherwise.
     #[inline]
-    #[cfg(any(target_os = "macos", windows))]
+    #[cfg(any(target_os = "macos", windows, not(feature = "wayland")))]
     fn event_queue_empty(&mut self) -> bool {
         self.event_queue.is_empty()
     }
@@ -863,7 +870,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
             // Skip rendering on Wayland until we get frame event from compositor.
             #[cfg(not(any(target_os = "macos", windows)))]
-            if event_loop.is_wayland() && !self.display.window.should_draw.load(Ordering::Relaxed) {
+            if !self.display.is_x11 && !self.display.window.should_draw.load(Ordering::Relaxed) {
                 return;
             }
 
@@ -1114,7 +1121,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.window.set_title(&config.ui_config.window.title);
         }
 
-        #[cfg(not(any(target_os = "macos", windows)))]
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         if processor.ctx.event_loop.is_wayland() {
             processor.ctx.window.set_wayland_theme(&config.colors);
         }

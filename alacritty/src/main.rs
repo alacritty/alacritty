@@ -48,7 +48,7 @@ mod scheduler;
 mod url;
 mod window;
 
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
 
 mod gl {
