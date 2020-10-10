@@ -480,13 +480,17 @@ pub mod mode {
             const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
             const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
             const VI                  = 0b0001_0000_0000_0000_0000;
+            const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
             const ANY                 = std::u32::MAX;
         }
     }
 
     impl Default for TermMode {
         fn default() -> TermMode {
-            TermMode::SHOW_CURSOR | TermMode::LINE_WRAP | TermMode::ALTERNATE_SCROLL
+            TermMode::SHOW_CURSOR
+                | TermMode::LINE_WRAP
+                | TermMode::ALTERNATE_SCROLL
+                | TermMode::URGENCY_HINTS
         }
     }
 }
@@ -2132,6 +2136,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_mode(&mut self, mode: ansi::Mode) {
         trace!("Setting mode: {:?}", mode);
         match mode {
+            ansi::Mode::UrgencyHints => self.mode.insert(TermMode::URGENCY_HINTS),
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if !self.mode.contains(TermMode::ALT_SCREEN) {
                     self.swap_alt();
@@ -2182,6 +2187,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn unset_mode(&mut self, mode: ansi::Mode) {
         trace!("Unsetting mode: {:?}", mode);
         match mode {
+            ansi::Mode::UrgencyHints => self.mode.remove(TermMode::URGENCY_HINTS),
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.swap_alt();
