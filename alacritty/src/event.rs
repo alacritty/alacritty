@@ -943,7 +943,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     TerminalEvent::Bell => {
                         let bell_command = processor.ctx.config.bell().command.as_ref();
                         let _ = bell_command.map(|cmd| start_daemon(cmd.program(), cmd.args()));
-                        processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
+                        if processor.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
+                            processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused);
+                        }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         processor.ctx.clipboard.store(clipboard_type, content);
