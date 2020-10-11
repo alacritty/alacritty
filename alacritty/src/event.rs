@@ -726,14 +726,7 @@ impl<N: Notify + OnResize> Processor<N> {
         cli_options: CLIOptions,
     ) -> Processor<N> {
         #[cfg(not(any(target_os = "macos", windows)))]
-        let clipboard = {
-            #[cfg(all(feature = "x11", not(feature = "wayland")))]
-            let wayland_display = None;
-            #[cfg(feature = "wayland")]
-            let wayland_display = display.window.wayland_display();
-
-            Clipboard::new(wayland_display)
-        };
+        let clipboard = Clipboard::new(display.window.wayland_display());
         #[cfg(any(target_os = "macos", windows))]
         let clipboard = Clipboard::new();
 

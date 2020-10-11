@@ -17,10 +17,10 @@ tasks:
       cd alacritty
       $HOME/.cargo/bin/cargo +1.43.1 test
   - 1-43-1-wayland: |
-      cd alacritty
+      cd alacritty/alacritty
       $HOME/.cargo/bin/cargo +1.43.1 test --no-default-features --features=wayland
   - 1-43-1-x11: |
-      cd alacritty
+      cd alacritty/alacritty
       $HOME/.cargo/bin/cargo +1.43.1 test --no-default-features --features=x11
   - stable: |
       cd alacritty
