@@ -348,7 +348,7 @@ impl Window {
     pub fn x11_window_id(&self) -> Option<usize> {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         return self.window().xlib_window().map(|xlib_window| xlib_window as usize);
-        #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
+        #[cfg(any(target_os = "macos", windows, not(feature = "x11")))]
         return None;
     }
 
