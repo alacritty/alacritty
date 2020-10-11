@@ -271,9 +271,9 @@ impl Window {
             .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok());
 
-        // Wayland.
         #[cfg(feature = "wayland")]
         let builder = builder.with_app_id(class.instance.clone());
+
         #[cfg(feature = "x11")]
         let builder = builder.with_class(class.instance.clone(), class.general.clone());
 
@@ -325,8 +325,8 @@ impl Window {
     }
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    pub fn set_urgent(&self, _is_urgent: bool) {
-        self.window().set_urgent(_is_urgent);
+    pub fn set_urgent(&self, is_urgent: bool) {
+        self.window().set_urgent(is_urgent);
     }
 
     #[cfg(target_os = "macos")]
@@ -345,11 +345,14 @@ impl Window {
         self.window().set_outer_position(pos);
     }
 
+    #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     pub fn x11_window_id(&self) -> Option<usize> {
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        return self.window().xlib_window().map(|xlib_window| xlib_window as usize);
-        #[cfg(any(target_os = "macos", windows, not(feature = "x11")))]
-        return None;
+        self.window().xlib_window().map(|xlib_window| xlib_window as usize)
+    }
+
+    #[cfg(any(target_os = "macos", windows, not(feature = "x11")))]
+    pub fn x11_window_id(&self) -> Option<usize> {
+        None
     }
 
     pub fn window_id(&self) -> WindowId {
@@ -388,12 +391,14 @@ impl Window {
         self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
+    #[cfg(any(not(feature = "wayland"), any(target_os = "macos", windows)))]
     pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
-        #[cfg(feature = "wayland")]
-        return self.window().wayland_display();
-        #[cfg(not(feature = "wayland"))]
-        return None;
+        None
+    }
+
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
+        self.window().wayland_display()
     }
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
