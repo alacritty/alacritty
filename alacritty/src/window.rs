@@ -165,13 +165,15 @@ impl Window {
 
         // Disable vsync on Wayland.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let vsync = !event_loop.is_wayland();
+        let is_wayland = event_loop.is_wayland();
         #[cfg(any(target_os = "macos", windows, not(feature = "wayland")))]
-        let vsync = true;
+        let is_wayland = false;
 
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, vsync, size)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, vsync, size))?;
+            create_gl_window(window_builder.clone(), &event_loop, false, !is_wayland, size)
+                .or_else(|_| {
+                    create_gl_window(window_builder, &event_loop, true, !is_wayland, size)
+                })?;
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
@@ -184,7 +186,7 @@ impl Window {
         let mut wayland_surface = None;
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if event_loop.is_x11() {
+        if !is_wayland {
             // On X11, embed the window inside another if the parent ID has been set.
             if let Some(parent_window_id) = window_config.embed {
                 x_embed_window(windowed_context.window(), parent_window_id);
@@ -192,7 +194,7 @@ impl Window {
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if event_loop.is_wayland() {
+        if is_wayland {
             // Apply client side decorations theme.
             let theme = AlacrittyWaylandTheme::new(&config.colors);
             windowed_context.window().set_wayland_theme(theme);
