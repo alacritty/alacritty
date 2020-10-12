@@ -182,9 +182,6 @@ impl Window {
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_surface = None;
-
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
             // On X11, embed the window inside another if the parent ID has been set.
@@ -193,6 +190,8 @@ impl Window {
             }
         }
 
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let mut wayland_surface = None;
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         if is_wayland {
             // Apply client side decorations theme.
