@@ -163,7 +163,7 @@ impl Window {
         let window_config = &config.ui_config.window;
         let window_builder = Window::get_platform_window(&window_config.title, &window_config);
 
-        // Disable vsync on Wayland.
+        // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let is_wayland = event_loop.is_wayland();
         #[cfg(any(target_os = "macos", windows, not(feature = "wayland")))]
@@ -393,14 +393,14 @@ impl Window {
         self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
-    #[cfg(any(not(feature = "wayland"), any(target_os = "macos", windows)))]
-    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
-        None
-    }
-
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
         self.window().wayland_display()
+    }
+
+    #[cfg(any(not(feature = "wayland"), any(target_os = "macos", windows)))]
+    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
+        None
     }
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
