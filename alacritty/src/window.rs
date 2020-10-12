@@ -166,7 +166,7 @@ impl Window {
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let is_wayland = event_loop.is_wayland();
-        #[cfg(any(target_os = "macos", windows, not(feature = "wayland")))]
+        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let is_wayland = false;
 
         let windowed_context =
@@ -182,9 +182,6 @@ impl Window {
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_surface = None;
-
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
             // On X11, embed the window inside another if the parent ID has been set.
@@ -194,7 +191,7 @@ impl Window {
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if is_wayland {
+        let wayland_surface = if is_wayland {
             // Apply client side decorations theme.
             let theme = AlacrittyWaylandTheme::new(&config.colors);
             windowed_context.window().set_wayland_theme(theme);
@@ -202,8 +199,10 @@ impl Window {
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
             let surface = windowed_context.window().wayland_surface().unwrap();
             let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
-            wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
-        }
+            Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()))
+        } else {
+            None
+        };
 
         let dpr = windowed_context.window().scale_factor();
 
@@ -340,7 +339,7 @@ impl Window {
         self.window().request_user_attention(RequestUserAttentionType::Critical);
     }
 
-    #[cfg(any(windows, not(feature = "x11")))]
+    #[cfg(any(not(feature = "x11"), windows))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
@@ -352,7 +351,7 @@ impl Window {
         self.window().xlib_window().map(|xlib_window| xlib_window as usize)
     }
 
-    #[cfg(any(target_os = "macos", windows, not(feature = "x11")))]
+    #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
     pub fn x11_window_id(&self) -> Option<usize> {
         None
     }

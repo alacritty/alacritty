@@ -767,7 +767,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
     /// Return `true` if `event_queue` is empty, `false` otherwise.
     #[inline]
-    #[cfg(any(target_os = "macos", windows, not(feature = "wayland")))]
+    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
     fn event_queue_empty(&mut self) -> bool {
         self.event_queue.is_empty()
     }
