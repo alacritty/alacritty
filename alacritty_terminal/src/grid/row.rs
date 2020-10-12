@@ -29,21 +29,11 @@ impl<T: PartialEq> PartialEq for Row<T> {
 }
 
 impl<T: Clone> Row<T> {
-    pub fn new<I>(columns: Column, template: I) -> Row<T>
+    pub fn new(columns: Column, template: T) -> Row<T>
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
-        I: Into<T> + Clone,
         T: GridCell,
     {
-        // TODO: This probably needs a rework.
-        let mut inner = Vec::with_capacity(columns.0);
-        inner.resize_with(columns.0, || template.clone().into());
-
-        Row { inner, occ: 0 }
+        Row { inner: vec![template; columns.0], occ: 0 }
     }
 
     pub fn grow(&mut self, cols: Column, template: T) {
@@ -76,9 +66,6 @@ impl<T: Clone> Row<T> {
         }
     }
 
-    // TODO: Hot, hot, hot. Probably the clone?
-    //   -> In theory we just need bg here
-    //
     /// Reset all cells in the row to the `template` cell.
     #[inline]
     pub fn reset<I>(&mut self, template: I)
@@ -93,7 +80,8 @@ impl<T: Clone> Row<T> {
     {
         debug_assert!(!self.inner.is_empty());
 
-        // TODO: Replace .fast_eq() with .background()?
+        // TODO: Have a specific background trait so we don't need to template.clone().into() for
+        // just bg?
         //
         // Mark all cells as dirty if template cell changed.
         let cell = template.clone().into();
@@ -102,12 +90,17 @@ impl<T: Clone> Row<T> {
             self.occ = len;
         }
 
+        if self.occ == 0 {
+            return;
+        }
+
         // TODO: Use the existing cell and template instead of using unnecessary clones / into.
         //
         // Reset every dirty cell in the row.
-        for item in &mut self.inner[0..self.occ] {
-            *item = template.clone().into();
+        for item in &mut self.inner[1..self.occ] {
+            item.reset(template.clone());
         }
+        self.inner[0].reset(template);
 
         self.occ = 0;
     }

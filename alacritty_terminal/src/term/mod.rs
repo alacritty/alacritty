@@ -16,7 +16,7 @@ use crate::ansi::{
 };
 use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll};
+use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll, GridCell};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
@@ -251,7 +251,6 @@ impl<'a, C> RenderableCellsIter<'a, C> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RenderableCellContent {
-    // TODO: Worth it doing Option<Vec<char>>?
     Chars((char, Vec<char>)),
     Cursor(CursorKey),
 }
@@ -312,7 +311,8 @@ impl RenderableCell {
         RenderableCell {
             line: cell.line,
             column: cell.column,
-            inner: RenderableCellContent::Chars((cell.c, cell.zerowidth().to_vec())),
+            // TODO: Figure out efficient zerowidth retrieval
+            inner: RenderableCellContent::Chars((cell.c, Vec::new())),
             fg: fg_rgb,
             bg: bg_rgb,
             bg_alpha,
@@ -1354,26 +1354,24 @@ impl<T> Term<T> {
     }
 
     /// Write `c` to the cell at the cursor position.
-    #[inline]
+    #[inline(always)]
     fn write_at_cursor(&mut self, c: char) -> &mut Cell
     where
         T: EventListener,
     {
-        // TODO: This whole fucking mess
-
-        // let mut cell = self.grid.cursor.template.shallow_clone();
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
         let flags = self.grid.cursor.template.flags;
 
         let cursor_cell = self.grid.cursor_cell();
+
+        cursor_cell.drop_extra();
+
         cursor_cell.c = c;
         cursor_cell.fg = fg;
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
-        cursor_cell.zerowidth = std::mem::ManuallyDrop::new(Vec::new());
-        // *cursor_cell = cell;
 
         cursor_cell
     }

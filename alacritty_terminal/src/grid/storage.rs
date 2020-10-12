@@ -142,14 +142,8 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize<I>(&mut self, additional_rows: usize, template: I, cols: Column)
+    pub fn initialize(&mut self, additional_rows: usize, template: T, cols: Column)
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
-        I: Into<T> + Clone,
         T: GridCell + Clone,
     {
         if self.len + additional_rows > self.inner.len() {
@@ -157,7 +151,7 @@ impl<T> Storage<T> {
             // TODO: Maybe add special branch for zero == 0?
             let realloc_size = max(additional_rows, MAX_CACHE_SIZE);
             let mut split = self.inner.split_off(self.zero);
-            self.inner.resize_with(realloc_size, || Row::new(cols, template.clone()));
+            self.inner.resize(realloc_size, Row::new(cols, template));
             self.inner.append(&mut split);
 
             // TODO: Push split in opposite direction, to keep zero at 0?

@@ -5,7 +5,7 @@ use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
-use crate::ansi::{CharsetIndex, StandardCharset, Color};
+use crate::ansi::{CharsetIndex, Color, StandardCharset};
 use crate::index::{Column, IndexRange, Line, Point};
 use crate::term::cell::{Cell, Flags};
 
@@ -49,17 +49,12 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
     }
 }
 
-pub trait GridCell {
+pub trait GridCell: Sized {
     fn is_empty(&self) -> bool;
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
     fn background(&self) -> Color;
-
-    /// Clone the cell without any content.
-    ///
-    /// This includes foreground, background and flags, but does not include any text. Neither
-    /// zerowidth nor the primary cell character.
-    fn shallow_clone(&self) -> Self;
+    fn reset<C: Into<Self>>(&mut self, template: C);
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -204,15 +199,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         };
     }
 
-    fn increase_scroll_limit<I>(&mut self, count: usize, template: I)
-    where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
-        I: Into<T> + Clone,
-    {
+    fn increase_scroll_limit(&mut self, count: usize, template: T) {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
             self.raw.initialize(count, template, self.cols);
@@ -284,7 +271,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
-            self.increase_scroll_limit(*positions, template.clone());
+            self.increase_scroll_limit(*positions, template.clone().into());
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
@@ -354,6 +341,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Reset all visible lines.
         for row in 0..self.raw.len() {
             // TODO: NamedColor here is kinda shitty?
+            // TODO: Cell is also kinda shitty.
             self.raw[row].reset(T::default());
         }
 

@@ -1,4 +1,4 @@
-use std::mem::ManuallyDrop;
+use std::boxed::Box;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
@@ -27,14 +27,19 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
+struct CellExtra {
+    zerowidth: Vec<char>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Cell {
     pub c: char,
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
     #[serde(skip)]
-    pub zerowidth: ManuallyDrop<Vec<char>>,
+    extra: Option<Box<CellExtra>>,
 }
 
 impl Default for Cell {
@@ -43,101 +48,10 @@ impl Default for Cell {
     }
 }
 
-impl Drop for Cell {
-    fn drop(&mut self) {
-        // We wrap the zerowidth vector with manually drop here because STD's implementation is
-        // slow for vectors that are usually empty. By doing this we can effectively avoid the slow
-        // drop implementation unless necessary.
-        if !self.zerowidth.is_empty() {
-            unsafe {
-                ManuallyDrop::drop(&mut self.zerowidth);
-            }
-        }
-    }
-}
-
-impl GridCell for Cell {
-    #[inline]
-    fn is_empty(&self) -> bool {
-        (self.c == ' ' || self.c == '\t')
-            && self.zerowidth.is_empty()
-            && self.bg == Color::Named(NamedColor::Background)
-            && self.fg == Color::Named(NamedColor::Foreground)
-            && !self.flags.intersects(
-                Flags::INVERSE
-                    | Flags::UNDERLINE
-                    | Flags::DOUBLE_UNDERLINE
-                    | Flags::STRIKEOUT
-                    | Flags::WRAPLINE
-                    | Flags::WIDE_CHAR_SPACER
-                    | Flags::LEADING_WIDE_CHAR_SPACER,
-            )
-    }
-
-    #[inline]
-    fn flags(&self) -> &Flags {
-        &self.flags
-    }
-
-    #[inline]
-    fn flags_mut(&mut self) -> &mut Flags {
-        &mut self.flags
-    }
-
-    // TODO: This method doesn't really make sense.
-    #[inline]
-    fn background(&self) -> Color {
-        self.bg
-    }
-
-    #[inline]
-    fn shallow_clone(&self) -> Self {
-        Self { c: ' ', zerowidth: ManuallyDrop::new(Vec::new()), ..*self }
-    }
-}
-
-/// Get the length of occupied cells in a line.
-pub trait LineLength {
-    /// Calculate the occupied line length.
-    fn line_length(&self) -> Column;
-}
-
-impl LineLength for grid::Row<Cell> {
-    fn line_length(&self) -> Column {
-        let mut length = Column(0);
-
-        if self[Column(self.len() - 1)].flags.contains(Flags::WRAPLINE) {
-            return Column(self.len());
-        }
-
-        for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' ' || !cell.zerowidth.is_empty() {
-                length = Column(self.len() - index);
-                break;
-            }
-        }
-
-        length
-    }
-}
-
-impl From<Color> for Cell {
-    #[inline]
-    fn from(color: Color) -> Self {
-        Self {
-            bg: color,
-            c: ' ',
-            flags: Flags::empty(),
-            fg: Color::Named(NamedColor::Foreground),
-            zerowidth: ManuallyDrop::new(Vec::new()),
-        }
-    }
-}
-
 impl Cell {
     #[inline]
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
-        Cell { c, bg, fg, flags: Flags::empty(), zerowidth: ManuallyDrop::new(Vec::new()) }
+        Cell { c, bg, fg, flags: Flags::empty(), extra: None }
     }
 
     #[inline]
@@ -156,18 +70,97 @@ impl Cell {
     }
 
     #[inline]
-    pub fn reset(&mut self, bg: Color) {
-        *self = bg.into();
-    }
-
-    #[inline]
     pub fn zerowidth(&self) -> &[char] {
-        &self.zerowidth
+        self.extra.as_ref().map(|extra| extra.zerowidth.as_slice()).unwrap_or_default()
     }
 
     #[inline]
     pub fn push_zerowidth(&mut self, c: char) {
-        self.zerowidth.push(c);
+        self.extra.get_or_insert_with(Default::default).zerowidth.push(c);
+    }
+
+    #[inline]
+    pub fn drop_extra(&mut self) {
+        if self.extra.is_some() {
+            self.extra = None;
+        }
+    }
+}
+
+impl GridCell for Cell {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        (self.c == ' ' || self.c == '\t')
+            && self.bg == Color::Named(NamedColor::Background)
+            && self.fg == Color::Named(NamedColor::Foreground)
+            && !self.flags.intersects(
+                Flags::INVERSE
+                    | Flags::UNDERLINE
+                    | Flags::DOUBLE_UNDERLINE
+                    | Flags::STRIKEOUT
+                    | Flags::WRAPLINE
+                    | Flags::WIDE_CHAR_SPACER
+                    | Flags::LEADING_WIDE_CHAR_SPACER,
+            )
+            && self.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) != Some(false)
+    }
+
+    #[inline]
+    fn flags(&self) -> &Flags {
+        &self.flags
+    }
+
+    #[inline]
+    fn flags_mut(&mut self) -> &mut Flags {
+        &mut self.flags
+    }
+
+    // TODO: This method doesn't really make sense?
+    #[inline]
+    fn background(&self) -> Color {
+        self.bg
+    }
+
+    #[inline]
+    fn reset<C: Into<Self>>(&mut self, cell: C) {
+        *self = cell.into();
+    }
+}
+
+/// Get the length of occupied cells in a line.
+pub trait LineLength {
+    /// Calculate the occupied line length.
+    fn line_length(&self) -> Column;
+}
+
+impl LineLength for grid::Row<Cell> {
+    fn line_length(&self) -> Column {
+        let mut length = Column(0);
+
+        if self[Column(self.len() - 1)].flags.contains(Flags::WRAPLINE) {
+            return Column(self.len());
+        }
+
+        for (index, cell) in self[..].iter().rev().enumerate() {
+            if cell.c != ' '
+                || cell.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) == Some(false)
+            {
+                length = Column(self.len() - index);
+                break;
+            }
+        }
+
+        length
+    }
+}
+
+impl From<Color> for Cell {
+    #[inline]
+    fn from(color: Color) -> Self {
+        Self {
+            bg: color,
+            ..Cell::default()
+        }
     }
 }
 
