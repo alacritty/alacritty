@@ -191,9 +191,7 @@ impl Window {
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_surface = None;
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if is_wayland {
+        let wayland_surface = if is_wayland {
             // Apply client side decorations theme.
             let theme = AlacrittyWaylandTheme::new(&config.colors);
             windowed_context.window().set_wayland_theme(theme);
@@ -201,8 +199,10 @@ impl Window {
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
             let surface = windowed_context.window().wayland_surface().unwrap();
             let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
-            wayland_surface = Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()));
-        }
+            Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()))
+        } else {
+            None
+        };
 
         let dpr = windowed_context.window().scale_factor();
 
