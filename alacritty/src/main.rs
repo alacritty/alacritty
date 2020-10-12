@@ -48,7 +48,7 @@ mod scheduler;
 mod url;
 mod window;
 
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
 
 mod gl {
@@ -160,10 +160,7 @@ fn run(
     // The PTY forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    #[cfg(not(any(target_os = "macos", windows)))]
     let pty = tty::new(&config, &display.size_info, display.window.x11_window_id());
-    #[cfg(any(target_os = "macos", windows))]
-    let pty = tty::new(&config, &display.size_info, None);
 
     // Create the pseudoterminal I/O loop.
     //

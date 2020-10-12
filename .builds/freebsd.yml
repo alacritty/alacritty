@@ -12,10 +12,16 @@ sources:
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
-  - 1-43-1: |
       $HOME/.cargo/bin/rustup toolchain install --profile minimal 1.43.1
+  - 1-43-1: |
       cd alacritty
       $HOME/.cargo/bin/cargo +1.43.1 test
+  - 1-43-1-wayland: |
+      cd alacritty/alacritty
+      $HOME/.cargo/bin/cargo +1.43.1 test --no-default-features --features=wayland
+  - 1-43-1-x11: |
+      cd alacritty/alacritty
+      $HOME/.cargo/bin/cargo +1.43.1 test --no-default-features --features=x11
   - stable: |
       cd alacritty
       $HOME/.cargo/bin/cargo +stable test
