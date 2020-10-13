@@ -1,3 +1,4 @@
+use pretty_assertions::assert_eq;
 use serde::Deserialize;
 use serde_json as json;
 
@@ -119,20 +120,10 @@ fn ref_test(dir: &Path) {
             for j in 0..grid.cols().0 {
                 let cell = term_grid[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
-                if original_cell != cell {
-                    println!(
-                        "[{i}][{j}] {original:?} => {now:?}",
-                        i = i,
-                        j = j,
-                        original = original_cell,
-                        now = cell,
-                    );
-                }
+                println!("{}", pretty_assertions::Comparison::new(&cell, &original_cell));
             }
         }
 
-        panic!("Ref test failed; grid doesn't match");
+        panic!("ref test failed; grid doesn't match");
     }
-
-    assert_eq!(grid, term_grid);
 }
