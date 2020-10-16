@@ -29,11 +29,17 @@ impl<T: PartialEq> PartialEq for Row<T> {
 }
 
 impl<T: Clone> Row<T> {
-    pub fn new(columns: Column, template: T) -> Row<T>
+    pub fn new<I>(columns: Column, template: I) -> Row<T>
     where
+        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
+        // only used from resize. Alternatively we can change this back to Copy and pass a template
+        // to the grid's resize method.
+        // If the clone stays the way it is right now, it would probably make sense to avoid the
+        // last clone during the reset iteration though.
+        I: Into<T> + Clone,
         T: GridCell,
     {
-        Row { inner: vec![template; columns.0], occ: 0 }
+        Row { inner: vec![template.into(); columns.0], occ: 0 }
     }
 
     pub fn grow(&mut self, cols: Column, template: T) {

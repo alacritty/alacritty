@@ -199,7 +199,15 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         };
     }
 
-    fn increase_scroll_limit(&mut self, count: usize, template: T) {
+    fn increase_scroll_limit<I>(&mut self, count: usize, template: I)
+    where
+        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
+        // only used from resize. Alternatively we can change this back to Copy and pass a template
+        // to the grid's resize method.
+        // If the clone stays the way it is right now, it would probably make sense to avoid the
+        // last clone during the reset iteration though.
+        I: Into<T> + Clone,
+    {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
             self.raw.initialize(count, template, self.cols);
@@ -271,7 +279,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
-            self.increase_scroll_limit(*positions, template.clone().into());
+            self.increase_scroll_limit(*positions, template.clone());
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
