@@ -876,6 +876,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
+        self.composition_cleanup();
+
         let suppress_chars = *self.ctx.suppress_chars();
         let search_active = self.ctx.search_active();
         if suppress_chars || self.ctx.terminal().mode().contains(TermMode::VI) || search_active {
@@ -921,11 +923,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         *self.ctx.received_count() += 1;
     }
 
-    pub fn composition_start(&mut self, text: String) {
-        *self.ctx.suppress_chars() = true;
+    fn composition_cleanup(&mut self) {
+        if self.composition_state {
+            let term = self.ctx.terminal_mut();
+            term.restore_cursor_position();
+            term.clear_line(LineClearMode::Right);
+            self.composition_state = false;
+        }
     }
 
-    pub fn composition_update(&mut self, text: String, position: usize) {
+    pub fn composition_start(&mut self, _text: String) {
+    }
+
+    pub fn composition_update(&mut self, text: String, _position: usize) {
         if !self.composition_state {
             self.composition_state = true;
             self.ctx.terminal_mut().save_cursor_position();
@@ -943,11 +953,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         term.dirty = true;
     }
 
-    pub fn composition_end(&mut self, text: String) {
-        let term = self.ctx.terminal_mut();
-        term.clear_line(LineClearMode::Right);
-        self.composition_state = false;
-        self.ctx.write_to_pty(text.into_bytes());
+    pub fn composition_end(&mut self, _text: String) {
     }
 
     /// Reset mouse cursor based on modifier and terminal state.
