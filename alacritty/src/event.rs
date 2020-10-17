@@ -15,8 +15,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use winit::event::{CompositionEvent, WindowEvent};
+
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -979,6 +981,17 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.key_input(input);
                     },
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
+                    WindowEvent::Composition(composition_event) => match composition_event {
+                        CompositionEvent::CompositionStart(text) => {
+                            processor.composition_start(text);
+                        },
+                        CompositionEvent::CompositionUpdate(text, position) => {
+                            processor.composition_update(text, position);
+                        },
+                        CompositionEvent::CompositionEnd(text) => {
+                            processor.composition_end(text);
+                        },
+                    },
                     WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_input(state, button);

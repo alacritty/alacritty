@@ -49,6 +49,7 @@ dependencies = [
  "urlocator",
  "wayland-client",
  "winapi 0.3.9",
+ "winit",
  "x11-dl",
  "xdg",
 ]
@@ -2386,8 +2387,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5bc559da567d8aa671bbcd08304d49e982c7bf2cb91e10288b9188931c1b772"
+source = "git+https://github.com/rust-windowing/winit?branch=composition-event#84f26b0e5ecb2b1254206af7e3a0d485c5f78836"
 dependencies = [
  "bitflags",
  "cocoa 0.23.0",

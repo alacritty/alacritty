@@ -22,7 +22,7 @@ use glutin::event_loop::EventLoopWindowTarget;
 use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
 
-use alacritty_terminal::ansi::{ClearMode, Handler};
+use alacritty_terminal::ansi::{ClearMode, Handler, LineClearMode};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Column, Direction, Line, Point, Side};
@@ -59,6 +59,7 @@ const SELECTION_SCROLLING_STEP: f64 = 20.;
 pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
     pub highlighted_url: &'a Option<Url>,
+    composition_state: bool,
     _phantom: PhantomData<T>,
 }
 
@@ -355,7 +356,7 @@ impl From<MouseState> for CursorIcon {
 
 impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn new(ctx: A, highlighted_url: &'a Option<Url>) -> Self {
-        Self { ctx, highlighted_url, _phantom: Default::default() }
+        Self { ctx, highlighted_url, composition_state: false, _phantom: Default::default() }
     }
 
     #[inline]
@@ -918,6 +919,35 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.write_to_pty(bytes);
 
         *self.ctx.received_count() += 1;
+    }
+
+    pub fn composition_start(&mut self, text: String) {
+        *self.ctx.suppress_chars() = true;
+    }
+
+    pub fn composition_update(&mut self, text: String, position: usize) {
+        if !self.composition_state {
+            self.composition_state = true;
+            self.ctx.terminal_mut().save_cursor_position();
+        }
+
+        let term = self.ctx.terminal_mut();
+        term.clear_line(LineClearMode::Right);
+
+        for ch in text.chars() {
+            term.input(ch);
+        }
+
+        term.restore_cursor_position();
+
+        term.dirty = true;
+    }
+
+    pub fn composition_end(&mut self, text: String) {
+        let term = self.ctx.terminal_mut();
+        term.clear_line(LineClearMode::Right);
+        self.composition_state = false;
+        self.ctx.write_to_pty(text.into_bytes());
     }
 
     /// Reset mouse cursor based on modifier and terminal state.
