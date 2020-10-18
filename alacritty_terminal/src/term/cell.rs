@@ -70,8 +70,8 @@ impl Cell {
     }
 
     #[inline]
-    pub fn zerowidth(&self) -> &[char] {
-        self.extra.as_ref().map(|extra| extra.zerowidth.as_slice()).unwrap_or_default()
+    pub fn zerowidth(&self) -> Option<&[char]> {
+        self.extra.as_ref().map(|extra| extra.zerowidth.as_slice())
     }
 
     #[inline]

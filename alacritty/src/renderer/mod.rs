@@ -953,7 +953,7 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: Column(i),
-                inner: RenderableCellContent::Chars((c, Vec::new())),
+                inner: RenderableCellContent::Chars((c, None)),
                 flags: Flags::empty(),
                 bg_alpha,
                 fg,
@@ -981,7 +981,7 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
+    pub fn render_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         let (mut c, zerowidth) = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup.
@@ -999,7 +999,7 @@ impl<'a> RenderApi<'a> {
                 self.add_render_item(&cell, glyph);
                 return;
             },
-            RenderableCellContent::Chars(ref chars) => chars,
+            RenderableCellContent::Chars((c, ref mut zerowidth)) => (c, zerowidth.take()),
         };
 
         // Get font key for cell.
@@ -1022,24 +1022,21 @@ impl<'a> RenderApi<'a> {
         let glyph = glyph_cache.get(glyph_key, self);
         self.add_render_item(&cell, glyph);
 
-        // Skip zerowidth characters when hidden.
-        if hidden {
-            return;
-        }
+        // Render visible zero-width characters.
+        if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
+            for c in zerowidth {
+                glyph_key.c = c;
+                let mut glyph = *glyph_cache.get(glyph_key, self);
 
-        // Render zero-width characters.
-        for c in zerowidth {
-            glyph_key.c = *c;
-            let mut glyph = *glyph_cache.get(glyph_key, self);
+                // The metrics of zero-width characters are based on rendering
+                // the character after the current cell, with the anchor at the
+                // right side of the preceding character. Since we render the
+                // zero-width characters inside the preceding character, the
+                // anchor has been moved to the right by one cell.
+                glyph.left += glyph_cache.metrics.average_advance as i16;
 
-            // The metrics of zero-width characters are based on rendering
-            // the character after the current cell, with the anchor at the
-            // right side of the preceding character. Since we render the
-            // zero-width characters inside the preceding character, the
-            // anchor has been moved to the right by one cell.
-            glyph.left += glyph_cache.metrics.average_advance as i16;
-
-            self.add_render_item(&cell, &glyph);
+                self.add_render_item(&cell, &glyph);
+            }
         }
     }
 }

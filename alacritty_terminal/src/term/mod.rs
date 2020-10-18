@@ -251,7 +251,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RenderableCellContent {
-    Chars((char, Vec<char>)),
+    Chars((char, Option<Vec<char>>)),
     Cursor(CursorKey),
 }
 
@@ -308,11 +308,12 @@ impl RenderableCell {
             }
         }
 
+        let zerowidth = cell.zerowidth().map(|zerowidth| zerowidth.to_vec());
+
         RenderableCell {
             line: cell.line,
             column: cell.column,
-            // TODO: Figure out efficient zerowidth retrieval
-            inner: RenderableCellContent::Chars((cell.c, Vec::new())),
+            inner: RenderableCellContent::Chars((cell.c, zerowidth)),
             fg: fg_rgb,
             bg: bg_rgb,
             bg_alpha,
@@ -323,7 +324,7 @@ impl RenderableCell {
     fn is_empty(&self) -> bool {
         self.bg_alpha == 0.
             && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
-            && self.inner == RenderableCellContent::Chars((' ', Vec::new()))
+            && self.inner == RenderableCellContent::Chars((' ', None))
     }
 
     fn compute_fg_rgb<C>(config: &Config<C>, colors: &color::List, fg: Color, flags: Flags) -> Rgb {
@@ -1000,8 +1001,10 @@ impl<T> Term<T> {
                 text.push(cell.c);
 
                 // Push zero-width characters.
-                for c in cell.zerowidth() {
-                    text.push(*c);
+                if let Some(zerowidth) = cell.zerowidth() {
+                    for c in zerowidth {
+                        text.push(*c);
+                    }
                 }
             }
         }
