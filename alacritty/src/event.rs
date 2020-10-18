@@ -981,7 +981,10 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.key_input(input);
                     },
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
-                    WindowEvent::Composition(CompositionEvent::CompositionUpdate(text, position)) => processor.composition_update(text, position),
+                    WindowEvent::Composition(CompositionEvent::CompositionUpdate(
+                        text,
+                        position,
+                    )) => processor.composition_update(text, position),
                     WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_input(state, button);
