@@ -981,17 +981,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.key_input(input);
                     },
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
-                    WindowEvent::Composition(composition_event) => match composition_event {
-                        CompositionEvent::CompositionStart(text) => {
-                            processor.composition_start(text);
-                        },
-                        CompositionEvent::CompositionUpdate(text, position) => {
-                            processor.composition_update(text, position);
-                        },
-                        CompositionEvent::CompositionEnd(text) => {
-                            processor.composition_end(text);
-                        },
-                    },
+                    WindowEvent::Composition(CompositionEvent::CompositionUpdate(text, position)) => processor.composition_update(text, position),
                     WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_input(state, button);
@@ -1043,7 +1033,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Touch(_)
-                    | WindowEvent::Moved(_) => (),
+                    | WindowEvent::Moved(_)
+                    | WindowEvent::Composition(_) => (),
                 }
             },
             GlutinEvent::Suspended { .. }

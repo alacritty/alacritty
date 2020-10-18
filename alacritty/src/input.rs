@@ -925,35 +925,33 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     fn composition_cleanup(&mut self) {
         if self.composition_state {
-            let term = self.ctx.terminal_mut();
-            term.restore_cursor_position();
-            term.clear_line(LineClearMode::Right);
+            self.ctx.terminal_mut().restore_cursor_position();
+            self.ctx.terminal_mut().clear_line(LineClearMode::Right);
             self.composition_state = false;
         }
     }
 
-    pub fn composition_start(&mut self, _text: String) {
-    }
+    pub fn composition_update(&mut self, text: String, position: usize) {
+        let mut cursor_pos = self.ctx.terminal().grid().cursor.point.col;
 
-    pub fn composition_update(&mut self, text: String, _position: usize) {
         if !self.composition_state {
             self.composition_state = true;
             self.ctx.terminal_mut().save_cursor_position();
         }
 
-        let term = self.ctx.terminal_mut();
-        term.clear_line(LineClearMode::Right);
+        self.ctx.terminal_mut().clear_line(LineClearMode::Right);
 
-        for ch in text.chars() {
-            term.input(ch);
+        for (idx, ch) in text.char_indices() {
+            if position == idx {
+                cursor_pos = self.ctx.terminal().grid().cursor.point.col;
+            }
+
+            self.ctx.terminal_mut().input(ch);
         }
 
-        term.restore_cursor_position();
-
-        term.dirty = true;
-    }
-
-    pub fn composition_end(&mut self, _text: String) {
+        let delta = self.ctx.terminal().grid().cursor.point.col - cursor_pos;
+        self.ctx.terminal_mut().move_backward(delta);
+        self.ctx.terminal_mut().dirty = true;
     }
 
     /// Reset mouse cursor based on modifier and terminal state.
