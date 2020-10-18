@@ -22,6 +22,7 @@ serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
 glutin = { version = "0.25.1", default-features = false, features = ["serde"] }
+winit = { git = "https://github.com/rust-windowing/winit", rev = "84f26b0e5ecb2b1254206af7e3a0d485c5f78836" }
 notify = "4"
 parking_lot = "0.11.0"
 crossfont = { version = "0.1.0", features = ["force_system_fontconfig"] }
@@ -49,7 +50,6 @@ dirs = "2.0.2"
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = { version = "2", optional = true }
 wayland-client = { version = "0.28.0", features = ["dlopen"], optional = true }
-winit = { git = "https://github.com/rust-windowing/winit", rev = "84f26b0e5ecb2b1254206af7e3a0d485c5f78836" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
