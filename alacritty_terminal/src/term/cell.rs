@@ -27,6 +27,24 @@ bitflags! {
     }
 }
 
+/// Trait for determining if a reset should be performed.
+pub trait ResetDiscriminant<T: PartialEq> {
+    /// Value based on which equality for the reset will be determined.
+    fn discriminant(&self) -> T;
+}
+
+impl ResetDiscriminant<Color> for Color {
+    fn discriminant(&self) -> Color {
+        *self
+    }
+}
+
+impl ResetDiscriminant<Color> for Cell {
+    fn discriminant(&self) -> Color {
+        self.bg
+    }
+}
+
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 struct CellExtra {
     zerowidth: Vec<char>,
@@ -115,12 +133,7 @@ impl GridCell for Cell {
         &mut self.flags
     }
 
-    // TODO: This method doesn't really make sense?
-    #[inline]
-    fn background(&self) -> Color {
-        self.bg
-    }
-
+    // TODO: Is this necessary as a method?
     #[inline]
     fn reset<C: Into<Self>>(&mut self, cell: C) {
         *self = cell.into();
@@ -173,8 +186,7 @@ mod tests {
 
     #[test]
     fn line_length_works() {
-        let template = Cell::default();
-        let mut row = Row::new(Column(10), template);
+        let mut row = Row::<Cell>::new(Column(10), Cell::default());
         row[Column(5)].c = 'a';
 
         assert_eq!(row.line_length(), Column(6));
@@ -182,8 +194,7 @@ mod tests {
 
     #[test]
     fn line_length_works_with_wrapline() {
-        let template = Cell::default();
-        let mut row = Row::new(Column(10), template);
+        let mut row = Row::<Cell>::new(Column(10), Cell::default());
         row[Column(9)].flags.insert(super::Flags::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));

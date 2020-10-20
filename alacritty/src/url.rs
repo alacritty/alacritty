@@ -195,13 +195,12 @@ mod tests {
     use super::*;
 
     use alacritty_terminal::index::{Column, Line};
-    use alacritty_terminal::term::cell::MAX_ZEROWIDTH_CHARS;
 
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
         text.chars()
             .enumerate()
             .map(|(i, c)| RenderableCell {
-                inner: RenderableCellContent::Chars([c; MAX_ZEROWIDTH_CHARS + 1]),
+                inner: RenderableCellContent::Chars((c, None)),
                 line: Line(0),
                 column: Column(i),
                 fg: Default::default(),

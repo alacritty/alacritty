@@ -4,12 +4,13 @@ use std::cmp::{min, Ordering};
 use std::mem;
 
 use crate::index::{Column, Line};
-use crate::term::cell::Flags;
+use crate::term::cell::{Flags, ResetDiscriminant};
+use crate::ansi::Color;
 
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
 
-impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
     pub fn resize(&mut self, reflow: bool, lines: Line, cols: Column) {
         match self.lines.cmp(&lines) {

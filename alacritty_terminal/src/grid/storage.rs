@@ -62,12 +62,12 @@ impl<T: PartialEq> PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(visible_lines: Line, template: Row<T>) -> Storage<T>
+    pub fn with_capacity(visible_lines: Line, cols: Column) -> Storage<T>
     where
-        T: Clone,
+        T: GridCell + Default + Clone,
     {
-        // Initialize visible lines, the scrollback buffer is initialized dynamically.
-        let inner = vec![template; visible_lines.0];
+        // Initialize visible lines; the scrollback buffer is initialized dynamically.
+        let inner = vec![Row::new(cols, T::default()); visible_lines.0];
 
         Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
     }
@@ -144,24 +144,17 @@ impl<T> Storage<T> {
     #[inline]
     pub fn initialize<I>(&mut self, additional_rows: usize, template: I, cols: Column)
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
         I: Into<T> + Clone,
         T: GridCell + Clone,
     {
         if self.len + additional_rows > self.inner.len() {
-            // TODO: Creating new rows here is expensive when scrolling
-            // TODO: Maybe add special branch for zero == 0?
-            let realloc_size = max(additional_rows, MAX_CACHE_SIZE);
-            let mut split = self.inner.split_off(self.zero);
-            self.inner.resize_with(realloc_size, || Row::new(cols, template.clone()));
-            self.inner.append(&mut split);
+            if self.zero != 0 {
+                self.inner.rotate_left(self.zero);
+            }
 
-            // TODO: Push split in opposite direction, to keep zero at 0?
-            self.zero += realloc_size;
+            let realloc_size = self.inner.len() + max(additional_rows, MAX_CACHE_SIZE);
+            self.inner.resize_with(realloc_size, || Row::new(cols, template.clone()));
+            self.zero = 0;
         }
 
         self.len += additional_rows;
@@ -320,6 +313,10 @@ mod tests {
             *self == ' ' || *self == '\t'
         }
 
+        fn reset<C: Into<Self>>(&mut self, cell: C) {
+            *self = cell.into();
+        }
+
         fn flags(&self) -> &Flags {
             unimplemented!();
         }
@@ -327,15 +324,11 @@ mod tests {
         fn flags_mut(&mut self) -> &mut Flags {
             unimplemented!();
         }
-
-        fn fast_eq(&self, other: &Self) -> bool {
-            self == other
-        }
     }
 
     #[test]
     fn with_capacity() {
-        let storage = Storage::with_capacity(Line(3), Row::new(Column(0), ' '));
+        let storage = Storage::<char>::with_capacity(Line(3), Column(1));
 
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.len, 3);
@@ -345,7 +338,7 @@ mod tests {
 
     #[test]
     fn indexing() {
-        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), ' '));
+        let mut storage = Storage::<char>::with_capacity(Line(3), Column(1));
 
         storage[0] = Row::new(Column(1), '0');
         storage[1] = Row::new(Column(1), '1');
@@ -365,13 +358,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
-        let storage = Storage::with_capacity(Line(1), Row::new(Column(0), ' '));
+        let storage = Storage::<char>::with_capacity(Line(1), Column(1));
         let _ = &storage[2];
     }
 
     #[test]
     fn rotate() {
-        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), ' '));
+        let mut storage = Storage::<char>::with_capacity(Line(3), Column(1));
         storage.rotate(2);
         assert_eq!(storage.zero, 2);
         storage.shrink_lines(2);
@@ -394,7 +387,7 @@ mod tests {
     #[test]
     fn grow_after_zero() {
         // Setup storage area
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '0'),
                 Row::new(Column(1), '1'),
@@ -440,7 +433,7 @@ mod tests {
     #[test]
     fn grow_before_zero() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '-'),
                 Row::new(Column(1), '0'),
@@ -485,7 +478,7 @@ mod tests {
     #[test]
     fn shrink_before_zero() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '2'),
                 Row::new(Column(1), '0'),
@@ -529,7 +522,7 @@ mod tests {
     #[test]
     fn shrink_after_zero() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '0'),
                 Row::new(Column(1), '1'),
@@ -579,7 +572,7 @@ mod tests {
     #[test]
     fn shrink_before_and_after_zero() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '4'),
                 Row::new(Column(1), '5'),
@@ -631,7 +624,7 @@ mod tests {
     #[test]
     fn truncate_invisible_lines() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '4'),
                 Row::new(Column(1), '5'),
@@ -673,7 +666,7 @@ mod tests {
     #[test]
     fn truncate_invisible_lines_beginning() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '1'),
                 Row::new(Column(1), '2'),
@@ -727,7 +720,7 @@ mod tests {
     #[test]
     fn shrink_then_grow() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '4'),
                 Row::new(Column(1), '5'),
@@ -788,7 +781,7 @@ mod tests {
     #[test]
     fn initialize() {
         // Setup storage area.
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '4'),
                 Row::new(Column(1), '5'),
@@ -804,34 +797,34 @@ mod tests {
 
         // Initialize additional lines.
         let init_size = 3;
-        storage.initialize(init_size, &'-', Column(1));
+        storage.initialize(init_size, '-', Column(1));
 
-        // Make sure the lines are present and at the right location.
-
+        // Generate expected grid.
         let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
-        let mut expected_inner = vec![Row::new(Column(1), '4'), Row::new(Column(1), '5')];
-        expected_inner.append(&mut vec![Row::new(Column(1), '-'); expected_init_size]);
-        expected_inner.append(&mut vec![
+        let mut expected_inner = vec![
             Row::new(Column(1), '0'),
             Row::new(Column(1), '1'),
             Row::new(Column(1), '2'),
             Row::new(Column(1), '3'),
-        ]);
+            Row::new(Column(1), '4'),
+            Row::new(Column(1), '5'),
+        ];
+        expected_inner.append(&mut vec![Row::new(Column(1), '-'); expected_init_size]);
         let expected_storage = Storage {
             inner: expected_inner,
-            zero: 2 + expected_init_size,
+            zero: 0,
             visible_lines: Line(0),
             len: 9,
         };
 
-        assert_eq!(storage.inner, expected_storage.inner);
-        assert_eq!(storage.zero, expected_storage.zero);
         assert_eq!(storage.len, expected_storage.len);
+        assert_eq!(storage.zero, expected_storage.zero);
+        assert_eq!(storage.inner, expected_storage.inner);
     }
 
     #[test]
     fn rotate_wrap_zero() {
-        let mut storage = Storage {
+        let mut storage: Storage<char> = Storage {
             inner: vec![
                 Row::new(Column(1), '-'),
                 Row::new(Column(1), '-'),

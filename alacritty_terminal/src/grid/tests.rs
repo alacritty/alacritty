@@ -1,12 +1,16 @@
 //! Tests for the Grid.
 
-use super::{BidirectionalIterator, Dimensions, Grid, GridCell};
-use crate::index::{Column, Line, Point};
-use crate::term::cell::{Cell, Flags};
+use super::*;
+
+use crate::ansi::{Color, NamedColor};
 
 impl GridCell for usize {
     fn is_empty(&self) -> bool {
         *self == 0
+    }
+
+    fn reset<C: Into<Self>>(&mut self, cell: C) {
+        *self = cell.into();
     }
 
     fn flags(&self) -> &Flags {
@@ -16,15 +20,17 @@ impl GridCell for usize {
     fn flags_mut(&mut self) -> &mut Flags {
         unimplemented!();
     }
+}
 
-    fn fast_eq(&self, other: &Self) -> bool {
-        self == other
+impl ResetDiscriminant<Color> for usize {
+    fn discriminant(&self) -> Color {
+        Color::Named(NamedColor::Background)
     }
 }
 
 #[test]
 fn grid_clamp_buffer_point() {
-    let mut grid = Grid::new(Line(10), Column(10), 1_000, 0);
+    let mut grid = Grid::<usize>::new(Line(10), Column(10), 1_000);
     grid.display_offset = 5;
 
     let point = grid.clamp_buffer_to_visible(Point::new(10, Column(3)));
@@ -44,7 +50,7 @@ fn grid_clamp_buffer_point() {
 
 #[test]
 fn visible_to_buffer() {
-    let mut grid = Grid::new(Line(10), Column(10), 1_000, 0);
+    let mut grid = Grid::<usize>::new(Line(10), Column(10), 1_000);
     grid.display_offset = 5;
 
     let point = grid.visible_to_buffer(Point::new(Line(4), Column(3)));
@@ -59,12 +65,12 @@ fn visible_to_buffer() {
 // Scroll up moves lines upward.
 #[test]
 fn scroll_up() {
-    let mut grid = Grid::new(Line(10), Column(1), 0, 0);
+    let mut grid = Grid::<usize>::new(Line(10), Column(1), 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
+    grid.scroll_up(&(Line(0)..Line(10)), Line(2), 0);
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);
@@ -91,7 +97,7 @@ fn scroll_up() {
 // Scroll down moves lines downward.
 #[test]
 fn scroll_down() {
-    let mut grid = Grid::new(Line(10), Column(1), 0, 0);
+    let mut grid = Grid::<usize>::new(Line(10), Column(1), 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
@@ -123,7 +129,7 @@ fn scroll_down() {
 // Test that GridIterator works.
 #[test]
 fn test_iter() {
-    let mut grid = Grid::new(Line(5), Column(5), 0, 0);
+    let mut grid = Grid::<usize>::new(Line(5), Column(5), 0);
     for i in 0..5 {
         for j in 0..5 {
             grid[Line(i)][Column(j)] = i * 5 + j;
@@ -161,7 +167,7 @@ fn test_iter() {
 
 #[test]
 fn shrink_reflow() {
-    let mut grid = Grid::new(Line(1), Column(5), 2, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = cell('2');
     grid[Line(0)][Column(2)] = cell('3');
@@ -187,7 +193,7 @@ fn shrink_reflow() {
 
 #[test]
 fn shrink_reflow_twice() {
-    let mut grid = Grid::new(Line(1), Column(5), 2, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = cell('2');
     grid[Line(0)][Column(2)] = cell('3');
@@ -214,7 +220,7 @@ fn shrink_reflow_twice() {
 
 #[test]
 fn shrink_reflow_empty_cell_inside_line() {
-    let mut grid = Grid::new(Line(1), Column(5), 3, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 3);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = Cell::default();
     grid[Line(0)][Column(2)] = cell('3');
@@ -252,7 +258,7 @@ fn shrink_reflow_empty_cell_inside_line() {
 
 #[test]
 fn grow_reflow() {
-    let mut grid = Grid::new(Line(2), Column(2), 0, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(2), Column(2), 0);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = wrap_cell('2');
     grid[Line(1)][Column(0)] = cell('3');
@@ -276,7 +282,7 @@ fn grow_reflow() {
 
 #[test]
 fn grow_reflow_multiline() {
-    let mut grid = Grid::new(Line(3), Column(2), 0, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(3), Column(2), 0);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = wrap_cell('2');
     grid[Line(1)][Column(0)] = cell('3');
@@ -309,7 +315,7 @@ fn grow_reflow_multiline() {
 
 #[test]
 fn grow_reflow_disabled() {
-    let mut grid = Grid::new(Line(2), Column(2), 0, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(2), Column(2), 0);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = wrap_cell('2');
     grid[Line(1)][Column(0)] = cell('3');
@@ -332,7 +338,7 @@ fn grow_reflow_disabled() {
 
 #[test]
 fn shrink_reflow_disabled() {
-    let mut grid = Grid::new(Line(1), Column(5), 2, cell('x'));
+    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
     grid[Line(0)][Column(0)] = cell('1');
     grid[Line(0)][Column(1)] = cell('2');
     grid[Line(0)][Column(2)] = cell('3');

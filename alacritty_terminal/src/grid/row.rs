@@ -4,11 +4,13 @@ use std::cmp::{max, min};
 use std::ops::{Index, IndexMut};
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
 use std::slice;
+use std::ptr;
 
 use serde::{Deserialize, Serialize};
 
 use crate::grid::GridCell;
 use crate::index::Column;
+use crate::term::cell::ResetDiscriminant;
 
 /// A row in the grid.
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -29,17 +31,34 @@ impl<T: PartialEq> PartialEq for Row<T> {
 }
 
 impl<T: Clone> Row<T> {
+    /// Create a new terminal row.
+    ///
+    /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
     pub fn new<I>(columns: Column, template: I) -> Row<T>
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
         I: Into<T> + Clone,
         T: GridCell,
     {
-        Row { inner: vec![template.into(); columns.0], occ: 0 }
+        debug_assert!(columns.0 >= 1);
+
+        let mut inner: Vec<T> = Vec::with_capacity(columns.0);
+
+        // TODO: This triggers UB
+        //
+        // This is a slightly optimized version of `std::vec::Vec::resize`.
+        unsafe {
+            let mut ptr = inner.as_mut_ptr();
+
+            for _ in 1..columns.0 {
+                ptr::write(ptr, template.clone().into());
+                ptr = ptr.offset(1);
+            }
+            ptr::write(ptr, template.into());
+
+            inner.set_len(columns.0);
+        }
+
+        Row { inner, occ: 0 }
     }
 
     pub fn grow(&mut self, cols: Column, template: T) {
@@ -74,41 +93,29 @@ impl<T: Clone> Row<T> {
 
     /// Reset all cells in the row to the `template` cell.
     #[inline]
-    pub fn reset<I>(&mut self, template: I)
+    pub fn reset<I, D>(&mut self, template: I)
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
-        I: Into<T> + Clone,
-        T: GridCell + PartialEq,
+        I: ResetDiscriminant<D> + Into<T> + Clone,
+        T: ResetDiscriminant<D> + GridCell + PartialEq,
+        D: PartialEq,
     {
         debug_assert!(!self.inner.is_empty());
 
-        // TODO: Have a specific background trait so we don't need to template.clone().into() for
-        // just bg?
-        //
         // Mark all cells as dirty if template cell changed.
-        let cell = template.clone().into();
         let len = self.inner.len();
-        if self.inner[len - 1].background() != cell.background() {
+        if self.inner[len - 1].discriminant() != template.discriminant() {
             self.occ = len;
         }
 
-        if self.occ == 0 {
-            return;
-        }
+        if self.occ != 0 {
+            // Reset every dirty cell in the row.
+            for item in &mut self.inner[1..self.occ] {
+                item.reset(template.clone());
+            }
+            self.inner[0].reset(template);
 
-        // TODO: Use the existing cell and template instead of using unnecessary clones / into.
-        //
-        // Reset every dirty cell in the row.
-        for item in &mut self.inner[1..self.occ] {
-            item.reset(template.clone());
+            self.occ = 0;
         }
-        self.inner[0].reset(template);
-
-        self.occ = 0;
     }
 }
 
