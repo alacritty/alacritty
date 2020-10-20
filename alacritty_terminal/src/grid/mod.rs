@@ -53,7 +53,6 @@ pub trait GridCell: Sized {
     fn is_empty(&self) -> bool;
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
-    fn reset<C: Into<Self>>(&mut self, cell: C);
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -200,11 +199,6 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
 
     fn increase_scroll_limit<I>(&mut self, count: usize, template: I)
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
         I: Into<T> + Clone,
     {
         let count = min(count, self.max_scroll_limit - self.history_size());
@@ -263,11 +257,6 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// This is the performance-sensitive part of scrolling.
     pub fn scroll_up<I>(&mut self, region: &Range<Line>, positions: Line, template: I)
     where
-        // TODO: In theory clone should be fine here, since Color is Copy anyways and the Clone is
-        // only used from resize. Alternatively we can change this back to Copy and pass a template
-        // to the grid's resize method.
-        // If the clone stays the way it is right now, it would probably make sense to avoid the
-        // last clone during the reset iteration though.
         I: ResetDiscriminant<Color> + Into<T> + Clone,
     {
         let num_lines = self.screen_lines().0;
@@ -347,8 +336,6 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
 
         // Reset all visible lines.
         for row in 0..self.raw.len() {
-            // TODO: NamedColor here is kinda shitty?
-            // TODO: Cell is also kinda shitty.
             self.raw[row].reset(T::default());
         }
 

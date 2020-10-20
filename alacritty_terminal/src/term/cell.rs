@@ -132,12 +132,6 @@ impl GridCell for Cell {
     fn flags_mut(&mut self) -> &mut Flags {
         &mut self.flags
     }
-
-    // TODO: Is this necessary as a method?
-    #[inline]
-    fn reset<C: Into<Self>>(&mut self, cell: C) {
-        *self = cell.into();
-    }
 }
 
 /// Get the length of occupied cells in a line.

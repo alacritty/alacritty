@@ -16,7 +16,7 @@ use crate::ansi::{
 };
 use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll, GridCell};
+use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
@@ -1122,7 +1122,7 @@ impl<T> Term<T> {
 
             // Reset alternate screen contents.
             let bg = self.inactive_grid.cursor.template.bg;
-            self.inactive_grid.region_mut(..).each(|c| c.reset(bg));
+            self.inactive_grid.region_mut(..).each(|cell| *cell = bg.into());
         }
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
@@ -1189,7 +1189,7 @@ impl<T> Term<T> {
 
         // Clear grid.
         let bg = self.grid.cursor.template.bg;
-        self.grid.region_mut(..).each(|c| c.reset(bg));
+        self.grid.region_mut(..).each(|cell| *cell = bg.into());
     }
 
     #[inline]
@@ -1533,7 +1533,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         let bg = Cell::default().bg;
         self.grid.region_mut(..).each(|cell| {
-            cell.reset(bg);
+            *cell = bg.into();
             cell.c = 'E';
         });
     }
@@ -1588,8 +1588,8 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Cells were just moved out toward the end of the line;
         // fill in between source and dest with blanks.
-        for c in &mut row[source..destination] {
-            c.reset(bg);
+        for cell in &mut row[source..destination] {
+            *cell = bg.into();
         }
     }
 
@@ -1828,8 +1828,8 @@ impl<T: EventListener> Handler for Term<T> {
         // Cleared cells have current background color set.
         let line = cursor.point.line;
         let row = &mut self.grid[line];
-        for c in &mut row[start..end] {
-            c.reset(bg);
+        for cell in &mut row[start..end] {
+            *cell = bg.into();
         }
     }
 
@@ -1859,8 +1859,8 @@ impl<T: EventListener> Handler for Term<T> {
         // Clear last `count` cells in the row. If deleting 1 char, need to delete
         // 1 cell.
         let end = cols - count;
-        for c in &mut row[end..] {
-            c.reset(bg);
+        for cell in &mut row[end..] {
+            *cell = bg.into();
         }
     }
 
@@ -1912,17 +1912,17 @@ impl<T: EventListener> Handler for Term<T> {
         match mode {
             ansi::LineClearMode::Right => {
                 for cell in &mut row[point.col..] {
-                    cell.reset(bg);
+                    *cell = bg.into();
                 }
             },
             ansi::LineClearMode::Left => {
                 for cell in &mut row[..=point.col] {
-                    cell.reset(bg);
+                    *cell = bg.into();
                 }
             },
             ansi::LineClearMode::All => {
                 for cell in &mut row[..] {
-                    cell.reset(bg);
+                    *cell = bg.into();
                 }
             },
         }
@@ -2019,13 +2019,13 @@ impl<T: EventListener> Handler for Term<T> {
                 // If clearing more than one line.
                 if cursor.line > Line(1) {
                     // Fully clear all lines before the current line.
-                    self.grid.region_mut(..cursor.line).each(|cell| cell.reset(bg));
+                    self.grid.region_mut(..cursor.line).each(|cell| *cell = bg.into());
                 }
 
                 // Clear up to the current column in the current line.
                 let end = min(cursor.col + 1, self.cols());
                 for cell in &mut self.grid[cursor.line][..end] {
-                    cell.reset(bg);
+                    *cell = bg.into();
                 }
 
                 self.selection = self
@@ -2036,11 +2036,11 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
                 for cell in &mut self.grid[cursor.line][cursor.col..] {
-                    cell.reset(bg);
+                    *cell = bg.into();
                 }
 
                 if cursor.line.0 < num_lines - 1 {
-                    self.grid.region_mut((cursor.line + 1)..).each(|cell| cell.reset(bg));
+                    self.grid.region_mut((cursor.line + 1)..).each(|cell| *cell = bg.into());
                 }
 
                 self.selection =
@@ -2048,7 +2048,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
-                    self.grid.region_mut(..).each(|c| c.reset(bg));
+                    self.grid.region_mut(..).each(|cell| *cell = bg.into());
                 } else {
                     self.grid.clear_viewport(bg);
                 }

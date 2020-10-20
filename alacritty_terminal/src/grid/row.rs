@@ -43,8 +43,6 @@ impl<T: Clone> Row<T> {
 
         let mut inner: Vec<T> = Vec::with_capacity(columns.0);
 
-        // TODO: This triggers UB
-        //
         // This is a slightly optimized version of `std::vec::Vec::resize`.
         unsafe {
             let mut ptr = inner.as_mut_ptr();
@@ -110,9 +108,9 @@ impl<T: Clone> Row<T> {
         if self.occ != 0 {
             // Reset every dirty cell in the row.
             for item in &mut self.inner[1..self.occ] {
-                item.reset(template.clone());
+                *item = template.clone().into();
             }
-            self.inner[0].reset(template);
+            self.inner[0] = template.into();
 
             self.occ = 0;
         }
