@@ -206,9 +206,6 @@ impl Display {
 
         info!("Device pixel ratio: {}", window.dpr);
 
-        // get window properties for initializing the other subsystems.
-        let viewport_size = window.inner_size();
-
         // Create renderer.
         let mut renderer = QuadRenderer::new()?;
 
@@ -226,6 +223,7 @@ impl Display {
         }
 
         let padding = config.ui_config.window.padding(window.dpr);
+        let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
         let size_info = SizeInfo::new(
@@ -240,6 +238,7 @@ impl Display {
 
         info!("Cell size: {} x {}", cell_width, cell_height);
         info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
+        info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
         // Update OpenGL projection.
         renderer.resize(&size_info);
