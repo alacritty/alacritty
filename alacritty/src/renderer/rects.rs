@@ -142,10 +142,9 @@ impl RenderLines {
     pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         self.inner
             .iter()
-            .map(|(flag, lines)| -> Vec<RenderRect> {
-                lines.iter().map(|line| line.rects(*flag, metrics, size)).flatten().collect()
+            .flat_map(|(flag, lines)| {
+                lines.iter().flat_map(move |line| line.rects(*flag, metrics, size))
             })
-            .flatten()
             .collect()
     }
 
