@@ -313,10 +313,6 @@ mod tests {
             *self == ' ' || *self == '\t'
         }
 
-        fn reset<C: Into<Self>>(&mut self, cell: C) {
-            *self = cell.into();
-        }
-
         fn flags(&self) -> &Flags {
             unimplemented!();
         }

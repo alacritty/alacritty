@@ -9,10 +9,6 @@ impl GridCell for usize {
         *self == 0
     }
 
-    fn reset<C: Into<Self>>(&mut self, cell: C) {
-        *self = cell.into();
-    }
-
     fn flags(&self) -> &Flags {
         unimplemented!();
     }
