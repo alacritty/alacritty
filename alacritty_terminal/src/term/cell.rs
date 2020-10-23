@@ -204,7 +204,7 @@ mod benches {
             let mut cell = Cell::default();
 
             for _ in 0..100 {
-                cell.reset(test::black_box(Color::Named(NamedColor::Foreground)));
+                cell = test::black_box(Color::Named(NamedColor::Foreground).into());
             }
 
             test::black_box(cell);
