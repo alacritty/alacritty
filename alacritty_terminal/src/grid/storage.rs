@@ -806,12 +806,8 @@ mod tests {
             Row::new(Column(1), '5'),
         ];
         expected_inner.append(&mut vec![Row::new(Column(1), '-'); expected_init_size]);
-        let expected_storage = Storage {
-            inner: expected_inner,
-            zero: 0,
-            visible_lines: Line(0),
-            len: 9,
-        };
+        let expected_storage =
+            Storage { inner: expected_inner, zero: 0, visible_lines: Line(0), len: 9 };
 
         assert_eq!(storage.len, expected_storage.len);
         assert_eq!(storage.zero, expected_storage.zero);

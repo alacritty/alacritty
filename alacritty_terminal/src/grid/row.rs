@@ -3,8 +3,8 @@
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut};
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
-use std::slice;
 use std::ptr;
+use std::slice;
 
 use serde::{Deserialize, Serialize};
 

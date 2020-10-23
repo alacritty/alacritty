@@ -270,12 +270,8 @@ impl<T> Term<T> {
             let last_point = mem::replace(&mut point, iter.point());
 
             // Handle linebreaks.
-            if (last_point.col == last_col
-                && point.col == Column(0)
-                && !last_wrapped)
-                || (last_point.col == Column(0)
-                    && point.col == last_col
-                    && !wrapped)
+            if (last_point.col == last_col && point.col == Column(0) && !last_wrapped)
+                || (last_point.col == Column(0) && point.col == last_col && !wrapped)
             {
                 match regex_match {
                     Some(_) => break,

@@ -164,10 +164,7 @@ impl LineLength for grid::Row<Cell> {
 impl From<Color> for Cell {
     #[inline]
     fn from(color: Color) -> Self {
-        Self {
-            bg: color,
-            ..Cell::default()
-        }
+        Self { bg: color, ..Cell::default() }
     }
 }
 

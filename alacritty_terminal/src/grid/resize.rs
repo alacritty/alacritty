@@ -3,9 +3,9 @@
 use std::cmp::{min, Ordering};
 use std::mem;
 
+use crate::ansi::Color;
 use crate::index::{Column, Line};
 use crate::term::cell::{Flags, ResetDiscriminant};
-use crate::ansi::Color;
 
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
@@ -274,7 +274,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                     let mut spacer = T::default();
                     spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
 
-                    let wide_char = mem::replace(&mut row[cols-1], spacer);
+                    let wide_char = mem::replace(&mut row[cols - 1], spacer);
                     wrapped.insert(0, wide_char);
                 }
 

@@ -399,8 +399,8 @@ mod tests {
     use crate::config::MockConfig;
     use crate::event::Event;
     use crate::index::{Column, Line};
-    use crate::term::{SizeInfo, Term};
     use crate::term::cell::Cell;
+    use crate::term::{SizeInfo, Term};
 
     struct Mock;
     impl EventListener for Mock {
