@@ -249,13 +249,13 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RenderableCellContent {
     Chars((char, Option<Vec<char>>)),
     Cursor(CursorKey),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line).
     pub line: Line,
@@ -854,7 +854,7 @@ impl<T> Term<T> {
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size);
-        let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */);
+        let alt = Grid::new(num_lines, num_cols, 0);
 
         let tabs = TabStops::new(grid.cols());
 
