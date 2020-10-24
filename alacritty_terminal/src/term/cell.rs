@@ -45,7 +45,7 @@ impl ResetDiscriminant<Color> for Cell {
     }
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 struct CellExtra {
     zerowidth: Vec<char>,
 }
@@ -56,7 +56,7 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
-    #[serde(skip)]
+    #[serde(default)]
     extra: Option<Box<CellExtra>>,
 }
 
