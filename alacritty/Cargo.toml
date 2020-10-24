@@ -32,7 +32,6 @@ unicode-width = "0.1"
 
 [build-dependencies]
 gl_generator = "0.14.0"
-rustc_tools_util = "0.2.0"
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
