@@ -693,10 +693,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 });
                 self.ctx.touchscreen_mut().is_gesture = false;
                 self.ctx.touchscreen_mut().mean_y = self.ctx.touchscreen().mean_finger_position().1;
-                if self.ctx.touchscreen_mut().fingers.len() == 2 {
-                    self.ctx.touchscreen_mut().start_finger_distance =
-                        self.ctx.touchscreen().mean_finger_distance();
-                    self.ctx.touchscreen_mut().relative_zoom_level = 0;
+                if self.ctx.touchscreen().is_zooming() {
+                    self.ctx.touchscreen_mut().init_zooming();
                 }
             },
             TouchPhase::Moved => {
@@ -715,7 +713,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.scroll_terminal(difference_y);
                 self.ctx.touchscreen_mut().mean_y = new_y;
                 // Process zoom gesture.
-                if self.ctx.touchscreen().fingers.len() == 2 {
+                if self.ctx.touchscreen().is_zooming() {
                     let finger_distance = self.ctx.touchscreen().mean_finger_distance();
                     let new_zoom = (finger_distance / self.ctx.touchscreen().start_finger_distance)
                         .log(1.05)
@@ -736,10 +734,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.on_mouse_release(MouseButton::Left);
                 }
                 self.ctx.touchscreen_mut().fingers.remove(&touch.id);
-                if self.ctx.touchscreen().fingers.len() == 2 {
-                    self.ctx.touchscreen_mut().start_finger_distance
-                        = self.ctx.touchscreen().mean_finger_distance();
-                    self.ctx.touchscreen_mut().relative_zoom_level = 0;
+                if self.ctx.touchscreen().is_zooming() {
+                    self.ctx.touchscreen_mut().init_zooming();
                 }
                 if !self.ctx.touchscreen().fingers.is_empty() {
                     self.ctx.touchscreen_mut().mean_y

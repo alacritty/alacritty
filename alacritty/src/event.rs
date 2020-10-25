@@ -714,6 +714,14 @@ impl Touchscreen {
         }
         mean_distance / pair_count as f64
     }
+    pub fn is_zooming(&self) -> bool {
+        let min_finger_count_to_zoom = 2;
+        self.fingers.len() >= min_finger_count_to_zoom
+    }
+    pub fn init_zooming(&mut self) {
+        self.start_finger_distance = self.mean_finger_distance();
+        self.relative_zoom_level = 0;
+    }
 }
 
 /// State of the mouse.
