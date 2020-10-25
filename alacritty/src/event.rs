@@ -50,6 +50,7 @@ use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 use crate::window::Window;
+use std::collections::HashMap;
 
 /// Duration after the last user input until an unlimited search is performed.
 pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
@@ -652,6 +653,15 @@ pub enum ClickState {
     TripleClick,
 }
 
+#[derive(Debug)]
+pub struct TouchFinger {
+    pub start_x: f64,
+    pub start_y: f64,
+    pub start_timestamp: Instant,
+    pub x: f64,
+    pub y: f64,
+}
+
 /// State of the mouse.
 #[derive(Debug)]
 pub struct Mouse {
@@ -670,6 +680,11 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub inside_text_area: bool,
+    pub touch_finger: HashMap<u64, TouchFinger>,
+    pub touch_mean_y: f64,
+    pub touch_start_finger_distance: f64,
+    pub touch_relative_zoom_level: f64,
+    pub touch_is_gesture: bool,
 }
 
 impl Default for Mouse {
@@ -690,6 +705,11 @@ impl Default for Mouse {
             lines_scrolled: 0.,
             block_url_launcher: false,
             inside_text_area: false,
+            touch_finger: HashMap::new(),
+            touch_mean_y: 0.0,
+            touch_start_finger_distance: 1.0,
+            touch_relative_zoom_level: 0.0,
+            touch_is_gesture: false,
         }
     }
 }
@@ -995,6 +1015,10 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
+                    WindowEvent::Touch( touch ) => {
+                        processor.ctx.window.set_mouse_visible(false);
+                        processor.touch_input(touch);
+                    },
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
@@ -1029,7 +1053,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1055,7 +1078,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_)
             ),
             GlutinEvent::Suspended { .. }
