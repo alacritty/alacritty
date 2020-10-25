@@ -1,12 +1,12 @@
-use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
-
 use std::env;
 use std::fs::File;
 use std::path::Path;
+use std::process::Command;
+
+use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 
 fn main() {
-    let hash = rustc_tools_util::get_commit_hash().unwrap_or_default();
-    println!("cargo:rustc-env=GIT_HASH={}", hash);
+    println!("cargo:rustc-env=GIT_HASH={}", commit_hash());
 
     let dest = env::var("OUT_DIR").unwrap();
     let mut file = File::create(&Path::new(&dest).join("gl_bindings.rs")).unwrap();
@@ -17,4 +17,13 @@ fn main() {
 
     #[cfg(windows)]
     embed_resource::compile("../extra/windows/windows.rc");
+}
+
+fn commit_hash() -> String {
+    Command::new("git")
+        .args(&["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .unwrap_or_default()
 }
