@@ -709,7 +709,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 if self.ctx.mouse().touch_finger.len() == 2 {
                     self.ctx.mouse_mut().touch_start_finger_distance =
                         touch_two_finger_distance(self.ctx.mouse());
-                    self.ctx.mouse_mut().touch_relative_zoom_level = 0.0;
+                    self.ctx.mouse_mut().touch_relative_zoom_level = 0;
                 }
             },
             TouchPhase::Moved => {
@@ -731,7 +731,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     let finger_distance = touch_two_finger_distance(self.ctx.mouse());
                     let new_zoom = (finger_distance / self.ctx.mouse().touch_start_finger_distance)
                         .log(1.05)
-                        .round();
+                        .round() as i64;
                     let old_zoom = self.ctx.mouse().touch_relative_zoom_level;
                     if new_zoom != old_zoom {
                         self.ctx
@@ -751,7 +751,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 if self.ctx.mouse().touch_finger.len() == 2 {
                     self.ctx.mouse_mut().touch_start_finger_distance =
                         touch_two_finger_distance(self.ctx.mouse());
-                    self.ctx.mouse_mut().touch_relative_zoom_level = 0.0;
+                    self.ctx.mouse_mut().touch_relative_zoom_level = 0;
                 }
                 if !self.ctx.mouse().touch_finger.is_empty() {
                     self.ctx.mouse_mut().touch_mean_y = touch_mean_y(self.ctx.mouse());

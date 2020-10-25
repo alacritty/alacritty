@@ -683,7 +683,7 @@ pub struct Mouse {
     pub touch_finger: HashMap<u64, TouchFinger>,
     pub touch_mean_y: f64,
     pub touch_start_finger_distance: f64,
-    pub touch_relative_zoom_level: f64,
+    pub touch_relative_zoom_level: i64,
     pub touch_is_gesture: bool,
 }
 
@@ -708,7 +708,7 @@ impl Default for Mouse {
             touch_finger: HashMap::new(),
             touch_mean_y: 0.0,
             touch_start_finger_distance: 1.0,
-            touch_relative_zoom_level: 0.0,
+            touch_relative_zoom_level: 0,
             touch_is_gesture: false,
         }
     }
