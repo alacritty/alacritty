@@ -16,7 +16,7 @@ default-features = false
 [dependencies]
 clap = "2"
 log = { version = "0.4", features = ["std"] }
-time = "0.1.40"
+time = "0.2.22"
 fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"

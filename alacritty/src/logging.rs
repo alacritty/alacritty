@@ -107,7 +107,7 @@ impl log::Log for Logger {
             return;
         }
 
-        let now = time::strftime("%F %T.%f", &time::now()).unwrap();
+        let now = time::OffsetDateTime::now_local().lazy_format("%F %T.%N");
         let msg = format!("[{}] [{:<5}] [{}] {}\n", now, record.level(), target, record.args());
 
         // Write to stdout.
