@@ -688,6 +688,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.ctx.touchscreen_mut().fingers.insert(touch.id, TouchFinger {
                     start_x: touch.location.x,
                     start_y: touch.location.y,
+                    start_timestamp: Instant::now(),
                     x: touch.location.x,
                     y: touch.location.y,
                 });
@@ -730,8 +731,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 if !self.ctx.touchscreen().is_gesture {
                     // Do not simulate mouse clicks until you release your finger in order to
                     // prevent incorrect clicks during gestures.
-                    self.on_mouse_press(MouseButton::Left);
-                    self.on_mouse_release(MouseButton::Left);
+                    if let Some(finger) = self.ctx.touchscreen().fingers.get(&touch.id) {
+                        let duration_for_right_click = std::time::Duration::from_millis(300);
+                        let touch_duration = Instant::now() - finger.start_timestamp;
+                        let mouse_button = if touch_duration < duration_for_right_click {
+                            MouseButton::Left
+                        } else {
+                            MouseButton::Right
+                        };
+                        self.mouse_moved(PhysicalPosition::new(finger.start_x, finger.start_y));
+                        self.mouse_input(ElementState::Pressed, mouse_button);
+                        self.mouse_moved(touch.location);
+                        self.mouse_input(ElementState::Released, mouse_button);
+                    }
                 }
                 self.ctx.touchscreen_mut().fingers.remove(&touch.id);
                 if self.ctx.touchscreen().is_zooming() {

@@ -668,6 +668,7 @@ pub enum ClickState {
 pub struct TouchFinger {
     pub start_x: f64,
     pub start_y: f64,
+    pub start_timestamp: Instant,
     pub x: f64,
     pub y: f64,
 }
