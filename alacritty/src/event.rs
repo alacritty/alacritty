@@ -1015,7 +1015,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.window.set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
-                    WindowEvent::Touch( touch ) => {
+                    WindowEvent::Touch(touch) => {
                         processor.ctx.window.set_mouse_visible(false);
                         processor.touch_input(touch);
                     },

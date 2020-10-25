@@ -14,8 +14,8 @@ use log::trace;
 
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
-    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
-    VirtualKeyCode, Touch,
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, Touch, TouchPhase,
+    VirtualKeyCode,
 };
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
@@ -34,7 +34,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::daemon::start_daemon;
-use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY, TouchFinger};
+use crate::event::{ClickState, Event, Mouse, TouchFinger, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -707,7 +707,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.ctx.mouse_mut().touch_is_gesture = false;
                 self.ctx.mouse_mut().touch_mean_y = touch_mean_y(self.ctx.mouse());
                 if self.ctx.mouse().touch_finger.len() == 2 {
-                    self.ctx.mouse_mut().touch_start_finger_distance = touch_two_finger_distance(self.ctx.mouse());
+                    self.ctx.mouse_mut().touch_start_finger_distance =
+                        touch_two_finger_distance(self.ctx.mouse());
                     self.ctx.mouse_mut().touch_relative_zoom_level = 0.0;
                 }
             },
@@ -728,29 +729,34 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 // Process zoom gesture.
                 if self.ctx.mouse().touch_finger.len() == 2 {
                     let finger_distance = touch_two_finger_distance(self.ctx.mouse());
-                    let new_zoom = (finger_distance / self.ctx.mouse().touch_start_finger_distance).log(1.05).round();
+                    let new_zoom = (finger_distance / self.ctx.mouse().touch_start_finger_distance)
+                        .log(1.05)
+                        .round();
                     let old_zoom = self.ctx.mouse().touch_relative_zoom_level;
                     if new_zoom != old_zoom {
-                        self.ctx.change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
+                        self.ctx
+                            .change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
                         self.ctx.mouse_mut().touch_relative_zoom_level = new_zoom;
                     }
                 }
             },
             TouchPhase::Ended | TouchPhase::Cancelled => {
                 if !self.ctx.mouse().touch_is_gesture {
-                    // Do not simulate mouse clicks until you release your finger in order to prevent incorrect clicks during gestures.
+                    // Do not simulate mouse clicks until you release your finger in order to
+                    // prevent incorrect clicks during gestures.
                     self.on_mouse_press(MouseButton::Left);
                     self.on_mouse_release(MouseButton::Left);
                 }
                 self.ctx.mouse_mut().touch_finger.remove(&touch.id);
                 if self.ctx.mouse().touch_finger.len() == 2 {
-                    self.ctx.mouse_mut().touch_start_finger_distance = touch_two_finger_distance(self.ctx.mouse());
+                    self.ctx.mouse_mut().touch_start_finger_distance =
+                        touch_two_finger_distance(self.ctx.mouse());
                     self.ctx.mouse_mut().touch_relative_zoom_level = 0.0;
                 }
                 if !self.ctx.mouse().touch_finger.is_empty() {
                     self.ctx.mouse_mut().touch_mean_y = touch_mean_y(self.ctx.mouse());
                 }
-            }
+            },
         }
     }
 
