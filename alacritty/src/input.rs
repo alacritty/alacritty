@@ -683,21 +683,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     pub fn touch_input(&mut self, touch: Touch) {
-        fn touch_mean_y(touchscreen: &Touchscreen) -> f64 {
-            touchscreen.fingers.iter().map(|a| a.1.y).sum::<f64>()
-                / touchscreen.fingers.len() as f64
-        }
-        fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
-            let diff_x = x1 - x2;
-            let diff_y = y1 - y2;
-            (diff_x * diff_x + diff_y * diff_y).sqrt()
-        }
-        fn touch_two_finger_distance(touchscreen: &Touchscreen) -> f64 {
-            let mut finger_iterator = touchscreen.fingers.iter();
-            let first_finger = finger_iterator.next().unwrap().1;
-            let second_finger = finger_iterator.next().unwrap().1;
-            distance(first_finger.x, first_finger.y, second_finger.x, second_finger.y)
-        }
         match touch.phase {
             TouchPhase::Started => {
                 self.ctx.touchscreen_mut().fingers.insert(touch.id, TouchFinger {
@@ -707,30 +692,31 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     y: touch.location.y,
                 });
                 self.ctx.touchscreen_mut().is_gesture = false;
-                self.ctx.touchscreen_mut().mean_y = touch_mean_y(self.ctx.touchscreen());
+                self.ctx.touchscreen_mut().mean_y = self.ctx.touchscreen().mean_finger_position().1;
                 if self.ctx.touchscreen_mut().fingers.len() == 2 {
                     self.ctx.touchscreen_mut().start_finger_distance =
-                        touch_two_finger_distance(self.ctx.touchscreen());
+                        self.ctx.touchscreen().mean_finger_distance();
                     self.ctx.touchscreen_mut().relative_zoom_level = 0;
                 }
             },
             TouchPhase::Moved => {
                 let mut register_gesture = false;
-                self.ctx.touchscreen_mut().fingers.entry(touch.id).and_modify(|tf| {
-                    tf.x = touch.location.x;
-                    tf.y = touch.location.y;
+                if let Some(mut finger) = self.ctx.touchscreen_mut().fingers.get_mut(&touch.id) {
+                    finger.x = touch.location.x;
+                    finger.y = touch.location.y;
                     // Allow a click despite wobbling fingers.
-                    register_gesture = distance(tf.start_x, tf.start_y, tf.x, tf.y) > 16.0;
-                });
+                    register_gesture = (finger.x - finger.start_x)
+                        .hypot(finger.y - finger.start_y) > 16.0;
+                }
                 self.ctx.touchscreen_mut().is_gesture |= register_gesture;
                 // Process scroll gesture.
-                let new_y = touch_mean_y(self.ctx.touchscreen());
+                let new_y = self.ctx.touchscreen().mean_finger_position().1;
                 let difference_y = new_y - self.ctx.touchscreen().mean_y;
                 self.scroll_terminal(difference_y);
                 self.ctx.touchscreen_mut().mean_y = new_y;
                 // Process zoom gesture.
                 if self.ctx.touchscreen().fingers.len() == 2 {
-                    let finger_distance = touch_two_finger_distance(self.ctx.touchscreen());
+                    let finger_distance = self.ctx.touchscreen().mean_finger_distance();
                     let new_zoom = (finger_distance / self.ctx.touchscreen().start_finger_distance)
                         .log(1.05)
                         .round() as i64;
@@ -751,12 +737,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 }
                 self.ctx.touchscreen_mut().fingers.remove(&touch.id);
                 if self.ctx.touchscreen().fingers.len() == 2 {
-                    self.ctx.touchscreen_mut().start_finger_distance =
-                        touch_two_finger_distance(self.ctx.touchscreen());
+                    self.ctx.touchscreen_mut().start_finger_distance
+                        = self.ctx.touchscreen().mean_finger_distance();
                     self.ctx.touchscreen_mut().relative_zoom_level = 0;
                 }
                 if !self.ctx.touchscreen().fingers.is_empty() {
-                    self.ctx.touchscreen_mut().mean_y = touch_mean_y(self.ctx.touchscreen());
+                    self.ctx.touchscreen_mut().mean_y
+                        = self.ctx.touchscreen().mean_finger_position().1;
                 }
             },
         }

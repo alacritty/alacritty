@@ -693,6 +693,29 @@ impl Default for Touchscreen {
     }
 }
 
+impl Touchscreen {
+    pub fn mean_finger_position(&self) -> (f64, f64) {
+        let mut mean_position = (0.0, 0.0);
+        for finger in self.fingers.values() {
+            mean_position.0 += finger.x;
+            mean_position.1 += finger.y;
+        }
+        let finger_count = self.fingers.len() as f64;
+        (mean_position.0 / finger_count, mean_position.1 / finger_count)
+    }
+    pub fn mean_finger_distance(&self) -> f64 {
+        let mut mean_distance = 0.0;
+        let mut pair_count = 0;
+        for (i, finger_a) in self.fingers.values().enumerate() {
+            for finger_b in self.fingers.values().skip(i+1) {
+                pair_count += 1;
+                mean_distance += (finger_a.x - finger_b.x).hypot(finger_a.y - finger_b.y);
+            }
+        }
+        mean_distance / pair_count as f64
+    }
+}
+
 /// State of the mouse.
 #[derive(Debug)]
 pub struct Mouse {
