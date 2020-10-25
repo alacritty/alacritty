@@ -129,6 +129,7 @@ pub struct ActionContext<'a, N, T> {
     pub clipboard: &'a mut Clipboard,
     pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
+    pub touchscreen: &'a mut Touchscreen,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub modifiers: &'a mut ModifiersState,
@@ -262,6 +263,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn mouse(&self) -> &Mouse {
         self.mouse
+    }
+
+    #[inline]
+    fn touchscreen_mut(&mut self) -> &mut Touchscreen {
+        self.touchscreen
+    }
+
+    #[inline]
+    fn touchscreen(&self) -> &Touchscreen {
+        self.touchscreen
     }
 
     #[inline]
@@ -657,9 +668,29 @@ pub enum ClickState {
 pub struct TouchFinger {
     pub start_x: f64,
     pub start_y: f64,
-    pub start_timestamp: Instant,
     pub x: f64,
     pub y: f64,
+}
+
+#[derive(Debug)]
+pub struct Touchscreen {
+    pub fingers: HashMap<u64, TouchFinger>,
+    pub mean_y: f64,
+    pub start_finger_distance: f64,
+    pub relative_zoom_level: i64,
+    pub is_gesture: bool,
+}
+
+impl Default for Touchscreen {
+    fn default() -> Touchscreen {
+        Touchscreen {
+            fingers: HashMap::new(),
+            mean_y: 0.0,
+            start_finger_distance: 1.0,
+            relative_zoom_level: 0,
+            is_gesture: false,
+        }
+    }
 }
 
 /// State of the mouse.
@@ -680,11 +711,6 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub inside_text_area: bool,
-    pub touch_finger: HashMap<u64, TouchFinger>,
-    pub touch_mean_y: f64,
-    pub touch_start_finger_distance: f64,
-    pub touch_relative_zoom_level: i64,
-    pub touch_is_gesture: bool,
 }
 
 impl Default for Mouse {
@@ -705,11 +731,6 @@ impl Default for Mouse {
             lines_scrolled: 0.,
             block_url_launcher: false,
             inside_text_area: false,
-            touch_finger: HashMap::new(),
-            touch_mean_y: 0.0,
-            touch_start_finger_distance: 1.0,
-            touch_relative_zoom_level: 0,
-            touch_is_gesture: false,
         }
     }
 }
@@ -721,6 +742,7 @@ impl Default for Mouse {
 pub struct Processor<N> {
     notifier: N,
     mouse: Mouse,
+    touchscreen: Touchscreen,
     received_count: usize,
     suppress_chars: bool,
     clipboard: Clipboard,
@@ -753,6 +775,7 @@ impl<N: Notify + OnResize> Processor<N> {
         Processor {
             notifier,
             mouse: Default::default(),
+            touchscreen: Default::default(),
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
@@ -854,6 +877,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
+                touchscreen: &mut self.touchscreen,
                 clipboard: &mut self.clipboard,
                 size_info: &mut self.display.size_info,
                 received_count: &mut self.received_count,

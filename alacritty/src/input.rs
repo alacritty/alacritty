@@ -34,7 +34,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::daemon::start_daemon;
-use crate::event::{ClickState, Event, Mouse, TouchFinger, TYPING_SEARCH_DELAY};
+use crate::event::{ClickState, Event, Mouse, TouchFinger, Touchscreen, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -73,6 +73,8 @@ pub trait ActionContext<T: EventListener> {
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
+    fn touchscreen_mut(&mut self) -> &mut Touchscreen;
+    fn touchscreen(&self) -> &Touchscreen;
     fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
@@ -681,80 +683,80 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     pub fn touch_input(&mut self, touch: Touch) {
-        fn touch_mean_y(mouse: &Mouse) -> f64 {
-            mouse.touch_finger.iter().map(|a| a.1.y).sum::<f64>() / mouse.touch_finger.len() as f64
+        fn touch_mean_y(touchscreen: &Touchscreen) -> f64 {
+            touchscreen.fingers.iter().map(|a| a.1.y).sum::<f64>()
+                / touchscreen.fingers.len() as f64
         }
         fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
             let diff_x = x1 - x2;
             let diff_y = y1 - y2;
             (diff_x * diff_x + diff_y * diff_y).sqrt()
         }
-        fn touch_two_finger_distance(mouse: &Mouse) -> f64 {
-            let mut finger_iterator = mouse.touch_finger.iter();
+        fn touch_two_finger_distance(touchscreen: &Touchscreen) -> f64 {
+            let mut finger_iterator = touchscreen.fingers.iter();
             let first_finger = finger_iterator.next().unwrap().1;
             let second_finger = finger_iterator.next().unwrap().1;
             distance(first_finger.x, first_finger.y, second_finger.x, second_finger.y)
         }
         match touch.phase {
             TouchPhase::Started => {
-                self.ctx.mouse_mut().touch_finger.insert(touch.id, TouchFinger {
+                self.ctx.touchscreen_mut().fingers.insert(touch.id, TouchFinger {
                     start_x: touch.location.x,
                     start_y: touch.location.y,
                     x: touch.location.x,
                     y: touch.location.y,
-                    start_timestamp: Instant::now(),
                 });
-                self.ctx.mouse_mut().touch_is_gesture = false;
-                self.ctx.mouse_mut().touch_mean_y = touch_mean_y(self.ctx.mouse());
-                if self.ctx.mouse().touch_finger.len() == 2 {
-                    self.ctx.mouse_mut().touch_start_finger_distance =
-                        touch_two_finger_distance(self.ctx.mouse());
-                    self.ctx.mouse_mut().touch_relative_zoom_level = 0;
+                self.ctx.touchscreen_mut().is_gesture = false;
+                self.ctx.touchscreen_mut().mean_y = touch_mean_y(self.ctx.touchscreen());
+                if self.ctx.touchscreen_mut().fingers.len() == 2 {
+                    self.ctx.touchscreen_mut().start_finger_distance =
+                        touch_two_finger_distance(self.ctx.touchscreen());
+                    self.ctx.touchscreen_mut().relative_zoom_level = 0;
                 }
             },
             TouchPhase::Moved => {
                 let mut register_gesture = false;
-                self.ctx.mouse_mut().touch_finger.entry(touch.id).and_modify(|tf| {
+                self.ctx.touchscreen_mut().fingers.entry(touch.id).and_modify(|tf| {
                     tf.x = touch.location.x;
                     tf.y = touch.location.y;
                     // Allow a click despite wobbling fingers.
                     register_gesture = distance(tf.start_x, tf.start_y, tf.x, tf.y) > 16.0;
                 });
-                self.ctx.mouse_mut().touch_is_gesture |= register_gesture;
+                self.ctx.touchscreen_mut().is_gesture |= register_gesture;
                 // Process scroll gesture.
-                let new_y = touch_mean_y(self.ctx.mouse());
-                let difference_y = new_y - self.ctx.mouse().touch_mean_y;
+                let new_y = touch_mean_y(self.ctx.touchscreen());
+                let difference_y = new_y - self.ctx.touchscreen().mean_y;
                 self.scroll_terminal(difference_y);
-                self.ctx.mouse_mut().touch_mean_y = new_y;
+                self.ctx.touchscreen_mut().mean_y = new_y;
                 // Process zoom gesture.
-                if self.ctx.mouse().touch_finger.len() == 2 {
-                    let finger_distance = touch_two_finger_distance(self.ctx.mouse());
-                    let new_zoom = (finger_distance / self.ctx.mouse().touch_start_finger_distance)
+                if self.ctx.touchscreen().fingers.len() == 2 {
+                    let finger_distance = touch_two_finger_distance(self.ctx.touchscreen());
+                    let new_zoom = (finger_distance / self.ctx.touchscreen().start_finger_distance)
                         .log(1.05)
                         .round() as i64;
-                    let old_zoom = self.ctx.mouse().touch_relative_zoom_level;
+                    let old_zoom = self.ctx.touchscreen().relative_zoom_level;
                     if new_zoom != old_zoom {
                         self.ctx
                             .change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
-                        self.ctx.mouse_mut().touch_relative_zoom_level = new_zoom;
+                        self.ctx.touchscreen_mut().relative_zoom_level = new_zoom;
                     }
                 }
             },
             TouchPhase::Ended | TouchPhase::Cancelled => {
-                if !self.ctx.mouse().touch_is_gesture {
+                if !self.ctx.touchscreen().is_gesture {
                     // Do not simulate mouse clicks until you release your finger in order to
                     // prevent incorrect clicks during gestures.
                     self.on_mouse_press(MouseButton::Left);
                     self.on_mouse_release(MouseButton::Left);
                 }
-                self.ctx.mouse_mut().touch_finger.remove(&touch.id);
-                if self.ctx.mouse().touch_finger.len() == 2 {
-                    self.ctx.mouse_mut().touch_start_finger_distance =
-                        touch_two_finger_distance(self.ctx.mouse());
-                    self.ctx.mouse_mut().touch_relative_zoom_level = 0;
+                self.ctx.touchscreen_mut().fingers.remove(&touch.id);
+                if self.ctx.touchscreen().fingers.len() == 2 {
+                    self.ctx.touchscreen_mut().start_finger_distance =
+                        touch_two_finger_distance(self.ctx.touchscreen());
+                    self.ctx.touchscreen_mut().relative_zoom_level = 0;
                 }
-                if !self.ctx.mouse().touch_finger.is_empty() {
-                    self.ctx.mouse_mut().touch_mean_y = touch_mean_y(self.ctx.mouse());
+                if !self.ctx.touchscreen().fingers.is_empty() {
+                    self.ctx.touchscreen_mut().mean_y = touch_mean_y(self.ctx.touchscreen());
                 }
             },
         }
