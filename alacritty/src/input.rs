@@ -684,76 +684,85 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     pub fn touch_input(&mut self, touch: Touch) {
         match touch.phase {
-            TouchPhase::Started => {
-                self.ctx.touchscreen_mut().fingers.insert(touch.id, TouchFinger {
-                    start_x: touch.location.x,
-                    start_y: touch.location.y,
-                    start_timestamp: Instant::now(),
-                    x: touch.location.x,
-                    y: touch.location.y,
-                });
-                self.ctx.touchscreen_mut().is_gesture = false;
-                self.ctx.touchscreen_mut().mean_y = self.ctx.touchscreen().mean_finger_position().1;
-                if self.ctx.touchscreen().is_zooming() {
-                    self.ctx.touchscreen_mut().init_zooming();
-                }
-            },
-            TouchPhase::Moved => {
-                let mut register_gesture = false;
-                if let Some(mut finger) = self.ctx.touchscreen_mut().fingers.get_mut(&touch.id) {
-                    finger.x = touch.location.x;
-                    finger.y = touch.location.y;
-                    // Allow a click despite wobbling fingers.
-                    register_gesture = (finger.x - finger.start_x)
-                        .hypot(finger.y - finger.start_y) > 16.0;
-                }
-                self.ctx.touchscreen_mut().is_gesture |= register_gesture;
-                // Process scroll gesture.
-                let new_y = self.ctx.touchscreen().mean_finger_position().1;
-                let difference_y = new_y - self.ctx.touchscreen().mean_y;
-                self.scroll_terminal(difference_y);
-                self.ctx.touchscreen_mut().mean_y = new_y;
-                // Process zoom gesture.
-                if self.ctx.touchscreen().is_zooming() {
-                    let finger_distance = self.ctx.touchscreen().mean_finger_distance();
-                    let new_zoom = (finger_distance / self.ctx.touchscreen().start_finger_distance)
-                        .log(1.05)
-                        .round() as i64;
-                    let old_zoom = self.ctx.touchscreen().relative_zoom_level;
-                    if new_zoom != old_zoom {
-                        self.ctx
-                            .change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
-                        self.ctx.touchscreen_mut().relative_zoom_level = new_zoom;
-                    }
-                }
-            },
-            TouchPhase::Ended | TouchPhase::Cancelled => {
-                if !self.ctx.touchscreen().is_gesture {
-                    // Do not simulate mouse clicks until you release your finger in order to
-                    // prevent incorrect clicks during gestures.
-                    if let Some(finger) = self.ctx.touchscreen().fingers.get(&touch.id) {
-                        let duration_for_right_click = std::time::Duration::from_millis(300);
-                        let touch_duration = Instant::now() - finger.start_timestamp;
-                        let mouse_button = if touch_duration < duration_for_right_click {
-                            MouseButton::Left
-                        } else {
-                            MouseButton::Right
-                        };
-                        self.mouse_moved(PhysicalPosition::new(finger.start_x, finger.start_y));
-                        self.mouse_input(ElementState::Pressed, mouse_button);
-                        self.mouse_moved(touch.location);
-                        self.mouse_input(ElementState::Released, mouse_button);
-                    }
-                }
-                self.ctx.touchscreen_mut().fingers.remove(&touch.id);
-                if self.ctx.touchscreen().is_zooming() {
-                    self.ctx.touchscreen_mut().init_zooming();
-                }
-                if !self.ctx.touchscreen().fingers.is_empty() {
-                    self.ctx.touchscreen_mut().mean_y
-                        = self.ctx.touchscreen().mean_finger_position().1;
-                }
-            },
+            TouchPhase::Started => self.on_touch_start(touch.id, touch.location),
+            TouchPhase::Moved => self.on_touch_move(touch.id, touch.location),
+            TouchPhase::Ended | TouchPhase::Cancelled =>
+                self.on_touch_end(touch.id, touch.location),
+        }
+    }
+
+    pub fn on_touch_start(&mut self, id: u64, location: PhysicalPosition<f64>) {
+        self.ctx.touchscreen_mut().fingers.insert(id, TouchFinger {
+            start_x: location.x,
+            start_y: location.y,
+            start_timestamp: Instant::now(),
+            x: location.x,
+            y: location.y,
+        });
+        self.ctx.touchscreen_mut().is_gesture = false;
+
+        if self.ctx.touchscreen().is_scrolling() {
+            self.ctx.touchscreen_mut().mean_y = self.ctx.touchscreen().mean_finger_position().y;
+        }
+        if self.ctx.touchscreen().is_zooming() {
+            self.ctx.touchscreen_mut().init_zooming();
+        }
+    }
+
+    pub fn on_touch_move(&mut self, id: u64, location: PhysicalPosition<f64>) {
+        self.ctx.touchscreen_mut().set_finger_position(id, &location);
+        self.ctx.touchscreen_mut().check_for_gestures(id);
+
+        if self.ctx.touchscreen().is_scrolling() {
+            let new_y = self.ctx.touchscreen().mean_finger_position().y;
+            let difference_y = new_y - self.ctx.touchscreen().mean_y;
+            self.scroll_terminal(difference_y);
+            self.ctx.touchscreen_mut().mean_y = new_y;
+        }
+        if self.ctx.touchscreen().is_zooming() {
+            let finger_distance = self.ctx.touchscreen().mean_finger_distance();
+            // Indicates the factor by how much greater the finger distance must be in relation to
+            // the last registered zoom level in order to trigger a further zoom level.
+            const FACTOR_PER_ZOOM_LEVEL: f64 = 1.05;
+            let new_zoom = (finger_distance / self.ctx.touchscreen().start_finger_distance)
+                .log(FACTOR_PER_ZOOM_LEVEL)
+                .round() as i64;
+            let old_zoom = self.ctx.touchscreen().relative_zoom_level;
+            if new_zoom != old_zoom {
+                self.ctx
+                    .change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
+                self.ctx.touchscreen_mut().relative_zoom_level = new_zoom;
+            }
+        }
+    }
+
+    pub fn on_touch_end(&mut self, id: u64, location: PhysicalPosition<f64>) {
+        if !self.ctx.touchscreen().is_gesture {
+            // Do not simulate mouse clicks until you release your finger in order to
+            // prevent incorrect clicks during gestures.
+            if let Some(&finger) = self.ctx.touchscreen().fingers.get(&id) {
+                const DURATION_FOR_RIGHT_CLICK: Duration
+                    = std::time::Duration::from_millis(300);
+                let touch_duration = Instant::now() - finger.start_timestamp;
+                let mouse_button = if touch_duration < DURATION_FOR_RIGHT_CLICK {
+                    MouseButton::Left
+                } else {
+                    MouseButton::Right
+                };
+                self.mouse_moved(PhysicalPosition::new(finger.start_x, finger.start_y));
+                self.mouse_input(ElementState::Pressed, mouse_button);
+                self.mouse_moved(location);
+                self.mouse_input(ElementState::Released, mouse_button);
+            }
+        }
+        self.ctx.touchscreen_mut().fingers.remove(&id);
+
+        if self.ctx.touchscreen().is_scrolling() {
+            self.ctx.touchscreen_mut().mean_y
+                = self.ctx.touchscreen().mean_finger_position().y;
+        }
+        if self.ctx.touchscreen().is_zooming() {
+            self.ctx.touchscreen_mut().init_zooming();
         }
     }
 

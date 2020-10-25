@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use glutin::dpi::PhysicalSize;
+use glutin::dpi::{PhysicalSize, PhysicalPosition};
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
@@ -664,7 +664,7 @@ pub enum ClickState {
     TripleClick,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct TouchFinger {
     pub start_x: f64,
     pub start_y: f64,
@@ -695,15 +695,16 @@ impl Default for Touchscreen {
 }
 
 impl Touchscreen {
-    pub fn mean_finger_position(&self) -> (f64, f64) {
+    pub fn mean_finger_position(&self) -> PhysicalPosition<f64> {
         let mut mean_position = (0.0, 0.0);
         for finger in self.fingers.values() {
             mean_position.0 += finger.x;
             mean_position.1 += finger.y;
         }
         let finger_count = self.fingers.len() as f64;
-        (mean_position.0 / finger_count, mean_position.1 / finger_count)
+        (mean_position.0 / finger_count, mean_position.1 / finger_count).into()
     }
+
     pub fn mean_finger_distance(&self) -> f64 {
         let mut mean_distance = 0.0;
         let mut pair_count = 0;
@@ -715,13 +716,38 @@ impl Touchscreen {
         }
         mean_distance / pair_count as f64
     }
-    pub fn is_zooming(&self) -> bool {
-        let min_finger_count_to_zoom = 2;
-        self.fingers.len() >= min_finger_count_to_zoom
+
+    pub fn check_for_gestures(&mut self, finger_id: u64) {
+        if let Some(&finger) = self.fingers.get(&finger_id) {
+            // Allow a click despite wobbling fingers.
+            const TOLERANCE_RADIUS: f64 = 16.0;
+            let distance_to_start = (finger.x - finger.start_x).hypot(finger.y - finger.start_y);
+            if distance_to_start > TOLERANCE_RADIUS {
+                 self.is_gesture = true;
+            }
+        }
     }
+
+    pub fn is_scrolling(&self) -> bool {
+        // Set it to `self.fingers.len() >= 1` to allow scrolling while zooming
+        self.fingers.len() == 1
+    }
+
+    pub fn is_zooming(&self) -> bool {
+        const MIN_FINGER_COUNT_TO_ZOOM: usize = 2;
+        self.fingers.len() >= MIN_FINGER_COUNT_TO_ZOOM
+    }
+
     pub fn init_zooming(&mut self) {
         self.start_finger_distance = self.mean_finger_distance();
         self.relative_zoom_level = 0;
+    }
+
+    pub fn set_finger_position(&mut self, id: u64, location: &PhysicalPosition<f64>) {
+        if let Some(mut finger) = self.fingers.get_mut(&id) {
+            finger.x = location.x;
+            finger.y = location.y;
+        }
     }
 }
 
