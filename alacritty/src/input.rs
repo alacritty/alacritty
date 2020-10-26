@@ -1216,6 +1216,7 @@ mod tests {
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
+        pub touchscreen: &'a mut Touchscreen,
         pub clipboard: &'a mut Clipboard,
         pub message_buffer: &'a mut MessageBuffer,
         pub received_count: usize,
@@ -1412,6 +1413,8 @@ mod tests {
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
 
+                let mut touchscreen = Touchscreen::default();
+
                 let mut selection = None;
 
                 let mut message_buffer = MessageBuffer::new();
@@ -1420,6 +1423,7 @@ mod tests {
                     terminal: &mut terminal,
                     selection: &mut selection,
                     mouse: &mut mouse,
+                    touchscreen: &mut touchscreen,
                     size_info: &size,
                     clipboard: &mut clipboard,
                     received_count: 0,
