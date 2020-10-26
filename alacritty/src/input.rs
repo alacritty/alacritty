@@ -730,7 +730,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     .round() as i64;
                 self.ctx.change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
                 self.ctx.touchscreen_mut().gesture =
-                    Gesture::Zooming {start_finger_distance, old_zoom: new_zoom};
+                    Gesture::Zooming { start_finger_distance, old_zoom: new_zoom };
             },
         };
     }
@@ -1311,12 +1311,12 @@ mod tests {
         }
 
         #[inline]
-        fn touchscreen_mut(&mut self) -> &mut Mouse {
+        fn touchscreen_mut(&mut self) -> &mut Touchscreen {
             self.touchscreen
         }
 
         #[inline]
-        fn touchscreen(&self) -> &Mouse {
+        fn touchscreen(&self) -> &Touchscreen {
             self.touchscreen
         }
 
