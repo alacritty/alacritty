@@ -669,47 +669,45 @@ pub struct TouchFinger {
     pub start_x: f64,
     pub start_y: f64,
     pub start_timestamp: Instant,
+    pub delta_x: f64,
+    pub delta_y: f64,
     pub x: f64,
     pub y: f64,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum Gesture {
+    None,
+    Clicking,
+    Scrolling,
+    Zooming {
+        start_finger_distance: f64,
+        old_zoom: i64,
+    },
+    Selecting,
 }
 
 #[derive(Debug)]
 pub struct Touchscreen {
     pub fingers: HashMap<u64, TouchFinger>,
-    pub mean_y: f64,
-    pub start_finger_distance: f64,
-    pub relative_zoom_level: i64,
-    pub is_gesture: bool,
+    pub gesture: Gesture,
 }
 
 impl Default for Touchscreen {
     fn default() -> Touchscreen {
         Touchscreen {
             fingers: HashMap::new(),
-            mean_y: 0.0,
-            start_finger_distance: 1.0,
-            relative_zoom_level: 0,
-            is_gesture: false,
+            gesture: Gesture::None,
         }
     }
 }
 
 impl Touchscreen {
-    pub fn mean_finger_position(&self) -> PhysicalPosition<f64> {
-        let mut mean_position = (0.0, 0.0);
-        for finger in self.fingers.values() {
-            mean_position.0 += finger.x;
-            mean_position.1 += finger.y;
-        }
-        let finger_count = self.fingers.len() as f64;
-        (mean_position.0 / finger_count, mean_position.1 / finger_count).into()
-    }
-
     pub fn mean_finger_distance(&self) -> f64 {
         let mut mean_distance = 0.0;
         let mut pair_count = 0;
         for (i, finger_a) in self.fingers.values().enumerate() {
-            for finger_b in self.fingers.values().skip(i+1) {
+            for finger_b in self.fingers.values().skip(i + 1) {
                 pair_count += 1;
                 mean_distance += (finger_a.x - finger_b.x).hypot(finger_a.y - finger_b.y);
             }
@@ -717,37 +715,25 @@ impl Touchscreen {
         mean_distance / pair_count as f64
     }
 
-    pub fn check_for_gestures(&mut self, finger_id: u64) {
-        if let Some(&finger) = self.fingers.get(&finger_id) {
-            // Allow a click despite wobbling fingers.
-            const TOLERANCE_RADIUS: f64 = 16.0;
-            let distance_to_start = (finger.x - finger.start_x).hypot(finger.y - finger.start_y);
-            if distance_to_start > TOLERANCE_RADIUS {
-                 self.is_gesture = true;
-            }
-        }
-    }
-
-    pub fn is_scrolling(&self) -> bool {
-        // Set it to `self.fingers.len() >= 1` to allow scrolling while zooming
-        self.fingers.len() == 1
-    }
-
-    pub fn is_zooming(&self) -> bool {
-        const MIN_FINGER_COUNT_TO_ZOOM: usize = 2;
-        self.fingers.len() >= MIN_FINGER_COUNT_TO_ZOOM
-    }
-
-    pub fn init_zooming(&mut self) {
-        self.start_finger_distance = self.mean_finger_distance();
-        self.relative_zoom_level = 0;
-    }
-
-    pub fn set_finger_position(&mut self, id: u64, location: &PhysicalPosition<f64>) {
-        if let Some(mut finger) = self.fingers.get_mut(&id) {
+    pub fn set_finger(&mut self, id: u64, location: &PhysicalPosition<f64>) -> TouchFinger {
+        *(self.fingers.entry(id).and_modify(|finger| {
+            finger.delta_x = location.x - finger.x;
+            finger.delta_y = location.y - finger.y;
             finger.x = location.x;
             finger.y = location.y;
-        }
+        }).or_insert(TouchFinger {
+            start_x: location.x,
+            start_y: location.y,
+            start_timestamp: Instant::now(),
+            delta_x: 0.0,
+            delta_y: 0.0,
+            x: location.x,
+            y: location.y,
+        }))
+    }
+
+    pub fn new_zoom_gesture(&self) -> Gesture {
+        Gesture::Zooming {start_finger_distance: self.mean_finger_distance(), old_zoom: 0}
     }
 }
 
