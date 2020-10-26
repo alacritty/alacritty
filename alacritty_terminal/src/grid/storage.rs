@@ -60,6 +60,7 @@ impl<T: PartialEq> PartialEq for Storage<T> {
     }
 }
 
+// TODO: Make T: GridCell + Default + Clone
 impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(visible_lines: Line, cols: Column) -> Storage<T>
@@ -67,7 +68,7 @@ impl<T> Storage<T> {
         T: GridCell + Default + Clone,
     {
         // Initialize visible lines; the scrollback buffer is initialized dynamically.
-        let inner = vec![Row::new(cols, T::default()); visible_lines.0];
+        let inner = vec![Row::new(cols); visible_lines.0];
 
         Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
     }
@@ -75,7 +76,7 @@ impl<T> Storage<T> {
     /// Increase the number of lines in the buffer.
     pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
-        T: Clone,
+        T: Default + Clone,
     {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
@@ -88,7 +89,7 @@ impl<T> Storage<T> {
     /// Grow the number of lines in the buffer, filling new lines with the template.
     fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
     where
-        T: Clone,
+        T: Default + Clone,
     {
         // Only grow if there are not enough lines still hidden.
         let mut new_growage = 0;
@@ -142,10 +143,9 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize<I>(&mut self, additional_rows: usize, template: I, cols: Column)
+    pub fn initialize(&mut self, additional_rows: usize, cols: Column)
     where
-        I: Into<T> + Clone,
-        T: GridCell + Clone,
+        T: GridCell + Default + Clone,
     {
         if self.len + additional_rows > self.inner.len() {
             if self.zero != 0 {
@@ -153,7 +153,7 @@ impl<T> Storage<T> {
             }
 
             let realloc_size = self.inner.len() + max(additional_rows, MAX_CACHE_SIZE);
-            self.inner.resize_with(realloc_size, || Row::new(cols, template.clone()));
+            self.inner.resize_with(realloc_size, || Row::new(cols));
             self.zero = 0;
         }
 

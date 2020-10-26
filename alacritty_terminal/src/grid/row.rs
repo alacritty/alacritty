@@ -34,24 +34,23 @@ impl<T: Clone> Row<T> {
     /// Create a new terminal row.
     ///
     /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
-    pub fn new<I>(columns: Column, template: I) -> Row<T>
+    pub fn new(columns: Column) -> Row<T>
     where
-        I: Into<T> + Clone,
-        T: GridCell,
+        T: GridCell + Default,
     {
         debug_assert!(columns.0 >= 1);
 
-        let mut inner: Vec<T> = Vec::with_capacity(columns.0);
+        let mut inner = Vec::with_capacity(columns.0);
 
         // This is a slightly optimized version of `std::vec::Vec::resize`.
         unsafe {
             let mut ptr = inner.as_mut_ptr();
 
             for _ in 1..columns.0 {
-                ptr::write(ptr, template.clone().into());
+                ptr::write(ptr, T::default());
                 ptr = ptr.offset(1);
             }
-            ptr::write(ptr, template.into());
+            ptr::write(ptr, T::default());
 
             inner.set_len(columns.0);
         }

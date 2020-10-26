@@ -197,13 +197,10 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         };
     }
 
-    fn increase_scroll_limit<I>(&mut self, count: usize, template: I)
-    where
-        I: Into<T> + Clone,
-    {
+    fn increase_scroll_limit(&mut self, count: usize) {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
-            self.raw.initialize(count, template, self.cols);
+            self.raw.initialize(count, self.cols);
         }
     }
 
@@ -267,7 +264,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
-            self.increase_scroll_limit(*positions, template.clone());
+            self.increase_scroll_limit(*positions);
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
@@ -386,7 +383,7 @@ impl<T> Grid<T> {
         self.truncate();
 
         // Initialize everything with empty new lines.
-        self.raw.initialize(self.max_scroll_limit - self.history_size(), T::default(), self.cols);
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests.

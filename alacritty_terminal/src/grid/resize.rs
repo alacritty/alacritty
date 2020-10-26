@@ -35,7 +35,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         let lines_added = new_line_count - self.lines;
 
         // Need to resize before updating buffer.
-        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, T::default()));
+        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols));
         self.lines = new_line_count;
 
         let history_size = self.history_size();
@@ -196,7 +196,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         if reversed.len() < self.lines.0 {
             let delta = self.lines.0 - reversed.len();
             self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(delta);
-            reversed.append(&mut vec![Row::new(cols, T::default()); delta]);
+            reversed.append(&mut vec![Row::new(cols); delta]);
         }
 
         // Pull content down to put cursor in correct position, or move cursor up if there's no
