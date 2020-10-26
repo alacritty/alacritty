@@ -34,7 +34,9 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, Config, Key, ViAction};
 use crate::daemon::start_daemon;
-use crate::event::{ClickState, Event, Mouse, TouchFinger, Touchscreen, TYPING_SEARCH_DELAY, Gesture};
+use crate::event::{
+    ClickState, Event, Gesture, Mouse, TouchFinger, Touchscreen, TYPING_SEARCH_DELAY,
+};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -687,8 +689,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         match touch.phase {
             TouchPhase::Started => self.on_touch_start(),
             TouchPhase::Moved => self.on_touch_move(finger),
-            TouchPhase::Ended | TouchPhase::Cancelled =>
-                self.on_touch_end(finger, touch.id),
+            TouchPhase::Ended | TouchPhase::Cancelled => self.on_touch_end(finger, touch.id),
         }
     }
 
@@ -719,7 +720,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             },
             Gesture::Scrolling => self.scroll_terminal(finger.delta_y),
             Gesture::Selecting => self.mouse_moved(PhysicalPosition::new(finger.x, finger.y)),
-            Gesture::Zooming{start_finger_distance, old_zoom} => {
+            Gesture::Zooming { start_finger_distance, old_zoom } => {
                 let finger_distance = self.ctx.touchscreen().mean_finger_distance();
                 // Indicates the factor by how much greater the finger distance must be in relation
                 // to the last registered zoom level in order to trigger a further zoom level.
@@ -728,8 +729,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     .log(FACTOR_PER_ZOOM_LEVEL)
                     .round() as i64;
                 self.ctx.change_font_size((new_zoom as f32 - old_zoom as f32) * FONT_SIZE_STEP);
-                self.ctx.touchscreen_mut().gesture
-                    = Gesture::Zooming {start_finger_distance, old_zoom: new_zoom};
+                self.ctx.touchscreen_mut().gesture =
+                    Gesture::Zooming {start_finger_distance, old_zoom: new_zoom};
             },
         };
     }
@@ -739,8 +740,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         match self.ctx.touchscreen().gesture {
             Gesture::None => {},
             Gesture::Clicking => {
-                const DURATION_FOR_RIGHT_CLICK: Duration
-                = std::time::Duration::from_millis(300);
+                const DURATION_FOR_RIGHT_CLICK: Duration = std::time::Duration::from_millis(300);
                 let touch_duration = Instant::now() - finger.start_timestamp;
                 let mouse_button = if touch_duration < DURATION_FOR_RIGHT_CLICK {
                     MouseButton::Left
@@ -753,12 +753,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 self.mouse_input(ElementState::Pressed, mouse_button);
                 self.mouse_input(ElementState::Released, mouse_button);
             },
-            Gesture::Selecting => if self.ctx.touchscreen().fingers.is_empty() {
-                self.mouse_moved(PhysicalPosition::new(finger.x, finger.y));
-                self.mouse_input(ElementState::Released, MouseButton::Left);
+            Gesture::Selecting => {
+                if self.ctx.touchscreen().fingers.is_empty() {
+                    self.mouse_moved(PhysicalPosition::new(finger.x, finger.y));
+                    self.mouse_input(ElementState::Released, MouseButton::Left);
+                }
             },
             Gesture::Scrolling => self.scroll_terminal(finger.delta_y),
-            Gesture::Zooming{..} => {
+            Gesture::Zooming { .. } => {
                 self.ctx.touchscreen_mut().gesture = if self.ctx.touchscreen().fingers.len() > 2 {
                     self.ctx.touchscreen().new_zoom_gesture()
                 } else {
@@ -1306,6 +1308,16 @@ mod tests {
         #[inline]
         fn mouse(&self) -> &Mouse {
             self.mouse
+        }
+
+        #[inline]
+        fn touchscreen_mut(&mut self) -> &mut Mouse {
+            self.touchscreen
+        }
+
+        #[inline]
+        fn touchscreen(&self) -> &Mouse {
+            self.touchscreen
         }
 
         fn received_count(&mut self) -> &mut usize {

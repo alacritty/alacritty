@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use glutin::dpi::{PhysicalSize, PhysicalPosition};
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::desktop::EventLoopExtDesktop;
@@ -680,10 +680,7 @@ pub enum Gesture {
     None,
     Clicking,
     Scrolling,
-    Zooming {
-        start_finger_distance: f64,
-        old_zoom: i64,
-    },
+    Zooming { start_finger_distance: f64, old_zoom: i64 },
     Selecting,
 }
 
@@ -695,10 +692,7 @@ pub struct Touchscreen {
 
 impl Default for Touchscreen {
     fn default() -> Touchscreen {
-        Touchscreen {
-            fingers: HashMap::new(),
-            gesture: Gesture::None,
-        }
+        Touchscreen { fingers: HashMap::new(), gesture: Gesture::None }
     }
 }
 
@@ -716,24 +710,28 @@ impl Touchscreen {
     }
 
     pub fn set_finger(&mut self, id: u64, location: &PhysicalPosition<f64>) -> TouchFinger {
-        *(self.fingers.entry(id).and_modify(|finger| {
-            finger.delta_x = location.x - finger.x;
-            finger.delta_y = location.y - finger.y;
-            finger.x = location.x;
-            finger.y = location.y;
-        }).or_insert(TouchFinger {
-            start_x: location.x,
-            start_y: location.y,
-            start_timestamp: Instant::now(),
-            delta_x: 0.0,
-            delta_y: 0.0,
-            x: location.x,
-            y: location.y,
-        }))
+        *(self
+            .fingers
+            .entry(id)
+            .and_modify(|finger| {
+                finger.delta_x = location.x - finger.x;
+                finger.delta_y = location.y - finger.y;
+                finger.x = location.x;
+                finger.y = location.y;
+            })
+            .or_insert(TouchFinger {
+                start_x: location.x,
+                start_y: location.y,
+                start_timestamp: Instant::now(),
+                delta_x: 0.0,
+                delta_y: 0.0,
+                x: location.x,
+                y: location.y,
+            }))
     }
 
     pub fn new_zoom_gesture(&self) -> Gesture {
-        Gesture::Zooming {start_finger_distance: self.mean_finger_distance(), old_zoom: 0}
+        Gesture::Zooming { start_finger_distance: self.mean_finger_distance(), old_zoom: 0 }
     }
 }
 
