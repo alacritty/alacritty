@@ -5,7 +5,7 @@ use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
-use crate::ansi::{CharsetIndex, Color, StandardCharset};
+use crate::ansi::{CharsetIndex, StandardCharset};
 use crate::index::{Column, IndexRange, Line, Point};
 use crate::term::cell::{Cell, Flags, ResetDiscriminant};
 
@@ -161,7 +161,7 @@ pub enum Scroll {
     Bottom,
 }
 
-impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     pub fn new(lines: Line, cols: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
             raw: Storage::with_capacity(lines, cols),
@@ -213,9 +213,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     }
 
     #[inline]
-    pub fn scroll_down<I>(&mut self, region: &Range<Line>, positions: Line, template: I)
+    pub fn scroll_down<I, D>(&mut self, region: &Range<Line>, positions: Line, template: I)
     where
-        I: ResetDiscriminant<Color> + Into<T> + Copy,
+        I: ResetDiscriminant<D> + Into<T> + Copy,
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
     {
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
@@ -252,9 +254,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up<I>(&mut self, region: &Range<Line>, positions: Line, template: I)
+    pub fn scroll_up<I, D>(&mut self, region: &Range<Line>, positions: Line, template: I)
     where
-        I: ResetDiscriminant<Color> + Into<T> + Clone,
+        I: ResetDiscriminant<D> + Into<T> + Clone,
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
     {
         let num_lines = self.screen_lines().0;
 
@@ -299,9 +303,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         }
     }
 
-    pub fn clear_viewport<I>(&mut self, template: I)
+    pub fn clear_viewport<I, D>(&mut self, template: I)
     where
-        I: ResetDiscriminant<Color> + Into<T> + Copy,
+        I: ResetDiscriminant<D> + Into<T> + Copy,
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
     {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.cols() };
@@ -328,7 +334,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     }
 
     /// Completely reset the grid state.
-    pub fn reset(&mut self) {
+    pub fn reset<D>(&mut self)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         self.clear_history();
 
         // Reset all visible lines.

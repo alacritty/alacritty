@@ -3,16 +3,19 @@
 use std::cmp::{min, Ordering};
 use std::mem;
 
-use crate::ansi::Color;
 use crate::index::{Column, Line};
 use crate::term::cell::{Flags, ResetDiscriminant};
 
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
 
-impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
-    pub fn resize(&mut self, reflow: bool, lines: Line, cols: Column) {
+    pub fn resize<D>(&mut self, reflow: bool, lines: Line, cols: Column)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         match self.lines.cmp(&lines) {
             Ordering::Less => self.grow_lines(lines),
             Ordering::Greater => self.shrink_lines(lines),
@@ -31,7 +34,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
     /// simply added to the bottom of the screen.
-    fn grow_lines(&mut self, new_line_count: Line) {
+    fn grow_lines<D>(&mut self, new_line_count: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         let lines_added = new_line_count - self.lines;
 
         // Need to resize before updating buffer.
@@ -62,7 +69,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines(&mut self, target: Line) {
+    fn shrink_lines<D>(&mut self, target: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
