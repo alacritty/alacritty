@@ -339,7 +339,7 @@ impl Window {
         self.window().request_user_attention(RequestUserAttentionType::Critical);
     }
 
-    #[cfg(any(not(feature = "x11"), windows))]
+    #[cfg(any(windows, not(any(feature = "x11", target_os = "macos"))))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
@@ -395,11 +395,6 @@ impl Window {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
         self.window().wayland_display()
-    }
-
-    #[cfg(any(not(feature = "wayland"), any(target_os = "macos", windows)))]
-    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
-        None
     }
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
