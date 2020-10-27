@@ -696,7 +696,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn on_touch_start(&mut self) {
         self.ctx.touchscreen_mut().gesture = match self.ctx.touchscreen().gesture {
             Gesture::None => Gesture::Clicking,
-            Gesture::Clicking | Gesture::Scrolling => self.ctx.touchscreen().new_zoom_gesture(),
+            Gesture::Clicking | Gesture::Scrolling | Gesture::Zooming { .. } => {
+                self.ctx.touchscreen().new_zoom_gesture()
+            },
             remaining => remaining,
         };
     }
@@ -761,7 +763,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             },
             Gesture::Scrolling => self.scroll_terminal(finger.delta_y),
             Gesture::Zooming { .. } => {
-                self.ctx.touchscreen_mut().gesture = if self.ctx.touchscreen().fingers.len() > 2 {
+                self.ctx.touchscreen_mut().gesture = if self.ctx.touchscreen().fingers.len() >= 2 {
                     self.ctx.touchscreen().new_zoom_gesture()
                 } else {
                     Gesture::Scrolling
