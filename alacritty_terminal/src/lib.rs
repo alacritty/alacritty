@@ -1,6 +1,8 @@
 //! Alacritty - The GPU Enhanced Terminal.
 
+#![warn(rust_2018_idioms, future_incompatible)]
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
+#![cfg_attr(feature = "cargo-clippy", deny(warnings))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 pub mod ansi;
