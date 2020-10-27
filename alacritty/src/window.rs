@@ -4,7 +4,7 @@ use {
     std::sync::atomic::AtomicBool,
     std::sync::Arc,
 
-    glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix},
+    glutin::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
     image::ImageFormat,
 };
 
@@ -13,6 +13,7 @@ use {
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
+    glutin::platform::unix::EventLoopWindowTargetExtUnix,
 
     alacritty_terminal::config::Colors,
 
