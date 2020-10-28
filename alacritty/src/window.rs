@@ -4,7 +4,7 @@ use {
     std::sync::atomic::AtomicBool,
     std::sync::Arc,
 
-    glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix},
+    glutin::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
     image::ImageFormat,
 };
 
@@ -13,6 +13,7 @@ use {
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
+    glutin::platform::unix::EventLoopWindowTargetExtUnix,
 
     alacritty_terminal::config::Colors,
 
@@ -339,7 +340,7 @@ impl Window {
         self.window().request_user_attention(RequestUserAttentionType::Critical);
     }
 
-    #[cfg(any(not(feature = "x11"), windows))]
+    #[cfg(any(windows, not(any(feature = "x11", target_os = "macos"))))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
@@ -397,7 +398,7 @@ impl Window {
         self.window().wayland_display()
     }
 
-    #[cfg(any(not(feature = "wayland"), any(target_os = "macos", windows)))]
+    #[cfg(not(any(feature = "wayland", target_os = "macos", windows)))]
     pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
         None
     }
