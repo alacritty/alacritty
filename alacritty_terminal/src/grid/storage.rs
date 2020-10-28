@@ -60,7 +60,6 @@ impl<T: PartialEq> PartialEq for Storage<T> {
     }
 }
 
-// TODO: Make T: GridCell + Default + Clone
 impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(visible_lines: Line, cols: Column) -> Storage<T>
@@ -76,7 +75,7 @@ impl<T> Storage<T> {
     /// Increase the number of lines in the buffer.
     pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
-        T: Default + Clone,
+        T: Clone,
     {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
@@ -89,7 +88,7 @@ impl<T> Storage<T> {
     /// Grow the number of lines in the buffer, filling new lines with the template.
     fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
     where
-        T: Default + Clone,
+        T: Clone,
     {
         // Only grow if there are not enough lines still hidden.
         let mut new_growage = 0;
@@ -145,7 +144,7 @@ impl<T> Storage<T> {
     #[inline]
     pub fn initialize(&mut self, additional_rows: usize, cols: Column)
     where
-        T: GridCell + Default + Clone,
+        T: GridCell + Clone + Default,
     {
         if self.len + additional_rows > self.inner.len() {
             if self.zero != 0 {

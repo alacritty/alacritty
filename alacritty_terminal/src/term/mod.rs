@@ -1153,7 +1153,7 @@ impl<T> Term<T> {
             .and_then(|s| s.rotate(self, &absolute_region, -(lines.0 as isize)));
 
         // Scroll between origin and bottom
-        self.grid.scroll_down(&region, lines, self.grid.cursor.template.bg);
+        self.grid.scroll_down(&region, lines);
     }
 
     /// Scroll screen up
@@ -1176,7 +1176,8 @@ impl<T> Term<T> {
             self.selection.take().and_then(|s| s.rotate(self, &absolute_region, lines.0 as isize));
 
         // Scroll from origin to bottom less number of lines.
-        self.grid.scroll_up(&region, lines, self.grid.cursor.template.bg);
+        let todo = self.grid.cursor.template.clone();
+        self.grid.scroll_up(&region, lines, &todo);
     }
 
     fn deccolm(&mut self)
@@ -2050,7 +2051,8 @@ impl<T: EventListener> Handler for Term<T> {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.region_mut(..).each(|cell| *cell = bg.into());
                 } else {
-                    self.grid.clear_viewport(bg);
+                    // TODO: No into wtf
+                    self.grid.clear_viewport(&bg.into());
                 }
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));

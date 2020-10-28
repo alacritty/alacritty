@@ -40,7 +40,7 @@ impl<T: Clone> Row<T> {
     {
         debug_assert!(columns.0 >= 1);
 
-        let mut inner = Vec::with_capacity(columns.0);
+        let mut inner: Vec<T> = Vec::with_capacity(columns.0);
 
         // This is a slightly optimized version of `std::vec::Vec::resize`.
         unsafe {
@@ -90,9 +90,8 @@ impl<T: Clone> Row<T> {
 
     /// Reset all cells in the row to the `template` cell.
     #[inline]
-    pub fn reset<I, D>(&mut self, template: I)
+    pub fn reset<D>(&mut self, template: &T)
     where
-        I: ResetDiscriminant<D> + Into<T> + Clone,
         T: ResetDiscriminant<D> + GridCell + PartialEq,
         D: PartialEq,
     {
@@ -104,15 +103,12 @@ impl<T: Clone> Row<T> {
             self.occ = len;
         }
 
-        if self.occ != 0 {
-            // Reset every dirty cell in the row.
-            for item in &mut self.inner[1..self.occ] {
-                *item = template.clone().into();
-            }
-            self.inner[0] = template.into();
-
-            self.occ = 0;
+        // Reset every dirty cell in the row.
+        for item in &mut self.inner[0..self.occ] {
+            item.reset(template);
         }
+
+        self.occ = 0;
     }
 }
 

@@ -7,7 +7,7 @@ use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 
-const DEFAULT: Cell = Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background));
+const DEFAULT_CELL: Cell = Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background));
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -64,7 +64,7 @@ pub struct Cell {
 
 impl Default for Cell {
     fn default() -> Cell {
-        DEFAULT
+        DEFAULT_CELL
     }
 }
 
@@ -133,6 +133,14 @@ impl GridCell for Cell {
     #[inline]
     fn flags_mut(&mut self) -> &mut Flags {
         &mut self.flags
+    }
+
+    #[inline]
+    fn reset(&mut self, template: &Self) {
+        *self = Cell {
+            bg: template.bg,
+            ..DEFAULT_CELL
+        };
     }
 }
 

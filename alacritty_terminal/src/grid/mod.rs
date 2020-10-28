@@ -5,9 +5,9 @@ use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
-use crate::ansi::{CharsetIndex, StandardCharset};
+use crate::ansi::{CharsetIndex, Color, StandardCharset};
 use crate::index::{Column, IndexRange, Line, Point};
-use crate::term::cell::{Cell, Flags, ResetDiscriminant};
+use crate::term::cell::{Flags, ResetDiscriminant};
 
 pub mod resize;
 mod row;
@@ -53,15 +53,17 @@ pub trait GridCell: Sized {
     fn is_empty(&self) -> bool;
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
+
+    fn reset(&mut self, template: &Self);
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Cursor {
+pub struct Cursor<T> {
     /// The location of this cursor.
     pub point: Point,
 
     /// Template cell when using this cursor.
-    pub template: Cell,
+    pub template: T,
 
     /// Currently configured graphic character sets.
     pub charsets: Charsets,
@@ -125,11 +127,11 @@ impl IndexMut<CharsetIndex> for Charsets {
 pub struct Grid<T> {
     /// Current cursor for writing data.
     #[serde(skip)]
-    pub cursor: Cursor,
+    pub cursor: Cursor<T>,
 
     /// Last saved cursor.
     #[serde(skip)]
-    pub saved_cursor: Cursor,
+    pub saved_cursor: Cursor<T>,
 
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
@@ -161,7 +163,7 @@ pub enum Scroll {
     Bottom,
 }
 
-impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<T> {
     pub fn new(lines: Line, cols: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
             raw: Storage::with_capacity(lines, cols),
@@ -213,12 +215,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     }
 
     #[inline]
-    pub fn scroll_down<I, D>(&mut self, region: &Range<Line>, positions: Line, template: I)
-    where
-        I: ResetDiscriminant<D> + Into<T> + Copy,
-        T: ResetDiscriminant<D>,
-        D: PartialEq,
-    {
+    pub fn scroll_down(&mut self, region: &Range<Line>, positions: Line) {
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
@@ -237,7 +234,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
             // Finally, reset recycled lines.
             for i in IndexRange(Line(0)..positions) {
-                self.raw[i].reset(template);
+                self.raw[i].reset(&self.cursor.template);
             }
         } else {
             // Subregion rotation.
@@ -246,7 +243,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             }
 
             for line in IndexRange(region.start..(region.start + positions)) {
-                self.raw[line].reset(template);
+                self.raw[line].reset(&self.cursor.template);
             }
         }
     }
@@ -254,12 +251,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up<I, D>(&mut self, region: &Range<Line>, positions: Line, template: I)
-    where
-        I: ResetDiscriminant<D> + Into<T> + Clone,
-        T: ResetDiscriminant<D>,
-        D: PartialEq,
-    {
+    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: &T) {
         let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
@@ -288,7 +280,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[i + fixed_lines].reset(template.clone());
+                self.raw[i + fixed_lines].reset(template);
             }
         } else {
             // Subregion rotation.
@@ -298,17 +290,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
             // Clear reused lines.
             for line in IndexRange((region.end - positions)..region.end) {
-                self.raw[line].reset(template.clone());
+                self.raw[line].reset(template);
             }
         }
     }
 
-    pub fn clear_viewport<I, D>(&mut self, template: I)
-    where
-        I: ResetDiscriminant<D> + Into<T> + Copy,
-        T: ResetDiscriminant<D>,
-        D: PartialEq,
-    {
+    pub fn clear_viewport(&mut self, template: &T) {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.cols() };
         let mut iter = self.iter_from(end);
@@ -334,16 +321,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     }
 
     /// Completely reset the grid state.
-    pub fn reset<D>(&mut self)
-    where
-        T: ResetDiscriminant<D>,
-        D: PartialEq,
-    {
+    pub fn reset(&mut self) {
         self.clear_history();
 
         // Reset all visible lines.
         for row in 0..self.raw.len() {
-            self.raw[row].reset(T::default());
+            self.raw[row].reset(&T::default());
         }
 
         self.saved_cursor = Cursor::default();
