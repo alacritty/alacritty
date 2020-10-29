@@ -898,8 +898,8 @@ impl<N: Notify + OnResize> Processor<N> {
     ///
     /// Doesn't take self mutably due to borrow checking.
     fn handle_event<T>(
-        event: GlutinEvent<Event>,
-        processor: &mut input::Processor<T, ActionContext<N, T>>,
+        event: GlutinEvent<'_, Event>,
+        processor: &mut input::Processor<'_, T, ActionContext<'_, N, T>>,
     ) where
         T: EventListener,
     {
@@ -1044,7 +1044,7 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Check if an event is irrelevant and can be skipped.
-    fn skip_event(event: &GlutinEvent<Event>) -> bool {
+    fn skip_event(event: &GlutinEvent<'_, Event>) -> bool {
         match event {
             GlutinEvent::WindowEvent { event, .. } => matches!(
                 event,
@@ -1066,8 +1066,10 @@ impl<N: Notify + OnResize> Processor<N> {
         }
     }
 
-    fn reload_config<T>(path: &PathBuf, processor: &mut input::Processor<T, ActionContext<N, T>>)
-    where
+    fn reload_config<T>(
+        path: &PathBuf,
+        processor: &mut input::Processor<'_, T, ActionContext<'_, N, T>>,
+    ) where
         T: EventListener,
     {
         if !processor.ctx.message_buffer.is_empty() {

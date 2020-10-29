@@ -1155,7 +1155,7 @@ where
     }
 }
 
-fn attrs_from_sgr_parameters(params: &mut ParamsIter) -> Vec<Option<Attr>> {
+fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
     let mut attrs = Vec::with_capacity(params.size_hint().0);
 
     while let Some(param) = params.next() {
