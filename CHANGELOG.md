@@ -67,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Add` and `Subtract` keys are now named `NumpadAdd` and `NumpadSubtract` respectively
 - Feature checking when cross compiling between different operating systems
 - Crash when writing to the clipboard fails on Wayland
+- Crash with large negative `font.offset.x/y`
 
 ## 0.5.0
 
