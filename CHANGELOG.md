@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use yellow/red from the config for error and warning messages instead of fixed colors
 - Existing CLI parameters are now passed to instances spawned using `SpawnNewInstance`
 - Wayland's Client side decorations now use the search bar colors
+- Set `$ALACRITTY_PID` to the terminal PID on start
 
 ### Fixed
 

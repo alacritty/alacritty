@@ -135,6 +135,7 @@ fn run(
 
     // Set environment variables.
     tty::setup_env(&config);
+    std::env::set_var("ALACRITTY_PID", &format!("{}", std::process::id()));
 
     let event_proxy = EventProxy::new(window_event_loop.create_proxy());
 
