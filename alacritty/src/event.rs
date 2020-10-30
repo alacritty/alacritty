@@ -874,6 +874,8 @@ impl<N: Notify + OnResize> Processor<N> {
                 if !terminal.visual_bell.completed() {
                     let event: Event = TerminalEvent::Wakeup.into();
                     self.event_queue.push(event.into());
+
+                    *control_flow = ControlFlow::Poll;
                 }
 
                 // Redraw screen.
