@@ -254,7 +254,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template_override: Option<&T>) {
+    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line) {
         let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
@@ -285,9 +285,8 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
             // Finally, reset recycled lines.
             //
             // Recycled lines are just above the end of the scrolling region.
-            let template = template_override.unwrap_or(&self.cursor.template);
             for i in 0..*positions {
-                self.raw[i + fixed_lines].reset(template);
+                self.raw[i + fixed_lines].reset(&self.cursor.template);
             }
         } else {
             // Subregion rotation.
@@ -299,9 +298,8 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
             // the performance sensitive case
             //
             // Clear reused lines.
-            let template = template_override.unwrap_or(&self.cursor.template);
             for line in IndexRange((region.end - positions)..region.end) {
-                self.raw[line].reset(template);
+                self.raw[line].reset(&self.cursor.template);
             }
         }
     }
@@ -323,7 +321,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         self.display_offset = 0;
 
         // Clear the viewport.
-        self.scroll_up(&region, positions, None);
+        self.scroll_up(&region, positions);
 
         // Reset rotated lines.
         for i in positions.0..self.lines.0 {

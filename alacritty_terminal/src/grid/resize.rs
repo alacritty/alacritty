@@ -44,7 +44,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added.0 {
             let delta = lines_added - from_history;
-            self.scroll_up(&(Line(0)..new_line_count), delta, Some(&T::default()));
+            self.scroll_up(&(Line(0)..new_line_count), delta);
         }
 
         // Move cursor down for every line pulled from history.
@@ -66,7 +66,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), Some(&T::default()));
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling));
 
             // Clamp cursors to the new viewport size.
             self.cursor.point.line = min(self.cursor.point.line, target - 1);

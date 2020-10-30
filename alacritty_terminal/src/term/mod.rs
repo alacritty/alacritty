@@ -1176,7 +1176,7 @@ impl<T> Term<T> {
             self.selection.take().and_then(|s| s.rotate(self, &absolute_region, lines.0 as isize));
 
         // Scroll from origin to bottom less number of lines.
-        self.grid.scroll_up(&region, lines, None);
+        self.grid.scroll_up(&region, lines);
     }
 
     fn deccolm(&mut self)
