@@ -50,11 +50,14 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
 }
 
 pub trait GridCell: Sized {
+    /// Check if the cell contains any content.
     fn is_empty(&self) -> bool;
+
+    /// Perform an opinionated cell reset based on a template cell.
+    fn reset(&mut self, template: &Self);
+
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
-
-    fn reset(&mut self, template: &Self);
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -251,7 +254,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: &T) {
+    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template_override: Option<&T>) {
         let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
@@ -276,9 +279,13 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                 self.raw.swap(i, i + *positions);
             }
 
+            // TODO: There's an optimization chance here, we don't really need the unwrap_or in
+            // the performance sensitive case
+            //
             // Finally, reset recycled lines.
             //
             // Recycled lines are just above the end of the scrolling region.
+            let template = template_override.unwrap_or(&self.cursor.template);
             for i in 0..*positions {
                 self.raw[i + fixed_lines].reset(template);
             }
@@ -288,14 +295,18 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                 self.raw.swap_lines(line, line + positions);
             }
 
+            // TODO: There's an optimization chance here, we don't really need the unwrap_or in
+            // the performance sensitive case
+            //
             // Clear reused lines.
+            let template = template_override.unwrap_or(&self.cursor.template);
             for line in IndexRange((region.end - positions)..region.end) {
                 self.raw[line].reset(template);
             }
         }
     }
 
-    pub fn clear_viewport(&mut self, template: &T) {
+    pub fn clear_viewport(&mut self) {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.cols() };
         let mut iter = self.iter_from(end);
@@ -312,11 +323,11 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         self.display_offset = 0;
 
         // Clear the viewport.
-        self.scroll_up(&region, positions, template);
+        self.scroll_up(&region, positions, None);
 
         // Reset rotated lines.
         for i in positions.0..self.lines.0 {
-            self.raw[i].reset(template);
+            self.raw[i].reset(&self.cursor.template);
         }
     }
 

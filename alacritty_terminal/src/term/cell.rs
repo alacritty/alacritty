@@ -7,8 +7,6 @@ use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 
-const DEFAULT_CELL: Cell = Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background));
-
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct Flags: u16 {
@@ -35,8 +33,8 @@ pub trait ResetDiscriminant<T: PartialEq> {
     fn discriminant(&self) -> T;
 }
 
-impl ResetDiscriminant<Color> for Color {
-    fn discriminant(&self) -> Color {
+impl<T: Copy + PartialEq> ResetDiscriminant<T> for T {
+    fn discriminant(&self) -> T {
         *self
     }
 }
@@ -47,11 +45,17 @@ impl ResetDiscriminant<Color> for Cell {
     }
 }
 
+/// Dynamically allocated cell content.
+///
+/// This storage is reserved for cell attributes which are rarely set. This allows reducing the
+/// allocation required ahead of time for every cell, with some additional overhead when the extra
+/// storage is actually required.
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 struct CellExtra {
     zerowidth: Vec<char>,
 }
 
+/// Content and attributes of a single cell in the terminal grid.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Cell {
     pub c: char,
@@ -63,42 +67,32 @@ pub struct Cell {
 }
 
 impl Default for Cell {
+    #[inline]
     fn default() -> Cell {
-        DEFAULT_CELL
+        Cell {
+            c: ' ',
+            bg: Color::Named(NamedColor::Background),
+            fg: Color::Named(NamedColor::Foreground),
+            flags: Flags::empty(),
+            extra: None,
+        }
     }
 }
 
 impl Cell {
-    #[inline]
-    pub const fn new(c: char, fg: Color, bg: Color) -> Cell {
-        Cell { c, bg, fg, flags: Flags::empty(), extra: None }
-    }
-
-    #[inline]
-    pub fn bold(&self) -> bool {
-        self.flags.contains(Flags::BOLD)
-    }
-
-    #[inline]
-    pub fn inverse(&self) -> bool {
-        self.flags.contains(Flags::INVERSE)
-    }
-
-    #[inline]
-    pub fn dim(&self) -> bool {
-        self.flags.contains(Flags::DIM)
-    }
-
+    /// Zerowidth characters stored in this cell.
     #[inline]
     pub fn zerowidth(&self) -> Option<&[char]> {
         self.extra.as_ref().map(|extra| extra.zerowidth.as_slice())
     }
 
+    /// Write a new zerowidth character to this cell.
     #[inline]
     pub fn push_zerowidth(&mut self, c: char) {
         self.extra.get_or_insert_with(Default::default).zerowidth.push(c);
     }
 
+    /// Free all dynamically allocated cell storage.
     #[inline]
     pub fn drop_extra(&mut self) {
         if self.extra.is_some() {
@@ -137,10 +131,14 @@ impl GridCell for Cell {
 
     #[inline]
     fn reset(&mut self, template: &Self) {
-        *self = Cell {
-            bg: template.bg,
-            ..DEFAULT_CELL
-        };
+        *self = Cell { bg: template.bg, ..Cell::default() };
+    }
+}
+
+impl From<Color> for Cell {
+    #[inline]
+    fn from(color: Color) -> Self {
+        Self { bg: color, ..Cell::default() }
     }
 }
 
@@ -168,13 +166,6 @@ impl LineLength for grid::Row<Cell> {
         }
 
         length
-    }
-}
-
-impl From<Color> for Cell {
-    #[inline]
-    fn from(color: Color) -> Self {
-        Self { bg: color, ..Cell::default() }
     }
 }
 

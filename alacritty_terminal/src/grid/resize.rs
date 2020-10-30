@@ -35,7 +35,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         let lines_added = new_line_count - self.lines;
 
         // Need to resize before updating buffer.
-        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols));
+        self.raw.grow_visible_lines(new_line_count);
         self.lines = new_line_count;
 
         let history_size = self.history_size();
@@ -44,7 +44,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added.0 {
             let delta = lines_added - from_history;
-            self.scroll_up(&(Line(0)..new_line_count), delta, &T::default());
+            self.scroll_up(&(Line(0)..new_line_count), delta, Some(&T::default()));
         }
 
         // Move cursor down for every line pulled from history.
@@ -66,7 +66,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), &T::default());
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), Some(&T::default()));
 
             // Clamp cursors to the new viewport size.
             self.cursor.point.line = min(self.cursor.point.line, target - 1);
@@ -196,7 +196,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         if reversed.len() < self.lines.0 {
             let delta = self.lines.0 - reversed.len();
             self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(delta);
-            reversed.append(&mut vec![Row::new(cols); delta]);
+            reversed.resize_with(self.lines.0, || Row::new(cols));
         }
 
         // Pull content down to put cursor in correct position, or move cursor up if there's no
@@ -213,7 +213,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
         let mut new_raw = Vec::with_capacity(reversed.len());
         for mut row in reversed.drain(..).rev() {
             if row.len() < cols.0 {
-                row.grow(cols, T::default());
+                row.grow(cols);
             }
             new_raw.push(row);
         }
@@ -332,7 +332,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                     // Make sure new row is at least as long as new width.
                     let occ = wrapped.len();
                     if occ < cols.0 {
-                        wrapped.append(&mut vec![T::default(); cols.0 - occ]);
+                        wrapped.resize_with(cols.0, || T::default());
                     }
                     row = Row::from_vec(wrapped, occ);
                 }

@@ -30,14 +30,12 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
-impl<T: Clone> Row<T> {
+
+impl<T: Clone + Default> Row<T> {
     /// Create a new terminal row.
     ///
     /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
-    pub fn new(columns: Column) -> Row<T>
-    where
-        T: GridCell + Default,
-    {
+    pub fn new(columns: Column) -> Row<T> {
         debug_assert!(columns.0 >= 1);
 
         let mut inner: Vec<T> = Vec::with_capacity(columns.0);
@@ -58,14 +56,19 @@ impl<T: Clone> Row<T> {
         Row { inner, occ: 0 }
     }
 
-    pub fn grow(&mut self, cols: Column, template: T) {
+    /// Increase the number of columns in the row.
+    #[inline]
+    pub fn grow(&mut self, cols: Column) {
         if self.inner.len() >= cols.0 {
             return;
         }
 
-        self.inner.append(&mut vec![template; cols.0 - self.len()]);
+        self.inner.resize_with(cols.0, || T::default());
     }
 
+    /// Reduce the number of columns in the row.
+    ///
+    /// This will return all non-empty cells that were removed.
     pub fn shrink(&mut self, cols: Column) -> Option<Vec<T>>
     where
         T: GridCell,
@@ -92,7 +95,7 @@ impl<T: Clone> Row<T> {
     #[inline]
     pub fn reset<D>(&mut self, template: &T)
     where
-        T: ResetDiscriminant<D> + GridCell + PartialEq,
+        T: ResetDiscriminant<D> + GridCell,
         D: PartialEq,
     {
         debug_assert!(!self.inner.is_empty());

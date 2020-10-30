@@ -5,7 +5,6 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 use super::Row;
-use crate::grid::GridCell;
 use crate::index::{Column, Line};
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
@@ -27,7 +26,7 @@ const MAX_CACHE_SIZE: usize = 1_000;
 /// [`slice::rotate_left`]: https://doc.rust-lang.org/std/primitive.slice.html#method.rotate_left
 /// [`Deref`]: std::ops::Deref
 /// [`zero`]: #structfield.zero
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Storage<T> {
     inner: Vec<Row<T>>,
 
@@ -64,55 +63,33 @@ impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(visible_lines: Line, cols: Column) -> Storage<T>
     where
-        T: GridCell + Default + Clone,
+        T: Clone + Default,
     {
         // Initialize visible lines; the scrollback buffer is initialized dynamically.
-        let inner = vec![Row::new(cols); visible_lines.0];
+        let mut inner = Vec::with_capacity(visible_lines.0);
+        inner.resize_with(visible_lines.0, || Row::new(cols));
 
         Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
     }
 
     /// Increase the number of lines in the buffer.
-    pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
+    #[inline]
+    pub fn grow_visible_lines(&mut self, next: Line)
     where
-        T: Clone,
+        T: Clone + Default,
     {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
-        self.grow_lines(growage.0, template_row);
+
+        let cols = self[0].len();
+        self.initialize(growage.0, Column(cols));
 
         // Update visible lines.
         self.visible_lines = next;
     }
 
-    /// Grow the number of lines in the buffer, filling new lines with the template.
-    fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
-    where
-        T: Clone,
-    {
-        // Only grow if there are not enough lines still hidden.
-        let mut new_growage = 0;
-        if growage > (self.inner.len() - self.len) {
-            // Lines to grow additionally to invisible lines.
-            new_growage = growage - (self.inner.len() - self.len);
-
-            // Split off the beginning of the raw inner buffer.
-            let mut start_buffer = self.inner.split_off(self.zero);
-
-            // Insert new template rows at the end of the raw inner buffer.
-            let mut new_lines = vec![template_row; new_growage];
-            self.inner.append(&mut new_lines);
-
-            // Add the start to the raw inner buffer again.
-            self.inner.append(&mut start_buffer);
-        }
-
-        // Update raw buffer length and zero offset.
-        self.zero += new_growage;
-        self.len += growage;
-    }
-
     /// Decrease the number of lines in the buffer.
+    #[inline]
     pub fn shrink_visible_lines(&mut self, next: Line) {
         // Shrink the size without removing any lines.
         let shrinkage = self.visible_lines - next;
@@ -123,6 +100,7 @@ impl<T> Storage<T> {
     }
 
     /// Shrink the number of lines in the buffer.
+    #[inline]
     pub fn shrink_lines(&mut self, shrinkage: usize) {
         self.len -= shrinkage;
 
@@ -133,23 +111,21 @@ impl<T> Storage<T> {
     }
 
     /// Truncate the invisible elements from the raw buffer.
+    #[inline]
     pub fn truncate(&mut self) {
-        self.inner.rotate_left(self.zero);
-        self.inner.truncate(self.len);
+        self.rezero();
 
-        self.zero = 0;
+        self.inner.truncate(self.len);
     }
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
     pub fn initialize(&mut self, additional_rows: usize, cols: Column)
     where
-        T: GridCell + Clone + Default,
+        T: Clone + Default,
     {
         if self.len + additional_rows > self.inner.len() {
-            if self.zero != 0 {
-                self.inner.rotate_left(self.zero);
-            }
+            self.rezero();
 
             let realloc_size = self.inner.len() + max(additional_rows, MAX_CACHE_SIZE);
             self.inner.resize_with(realloc_size, || Row::new(cols));
@@ -164,24 +140,7 @@ impl<T> Storage<T> {
         self.len
     }
 
-    /// Compute actual index in underlying storage given the requested index.
     #[inline]
-    fn compute_index(&self, requested: usize) -> usize {
-        debug_assert!(requested < self.len);
-
-        let zeroed = self.zero + requested;
-
-        // Use if/else instead of remainder here to improve performance.
-        //
-        // Requires `zeroed` to be smaller than `self.inner.len() * 2`,
-        // but both `self.zero` and `requested` are always smaller than `self.inner.len()`.
-        if zeroed >= self.inner.len() {
-            zeroed - self.inner.len()
-        } else {
-            zeroed
-        }
-    }
-
     pub fn swap_lines(&mut self, a: Line, b: Line) {
         let offset = self.inner.len() + self.zero + *self.visible_lines - 1;
         let a = (offset - *a) % self.inner.len();
@@ -261,6 +220,35 @@ impl<T> Storage<T> {
         self.len = 0;
 
         buffer
+    }
+
+    /// Compute actual index in underlying storage given the requested index.
+    #[inline]
+    fn compute_index(&self, requested: usize) -> usize {
+        debug_assert!(requested < self.len);
+
+        let zeroed = self.zero + requested;
+
+        // Use if/else instead of remainder here to improve performance.
+        //
+        // Requires `zeroed` to be smaller than `self.inner.len() * 2`,
+        // but both `self.zero` and `requested` are always smaller than `self.inner.len()`.
+        if zeroed >= self.inner.len() {
+            zeroed - self.inner.len()
+        } else {
+            zeroed
+        }
+    }
+
+    /// Rotate the ringbuffer to reset `self.zero` back to index `0`.
+    #[inline]
+    fn rezero(&mut self) {
+        if self.zero == 0 {
+            return;
+        }
+
+        self.inner.rotate_left(self.zero);
+        self.zero = 0;
     }
 }
 

@@ -275,7 +275,7 @@ impl RenderableCell {
         let mut fg_rgb = Self::compute_fg_rgb(iter.config, iter.colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(iter.colors, cell.bg);
 
-        let mut bg_alpha = if cell.inverse() {
+        let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
             mem::swap(&mut fg_rgb, &mut bg_rgb);
             1.0
         } else {
@@ -1176,8 +1176,7 @@ impl<T> Term<T> {
             self.selection.take().and_then(|s| s.rotate(self, &absolute_region, lines.0 as isize));
 
         // Scroll from origin to bottom less number of lines.
-        let todo = self.grid.cursor.template.clone();
-        self.grid.scroll_up(&region, lines, &todo);
+        self.grid.scroll_up(&region, lines, None);
     }
 
     fn deccolm(&mut self)
@@ -1819,7 +1818,6 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn erase_chars(&mut self, count: Column) {
         let cursor = &self.grid.cursor;
-        let bg = self.grid.cursor.template.bg;
 
         trace!("Erasing chars: count={}, col={}", count, cursor.point.col);
 
@@ -1827,6 +1825,7 @@ impl<T: EventListener> Handler for Term<T> {
         let end = min(start + count, self.cols());
 
         // Cleared cells have current background color set.
+        let bg = self.grid.cursor.template.bg;
         let line = cursor.point.line;
         let row = &mut self.grid[line];
         for cell in &mut row[start..end] {
@@ -2051,8 +2050,7 @@ impl<T: EventListener> Handler for Term<T> {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.region_mut(..).each(|cell| *cell = bg.into());
                 } else {
-                    // TODO: No into wtf
-                    self.grid.clear_viewport(&bg.into());
+                    self.grid.clear_viewport();
                 }
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));
