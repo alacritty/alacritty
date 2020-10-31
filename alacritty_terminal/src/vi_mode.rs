@@ -399,7 +399,6 @@ mod tests {
     use crate::config::MockConfig;
     use crate::event::Event;
     use crate::index::{Column, Line};
-    use crate::term::cell::Cell;
     use crate::term::{SizeInfo, Term};
 
     struct Mock;
@@ -654,7 +653,7 @@ mod tests {
     #[test]
     fn scroll_semantic() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5), Cell::default());
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
@@ -730,7 +729,7 @@ mod tests {
     #[test]
     fn scroll_word() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5), Cell::default());
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 

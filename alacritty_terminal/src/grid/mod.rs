@@ -279,9 +279,6 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                 self.raw.swap(i, i + *positions);
             }
 
-            // TODO: There's an optimization chance here, we don't really need the unwrap_or in
-            // the performance sensitive case
-            //
             // Finally, reset recycled lines.
             //
             // Recycled lines are just above the end of the scrolling region.
@@ -294,9 +291,6 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                 self.raw.swap_lines(line, line + positions);
             }
 
-            // TODO: There's an optimization chance here, we don't really need the unwrap_or in
-            // the performance sensitive case
-            //
             // Clear reused lines.
             for line in IndexRange((region.end - positions)..region.end) {
                 self.raw[line].reset(&self.cursor.template);

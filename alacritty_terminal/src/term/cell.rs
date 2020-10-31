@@ -28,12 +28,12 @@ bitflags! {
 }
 
 /// Trait for determining if a reset should be performed.
-pub trait ResetDiscriminant<T: PartialEq> {
+pub trait ResetDiscriminant<T> {
     /// Value based on which equality for the reset will be determined.
     fn discriminant(&self) -> T;
 }
 
-impl<T: Copy + PartialEq> ResetDiscriminant<T> for T {
+impl<T: Copy> ResetDiscriminant<T> for T {
     fn discriminant(&self) -> T {
         *self
     }
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn line_length_works() {
-        let mut row = Row::<Cell>::new(Column(10), Cell::default());
+        let mut row = Row::<Cell>::new(Column(10));
         row[Column(5)].c = 'a';
 
         assert_eq!(row.line_length(), Column(6));
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn line_length_works_with_wrapline() {
-        let mut row = Row::<Cell>::new(Column(10), Cell::default());
+        let mut row = Row::<Cell>::new(Column(10));
         row[Column(9)].flags.insert(super::Flags::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));

@@ -3,10 +3,15 @@
 use super::*;
 
 use crate::ansi::{Color, NamedColor};
+use crate::term::cell::Cell;
 
 impl GridCell for usize {
     fn is_empty(&self) -> bool {
         *self == 0
+    }
+
+    fn reset(&mut self, template: &Self) {
+        *self = *template;
     }
 
     fn flags(&self) -> &Flags {
@@ -66,7 +71,7 @@ fn scroll_up() {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_up(&(Line(0)..Line(10)), Line(2), 0);
+    grid.scroll_up(&(Line(0)..Line(10)), Line(2));
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);
@@ -98,7 +103,7 @@ fn scroll_down() {
         grid[Line(i)][Column(0)] = i;
     }
 
-    grid.scroll_down(&(Line(0)..Line(10)), Line(2), 0);
+    grid.scroll_down(&(Line(0)..Line(10)), Line(2));
 
     assert_eq!(grid[Line(0)][Column(0)], 0); // was 8.
     assert_eq!(grid[Line(0)].occ, 0);

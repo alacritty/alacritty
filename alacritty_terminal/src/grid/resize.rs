@@ -13,6 +13,9 @@ use crate::grid::{Dimensions, Grid, GridCell};
 impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
     pub fn resize(&mut self, reflow: bool, lines: Line, cols: Column) {
+        // Use empty template cell for resetting cells due to resize.
+        let template = mem::take(&mut self.cursor.template);
+
         match self.lines.cmp(&lines) {
             Ordering::Less => self.grow_lines(lines),
             Ordering::Greater => self.shrink_lines(lines),
@@ -24,6 +27,9 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
             Ordering::Greater => self.shrink_cols(reflow, cols),
             Ordering::Equal => (),
         }
+
+        // Restore template cell.
+        self.cursor.template = template;
     }
 
     /// Add lines to the visible area.
@@ -332,7 +338,7 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
                     // Make sure new row is at least as long as new width.
                     let occ = wrapped.len();
                     if occ < cols.0 {
-                        wrapped.resize_with(cols.0, || T::default());
+                        wrapped.resize_with(cols.0, T::default);
                     }
                     row = Row::from_vec(wrapped, occ);
                 }

@@ -63,7 +63,7 @@ impl<T: Clone + Default> Row<T> {
             return;
         }
 
-        self.inner.resize_with(cols.0, || T::default());
+        self.inner.resize_with(cols.0, T::default);
     }
 
     /// Reduce the number of columns in the row.

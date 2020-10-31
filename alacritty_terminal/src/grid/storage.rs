@@ -300,6 +300,10 @@ mod tests {
             *self == ' ' || *self == '\t'
         }
 
+        fn reset(&mut self, template: &Self) {
+            *self = *template;
+        }
+
         fn flags(&self) -> &Flags {
             unimplemented!();
         }
@@ -323,19 +327,19 @@ mod tests {
     fn indexing() {
         let mut storage = Storage::<char>::with_capacity(Line(3), Column(1));
 
-        storage[0] = Row::new(Column(1), '0');
-        storage[1] = Row::new(Column(1), '1');
-        storage[2] = Row::new(Column(1), '2');
+        storage[0] = filled_row('0');
+        storage[1] = filled_row('1');
+        storage[2] = filled_row('2');
 
-        assert_eq!(storage[0], Row::new(Column(1), '0'));
-        assert_eq!(storage[1], Row::new(Column(1), '1'));
-        assert_eq!(storage[2], Row::new(Column(1), '2'));
+        assert_eq!(storage[0], filled_row('0'));
+        assert_eq!(storage[1], filled_row('1'));
+        assert_eq!(storage[2], filled_row('2'));
 
         storage.zero += 1;
 
-        assert_eq!(storage[0], Row::new(Column(1), '1'));
-        assert_eq!(storage[1], Row::new(Column(1), '2'));
-        assert_eq!(storage[2], Row::new(Column(1), '0'));
+        assert_eq!(storage[0], filled_row('1'));
+        assert_eq!(storage[1], filled_row('2'));
+        assert_eq!(storage[2], filled_row('0'));
     }
 
     #[test]
@@ -363,39 +367,42 @@ mod tests {
     ///   1: 1
     ///   2: -
     /// After:
-    ///   0: -
-    ///   1: 0 <- Zero
-    ///   2: 1
-    ///   3: -
+    ///   0: 0 <- Zero
+    ///   1: 1
+    ///   2: -
+    ///   3: \0
+    ///   ...
+    ///   MAX_CACHE_SIZE: \0
     #[test]
     fn grow_after_zero() {
-        // Setup storage area
+        // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '-'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('-'),
             ],
             zero: 0,
             visible_lines: Line(3),
             len: 3,
         };
 
-        // Grow buffer
-        storage.grow_visible_lines(Line(4), Row::new(Column(1), '-'));
+        // Grow buffer.
+        storage.grow_visible_lines(Line(4));
 
-        // Make sure the result is correct
-        let expected = Storage {
+        // Make sure the result is correct.
+        let mut expected = Storage {
             inner: vec![
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '-'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('-'),
             ],
-            zero: 1,
+            zero: 0,
             visible_lines: Line(4),
             len: 4,
         };
+        expected.inner.append(&mut vec![filled_row('\0'); MAX_CACHE_SIZE]);
+
         assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
@@ -409,18 +416,20 @@ mod tests {
     ///   1: 0 <- Zero
     ///   2: 1
     /// After:
-    ///   0: -
-    ///   1: -
-    ///   2: 0 <- Zero
-    ///   3: 1
+    ///   0: 0 <- Zero
+    ///   1: 1
+    ///   2: -
+    ///   3: \0
+    ///   ...
+    ///   MAX_CACHE_SIZE: \0
     #[test]
     fn grow_before_zero() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
+                filled_row('-'),
+                filled_row('0'),
+                filled_row('1'),
             ],
             zero: 1,
             visible_lines: Line(3),
@@ -428,20 +437,21 @@ mod tests {
         };
 
         // Grow buffer.
-        storage.grow_visible_lines(Line(4), Row::new(Column(1), '-'));
+        storage.grow_visible_lines(Line(4));
 
         // Make sure the result is correct.
-        let expected = Storage {
+        let mut expected = Storage {
             inner: vec![
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('-'),
             ],
-            zero: 2,
+            zero: 0,
             visible_lines: Line(4),
             len: 4,
         };
+        expected.inner.append(&mut vec![filled_row('\0'); MAX_CACHE_SIZE]);
+
         assert_eq!(storage.visible_lines, expected.visible_lines);
         assert_eq!(storage.inner, expected.inner);
         assert_eq!(storage.zero, expected.zero);
@@ -463,9 +473,9 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
+                filled_row('2'),
+                filled_row('0'),
+                filled_row('1'),
             ],
             zero: 1,
             visible_lines: Line(3),
@@ -478,9 +488,9 @@ mod tests {
         // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
+                filled_row('2'),
+                filled_row('0'),
+                filled_row('1'),
             ],
             zero: 1,
             visible_lines: Line(2),
@@ -507,9 +517,9 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
             ],
             zero: 0,
             visible_lines: Line(3),
@@ -522,9 +532,9 @@ mod tests {
         // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
             ],
             zero: 0,
             visible_lines: Line(2),
@@ -557,12 +567,12 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(6),
@@ -575,12 +585,12 @@ mod tests {
         // Make sure the result is correct.
         let expected = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(2),
@@ -609,12 +619,12 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(1),
@@ -626,7 +636,7 @@ mod tests {
 
         // Make sure the result is correct.
         let expected = Storage {
-            inner: vec![Row::new(Column(1), '0'), Row::new(Column(1), '1')],
+            inner: vec![filled_row('0'), filled_row('1')],
             zero: 0,
             visible_lines: Line(1),
             len: 2,
@@ -651,9 +661,9 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('0'),
             ],
             zero: 2,
             visible_lines: Line(1),
@@ -665,7 +675,7 @@ mod tests {
 
         // Make sure the result is correct.
         let expected = Storage {
-            inner: vec![Row::new(Column(1), '0'), Row::new(Column(1), '1')],
+            inner: vec![filled_row('0'), filled_row('1')],
             zero: 0,
             visible_lines: Line(1),
             len: 2,
@@ -705,12 +715,12 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(0),
@@ -723,12 +733,12 @@ mod tests {
         // Make sure the result after shrinking is correct.
         let shrinking_expected = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(0),
@@ -739,23 +749,23 @@ mod tests {
         assert_eq!(storage.len, shrinking_expected.len);
 
         // Grow buffer.
-        storage.grow_lines(4, Row::new(Column(1), '-'));
+        storage.initialize(1, Column(1));
 
-        // Make sure the result after shrinking is correct.
+        // Make sure the previously freed elements are reused.
         let growing_expected = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
-            zero: 3,
+            zero: 2,
             visible_lines: Line(0),
-            len: 7,
+            len: 4,
         };
+
         assert_eq!(storage.inner, growing_expected.inner);
         assert_eq!(storage.zero, growing_expected.zero);
         assert_eq!(storage.len, growing_expected.len);
@@ -766,12 +776,12 @@ mod tests {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '4'),
-                Row::new(Column(1), '5'),
-                Row::new(Column(1), '0'),
-                Row::new(Column(1), '1'),
-                Row::new(Column(1), '2'),
-                Row::new(Column(1), '3'),
+                filled_row('4'),
+                filled_row('5'),
+                filled_row('0'),
+                filled_row('1'),
+                filled_row('2'),
+                filled_row('3'),
             ],
             zero: 2,
             visible_lines: Line(0),
@@ -780,19 +790,19 @@ mod tests {
 
         // Initialize additional lines.
         let init_size = 3;
-        storage.initialize(init_size, '-', Column(1));
+        storage.initialize(init_size, Column(1));
 
         // Generate expected grid.
-        let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
         let mut expected_inner = vec![
-            Row::new(Column(1), '0'),
-            Row::new(Column(1), '1'),
-            Row::new(Column(1), '2'),
-            Row::new(Column(1), '3'),
-            Row::new(Column(1), '4'),
-            Row::new(Column(1), '5'),
+            filled_row('0'),
+            filled_row('1'),
+            filled_row('2'),
+            filled_row('3'),
+            filled_row('4'),
+            filled_row('5'),
         ];
-        expected_inner.append(&mut vec![Row::new(Column(1), '-'); expected_init_size]);
+        let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
+        expected_inner.append(&mut vec![filled_row('\0'); expected_init_size]);
         let expected_storage =
             Storage { inner: expected_inner, zero: 0, visible_lines: Line(0), len: 9 };
 
@@ -805,9 +815,9 @@ mod tests {
     fn rotate_wrap_zero() {
         let mut storage: Storage<char> = Storage {
             inner: vec![
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '-'),
-                Row::new(Column(1), '-'),
+                filled_row('-'),
+                filled_row('-'),
+                filled_row('-'),
             ],
             zero: 2,
             visible_lines: Line(0),
@@ -817,5 +827,11 @@ mod tests {
         storage.rotate(2);
 
         assert!(storage.zero < storage.inner.len());
+    }
+
+    fn filled_row(content: char) -> Row<char> {
+        let mut row = Row::new(Column(1));
+        row[Column(0)] = content;
+        row
     }
 }

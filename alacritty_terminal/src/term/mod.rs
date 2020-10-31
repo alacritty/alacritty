@@ -2629,7 +2629,7 @@ mod tests {
         let mut term = Term::new(&MockConfig::default(), size, Mock);
 
         // Add one line of scrollback.
-        term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), Cell::default());
+        term.grid.scroll_up(&(Line(0)..Line(1)), Line(1));
 
         // Clear the history.
         term.clear_screen(ansi::ClearMode::Saved);
