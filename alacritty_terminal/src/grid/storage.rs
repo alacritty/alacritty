@@ -377,11 +377,7 @@ mod tests {
     fn grow_after_zero() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('0'),
-                filled_row('1'),
-                filled_row('-'),
-            ],
+            inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
             visible_lines: Line(3),
             len: 3,
@@ -392,11 +388,7 @@ mod tests {
 
         // Make sure the result is correct.
         let mut expected = Storage {
-            inner: vec![
-                filled_row('0'),
-                filled_row('1'),
-                filled_row('-'),
-            ],
+            inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
             visible_lines: Line(4),
             len: 4,
@@ -426,11 +418,7 @@ mod tests {
     fn grow_before_zero() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('-'),
-                filled_row('0'),
-                filled_row('1'),
-            ],
+            inner: vec![filled_row('-'), filled_row('0'), filled_row('1')],
             zero: 1,
             visible_lines: Line(3),
             len: 3,
@@ -441,11 +429,7 @@ mod tests {
 
         // Make sure the result is correct.
         let mut expected = Storage {
-            inner: vec![
-                filled_row('0'),
-                filled_row('1'),
-                filled_row('-'),
-            ],
+            inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
             visible_lines: Line(4),
             len: 4,
@@ -472,11 +456,7 @@ mod tests {
     fn shrink_before_zero() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('2'),
-                filled_row('0'),
-                filled_row('1'),
-            ],
+            inner: vec![filled_row('2'), filled_row('0'), filled_row('1')],
             zero: 1,
             visible_lines: Line(3),
             len: 3,
@@ -487,11 +467,7 @@ mod tests {
 
         // Make sure the result is correct.
         let expected = Storage {
-            inner: vec![
-                filled_row('2'),
-                filled_row('0'),
-                filled_row('1'),
-            ],
+            inner: vec![filled_row('2'), filled_row('0'), filled_row('1')],
             zero: 1,
             visible_lines: Line(2),
             len: 2,
@@ -516,11 +492,7 @@ mod tests {
     fn shrink_after_zero() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('0'),
-                filled_row('1'),
-                filled_row('2'),
-            ],
+            inner: vec![filled_row('0'), filled_row('1'), filled_row('2')],
             zero: 0,
             visible_lines: Line(3),
             len: 3,
@@ -531,11 +503,7 @@ mod tests {
 
         // Make sure the result is correct.
         let expected = Storage {
-            inner: vec![
-                filled_row('0'),
-                filled_row('1'),
-                filled_row('2'),
-            ],
+            inner: vec![filled_row('0'), filled_row('1'), filled_row('2')],
             zero: 0,
             visible_lines: Line(2),
             len: 2,
@@ -660,11 +628,7 @@ mod tests {
     fn truncate_invisible_lines_beginning() {
         // Setup storage area.
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('1'),
-                filled_row('2'),
-                filled_row('0'),
-            ],
+            inner: vec![filled_row('1'), filled_row('2'), filled_row('0')],
             zero: 2,
             visible_lines: Line(1),
             len: 2,
@@ -814,11 +778,7 @@ mod tests {
     #[test]
     fn rotate_wrap_zero() {
         let mut storage: Storage<char> = Storage {
-            inner: vec![
-                filled_row('-'),
-                filled_row('-'),
-                filled_row('-'),
-            ],
+            inner: vec![filled_row('-'), filled_row('-'), filled_row('-')],
             zero: 2,
             visible_lines: Line(0),
             len: 3,

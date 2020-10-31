@@ -30,7 +30,6 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
-
 impl<T: Clone + Default> Row<T> {
     /// Create a new terminal row.
     ///
