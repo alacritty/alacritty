@@ -2,7 +2,6 @@
 
 use super::*;
 
-use crate::ansi::{Color, NamedColor};
 use crate::term::cell::Cell;
 
 impl GridCell for usize {
@@ -20,12 +19,6 @@ impl GridCell for usize {
 
     fn flags_mut(&mut self) -> &mut Flags {
         unimplemented!();
-    }
-}
-
-impl ResetDiscriminant<Color> for usize {
-    fn discriminant(&self) -> Color {
-        Color::Named(NamedColor::Background)
     }
 }
 
