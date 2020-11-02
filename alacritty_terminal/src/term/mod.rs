@@ -1001,10 +1001,8 @@ impl<T> Term<T> {
                 text.push(cell.c);
 
                 // Push zero-width characters.
-                if let Some(zerowidth) = cell.zerowidth() {
-                    for c in zerowidth {
-                        text.push(*c);
-                    }
+                for c in cell.zerowidth().into_iter().flatten() {
+                    text.push(*c);
                 }
             }
         }
@@ -1531,9 +1529,8 @@ impl<T: EventListener> Handler for Term<T> {
     fn decaln(&mut self) {
         trace!("Decalnning");
 
-        let bg = Cell::default().bg;
         self.grid.region_mut(..).each(|cell| {
-            *cell = bg.into();
+            *cell = Cell::default();
             cell.c = 'E';
         });
     }
