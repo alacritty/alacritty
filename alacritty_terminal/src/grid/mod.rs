@@ -327,14 +327,14 @@ impl<T: ResetDiscriminant<Color> + GridCell + Default + PartialEq + Clone> Grid<
     pub fn reset(&mut self) {
         self.clear_history();
 
-        // Reset all visible lines.
-        for row in 0..self.raw.len() {
-            self.raw[row].reset(&T::default());
-        }
-
         self.saved_cursor = Cursor::default();
         self.cursor = Cursor::default();
         self.display_offset = 0;
+
+        // Reset all visible lines.
+        for row in 0..self.raw.len() {
+            self.raw[row].reset(&self.cursor.template);
+        }
     }
 }
 
