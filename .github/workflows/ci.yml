@@ -22,9 +22,9 @@ jobs:
       - name: Rustup
         run: rustup default ${{ matrix.platform.rust }}
       - name: Build
-        run: cargo build
+        run: cargo build --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
       - name: Test
-        run: cargo test
+        run: cargo test --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
 
   clippy:
     strategy:
@@ -42,4 +42,4 @@ jobs:
       - name: Install Clippy
         run: rustup component add clippy
       - name: Lint
-        run: cargo clippy --all-targets
+        run: cargo clippy --all-targets --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
