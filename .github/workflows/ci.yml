@@ -9,15 +9,18 @@ jobs:
   build:
     strategy:
       matrix:
-        rust_version: [1.43.1, stable]
-        platform: [windows-latest, macos-latest]
+        platform:
+          - { os: windows-latest, rust: stable-x86_64-pc-windows-msvc }
+          - { os: windows-latest, rust: 1.43.1-x86_64-pc-windows-msvc }
+          - { os: macos-latest, rust: stable }
+          - { os: macos-latest, rust: 1.43.1 }
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform.os }}
 
     steps:
       - uses: actions/checkout@v2
       - name: Rustup
-        run: rustup default ${{ matrix.rust_version }}
+        run: rustup default ${{ matrix.platform.rust }}
       - name: Build
         run: cargo build
       - name: Test
@@ -26,12 +29,16 @@ jobs:
   clippy:
     strategy:
       matrix:
-        platform: [windows-latest, macos-latest]
+        platform:
+          - { os: windows-latest, rust: stable-x86_64-pc-windows-msvc }
+          - { os: macos-latest, rust: stable }
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform.os }}
 
     steps:
       - uses: actions/checkout@v2
+      - name: Rustup
+        run: rustup default ${{ matrix.platform.rust }}
       - name: Install Clippy
         run: rustup component add clippy
       - name: Lint
