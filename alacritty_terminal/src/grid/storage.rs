@@ -116,7 +116,6 @@ impl<T> Storage<T> {
         self.rezero();
 
         self.inner.truncate(self.len);
-        self.len = 0;
     }
 
     /// Dynamically grow the storage buffer at runtime.
@@ -214,7 +213,9 @@ impl<T> Storage<T> {
         self.truncate();
 
         let mut buffer = Vec::new();
+
         mem::swap(&mut buffer, &mut self.inner);
+        self.len = 0;
 
         buffer
     }
