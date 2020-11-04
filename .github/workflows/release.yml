@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches: [master]
-    tags: [^v[0-9]+\.[0-9]+\.[0-9]+$]
+    tags: ["^v[0-9]+.[0-9]+.[0-9]+$"]
 
 env:
   CARGO_TERM_COLOR: always
