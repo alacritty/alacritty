@@ -5,13 +5,21 @@ environment:
   PATH: /home/build/.cargo/bin:/usr/bin/
 tasks:
   - rustup: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
-      cd alacritty
-  - build: $HOME/.cargo/bin/cargo build
-  - test: $HOME/.cargo/bin/cargo test
-  - setup_rustfmt: $HOME/.cargo/bin/rustup toolchain install nightly -c rustfmt
-  - rustfmt: $HOME/.cargo/bin/cargo fmt +nightly -- --check
-  - setup_clippy: $HOME/.cargo/bin/rustup component add clippy
-  - clippy: $HOME/.cargo/bin/cargo clippy --all-targets
-  - setup_oldstable: $HOME/.cargo/bin/rustup default 1.43.1
-  - oldstable: $HOME/.cargo/bin/cargo test
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+  - test: |
+    cd alacritty
+    cargo build
+    cargo test
+  - rustfmt: |
+    cd alacritty
+    rustup toolchain install nightly -c rustfmt
+    cargo fmt +nightly -- --check
+  - clippy: |
+    cd alacritty
+    rustup component add clippy
+    cargo clippy --all-targets
+  - oldstable: |
+    cd alacritty
+    rustup default 1.43.1
+    cargo build
+    cargo test
