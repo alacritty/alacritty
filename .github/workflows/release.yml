@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+    tags: [^v[0-9]+\.[0-9]+\.[0-9]+$]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: cargo test --release
+      - name: Make App
+        run: make dmg
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: true
+      - name: Upload Application
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/release/osx/Alacritty.dmg
+          asset_name: Alacritty.dmg
+          asset_content_type: application/octet-stream
+
+  assets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: true
+      - name: Gzip manpage
+        run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
+      - name: Upload Manpage
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./alacritty.1.gz
+          asset_name: alacritty.1.gz
+          asset_content_type: application/octet-stream
+      # TODO: Upload all the rest of the fucking assets

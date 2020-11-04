@@ -1,25 +1,36 @@
 image: archlinux
+
+packages:
+  - pkg-config
+  - cmake
+  - make
+  - freetype2
+  - fontconfig
+  - libxcb
+
 sources:
   - https://github.com/alacritty/alacritty
+
 environment:
   PATH: /home/build/.cargo/bin:/usr/bin/
+
 tasks:
   - rustup: |
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
   - test: |
-    cd alacritty
-    cargo build
-    cargo test
+      cd alacritty
+      cargo build
+      cargo test
   - rustfmt: |
-    cd alacritty
-    rustup toolchain install nightly -c rustfmt
-    cargo fmt +nightly -- --check
+      cd alacritty
+      rustup toolchain install nightly -c rustfmt
+      cargo +nightly fmt -- --check
   - clippy: |
-    cd alacritty
-    rustup component add clippy
-    cargo clippy --all-targets
+      cd alacritty
+      rustup component add clippy
+      cargo clippy --all-targets
   - oldstable: |
-    cd alacritty
-    rustup default 1.43.1
-    cargo build
-    cargo test
+      cd alacritty
+      rustup default 1.43.1
+      cargo build
+      cargo test

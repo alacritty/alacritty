@@ -1,4 +1,5 @@
 image: freebsd/latest
+
 packages:
   - devel/cmake
   - devel/pkgconf
@@ -7,8 +8,10 @@ packages:
   - x11-fonts/fontconfig
   - x11-fonts/dejavu
   - x11/libxcb
+
 sources:
   - https://github.com/alacritty/alacritty
+
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal

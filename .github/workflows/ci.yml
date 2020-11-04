@@ -9,18 +9,15 @@ jobs:
   build:
     strategy:
       matrix:
-        platform:
-          - { os: windows-latest, rust: stable-x86_64-pc-windows-msvc }
-          - { os: windows-latest, rust: 1.43.1-x86_64-pc-windows-msvc }
-          - { os: macos-latest, rust: stable }
-          - { os: macos-latest, rust: 1.43.1 }
+        rust_version: [stable, 1.43.1]
+        os: [windows-latest, macos-latest]
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
       - name: Rustup
-        run: rustup default ${{ matrix.platform.rust }}
+        run: rustup default ${{ matrix.rust_version }}
       - name: Build
         run: cargo build --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
       - name: Test
@@ -29,16 +26,14 @@ jobs:
   clippy:
     strategy:
       matrix:
-        platform:
-          - { os: windows-latest, rust: stable-x86_64-pc-windows-msvc }
-          - { os: macos-latest, rust: stable }
+        os: [windows-latest, macos-latest]
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
       - name: Rustup
-        run: rustup default ${{ matrix.platform.rust }}
+        run: rustup default ${{ matrix.rust_version }}
       - name: Install Clippy
         run: rustup component add clippy
       - name: Lint
