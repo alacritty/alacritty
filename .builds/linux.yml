@@ -2,7 +2,7 @@ image: archlinux
 sources:
   - https://github.com/alacritty/alacritty
 environment:
-  PATH: /home/build/.cargo/bin:/usr/bin/curl
+  PATH: /home/build/.cargo/bin:/usr/bin/
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
