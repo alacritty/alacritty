@@ -1,0 +1,16 @@
+image: archlinux
+sources:
+  - https://github.com/alacritty/alacritty
+tasks:
+  - rustup: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+      export PATH=$HOME/.cargo/bin:$PATH
+      cd alacritty
+  - build: cargo build
+  - test: cargo test
+  - setup_rustfmt: rustup toolchain install nightly -c rustfmt
+  - rustfmt: cargo fmt +nightly -- --check
+  - setup_clippy: rustup component add clippy
+  - clippy: cargo clippy --all-targets
+  - setup_oldstable: rustup default 1.43.1
+  - oldstable: cargo test
