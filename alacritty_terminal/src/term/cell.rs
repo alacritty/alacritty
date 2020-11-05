@@ -1,13 +1,11 @@
-use bitflags::bitflags;
+use std::boxed::Box;
 
+use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
-
-/// Maximum number of zerowidth characters which will be stored per cell.
-pub const MAX_ZEROWIDTH_CHARS: usize = 5;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -29,23 +27,77 @@ bitflags! {
     }
 }
 
-const fn default_extra() -> [char; MAX_ZEROWIDTH_CHARS] {
-    [' '; MAX_ZEROWIDTH_CHARS]
+/// Trait for determining if a reset should be performed.
+pub trait ResetDiscriminant<T> {
+    /// Value based on which equality for the reset will be determined.
+    fn discriminant(&self) -> T;
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+impl<T: Copy> ResetDiscriminant<T> for T {
+    fn discriminant(&self) -> T {
+        *self
+    }
+}
+
+impl ResetDiscriminant<Color> for Cell {
+    fn discriminant(&self) -> Color {
+        self.bg
+    }
+}
+
+/// Dynamically allocated cell content.
+///
+/// This storage is reserved for cell attributes which are rarely set. This allows reducing the
+/// allocation required ahead of time for every cell, with some additional overhead when the extra
+/// storage is actually required.
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
+struct CellExtra {
+    zerowidth: Vec<char>,
+}
+
+/// Content and attributes of a single cell in the terminal grid.
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Cell {
     pub c: char,
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
-    #[serde(default = "default_extra")]
-    pub extra: [char; MAX_ZEROWIDTH_CHARS],
+    #[serde(default)]
+    extra: Option<Box<CellExtra>>,
 }
 
 impl Default for Cell {
+    #[inline]
     fn default() -> Cell {
-        Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background))
+        Cell {
+            c: ' ',
+            bg: Color::Named(NamedColor::Background),
+            fg: Color::Named(NamedColor::Foreground),
+            flags: Flags::empty(),
+            extra: None,
+        }
+    }
+}
+
+impl Cell {
+    /// Zerowidth characters stored in this cell.
+    #[inline]
+    pub fn zerowidth(&self) -> Option<&[char]> {
+        self.extra.as_ref().map(|extra| extra.zerowidth.as_slice())
+    }
+
+    /// Write a new zerowidth character to this cell.
+    #[inline]
+    pub fn push_zerowidth(&mut self, c: char) {
+        self.extra.get_or_insert_with(Default::default).zerowidth.push(c);
+    }
+
+    /// Free all dynamically allocated cell storage.
+    #[inline]
+    pub fn drop_extra(&mut self) {
+        if self.extra.is_some() {
+            self.extra = None;
+        }
     }
 }
 
@@ -53,7 +105,6 @@ impl GridCell for Cell {
     #[inline]
     fn is_empty(&self) -> bool {
         (self.c == ' ' || self.c == '\t')
-            && self.extra[0] == ' '
             && self.bg == Color::Named(NamedColor::Background)
             && self.fg == Color::Named(NamedColor::Foreground)
             && !self.flags.intersects(
@@ -65,6 +116,7 @@ impl GridCell for Cell {
                     | Flags::WIDE_CHAR_SPACER
                     | Flags::LEADING_WIDE_CHAR_SPACER,
             )
+            && self.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) != Some(false)
     }
 
     #[inline]
@@ -78,8 +130,15 @@ impl GridCell for Cell {
     }
 
     #[inline]
-    fn fast_eq(&self, other: Self) -> bool {
-        self.bg == other.bg
+    fn reset(&mut self, template: &Self) {
+        *self = Cell { bg: template.bg, ..Cell::default() };
+    }
+}
+
+impl From<Color> for Cell {
+    #[inline]
+    fn from(color: Color) -> Self {
+        Self { bg: color, ..Cell::default() }
     }
 }
 
@@ -98,64 +157,15 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' ' || cell.extra[0] != ' ' {
+            if cell.c != ' '
+                || cell.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) == Some(false)
+            {
                 length = Column(self.len() - index);
                 break;
             }
         }
 
         length
-    }
-}
-
-impl Cell {
-    #[inline]
-    pub fn bold(&self) -> bool {
-        self.flags.contains(Flags::BOLD)
-    }
-
-    #[inline]
-    pub fn inverse(&self) -> bool {
-        self.flags.contains(Flags::INVERSE)
-    }
-
-    #[inline]
-    pub fn dim(&self) -> bool {
-        self.flags.contains(Flags::DIM)
-    }
-
-    pub fn new(c: char, fg: Color, bg: Color) -> Cell {
-        Cell { extra: [' '; MAX_ZEROWIDTH_CHARS], c, bg, fg, flags: Flags::empty() }
-    }
-
-    #[inline]
-    pub fn reset(&mut self, template: &Cell) {
-        // memcpy template to self.
-        *self = Cell { c: template.c, bg: template.bg, ..Cell::default() };
-    }
-
-    #[inline]
-    pub fn chars(&self) -> [char; MAX_ZEROWIDTH_CHARS + 1] {
-        unsafe {
-            let mut chars = [std::mem::MaybeUninit::uninit(); MAX_ZEROWIDTH_CHARS + 1];
-            std::ptr::write(chars[0].as_mut_ptr(), self.c);
-            std::ptr::copy_nonoverlapping(
-                self.extra.as_ptr() as *mut std::mem::MaybeUninit<char>,
-                chars.as_mut_ptr().offset(1),
-                self.extra.len(),
-            );
-            std::mem::transmute(chars)
-        }
-    }
-
-    #[inline]
-    pub fn push_extra(&mut self, c: char) {
-        for elem in self.extra.iter_mut() {
-            if elem == &' ' {
-                *elem = c;
-                break;
-            }
-        }
     }
 }
 
@@ -168,8 +178,7 @@ mod tests {
 
     #[test]
     fn line_length_works() {
-        let template = Cell::default();
-        let mut row = Row::new(Column(10), template);
+        let mut row = Row::<Cell>::new(Column(10));
         row[Column(5)].c = 'a';
 
         assert_eq!(row.line_length(), Column(6));
@@ -177,8 +186,7 @@ mod tests {
 
     #[test]
     fn line_length_works_with_wrapline() {
-        let template = Cell::default();
-        let mut row = Row::new(Column(10), template);
+        let mut row = Row::<Cell>::new(Column(10));
         row[Column(9)].flags.insert(super::Flags::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));
@@ -188,7 +196,8 @@ mod tests {
 #[cfg(all(test, feature = "bench"))]
 mod benches {
     extern crate test;
-    use super::Cell;
+
+    use super::*;
 
     #[bench]
     fn cell_reset(b: &mut test::Bencher) {
@@ -196,7 +205,7 @@ mod benches {
             let mut cell = Cell::default();
 
             for _ in 0..100 {
-                cell.reset(test::black_box(&Cell::default()));
+                cell = test::black_box(Color::Named(NamedColor::Foreground).into());
             }
 
             test::black_box(cell);

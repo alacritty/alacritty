@@ -269,7 +269,7 @@ fn semantic<T: EventListener>(
     // Expand semantically based on movement direction.
     let expand_semantic = |point: Point<usize>| {
         // Do not expand when currently on a semantic escape char.
-        let cell = term.grid()[point.line][point.col];
+        let cell = &term.grid()[point.line][point.col];
         if term.semantic_escape_chars().contains(cell.c)
             && !cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         {
@@ -375,7 +375,7 @@ fn advance<T>(term: &Term<T>, point: Point<usize>, direction: Direction) -> Poin
 
 /// Check if cell at point contains whitespace.
 fn is_space<T>(term: &Term<T>, point: Point<usize>) -> bool {
-    let cell = term.grid()[point.line][point.col];
+    let cell = &term.grid()[point.line][point.col];
     !cell.flags().intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         && (cell.c == ' ' || cell.c == '\t')
 }
@@ -653,7 +653,7 @@ mod tests {
     #[test]
     fn scroll_semantic() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5), Default::default());
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
@@ -729,7 +729,7 @@ mod tests {
     #[test]
     fn scroll_word() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5), Default::default());
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 

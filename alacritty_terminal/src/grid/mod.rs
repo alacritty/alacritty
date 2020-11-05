@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ansi::{CharsetIndex, StandardCharset};
 use crate::index::{Column, IndexRange, Line, Point};
-use crate::term::cell::{Cell, Flags};
+use crate::term::cell::{Flags, ResetDiscriminant};
 
 pub mod resize;
 mod row;
@@ -49,25 +49,24 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
     }
 }
 
-pub trait GridCell {
+pub trait GridCell: Sized {
+    /// Check if the cell contains any content.
     fn is_empty(&self) -> bool;
+
+    /// Perform an opinionated cell reset based on a template cell.
+    fn reset(&mut self, template: &Self);
+
     fn flags(&self) -> &Flags;
     fn flags_mut(&mut self) -> &mut Flags;
-
-    /// Fast equality approximation.
-    ///
-    /// This is a faster alternative to [`PartialEq`],
-    /// but might report unequal cells as equal.
-    fn fast_eq(&self, other: Self) -> bool;
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-pub struct Cursor {
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Cursor<T> {
     /// The location of this cursor.
     pub point: Point,
 
     /// Template cell when using this cursor.
-    pub template: Cell,
+    pub template: T,
 
     /// Currently configured graphic character sets.
     pub charsets: Charsets,
@@ -131,11 +130,11 @@ impl IndexMut<CharsetIndex> for Charsets {
 pub struct Grid<T> {
     /// Current cursor for writing data.
     #[serde(skip)]
-    pub cursor: Cursor,
+    pub cursor: Cursor<T>,
 
     /// Last saved cursor.
     #[serde(skip)]
-    pub saved_cursor: Cursor,
+    pub saved_cursor: Cursor<T>,
 
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
@@ -167,10 +166,10 @@ pub enum Scroll {
     Bottom,
 }
 
-impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
-    pub fn new(lines: Line, cols: Column, max_scroll_limit: usize, template: T) -> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+    pub fn new(lines: Line, cols: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
-            raw: Storage::with_capacity(lines, Row::new(cols, template)),
+            raw: Storage::with_capacity(lines, cols),
             max_scroll_limit,
             display_offset: 0,
             saved_cursor: Cursor::default(),
@@ -203,10 +202,10 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         };
     }
 
-    fn increase_scroll_limit(&mut self, count: usize, template: T) {
+    fn increase_scroll_limit(&mut self, count: usize) {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
-            self.raw.initialize(count, template, self.cols);
+            self.raw.initialize(count, self.cols);
         }
     }
 
@@ -219,7 +218,11 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     }
 
     #[inline]
-    pub fn scroll_down(&mut self, region: &Range<Line>, positions: Line, template: T) {
+    pub fn scroll_down<D>(&mut self, region: &Range<Line>, positions: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
@@ -238,7 +241,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
             // Finally, reset recycled lines.
             for i in IndexRange(Line(0)..positions) {
-                self.raw[i].reset(template);
+                self.raw[i].reset(&self.cursor.template);
             }
         } else {
             // Subregion rotation.
@@ -247,7 +250,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             }
 
             for line in IndexRange(region.start..(region.start + positions)) {
-                self.raw[line].reset(template);
+                self.raw[line].reset(&self.cursor.template);
             }
         }
     }
@@ -255,7 +258,11 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     /// Move lines at the bottom toward the top.
     ///
     /// This is the performance-sensitive part of scrolling.
-    pub fn scroll_up(&mut self, region: &Range<Line>, positions: Line, template: T) {
+    pub fn scroll_up<D>(&mut self, region: &Range<Line>, positions: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         let num_lines = self.screen_lines().0;
 
         if region.start == Line(0) {
@@ -264,7 +271,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                 self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
             }
 
-            self.increase_scroll_limit(*positions, template);
+            self.increase_scroll_limit(*positions);
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
@@ -284,7 +291,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[i + fixed_lines].reset(template);
+                self.raw[i + fixed_lines].reset(&self.cursor.template);
             }
         } else {
             // Subregion rotation.
@@ -294,12 +301,16 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
             // Clear reused lines.
             for line in IndexRange((region.end - positions)..region.end) {
-                self.raw[line].reset(template);
+                self.raw[line].reset(&self.cursor.template);
             }
         }
     }
 
-    pub fn clear_viewport(&mut self, template: T) {
+    pub fn clear_viewport<D>(&mut self)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.cols() };
         let mut iter = self.iter_from(end);
@@ -316,26 +327,30 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         self.display_offset = 0;
 
         // Clear the viewport.
-        self.scroll_up(&region, positions, template);
+        self.scroll_up(&region, positions);
 
         // Reset rotated lines.
         for i in positions.0..self.lines.0 {
-            self.raw[i].reset(template);
+            self.raw[i].reset(&self.cursor.template);
         }
     }
 
     /// Completely reset the grid state.
-    pub fn reset(&mut self, template: T) {
+    pub fn reset<D>(&mut self)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         self.clear_history();
-
-        // Reset all visible lines.
-        for row in 0..self.raw.len() {
-            self.raw[row].reset(template);
-        }
 
         self.saved_cursor = Cursor::default();
         self.cursor = Cursor::default();
         self.display_offset = 0;
+
+        // Reset all visible lines.
+        for row in 0..self.raw.len() {
+            self.raw[row].reset(&self.cursor.template);
+        }
     }
 }
 
@@ -372,15 +387,15 @@ impl<T> Grid<T> {
 
     /// This is used only for initializing after loading ref-tests.
     #[inline]
-    pub fn initialize_all(&mut self, template: T)
+    pub fn initialize_all(&mut self)
     where
-        T: Copy + GridCell,
+        T: GridCell + Clone + Default,
     {
         // Remove all cached lines to clear them of any content.
         self.truncate();
 
         // Initialize everything with empty new lines.
-        self.raw.initialize(self.max_scroll_limit - self.history_size(), template, self.cols);
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), self.cols);
     }
 
     /// This is used only for truncating before saving ref-tests.
@@ -753,8 +768,8 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
     }
 }
 
-impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
-    type Item = Indexed<T>;
+impl<'a, T: 'a> Iterator for DisplayIter<'a, T> {
+    type Item = Indexed<&'a T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -765,7 +780,7 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
 
         // Get the next item.
         let item = Some(Indexed {
-            inner: self.grid.raw[self.offset][self.col],
+            inner: &self.grid.raw[self.offset][self.col],
             line: self.line,
             column: self.col,
         });

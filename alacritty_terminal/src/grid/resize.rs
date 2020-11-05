@@ -1,16 +1,24 @@
 //! Grid resize and reflow.
 
 use std::cmp::{min, Ordering};
+use std::mem;
 
 use crate::index::{Column, Line};
-use crate::term::cell::Flags;
+use crate::term::cell::{Flags, ResetDiscriminant};
 
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
 
-impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
+impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
-    pub fn resize(&mut self, reflow: bool, lines: Line, cols: Column) {
+    pub fn resize<D>(&mut self, reflow: bool, lines: Line, cols: Column)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
+        // Use empty template cell for resetting cells due to resize.
+        let template = mem::take(&mut self.cursor.template);
+
         match self.lines.cmp(&lines) {
             Ordering::Less => self.grow_lines(lines),
             Ordering::Greater => self.shrink_lines(lines),
@@ -22,6 +30,9 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
             Ordering::Greater => self.shrink_cols(reflow, cols),
             Ordering::Equal => (),
         }
+
+        // Restore template cell.
+        self.cursor.template = template;
     }
 
     /// Add lines to the visible area.
@@ -29,11 +40,15 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
     /// simply added to the bottom of the screen.
-    fn grow_lines(&mut self, new_line_count: Line) {
+    fn grow_lines<D>(&mut self, new_line_count: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         let lines_added = new_line_count - self.lines;
 
         // Need to resize before updating buffer.
-        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, T::default()));
+        self.raw.grow_visible_lines(new_line_count);
         self.lines = new_line_count;
 
         let history_size = self.history_size();
@@ -42,7 +57,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added.0 {
             let delta = lines_added - from_history;
-            self.scroll_up(&(Line(0)..new_line_count), delta, T::default());
+            self.scroll_up(&(Line(0)..new_line_count), delta);
         }
 
         // Move cursor down for every line pulled from history.
@@ -60,11 +75,15 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines(&mut self, target: Line) {
+    fn shrink_lines<D>(&mut self, target: Line)
+    where
+        T: ResetDiscriminant<D>,
+        D: PartialEq,
+    {
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling), T::default());
+            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling));
 
             // Clamp cursors to the new viewport size.
             self.cursor.point.line = min(self.cursor.point.line, target - 1);
@@ -194,7 +213,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         if reversed.len() < self.lines.0 {
             let delta = self.lines.0 - reversed.len();
             self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(delta);
-            reversed.append(&mut vec![Row::new(cols, T::default()); delta]);
+            reversed.resize_with(self.lines.0, || Row::new(cols));
         }
 
         // Pull content down to put cursor in correct position, or move cursor up if there's no
@@ -211,7 +230,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
         let mut new_raw = Vec::with_capacity(reversed.len());
         for mut row in reversed.drain(..).rev() {
             if row.len() < cols.0 {
-                row.grow(cols, T::default());
+                row.grow(cols);
             }
             new_raw.push(row);
         }
@@ -269,11 +288,11 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
 
                 // Insert spacer if a wide char would be wrapped into the last column.
                 if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
-                    wrapped.insert(0, row[cols - 1]);
-
                     let mut spacer = T::default();
                     spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
-                    row[cols - 1] = spacer;
+
+                    let wide_char = mem::replace(&mut row[cols - 1], spacer);
+                    wrapped.insert(0, wide_char);
                 }
 
                 // Remove wide char spacer before shrinking.
@@ -330,7 +349,7 @@ impl<T: GridCell + Default + PartialEq + Copy> Grid<T> {
                     // Make sure new row is at least as long as new width.
                     let occ = wrapped.len();
                     if occ < cols.0 {
-                        wrapped.append(&mut vec![T::default(); cols.0 - occ]);
+                        wrapped.resize_with(cols.0, T::default);
                     }
                     row = Row::from_vec(wrapped, occ);
                 }

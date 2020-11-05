@@ -213,16 +213,19 @@ impl<T> Term<T> {
 
         let mut iter = self.grid.iter_from(start);
         let mut state = dfa.start_state();
+        let mut last_wrapped = false;
         let mut regex_match = None;
 
-        let mut cell = *iter.cell();
+        let mut cell = iter.cell();
         self.skip_fullwidth(&mut iter, &mut cell, direction);
+        let mut c = cell.c;
+
         let mut point = iter.point();
 
         loop {
             // Convert char to array of bytes.
             let mut buf = [0; 4];
-            let utf8_len = cell.c.encode_utf8(&mut buf).len();
+            let utf8_len = c.encode_utf8(&mut buf).len();
 
             // Pass char to DFA as individual bytes.
             for i in 0..utf8_len {
@@ -251,42 +254,42 @@ impl<T> Term<T> {
             }
 
             // Advance grid cell iterator.
-            let mut new_cell = match next(&mut iter) {
-                Some(&cell) => cell,
+            let mut cell = match next(&mut iter) {
+                Some(cell) => cell,
                 None => {
                     // Wrap around to other end of the scrollback buffer.
                     let start = Point::new(last_line - point.line, last_col - point.col);
                     iter = self.grid.iter_from(start);
-                    *iter.cell()
+                    iter.cell()
                 },
             };
-            self.skip_fullwidth(&mut iter, &mut new_cell, direction);
+            self.skip_fullwidth(&mut iter, &mut cell, direction);
+            let wrapped = cell.flags.contains(Flags::WRAPLINE);
+            c = cell.c;
+
             let last_point = mem::replace(&mut point, iter.point());
-            let last_cell = mem::replace(&mut cell, new_cell);
 
             // Handle linebreaks.
-            if (last_point.col == last_col
-                && point.col == Column(0)
-                && !last_cell.flags.contains(Flags::WRAPLINE))
-                || (last_point.col == Column(0)
-                    && point.col == last_col
-                    && !cell.flags.contains(Flags::WRAPLINE))
+            if (last_point.col == last_col && point.col == Column(0) && !last_wrapped)
+                || (last_point.col == Column(0) && point.col == last_col && !wrapped)
             {
                 match regex_match {
                     Some(_) => break,
                     None => state = dfa.start_state(),
                 }
             }
+
+            last_wrapped = wrapped;
         }
 
         regex_match
     }
 
     /// Advance a grid iterator over fullwidth characters.
-    fn skip_fullwidth(
+    fn skip_fullwidth<'a>(
         &self,
-        iter: &mut GridIterator<'_, Cell>,
-        cell: &mut Cell,
+        iter: &'a mut GridIterator<'_, Cell>,
+        cell: &mut &'a Cell,
         direction: Direction,
     ) {
         match direction {
@@ -295,13 +298,13 @@ impl<T> Term<T> {
             },
             Direction::Right if cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 if let Some(new_cell) = iter.next() {
-                    *cell = *new_cell;
+                    *cell = new_cell;
                 }
                 iter.next();
             },
             Direction::Left if cell.flags.contains(Flags::WIDE_CHAR_SPACER) => {
                 if let Some(new_cell) = iter.prev() {
-                    *cell = *new_cell;
+                    *cell = new_cell;
                 }
 
                 let prev = iter.point().sub_absolute(self, Boundary::Clamp, 1);

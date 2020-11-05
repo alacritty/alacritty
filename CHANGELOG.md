@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use yellow/red from the config for error and warning messages instead of fixed colors
 - Existing CLI parameters are now passed to instances spawned using `SpawnNewInstance`
 - Wayland's Client side decorations now use the search bar colors
+- Reduce memory usage by up to at least 30% with a full scrollback buffer
+- The number of zerowidth characters per cell is no longer limited to 5
 
 ### Fixed
 
