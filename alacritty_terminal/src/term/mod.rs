@@ -1456,7 +1456,7 @@ impl<T> Dimensions for Term<T> {
 
 impl<T: EventListener> Handler for Term<T> {
     /// A character to be displayed.
-    #[inline]
+    #[inline(never)]
     fn input(&mut self, c: char) {
         // Number of cells the char will occupy.
         let width = match c.width() {
