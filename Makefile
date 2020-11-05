@@ -5,9 +5,9 @@ RELEASE_DIR = target/release
 MANPAGE = $(ASSETS_DIR)/alacritty.man
 TERMINFO = $(ASSETS_DIR)/alacritty.info
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
-COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
-			  $(COMPLETIONS_DIR)/alacritty.bash \
-			  $(COMPLETIONS_DIR)/alacritty.fish
+COMPLETIONS =   $(COMPLETIONS_DIR)/_alacritty \
+		$(COMPLETIONS_DIR)/alacritty.bash \
+		$(COMPLETIONS_DIR)/alacritty.fish
 
 APP_NAME = Alacritty.app
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
@@ -51,10 +51,10 @@ $(DMG_NAME): $(APP_NAME)
 	@echo "Packing disk image..."
 	@ln -sf /Applications $(DMG_DIR)/Applications
 	@hdiutil create $(DMG_DIR)/$(DMG_NAME) \
-		-volname "Alacritty" \
-		-fs HFS+ \
-		-srcfolder $(APP_DIR) \
-		-ov -format UDZO
+			-volname "Alacritty" \
+			-fs HFS+ \
+			-srcfolder $(APP_DIR) \
+			-ov -format UDZO
 	@echo "Packed '$@' in '$(APP_DIR)'"
 
 install: $(DMG_NAME) ## Mount disk image

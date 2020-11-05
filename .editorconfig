@@ -1,0 +1,20 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+
+[*.{glsl,rs,toml}]
+indent_style = space
+indent_size = 4
+trim_trailing-whitespace = true
+
+[*.yml]
+indent_style = space
+trim_trailing-whitespace = true
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+tab_width = 8
+indent_size = 8
