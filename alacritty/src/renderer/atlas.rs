@@ -67,6 +67,12 @@ pub struct GridAtlas {
     /// Next free entry coordinates
     free_line: i32,
     free_column: i32,
+
+    /// Blitmap that is being currently filled with glyphs.
+    filling_line: Blitmap,
+
+    /// Last uploaded column in current line.
+    committed_column: i32,
 }
 
 impl GridAtlas {
@@ -96,6 +102,8 @@ impl GridAtlas {
             grid_size,
             free_line: 0,
             free_column: 1, // FIXME do not use sentinel 0,0 value as empty, prefere flags instead
+            filling_line: Blitmap::new(GRID_ATLAS_SIZE, atlas_cell_size.y),
+            committed_column: 0,
         };
         debug!("new atlas with padding: {:?}, {:?}", padding, ret);
         ret
@@ -109,26 +117,23 @@ impl GridAtlas {
     /// Attempt to insert a new rasterized glyph into this atlas
     /// Glyphs which have offsets and sizes that make them not fit into cell dimensions will return
     /// GlyphTooLarge error.
-    pub fn insert(
-        &mut self,
-        rasterized: &RasterizedGlyph,
-    ) -> Result<GridAtlasGlyph, AtlasInsertError> {
+    pub fn insert(&mut self, glyph: &RasterizedGlyph) -> Result<GridAtlasGlyph, AtlasInsertError> {
         if self.free_line >= self.grid_size.y {
             return Err(AtlasInsertError::Full);
         }
 
-        let rasterized = &rasterized.rasterized;
+        let glyph = &glyph.rasterized;
         let line = self.free_line;
         let column = self.free_column;
 
         // Atlas cell metrics in logical glyph space
         //   .----------------.<-- single glyph cell in atlas texture (self.cell_size)
         //   |                |
-        //   |    .------.<---+---- rasterized glyph bbox (width, height)
+        //   |    .------.<---+---- glyph glyph bbox (width, height)
         //   |    |  ##  |    |^
         //   |  . | #  # | .<-++--- (dotted box) monospace grid cell directly mapped
         //   |  . |#    #| .  ||     on screen w/o overlap (not really used in atlas explicitly)
-        //   |  . |######| .  ||--- rasterized.top, relative to baseline/origin.y
+        //   |  . |######| .  ||--- glyph.top, relative to baseline/origin.y
         //   |  . |#    #| .  ||
         //   |  . |#    #| .  ||
         //   |  . '------' .  |v
@@ -148,35 +153,35 @@ impl GridAtlas {
         //   |  . .------.-.--++---|
         //   |  . |#    #| .  || ^ |
         //   |  . |#    #| .  || | |
-        //   |  . |######| .  || |-+--- rasterized.height
+        //   |  . |######| .  || |-+--- glyph.height
         //   |  . |#    #| .  || | |
-        //   |  . | #  # | .  || | |-- rasterized.top
+        //   |  . | #  # | .  || | |-- glyph.top
         //   |    |  ##  |    || v v
         //   |    '------'----|+-----.
-        //   |                |v      } offset.y = self.cell_size.y - rasterized.top
+        //   |                |v      } offset.y = self.cell_size.y - glyph.top
         //   '----------------'------`
         //   ^
         //   `- atlas cell texture origin (0, 0)
         //
 
-        let off_x = self.cell_offset.x + rasterized.left;
-        let off_y = self.cell_size.y - rasterized.top - self.half_padding.y;
+        let off_x = self.cell_offset.x + glyph.left;
+        let off_y = self.cell_size.y - glyph.top - self.half_padding.y;
 
         let tex_x = off_x + column * self.cell_size.x;
         let tex_y = off_y + line * self.cell_size.y;
 
         if off_x < 0
             || off_y < 0
-            || off_x + rasterized.width > self.cell_size.x
-            || off_y + rasterized.height > self.cell_size.y
+            || off_x + glyph.width > self.cell_size.x
+            || off_y + glyph.height > self.cell_size.y
         {
             debug!(
                 "glyph '{}' {},{} {}x{} doesn't fit into atlas cell size={:?} offset={:?}",
-                rasterized.c,
-                rasterized.left,
-                rasterized.top,
-                rasterized.width,
-                rasterized.height,
+                glyph.c,
+                glyph.left,
+                glyph.top,
+                glyph.width,
+                glyph.height,
                 self.cell_size,
                 self.cell_offset,
             );
@@ -184,40 +189,18 @@ impl GridAtlas {
             return Err(AtlasInsertError::GlyphTooLarge);
         }
 
-        let (colored, format, buf) = match &rasterized.buf {
-            BitmapBuffer::RGB(buf) => (false, gl::RGB, buf),
-            BitmapBuffer::RGBA(buf) => (true, gl::RGBA, buf),
+        let colored = match &glyph.buf {
+            BitmapBuffer::RGB(_) => false,
+            BitmapBuffer::RGBA(_) => true,
         };
-
-        // Load data into OpenGL.
-        // TODO: optimize by coalescing. glTexSubImage2D call is VERY expensive, and glBindTexture
-        // can also have non-trivial cost 1. only copy into internal storage
-        // 2. upload once before drawing by column/line subrect
-        // This can substantially improve start-up time, and lower perceptible lag when a bunch of
-        // new glyphs are displayed.
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.tex);
-            gl::TexSubImage2D(
-                gl::TEXTURE_2D,
-                0,
-                tex_x,
-                tex_y,
-                rasterized.width,
-                rasterized.height,
-                format,
-                gl::UNSIGNED_BYTE,
-                buf.as_ptr() as *const _,
-            );
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-        }
 
         trace!(
             "'{}' {},{} {}x{} {},{} => l={} c={} {},{}",
-            rasterized.c,
-            rasterized.left,
-            rasterized.top,
-            rasterized.width,
-            rasterized.height,
+            glyph.c,
+            glyph.left,
+            glyph.top,
+            glyph.width,
+            glyph.height,
             off_x,
             off_y,
             line,
@@ -226,8 +209,13 @@ impl GridAtlas {
             tex_y,
         );
 
+        self.filling_line.blit(tex_x, off_y, glyph);
+
         self.free_column += 1;
         if self.free_column == self.grid_size.x {
+            self.bind_and_commit();
+            self.committed_column = 0;
+            self.filling_line.clear();
             self.free_column = 0;
             self.free_line += 1;
         }
@@ -236,6 +224,34 @@ impl GridAtlas {
         let column = column as u16;
         Ok(GridAtlasGlyph { atlas_index: self.index, colored, line, column })
     }
+
+    /// Upload cached data into OpenGL texture
+    pub fn bind_and_commit(&mut self) {
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.tex);
+        }
+
+        // Skip if there's no new data
+        if self.free_column == self.committed_column {
+            return;
+        }
+
+        unsafe {
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0, // Upload the entire line from start, TODO: optimize
+                self.free_line * self.cell_size.y, // Upload the active line
+                GRID_ATLAS_SIZE, // Upload  the entire line, TODO: upload only what's been written
+                self.cell_size.y, // Upload only one line
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                self.filling_line.pixels.as_ptr() as *const _,
+            );
+        }
+
+        self.committed_column = self.free_column;
+    }
 }
 
 impl Drop for GridAtlas {
@@ -243,6 +259,56 @@ impl Drop for GridAtlas {
         unsafe {
             gl::DeleteTextures(1, &self.tex);
         }
+    }
+}
+
+/// Helper struct to construct preliminary 32-bit (RGBA8) to be uploaded to a texture later.
+#[derive(Debug)]
+struct Blitmap {
+    width: i32,
+    height: i32,
+
+    /// All pixels are 32-bit RGBA8.
+    pixels: Vec<u8>,
+}
+
+impl Blitmap {
+    fn new(width: i32, height: i32) -> Self {
+        Self { width, height, pixels: vec![0u8; (width * height * 4) as usize] }
+    }
+
+    fn blit(&mut self, pos_x: i32, pos_y: i32, glyph: &crossfont::RasterizedGlyph) {
+        match glyph.buf {
+            BitmapBuffer::RGB(ref rgb) => {
+                for y in 0..glyph.height {
+                    for x in 0..glyph.width {
+                        let dst_off = 4 * (x + pos_x + (y + pos_y) * self.width) as usize;
+                        let src_off = 3 * (x + y * glyph.width) as usize;
+                        self.pixels[dst_off] = rgb[src_off];
+                        self.pixels[dst_off + 1] = rgb[src_off + 1];
+                        self.pixels[dst_off + 2] = rgb[src_off + 2];
+                        self.pixels[dst_off + 3] = 0;
+                    }
+                }
+            },
+            BitmapBuffer::RGBA(ref rgba) => {
+                // let line_width = glyph.width as usize * 4;
+                for y in 0..glyph.height {
+                    for x in 0..glyph.width {
+                        let dst_off = 4 * (x + pos_x + (y + pos_y) * self.width) as usize;
+                        let src_off = 4 * (x + y * glyph.width) as usize;
+                        self.pixels[dst_off] = rgba[src_off];
+                        self.pixels[dst_off + 1] = rgba[src_off + 1];
+                        self.pixels[dst_off + 2] = rgba[src_off + 2];
+                        self.pixels[dst_off + 3] = rgba[src_off + 3];
+                    }
+                }
+            },
+        }
+    }
+
+    fn clear(&mut self) {
+        self.pixels.iter_mut().for_each(|x| *x = 0);
     }
 }
 

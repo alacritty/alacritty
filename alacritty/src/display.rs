@@ -244,7 +244,7 @@ impl Display {
         info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
         // Update OpenGL projection.
-        renderer.resize(&size_info);
+        renderer.resize(&size_info, size_info.screen_lines());
 
         // Clear screen.
         let background_color = config.colors.primary.background;
@@ -406,6 +406,9 @@ impl Display {
         let message_bar_lines =
             message_buffer.message().map(|m| m.text(&self.size_info).len()).unwrap_or(0);
         let search_lines = if search_active { 1 } else { 0 };
+
+        // Remember total amount of lines before reserving
+        let total_lines = self.size_info.screen_lines();
         self.size_info.reserve_lines(message_bar_lines + search_lines);
 
         // Resize PTY.
@@ -418,7 +421,7 @@ impl Display {
         let physical =
             PhysicalSize::new(self.size_info.width() as u32, self.size_info.height() as u32);
         self.window.resize(physical);
-        self.renderer.resize(&self.size_info);
+        self.renderer.resize(&self.size_info, total_lines);
 
         info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());

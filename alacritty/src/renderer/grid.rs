@@ -6,6 +6,7 @@ use super::texture::{create_texture, upload_texture, PixelFormat};
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::Error;
+use alacritty_terminal::index::Line;
 use alacritty_terminal::term::{color::Rgb, RenderableCell, SizeInfo};
 use log::*;
 use std::ptr;
@@ -115,9 +116,9 @@ impl GridGlyphRenderer {
     }
 
     /// Resize buffers for a new screen resolution.
-    pub fn resize(&mut self, size_info: &SizeInfo) {
+    pub fn resize(&mut self, size_info: &SizeInfo, total_lines: Line) {
         self.columns = size_info.cols().0;
-        self.lines = size_info.visible_lines().0;
+        self.lines = total_lines.0;
         let cells = self.columns * self.lines;
 
         self.screen_colors_bg.resize(cells, [0u8; 4]);
@@ -240,30 +241,6 @@ impl GridGlyphRenderer {
         self.grid_passes[glyph.atlas_index].dirty = true;
     }
 
-    fn apply_cursor_uniform(&self, pass: usize) {
-        match &self.cursor {
-            Some(cursor) if cursor.atlas_index == pass => unsafe {
-                gl::Uniform4f(
-                    self.program.u_cursor,
-                    cursor.cell[0],
-                    cursor.cell[1],
-                    cursor.glyph[0],
-                    cursor.glyph[1],
-                );
-                gl::Uniform3f(
-                    self.program.u_cursor_color,
-                    cursor.color[0],
-                    cursor.color[1],
-                    cursor.color[2],
-                );
-            },
-            _ => unsafe {
-                gl::Uniform4f(self.program.u_cursor, -1., -1., 0., 0.);
-                gl::Uniform3f(self.program.u_cursor_color, 0., 0., 0.);
-            },
-        }
-    }
-
     /// Render all grid passes
     pub fn draw(&mut self, size_info: &SizeInfo) {
         #[cfg(feature = "live-shader-reload")]
@@ -314,7 +291,7 @@ impl GridGlyphRenderer {
             gl::BindVertexArray(self.vao);
         }
 
-        for (pass_num, pass) in (&self.grid_passes).iter().enumerate() {
+        for (pass_num, pass) in (&mut self.grid_passes).iter_mut().enumerate() {
             let main_pass = pass_num == 0;
             if !main_pass && !pass.dirty {
                 continue;
@@ -330,7 +307,28 @@ impl GridGlyphRenderer {
                     atlas_dims.size.y as f32,
                 );
                 gl::Uniform1i(self.program.u_main_pass, main_pass as i32);
-                self.apply_cursor_uniform(pass_num);
+
+                match &self.cursor {
+                    Some(cursor) if cursor.atlas_index == pass_num => {
+                        gl::Uniform4f(
+                            self.program.u_cursor,
+                            cursor.cell[0],
+                            cursor.cell[1],
+                            cursor.glyph[0],
+                            cursor.glyph[1],
+                        );
+                        gl::Uniform3f(
+                            self.program.u_cursor_color,
+                            cursor.color[0],
+                            cursor.color[1],
+                            cursor.color[2],
+                        );
+                    },
+                    _ => {
+                        gl::Uniform4f(self.program.u_cursor, -1., -1., 0., 0.);
+                        gl::Uniform3f(self.program.u_cursor_color, 0., 0., 0.);
+                    },
+                }
 
                 gl::ActiveTexture(gl::TEXTURE1);
                 gl::BindTexture(gl::TEXTURE_2D, self.screen_glyphs_ref_tex);
@@ -342,8 +340,11 @@ impl GridGlyphRenderer {
                 );
 
                 gl::ActiveTexture(gl::TEXTURE0);
-                gl::BindTexture(gl::TEXTURE_2D, pass.atlas.tex);
+            }
 
+            pass.atlas.bind_and_commit();
+
+            unsafe {
                 gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
             }
 

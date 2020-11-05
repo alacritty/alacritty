@@ -103,17 +103,8 @@ impl Renderer {
         func(LoaderApi { renderer: self })
     }
 
-    pub fn resize(&mut self, size_info: &term::SizeInfo) {
-        unsafe {
-            gl::Viewport(
-                size_info.padding_x() as i32,
-                size_info.padding_y() as i32,
-                size_info.width() as i32 - 2 * size_info.padding_x() as i32,
-                size_info.height() as i32 - 2 * size_info.padding_y() as i32,
-            );
-        }
-
-        self.grids.resize(size_info);
+    pub fn resize(&mut self, size_info: &term::SizeInfo, total_lines: Line) {
+        self.grids.resize(size_info, total_lines);
     }
 
     pub fn clear(&mut self, color: Rgb, background_opacity: f32) {
@@ -121,7 +112,12 @@ impl Renderer {
         self.grids.clear(color, background_opacity);
 
         unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+            gl::ClearColor(
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                background_opacity,
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }

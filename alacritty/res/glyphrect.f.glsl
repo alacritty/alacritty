@@ -1,4 +1,4 @@
-#version 300 es
+#version 330
 precision mediump float;
 
 uniform sampler2D u_atlas;
