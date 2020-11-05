@@ -5,9 +5,9 @@ RELEASE_DIR = target/release
 MANPAGE = $(ASSETS_DIR)/alacritty.man
 TERMINFO = $(ASSETS_DIR)/alacritty.info
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
-COMPLETIONS =   $(COMPLETIONS_DIR)/_alacritty \
-		$(COMPLETIONS_DIR)/alacritty.bash \
-		$(COMPLETIONS_DIR)/alacritty.fish
+COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
+			$(COMPLETIONS_DIR)/alacritty.bash \
+			$(COMPLETIONS_DIR)/alacritty.fish
 
 APP_NAME = Alacritty.app
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
