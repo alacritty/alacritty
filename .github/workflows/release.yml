@@ -6,6 +6,7 @@ on:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -19,14 +20,13 @@ jobs:
       - name: Make App
         run: make dmg
       - name: Upload Application
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mv ./target/release/osx/Alacritty.dmg ./Alacritty-${GITHUB_REF##*/}.dmg
           ./scripts/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}.dmg $GITHUB_TOKEN
 
   windows:
     runs-on: windows-latest
+
     defaults:
       run:
         shell: bash
@@ -54,7 +54,7 @@ jobs:
         run: |
           ./scripts/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-installer.msi $GITHUB_TOKEN
 
-  assets:
+  linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -64,8 +64,6 @@ jobs:
       - name: Gzip manpage
         run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
       - name: Upload Assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./scripts/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
           ./scripts/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
