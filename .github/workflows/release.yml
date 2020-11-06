@@ -2,7 +2,6 @@ name: Release
 
 on:
   push:
-    branches: [master]
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 env:
@@ -69,7 +68,7 @@ jobs:
         run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
       - name: Upload Assets
         run: |
-          cp ./extra/logo/alacritty-term.svg ./Alacritty.svg
+          mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
           ./scripts/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
           ./scripts/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
           ./scripts/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
