@@ -41,7 +41,7 @@ mio-anonymous-pipes = "0.1"
 winpty = { version = "0.2.0", optional = true }
 
 [features]
-default = ["winpty"]
+default = []
 bench = []
 
 [dev-dependencies]

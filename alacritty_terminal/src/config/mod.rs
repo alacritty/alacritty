@@ -55,11 +55,6 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub cursor: Cursor,
 
-    /// Use WinPTY backend even if ConPTY is available.
-    #[cfg(windows)]
-    #[serde(default, deserialize_with = "failure_default")]
-    pub winpty_backend: bool,
-
     /// Shell startup directory.
     #[serde(default, deserialize_with = "option_explicit_none")]
     pub working_directory: Option<PathBuf>,
@@ -71,6 +66,11 @@ pub struct Config<T> {
     /// Remain open after child process exits.
     #[serde(skip)]
     pub hold: bool,
+
+    // TODO: DEPRECATED
+    #[cfg(windows)]
+    #[serde(default, deserialize_with = "failure_default")]
+    pub winpty_backend: bool,
 
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]

@@ -312,6 +312,14 @@ fn print_deprecation_warnings(config: &Config) {
             "Config dynamic_title is deprecated; please use window.dynamic_title instead",
         )
     }
+
+    #[cfg(windows)]
+    if config.winpty_backend {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config winpty_backend is deprecated; please use the ConPTY backend instead",
+        )
+    }
 }
 
 #[cfg(test)]
