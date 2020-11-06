@@ -34,29 +34,21 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Test
-        run: |
-          cargo test --release --manifest-path ./alacritty/Cargo.toml \
-            --no-default-features --features "x11 wayland"
-      - name: Install Dependencies
-        run: |
-          choco install 7zip nuget.commandline
-          nuget install WiX
-      - name: Create zip archive
-        run: |
-          7z a -tzip "./Alacritty-${GITHUB_REF##*/}-windows-portable.zip" \
-            "./target/release/alacritty.exe" \
-            "./target/release/winpty-agent.exe"
+        run: cargo test --release
+      - name: Install WiX
+        run: nuget install WiX
       - name: Crate msi installer
         run: |
           ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
             -out "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
           ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
             -out "target/installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
-          mv "target/installer.msi" "./Alacritty-${GITHUB_REF##*/}-windows-installer.msi"
       - name: Upload Assets
         run: |
-          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-windows-portable.zip $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-windows-installer.msi $GITHUB_TOKEN
+          mv "./target/release/alacritty.exe" "./Alacritty-${GITHUB_REF##*/}-portable.exe"
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
+          mv "./target/installer.msi" "./Alacritty-${GITHUB_REF##*/}-windows-installer.msi"
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-installer.msi $GITHUB_TOKEN
 
   assets:
     runs-on: ubuntu-latest

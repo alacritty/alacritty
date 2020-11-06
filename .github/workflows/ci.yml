@@ -19,9 +19,9 @@ jobs:
       - name: Rustup
         run: rustup default ${{ matrix.rust_version }}
       - name: Build
-        run: cargo build --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
+        run: cargo build
       - name: Test
-        run: cargo test --manifest-path ./alacritty/Cargo.toml --no-default-features --features "x11 wayland"
+        run: cargo test
 
   clippy:
     strategy:

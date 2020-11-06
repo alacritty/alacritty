@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="windows-1252"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
-    xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
     <Product Name="Alacritty" Id="*" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.6.0-dev" Manufacturer="Alacritty">
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
         <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
@@ -13,7 +11,6 @@
 
         <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
             <ComponentRef Id="AlacrittyExe"/>
-            <ComponentRef Id="WinPtyAgentExe"/>
             <ComponentRef Id="AlacrittyShortcut"/>
             <ComponentRef Id="ModifyPathEnv"/>
             <ComponentRef Id="ContextMenu"/>
@@ -33,9 +30,6 @@
         <DirectoryRef Id="AlacrittyProgramFiles">
             <Component Id="AlacrittyExe" Guid="*">
                 <File Id="AlacrittyExeFile" Source="..\target\release\alacritty.exe" Name="alacritty.exe" KeyPath="yes"/>
-            </Component>
-            <Component Id="WinPtyAgentExe" Guid="*">
-                <File Id="WinPtyAgentExeFile" Source="..\target\release\winpty-agent.exe" Name="winpty-agent.exe" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
@@ -67,7 +61,4 @@
             </Component>
         </DirectoryRef>
     </Product>
-
 </Wix>
-
-
