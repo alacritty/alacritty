@@ -18,48 +18,26 @@ jobs:
         run: cargo test --release
       - name: Make App
         run: make dmg
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: true
       - name: Upload Application
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/release/osx/Alacritty.dmg
-          asset_name: Alacritty.dmg
-          asset_content_type: application/octet-stream
+        run: ./.github/workflows/upload_asset.sh ./target/release/osx/Alacritty.dmg $GITHUB_TOKEN
 
   assets:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: true
       - name: Gzip manpage
         run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
-      - name: Upload Manpage
-        uses: actions/upload-release-asset@v1
+      - name: Upload Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./alacritty.1.gz
-          asset_name: alacritty.1.gz
-          asset_content_type: application/octet-stream
-      # TODO: Upload all the rest of the fucking assets
+        run: |
+          ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty.yml $GITHUB_TOKEN
