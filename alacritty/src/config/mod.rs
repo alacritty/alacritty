@@ -318,7 +318,7 @@ fn print_deprecation_warnings(config: &Config) {
         warn!(
             target: LOG_TARGET_CONFIG,
             "Config winpty_backend is deprecated and requires a compilation flag; it should be \
-            removed from the config",
+             removed from the config",
         )
     }
 }
