@@ -22,8 +22,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.github/workflows/upload_asset.sh \
-            ./target/release/osx/Alacritty-${GITHUB_REF##*/}.dmg $GITHUB_TOKEN
+          mv ./target/release/osx/Alacritty.dmg ./Alacritty-${GITHUB_REF##*/}.dmg
+          ./scripts/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}.dmg $GITHUB_TOKEN
 
   windows:
     runs-on: windows-latest
@@ -35,20 +35,22 @@ jobs:
       - uses: actions/checkout@v2
       - name: Test
         run: cargo test --release
+      - name: Upload portable executable
+        run: |
+          cp ./target/release/alacritty.exe ./Alacritty-${GITHUB_REF##*/}-portable.exe
+          ./scripts/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
       - name: Install WiX
         run: nuget install WiX
       - name: Crate msi installer
         run: |
           ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
-            -out "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+            -out "./alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
           ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
-            -out "target/installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
-      - name: Upload Assets
+            -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" -sice:ICE61 -sice:ICE91 \
+            "./alacritty.wixobj"
+      - name: Upload msi installer
         run: |
-          mv "./target/release/alacritty.exe" "./Alacritty-${GITHUB_REF##*/}-portable.exe"
-          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
-          mv "./target/installer.msi" "./Alacritty-${GITHUB_REF##*/}-windows-installer.msi"
-          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-installer.msi $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}-installer.msi $GITHUB_TOKEN
 
   assets:
     runs-on: ubuntu-latest
@@ -61,10 +63,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./alacritty.yml $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
+          ./scripts/upload_asset.sh ./alacritty.yml $GITHUB_TOKEN
