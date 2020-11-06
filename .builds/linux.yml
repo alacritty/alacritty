@@ -16,10 +16,9 @@ environment:
 
 tasks:
   - rustup: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
   - test: |
       cd alacritty
-      cargo build
       cargo test
   - rustfmt: |
       cd alacritty
@@ -31,6 +30,11 @@ tasks:
       cargo clippy --all-targets
   - oldstable: |
       cd alacritty
-      rustup default 1.43.1
-      cargo build
-      cargo test
+      rustup toolchain install --profile minimal 1.43.1
+      cargo +1.43.1 test
+  - feature-wayland: |
+      cd alacritty/alacritty
+      cargo +1.43.1 test --no-default-features --features=wayland
+  - feature-x11: |
+      cd alacritty/alacritty
+      cargo +1.43.1 test --no-default-features --features=x11
