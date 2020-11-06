@@ -13,7 +13,13 @@ bearer=$2
 echo "Starting asset upload from $file_path to $repo."
 
 # Get the release for this tag.
-tag="$(git describe)"
+tag="$(git describe --tags --abbrev=0)"
+
+# Make sure the git tag could be determined.
+if [ -z "$tag" ]; then
+    printf "\e[31mError: Unable to find git tag\e[0m\n"
+    exit 1
+fi
 
 echo "Git tag: $tag"
 
