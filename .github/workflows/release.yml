@@ -31,7 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Test
-        run: cargo test --release
+        run: |
+          cargo test --release --manifest-path ./alacritty/Cargo.toml \
+            --no-default-features --features "x11 wayland"
       - name: Install Dependencies
         run: |
           choco install 7zip nuget.commandline
