@@ -21,7 +21,37 @@ jobs:
       - name: Upload Application
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./.github/workflows/upload_asset.sh ./target/release/osx/Alacritty.dmg $GITHUB_TOKEN
+        run: |
+          ./.github/workflows/upload_asset.sh \
+            ./target/release/osx/Alacritty-${GITHUB_REF}.dmg $GITHUB_TOKEN
+
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: cargo test --release
+      - name: Install Dependencies
+        run: |
+          choco install 7zip nuget.commandline
+          nuget install WiX
+      - name: Create zip archive
+        run: |
+          7z a -tzip "./Alacritty-${GITHUB_REF}-windows-portable.zip" \
+            "./target/release/alacritty.exe" \
+            "./target/release/winpty-agent.exe"
+      - name: Crate msi installer
+        run: |
+          ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
+            -out "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+          ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
+            -out "target/installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
+          mv "target/installer.msi" "./Alacritty-${GITHUB_REF}-windows-installer.msi"
+      - name: Upload Assets
+        run: |
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF}-windows-portable.zip $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF}-windows-installer.msi $GITHUB_TOKEN
 
   assets:
     runs-on: ubuntu-latest
