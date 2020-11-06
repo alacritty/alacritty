@@ -56,7 +56,7 @@ winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
 embed-resource = "1.3"
 
 [features]
-default = ["wayland", "x11", "winpty"]
+default = ["wayland", "x11"]
 x11 = ["copypasta/x11", "glutin/x11", "x11-dl"]
 wayland = ["copypasta/wayland", "glutin/wayland", "wayland-client"]
 winpty = ["alacritty_terminal/winpty"]
