@@ -313,11 +313,12 @@ fn print_deprecation_warnings(config: &Config) {
         )
     }
 
-    #[cfg(windows)]
+    #[cfg(all(windows, not(feature = "winpty")))]
     if config.winpty_backend {
         warn!(
             target: LOG_TARGET_CONFIG,
-            "Config winpty_backend is deprecated; please use the ConPTY backend instead",
+            "Config winpty_backend is deprecated and requires a compilation flag; please use the \
+             ConPTY backend instead",
         )
     }
 }
