@@ -35,6 +35,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Test
         run: cargo test --release
+      - name: Build
+        run: cargo build --release
       - name: Upload portable executable
         run: |
           cp ./target/release/alacritty.exe ./Alacritty-${GITHUB_REF##*/}-portable.exe
@@ -57,6 +59,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Test
+        run: cargo test --release
       - name: Gzip manpage
         run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
       - name: Upload Assets
