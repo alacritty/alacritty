@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: cargo test --release
+      - name: Make App
+        run: make dmg
+      - name: Upload Application
+        run: |
+          mv ./target/release/osx/Alacritty.dmg ./Alacritty-${GITHUB_REF##*/}.dmg
+          ./.github/workflows/upload_asset.sh ./Alacritty-${GITHUB_REF##*/}.dmg $GITHUB_TOKEN
+
+  windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test
+        run: cargo test --release
+      - name: Build
+        run: cargo build --release
+      - name: Upload portable executable
+        run: |
+          cp ./target/release/alacritty.exe ./Alacritty-${GITHUB_REF##*/}-portable.exe
+          ./.github/workflows/upload_asset.sh \
+            ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
+      - name: Install WiX
+        run: nuget install WiX
+      - name: Crate msi installer
+        run: |
+          ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
+            -out "./alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+          ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
+            -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" -sice:ICE61 -sice:ICE91 \
+            "./alacritty.wixobj"
+      - name: Upload msi installer
+        run: |
+          ./.github/workflows/upload_asset.sh \
+            ./Alacritty-${GITHUB_REF##*/}-installer.msi $GITHUB_TOKEN
+
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          sudo apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
+            libxcb-xfixes0-dev python3
+      - name: Test
+        run: cargo test --release
+      - name: Gzip manpage
+        run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
+      - name: Upload Assets
+        run: |
+          mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
+          ./.github/workflows/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty.yml $GITHUB_TOKEN

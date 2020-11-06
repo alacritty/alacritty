@@ -1,19 +1,18 @@
-image: freebsd/latest
+image: archlinux
 
 packages:
-  - devel/cmake
-  - devel/pkgconf
-  - lang/python3
-  - print/freetype2
-  - x11-fonts/fontconfig
-  - x11-fonts/dejavu
-  - x11/libxcb
+  - pkg-config
+  - cmake
+  - make
+  - freetype2
+  - fontconfig
+  - libxcb
 
 sources:
   - https://github.com/alacritty/alacritty
 
 environment:
-  PATH: /home/build/.cargo/bin:/bin:/usr/bin:/usr/local/bin
+  PATH: /home/build/.cargo/bin:/usr/bin/
 
 tasks:
   - rustup: |
@@ -21,6 +20,10 @@ tasks:
   - test: |
       cd alacritty
       cargo test
+  - rustfmt: |
+      cd alacritty
+      rustup toolchain install nightly -c rustfmt
+      cargo +nightly fmt -- --check
   - clippy: |
       cd alacritty
       rustup component add clippy
@@ -31,7 +34,7 @@ tasks:
       cargo +1.43.1 test
   - feature-wayland: |
       cd alacritty/alacritty
-      cargo test --no-default-features --features=wayland
+      cargo +1.43.1 test --no-default-features --features=wayland
   - feature-x11: |
       cd alacritty/alacritty
-      cargo test --no-default-features --features=x11
+      cargo +1.43.1 test --no-default-features --features=x11
