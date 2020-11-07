@@ -38,9 +38,9 @@ mod daemon;
 mod display;
 mod event;
 mod input;
-#[cfg(target_os = "macos")]
-mod locale;
 mod logging;
+#[cfg(target_os = "macos")]
+mod macos;
 mod message_bar;
 mod meter;
 #[cfg(windows)]
@@ -63,6 +63,8 @@ use crate::config::monitor;
 use crate::config::Config;
 use crate::display::Display;
 use crate::event::{Event, EventProxy, Processor};
+#[cfg(target_os = "macos")]
+use crate::macos::locale;
 use crate::message_bar::MessageBuffer;
 
 fn main() {

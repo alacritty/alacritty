@@ -31,7 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Cursors are now inverted when their fixed color is similar to the cell's background
-- Use working directory of active process instead of shell for SpawnNewInstance action
+- Use the working directory of the terminal foreground process, instead of the shell's working
+    directory, for `SpawnNewInstance` action
 - Fallback to normal underline for unsupported underline types in `CSI 4 : ? m` escapes
 - The user's background color is now used as the foreground for the render timer
 - Use yellow/red from the config for error and warning messages instead of fixed colors
@@ -39,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Wayland's Client side decorations now use the search bar colors
 - Reduce memory usage by up to at least 30% with a full scrollback buffer
 - The number of zerowidth characters per cell is no longer limited to 5
+- `SpawnNewInstance` is now using the working directory of the terminal foreground process on macOS
 
 ### Fixed
 

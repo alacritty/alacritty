@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::env;
 use std::fmt::Debug;
-#[cfg(unix)]
+#[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -45,6 +45,8 @@ use crate::config::Config;
 use crate::daemon::start_daemon;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+#[cfg(target_os = "macos")]
+use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -309,15 +311,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 pid = tty::child_pid();
             }
 
-            #[cfg(not(target_os = "freebsd"))]
+            #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
             let link_path = format!("/proc/{}/cwd", pid);
             #[cfg(target_os = "freebsd")]
             let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+            #[cfg(not(target_os = "macos"))]
+            let cwd = fs::read_link(link_path);
+            #[cfg(target_os = "macos")]
+            let cwd = macos::proc::cwd(pid);
 
             // Add the current working directory as parameter.
-            fs::read_link(link_path)
-                .map(|path| vec!["--working-directory".into(), path])
-                .unwrap_or_default()
+            cwd.map(|path| vec!["--working-directory".into(), path]).unwrap_or_default()
         };
 
         #[cfg(not(unix))]
