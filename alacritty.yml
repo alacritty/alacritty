@@ -57,7 +57,7 @@
   #
   # Values for `decorations` (macOS only):
   #     - transparent: Title bar, transparent background and title bar buttons
-  #     - buttonless: Title bar, transparent background, but no title bar buttons
+  #     - buttonless: Title bar, transparent background and no title bar buttons
   #decorations: full
 
   # Startup Mode (changes require restart)
@@ -86,8 +86,8 @@
 
   # GTK theme variant (Linux/BSD only)
   #
-  # Override the variant of the GTK theme. Commonly supported values are `dark` and `light`.
-  # Set this to `None` to use the default theme variant.
+  # Override the variant of the GTK theme. Commonly supported values are `dark`
+  # and `light`. Set this to `None` to use the default theme variant.
   #gtk_theme_variant: None
 
 #scrolling:
@@ -149,15 +149,16 @@
   # Point size
   #size: 11.0
 
-  # Offset is the extra space around each character. `offset.y` can be thought of
-  # as modifying the line spacing, and `offset.x` as modifying the letter spacing.
+  # Offset is the extra space around each character. `offset.y` can be thought
+  # of as modifying the line spacing, and `offset.x` as modifying the letter
+  # spacing.
   #offset:
   #  x: 0
   #  y: 0
 
   # Glyph offset determines the locations of the glyphs within their cells with
-  # the default being at the bottom. Increasing `x` moves the glyph to the right,
-  # increasing `y` moves the glyph upward.
+  # the default being at the bottom. Increasing `x` moves the glyph to the
+  # right, increasing `y` moves the glyph upward.
   #glyph_offset:
   #  x: 0
   #  y: 0
@@ -180,9 +181,10 @@
 
     # Bright and dim foreground colors
     #
-    # The dimmed foreground color is calculated automatically if it is not present.
-    # If the bright foreground color is not set, or `draw_bold_text_with_bright_colors`
-    # is `false`, the normal foreground color will be used.
+    # The dimmed foreground color is calculated automatically if it is not
+    # present. If the bright foreground color is not set, or
+    # `draw_bold_text_with_bright_colors` is `false`, the normal foreground
+    # color will be used.
     #dim_foreground: '#828482'
     #bright_foreground: '#eaeaea'
 
@@ -324,7 +326,8 @@
 #background_opacity: 1.0
 
 #selection:
-  # This string contains all characters that are used as separators for "semantic words" in Alacritty.
+  # This string contains all characters that are used as separators for
+  # "semantic words" in Alacritty.
   #semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
 
   # When set to `true`, selected text will be copied to the primary clipboard.
@@ -360,8 +363,9 @@
 
 # Shell
 #
-# You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
-# Entries in `shell.args` are passed unmodified as arguments to the shell.
+# You can set `shell.program` to the path of your favorite shell, e.g.
+# `/bin/fish`. Entries in `shell.args` are passed unmodified as arguments to the
+# shell.
 #
 # Default:
 #   - (macOS) /bin/bash --login
@@ -406,8 +410,8 @@
   #url:
     # URL launcher
     #
-    # This program is executed when clicking on a text which is recognized as a URL.
-    # The URL is always added to the command as the last parameter.
+    # This program is executed when clicking on a text which is recognized as a
+    # URL. The URL is always added to the command as the last parameter.
     #
     # When set to `launcher: None`, URL launching will be disabled completely.
     #
@@ -421,8 +425,9 @@
 
     # URL modifiers
     #
-    # These are the modifiers that need to be held down for opening URLs when clicking
-    # on them. The available modifiers are documented in the key binding section.
+    # These are the modifiers that need to be held down for opening URLs when
+    # clicking on them. The available modifiers are documented in the key
+    # binding section.
     #modifiers: None
 
 # Mouse bindings
@@ -430,8 +435,9 @@
 # Mouse bindings are specified as a list of objects, much like the key
 # bindings further below.
 #
-# To trigger mouse bindings when an application running within Alacritty captures the mouse, the
-# `Shift` modifier is automatically added as a requirement.
+# To trigger mouse bindings when an application running within Alacritty
+# captures the mouse, the `Shift` modifier is automatically added as a
+# requirement.
 #
 # Each mouse binding will specify a:
 #
@@ -524,67 +530,73 @@
 #   - ReceiveChar
 #   - None
 #
-#   (`mode: Vi` only):
+# - Vi mode exclusive actions:
+#
 #   - Open
-#       Open URLs at the cursor location with the launcher configured in `url.launcher`.
-#   - Up
-#       Move the vi mode cursor up by one line.
-#   - Down
-#       Move the vi mode cursor down by one line.
-#   - Left
-#       Move the vi mode cursor left by one character.
-#   - Right
-#       Move the vi mode cursor right by one character.
-#   - First
-#       Move the vi mode cursor to the start of the line, searching across newlines if it is already at the beginning.
-#   - Last
-#       Move the vi mode cursor to the end of the line, searching across newlines if it is already at the end.
-#   - FirstOccupied
-#       Move the vi mode cursor to the first non-empty cell in this line, searching across newlines if it is already at the first one.
-#   - High
-#       Move the vi mode cursor to the top of the screen.
-#   - Middle
-#       Move the vi mode cursor to the middle of the screen.
-#   - Low
-#       Move the vi mode cursor to the bottom of the screen.
-#   - SemanticLeft
-#       Move the vi mode cursor to the start of the previous semantically separated word.
-#   - SemanticRight
-#       Move the vi mode cursor to the start of the next semantically separated word.
-#   - SemanticLeftEnd
-#       Move the vi mode cursor to the end of the previous semantically separated word.
-#   - SemanticRightEnd
-#       Move the vi mode cursor to the end of the next semantically separated word.
-#   - WordLeft
-#       Move the vi mode cursor to the start of the previous whitespace separated word.
-#   - WordRight
-#       Move the vi mode cursor to the start of the next whitespace separated word.
-#   - WordLeftEnd
-#       Move the vi mode cursor to the end of the previous whitespace separated word.
-#   - WordRightEnd
-#       Move the vi mode cursor to the end of the next whitespace separated word.
-#   - Bracket
-#       Move the vi mode cursor to the next character that matches the bracket at the cursor's
-#       current location.
+#       Open URLs at the cursor location with the launcher configured in
+#       `url.launcher`.
 #   - ToggleNormalSelection
 #   - ToggleLineSelection
 #   - ToggleBlockSelection
 #   - ToggleSemanticSelection
 #       Toggle semantic selection based on `selection.semantic_escape_chars`.
-#   - SearchNext
-#       Jump to the beginning of the next match.
-#   - SearchPrevious
-#       Jump to the beginning of the previous match.
-#   - SearchStart
-#       Jump to the next start of a match to the left of the vi mode cursor.
-#   - SearchEnd
-#       Jump to the next end of a match to the left of the vi mode cursor.
 #
-#   (macOS only):
+# - Vi mode exclusive cursor motion actions:
+#
+#   - Up
+#       One line up.
+#   - Down
+#       One line down.
+#   - Left
+#       One character left.
+#   - Right
+#       One character right.
+#   - First
+#       First column, or beginning of the line when already at the first column.
+#   - Last
+#       Last column, or beginning of the line when already at the last column.
+#   - FirstOccupied
+#       First non-empty cell in this terminal row, or first non-empty cell of
+#       the line when already at the first cell of the row.
+#   - High
+#       Top of the screen.
+#   - Middle
+#       Center of the screen.
+#   - Low
+#       Bottom of the screen.
+#   - SemanticLeft
+#       Start of the previous semantically separated word.
+#   - SemanticRight
+#       Start of the next semantically separated word.
+#   - SemanticLeftEnd
+#       End of the previous semantically separated word.
+#   - SemanticRightEnd
+#       End of the next semantically separated word.
+#   - WordLeft
+#       Start of the previous whitespace separated word.
+#   - WordRight
+#       Start of the next whitespace separated word.
+#   - WordLeftEnd
+#       End of the previous whitespace separated word.
+#   - WordRightEnd
+#       End of the next whitespace separated word.
+#   - Bracket
+#       Character matching the bracket at the cursor's location.
+#   - SearchNext
+#       Beginning of the next match.
+#   - SearchPrevious
+#       Beginning of the previous match.
+#   - SearchStart
+#       Start of the match to the left of the vi mode cursor.
+#   - SearchEnd
+#       End of the match to the right of the vi mode cursor.
+#
+# - macOS exclusive actions:
 #   - ToggleSimpleFullscreen
 #       Enter fullscreen without occupying another space.
 #
-#   (Linux/BSD only):
+# - Linux/BSD exclusive actions:
+#
 #   - CopySelection
 #       Copy from the selection buffer.
 #   - PasteSelection
