@@ -360,14 +360,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     #[inline]
     pub fn mouse_moved(&mut self, position: PhysicalPosition<f64>) {
-        let search_active = self.ctx.search_active();
         let size_info = self.ctx.size_info();
 
         let (x, y) = position.into();
 
         let lmb_pressed = self.ctx.mouse().left_button_state == ElementState::Pressed;
         let rmb_pressed = self.ctx.mouse().right_button_state == ElementState::Pressed;
-        if !self.ctx.selection_is_empty() && (lmb_pressed || rmb_pressed) && !search_active {
+        if !self.ctx.selection_is_empty() && (lmb_pressed || rmb_pressed) {
             self.update_selection_scrolling(y);
         }
 
@@ -405,9 +404,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        if (lmb_pressed || rmb_pressed)
-            && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
-            && !search_active
+        if (lmb_pressed || rmb_pressed) && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
             self.ctx.update_selection(point, cell_side);
         } else if inside_text_area
@@ -600,7 +597,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.update_selection(point, cell_side);
 
         // Move vi mode cursor to mouse click position.
-        if self.ctx.terminal().mode().contains(TermMode::VI) {
+        if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
@@ -635,7 +632,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         };
 
         // Move vi mode cursor to mouse click position.
-        if self.ctx.terminal().mode().contains(TermMode::VI) {
+        if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
@@ -791,7 +788,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             };
 
             self.ctx.window_mut().set_mouse_cursor(new_icon);
-        } else if !self.ctx.search_active() {
+        } else {
             match state {
                 ElementState::Pressed => {
                     self.process_mouse_bindings(button);
@@ -963,6 +960,11 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     fn process_mouse_bindings(&mut self, button: MouseButton) {
+        // Ignore bindings while search is active.
+        if self.ctx.search_active() {
+            return;
+        }
+
         let mods = *self.ctx.modifiers();
         let mode = *self.ctx.terminal().mode();
         let mouse_mode = self.ctx.mouse_mode();

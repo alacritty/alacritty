@@ -227,6 +227,9 @@
     #matches:
     #  foreground: '#000000'
     #  background: '#ffffff'
+    #focused_match:
+    #  foreground: CellBackground
+    #  background: CellForeground
 
     #bar:
     #  background: '#c5c8c6'
