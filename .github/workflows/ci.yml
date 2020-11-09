@@ -35,4 +35,4 @@ jobs:
       - name: Install Clippy
         run: rustup component add clippy
       - name: Lint
-        run: cargo clippy
+        run: cargo clippy --all-targets
