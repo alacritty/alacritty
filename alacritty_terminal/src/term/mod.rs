@@ -1488,10 +1488,8 @@ impl<T: EventListener> Handler for Term<T> {
             let col = self.grid.cursor.point.col;
             let line = &mut self.grid[line];
 
-            let src = line[col..].as_ptr();
-            let dst = line[(col + width)..].as_mut_ptr();
-            unsafe {
-                ptr::copy(src, dst, (num_cols - col - width).0);
+            for col in IndexRange::from(col..(num_cols - width)).rev() {
+                line[col + width] = line[col].clone();
             }
         }
 
@@ -1574,18 +1572,15 @@ impl<T: EventListener> Handler for Term<T> {
         let num_cells = (self.cols() - destination).0;
 
         let line = cursor.point.line;
-        let row = &mut self.grid[line];
+        let line = &mut self.grid[line];
 
-        unsafe {
-            let src = row[source..].as_ptr();
-            let dst = row[destination..].as_mut_ptr();
-
-            ptr::copy(src, dst, num_cells);
+        for offset in (0..num_cells).rev() {
+            line[destination + offset] = line[source + offset].clone();
         }
 
         // Cells were just moved out toward the end of the line;
         // fill in between source and dest with blanks.
-        for cell in &mut row[source..destination] {
+        for cell in &mut line[source..destination] {
             *cell = bg.into();
         }
     }
@@ -1841,22 +1836,19 @@ impl<T: EventListener> Handler for Term<T> {
 
         let start = cursor.point.col;
         let end = min(start + count, cols - 1);
-        let n = (cols - end).0;
+        let num_cells = (cols - end).0;
 
         let line = cursor.point.line;
-        let row = &mut self.grid[line];
+        let line = &mut self.grid[line];
 
-        unsafe {
-            let src = row[end..].as_ptr();
-            let dst = row[start..].as_mut_ptr();
-
-            ptr::copy(src, dst, n);
+        for offset in 0..num_cells {
+            line[start + offset] = line[end + offset].clone();
         }
 
         // Clear last `count` cells in the row. If deleting 1 char, need to delete
         // 1 cell.
         let end = cols - count;
-        for cell in &mut row[end..] {
+        for cell in &mut line[end..] {
             *cell = bg.into();
         }
     }
