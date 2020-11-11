@@ -1486,10 +1486,10 @@ impl<T: EventListener> Handler for Term<T> {
         if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.col + width < num_cols {
             let line = self.grid.cursor.point.line;
             let col = self.grid.cursor.point.col;
-            let line = &mut self.grid[line];
+            let line = &mut self.grid[line][..];
 
-            for col in IndexRange::from(col..(num_cols - width)).rev() {
-                line[col + width] = line[col].clone();
+            for col in (col.0..(num_cols - width).0).rev() {
+                line.swap(col + width, col);
             }
         }
 
@@ -1572,15 +1572,15 @@ impl<T: EventListener> Handler for Term<T> {
         let num_cells = (self.cols() - destination).0;
 
         let line = cursor.point.line;
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[line][..];
 
         for offset in (0..num_cells).rev() {
-            line[destination + offset] = line[source + offset].clone();
+            line.swap(destination.0 + offset, source.0 + offset);
         }
 
         // Cells were just moved out toward the end of the line;
         // fill in between source and dest with blanks.
-        for cell in &mut line[source..destination] {
+        for cell in &mut line[source.0..destination.0] {
             *cell = bg.into();
         }
     }
@@ -1839,15 +1839,15 @@ impl<T: EventListener> Handler for Term<T> {
         let num_cells = (cols - end).0;
 
         let line = cursor.point.line;
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[line][..];
 
         for offset in 0..num_cells {
-            line[start + offset] = line[end + offset].clone();
+            line.swap(start.0 + offset, end.0 + offset);
         }
 
         // Clear last `count` cells in the row. If deleting 1 char, need to delete
         // 1 cell.
-        let end = cols - count;
+        let end = (cols - count).0;
         for cell in &mut line[end..] {
             *cell = bg.into();
         }
