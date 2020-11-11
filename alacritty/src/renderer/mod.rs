@@ -9,6 +9,7 @@ use std::ptr;
 use std::sync::mpsc;
 use std::time::Duration;
 
+use bitflags::bitflags;
 use crossfont::{
     BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
     Style, Weight,
@@ -359,30 +360,45 @@ impl GlyphCache {
     }
 }
 
+bitflags! {
+    #[repr(C)]
+    struct RenderingGlyphFlags: u8 {
+        const WIDE_CHAR = 0b0000_0001;
+        const COLORED   = 0b0000_0010;
+    }
+}
+
 #[derive(Debug)]
 #[repr(C)]
 struct InstanceData {
     // Coords.
     col: u16,
     row: u16,
+
     // Glyph offset.
     left: i16,
     top: i16,
+
     // Glyph size.
     width: i16,
     height: i16,
+
     // UV offset.
     uv_left: f32,
     uv_bot: f32,
+
     // uv scale.
     uv_width: f32,
     uv_height: f32,
+
     // Color.
     r: u8,
     g: u8,
     b: u8,
-    // Flag indicating that a glyph uses multiple colors; like an Emoji.
-    multicolor: u8,
+
+    // Cell flags.
+    cell_flags: RenderingGlyphFlags,
+
     // Background color.
     bg_r: u8,
     bg_g: u8,
@@ -441,6 +457,15 @@ impl Batch {
             self.tex = glyph.tex_id;
         }
 
+        let mut cell_flags = RenderingGlyphFlags::empty();
+        if glyph.multicolor != 0 {
+            cell_flags |= RenderingGlyphFlags::COLORED;
+        }
+
+        if cell.flags.contains(Flags::WIDE_CHAR) {
+            cell_flags |= RenderingGlyphFlags::WIDE_CHAR;
+        }
+
         self.instances.push(InstanceData {
             col: cell.column.0 as u16,
             row: cell.line.0 as u16,
@@ -458,12 +483,12 @@ impl Batch {
             r: cell.fg.r,
             g: cell.fg.g,
             b: cell.fg.b,
+            cell_flags,
 
             bg_r: cell.bg.r,
             bg_g: cell.bg.g,
             bg_b: cell.bg.b,
             bg_a: (cell.bg_alpha * 255.0) as u8,
-            multicolor: glyph.multicolor,
         });
     }
 
@@ -586,10 +611,10 @@ impl QuadRenderer {
             // UV offset.
             add_attr!(4, gl::FLOAT, f32);
 
-            // Color and multicolor flag.
+            // Color and cell flags.
             //
             // These are packed together because of an OpenGL driver issue on macOS, which caused a
-            // `vec3(u8)` text color and a `u8` multicolor flag to increase the rendering time by a
+            // `vec3(u8)` text color and a `u8` cell flags to increase the rendering time by a
             // huge margin.
             add_attr!(4, gl::UNSIGNED_BYTE, u8);
 

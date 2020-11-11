@@ -27,6 +27,7 @@ use crossfont::{self, Rasterize, Rasterizer};
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::index::{Column, Direction, Point};
 use alacritty_terminal::selection::Selection;
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode};
 use alacritty_terminal::term::{MIN_COLS, MIN_SCREEN_LINES};
 
@@ -497,6 +498,12 @@ impl Display {
 
                     // Update underline/strikeout.
                     lines.update(&cell);
+
+                    // Skip drawing wide char spacers, since we draw the spacer for wide
+                    // chars in shader.
+                    if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+                        continue;
+                    }
 
                     // Draw the cell.
                     api.render_cell(cell, glyph_cache);
