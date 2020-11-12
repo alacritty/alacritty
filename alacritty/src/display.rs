@@ -480,7 +480,7 @@ impl Display {
                 for mut cell in grid_cells {
                     // Invert the active match in vi-less search.
                     let cell_point = Point::new(cell.line, cell.column);
-                    if !cell.selected
+                    if cell.is_match
                         && viewport_match
                             .as_ref()
                             .map_or(false, |viewport_match| viewport_match.contains(&cell_point))

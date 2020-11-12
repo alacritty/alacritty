@@ -316,7 +316,7 @@ pub struct RenderableCell {
     pub bg: Rgb,
     pub bg_alpha: f32,
     pub flags: Flags,
-    pub selected: bool,
+    pub is_match: bool,
 }
 
 impl RenderableCell {
@@ -334,8 +334,9 @@ impl RenderableCell {
             Self::compute_bg_alpha(cell.bg)
         };
 
-        let selected = iter.is_selected(point);
-        if selected {
+        let mut is_match = false;
+
+        if iter.is_selected(point) {
             let config_bg = iter.config.colors.selection.background();
             let selected_fg = iter.config.colors.selection.foreground().color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);
@@ -359,6 +360,8 @@ impl RenderableCell {
             if config_bg != CellRgb::CellBackground {
                 bg_alpha = 1.0;
             }
+
+            is_match = true;
         }
 
         let zerowidth = cell.zerowidth().map(|zerowidth| zerowidth.to_vec());
@@ -371,7 +374,7 @@ impl RenderableCell {
             bg: bg_rgb,
             bg_alpha,
             flags: cell.flags,
-            selected,
+            is_match,
         }
     }
 
