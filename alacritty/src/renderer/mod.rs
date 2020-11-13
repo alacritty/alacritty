@@ -360,6 +360,7 @@ impl GlyphCache {
     }
 }
 
+// XXX these flags must be in sync with their usage in text.*.glsl shaders.
 bitflags! {
     #[repr(C)]
     struct RenderingGlyphFlags: u8 {

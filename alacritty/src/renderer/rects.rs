@@ -169,13 +169,13 @@ impl RenderLines {
                 && cell.line == line.end.line
             {
                 // Update the length of the line.
-                line.end = cell.into();
+                line.end = into_cell_end(cell);
                 return;
             }
         }
 
         // Start new line if there currently is none.
-        let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
+        let line = RenderLine { start: cell.into(), end: into_cell_end(cell), color: cell.fg };
         match self.inner.get_mut(&flag) {
             Some(lines) => lines.push(line),
             None => {
@@ -183,4 +183,14 @@ impl RenderLines {
             },
         }
     }
+}
+
+#[inline]
+fn into_cell_end(cell: &RenderableCell) -> Point {
+    let mut end: Point = cell.into();
+    if cell.flags.contains(Flags::WIDE_CHAR) {
+        end.col += 1;
+    }
+
+    end
 }

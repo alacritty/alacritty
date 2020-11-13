@@ -79,7 +79,12 @@ impl Urls {
         };
 
         let point: Point = cell.into();
-        let end = point;
+        let mut end = point;
+
+        // Include the following wide char spacer.
+        if cell.flags.contains(Flags::WIDE_CHAR) {
+            end.col += 1;
+        }
 
         // Reset URL when empty cells have been skipped.
         if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
@@ -88,8 +93,8 @@ impl Urls {
 
         self.last_point = Some(end);
 
-        // Extend current state if a wide char spacer is encountered.
-        if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
+        // Extend current state if a leading wide char spacer is encountered.
+        if cell.flags.intersects(Flags::LEADING_WIDE_CHAR_SPACER) {
             if let UrlLocation::Url(_, mut end_offset) = self.state {
                 if end_offset != 0 {
                     end_offset += 1;
@@ -251,5 +256,25 @@ mod tests {
 
         assert_eq!(urls.urls[2].start().col, Column(17));
         assert_eq!(urls.urls[2].end().col, Column(21));
+    }
+
+    #[test]
+    fn wide_urls() {
+        let input = text_to_cells("test https://こんにちは (http:여보세요) ing");
+        let num_cols = input.len() + 9;
+
+        let mut urls = Urls::new();
+
+        for cell in input {
+            urls.update(Column(num_cols), &cell);
+        }
+
+        assert_eq!(urls.urls.len(), 2);
+
+        assert_eq!(urls.urls[0].start().col, Column(5));
+        assert_eq!(urls.urls[0].end().col, Column(17));
+
+        assert_eq!(urls.urls[1].start().col, Column(20));
+        assert_eq!(urls.urls[1].end().col, Column(28));
     }
 }
