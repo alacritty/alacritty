@@ -136,10 +136,42 @@ pub struct RenderableCellsIter<'a, C> {
     inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
     cursor: RenderableCursor,
+    show_cursor: bool,
     config: &'a Config<C>,
     colors: &'a color::List,
     selection: Option<SelectionRange<Line>>,
     search: RenderableSearch<'a>,
+}
+
+impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
+    type Item = RenderableCell;
+
+    /// Gets the next renderable cell.
+    ///
+    /// Skips empty (background) cells and applies any flags to the cell state
+    /// (eg. invert fg and bg colors).
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.show_cursor && self.cursor.point == self.inner.point() {
+                // Handle cursor rendering.
+                if self.cursor.rendered {
+                    return self.next_cursor_cell();
+                } else {
+                    return self.next_cursor();
+                }
+            } else {
+                // Handle non-cursor cells.
+                let cell = self.inner.next()?;
+                let cell = RenderableCell::new(self, cell);
+
+                // Skip empty cells.
+                if !cell.is_empty() {
+                    return Some(cell);
+                }
+            }
+        }
+    }
 }
 
 impl<'a, C> RenderableCellsIter<'a, C> {
@@ -150,44 +182,63 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     fn new<T>(
         term: &'a Term<T>,
         config: &'a Config<C>,
-        selection: Option<SelectionRange>,
+        show_cursor: bool,
     ) -> RenderableCellsIter<'a, C> {
-        let grid = &term.grid;
-
-        let selection_range = selection.and_then(|span| {
-            let (limit_start, limit_end) = if span.is_block {
-                (span.start.col, span.end.col)
-            } else {
-                (Column(0), grid.cols() - 1)
-            };
-
-            // Do not render completely offscreen selection.
-            let viewport_end = grid.display_offset();
-            let viewport_start = viewport_end + grid.screen_lines().0 - 1;
-            if span.end.line > viewport_start || span.start.line < viewport_end {
-                return None;
-            }
-
-            // Get on-screen lines of the selection's locations.
-            let mut start = grid.clamp_buffer_to_visible(span.start);
-            let mut end = grid.clamp_buffer_to_visible(span.end);
-
-            // Trim start/end with partially visible block selection.
-            start.col = max(limit_start, start.col);
-            end.col = min(limit_end, end.col);
-
-            Some(SelectionRange::new(start, end, span.is_block))
-        });
-
         RenderableCellsIter {
             cursor: term.renderable_cursor(config),
-            grid,
-            inner: grid.display_iter(),
-            selection: selection_range,
+            show_cursor,
+            grid: &term.grid,
+            inner: term.grid.display_iter(),
+            selection: term.visible_selection(),
             config,
             colors: &term.colors,
             search: RenderableSearch::new(term),
         }
+    }
+
+    /// Get the next renderable cell as the cell below the cursor.
+    fn next_cursor_cell(&mut self) -> Option<RenderableCell> {
+        // Handle cell below cursor.
+        let cell = self.inner.next()?;
+        let mut cell = RenderableCell::new(self, cell);
+
+        if self.cursor.key.style == CursorStyle::Block {
+            cell.fg = match self.cursor.cursor_color {
+                // Apply cursor color, or invert the cursor if it has a fixed background
+                // close to the cell's background.
+                CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => cell.bg,
+                _ => self.cursor.text_color.color(cell.fg, cell.bg),
+            };
+        }
+
+        Some(cell)
+    }
+
+    /// Get the next renderable cell as the cursor.
+    fn next_cursor(&mut self) -> Option<RenderableCell> {
+        // Handle cursor.
+        self.cursor.rendered = true;
+
+        let buffer_point = self.grid.visible_to_buffer(self.cursor.point);
+        let cell = Indexed {
+            inner: &self.grid[buffer_point.line][buffer_point.col],
+            column: self.cursor.point.col,
+            line: self.cursor.point.line,
+        };
+
+        let mut cell = RenderableCell::new(self, cell);
+        cell.inner = RenderableCellContent::Cursor(self.cursor.key);
+
+        // Apply cursor color, or invert the cursor if it has a fixed background close
+        // to the cell's background.
+        if !matches!(
+            self.cursor.cursor_color,
+            CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
+        ) {
+            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
+        }
+
+        Some(cell)
     }
 
     /// Check selection state of a cell.
@@ -265,6 +316,7 @@ pub struct RenderableCell {
     pub bg: Rgb,
     pub bg_alpha: f32,
     pub flags: Flags,
+    pub is_match: bool,
 }
 
 impl RenderableCell {
@@ -282,9 +334,11 @@ impl RenderableCell {
             Self::compute_bg_alpha(cell.bg)
         };
 
+        let mut is_match = false;
+
         if iter.is_selected(point) {
             let config_bg = iter.config.colors.selection.background();
-            let selected_fg = iter.config.colors.selection.text().color(fg_rgb, bg_rgb);
+            let selected_fg = iter.config.colors.selection.foreground().color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
 
@@ -306,6 +360,8 @@ impl RenderableCell {
             if config_bg != CellRgb::CellBackground {
                 bg_alpha = 1.0;
             }
+
+            is_match = true;
         }
 
         let zerowidth = cell.zerowidth().map(|zerowidth| zerowidth.to_vec());
@@ -318,6 +374,7 @@ impl RenderableCell {
             bg: bg_rgb,
             bg_alpha,
             flags: cell.flags,
+            is_match,
         }
     }
 
@@ -387,73 +444,6 @@ impl RenderableCell {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => colors[ansi],
             Color::Indexed(idx) => colors[idx],
-        }
-    }
-}
-
-impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
-    type Item = RenderableCell;
-
-    /// Gets the next renderable cell.
-    ///
-    /// Skips empty (background) cells and applies any flags to the cell state
-    /// (eg. invert fg and bg colors).
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.cursor.point.line == self.inner.line()
-                && self.cursor.point.col == self.inner.column()
-            {
-                if self.cursor.rendered {
-                    // Handle cell below cursor.
-                    let cell = self.inner.next()?;
-                    let mut cell = RenderableCell::new(self, cell);
-
-                    if self.cursor.key.style == CursorStyle::Block {
-                        cell.fg = match self.cursor.cursor_color {
-                            // Apply cursor color, or invert the cursor if it has a fixed background
-                            // close to the cell's background.
-                            CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => {
-                                cell.bg
-                            },
-                            _ => self.cursor.text_color.color(cell.fg, cell.bg),
-                        };
-                    }
-
-                    return Some(cell);
-                } else {
-                    // Handle cursor.
-                    self.cursor.rendered = true;
-
-                    let buffer_point = self.grid.visible_to_buffer(self.cursor.point);
-                    let cell = Indexed {
-                        inner: &self.grid[buffer_point.line][buffer_point.col],
-                        column: self.cursor.point.col,
-                        line: self.cursor.point.line,
-                    };
-
-                    let mut cell = RenderableCell::new(self, cell);
-                    cell.inner = RenderableCellContent::Cursor(self.cursor.key);
-
-                    // Apply cursor color, or invert the cursor if it has a fixed background close
-                    // to the cell's background.
-                    if !matches!(
-                        self.cursor.cursor_color,
-                        CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
-                    ) {
-                        cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
-                    }
-
-                    return Some(cell);
-                }
-            } else {
-                let cell = self.inner.next()?;
-                let cell = RenderableCell::new(self, cell);
-
-                if !cell.is_empty() {
-                    return Some(cell);
-                }
-            }
         }
     }
 }
@@ -1049,10 +1039,34 @@ impl<T> Term<T> {
     /// A renderable cell is any cell which has content other than the default
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
-    pub fn renderable_cells<'b, C>(&'b self, config: &'b Config<C>) -> RenderableCellsIter<'_, C> {
-        let selection = self.selection.as_ref().and_then(|s| s.to_range(self));
+    pub fn renderable_cells<'b, C>(
+        &'b self,
+        config: &'b Config<C>,
+        show_cursor: bool,
+    ) -> RenderableCellsIter<'_, C> {
+        RenderableCellsIter::new(&self, config, show_cursor)
+    }
 
-        RenderableCellsIter::new(&self, config, selection)
+    /// Get the selection within the viewport.
+    pub fn visible_selection(&self) -> Option<SelectionRange<Line>> {
+        let selection = self.selection.as_ref()?.to_range(self)?;
+
+        // Set horizontal limits for block selection.
+        let (limit_start, limit_end) = if selection.is_block {
+            (selection.start.col, selection.end.col)
+        } else {
+            (Column(0), self.cols() - 1)
+        };
+
+        let range = self.grid.clamp_buffer_range_to_visible(&(selection.start..=selection.end))?;
+        let mut start = *range.start();
+        let mut end = *range.end();
+
+        // Trim start/end with partially visible block selection.
+        start.col = max(limit_start, start.col);
+        end.col = min(limit_end, end.col);
+
+        Some(SelectionRange::new(start, end, selection.is_block))
     }
 
     /// Resize terminal to new dimensions.
@@ -2836,7 +2850,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config);
+            let iter = terminal.renderable_cells(&config, true);
             for cell in iter {
                 test::black_box(cell);
             }

@@ -1,7 +1,7 @@
 //! A specialized 2D grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min};
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
@@ -366,6 +366,30 @@ impl<T> Grid<T> {
             // Since edgecases are handled, conversion is identical as visible to buffer.
             self.visible_to_buffer(point.into()).into()
         }
+    }
+
+    // Clamp a buffer point based range to the viewport.
+    //
+    // This will make sure the content within the range is visible and return `None` whenever the
+    // entire range is outside the visible region.
+    pub fn clamp_buffer_range_to_visible(
+        &self,
+        range: &RangeInclusive<Point<usize>>,
+    ) -> Option<RangeInclusive<Point>> {
+        let start = range.start();
+        let end = range.end();
+
+        // Check if the range is completely offscreen
+        let viewport_end = self.display_offset;
+        let viewport_start = viewport_end + self.lines.0 - 1;
+        if end.line > viewport_start || start.line < viewport_end {
+            return None;
+        }
+
+        let start = self.clamp_buffer_to_visible(*start);
+        let end = self.clamp_buffer_to_visible(*end);
+
+        Some(start..=end)
     }
 
     /// Convert viewport relative point to global buffer indexing.
@@ -759,12 +783,8 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
         self.offset
     }
 
-    pub fn column(&self) -> Column {
-        self.col
-    }
-
-    pub fn line(&self) -> Line {
-        self.line
+    pub fn point(&self) -> Point {
+        Point::new(self.line, self.col)
     }
 }
 

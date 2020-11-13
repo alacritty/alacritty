@@ -15,7 +15,7 @@ pub struct Colors {
     #[serde(deserialize_with = "failure_default")]
     pub vi_mode_cursor: CursorColors,
     #[serde(deserialize_with = "failure_default")]
-    pub selection: SelectionColors,
+    pub selection: InvertedCellColors,
     #[serde(deserialize_with = "failure_default")]
     normal: NormalColors,
     #[serde(deserialize_with = "failure_default")]
@@ -124,16 +124,16 @@ impl CursorColors {
 
 #[serde(default)]
 #[derive(Deserialize, Debug, Copy, Clone, Default, PartialEq, Eq)]
-pub struct SelectionColors {
-    #[serde(deserialize_with = "failure_default")]
-    text: DefaultBackgroundCellRgb,
+pub struct InvertedCellColors {
+    #[serde(deserialize_with = "failure_default", alias = "text")]
+    foreground: DefaultBackgroundCellRgb,
     #[serde(deserialize_with = "failure_default")]
     background: DefaultForegroundCellRgb,
 }
 
-impl SelectionColors {
-    pub fn text(self) -> CellRgb {
-        self.text.0
+impl InvertedCellColors {
+    pub fn foreground(self) -> CellRgb {
+        self.foreground.0
     }
 
     pub fn background(self) -> CellRgb {
@@ -146,6 +146,8 @@ impl SelectionColors {
 pub struct SearchColors {
     #[serde(deserialize_with = "failure_default")]
     pub matches: MatchColors,
+    #[serde(deserialize_with = "failure_default")]
+    pub focused_match: InvertedCellColors,
     #[serde(deserialize_with = "failure_default")]
     bar: BarColors,
 }

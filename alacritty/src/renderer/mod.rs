@@ -958,6 +958,7 @@ impl<'a> RenderApi<'a> {
                 bg_alpha,
                 fg,
                 bg: bg.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
+                is_match: false,
             })
             .collect::<Vec<_>>();
 

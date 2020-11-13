@@ -9,6 +9,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::mem;
+use std::ops::RangeInclusive;
 use std::path::PathBuf;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
@@ -94,6 +95,9 @@ pub struct SearchState {
 
     /// Search origin in viewport coordinates relative to original display offset.
     origin: Point,
+
+    /// Focused match during active search.
+    focused_match: Option<RangeInclusive<Point<usize>>>,
 }
 
 impl SearchState {
@@ -110,6 +114,11 @@ impl SearchState {
     pub fn direction(&self) -> Direction {
         self.direction
     }
+
+    /// Focused match during vi-less search.
+    pub fn focused_match(&self) -> Option<&RangeInclusive<Point<usize>>> {
+        self.focused_match.as_ref()
+    }
 }
 
 impl Default for SearchState {
@@ -118,6 +127,7 @@ impl Default for SearchState {
             direction: Direction::Right,
             display_offset_delta: 0,
             origin: Point::default(),
+            focused_match: None,
             regex: None,
         }
     }
@@ -209,7 +219,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         selection.update(absolute_point, side);
 
         // Move vi cursor and expand selection.
-        if self.terminal.mode().contains(TermMode::VI) {
+        if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
             self.terminal.vi_mode_cursor.point = point;
             selection.include_all();
         }
@@ -385,6 +395,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let num_lines = self.terminal.screen_lines();
         let num_cols = self.terminal.cols();
 
+        self.search_state.focused_match = None;
         self.search_state.regex = Some(String::new());
         self.search_state.direction = direction;
 
@@ -393,9 +404,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.origin = if self.terminal.mode().contains(TermMode::VI) {
             self.terminal.vi_mode_cursor.point
         } else {
-            // Clear search, since it is used as the active match.
-            self.terminal.selection = None;
-
             match direction {
                 Direction::Right => Point::new(Line(0), Column(0)),
                 Direction::Left => Point::new(num_lines - 2, num_cols - 1),
@@ -420,9 +428,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn cancel_search(&mut self) {
         self.terminal.cancel_search();
 
-        // Recover pre-search state in vi mode.
         if self.terminal.mode().contains(TermMode::VI) {
+            // Recover pre-search state in vi mode.
             self.search_reset_state();
+        } else if let Some(focused_match) = &self.search_state.focused_match {
+            // Create a selection for the focused match.
+            let start = self.terminal.grid().clamp_buffer_to_visible(*focused_match.start());
+            let end = self.terminal.grid().clamp_buffer_to_visible(*focused_match.end());
+            self.start_selection(SelectionType::Simple, start, Side::Left);
+            self.update_selection(end, Side::Right);
         }
 
         self.exit_search();
@@ -431,8 +445,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn push_search(&mut self, c: char) {
         if let Some(regex) = self.search_state.regex.as_mut() {
-            // Prevent previous search selections from sticking around when not in vi mode.
             if !self.terminal.mode().contains(TermMode::VI) {
+                // Clear selection so we do not obstruct any matches.
                 self.terminal.selection = None;
             }
 
@@ -533,8 +547,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             self.search_reset_state();
             self.terminal.cancel_search();
 
-            // Restart search without vi mode to clear the search origin.
             if !self.terminal.mode().contains(TermMode::VI) {
+                // Restart search without vi mode to clear the search origin.
                 self.start_search(self.search_state.direction);
             }
         } else {
@@ -553,6 +567,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Reset display offset.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
+
+        // Clear focused match.
+        self.search_state.focused_match = None;
 
         // Reset vi mode cursor.
         let mut origin = self.search_state.origin;
@@ -586,11 +603,10 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 } else {
                     // Select the match when vi mode is not active.
                     self.terminal.scroll_to_point(*regex_match.start());
-                    let start = self.terminal.grid().clamp_buffer_to_visible(*regex_match.start());
-                    let end = self.terminal.grid().clamp_buffer_to_visible(*regex_match.end());
-                    self.start_selection(SelectionType::Simple, start, Side::Left);
-                    self.update_selection(end, Side::Right);
                 }
+
+                // Update the focused match.
+                self.search_state.focused_match = Some(regex_match);
 
                 // Store number of lines the viewport had to be moved.
                 let display_offset = self.terminal.grid().display_offset();
@@ -611,13 +627,16 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                         TimerId::DelayedSearch,
                     );
                 }
+
+                // Clear focused match.
+                self.search_state.focused_match = None;
             },
         }
 
         self.search_state.regex = Some(regex);
     }
 
-    /// Close the search bar.
+    /// Cleanup the search state.
     fn exit_search(&mut self) {
         // Move vi cursor down if resize will pull content from history.
         if self.terminal.history_size() != 0
@@ -630,6 +649,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.display_update_pending.dirty = true;
         self.search_state.regex = None;
         self.terminal.dirty = true;
+
+        // Clear focused match.
+        self.search_state.focused_match = None;
     }
 
     /// Get the absolute position of the search origin.

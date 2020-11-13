@@ -100,6 +100,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Unicode 13 support
 - Option to run command on bell which can be set in `bell.command`
 - Fallback to program specified in `$SHELL` variable on Linux/BSD if it is present
+- Ability to make selections while search is active
 
 ### Changed
 
@@ -120,6 +121,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - URLs are no longer highlighted without a clearly delimited scheme
 - Renamed config option `visual_bell` to `bell`
 - Moved config option `dynamic_title` to `window.dynamic_title`
+- When searching without vi mode, matches are only selected once search is cancelled
 
 ### Fixed
 
@@ -141,6 +143,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Ingoring of default FreeType properties
 - Alacritty crashing at startup when the configured font does not exist
 - Font size rounding error
+- Opening URLs while search is active
 
 ### Removed
 
