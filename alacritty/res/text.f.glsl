@@ -9,6 +9,8 @@ layout(location = 0, index = 1) out vec4 alphaMask;
 
 uniform sampler2D mask;
 
+#define COLORED 2
+
 void main() {
     if (backgroundPass != 0) {
         if (bg.a == 0.0) {
@@ -17,7 +19,7 @@ void main() {
 
         alphaMask = vec4(1.0);
         color = vec4(bg.rgb, 1.0);
-    } else if (int(fg.a) > 1) {
+    } else if ((int(fg.a) & COLORED) != 0) {
         // Color glyphs, like emojis.
         vec4 glyphColor = texture(mask, TexCoords);
         alphaMask = vec4(glyphColor.a);

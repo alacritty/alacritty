@@ -9,12 +9,8 @@ layout(location = 1) in vec4 glyph;
 layout(location = 2) in vec4 uv;
 
 // Text foreground rgb packed together with cell flags. textColor.a
-// is a bitflag with the following values.
-//
-// 0 - empty
-// 1 - wide char
-// 2 - colored glyph
-//
+// is a bitflag. For the actual possible values of bitflags consult
+// RenderingGlyphFlags in renderer/mod.rs.
 layout(location = 3) in vec4 textColor;
 
 // Background color.
@@ -46,7 +42,6 @@ void main() {
 
     if (backgroundPass != 0) {
         vec2 backgroundDim = cellDim;
-        // We use 1 to identify wide chars.
         if ((int(textColor.a) & WIDE_CHAR) != 0) {
             // Update wide char x dimension so it'll cover following spacer.
             backgroundDim.x *= 2;

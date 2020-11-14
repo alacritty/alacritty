@@ -360,7 +360,7 @@ impl GlyphCache {
     }
 }
 
-// XXX these flags must be in sync with their usage in text.*.glsl shaders.
+// NOTE: These flags must be in sync with their usage in the text.*.glsl shaders.
 bitflags! {
     #[repr(C)]
     struct RenderingGlyphFlags: u8 {
@@ -397,7 +397,7 @@ struct InstanceData {
     g: u8,
     b: u8,
 
-    // Cell flags.
+    // Cell flags like multicolor of fullwidth character.
     cell_flags: RenderingGlyphFlags,
 
     // Background color.
@@ -459,13 +459,8 @@ impl Batch {
         }
 
         let mut cell_flags = RenderingGlyphFlags::empty();
-        if glyph.multicolor != 0 {
-            cell_flags |= RenderingGlyphFlags::COLORED;
-        }
-
-        if cell.flags.contains(Flags::WIDE_CHAR) {
-            cell_flags |= RenderingGlyphFlags::WIDE_CHAR;
-        }
+        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.multicolor != 0);
+        cell_flags.set(RenderingGlyphFlags::WIDE_CHAR, cell.flags.contains(Flags::WIDE_CHAR));
 
         self.instances.push(InstanceData {
             col: cell.column.0 as u16,

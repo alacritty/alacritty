@@ -165,7 +165,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                 let cell = self.inner.next()?;
                 let cell = RenderableCell::new(self, cell);
 
-                // Skip empty cells and wide chars spacers.
+                // Skip empty cells and wide char spacers.
                 if !cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
                     return Some(cell);
                 }
