@@ -1,112 +1,92 @@
-//! Helpers for creating different cursor glyphs from font metrics.
-
-use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
+//! Convert a cursor into an iterator of rects.
 
 use alacritty_terminal::ansi::CursorShape;
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::render::RenderableCursor;
+use alacritty_terminal::term::SizeInfo;
 
-pub fn get_cursor_glyph(
-    cursor: CursorShape,
-    metrics: Metrics,
-    offset_x: i8,
-    offset_y: i8,
-    is_wide: bool,
-    cursor_thickness: f32,
-) -> RasterizedGlyph {
-    // Calculate the cell metrics.
-    //
-    // NOTE: With Rust 1.47+ `f64 as usize` is defined to clamp automatically:
-    // https://github.com/rust-lang/rust/commit/14d608f1d8a0b84da5f3bccecb3efb3d35f980dc
-    let height = (metrics.line_height + f64::from(offset_y)).max(1.) as usize;
-    let mut width = (metrics.average_advance + f64::from(offset_x)).max(1.) as usize;
-    let line_width = (cursor_thickness * width as f32).round().max(1.) as usize;
+use crate::renderer::rects::RenderRect;
 
-    // Double the cursor width if it's above a double-width glyph.
-    if is_wide {
-        width *= 2;
-    }
-
-    match cursor {
-        CursorShape::HollowBlock => get_box_cursor_glyph(height, width, line_width),
-        CursorShape::Underline => get_underline_cursor_glyph(width, line_width),
-        CursorShape::Beam => get_beam_cursor_glyph(height, line_width),
-        CursorShape::Block => get_block_cursor_glyph(height, width),
-        CursorShape::Hidden => RasterizedGlyph::default(),
-    }
+/// Trait for conversion into the iterator.
+pub trait IntoRects {
+    /// Consume the cursor for an iterator of rects.
+    fn rects(self, size_info: &SizeInfo, thickness: f32) -> CursorRects;
 }
 
-/// Return a custom underline cursor character.
-pub fn get_underline_cursor_glyph(width: usize, line_width: usize) -> RasterizedGlyph {
-    // Create a new rectangle, the height is relative to the font width.
-    let buffer = BitmapBuffer::RGB(vec![255u8; width * line_width * 3]);
+impl IntoRects for RenderableCursor {
+    fn rects(self, size_info: &SizeInfo, thickness: f32) -> CursorRects {
+        let point = self.point();
+        let x = point.col.0 as f32 * size_info.cell_width() + size_info.padding_x();
+        let y = point.line.0 as f32 * size_info.cell_height() + size_info.padding_y();
 
-    // Create a custom glyph with the rectangle data attached to it.
-    RasterizedGlyph {
-        character: ' ',
-        top: line_width as i32,
-        left: 0,
-        height: line_width as i32,
-        width: width as i32,
-        buffer,
-    }
-}
+        let mut width = size_info.cell_width();
+        let height = size_info.cell_height();
 
-/// Return a custom beam cursor character.
-pub fn get_beam_cursor_glyph(height: usize, line_width: usize) -> RasterizedGlyph {
-    // Create a new rectangle that is at least one pixel wide
-    let buffer = BitmapBuffer::RGB(vec![255u8; line_width * height * 3]);
+        if self.is_wide() {
+            width *= 2.;
+        }
 
-    // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph {
-        character: ' ',
-        top: height as i32,
-        left: 0,
-        height: height as i32,
-        width: line_width as i32,
-        buffer,
-    }
-}
+        let thickness = (thickness * width as f32).round().max(1.);
 
-/// Returns a custom box cursor character.
-pub fn get_box_cursor_glyph(height: usize, width: usize, line_width: usize) -> RasterizedGlyph {
-    // Create a new box outline rectangle.
-    let mut buffer = Vec::with_capacity(width * height * 3);
-    for y in 0..height {
-        for x in 0..width {
-            if y < line_width
-                || y >= height - line_width
-                || x < line_width
-                || x >= width - line_width
-            {
-                buffer.append(&mut vec![255u8; 3]);
-            } else {
-                buffer.append(&mut vec![0u8; 3]);
-            }
+        match self.shape() {
+            CursorShape::Beam => beam(x, y, height, thickness, self.color()),
+            CursorShape::Underline => underline(x, y, width, height, thickness, self.color()),
+            CursorShape::HollowBlock => hollow(x, y, width, height, thickness, self.color()),
+            _ => CursorRects::default(),
         }
     }
+}
 
-    // Create a custom glyph with the rectangle data attached to it.
-    RasterizedGlyph {
-        character: ' ',
-        top: height as i32,
-        left: 0,
-        height: height as i32,
-        width: width as i32,
-        buffer: BitmapBuffer::RGB(buffer),
+/// Cursor rect iterator.
+#[derive(Default)]
+pub struct CursorRects {
+    rects: [Option<RenderRect>; 4],
+    index: usize,
+}
+
+impl From<RenderRect> for CursorRects {
+    fn from(rect: RenderRect) -> Self {
+        Self { rects: [Some(rect), None, None, None], index: 0 }
     }
 }
 
-/// Return a custom block cursor character.
-pub fn get_block_cursor_glyph(height: usize, width: usize) -> RasterizedGlyph {
-    // Create a completely filled glyph.
-    let buffer = BitmapBuffer::RGB(vec![255u8; width * height * 3]);
+impl Iterator for CursorRects {
+    type Item = RenderRect;
 
-    // Create a custom glyph with the rectangle data attached to it.
-    RasterizedGlyph {
-        character: ' ',
-        top: height as i32,
-        left: 0,
-        height: height as i32,
-        width: width as i32,
-        buffer,
+    fn next(&mut self) -> Option<Self::Item> {
+        let rect = self.rects.get_mut(self.index)?;
+        self.index += 1;
+        rect.take()
+    }
+}
+
+/// Create an iterator yielding a single beam rect.
+fn beam(x: f32, y: f32, height: f32, thickness: f32, color: Rgb) -> CursorRects {
+    RenderRect::new(x, y, thickness, height, color, 1.).into()
+}
+
+/// Create an iterator yielding a single underline rect.
+fn underline(x: f32, y: f32, width: f32, height: f32, thickness: f32, color: Rgb) -> CursorRects {
+    let y = y + height - thickness;
+    RenderRect::new(x, y, width, thickness, color, 1.).into()
+}
+
+/// Create an iterator yielding a rect for each side of the hollow block cursor.
+fn hollow(x: f32, y: f32, width: f32, height: f32, thickness: f32, color: Rgb) -> CursorRects {
+    let top_line = RenderRect::new(x, y, width, thickness, color, 1.);
+
+    let vertical_y = y + thickness;
+    let vertical_height = height - 2. * thickness;
+    let left_line = RenderRect::new(x, vertical_y, thickness, vertical_height, color, 1.);
+
+    let bottom_y = y + height - thickness;
+    let bottom_line = RenderRect::new(x, bottom_y, width, thickness, color, 1.);
+
+    let right_x = x + width - thickness;
+    let right_line = RenderRect::new(right_x, vertical_y, thickness, vertical_height, color, 1.);
+
+    CursorRects {
+        rects: [Some(top_line), Some(bottom_line), Some(left_line), Some(right_line)],
+        index: 0,
     }
 }

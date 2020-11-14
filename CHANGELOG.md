@@ -45,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash due to clipboard not being properly released on Wayland
 - Shadow artifacts when resizing transparent windows on macOS
 - Missing glyph symbols not being rendered for missing glyphs on macOS and Windows
+- Underline cursor being obscured by underline
+- Cursor not being rendered with a lot of unicode glyphs visible
 
 ### Removed
 
