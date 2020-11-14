@@ -5,7 +5,6 @@ use {
     std::sync::Arc,
 
     glutin::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
-    image::ImageFormat,
 };
 
 #[rustfmt::skip]
@@ -31,8 +30,6 @@ use glutin::event_loop::EventLoop;
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
 use glutin::platform::windows::IconExtWindows;
-#[cfg(not(target_os = "macos"))]
-use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(windows)]
@@ -46,7 +43,7 @@ use crate::config::Config;
 use crate::gl;
 
 // It's required to be in this directory due to the `windows.rc` file.
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 static WINDOW_ICON: &[u8] = include_bytes!("../alacritty.ico");
 
 // This should match the definition of IDI_ICON from `windows.rc`.
@@ -256,11 +253,14 @@ impl Window {
 
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::Ico)
-            .expect("loading icon")
-            .to_rgba();
-        let (width, height) = image.dimensions();
-        let icon = Icon::from_rgba(image.into_raw(), width, height);
+        #[cfg(feature = "x11")]
+        let icon = {
+            let image = image::load_from_memory_with_format(WINDOW_ICON, image::ImageFormat::Ico)
+                .expect("loading icon")
+                .to_rgba();
+            let (width, height) = image.dimensions();
+            glutin::window::Icon::from_rgba(image.into_raw(), width, height)
+        };
 
         let class = &window_config.class;
 
@@ -270,8 +270,10 @@ impl Window {
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen())
-            .with_window_icon(icon.ok());
+            .with_fullscreen(window_config.fullscreen());
+
+        #[cfg(feature = "x11")]
+        let builder = builder.with_window_icon(icon.ok());
 
         #[cfg(feature = "wayland")]
         let builder = builder.with_app_id(class.instance.clone());
@@ -290,7 +292,7 @@ impl Window {
 
     #[cfg(windows)]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        let icon = Icon::from_resource(IDI_ICON, None);
+        let icon = glutin::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
             .with_title(title)
