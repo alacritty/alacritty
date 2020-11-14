@@ -1,5 +1,5 @@
 Name:          alacritty
-Version:       0.6.0-dev
+Version:       0.6.0-rc1
 Release:       1%{?dist}
 Summary:       A cross-platform, GPU enhanced terminal emulator
 License:       ASL 2.0
@@ -12,9 +12,9 @@ BuildRequires: cargo
 BuildRequires: cmake
 BuildRequires: gcc-c++
 BuildRequires: python3
-BuildRequires: freetype-devel 
-BuildRequires: fontconfig-devel 
-BuildRequires: libxcb-devel 
+BuildRequires: freetype-devel
+BuildRequires: fontconfig-devel
+BuildRequires: libxcb-devel
 BuildRequires: desktop-file-utils
 BuildRequires: ncurses
 
