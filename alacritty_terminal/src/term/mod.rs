@@ -1480,11 +1480,18 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Handle zero-width characters.
         if width == 0 {
-            let mut col = self.grid.cursor.point.col.0.saturating_sub(1);
+            // Get previous column.
+            let mut col = self.grid.cursor.point.col.0;
+            if !self.grid.cursor.input_needs_wrap {
+                col = col.saturating_sub(1);
+            }
+
+            // Put zerowidth characters over first fullwidth character cell.
             let line = self.grid.cursor.point.line;
             if self.grid[line][Column(col)].flags.contains(Flags::WIDE_CHAR_SPACER) {
                 col = col.saturating_sub(1);
             }
+
             self.grid[line][Column(col)].push_zerowidth(c);
             return;
         }
