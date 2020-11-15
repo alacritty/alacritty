@@ -141,6 +141,9 @@ pub trait Handler {
     /// Set the cursor style.
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
+    /// Set the cursor shape.
+    fn set_cursor_shape(&mut self, _shape: CursorShape) {}
+
     /// A character to be displayed.
     fn input(&mut self, _c: char) {}
 
@@ -875,8 +878,6 @@ where
                 unhandled(params);
             },
 
-            // TODO: 50 still supported? https://iterm2.com/documentation-escape-codes.html
-            //
             // Set cursor style.
             b"50" | b"1337" => {
                 if params.len() >= 2
@@ -889,9 +890,7 @@ where
                         '2' => CursorShape::Underline,
                         _ => return unhandled(params),
                     };
-                    // TODO: Don't just disable blinking what the fuck?
-                    let style = CursorStyle { shape, blinking: false };
-                    self.handler.set_cursor_style(Some(style));
+                    self.handler.set_cursor_shape(shape);
                     return;
                 }
                 unhandled(params);

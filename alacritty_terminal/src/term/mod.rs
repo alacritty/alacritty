@@ -2299,6 +2299,14 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
+    fn set_cursor_shape(&mut self, shape: CursorShape) {
+        trace!("Setting cursor shape {:?}", shape);
+
+        let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+        style.shape = shape;
+    }
+
+    #[inline]
     fn set_title(&mut self, title: Option<String>) {
         trace!("Setting title to '{:?}'", title);
 
