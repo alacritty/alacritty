@@ -9,8 +9,8 @@ layout(location = 1) in vec4 glyph;
 layout(location = 2) in vec4 uv;
 
 // Text foreground rgb packed together with cell flags. textColor.a
-// is a bitflag. For the actual possible values of bitflags consult
-// RenderingGlyphFlags in renderer/mod.rs.
+// are the bitflags; consult RenderingGlyphFlags in renderer/mod.rs
+// for the possible values.
 layout(location = 3) in vec4 textColor;
 
 // Background color.
@@ -43,7 +43,7 @@ void main() {
     if (backgroundPass != 0) {
         vec2 backgroundDim = cellDim;
         if ((int(textColor.a) & WIDE_CHAR) != 0) {
-            // Update wide char x dimension so it'll cover following spacer.
+            // Update wide char x dimension so it'll cover the following spacer.
             backgroundDim.x *= 2;
         }
         vec2 finalPosition = cellPosition + backgroundDim * position;
