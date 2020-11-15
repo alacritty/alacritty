@@ -10,7 +10,7 @@ mod bell;
 mod colors;
 mod scrolling;
 
-use crate::ansi::{CursorStyle, CursorShape};
+use crate::ansi::{CursorShape, CursorStyle};
 
 pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
@@ -200,19 +200,14 @@ pub enum ConfigCursorStyle {
 
 impl Default for ConfigCursorStyle {
     fn default() -> Self {
-        Self::WithBlinking {
-            shape: CursorShape::default(),
-            blinking: false,
-        }
+        Self::WithBlinking { shape: CursorShape::default(), blinking: false }
     }
 }
 
 impl From<ConfigCursorStyle> for CursorStyle {
     fn from(config_style: ConfigCursorStyle) -> Self {
         match config_style {
-            ConfigCursorStyle::Shape(shape) => Self {
-                shape, blinking: false,
-            },
+            ConfigCursorStyle::Shape(shape) => Self { shape, blinking: false },
             ConfigCursorStyle::WithBlinking { shape, blinking } => Self { shape, blinking },
         }
     }

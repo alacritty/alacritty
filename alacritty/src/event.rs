@@ -1081,7 +1081,10 @@ impl<N: Notify + OnResize> Processor<N> {
                                 // Reenable blinking cursor based on current mode.
                                 let config = &processor.ctx.config;
                                 let cursor_style = if terminal.mode().contains(TermMode::VI) {
-                                    config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style())
+                                    config
+                                        .cursor
+                                        .vi_mode_style()
+                                        .unwrap_or_else(|| config.cursor.style())
                                 } else {
                                     config.cursor.style()
                                 };
