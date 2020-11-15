@@ -74,6 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash when writing to the clipboard fails on Wayland
 - Crash with large negative `font.offset.x/y`
 - Visual bell getting stuck on the first frame
+- Zerowidth characters in the last column of the line
 
 ## 0.5.0
 
