@@ -1285,6 +1285,14 @@ mod tests {
         fn scheduler_mut(&mut self) -> &mut Scheduler {
             unimplemented!();
         }
+
+        fn show_cursor(&mut self) {
+            unimplemented!();
+        }
+
+        fn update_cursor_blinking(&mut self, _blinking: bool) {
+            unimplemented!();
+        }
     }
 
     macro_rules! test_clickstate {
