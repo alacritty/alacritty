@@ -768,7 +768,6 @@ pub struct Processor<N> {
     event_queue: Vec<GlutinEvent<'static, Event>>,
     search_state: SearchState,
     cli_options: CLIOptions,
-    cursor_hidden: bool,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -801,7 +800,6 @@ impl<N: Notify + OnResize> Processor<N> {
             clipboard,
             search_state: SearchState::new(),
             cli_options,
-            cursor_hidden: false,
         }
     }
 
@@ -911,7 +909,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
                 cli_options: &self.cli_options,
-                cursor_hidden: &mut self.cursor_hidden,
+                cursor_hidden: &mut self.display.cursor_hidden,
                 event_loop,
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
@@ -950,7 +948,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.mouse,
                     self.modifiers,
                     &self.search_state,
-                    self.cursor_hidden,
                 );
             }
         });

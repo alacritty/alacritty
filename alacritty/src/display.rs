@@ -160,6 +160,9 @@ pub struct Display {
     #[cfg(not(any(target_os = "macos", windows)))]
     pub is_x11: bool,
 
+    /// UI cursor visibility for blinking.
+    pub cursor_hidden: bool,
+
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
@@ -300,6 +303,7 @@ impl Display {
             is_x11,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
+            cursor_hidden: false,
         })
     }
 
@@ -436,14 +440,13 @@ impl Display {
         mouse: &Mouse,
         mods: ModifiersState,
         search_state: &SearchState,
-        cursor_hidden: bool,
     ) {
         // Convert search match from viewport to absolute indexing.
         let search_active = search_state.regex().is_some();
         let viewport_match = search_state
             .focused_match()
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
-        let cursor_hidden = cursor_hidden || search_state.regex().is_some();
+        let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
         let grid_cells = terminal.renderable_cells(config, !cursor_hidden).collect::<Vec<_>>();
         let visual_bell_intensity = terminal.visual_bell.intensity();
