@@ -22,7 +22,7 @@ use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindow
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use log::{info, warn};
+use log::info;
 use serde_json as json;
 
 #[cfg(target_os = "macos")]
@@ -67,6 +67,7 @@ pub enum Event {
     Scroll(Scroll),
     ConfigReload(PathBuf),
     Message(Message),
+    BlinkCursor,
     SearchNext,
 }
 
@@ -150,6 +151,7 @@ pub struct ActionContext<'a, N, T> {
     pub urls: &'a Urls,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
+    cursor_hidden: &'a mut bool,
     cli_options: &'a CLIOptions,
     font_size: &'a mut Size,
 }
@@ -495,6 +497,35 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Update the cursor blinking state.
+    #[inline]
+    fn update_cursor_blinking(&mut self, blinking: bool) {
+        if self.config.cursor.blink_rate == 0
+            || self.scheduler.scheduled(TimerId::BlinkCursor) == blinking
+        {
+            return;
+        }
+
+        if blinking {
+            self.scheduler.schedule(
+                GlutinEvent::UserEvent(Event::BlinkCursor),
+                Duration::from_millis(self.config.cursor.blink_rate),
+                true,
+                TimerId::BlinkCursor,
+            )
+        } else {
+            self.scheduler.unschedule(TimerId::BlinkCursor);
+            *self.cursor_hidden = false;
+        }
+
+        self.terminal.dirty = true;
+    }
+
+    #[inline]
+    fn show_cursor(&mut self) {
+        *self.cursor_hidden = false;
+    }
+
     #[inline]
     fn search_direction(&self) -> Direction {
         self.search_state.direction
@@ -737,6 +768,7 @@ pub struct Processor<N> {
     event_queue: Vec<GlutinEvent<'static, Event>>,
     search_state: SearchState,
     cli_options: CLIOptions,
+    cursor_hidden: bool,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -769,6 +801,7 @@ impl<N: Notify + OnResize> Processor<N> {
             clipboard,
             search_state: SearchState::new(),
             cli_options,
+            cursor_hidden: false,
         }
     }
 
@@ -804,13 +837,9 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         let mut scheduler = Scheduler::new();
 
-        if self.config.cursor.style.blinking {
-            if let Err(err) = event_loop
-                .create_proxy()
-                .send_event(Event::TerminalEvent(TerminalEvent::CursorStartBlinking))
-            {
-                warn!("Could not make the cursor blink at startup: {}", err);
-            }
+        // Start the initial cursor blinking timer.
+        if self.config.cursor.style().blinking {
+            self.event_queue.push(Event::TerminalEvent(TerminalEvent::CursorBlinking(true)).into());
         }
 
         event_loop.run_return(|event, event_loop, control_flow| {
@@ -882,6 +911,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
                 cli_options: &self.cli_options,
+                cursor_hidden: &mut self.cursor_hidden,
                 event_loop,
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
@@ -920,6 +950,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.mouse,
                     self.modifiers,
                     &self.search_state,
+                    self.cursor_hidden,
                 );
             }
         });
@@ -962,6 +993,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::SearchNext => processor.ctx.goto_match(None),
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
+                Event::BlinkCursor => {
+                    *processor.ctx.cursor_hidden ^= true;
+                    processor.ctx.terminal.dirty = true;
+                },
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
@@ -992,28 +1027,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
-                    TerminalEvent::CursorStartBlinking => {
-                        let rate = processor.ctx.config.cursor.blink_rate;
-                        let scheduler = &mut processor.ctx.scheduler;
-                        if rate != 0 && scheduler.get_mut(TimerId::CursorBlinking).is_none() {
-                            scheduler.schedule(
-                                GlutinEvent::UserEvent(Event::TerminalEvent(
-                                    TerminalEvent::CursorBlink,
-                                )),
-                                Duration::from_millis(rate),
-                                true,
-                                TimerId::CursorBlinking,
-                            )
-                        }
-                    },
-                    TerminalEvent::CursorBlink => {
-                        processor.ctx.terminal.cursor_blinking_out ^= true;
-                        processor.ctx.terminal.dirty = true;
-                    },
-                    TerminalEvent::CursorStopBlinking => {
-                        let _ = processor.ctx.scheduler.unschedule(TimerId::CursorBlinking);
-                        processor.ctx.terminal.cursor_blinking_out = false;
-                        processor.ctx.terminal.dirty = true;
+                    TerminalEvent::CursorBlinking(blinking) => {
+                        processor.ctx.update_cursor_blinking(blinking);
                     },
                 },
             },
@@ -1056,13 +1071,25 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
-                            processor.ctx.terminal.is_focused = is_focused;
-                            processor.ctx.terminal.dirty = true;
+                            let terminal = &mut processor.ctx.terminal;
+                            terminal.is_focused = is_focused;
+                            terminal.dirty = true;
 
                             if is_focused {
                                 processor.ctx.window.set_urgent(false);
+
+                                // Reenable blinking cursor based on current mode.
+                                let config = &processor.ctx.config;
+                                let cursor_style = if terminal.mode().contains(TermMode::VI) {
+                                    config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style())
+                                } else {
+                                    config.cursor.style()
+                                };
+                                processor.ctx.update_cursor_blinking(cursor_style.blinking);
                             } else {
                                 processor.ctx.window.set_mouse_visible(true);
+
+                                processor.ctx.update_cursor_blinking(false);
                             }
 
                             processor.on_focus_change(is_focused);
@@ -1143,7 +1170,15 @@ impl<N: Notify + OnResize> Processor<N> {
 
         processor.ctx.terminal.update_config(&config);
 
-        // Reload cursor if we've changed its thickness.
+        // Update cursor blinking.
+        let cursor_style = if processor.ctx.terminal.mode().contains(TermMode::VI) {
+            config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style())
+        } else {
+            config.cursor.style()
+        };
+        processor.ctx.update_cursor_blinking(cursor_style.blinking);
+
+        // Reload cursor if its thickness has changed.
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f64::EPSILON
         {

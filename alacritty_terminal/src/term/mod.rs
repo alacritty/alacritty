@@ -61,10 +61,8 @@ struct RenderableCursor {
 /// A key for caching cursor glyphs.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub struct CursorKey {
-    pub style: CursorStyle,
+    pub shape: CursorShape,
     pub is_wide: bool,
-    /// For Blinking* cursors, true if the cursor is currently hidden
-    pub blinking_out: bool,
 }
 
 type MatchIter<'a> = Box<dyn Iterator<Item = RangeInclusive<Point<usize>>> + 'a>;
@@ -204,7 +202,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cell = self.inner.next()?;
         let mut cell = RenderableCell::new(self, cell);
 
-        if self.cursor.key.style.shape == CursorShape::Block {
+        if self.cursor.key.shape == CursorShape::Block {
             cell.fg = match self.cursor.cursor_color {
                 // Apply cursor color, or invert the cursor if it has a fixed background
                 // close to the cell's background.
@@ -251,7 +249,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         };
 
         // Do not invert block cursor at selection boundaries.
-        if self.cursor.key.style.shape == CursorShape::Block
+        if self.cursor.key.shape == CursorShape::Block
             && self.cursor.point == point
             && (selection.start == point
                 || selection.end == point
@@ -753,9 +751,6 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
-    /// Blinking state of the current cursor, true is hidden (used only blinking cursor styles)
-    pub cursor_blinking_out: bool,
-
     /// Currently active grid.
     ///
     /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
@@ -852,7 +847,6 @@ impl<T> Term<T> {
             inactive_grid: alt,
             active_charset: Default::default(),
             vi_mode_cursor: Default::default(),
-            cursor_blinking_out: false,
             tabs,
             mode: Default::default(),
             scroll_region,
@@ -861,8 +855,8 @@ impl<T> Term<T> {
             original_colors: colors,
             semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
-            default_cursor_style: config.cursor.style,
-            vi_mode_cursor_style: config.cursor.vi_mode_style,
+            default_cursor_style: config.cursor.style(),
+            vi_mode_cursor_style: config.cursor.vi_mode_style(),
             event_proxy,
             is_focused: true,
             title: None,
@@ -891,8 +885,8 @@ impl<T> Term<T> {
         if let Some(0) = config.scrolling.faux_multiplier() {
             self.mode.remove(TermMode::ALTERNATE_SCROLL);
         }
-        self.default_cursor_style = config.cursor.style;
-        self.vi_mode_cursor_style = config.cursor.vi_mode_style;
+        self.default_cursor_style = config.cursor.style();
+        self.vi_mode_cursor_style = config.cursor.vi_mode_style();
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -906,29 +900,6 @@ impl<T> Term<T> {
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
-
-        self.update_blinking_cursor_context();
-    }
-
-    /// Depending on current mode and cursor configuration, decide whether to start or stop
-    /// blinking the cursor.
-    ///
-    /// Typically used after a configuration update or vi_mode toggle.
-    pub fn update_blinking_cursor_context(&self)
-    where
-        T: EventListener,
-    {
-        let blinking_event = {
-            let vi_mode = self.mode.contains(TermMode::VI);
-            let normal_style = self.cursor_style.unwrap_or(self.default_cursor_style);
-            let vi_style = self.vi_mode_cursor_style.unwrap_or(normal_style);
-            if vi_mode && vi_style.blinking || !vi_mode && normal_style.blinking {
-                Event::CursorStartBlinking
-            } else {
-                Event::CursorStopBlinking
-            }
-        };
-        self.event_proxy.send_event(blinking_event);
     }
 
     /// Convert the active selection to a String.
@@ -1424,18 +1395,18 @@ impl<T> Term<T> {
         // Cursor shape.
         let hidden =
             !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.screen_lines();
-        let cursor_style = if hidden && !vi_mode {
+        let cursor_shape = if hidden && !vi_mode {
             point.line = Line(0);
-            CursorStyle { shape: CursorShape::Hidden, blinking: false }
+            CursorShape::Hidden
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
-            CursorStyle { shape: CursorShape::HollowBlock, blinking: false }
+            CursorShape::HollowBlock
         } else {
             let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
 
             if vi_mode {
-                self.vi_mode_cursor_style.unwrap_or(cursor_style)
+                self.vi_mode_cursor_style.unwrap_or(cursor_style).shape
             } else {
-                cursor_style
+                cursor_style.shape
             }
         };
 
@@ -1461,7 +1432,7 @@ impl<T> Term<T> {
         RenderableCursor {
             text_color,
             cursor_color,
-            key: CursorKey { style: cursor_style, is_wide, blinking_out: self.cursor_blinking_out },
+            key: CursorKey { shape: cursor_shape, is_wide },
             point,
             rendered: false,
         }
@@ -2227,7 +2198,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorStartBlinking),
+            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(false)),
         }
     }
 
@@ -2265,7 +2236,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorStopBlinking),
+            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(false)),
         }
     }
 
@@ -2321,7 +2292,10 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("Setting cursor style {:?}", style);
         self.cursor_style = style;
-        self.update_blinking_cursor_context();
+
+        // Notify UI about blinking changes.
+        let blinking = style.unwrap_or(self.default_cursor_style).blinking;
+        self.event_proxy.send_event(Event::CursorBlinking(blinking));
     }
 
     #[inline]

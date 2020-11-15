@@ -11,12 +11,10 @@ pub enum Event {
     ResetTitle,
     ClipboardStore(ClipboardType, String),
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
+    CursorBlinking(bool),
     Wakeup,
     Bell,
     Exit,
-    CursorStartBlinking,
-    CursorBlink,
-    CursorStopBlinking,
 }
 
 impl Debug for Event {
@@ -30,9 +28,7 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::CursorStartBlinking => write!(f, "CursorStartBlinking"),
-            Event::CursorBlink => write!(f, "CursorBlink"),
-            Event::CursorStopBlinking => write!(f, "CursorStopBlinking"),
+            Event::CursorBlinking(blinking) => write!(f, "CursorBlinking({})", blinking),
         }
     }
 }

@@ -103,6 +103,8 @@ pub trait ActionContext<T: EventListener> {
     fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
+    fn update_cursor_blinking(&mut self, blinking: bool);
+    fn show_cursor(&mut self);
 }
 
 trait Execute<T: EventListener> {
@@ -166,8 +168,11 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ClearSelection => ctx.clear_selection(),
             Action::ToggleViMode => {
+                let config = ctx.config();
+                let style = config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style());
+                ctx.update_cursor_blinking(style.blinking);
+
                 ctx.terminal_mut().toggle_vi_mode();
-                ctx.terminal().update_blinking_cursor_context();
             },
             Action::ViMotion(motion) => {
                 if ctx.config().ui_config.mouse.hide_when_typing {
@@ -861,13 +866,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             },
             ElementState::Released => (),
         }
-
-        // Disable cursor blinking while the user is typing.
-        let cursor_blink_rate = self.ctx.config().cursor.blink_rate;
-        if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::CursorBlinking) {
-            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
-            self.ctx.terminal_mut().cursor_blinking_out = false;
-        }
     }
 
     /// Modifier state change.
@@ -898,6 +896,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             *self.ctx.suppress_chars() = false;
 
             return;
+        }
+
+        // Disable cursor blinking while the user is typing.
+        let cursor_blink_rate = self.ctx.config().cursor.blink_rate;
+        if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::BlinkCursor) {
+            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
+            self.ctx.show_cursor();
         }
 
         if self.ctx.config().ui_config.mouse.hide_when_typing {

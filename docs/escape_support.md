@@ -81,21 +81,22 @@ brevity.
 
 ### OSC (Operating System Command) - `ESC ]`
 
-| ESCAPE    | STATUS      | NOTE                                               |
-| --------- | ----------- | -------------------------------------------------- |
-| `OSC 0`   | IMPLEMENTED | Icon names are not supported                       |
-| `OSC 1`   | REJECTED    | Icon names are not supported                       |
-| `OSC 2`   | IMPLEMENTED |                                                    |
-| `OSC 4`   | IMPLEMENTED |                                                    |
-| `OSC 10`  | IMPLEMENTED |                                                    |
-| `OSC 11`  | IMPLEMENTED |                                                    |
-| `OSC 12`  | IMPLEMENTED |                                                    |
-| `OSC 50`  | IMPLEMENTED | Only `CursorShape` is supported                    |
-| `OSC 52`  | IMPLEMENTED | Only Clipboard and primary selection supported     |
-| `OSC 104` | IMPLEMENTED |                                                    |
-| `OSC 110` | IMPLEMENTED |                                                    |
-| `OSC 111` | IMPLEMENTED |                                                    |
-| `OSC 112` | IMPLEMENTED |                                                    |
+| ESCAPE     | STATUS      | NOTE                                               |
+| ---------- | ----------- | -------------------------------------------------- |
+| `OSC 0`    | IMPLEMENTED | Icon names are not supported                       |
+| `OSC 1`    | REJECTED    | Icon names are not supported                       |
+| `OSC 2`    | IMPLEMENTED |                                                    |
+| `OSC 4`    | IMPLEMENTED |                                                    |
+| `OSC 10`   | IMPLEMENTED |                                                    |
+| `OSC 11`   | IMPLEMENTED |                                                    |
+| `OSC 12`   | IMPLEMENTED |                                                    |
+| `OSC 50`   | IMPLEMENTED | Only `CursorShape` is supported                    |
+| `OSC 52`   | IMPLEMENTED | Only Clipboard and primary selection supported     |
+| `OSC 104`  | IMPLEMENTED |                                                    |
+| `OSC 110`  | IMPLEMENTED |                                                    |
+| `OSC 111`  | IMPLEMENTED |                                                    |
+| `OSC 112`  | IMPLEMENTED |                                                    |
+| `OSC 1337` | IMPLEMENTED |                                                    |
 
 ### DCS (Device Control String) - `ESC P`
 

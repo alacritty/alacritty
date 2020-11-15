@@ -10,7 +10,7 @@ mod bell;
 mod colors;
 mod scrolling;
 
-use crate::ansi::CursorStyle;
+use crate::ansi::{CursorStyle, CursorShape};
 
 pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
@@ -121,9 +121,9 @@ impl Default for EscapeChars {
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
 pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
-    pub style: CursorStyle,
+    pub style: ConfigCursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
-    pub vi_mode_style: Option<CursorStyle>,
+    pub vi_mode_style: Option<ConfigCursorStyle>,
     #[serde(deserialize_with = "failure_default")]
     pub blink_rate: u64,
     #[serde(deserialize_with = "deserialize_cursor_thickness")]
@@ -142,6 +142,16 @@ impl Cursor {
     pub fn thickness(self) -> f64 {
         self.thickness.0 as f64
     }
+
+    #[inline]
+    pub fn style(self) -> CursorStyle {
+        self.style.into()
+    }
+
+    #[inline]
+    pub fn vi_mode_style(self) -> Option<CursorStyle> {
+        self.vi_mode_style.map(From::from)
+    }
 }
 
 impl Default for Cursor {
@@ -151,7 +161,7 @@ impl Default for Cursor {
             vi_mode_style: Default::default(),
             thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
             unfocused_hollow: Default::default(),
-            blink_rate: 500,
+            blink_rate: 666,
         }
     }
 }
@@ -173,6 +183,38 @@ where
 
             Ok(Percentage::new(DEFAULT_CURSOR_THICKNESS))
         },
+    }
+}
+
+#[serde(untagged)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ConfigCursorStyle {
+    Shape(CursorShape),
+    WithBlinking {
+        #[serde(default, deserialize_with = "failure_default")]
+        shape: CursorShape,
+        #[serde(default, deserialize_with = "failure_default")]
+        blinking: bool,
+    },
+}
+
+impl Default for ConfigCursorStyle {
+    fn default() -> Self {
+        Self::WithBlinking {
+            shape: CursorShape::default(),
+            blinking: false,
+        }
+    }
+}
+
+impl From<ConfigCursorStyle> for CursorStyle {
+    fn from(config_style: ConfigCursorStyle) -> Self {
+        match config_style {
+            ConfigCursorStyle::Shape(shape) => Self {
+                shape, blinking: false,
+            },
+            ConfigCursorStyle::WithBlinking { shape, blinking } => Self { shape, blinking },
+        }
     }
 }
 

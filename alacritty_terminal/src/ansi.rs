@@ -324,7 +324,14 @@ pub trait Handler {
     fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
 }
 
-/// Describes shape of cursor.
+/// Terminal cursor configuration.
+#[derive(Default, Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+pub struct CursorStyle {
+    pub shape: CursorShape,
+    pub blinking: bool,
+}
+
+/// Terminal cursor shape.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub enum CursorShape {
     /// Cursor is a block like `▒`.
@@ -348,18 +355,6 @@ pub enum CursorShape {
 impl Default for CursorShape {
     fn default() -> CursorShape {
         CursorShape::Block
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
-pub struct CursorStyle {
-    pub shape: CursorShape,
-    pub blinking: bool,
-}
-
-impl Default for CursorStyle {
-    fn default() -> CursorStyle {
-        CursorStyle { shape: CursorShape::default(), blinking: false }
     }
 }
 
@@ -880,8 +875,10 @@ where
                 unhandled(params);
             },
 
+            // TODO: 50 still supported? https://iterm2.com/documentation-escape-codes.html
+            //
             // Set cursor style.
-            b"50" => {
+            b"50" | b"1337" => {
                 if params.len() >= 2
                     && params[1].len() >= 13
                     && params[1][0..12] == *b"CursorShape="
@@ -892,6 +889,7 @@ where
                         '2' => CursorShape::Underline,
                         _ => return unhandled(params),
                     };
+                    // TODO: Don't just disable blinking what the fuck?
                     let style = CursorStyle { shape, blinking: false };
                     self.handler.set_cursor_style(Some(style));
                     return;
@@ -1078,19 +1076,21 @@ where
             ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let param = next_param_or(0);
-                let style = match param {
+                let cursor_style_id = next_param_or(0);
+                let shape = match cursor_style_id {
                     0 => None,
-                    1 | 2 => Some(CursorStyle { shape: CursorShape::Block, blinking: param == 1 }),
-                    3 | 4 => Some(CursorStyle { shape: CursorShape::Underline, blinking: param == 3 }),
-                    5 | 6 => Some(CursorStyle { shape: CursorShape::Beam, blinking: param == 5 }),
+                    1 | 2 => Some(CursorShape::Block),
+                    3 | 4 => Some(CursorShape::Underline),
+                    5 | 6 => Some(CursorShape::Beam),
                     _ => {
                         unhandled!();
                         return;
                     },
                 };
+                let cursor_style =
+                    shape.map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
 
-                handler.set_cursor_style(style);
+                handler.set_cursor_style(cursor_style);
             },
             ('r', None) => {
                 let top = next_param_or(1) as usize;
