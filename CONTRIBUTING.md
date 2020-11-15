@@ -123,6 +123,7 @@ The exact steps for an exemplary `0.2.0` release might look like this:
   1. Initially, the version on the latest master is `0.2.0-dev`
   2. A new `v0.2.0` branch is created for the release
   3. On master, the version is bumped to `0.3.0-dev`
+     and the `-dev` suffix is removed from the `0.2.0-dev` changelog
   4. In the branch, the version is bumped to `0.2.0-rc1`
   5. The new commit in the branch is tagged as `v0.2.0-rc1`
   6. A GitHub release is created for the `v0.2.0-rc1` tag
@@ -135,7 +136,6 @@ The exact steps for an exemplary `0.2.0` release might look like this:
  12. A GitHub release is created for the `v0.2.0` tag
  13. The changelog since the last stable release (**not** RC) is added to the GitHub release
      description
- 14. The `-dev` is stripped from the `0.2.0-dev` changelog entries on master
 
 On master and with new planned releases, only the minor version is bumped. This makes it possible to
 create bug fix releases by incrementing the patch version of a previous minor release, without
