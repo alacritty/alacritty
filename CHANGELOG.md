@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Wide characters sometimes being cut off
 - Preserve vi mode across terminal `reset`
+### Added
+
+- New `cursor.style.blinking` option to set the default blinking state
+- Support for cursor blinking escapes (`CSI ? 12 h`, `CSI ? 12 l` and `CSI Ps SP q`)
 
 ## 0.6.0
 
@@ -38,8 +42,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for single line terminals dimensions
 - Right clicking on Wayland's client side decorations will show application menu
 - Escape sequences to enable and disable window urgency hints (`CSI ? 1042 h`, `CSI ? 1042 l`)
-- Blinking cursor configuration
-- Support for cursor blinking escapes (`CSI ? 12 h`, `CSI ? 12 l` and `CSI Ps SP q`)
 
 ### Changed
 
