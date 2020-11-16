@@ -397,7 +397,7 @@ struct InstanceData {
     g: u8,
     b: u8,
 
-    // Cell flags like multicolor of fullwidth character.
+    // Cell flags like multicolor or fullwidth character.
     cell_flags: RenderingGlyphFlags,
 
     // Background color.
