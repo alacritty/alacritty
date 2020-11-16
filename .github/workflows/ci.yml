@@ -24,4 +24,4 @@ jobs:
       - name: Oldstable
         run: |
           rustup default 1.43.1
-          carge test
+          cargo test
