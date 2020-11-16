@@ -124,7 +124,7 @@ pub struct RectShaderProgram {
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
-    multicolor: u8,
+    multicolor: bool,
     top: i16,
     left: i16,
     width: i16,
@@ -459,7 +459,7 @@ impl Batch {
         }
 
         let mut cell_flags = RenderingGlyphFlags::empty();
-        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.multicolor != 0);
+        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.multicolor);
         cell_flags.set(RenderingGlyphFlags::WIDE_CHAR, cell.flags.contains(Flags::WIDE_CHAR));
 
         self.instances.push(InstanceData {
@@ -1088,7 +1088,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
-            multicolor: 0,
+            multicolor: false,
             top: 0,
             left: 0,
             width: 0,
@@ -1602,7 +1602,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            multicolor: multicolor as u8,
+            multicolor,
             top: glyph.top as i16,
             left: glyph.left as i16,
             width: width as i16,
