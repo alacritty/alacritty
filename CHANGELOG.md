@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.7.0-dev
 
+### Fixed
+
+- Wide characters sometimes being cut off
+
 ## 0.6.0
 
 ### Packaging

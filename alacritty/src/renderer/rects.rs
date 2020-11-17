@@ -162,6 +162,12 @@ impl RenderLines {
             return;
         }
 
+        // Include wide char spacer if the current cell is a wide char.
+        let mut end: Point = cell.into();
+        if cell.flags.contains(Flags::WIDE_CHAR) {
+            end.col += 1;
+        }
+
         // Check if there's an active line.
         if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
             if cell.fg == line.color
@@ -169,13 +175,13 @@ impl RenderLines {
                 && cell.line == line.end.line
             {
                 // Update the length of the line.
-                line.end = cell.into();
+                line.end = end;
                 return;
             }
         }
 
         // Start new line if there currently is none.
-        let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
+        let line = RenderLine { start: cell.into(), end, color: cell.fg };
         match self.inner.get_mut(&flag) {
             Some(lines) => lines.push(line),
             None => {

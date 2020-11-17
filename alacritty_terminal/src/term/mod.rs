@@ -165,8 +165,8 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                 let cell = self.inner.next()?;
                 let cell = RenderableCell::new(self, cell);
 
-                // Skip empty cells.
-                if !cell.is_empty() {
+                // Skip empty cells and wide char spacers.
+                if !cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
                     return Some(cell);
                 }
             }
@@ -282,18 +282,6 @@ impl<'a, C> RenderableCellsIter<'a, C> {
                 // Check line-wrapping, leading spacer.
                 || (self.grid[buffer_prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
                     && selection.contains(prev.col, prev.line))
-        } else if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-            // Check if spacer's wide char is selected.
-            let prev = point.sub(num_cols, 1);
-            let buffer_prev = self.grid.visible_to_buffer(prev);
-
-            if self.grid[buffer_prev].flags.contains(Flags::WIDE_CHAR) {
-                // Check previous cell for trailing spacer.
-                self.is_selected(prev)
-            } else {
-                // Check next cell for line-wrapping, leading spacer.
-                self.is_selected(point.add(num_cols, 1))
-            }
         } else {
             false
         }

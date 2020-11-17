@@ -26,6 +26,7 @@ name = "alacritty"
 version = "0.7.0-dev"
 dependencies = [
  "alacritty_terminal",
+ "bitflags",
  "clap",
  "copypasta",
  "crossfont",
