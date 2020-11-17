@@ -42,8 +42,9 @@ cargo install alacritty
         12. [Gentoo](#gentoo)
         13. [Clear Linux](#clear-linux)
         14. [GNU Guix](#gnu-guix)
-        15. [Windows](#windows)
-        16. [Other](#other)
+        15. [Alpine Linux](#alpine-linux)
+        16. [Windows](#windows)
+        17. [Other](#other)
 2. [Building](#building)
     1. [Linux/Windows](#linux--windows)
     2. [macOS](#macos)
@@ -221,6 +222,16 @@ dependencies on [GNU Guix](https://guix.gnu.org/).
 
 ```sh
 guix environment alacritty
+```
+
+#### Alpine Linux
+
+On Alpine Linux, you need a few extra libraries to build Alacritty. Here's an
+`apk` command that should install all of them. If something is still found to
+be missing, please open an issue.
+
+```sh
+sudo apk add cmake pkgconf freetype-dev fontconfig-dev python3 libxcb-dev
 ```
 
 #### Windows
