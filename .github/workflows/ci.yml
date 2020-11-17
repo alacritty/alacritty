@@ -9,30 +9,19 @@ jobs:
   build:
     strategy:
       matrix:
-        rust_version: [stable, 1.43.1]
         os: [windows-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
-      - name: Rustup
-        run: rustup default ${{ matrix.rust_version }}
-      - name: Test
+      - name: Stable
         run: cargo test
-
-  clippy:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: Rustup
-        run: rustup default ${{ matrix.rust_version }}
-      - name: Install Clippy
-        run: rustup component add clippy
-      - name: Lint
-        run: cargo clippy --all-targets
+      - name: Clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets
+      - name: Oldstable
+        run: |
+          rustup default 1.43.1
+          cargo test
