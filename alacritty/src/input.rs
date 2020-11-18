@@ -1287,7 +1287,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn update_cursor_blinking(&mut self, _blinking: bool) {
+        fn update_cursor_blinking(&mut self) {
             unimplemented!();
         }
     }

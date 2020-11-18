@@ -500,8 +500,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Update the cursor blinking state.
     #[inline]
     fn update_cursor_blinking(&mut self) {
-        let blinking = self.terminal.cursor_style().blinking;
+        // Get config cursor style.
+        let mut cursor_style = self.config.cursor.style;
+        if self.terminal.mode().contains(TermMode::VI) {
+            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
+        };
 
+        // Check terminal cursor style.
+        let blinking = cursor_style.blinking(self.terminal.cursor_style().blinking);
+
+        // Update cursor blinking state.
         if !blinking || self.config.cursor.blink_rate == 0 || !self.terminal.is_focused {
             self.scheduler.unschedule(TimerId::BlinkCursor);
             *self.cursor_hidden = false;

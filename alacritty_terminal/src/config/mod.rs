@@ -194,13 +194,23 @@ pub enum ConfigCursorStyle {
         #[serde(default, deserialize_with = "failure_default")]
         shape: CursorShape,
         #[serde(default, deserialize_with = "failure_default")]
-        blinking: bool,
+        blinking: CursorBlinking,
     },
 }
 
 impl Default for ConfigCursorStyle {
     fn default() -> Self {
-        Self::WithBlinking { shape: CursorShape::default(), blinking: false }
+        Self::WithBlinking { shape: CursorShape::default(), blinking: CursorBlinking::default() }
+    }
+}
+
+impl ConfigCursorStyle {
+    /// Determine blinking configuration based on current terminal blinking state.
+    pub fn blinking(&self, blinking_state: bool) -> bool {
+        match self {
+            Self::Shape(_) => blinking_state,
+            Self::WithBlinking { blinking, .. } => blinking.enabled(blinking_state),
+        }
     }
 }
 
@@ -208,8 +218,40 @@ impl From<ConfigCursorStyle> for CursorStyle {
     fn from(config_style: ConfigCursorStyle) -> Self {
         match config_style {
             ConfigCursorStyle::Shape(shape) => Self { shape, blinking: false },
-            ConfigCursorStyle::WithBlinking { shape, blinking } => Self { shape, blinking },
+            ConfigCursorStyle::WithBlinking { shape, blinking } => {
+                Self { shape, blinking: blinking.into() }
+            },
         }
+    }
+}
+
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CursorBlinking {
+    Never,
+    Off,
+    On,
+    Always,
+}
+
+impl Default for CursorBlinking {
+    fn default() -> Self {
+        CursorBlinking::Off
+    }
+}
+
+impl CursorBlinking {
+    fn enabled(&self, blinking_state: bool) -> bool {
+        match self {
+            Self::Never => false,
+            Self::Off | Self::On => blinking_state,
+            Self::Always => true,
+        }
+    }
+}
+
+impl Into<bool> for CursorBlinking {
+    fn into(self) -> bool {
+        self == Self::On || self == Self::Always
     }
 }
 

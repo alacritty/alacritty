@@ -328,14 +328,14 @@ pub trait Handler {
 }
 
 /// Terminal cursor configuration.
-#[derive(Default, Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+#[derive(Deserialize, Default, Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub struct CursorStyle {
     pub shape: CursorShape,
     pub blinking: bool,
 }
 
 /// Terminal cursor shape.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+#[derive(Deserialize, Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum CursorShape {
     /// Cursor is a block like `▒`.
     Block,
@@ -879,7 +879,7 @@ where
             },
 
             // Set cursor style.
-            b"50" | b"1337" => {
+            b"50" => {
                 if params.len() >= 2
                     && params[1].len() >= 13
                     && params[1][0..12] == *b"CursorShape="
