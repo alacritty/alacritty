@@ -223,7 +223,8 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         };
 
         if !path.exists() {
-            info!(target: LOG_TARGET_CONFIG, "Skip importing: '{}' not found", path.display());
+            info!(target: LOG_TARGET_CONFIG, "Skipping importing config; not found:");
+            info!(target: LOG_TARGET_CONFIG, "  {}", path.display());
             continue;
         }
 
