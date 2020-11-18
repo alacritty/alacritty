@@ -161,7 +161,7 @@ impl Default for Cursor {
             vi_mode_style: Default::default(),
             thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
             unfocused_hollow: Default::default(),
-            blink_rate: 666,
+            blink_rate: 500,
         }
     }
 }
@@ -205,11 +205,11 @@ impl Default for ConfigCursorStyle {
 }
 
 impl ConfigCursorStyle {
-    /// Determine blinking configuration based on current terminal blinking state.
-    pub fn blinking(&self, blinking_state: bool) -> bool {
+    /// Check if blinking is force enabled/disabled.
+    pub fn blinking_override(&self) -> Option<bool> {
         match self {
-            Self::Shape(_) => blinking_state,
-            Self::WithBlinking { blinking, .. } => blinking.enabled(blinking_state),
+            Self::Shape(_) => None,
+            Self::WithBlinking { blinking, .. } => blinking.blinking_override(),
         }
     }
 }
@@ -240,11 +240,11 @@ impl Default for CursorBlinking {
 }
 
 impl CursorBlinking {
-    fn enabled(&self, blinking_state: bool) -> bool {
+    fn blinking_override(&self) -> Option<bool> {
         match self {
-            Self::Never => false,
-            Self::Off | Self::On => blinking_state,
-            Self::Always => true,
+            Self::Never => Some(false),
+            Self::Off | Self::On => None,
+            Self::Always => Some(true),
         }
     }
 }

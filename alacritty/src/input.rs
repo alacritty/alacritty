@@ -104,7 +104,7 @@ pub trait ActionContext<T: EventListener> {
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
     fn update_cursor_blinking(&mut self);
-    fn show_cursor(&mut self);
+    fn enable_input_mode(&mut self);
 }
 
 trait Execute<T: EventListener> {
@@ -140,9 +140,7 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
-                if ctx.config().ui_config.mouse.hide_when_typing {
-                    ctx.window_mut().set_mouse_visible(false);
-                }
+                ctx.enable_input_mode();
 
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
@@ -172,10 +170,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.update_cursor_blinking();
             },
             Action::ViMotion(motion) => {
-                if ctx.config().ui_config.mouse.hide_when_typing {
-                    ctx.window_mut().set_mouse_visible(false);
-                }
-
+                ctx.enable_input_mode();
                 ctx.terminal_mut().vi_motion(motion)
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
@@ -875,6 +870,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
+    /// Reset mouse cursor based on modifier and terminal state.
+    #[inline]
+    pub fn reset_mouse_cursor(&mut self) {
+        let mouse_state = self.mouse_state();
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+    }
+
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         let suppress_chars = *self.ctx.suppress_chars();
@@ -895,16 +897,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return;
         }
 
-        // Disable cursor blinking while the user is typing.
-        let cursor_blink_rate = self.ctx.config().cursor.blink_rate;
-        if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::BlinkCursor) {
-            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
-            self.ctx.show_cursor();
-        }
-
-        if self.ctx.config().ui_config.mouse.hide_when_typing {
-            self.ctx.window_mut().set_mouse_visible(false);
-        }
+        self.ctx.enable_input_mode();
 
         self.ctx.scroll(Scroll::Bottom);
         self.ctx.clear_selection();
@@ -927,13 +920,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.write_to_pty(bytes);
 
         *self.ctx.received_count() += 1;
-    }
-
-    /// Reset mouse cursor based on modifier and terminal state.
-    #[inline]
-    pub fn reset_mouse_cursor(&mut self) {
-        let mouse_state = self.mouse_state();
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
     /// Attempt to find a binding and execute its action.
@@ -1283,7 +1269,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn show_cursor(&mut self) {
+        fn enable_input_mode(&mut self) {
             unimplemented!();
         }
 

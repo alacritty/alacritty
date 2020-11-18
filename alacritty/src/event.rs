@@ -507,26 +507,44 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         // Check terminal cursor style.
-        let blinking = cursor_style.blinking(self.terminal.cursor_style().blinking);
+        let terminal_blinking = self.terminal.cursor_style().blinking;
+        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
 
         // Update cursor blinking state.
-        if !blinking || self.config.cursor.blink_rate == 0 || !self.terminal.is_focused {
-            self.scheduler.unschedule(TimerId::BlinkCursor);
-            *self.cursor_hidden = false;
-            self.terminal.dirty = true;
-        } else if !self.scheduler.scheduled(TimerId::BlinkCursor) {
+        self.scheduler.unschedule(TimerId::BlinkCursor);
+        if blinking && self.terminal.is_focused {
             self.scheduler.schedule(
                 GlutinEvent::UserEvent(Event::BlinkCursor),
                 Duration::from_millis(self.config.cursor.blink_rate),
                 true,
                 TimerId::BlinkCursor,
             )
+        } else {
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
         }
     }
 
+    /// Enable input mode.
+    ///
+    /// Putting the user in input mode will temporarily disable some features like terminal cursor
+    /// blinking or the mouse cursor.
+    ///
+    /// This mode will disable itself automatically.
     #[inline]
-    fn show_cursor(&mut self) {
-        *self.cursor_hidden = false;
+    fn enable_input_mode(&mut self) {
+        // Disable cursor blinking.
+        let cursor_blink_rate = self.config.cursor.blink_rate;
+        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
+            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
+        }
+
+        // Hide mouse cursor.
+        if self.config.ui_config.mouse.hide_when_typing {
+            self.window.set_mouse_visible(false);
+        }
     }
 
     #[inline]
@@ -1158,9 +1176,6 @@ impl<N: Notify + OnResize> Processor<N> {
 
         processor.ctx.terminal.update_config(&config);
 
-        // Update cursor blinking.
-        processor.ctx.update_cursor_blinking();
-
         // Reload cursor if its thickness has changed.
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f64::EPSILON
@@ -1203,6 +1218,9 @@ impl<N: Notify + OnResize> Processor<N> {
         set_font_smoothing(config.ui_config.font.use_thin_strokes());
 
         *processor.ctx.config = config;
+
+        // Update cursor blinking.
+        processor.ctx.update_cursor_blinking();
 
         processor.ctx.terminal.dirty = true;
     }
