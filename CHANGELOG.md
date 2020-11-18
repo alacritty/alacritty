@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Wide characters sometimes being cut off
+- Preserve vi mode across terminal `reset`
 
 ## 0.6.0
 
