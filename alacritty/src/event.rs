@@ -499,26 +499,21 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     /// Update the cursor blinking state.
     #[inline]
-    fn update_cursor_blinking(&mut self, blinking: bool) {
-        if self.config.cursor.blink_rate == 0
-            || self.scheduler.scheduled(TimerId::BlinkCursor) == blinking
-        {
-            return;
-        }
+    fn update_cursor_blinking(&mut self) {
+        let blinking = self.terminal.cursor_style().blinking;
 
-        if blinking {
+        if !blinking || self.config.cursor.blink_rate == 0 || !self.terminal.is_focused {
+            self.scheduler.unschedule(TimerId::BlinkCursor);
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
+        } else if !self.scheduler.scheduled(TimerId::BlinkCursor) {
             self.scheduler.schedule(
                 GlutinEvent::UserEvent(Event::BlinkCursor),
                 Duration::from_millis(self.config.cursor.blink_rate),
                 true,
                 TimerId::BlinkCursor,
             )
-        } else {
-            self.scheduler.unschedule(TimerId::BlinkCursor);
-            *self.cursor_hidden = false;
         }
-
-        self.terminal.dirty = true;
     }
 
     #[inline]
@@ -1024,9 +1019,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
-                    TerminalEvent::CursorBlinking(blinking) => {
-                        processor.ctx.update_cursor_blinking(blinking);
-                    },
+                    TerminalEvent::CursorBlinking(_) => processor.ctx.update_cursor_blinking(),
                 },
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,
@@ -1074,22 +1067,11 @@ impl<N: Notify + OnResize> Processor<N> {
 
                             if is_focused {
                                 processor.ctx.window.set_urgent(false);
-
-                                // Reenable blinking cursor based on current mode.
-                                let config = &processor.ctx.config;
-                                let cursor_style = if terminal.mode().contains(TermMode::VI) {
-                                    let style = config.cursor.style();
-                                    config.cursor.vi_mode_style().unwrap_or(style)
-                                } else {
-                                    config.cursor.style()
-                                };
-                                processor.ctx.update_cursor_blinking(cursor_style.blinking);
                             } else {
                                 processor.ctx.window.set_mouse_visible(true);
-
-                                processor.ctx.update_cursor_blinking(false);
                             }
 
+                            processor.ctx.update_cursor_blinking();
                             processor.on_focus_change(is_focused);
                         }
                     },
@@ -1169,12 +1151,7 @@ impl<N: Notify + OnResize> Processor<N> {
         processor.ctx.terminal.update_config(&config);
 
         // Update cursor blinking.
-        let cursor_style = if processor.ctx.terminal.mode().contains(TermMode::VI) {
-            config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style())
-        } else {
-            config.cursor.style()
-        };
-        processor.ctx.update_cursor_blinking(cursor_style.blinking);
+        processor.ctx.update_cursor_blinking();
 
         // Reload cursor if its thickness has changed.
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()

@@ -11,6 +11,7 @@ pub enum Event {
     ResetTitle,
     ClipboardStore(ClipboardType, String),
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
+    // TODO: This really isn't a great name?
     CursorBlinking(bool),
     Wakeup,
     Bell,

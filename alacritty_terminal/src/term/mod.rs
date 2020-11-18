@@ -1332,6 +1332,20 @@ impl<T> Term<T> {
         &self.semantic_escape_chars
     }
 
+    /// Active terminal cursor style.
+    ///
+    /// While vi mode is active, this will automatically return the vi mode cursor style.
+    #[inline]
+    pub fn cursor_style(&self) -> CursorStyle {
+        let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
+
+        if self.mode.contains(TermMode::VI) {
+            self.vi_mode_cursor_style.unwrap_or(cursor_style)
+        } else {
+            cursor_style
+        }
+    }
+
     /// Insert a linebreak at the current cursor position.
     #[inline]
     fn wrapline(&mut self)
@@ -2098,6 +2112,8 @@ impl<T: EventListener> Handler for Term<T> {
         // Preserve vi mode across resets.
         self.mode &= TermMode::VI;
         self.mode.insert(TermMode::default());
+
+        self.event_proxy.send_event(Event::CursorBlinking(self.default_cursor_style.blinking));
     }
 
     #[inline]
@@ -2198,7 +2214,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(false)),
+            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(true)),
         }
     }
 

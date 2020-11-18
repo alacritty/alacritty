@@ -103,7 +103,7 @@ pub trait ActionContext<T: EventListener> {
     fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
-    fn update_cursor_blinking(&mut self, blinking: bool);
+    fn update_cursor_blinking(&mut self);
     fn show_cursor(&mut self);
 }
 
@@ -168,11 +168,8 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ClearSelection => ctx.clear_selection(),
             Action::ToggleViMode => {
-                let config = ctx.config();
-                let style = config.cursor.vi_mode_style().unwrap_or_else(|| config.cursor.style());
-                ctx.update_cursor_blinking(style.blinking);
-
                 ctx.terminal_mut().toggle_vi_mode();
+                ctx.update_cursor_blinking();
             },
             Action::ViMotion(motion) => {
                 if ctx.config().ui_config.mouse.hide_when_typing {
