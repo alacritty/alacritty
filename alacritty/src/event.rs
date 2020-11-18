@@ -515,7 +515,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if blinking && self.terminal.is_focused {
             self.scheduler.schedule(
                 GlutinEvent::UserEvent(Event::BlinkCursor),
-                Duration::from_millis(self.config.cursor.blink_rate),
+                Duration::from_millis(self.config.cursor.blink_interval),
                 true,
                 TimerId::BlinkCursor,
             )
@@ -534,9 +534,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn enable_input_mode(&mut self) {
         // Disable cursor blinking.
-        let cursor_blink_rate = self.config.cursor.blink_rate;
+        let blink_interval = self.config.cursor.blink_interval;
         if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
-            timer.deadline = Instant::now() + Duration::from_millis(cursor_blink_rate);
+            timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
             *self.cursor_hidden = false;
             self.terminal.dirty = true;
         }

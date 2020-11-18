@@ -358,8 +358,8 @@
   # See `cursor.style` for available options.
   #vi_mode_style: None
 
-  # Cursor blinking interval in milliseconds. Using `0` will disable blinking.
-  #blink_rate: 500
+  # Cursor blinking interval in milliseconds.
+  #blink_interval: 500
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.
