@@ -2214,7 +2214,11 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(true)),
+            ansi::Mode::BlinkingCursor => {
+                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                style.blinking = true;
+                self.event_proxy.send_event(Event::CursorBlinking(true));
+            }
         }
     }
 
@@ -2252,7 +2256,11 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => self.event_proxy.send_event(Event::CursorBlinking(false)),
+            ansi::Mode::BlinkingCursor => {
+                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                style.blinking = false;
+                self.event_proxy.send_event(Event::CursorBlinking(false));
+            }
         }
     }
 
