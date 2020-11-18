@@ -66,7 +66,7 @@ impl Display for Error {
             Error::NotFound => write!(f, "Unable to locate config file"),
             Error::ReadingEnvHome(err) => {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
-            },
+            }
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
             Error::Yaml(err) => write!(f, "Problem with config: {}", err),
         }
@@ -137,7 +137,7 @@ fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
             Err(err)
-        },
+        }
     }
 }
 
@@ -183,7 +183,7 @@ fn parse_config(
             } else {
                 return Err(Error::Yaml(error));
             }
-        },
+        }
     };
 
     // Merge config with imports.
@@ -198,7 +198,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         Some(_) => {
             error!(target: LOG_TARGET_CONFIG, "Invalid import type: expected a sequence");
             return Value::Null;
-        },
+        }
         None => return Value::Null,
     };
 
@@ -219,12 +219,12 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
                     "Invalid import element type: expected path string"
                 );
                 continue;
-            },
+            }
         };
 
         if !path.exists() {
             info!(target: LOG_TARGET_CONFIG, "Skipping importing config; not found:");
-            info!(target: LOG_TARGET_CONFIG, "  {}", path.display());
+            info!(target: LOG_TARGET_CONFIG, "  {:?}", path.display());
             continue;
         }
 
@@ -232,7 +232,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
             Ok(config) => merged = serde_utils::merge(merged, config),
             Err(err) => {
                 error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
-            },
+            }
         }
     }
 
