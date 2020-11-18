@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.7.0-dev
 
+### Changed
+
+- Providing non existing paths in `import` won't result in error. Importing from these configs will be skipped
+
 ### Fixed
 
 - Wide characters sometimes being cut off
@@ -47,7 +51,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Reduce memory usage by up to at least 30% with a full scrollback buffer
 - The number of zerowidth characters per cell is no longer limited to 5
 - `SpawnNewInstance` is now using the working directory of the terminal foreground process on macOS
-- Configuration `import` paths are now optional and will skip importing if path does not exist.
 
 ### Fixed
 
