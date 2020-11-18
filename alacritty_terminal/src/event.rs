@@ -11,8 +11,7 @@ pub enum Event {
     ResetTitle,
     ClipboardStore(ClipboardType, String),
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
-    // TODO: This really isn't a great name?
-    CursorBlinking(bool),
+    CursorBlinkingChange(bool),
     Wakeup,
     Bell,
     Exit,
@@ -29,7 +28,7 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::CursorBlinking(blinking) => write!(f, "CursorBlinking({})", blinking),
+            Event::CursorBlinkingChange(blinking) => write!(f, "CursorBlinking({})", blinking),
         }
     }
 }

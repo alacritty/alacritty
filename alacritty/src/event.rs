@@ -525,14 +525,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    /// Enable input mode.
+    /// Handle keyboard typing start.
     ///
-    /// Putting the user in input mode will temporarily disable some features like terminal cursor
-    /// blinking or the mouse cursor.
+    /// This will temporarily disable some features like terminal cursor blinking or the mouse
+    /// cursor.
     ///
-    /// This mode will disable itself automatically.
+    /// All features are re-enabled again automatically.
     #[inline]
-    fn enable_input_mode(&mut self) {
+    fn on_typing_start(&mut self) {
         // Disable cursor blinking.
         let blink_interval = self.config.cursor.blink_interval;
         if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
@@ -858,7 +858,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Start the initial cursor blinking timer.
         if self.config.cursor.style().blinking {
-            self.event_queue.push(Event::TerminalEvent(TerminalEvent::CursorBlinking(true)).into());
+            self.event_queue.push(Event::TerminalEvent(TerminalEvent::CursorBlinkingChange(true)).into());
         }
 
         event_loop.run_return(|event, event_loop, control_flow| {
@@ -1045,7 +1045,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
-                    TerminalEvent::CursorBlinking(_) => processor.ctx.update_cursor_blinking(),
+                    TerminalEvent::CursorBlinkingChange(_) => processor.ctx.update_cursor_blinking(),
                 },
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,

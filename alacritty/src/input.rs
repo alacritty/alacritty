@@ -104,7 +104,7 @@ pub trait ActionContext<T: EventListener> {
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
     fn update_cursor_blinking(&mut self);
-    fn enable_input_mode(&mut self);
+    fn on_typing_start(&mut self);
 }
 
 trait Execute<T: EventListener> {
@@ -140,7 +140,7 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
-                ctx.enable_input_mode();
+                ctx.on_typing_start();
 
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
@@ -170,7 +170,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.update_cursor_blinking();
             },
             Action::ViMotion(motion) => {
-                ctx.enable_input_mode();
+                ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(motion)
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
@@ -897,7 +897,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return;
         }
 
-        self.ctx.enable_input_mode();
+        self.ctx.on_typing_start();
 
         self.ctx.scroll(Scroll::Bottom);
         self.ctx.clear_selection();
@@ -1269,7 +1269,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn enable_input_mode(&mut self) {
+        fn on_typing_start(&mut self) {
             unimplemented!();
         }
 

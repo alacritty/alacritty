@@ -2113,7 +2113,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode &= TermMode::VI;
         self.mode.insert(TermMode::default());
 
-        self.event_proxy.send_event(Event::CursorBlinking(self.default_cursor_style.blinking));
+        self.event_proxy.send_event(Event::CursorBlinkingChange(self.default_cursor_style.blinking));
     }
 
     #[inline]
@@ -2217,7 +2217,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = true;
-                self.event_proxy.send_event(Event::CursorBlinking(true));
+                self.event_proxy.send_event(Event::CursorBlinkingChange(true));
             }
         }
     }
@@ -2259,7 +2259,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = false;
-                self.event_proxy.send_event(Event::CursorBlinking(false));
+                self.event_proxy.send_event(Event::CursorBlinkingChange(false));
             }
         }
     }
@@ -2319,7 +2319,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Notify UI about blinking changes.
         let blinking = style.unwrap_or(self.default_cursor_style).blinking;
-        self.event_proxy.send_event(Event::CursorBlinking(blinking));
+        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
     }
 
     #[inline]

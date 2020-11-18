@@ -347,8 +347,14 @@
       #   - | Beam
       #shape: Block
 
-      # Default cursor blinking state.
-      #blinking: false
+      # Cursor blinking state
+      #
+      # Values for `blinking`:
+      #   - Never: Prevent the cursor from ever blinking
+      #   - Off: Disable blinking by default
+      #   - On: Enable blinking by default
+      #   - Always: Force the cursor to always blink
+      #blinking: Off
 
   # Vi mode cursor style
   #
@@ -359,7 +365,7 @@
   #vi_mode_style: None
 
   # Cursor blinking interval in milliseconds.
-  #blink_interval: 500
+  #blink_interval: 750
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.

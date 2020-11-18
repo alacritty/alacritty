@@ -161,7 +161,7 @@ impl Default for Cursor {
             vi_mode_style: Default::default(),
             thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
             unfocused_hollow: Default::default(),
-            blink_interval: 500,
+            blink_interval: 750,
         }
     }
 }
