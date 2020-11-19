@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.7.0-dev
 
+### Changed
+
+- Nonexistent config imports are ignored instead of raising an error
+
 ### Fixed
 
 - Wide characters sometimes being cut off

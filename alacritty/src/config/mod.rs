@@ -222,6 +222,12 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
             },
         };
 
+        if !path.exists() {
+            info!(target: LOG_TARGET_CONFIG, "Skipping importing config; not found:");
+            info!(target: LOG_TARGET_CONFIG, "  {:?}", path.display());
+            continue;
+        }
+
         match parse_config(&path, config_paths, recursion_limit - 1) {
             Ok(config) => merged = serde_utils::merge(merged, config),
             Err(err) => {
