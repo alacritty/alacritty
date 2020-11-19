@@ -110,11 +110,6 @@ impl log::Log for Logger {
         let now = time::strftime("%F %T.%f", &time::now()).unwrap();
         let msg = format!("[{}] [{:<5}] [{}] {}\n", now, record.level(), target, record.args());
 
-        // Write to stdout.
-        if let Ok(mut stdout) = self.stdout.lock() {
-            let _ = stdout.write_all(msg.as_ref());
-        }
-
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.
             let _ = logfile.write_all(msg.as_ref());
@@ -123,6 +118,11 @@ impl log::Log for Logger {
             if record.level() <= Level::Warn {
                 self.message_bar_log(record, &logfile.path.to_string_lossy());
             }
+        }
+
+        // Write to stdout.
+        if let Ok(mut stdout) = self.stdout.lock() {
+            let _ = stdout.write_all(msg.as_ref());
         }
     }
 
