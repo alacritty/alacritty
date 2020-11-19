@@ -2083,7 +2083,6 @@ impl<T: EventListener> Handler for Term<T> {
             mem::swap(&mut self.grid, &mut self.inactive_grid);
         }
         self.active_charset = Default::default();
-        self.mode = Default::default();
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
@@ -2095,6 +2094,10 @@ impl<T: EventListener> Handler for Term<T> {
         self.title = None;
         self.selection = None;
         self.regex_search = None;
+
+        // Preserve vi mode across resets.
+        self.mode &= TermMode::VI;
+        self.mode.insert(TermMode::default());
     }
 
     #[inline]
