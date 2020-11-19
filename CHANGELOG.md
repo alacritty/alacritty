@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Providing non existing paths in `import` won't result in error. Importing from these configs will be skipped
+- Nonexistent config imports are ignored instead of raising an error
 
 ### Fixed
 
