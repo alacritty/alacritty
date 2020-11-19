@@ -1207,7 +1207,10 @@ impl<T> Term<T> {
 
     /// Toggle the vi mode.
     #[inline]
-    pub fn toggle_vi_mode(&mut self) {
+    pub fn toggle_vi_mode(&mut self)
+    where
+        T: EventListener,
+    {
         self.mode ^= TermMode::VI;
 
         let vi_mode = self.mode.contains(TermMode::VI);
@@ -1225,6 +1228,9 @@ impl<T> Term<T> {
         } else {
             self.cancel_search();
         }
+
+        // Update UI about cursor blinking state changes.
+        self.event_proxy.send_event(Event::CursorBlinkingChange(self.cursor_style().blinking));
 
         self.dirty = true;
     }
@@ -2113,7 +2119,8 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode &= TermMode::VI;
         self.mode.insert(TermMode::default());
 
-        self.event_proxy.send_event(Event::CursorBlinkingChange(self.default_cursor_style.blinking));
+        let blinking = self.cursor_style().blinking;
+        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
     }
 
     #[inline]
@@ -2218,7 +2225,7 @@ impl<T: EventListener> Handler for Term<T> {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = true;
                 self.event_proxy.send_event(Event::CursorBlinkingChange(true));
-            }
+            },
         }
     }
 
@@ -2260,7 +2267,7 @@ impl<T: EventListener> Handler for Term<T> {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = false;
                 self.event_proxy.send_event(Event::CursorBlinkingChange(false));
-            }
+            },
         }
     }
 

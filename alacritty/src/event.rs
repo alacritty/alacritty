@@ -497,34 +497,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    /// Update the cursor blinking state.
-    #[inline]
-    fn update_cursor_blinking(&mut self) {
-        // Get config cursor style.
-        let mut cursor_style = self.config.cursor.style;
-        if self.terminal.mode().contains(TermMode::VI) {
-            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
-        };
-
-        // Check terminal cursor style.
-        let terminal_blinking = self.terminal.cursor_style().blinking;
-        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
-
-        // Update cursor blinking state.
-        self.scheduler.unschedule(TimerId::BlinkCursor);
-        if blinking && self.terminal.is_focused {
-            self.scheduler.schedule(
-                GlutinEvent::UserEvent(Event::BlinkCursor),
-                Duration::from_millis(self.config.cursor.blink_interval),
-                true,
-                TimerId::BlinkCursor,
-            )
-        } else {
-            *self.cursor_hidden = false;
-            self.terminal.dirty = true;
-        }
-    }
-
     /// Handle keyboard typing start.
     ///
     /// This will temporarily disable some features like terminal cursor blinking or the mouse
@@ -719,6 +691,33 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
     }
+
+    /// Update the cursor blinking state.
+    fn update_cursor_blinking(&mut self) {
+        // Get config cursor style.
+        let mut cursor_style = self.config.cursor.style;
+        if self.terminal.mode().contains(TermMode::VI) {
+            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
+        };
+
+        // Check terminal cursor style.
+        let terminal_blinking = self.terminal.cursor_style().blinking;
+        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
+
+        // Update cursor blinking state.
+        self.scheduler.unschedule(TimerId::BlinkCursor);
+        if blinking && self.terminal.is_focused {
+            self.scheduler.schedule(
+                GlutinEvent::UserEvent(Event::BlinkCursor),
+                Duration::from_millis(self.config.cursor.blink_interval),
+                true,
+                TimerId::BlinkCursor,
+            )
+        } else {
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -858,7 +857,8 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Start the initial cursor blinking timer.
         if self.config.cursor.style().blinking {
-            self.event_queue.push(Event::TerminalEvent(TerminalEvent::CursorBlinkingChange(true)).into());
+            let event: Event = TerminalEvent::CursorBlinkingChange(true).into();
+            self.event_queue.push(event.into());
         }
 
         event_loop.run_return(|event, event_loop, control_flow| {
@@ -1045,7 +1045,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
-                    TerminalEvent::CursorBlinkingChange(_) => processor.ctx.update_cursor_blinking(),
+                    TerminalEvent::CursorBlinkingChange(_) => {
+                        processor.ctx.update_cursor_blinking();
+                    },
                 },
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,

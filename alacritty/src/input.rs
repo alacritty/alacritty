@@ -103,7 +103,6 @@ pub trait ActionContext<T: EventListener> {
     fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
-    fn update_cursor_blinking(&mut self);
     fn on_typing_start(&mut self);
 }
 
@@ -165,10 +164,7 @@ impl<T: EventListener> Execute<T> for Action {
                 start_daemon(program, args);
             },
             Action::ClearSelection => ctx.clear_selection(),
-            Action::ToggleViMode => {
-                ctx.terminal_mut().toggle_vi_mode();
-                ctx.update_cursor_blinking();
-            },
+            Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(motion)
@@ -1270,10 +1266,6 @@ mod tests {
         }
 
         fn on_typing_start(&mut self) {
-            unimplemented!();
-        }
-
-        fn update_cursor_blinking(&mut self) {
             unimplemented!();
         }
     }
