@@ -31,8 +31,10 @@ use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
+use crate::renderer::solidrect::SolidRectRenderer;
 
 pub mod rects;
+mod solidrect;
 
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -117,8 +119,6 @@ pub struct TextShaderProgram {
 pub struct RectShaderProgram {
     /// Program id.
     id: GLuint,
-    /// Rectangle color.
-    u_color: GLint,
 }
 
 #[derive(Copy, Debug, Clone)]
@@ -410,7 +410,6 @@ struct InstanceData {
 #[derive(Debug)]
 pub struct QuadRenderer {
     program: TextShaderProgram,
-    rect_program: RectShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
@@ -421,6 +420,9 @@ pub struct QuadRenderer {
     active_tex: GLuint,
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
+
+    rect_renderer: SolidRectRenderer,
+    rect_program: RectShaderProgram,
 }
 
 #[derive(Debug)]
@@ -671,6 +673,7 @@ impl QuadRenderer {
         let mut renderer = Self {
             program,
             rect_program,
+            rect_renderer: SolidRectRenderer::new(),
             vao,
             ebo,
             vbo_instance,
@@ -691,37 +694,7 @@ impl QuadRenderer {
 
     /// Draw all rectangles simultaneously to prevent excessive program swaps.
     pub fn draw_rects(&mut self, props: &SizeInfo, rects: Vec<RenderRect>) {
-        // Swap to rectangle rendering program.
-        unsafe {
-            // Swap program.
-            gl::UseProgram(self.rect_program.id);
-
-            // Remove padding from viewport.
-            gl::Viewport(0, 0, props.width() as i32, props.height() as i32);
-
-            // Change blending strategy.
-            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
-
-            // Setup data and buffers.
-            gl::BindVertexArray(self.rect_vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
-
-            // Position.
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (size_of::<f32>() * 2) as _,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
-        }
-
-        // Draw all the rects.
-        for rect in rects {
-            self.render_rect(&rect, props);
-        }
+        self.rect_renderer.draw(&self.rect_program, props, rects);
 
         // Deactivate rectangle program again.
         unsafe {
@@ -854,43 +827,6 @@ impl QuadRenderer {
                 size.padding_y(),
             );
             gl::UseProgram(0);
-        }
-    }
-
-    /// Render a rectangle.
-    ///
-    /// This requires the rectangle program to be activated.
-    fn render_rect(&mut self, rect: &RenderRect, size: &SizeInfo) {
-        // Do nothing when alpha is fully transparent.
-        if rect.alpha == 0. {
-            return;
-        }
-
-        // Calculate rectangle position.
-        let center_x = size.width() / 2.;
-        let center_y = size.height() / 2.;
-        let x = (rect.x - center_x) / center_x;
-        let y = -(rect.y - center_y) / center_y;
-        let width = rect.width / center_x;
-        let height = rect.height / center_y;
-
-        unsafe {
-            // Setup vertices.
-            let vertices: [f32; 8] = [x + width, y, x + width, y - height, x, y - height, x, y];
-
-            // Load vertex data into array buffer.
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<f32>() * vertices.len()) as _,
-                vertices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            // Color.
-            self.rect_program.set_color(rect.color, rect.alpha);
-
-            // Draw the rectangle.
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
     }
 }
@@ -1254,26 +1190,11 @@ impl RectShaderProgram {
             gl::UseProgram(program);
         }
 
-        // Get uniform locations.
-        let u_color = unsafe { gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _) };
-
-        let shader = Self { id: program, u_color };
+        let shader = Self { id: program };
 
         unsafe { gl::UseProgram(0) }
 
         Ok(shader)
-    }
-
-    fn set_color(&self, color: Rgb, alpha: f32) {
-        unsafe {
-            gl::Uniform4f(
-                self.u_color,
-                f32::from(color.r) / 255.,
-                f32::from(color.g) / 255.,
-                f32::from(color.b) / 255.,
-                alpha,
-            );
-        }
     }
 }
 
