@@ -277,19 +277,16 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             // active, the bottom lines are restored in the next step.
             self.raw.rotate(-(*positions as isize));
 
-            // This next loop swaps "fixed" lines outside of a scroll region
-            // back into place after the rotation. The work is done in buffer-
-            // space rather than terminal-space to avoid redundant
-            // transformations.
+            // This loop swaps "fixed" lines below the scrolling region back into place after
+            // they've been rotated upward.
             let fixed_lines = num_lines - *region.end;
-
             for i in 0..fixed_lines {
                 self.raw.swap(i, i + *positions);
             }
 
-            // Finally, reset recycled lines.
+            // Finally, clear all new lines.
             //
-            // Recycled lines are just above the end of the scrolling region.
+            // Recycled lines are always below the scrolling region and above the fixed lines.
             for i in 0..*positions {
                 self.raw[i + fixed_lines].reset(&self.cursor.template);
             }
