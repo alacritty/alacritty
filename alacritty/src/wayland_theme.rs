@@ -67,6 +67,10 @@ impl WaylandTheme for AlacrittyWaylandTheme {
             (_, Button::Close) => self.hovered_close_icon,
         }
     }
+
+    fn font(&self) -> Option<(String, f32)> {
+        Some((String::from("sans-serif"), 17.))
+    }
 }
 
 trait IntoARGBColor {
