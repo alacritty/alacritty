@@ -195,7 +195,6 @@ impl SolidRectRenderer {
             gl::DrawElements(gl::TRIANGLES, (quads * 6) as i32, gl::UNSIGNED_SHORT, ptr::null());
         }
 
-        self.indices.clear();
         self.vertices.clear();
     }
 }
