@@ -413,8 +413,6 @@ pub struct QuadRenderer {
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
-    rect_vao: GLuint,
-    rect_vbo: GLuint,
     atlas: Vec<Atlas>,
     current_atlas: usize,
     active_tex: GLuint,
@@ -535,10 +533,6 @@ impl QuadRenderer {
 
         let mut vbo_instance: GLuint = 0;
 
-        let mut rect_vao: GLuint = 0;
-        let mut rect_vbo: GLuint = 0;
-        let mut rect_ebo: GLuint = 0;
-
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
@@ -619,20 +613,6 @@ impl QuadRenderer {
             // Background color.
             add_attr!(4, gl::UNSIGNED_BYTE, u8);
 
-            // Rectangle setup.
-            gl::GenVertexArrays(1, &mut rect_vao);
-            gl::GenBuffers(1, &mut rect_vbo);
-            gl::GenBuffers(1, &mut rect_ebo);
-            gl::BindVertexArray(rect_vao);
-            let indices: [i32; 6] = [0, 1, 3, 1, 2, 3];
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, rect_ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (size_of::<i32>() * indices.len()) as _,
-                indices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
             // Cleanup.
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -677,8 +657,6 @@ impl QuadRenderer {
             vao,
             ebo,
             vbo_instance,
-            rect_vao,
-            rect_vbo,
             atlas: Vec::new(),
             current_atlas: 0,
             active_tex: 0,
