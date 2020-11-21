@@ -108,7 +108,29 @@ impl log::Log for Logger {
         }
 
         let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-        let msg = format!("[{}] [{:<5}] [{}] {}\n", now, record.level(), target, record.args());
+
+        let lines = record.args().to_string();
+        let mut lines = lines.split('\n').peekable();
+
+        let mut msg = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
+
+        // Alignment for the lines after the first new line character in the payload.
+        let alignment = msg.chars().count();
+
+        // The first line must be on the same line as `target` in the `msg`.
+        if let Some(line) = lines.next() {
+            msg.push_str(&line);
+        }
+
+        // Push the rest of the lines prefixed with `alignment` to make the multiline output look
+        // uniform.
+        for line in lines {
+            let line = format!("\n{:width$}{}", "", line, width = alignment);
+            msg.push_str(&line);
+        }
+
+        // Push the trailing new line character, so the log will reach the output.
+        msg.push('\n');
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.

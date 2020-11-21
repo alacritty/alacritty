@@ -130,9 +130,14 @@ fn run(
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
 
-    info!("Configuration files loaded from:");
-    for path in &config.ui_config.config_paths {
-        info!("  \"{}\"", path.display());
+    // Log the configuration paths.
+    {
+        let mut msg = String::from("Configuration files loaded from:");
+        for path in &config.ui_config.config_paths {
+            msg.push_str(&format!("\n  {:?}", path.display()));
+        }
+
+        info!("{}", msg);
     }
 
     // Set environment variables.
