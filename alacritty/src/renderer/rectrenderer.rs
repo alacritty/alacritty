@@ -89,7 +89,7 @@ impl RectRenderer {
             gl::GenBuffers(1, &mut vbo);
             gl::GenBuffers(1, &mut ebo);
 
-            // Bind EBO to VAO
+            // Bind EBO to VAO.
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
 
