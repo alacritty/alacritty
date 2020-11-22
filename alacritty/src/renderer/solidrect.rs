@@ -8,7 +8,7 @@ use crate::renderer::{create_program, create_shader, Error, ShaderCreationError}
 use std::mem::size_of;
 use std::ptr;
 
-const MAX_U16_INDICES: usize = 65536;
+const MAX_VERTICES: usize = u16::max_value() as usize;
 
 static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
 static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
@@ -41,8 +41,6 @@ pub struct SolidRectRenderer {
 
     program: RectShaderProgram,
 
-    uploaded_indices: usize,
-    indices: Vec<u16>,
     vertices: Vec<Vertex>,
 }
 
@@ -57,6 +55,23 @@ impl SolidRectRenderer {
         let mut ebo: GLuint = 0;
         let program = RectShaderProgram::new()?;
 
+        let mut indices = Vec::<u16>::new();
+        let max_rects = MAX_VERTICES / 4;
+        indices.reserve(max_rects * 6);
+
+        // Pre-generate the entire index buffer for max possible rects.
+        for index in 0..max_rects {
+            let index = index as u16 * 4;
+            indices.extend_from_slice(&[
+                index,
+                index + 1,
+                index + 2,
+                index + 2,
+                index + 3,
+                index + 1,
+            ]);
+        }
+
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
             gl::GenBuffers(1, &mut vbo);
@@ -64,6 +79,14 @@ impl SolidRectRenderer {
 
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+
+            // Pre-upload index buffer for max possible rects.
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (indices.len() * std::mem::size_of::<u16>()) as isize,
+                indices.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
 
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
@@ -94,15 +117,7 @@ impl SolidRectRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
-        Ok(Self {
-            vao,
-            vbo,
-            ebo,
-            program,
-            indices: Vec::new(),
-            vertices: Vec::new(),
-            uploaded_indices: 0,
-        })
+        Ok(Self { vao, vbo, ebo, program, vertices: Vec::new() })
     }
 
     pub fn draw(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
@@ -119,6 +134,9 @@ impl SolidRectRenderer {
 
         for rect in &rects {
             self.append_rect(center_x, center_y, rect);
+            if self.vertices.len() == MAX_VERTICES {
+                self.draw_accumulated();
+            }
         }
 
         self.draw_accumulated();
@@ -134,7 +152,7 @@ impl SolidRectRenderer {
     }
 
     fn append_rect(&mut self, center_x: f32, center_y: f32, rect: &RenderRect) {
-        assert!(self.vertices.len() <= MAX_U16_INDICES - 4);
+        debug_assert!(self.vertices.len() <= MAX_VERTICES - 4);
 
         // Calculate rectangle position.
         let x = (rect.x - center_x) / center_x;
@@ -154,31 +172,11 @@ impl SolidRectRenderer {
             Vertex { x: x + width, y, color },
             Vertex { x: x + width, y: y - height, color },
         ]);
-
-        if self.vertices.len() == MAX_U16_INDICES {
-            self.draw_accumulated();
-        }
     }
 
     fn draw_accumulated(&mut self) {
         if self.vertices.is_empty() {
             return;
-        }
-
-        // Generate new indices in index buffer on-demand
-        assert!(self.indices.len() % 6 == 0);
-        let generated_quads = (self.indices.len() / 6) as u16;
-        let need_quads = (self.vertices.len() / 4) as u16;
-        for index in generated_quads..need_quads {
-            let index = index * 4;
-            self.indices.extend_from_slice(&[
-                index,
-                index + 1,
-                index + 2,
-                index + 2,
-                index + 3,
-                index + 1,
-            ]);
         }
 
         // Upload accumulated buffers.
@@ -189,18 +187,6 @@ impl SolidRectRenderer {
                 self.vertices.as_ptr() as *const _,
                 gl::STREAM_DRAW,
             );
-
-            // If we need more indices than have been already uploaded.
-            if self.uploaded_indices < self.indices.len() {
-                gl::BufferData(
-                    gl::ELEMENT_ARRAY_BUFFER,
-                    (self.indices.len() * std::mem::size_of::<u16>()) as isize,
-                    self.indices.as_ptr() as *const _,
-                    gl::STATIC_DRAW,
-                );
-
-                self.uploaded_indices = self.indices.len();
-            }
 
             let quads = self.vertices.len() / 4;
             gl::DrawElements(gl::TRIANGLES, (quads * 6) as i32, gl::UNSIGNED_SHORT, ptr::null());
