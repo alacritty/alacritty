@@ -223,25 +223,49 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         T: ResetDiscriminant<D>,
         D: PartialEq,
     {
-        // Whether or not there is a scrolling region active, as long as it
-        // starts at the top, we can do a full rotation which just involves
-        // changing the start index.
-        //
-        // To accommodate scroll regions, rows are reordered at the end.
-        if region.start == Line(0) && self.max_scroll_limit == 0 {
-            // Rotate the entire line buffer. If there's a scrolling region
-            // active, the bottom lines are restored in the next step.
-            self.raw.rotate_up(*positions);
+        let screen_lines = self.screen_lines().0;
 
-            // Now, restore any scroll region lines.
-            let lines = self.lines;
-            for i in IndexRange(region.end..lines) {
-                self.raw.swap_lines(i, i + positions);
+        // When rotating the entire region, just reset everything.
+        if positions >= region.end - region.start {
+            for i in region.start.0..region.end.0 {
+                let index = screen_lines - i - 1;
+                self.raw[index].reset(&self.cursor.template);
             }
 
-            // Finally, reset recycled lines.
-            for i in IndexRange(Line(0)..positions) {
-                self.raw[i].reset(&self.cursor.template);
+            return;
+        }
+
+        // Which implementation we can use depends on the existence of a scrollback history.
+        //
+        // Since a scrollback history prevents us from rotating the entire buffer downwards, we
+        // instead have to rely on a slower, swap-based implementation.
+        if self.max_scroll_limit == 0 {
+            // Swap the lines fixed at the bottom to their target positions after rotation.
+            //
+            // Since we've made sure that the rotation will never rotate away the entire region, we
+            // know that the position of the fixed lines before the rotation must already be
+            // visible.
+            //
+            // We need to start from the top, to make sure the fixed lines aren't swapped with each
+            // other.
+            let fixed_lines = screen_lines - region.end.0;
+            for i in (0..fixed_lines).rev() {
+                self.raw.swap(i, i + positions.0);
+            }
+
+            // Rotate the entire line buffer downward.
+            self.raw.rotate_down(*positions);
+
+            // Ensure all new lines are fully cleared.
+            for i in 0..positions.0 {
+                let index = screen_lines - i - 1;
+                self.raw[index].reset(&self.cursor.template);
+            }
+
+            // Swap the fixed lines at the top back into position.
+            for i in 0..region.start.0 {
+                let index = screen_lines - i - 1;
+                self.raw.swap(index, index - positions.0);
             }
         } else {
             // Subregion rotation.
@@ -263,43 +287,57 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         T: ResetDiscriminant<D>,
         D: PartialEq,
     {
-        let num_lines = self.screen_lines().0;
+        let screen_lines = self.screen_lines().0;
 
-        if region.start == Line(0) {
-            // Update display offset when not pinned to active area.
-            if self.display_offset != 0 {
-                self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
+        // When rotating the entire region with fixed lines at the top, just reset everything.
+        if positions >= region.end - region.start && region.start != Line(0) {
+            for i in region.start.0..region.end.0 {
+                let index = screen_lines - i - 1;
+                self.raw[index].reset(&self.cursor.template);
             }
 
-            self.increase_scroll_limit(*positions);
+            return;
+        }
 
-            // Rotate the entire line buffer. If there's a scrolling region
-            // active, the bottom lines are restored in the next step.
-            self.raw.rotate(-(*positions as isize));
+        // Update display offset when not pinned to active area.
+        if self.display_offset != 0 {
+            self.display_offset = min(self.display_offset + *positions, self.max_scroll_limit);
+        }
 
-            // This loop swaps "fixed" lines below the scrolling region back into place after
-            // they've been rotated upward.
-            let fixed_lines = num_lines - *region.end;
-            for i in 0..fixed_lines {
-                self.raw.swap(i, i + *positions);
-            }
+        // Create scrollback for the new lines.
+        self.increase_scroll_limit(*positions);
 
-            // Finally, clear all new lines.
-            //
-            // Recycled lines are always below the scrolling region and above the fixed lines.
-            for i in 0..*positions {
-                self.raw[i + fixed_lines].reset(&self.cursor.template);
-            }
-        } else {
-            // Subregion rotation.
-            for line in IndexRange(region.start..(region.end - positions)) {
-                self.raw.swap_lines(line, line + positions);
-            }
+        // Swap the lines fixed at the top to their target positions after rotation.
+        //
+        // Since we've made sure that the rotation will never rotate away the entire region, we
+        // know that the position of the fixed lines before the rotation must already be
+        // visible.
+        //
+        // We need to start from the bottom, to make sure the fixed lines aren't swapped with each
+        // other.
+        for i in (0..region.start.0).rev() {
+            let index = screen_lines - i - 1;
+            self.raw.swap(index, index - positions.0);
+        }
 
-            // Clear reused lines.
-            for line in IndexRange((region.end - positions)..region.end) {
-                self.raw[line].reset(&self.cursor.template);
-            }
+        // TODO: Technically the rotation here will rotate dirty fixed lines at the top of the
+        // viewport into history. Should these be cleared? This is only a problem when rotating
+        // more than a single line.
+        //  -> I say it doesn't matter, since you shouldn't use a scrolling region like that
+        //  outside of the alt screen anyways.
+        //
+        // Rotate the entire line buffer upward.
+        self.raw.rotate(-(positions.0 as isize));
+
+        // Ensure all new lines are fully cleared.
+        for i in 0..positions.0 {
+            self.raw[i].reset(&self.cursor.template);
+        }
+
+        // Swap the fixed lines at the bottom back into position.
+        let fixed_lines = screen_lines - region.end.0;
+        for i in 0..fixed_lines {
+            self.raw.swap(i, i + positions.0);
         }
     }
 
