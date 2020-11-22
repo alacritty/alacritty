@@ -10,8 +10,10 @@ use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
 use crate::renderer::{create_program, create_shader, Error, ShaderCreationError};
 
+/// Maxmimum number of rect vertices per batch. Limited by 16-bit integer indices.
 const MAX_VERTICES: usize = u16::max_value() as usize;
 
+/// Shader sources for rect rendering program.
 static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
 static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
@@ -26,27 +28,35 @@ struct Rgba {
     a: u8,
 }
 
+/// Vertex to store solid-color rectangle data.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
+    // Normalized screen coordinates.
     // TODO these can certainly be i16.
     x: f32,
     y: f32,
+
+    // Color.
     color: Rgba,
 }
 
+/// Structure to store and group together rect-related vertices data and GL objects.
 #[derive(Debug)]
-pub struct SolidRectRenderer {
+pub struct RectRenderer {
+    // GL buffer objects. VAO stores attribute and ebo bindings.
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
 
     program: RectShaderProgram,
 
+    // Accumulated vertices data. Allocated space reused between frames.
     vertices: Vec<Vertex>,
 }
 
-impl SolidRectRenderer {
+impl RectRenderer {
+    /// Update program when doing live-shader-reload.
     pub fn set_program(&mut self, program: RectShaderProgram) {
         self.program = program;
     }
@@ -57,11 +67,10 @@ impl SolidRectRenderer {
         let mut ebo: GLuint = 0;
         let program = RectShaderProgram::new()?;
 
+        // Pre-generate the entire index buffer for max possible rects.
         let mut indices = Vec::<u16>::new();
         let max_rects = MAX_VERTICES / 4;
         indices.reserve(max_rects * 6);
-
-        // Pre-generate the entire index buffer for max possible rects.
         for index in 0..max_rects {
             let index = index as u16 * 4;
             indices.extend_from_slice(&[
@@ -75,10 +84,12 @@ impl SolidRectRenderer {
         }
 
         unsafe {
+            // Allocate buffers.
             gl::GenVertexArrays(1, &mut vao);
             gl::GenBuffers(1, &mut vbo);
             gl::GenBuffers(1, &mut ebo);
 
+            // Bind EBO to VAO
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
 
@@ -90,6 +101,7 @@ impl SolidRectRenderer {
                 gl::STATIC_DRAW,
             );
 
+            // VBO binding is not part ot VAO, but attributes are.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
             // Position.
@@ -126,6 +138,8 @@ impl SolidRectRenderer {
         // Setup bindings. VAO will set up attribs and EBO, but not VBO.
         unsafe {
             gl::BindVertexArray(self.vao);
+
+            // Bind VBO only once for buffer data upload in draw_accumulated.
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
             gl::UseProgram(self.program.id);
@@ -141,7 +155,9 @@ impl SolidRectRenderer {
             }
         }
 
-        self.draw_accumulated();
+        if !self.vertices.is_empty() {
+            self.draw_accumulated();
+        }
 
         unsafe {
             // Disable program.
@@ -154,6 +170,7 @@ impl SolidRectRenderer {
     }
 
     fn append_rect(&mut self, center_x: f32, center_y: f32, rect: &RenderRect) {
+        // Make sure there's a space for at least 4 rectangle vertices.
         debug_assert!(self.vertices.len() <= MAX_VERTICES - 4);
 
         // Calculate rectangle position.
@@ -168,6 +185,7 @@ impl SolidRectRenderer {
             a: (rect.alpha * 255.) as u8,
         };
 
+        // Append rect vertices.
         self.vertices.extend_from_slice(&[
             Vertex { x, y, color },
             Vertex { x, y: y - height, color },
@@ -177,12 +195,8 @@ impl SolidRectRenderer {
     }
 
     fn draw_accumulated(&mut self) {
-        if self.vertices.is_empty() {
-            return;
-        }
-
-        // Upload accumulated buffers.
         unsafe {
+            // Upload accumulated vertices.
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (self.vertices.len() * std::mem::size_of::<Vertex>()) as isize,
@@ -190,10 +204,13 @@ impl SolidRectRenderer {
                 gl::STREAM_DRAW,
             );
 
-            let quads = self.vertices.len() / 4;
-            gl::DrawElements(gl::TRIANGLES, (quads * 6) as i32, gl::UNSIGNED_SHORT, ptr::null());
+            // Draw rectangles. Every 4 vertices form a rectangle, and each rectangle needs 6
+            // indices (2 triangles).
+            let rects = self.vertices.len() / 4;
+            gl::DrawElements(gl::TRIANGLES, (rects * 6) as i32, gl::UNSIGNED_SHORT, ptr::null());
         }
 
+        // Mark vertices buffer as empty and ready for next batch of vertices.
         self.vertices.clear();
     }
 }

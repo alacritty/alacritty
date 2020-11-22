@@ -30,11 +30,11 @@ use crate::config::ui_config::{Delta, UIConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
+use crate::renderer::rectrenderer::{RectRenderer, RectShaderProgram};
 use crate::renderer::rects::RenderRect;
-use crate::renderer::solidrect::{RectShaderProgram, SolidRectRenderer};
 
+mod rectrenderer;
 pub mod rects;
-mod solidrect;
 
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -406,7 +406,7 @@ pub struct QuadRenderer {
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
 
-    rect_renderer: SolidRectRenderer,
+    rect_renderer: RectRenderer,
 }
 
 #[derive(Debug)]
@@ -637,7 +637,7 @@ impl QuadRenderer {
 
         let mut renderer = Self {
             program,
-            rect_renderer: SolidRectRenderer::new()?,
+            rect_renderer: RectRenderer::new()?,
             vao,
             ebo,
             vbo_instance,
