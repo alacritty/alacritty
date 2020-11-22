@@ -1,12 +1,14 @@
+use std::mem::size_of;
+use std::ptr;
+
+use memoffset::offset_of;
+
 use alacritty_terminal::term::SizeInfo;
 
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
 use crate::renderer::{create_program, create_shader, Error, ShaderCreationError};
-
-use std::mem::size_of;
-use std::ptr;
 
 const MAX_VERTICES: usize = u16::max_value() as usize;
 
