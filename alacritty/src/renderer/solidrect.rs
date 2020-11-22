@@ -3,12 +3,17 @@ use alacritty_terminal::term::SizeInfo;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
-use crate::renderer::RectShaderProgram;
+use crate::renderer::{create_program, create_shader, Error, ShaderCreationError};
 
 use std::mem::size_of;
 use std::ptr;
 
 const MAX_U16_INDICES: usize = 65536;
+
+static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
+static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
+static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
+static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -34,16 +39,23 @@ pub struct SolidRectRenderer {
     vbo: GLuint,
     ebo: GLuint,
 
+    program: RectShaderProgram,
+
     uploaded_indices: usize,
     indices: Vec<u16>,
     vertices: Vec<Vertex>,
 }
 
 impl SolidRectRenderer {
-    pub fn new() -> Self {
+    pub fn set_program(&mut self, program: RectShaderProgram) {
+        self.program = program;
+    }
+
+    pub fn new() -> Result<Self, Error> {
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
+        let program = RectShaderProgram::new()?;
 
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
@@ -82,21 +94,24 @@ impl SolidRectRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
-        Self { vao, vbo, ebo, indices: Vec::new(), vertices: Vec::new(), uploaded_indices: 0 }
+        Ok(Self {
+            vao,
+            vbo,
+            ebo,
+            program,
+            indices: Vec::new(),
+            vertices: Vec::new(),
+            uploaded_indices: 0,
+        })
     }
 
-    pub fn draw(
-        &mut self,
-        program: &RectShaderProgram,
-        size_info: &SizeInfo,
-        rects: Vec<RenderRect>,
-    ) {
+    pub fn draw(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
         // Setup bindings. VAO will set up attribs and EBO, but not VBO.
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-            gl::UseProgram(program.id);
+            gl::UseProgram(self.program.id);
         }
 
         let center_x = size_info.width() / 2.;
@@ -192,5 +207,47 @@ impl SolidRectRenderer {
         }
 
         self.vertices.clear();
+    }
+}
+
+/// Rectangle drawing program.
+///
+/// Uniforms are prefixed with "u".
+#[derive(Debug)]
+pub struct RectShaderProgram {
+    /// Program id.
+    id: GLuint,
+}
+
+impl RectShaderProgram {
+    pub fn new() -> Result<Self, ShaderCreationError> {
+        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
+            (None, None)
+        } else {
+            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
+        };
+        let vertex_shader = create_shader(RECT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
+        let fragment_shader = create_shader(RECT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
+        let program = create_program(vertex_shader, fragment_shader)?;
+
+        unsafe {
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
+            gl::UseProgram(program);
+        }
+
+        let shader = Self { id: program };
+
+        unsafe { gl::UseProgram(0) }
+
+        Ok(shader)
+    }
+}
+
+impl Drop for RectShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
     }
 }

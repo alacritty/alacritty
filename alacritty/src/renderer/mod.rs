@@ -31,7 +31,7 @@ use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
-use crate::renderer::solidrect::SolidRectRenderer;
+use crate::renderer::solidrect::{RectShaderProgram, SolidRectRenderer};
 
 pub mod rects;
 mod solidrect;
@@ -39,14 +39,10 @@ mod solidrect;
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
-static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
-static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable.
 static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../res/text.v.glsl");
-static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
-static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory.
 pub trait LoadGlyph {
@@ -110,15 +106,6 @@ pub struct TextShaderProgram {
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text.
     u_background: GLint,
-}
-
-/// Rectangle drawing program.
-///
-/// Uniforms are prefixed with "u".
-#[derive(Debug)]
-pub struct RectShaderProgram {
-    /// Program id.
-    id: GLuint,
 }
 
 #[derive(Copy, Debug, Clone)]
@@ -420,7 +407,6 @@ pub struct QuadRenderer {
     rx: mpsc::Receiver<Msg>,
 
     rect_renderer: SolidRectRenderer,
-    rect_program: RectShaderProgram,
 }
 
 #[derive(Debug)]
@@ -526,7 +512,6 @@ const ATLAS_SIZE: i32 = 1024;
 impl QuadRenderer {
     pub fn new() -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new()?;
-        let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -652,8 +637,7 @@ impl QuadRenderer {
 
         let mut renderer = Self {
             program,
-            rect_program,
-            rect_renderer: SolidRectRenderer::new(),
+            rect_renderer: SolidRectRenderer::new()?,
             vao,
             ebo,
             vbo_instance,
@@ -685,7 +669,7 @@ impl QuadRenderer {
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
         }
 
-        self.rect_renderer.draw(&self.rect_program, size_info, rects);
+        self.rect_renderer.draw(size_info, rects);
 
         // Activate regular state again.
         unsafe {
@@ -790,7 +774,7 @@ impl QuadRenderer {
 
         self.active_tex = 0;
         self.program = program;
-        self.rect_program = rect_program;
+        self.rect_renderer.set_program(rect_program);
     }
 
     pub fn resize(&mut self, size: &SizeInfo) {
@@ -1158,40 +1142,7 @@ impl Drop for TextShaderProgram {
     }
 }
 
-impl RectShaderProgram {
-    pub fn new() -> Result<Self, ShaderCreationError> {
-        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
-            (None, None)
-        } else {
-            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
-        };
-        let vertex_shader = create_shader(RECT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
-        let fragment_shader = create_shader(RECT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
-        let program = create_program(vertex_shader, fragment_shader)?;
-
-        unsafe {
-            gl::DeleteShader(fragment_shader);
-            gl::DeleteShader(vertex_shader);
-            gl::UseProgram(program);
-        }
-
-        let shader = Self { id: program };
-
-        unsafe { gl::UseProgram(0) }
-
-        Ok(shader)
-    }
-}
-
-impl Drop for RectShaderProgram {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.id);
-        }
-    }
-}
-
-fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
+pub fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
     unsafe {
         let program = gl::CreateProgram();
         gl::AttachShader(program, vertex);
@@ -1209,7 +1160,7 @@ fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCrea
     }
 }
 
-fn create_shader(
+pub fn create_shader(
     path: &str,
     kind: GLenum,
     source: Option<&'static str>,
