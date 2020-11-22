@@ -671,26 +671,33 @@ impl QuadRenderer {
     }
 
     /// Draw all rectangles simultaneously to prevent excessive program swaps.
-    pub fn draw_rects(&mut self, props: &SizeInfo, rects: Vec<RenderRect>) {
-        self.rect_renderer.draw(&self.rect_program, props, rects);
+    pub fn draw_rects(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
+        if rects.is_empty() {
+            return;
+        }
 
-        // Deactivate rectangle program again.
+        // Prepare rect rendering state.
+        unsafe {
+            // Remove padding from viewport.
+            gl::Viewport(0, 0, size_info.width() as i32, size_info.height() as i32);
+
+            gl::Enable(gl::BLEND);
+            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
+        }
+
+        self.rect_renderer.draw(&self.rect_program, size_info, rects);
+
+        // Activate regular state again.
         unsafe {
             // Reset blending strategy.
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
 
-            // Reset data and buffers.
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-
-            let padding_x = props.padding_x() as i32;
-            let padding_y = props.padding_y() as i32;
-            let width = props.width() as i32;
-            let height = props.height() as i32;
+            // Restore viewport with padding.
+            let padding_x = size_info.padding_x() as i32;
+            let padding_y = size_info.padding_y() as i32;
+            let width = size_info.width() as i32;
+            let height = size_info.height() as i32;
             gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
-
-            // Disable program.
-            gl::UseProgram(0);
         }
     }
 

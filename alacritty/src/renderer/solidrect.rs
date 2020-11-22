@@ -22,7 +22,7 @@ struct Rgba {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
-    // TODO these can certainly be i16
+    // TODO these can certainly be i16.
     x: f32,
     y: f32,
     color: Rgba,
@@ -54,6 +54,7 @@ impl SolidRectRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+
             // Position.
             gl::VertexAttribPointer(
                 0,
@@ -65,7 +66,7 @@ impl SolidRectRenderer {
             );
             gl::EnableVertexAttribArray(0);
 
-            // Color
+            // Color.
             gl::VertexAttribPointer(
                 1,
                 4,
@@ -76,6 +77,7 @@ impl SolidRectRenderer {
             );
             gl::EnableVertexAttribArray(1);
 
+            // Reset buffer bindings.
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
@@ -89,19 +91,8 @@ impl SolidRectRenderer {
         size_info: &SizeInfo,
         rects: Vec<RenderRect>,
     ) {
-        if rects.is_empty() {
-            return;
-        }
-
-        // Prepare common state
+        // Setup bindings. VAO will set up attribs and EBO, but not VBO.
         unsafe {
-            // Remove padding from viewport.
-            gl::Viewport(0, 0, size_info.width() as i32, size_info.height() as i32);
-
-            gl::Enable(gl::BLEND);
-            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
-
-            // Setup bindings. VAO will set up attribs and EBO, but not VBO.
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
@@ -116,13 +107,18 @@ impl SolidRectRenderer {
         }
 
         self.draw_accumulated();
+
+        unsafe {
+            // Disable program.
+            gl::UseProgram(0);
+
+            // Reset buffer bindings to nothing.
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+        }
     }
 
     fn append_rect(&mut self, center_x: f32, center_y: f32, rect: &RenderRect) {
-        if rect.alpha <= 0. {
-            return;
-        }
-
         assert!(self.vertices.len() <= MAX_U16_INDICES - 4);
 
         // Calculate rectangle position.
@@ -170,7 +166,7 @@ impl SolidRectRenderer {
             ]);
         }
 
-        // Upload accumulated buffers
+        // Upload accumulated buffers.
         unsafe {
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -179,7 +175,7 @@ impl SolidRectRenderer {
                 gl::STREAM_DRAW,
             );
 
-            // If we need more indices than have been already uploaded
+            // If we need more indices than have been already uploaded.
             if self.uploaded_indices < self.indices.len() {
                 gl::BufferData(
                     gl::ELEMENT_ARRAY_BUFFER,
