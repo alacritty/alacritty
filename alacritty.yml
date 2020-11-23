@@ -6,7 +6,7 @@
 # loaded earlier with those loaded later in the chain. The file itself will
 # always be loaded last. If an import path cannot be found it will be skipped.
 #import:
-#  - /path/to/alacritty.yml
+#  - ~/path/to/alacritty.yml
 
 # Any items in the `env` entry below will be added as
 # environment variables. Some entries may override variables
