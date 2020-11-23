@@ -30,7 +30,6 @@ copypasta = { version = "0.7.0", default-features = false }
 libc = "0.2"
 unicode-width = "0.1"
 bitflags = "1"
-memoffset = "0.5"
 
 [build-dependencies]
 gl_generator = "0.14.0"

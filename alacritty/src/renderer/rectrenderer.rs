@@ -1,8 +1,6 @@
 use std::mem::size_of;
 use std::ptr;
 
-use memoffset::offset_of;
-
 use alacritty_terminal::term::SizeInfo;
 
 use crate::gl;
@@ -11,7 +9,7 @@ use crate::renderer::rects::RenderRect;
 use crate::renderer::{create_program, create_shader, Error, ShaderCreationError};
 
 /// Maxmimum number of rect vertices per batch. Limited by 16-bit integer indices.
-const MAX_VERTICES: usize = u16::max_value() as usize;
+const MAX_VERTICES: usize = u16::max_value() as usize + 1;
 
 /// Shader sources for rect rendering program.
 static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
@@ -104,27 +102,34 @@ impl RectRenderer {
             // VBO binding is not part ot VAO, but attributes are.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
+            let mut index = 0;
+            let mut size = 0;
+
+            macro_rules! add_attr {
+                ($count:expr, $gl_type:expr, $type:ty) => {
+                    gl::VertexAttribPointer(
+                        index,
+                        $count,
+                        $gl_type,
+                        gl::FALSE,
+                        size_of::<Vertex>() as i32,
+                        size as *const _,
+                    );
+                    gl::EnableVertexAttribArray(index);
+
+                    #[allow(unused_assignments)]
+                    {
+                        size += $count * size_of::<$type>();
+                        index += 1;
+                    }
+                };
+            }
+
             // Position.
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (size_of::<Vertex>()) as _,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
+            add_attr!(2, gl::FLOAT, f32);
 
             // Color.
-            gl::VertexAttribPointer(
-                1,
-                4,
-                gl::UNSIGNED_BYTE,
-                gl::TRUE,
-                (size_of::<Vertex>()) as _,
-                offset_of!(Vertex, color) as *const _,
-            );
-            gl::EnableVertexAttribArray(1);
+            add_attr!(4, gl::UNSIGNED_BYTE, u8);
 
             // Reset buffer bindings.
             gl::BindVertexArray(0);
