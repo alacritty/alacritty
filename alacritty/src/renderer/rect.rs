@@ -104,12 +104,12 @@ impl RectRenderer {
             let mut size = 0;
 
             macro_rules! add_attr {
-                ($count:expr, $gl_type:expr, $type:ty) => {
+                ($count:expr, $gl_type:expr, $normalize:expr, $type:ty) => {
                     gl::VertexAttribPointer(
                         index,
                         $count,
                         $gl_type,
-                        gl::FALSE,
+                        $normalize,
                         size_of::<Vertex>() as i32,
                         size as *const _,
                     );
@@ -124,10 +124,10 @@ impl RectRenderer {
             }
 
             // Position.
-            add_attr!(2, gl::FLOAT, f32);
+            add_attr!(2, gl::FLOAT, gl::FALSE, f32);
 
             // Color.
-            add_attr!(4, gl::UNSIGNED_BYTE, u8);
+            add_attr!(4, gl::UNSIGNED_BYTE, gl::TRUE, u8);
 
             // Reset buffer bindings.
             gl::BindVertexArray(0);
