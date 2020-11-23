@@ -71,14 +71,12 @@ impl RectRenderer {
         indices.reserve(max_rects * 6);
         for index in 0..max_rects {
             let index = index as u16 * 4;
-            indices.extend_from_slice(&[
-                index,
-                index + 1,
-                index + 2,
-                index + 2,
-                index + 3,
-                index + 1,
-            ]);
+            indices.push(index);
+            indices.push(index + 1);
+            indices.push(index + 2);
+            indices.push(index + 2);
+            indices.push(index + 3);
+            indices.push(index + 1);
         }
 
         unsafe {
@@ -191,12 +189,10 @@ impl RectRenderer {
         };
 
         // Append rect vertices.
-        self.vertices.extend_from_slice(&[
-            Vertex { x, y, color },
-            Vertex { x, y: y - height, color },
-            Vertex { x: x + width, y, color },
-            Vertex { x: x + width, y: y - height, color },
-        ]);
+        self.vertices.push(Vertex { x, y, color });
+        self.vertices.push(Vertex { x, y: y - height, color });
+        self.vertices.push(Vertex { x: x + width, y, color });
+        self.vertices.push(Vertex { x: x + width, y: y - height, color });
     }
 
     fn draw_accumulated(&mut self) {

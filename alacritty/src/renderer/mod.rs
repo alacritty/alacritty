@@ -30,10 +30,10 @@ use crate::config::ui_config::{Delta, UIConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::rectrenderer::{RectRenderer, RectShaderProgram};
+use crate::renderer::rect::{RectRenderer, RectShaderProgram};
 use crate::renderer::rects::RenderRect;
 
-mod rectrenderer;
+mod rect;
 pub mod rects;
 
 // Shader paths for live reload.
