@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
+use std::cmp::max;
 
 use log::error;
 use serde::{Deserialize, Deserializer};
@@ -17,8 +18,9 @@ pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
-const MAX_SCROLLBACK_LINES: u32 = 100_000;
 const DEFAULT_CURSOR_THICKNESS: f32 = 0.15;
+const MAX_SCROLLBACK_LINES: u32 = 100_000;
+const MIN_BLINK_INTERVAL: u64 = 10;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
@@ -125,7 +127,7 @@ pub struct Cursor {
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<ConfigCursorStyle>,
     #[serde(deserialize_with = "failure_default")]
-    pub blink_interval: u64,
+    pub blink_interval: BlinkInterval,
     #[serde(deserialize_with = "deserialize_cursor_thickness")]
     thickness: Percentage,
     #[serde(deserialize_with = "failure_default")]
@@ -152,6 +154,11 @@ impl Cursor {
     pub fn vi_mode_style(self) -> Option<CursorStyle> {
         self.vi_mode_style.map(From::from)
     }
+
+    #[inline]
+    pub fn blink_interval(self) -> u64 {
+        max(self.blink_interval.0, MIN_BLINK_INTERVAL)
+    }
 }
 
 impl Default for Cursor {
@@ -161,8 +168,17 @@ impl Default for Cursor {
             vi_mode_style: Default::default(),
             thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
             unfocused_hollow: Default::default(),
-            blink_interval: 750,
+            blink_interval: Default::default(),
         }
+    }
+}
+
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
+struct BlinkInterval(u64);
+
+impl Default for BlinkInterval {
+    fn default() -> Self {
+        BlinkInterval(750)
     }
 }
 

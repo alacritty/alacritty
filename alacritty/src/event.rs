@@ -1089,9 +1089,8 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
-                            let terminal = &mut processor.ctx.terminal;
-                            terminal.is_focused = is_focused;
-                            terminal.dirty = true;
+                            processor.ctx.terminal.is_focused = is_focused;
+                            processor.ctx.terminal.dirty = true;
 
                             if is_focused {
                                 processor.ctx.window.set_urgent(false);
