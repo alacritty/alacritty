@@ -2,9 +2,12 @@
 
 # Import additional configuration files
 #
-# These configuration files will be loaded in order, replacing values in files
-# loaded earlier with those loaded later in the chain. The file itself will
-# always be loaded last. If an import path cannot be found it will be skipped.
+# Imports are loaded in order, skipping all missing files, with the importing
+# file being loaded last. If a field is already present in a previous import, it
+# will be replaced.
+#
+# All imports must either be absolute paths starting with `/`, or paths relative
+# to the user's home directory starting with `~/`.
 #import:
 #  - /path/to/alacritty.yml
 

@@ -30,6 +30,7 @@ copypasta = { version = "0.7.0", default-features = false }
 libc = "0.2"
 unicode-width = "0.1"
 bitflags = "1"
+dirs = "2.0.2"
 
 [build-dependencies]
 gl_generator = "0.14.0"
@@ -42,9 +43,6 @@ image = { version = "0.23.3", default-features = false, features = ["ico"], opti
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
-
-[target.'cfg(any(target_os = "macos", windows))'.dependencies]
-dirs = "2.0.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = { version = "2", optional = true }
