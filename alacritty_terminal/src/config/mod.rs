@@ -1,7 +1,7 @@
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
-use std::cmp::max;
 
 use log::error;
 use serde::{Deserialize, Deserializer};
@@ -127,7 +127,7 @@ pub struct Cursor {
     #[serde(deserialize_with = "option_explicit_none")]
     pub vi_mode_style: Option<ConfigCursorStyle>,
     #[serde(deserialize_with = "failure_default")]
-    pub blink_interval: BlinkInterval,
+    blink_interval: BlinkInterval,
     #[serde(deserialize_with = "deserialize_cursor_thickness")]
     thickness: Percentage,
     #[serde(deserialize_with = "failure_default")]

@@ -506,7 +506,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
-        let blink_interval = self.config.cursor.blink_interval;
+        let blink_interval = self.config.cursor.blink_interval();
         if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
             timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
             *self.cursor_hidden = false;
@@ -709,7 +709,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         if blinking && self.terminal.is_focused {
             self.scheduler.schedule(
                 GlutinEvent::UserEvent(Event::BlinkCursor),
-                Duration::from_millis(self.config.cursor.blink_interval),
+                Duration::from_millis(self.config.cursor.blink_interval()),
                 true,
                 TimerId::BlinkCursor,
             )
