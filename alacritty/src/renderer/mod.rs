@@ -1010,7 +1010,7 @@ impl<'a> RenderApi<'a> {
                 let metrics = glyph_cache.metrics;
                 let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
                     self.load_glyph(&cursor::get_cursor_glyph(
-                        cursor_key.style,
+                        cursor_key.shape,
                         metrics,
                         self.config.font.offset.x,
                         self.config.font.offset.y,

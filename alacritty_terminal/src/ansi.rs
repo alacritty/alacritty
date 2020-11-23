@@ -141,6 +141,9 @@ pub trait Handler {
     /// Set the cursor style.
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
+    /// Set the cursor shape.
+    fn set_cursor_shape(&mut self, _shape: CursorShape) {}
+
     /// A character to be displayed.
     fn input(&mut self, _c: char) {}
 
@@ -324,9 +327,16 @@ pub trait Handler {
     fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
 }
 
-/// Describes shape of cursor.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
-pub enum CursorStyle {
+/// Terminal cursor configuration.
+#[derive(Deserialize, Default, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub struct CursorStyle {
+    pub shape: CursorShape,
+    pub blinking: bool,
+}
+
+/// Terminal cursor shape.
+#[derive(Deserialize, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub enum CursorShape {
     /// Cursor is a block like `▒`.
     Block,
 
@@ -345,9 +355,9 @@ pub enum CursorStyle {
     Hidden,
 }
 
-impl Default for CursorStyle {
-    fn default() -> CursorStyle {
-        CursorStyle::Block
+impl Default for CursorShape {
+    fn default() -> CursorShape {
+        CursorShape::Block
     }
 }
 
@@ -874,13 +884,13 @@ where
                     && params[1].len() >= 13
                     && params[1][0..12] == *b"CursorShape="
                 {
-                    let style = match params[1][12] as char {
-                        '0' => CursorStyle::Block,
-                        '1' => CursorStyle::Beam,
-                        '2' => CursorStyle::Underline,
+                    let shape = match params[1][12] as char {
+                        '0' => CursorShape::Block,
+                        '1' => CursorShape::Beam,
+                        '2' => CursorShape::Underline,
                         _ => return unhandled(params),
                     };
-                    self.handler.set_cursor_style(Some(style));
+                    self.handler.set_cursor_shape(shape);
                     return;
                 }
                 unhandled(params);
@@ -1065,18 +1075,21 @@ where
             ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let style = match next_param_or(0) {
+                let cursor_style_id = next_param_or(0);
+                let shape = match cursor_style_id {
                     0 => None,
-                    1 | 2 => Some(CursorStyle::Block),
-                    3 | 4 => Some(CursorStyle::Underline),
-                    5 | 6 => Some(CursorStyle::Beam),
+                    1 | 2 => Some(CursorShape::Block),
+                    3 | 4 => Some(CursorShape::Underline),
+                    5 | 6 => Some(CursorShape::Beam),
                     _ => {
                         unhandled!();
                         return;
                     },
                 };
+                let cursor_style =
+                    shape.map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
 
-                handler.set_cursor_style(style);
+                handler.set_cursor_style(cursor_style);
             },
             ('r', None) => {
                 let top = next_param_or(1) as usize;

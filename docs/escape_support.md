@@ -68,7 +68,7 @@ brevity.
 | `CSI m`    | PARTIAL     | Only singular straight underlines are supported   |
 | `CSI n`    | IMPLEMENTED |                                                   |
 | `CSI P`    | IMPLEMENTED |                                                   |
-| `CSI SP q` | PARTIAL     | No blinking support                               |
+| `CSI SP q` | IMPLEMENTED |                                                   |
 | `CSI r`    | IMPLEMENTED |                                                   |
 | `CSI S`    | IMPLEMENTED |                                                   |
 | `CSI s`    | IMPLEMENTED |                                                   |

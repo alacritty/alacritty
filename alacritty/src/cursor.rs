@@ -2,10 +2,10 @@
 
 use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
-use alacritty_terminal::ansi::CursorStyle;
+use alacritty_terminal::ansi::CursorShape;
 
 pub fn get_cursor_glyph(
-    cursor: CursorStyle,
+    cursor: CursorShape,
     metrics: Metrics,
     offset_x: i8,
     offset_y: i8,
@@ -26,11 +26,11 @@ pub fn get_cursor_glyph(
     }
 
     match cursor {
-        CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width),
-        CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
-        CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
-        CursorStyle::Block => get_block_cursor_glyph(height, width),
-        CursorStyle::Hidden => RasterizedGlyph::default(),
+        CursorShape::HollowBlock => get_box_cursor_glyph(height, width, line_width),
+        CursorShape::Underline => get_underline_cursor_glyph(width, line_width),
+        CursorShape::Beam => get_beam_cursor_glyph(height, line_width),
+        CursorShape::Block => get_block_cursor_glyph(height, width),
+        CursorShape::Hidden => RasterizedGlyph::default(),
     }
 }
 

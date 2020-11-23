@@ -67,6 +67,7 @@ pub enum Event {
     Scroll(Scroll),
     ConfigReload(PathBuf),
     Message(Message),
+    BlinkCursor,
     SearchNext,
 }
 
@@ -150,6 +151,7 @@ pub struct ActionContext<'a, N, T> {
     pub urls: &'a Urls,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
+    cursor_hidden: &'a mut bool,
     cli_options: &'a CLIOptions,
     font_size: &'a mut Size,
 }
@@ -495,6 +497,28 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Handle keyboard typing start.
+    ///
+    /// This will temporarily disable some features like terminal cursor blinking or the mouse
+    /// cursor.
+    ///
+    /// All features are re-enabled again automatically.
+    #[inline]
+    fn on_typing_start(&mut self) {
+        // Disable cursor blinking.
+        let blink_interval = self.config.cursor.blink_interval();
+        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
+            timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
+        }
+
+        // Hide mouse cursor.
+        if self.config.ui_config.mouse.hide_when_typing {
+            self.window.set_mouse_visible(false);
+        }
+    }
+
     #[inline]
     fn search_direction(&self) -> Direction {
         self.search_state.direction
@@ -667,6 +691,33 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
     }
+
+    /// Update the cursor blinking state.
+    fn update_cursor_blinking(&mut self) {
+        // Get config cursor style.
+        let mut cursor_style = self.config.cursor.style;
+        if self.terminal.mode().contains(TermMode::VI) {
+            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
+        };
+
+        // Check terminal cursor style.
+        let terminal_blinking = self.terminal.cursor_style().blinking;
+        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
+
+        // Update cursor blinking state.
+        self.scheduler.unschedule(TimerId::BlinkCursor);
+        if blinking && self.terminal.is_focused {
+            self.scheduler.schedule(
+                GlutinEvent::UserEvent(Event::BlinkCursor),
+                Duration::from_millis(self.config.cursor.blink_interval()),
+                true,
+                TimerId::BlinkCursor,
+            )
+        } else {
+            *self.cursor_hidden = false;
+            self.terminal.dirty = true;
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -804,6 +855,12 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         let mut scheduler = Scheduler::new();
 
+        // Start the initial cursor blinking timer.
+        if self.config.cursor.style().blinking {
+            let event: Event = TerminalEvent::CursorBlinkingChange(true).into();
+            self.event_queue.push(event.into());
+        }
+
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.ui_config.debug.print_events {
                 info!("glutin event: {:?}", event);
@@ -873,6 +930,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
                 cli_options: &self.cli_options,
+                cursor_hidden: &mut self.display.cursor_hidden,
                 event_loop,
             };
             let mut processor = input::Processor::new(context, &self.display.highlighted_url);
@@ -953,6 +1011,10 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::SearchNext => processor.ctx.goto_match(None),
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
+                Event::BlinkCursor => {
+                    *processor.ctx.cursor_hidden ^= true;
+                    processor.ctx.terminal.dirty = true;
+                },
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
@@ -983,6 +1045,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
+                    TerminalEvent::CursorBlinkingChange(_) => {
+                        processor.ctx.update_cursor_blinking();
+                    },
                 },
             },
             GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,
@@ -1033,6 +1098,7 @@ impl<N: Notify + OnResize> Processor<N> {
                                 processor.ctx.window.set_mouse_visible(true);
                             }
 
+                            processor.ctx.update_cursor_blinking();
                             processor.on_focus_change(is_focused);
                         }
                     },
@@ -1111,7 +1177,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         processor.ctx.terminal.update_config(&config);
 
-        // Reload cursor if we've changed its thickness.
+        // Reload cursor if its thickness has changed.
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
             > std::f64::EPSILON
         {
@@ -1153,6 +1219,9 @@ impl<N: Notify + OnResize> Processor<N> {
         set_font_smoothing(config.ui_config.font.use_thin_strokes());
 
         *processor.ctx.config = config;
+
+        // Update cursor blinking.
+        processor.ctx.update_cursor_blinking();
 
         processor.ctx.terminal.dirty = true;
     }

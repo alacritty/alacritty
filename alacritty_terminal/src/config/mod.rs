@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -10,15 +11,16 @@ mod bell;
 mod colors;
 mod scrolling;
 
-use crate::ansi::CursorStyle;
+use crate::ansi::{CursorShape, CursorStyle};
 
 pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
-const MAX_SCROLLBACK_LINES: u32 = 100_000;
 const DEFAULT_CURSOR_THICKNESS: f32 = 0.15;
+const MAX_SCROLLBACK_LINES: u32 = 100_000;
+const MIN_BLINK_INTERVAL: u64 = 10;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
@@ -121,9 +123,11 @@ impl Default for EscapeChars {
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
 pub struct Cursor {
     #[serde(deserialize_with = "failure_default")]
-    pub style: CursorStyle,
+    pub style: ConfigCursorStyle,
     #[serde(deserialize_with = "option_explicit_none")]
-    pub vi_mode_style: Option<CursorStyle>,
+    pub vi_mode_style: Option<ConfigCursorStyle>,
+    #[serde(deserialize_with = "failure_default")]
+    blink_interval: BlinkInterval,
     #[serde(deserialize_with = "deserialize_cursor_thickness")]
     thickness: Percentage,
     #[serde(deserialize_with = "failure_default")]
@@ -140,6 +144,21 @@ impl Cursor {
     pub fn thickness(self) -> f64 {
         self.thickness.0 as f64
     }
+
+    #[inline]
+    pub fn style(self) -> CursorStyle {
+        self.style.into()
+    }
+
+    #[inline]
+    pub fn vi_mode_style(self) -> Option<CursorStyle> {
+        self.vi_mode_style.map(From::from)
+    }
+
+    #[inline]
+    pub fn blink_interval(self) -> u64 {
+        max(self.blink_interval.0, MIN_BLINK_INTERVAL)
+    }
 }
 
 impl Default for Cursor {
@@ -149,7 +168,17 @@ impl Default for Cursor {
             vi_mode_style: Default::default(),
             thickness: Percentage::new(DEFAULT_CURSOR_THICKNESS),
             unfocused_hollow: Default::default(),
+            blink_interval: Default::default(),
         }
+    }
+}
+
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq)]
+struct BlinkInterval(u64);
+
+impl Default for BlinkInterval {
+    fn default() -> Self {
+        BlinkInterval(750)
     }
 }
 
@@ -170,6 +199,75 @@ where
 
             Ok(Percentage::new(DEFAULT_CURSOR_THICKNESS))
         },
+    }
+}
+
+#[serde(untagged)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ConfigCursorStyle {
+    Shape(CursorShape),
+    WithBlinking {
+        #[serde(default, deserialize_with = "failure_default")]
+        shape: CursorShape,
+        #[serde(default, deserialize_with = "failure_default")]
+        blinking: CursorBlinking,
+    },
+}
+
+impl Default for ConfigCursorStyle {
+    fn default() -> Self {
+        Self::WithBlinking { shape: CursorShape::default(), blinking: CursorBlinking::default() }
+    }
+}
+
+impl ConfigCursorStyle {
+    /// Check if blinking is force enabled/disabled.
+    pub fn blinking_override(&self) -> Option<bool> {
+        match self {
+            Self::Shape(_) => None,
+            Self::WithBlinking { blinking, .. } => blinking.blinking_override(),
+        }
+    }
+}
+
+impl From<ConfigCursorStyle> for CursorStyle {
+    fn from(config_style: ConfigCursorStyle) -> Self {
+        match config_style {
+            ConfigCursorStyle::Shape(shape) => Self { shape, blinking: false },
+            ConfigCursorStyle::WithBlinking { shape, blinking } => {
+                Self { shape, blinking: blinking.into() }
+            },
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CursorBlinking {
+    Never,
+    Off,
+    On,
+    Always,
+}
+
+impl Default for CursorBlinking {
+    fn default() -> Self {
+        CursorBlinking::Off
+    }
+}
+
+impl CursorBlinking {
+    fn blinking_override(&self) -> Option<bool> {
+        match self {
+            Self::Never => Some(false),
+            Self::Off | Self::On => None,
+            Self::Always => Some(true),
+        }
+    }
+}
+
+impl Into<bool> for CursorBlinking {
+    fn into(self) -> bool {
+        self == Self::On || self == Self::Always
     }
 }
 
