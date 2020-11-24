@@ -1,17 +1,4 @@
-# Third Party Repositories
-
-For distributions that do not ship Alacritty officially, there are some third
-party packages available. Only the cargo package is maintained officially, so
-proceed with caution.
-
-## [Fedora](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty)
-
-```
-# dnf copr enable pschyska/alacritty
-# dnf install alacritty
-```
-
-## Cargo
+# Cargo Insallation
 
 If you're just interested in the Alacritty binary and you don't need the
 [terminfo file](#terminfo), [desktop entry](#desktop-entry),
