@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.6.0-rc3"
+version = "0.6.0"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.11.0-rc3"
+version = "0.11.0"
 default-features = false
 
 [dependencies]
