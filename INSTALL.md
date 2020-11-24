@@ -1,4 +1,4 @@
-# Cargo Insallation
+# Cargo Installation
 
 If you're just interested in the Alacritty binary and you don't need the
 [terminfo file](#terminfo), [desktop entry](#desktop-entry),
