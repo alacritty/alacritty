@@ -35,7 +35,7 @@ upload_url=$(\
         2> /dev/null \
     | grep -E "(upload_url|tag_name)" \
     | paste - - \
-    | grep -e "tag_name\": \"$tag" \
+    | grep -e "tag_name\": \"$tag\"" \
     | head -n 1 \
     | sed 's/.*\(https.*assets\).*/\1/' \
 )
