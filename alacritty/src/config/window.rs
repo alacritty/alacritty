@@ -77,11 +77,6 @@ impl WindowConfig {
     }
 
     #[inline]
-    pub fn set_dimensions(&mut self, dimensions: Dimensions) {
-        self.dimensions = dimensions;
-    }
-
-    #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
         if self.dimensions.columns.0 != 0
             && self.dimensions.lines.0 != 0

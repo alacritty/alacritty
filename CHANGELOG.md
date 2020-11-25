@@ -23,6 +23,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Wide characters sometimes being cut off
 - Preserve vi mode across terminal `reset`
 
+### Removed
+
+- The following CLI arguments have been removed in favor of the `--option` flag:
+    * `--persistent-logging`
+    * `--live-config-reload`
+    * `--no-live-config-reload`
+    * `--dimensions`
+    * `--position`
+
 ## 0.6.0
 
 ### Packaging
