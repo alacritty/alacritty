@@ -6,11 +6,9 @@ use log::{self, error, LevelFilter};
 use serde_yaml::Value;
 
 use alacritty_terminal::config::Program;
-use alacritty_terminal::index::{Column, Line};
 
 use crate::config::serde_utils;
-use crate::config::ui_config::Delta;
-use crate::config::window::{Dimensions, DEFAULT_NAME};
+use crate::config::window::DEFAULT_NAME;
 use crate::config::Config;
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -22,11 +20,8 @@ const CONFIG_PATH: &str = "$HOME/.config/alacritty/alacritty.yml";
 
 /// Options specified on the command line.
 pub struct Options {
-    pub live_config_reload: Option<bool>,
     pub print_events: bool,
     pub ref_test: bool,
-    pub dimensions: Option<Dimensions>,
-    pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class_instance: Option<String>,
     pub class_general: Option<String>,
@@ -36,18 +31,14 @@ pub struct Options {
     pub hold: bool,
     pub working_directory: Option<PathBuf>,
     pub config_path: Option<PathBuf>,
-    pub persistent_logging: bool,
     pub config_options: Value,
 }
 
 impl Default for Options {
     fn default() -> Options {
         Options {
-            live_config_reload: None,
             print_events: false,
             ref_test: false,
-            dimensions: None,
-            position: None,
             title: None,
             class_instance: None,
             class_general: None,
@@ -57,7 +48,6 @@ impl Default for Options {
             hold: false,
             working_directory: None,
             config_path: None,
-            persistent_logging: false,
             config_options: Value::Null,
         }
     }
@@ -80,45 +70,9 @@ impl Options {
             .about(crate_description!())
             .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))
             .arg(
-                Arg::with_name("live-config-reload")
-                    .long("live-config-reload")
-                    .help("Enable automatic config reloading"),
-            )
-            .arg(
-                Arg::with_name("no-live-config-reload")
-                    .long("no-live-config-reload")
-                    .help("Disable automatic config reloading")
-                    .conflicts_with("live-config-reload"),
-            )
-            .arg(
                 Arg::with_name("print-events")
                     .long("print-events")
                     .help("Print all events to stdout"),
-            )
-            .arg(
-                Arg::with_name("persistent-logging")
-                    .long("persistent-logging")
-                    .help("Keep the log file after quitting Alacritty"),
-            )
-            .arg(
-                Arg::with_name("dimensions")
-                    .long("dimensions")
-                    .short("d")
-                    .value_names(&["columns", "lines"])
-                    .help(
-                        "Defines the window dimensions. Falls back to size specified by window \
-                         manager if set to 0x0 [default: 0x0]",
-                    ),
-            )
-            .arg(
-                Arg::with_name("position")
-                    .long("position")
-                    .allow_hyphen_values(true)
-                    .value_names(&["x-pos", "y-pos"])
-                    .help(
-                        "Defines the window position. Falls back to position specified by window \
-                         manager if unset [default: unset]",
-                    ),
             )
             .arg(
                 Arg::with_name("title")
@@ -192,32 +146,6 @@ impl Options {
 
         if matches.is_present("print-events") {
             options.print_events = true;
-        }
-
-        if matches.is_present("live-config-reload") {
-            options.live_config_reload = Some(true);
-        } else if matches.is_present("no-live-config-reload") {
-            options.live_config_reload = Some(false);
-        }
-
-        if matches.is_present("persistent-logging") {
-            options.persistent_logging = true;
-        }
-
-        if let Some(mut dimensions) = matches.values_of("dimensions") {
-            let columns = dimensions.next().map(|columns| columns.parse().map(Column));
-            let lines = dimensions.next().map(|lines| lines.parse().map(Line));
-            if let (Some(Ok(columns)), Some(Ok(lines))) = (columns, lines) {
-                options.dimensions = Some(Dimensions { columns, lines });
-            }
-        }
-
-        if let Some(mut position) = matches.values_of("position") {
-            let x = position.next().map(str::parse);
-            let y = position.next().map(str::parse);
-            if let (Some(Ok(x)), Some(Ok(y))) = (x, y) {
-                options.position = Some(Delta { x, y });
-            }
         }
 
         if let Some(mut class) = matches.values_of("class") {
@@ -296,10 +224,6 @@ impl Options {
             }
         }
 
-        if let Some(lcr) = self.live_config_reload {
-            config.ui_config.set_live_config_reload(lcr);
-        }
-
         if let Some(command) = &self.command {
             config.shell = Some(command.clone());
         }
@@ -309,20 +233,14 @@ impl Options {
         let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
         config.ui_config.set_dynamic_title(dynamic_title);
 
-        if let Some(dimensions) = self.dimensions {
-            config.ui_config.window.set_dimensions(dimensions);
-        }
-
         replace_if_some(&mut config.ui_config.window.title, self.title.clone());
         replace_if_some(&mut config.ui_config.window.class.instance, self.class_instance.clone());
         replace_if_some(&mut config.ui_config.window.class.general, self.class_general.clone());
 
-        config.ui_config.window.position = self.position.or(config.ui_config.window.position);
         config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
         config.ui_config.debug.print_events |= self.print_events;
         config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level);
         config.ui_config.debug.ref_test |= self.ref_test;
-        config.ui_config.debug.persistent_logging |= self.persistent_logging;
 
         if config.ui_config.debug.print_events {
             config.ui_config.debug.log_level =

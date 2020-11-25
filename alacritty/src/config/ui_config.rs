@@ -97,11 +97,6 @@ impl UIConfig {
         self.live_config_reload.0
     }
 
-    #[inline]
-    pub fn set_live_config_reload(&mut self, live_config_reload: bool) {
-        self.live_config_reload.0 = live_config_reload;
-    }
-
     /// Send escape sequences using the alt key.
     #[inline]
     pub fn alt_send_esc(&self) -> bool {
