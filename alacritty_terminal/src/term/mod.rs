@@ -1412,12 +1412,11 @@ impl<T> Term<T> {
 
         // Cursor shape.
         let hidden = !show_cursor
-            || !self.mode.contains(TermMode::SHOW_CURSOR)
+            || (!self.mode.contains(TermMode::SHOW_CURSOR) && !vi_mode)
             || point.line >= self.screen_lines();
+
         let cursor_shape = if hidden {
-            if !vi_mode {
-                point.line = Line(0);
-            }
+            point.line = Line(0);
             CursorShape::Hidden
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
             CursorShape::HollowBlock
