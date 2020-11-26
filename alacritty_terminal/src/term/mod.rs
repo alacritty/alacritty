@@ -1691,7 +1691,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Insert tab at cursor position.
     #[inline]
-    fn put_tab(&mut self, mut count: i64) {
+    fn put_tab(&mut self, mut count: u16) {
         // A tab after the last column is the same as a linebreak.
         if self.grid.cursor.input_needs_wrap {
             self.wrapline();
@@ -1883,7 +1883,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_backward_tabs(&mut self, count: i64) {
+    fn move_backward_tabs(&mut self, count: u16) {
         trace!("Moving backward {} tabs", count);
 
         for _ in 0..count {
@@ -1899,7 +1899,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_forward_tabs(&mut self, count: i64) {
+    fn move_forward_tabs(&mut self, count: u16) {
         trace!("[unimplemented] Moving forward {} tabs", count);
     }
 

@@ -14,7 +14,7 @@ bitflags = "1"
 parking_lot = "0.11.0"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
-vte = { version = "0.9.0", default-features = false }
+vte = { git = "https://github.com/alacritty/vte", default-features = false }
 mio = "0.6.20"
 mio-extras = "2"
 log = "0.4"
