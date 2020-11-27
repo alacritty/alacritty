@@ -31,9 +31,13 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
 
     // Scale values instead of filling with `0`s.
     let scale = |input: &str| {
-        let max = u32::pow(16, input.len() as u32) - 1;
-        let value = u32::from_str_radix(input, 16).ok()?;
-        Some((255 * value / max) as u8)
+        if input.len() > 4 {
+            None
+        } else {
+            let max = u32::pow(16, input.len() as u32) - 1;
+            let value = u32::from_str_radix(input, 16).ok()?;
+            Some((255 * value / max) as u8)
+        }
     };
 
     Some(Rgb { r: scale(colors[0])?, g: scale(colors[1])?, b: scale(colors[2])? })
@@ -186,7 +190,7 @@ pub trait Handler {
     fn move_up_and_cr(&mut self, _: Line) {}
 
     /// Put `count` tabs.
-    fn put_tab(&mut self, _count: i64) {}
+    fn put_tab(&mut self, _count: u16) {}
 
     /// Backspace `count` characters.
     fn backspace(&mut self) {}
@@ -236,10 +240,10 @@ pub trait Handler {
     fn delete_chars(&mut self, _: Column) {}
 
     /// Move backward `count` tabs.
-    fn move_backward_tabs(&mut self, _count: i64) {}
+    fn move_backward_tabs(&mut self, _count: u16) {}
 
     /// Move forward `count` tabs.
-    fn move_forward_tabs(&mut self, _count: i64) {}
+    fn move_forward_tabs(&mut self, _count: u16) {}
 
     /// Save current cursor position.
     fn save_cursor_position(&mut self) {}
@@ -424,7 +428,7 @@ impl Mode {
     /// Create mode from a primitive.
     ///
     /// TODO lots of unhandled values.
-    pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
+    pub fn from_primitive(intermediate: Option<&u8>, num: u16) -> Option<Mode> {
         let private = match intermediate {
             Some(b'?') => true,
             None => false,
@@ -968,7 +972,7 @@ where
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
-        let mut next_param_or = |default: i64| {
+        let mut next_param_or = |default: u16| {
             params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
         };
 
@@ -1258,7 +1262,7 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
 }
 
 /// Parse a color specifier from list of attributes.
-fn parse_sgr_color(params: &mut dyn Iterator<Item = i64>) -> Option<Color> {
+fn parse_sgr_color(params: &mut dyn Iterator<Item = u16>) -> Option<Color> {
     match params.next() {
         Some(2) => Some(Color::Spec(Rgb {
             r: u8::try_from(params.next()?).ok()?,
