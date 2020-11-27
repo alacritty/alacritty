@@ -22,7 +22,7 @@ struct Rgba {
     a: u8,
 }
 
-/// Vertex to store solid-color rectangle data.
+/// Struct that stores vertex 2D coordinates and color for rect rendering.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
@@ -35,10 +35,10 @@ struct Vertex {
     color: Rgba,
 }
 
-/// Structure to store and group together rect-related vertices data and GL objects.
+/// Struct to group together rect-related GL objects and rendering functionality.
 #[derive(Debug)]
 pub struct RectRenderer {
-    // GL buffer objects. VAO stores attribute and ebo bindings.
+    // GL buffer objects. VAO stores vertex attributes binding.
     vao: GLuint,
     vbo: GLuint,
 
@@ -63,7 +63,7 @@ impl RectRenderer {
 
             gl::BindVertexArray(vao);
 
-            // VBO binding is not part ot VAO, but attributes are.
+            // VBO binding is not part ot VAO itself, but VBO binding is stored in attributes.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
             let mut index = 0;
@@ -104,11 +104,11 @@ impl RectRenderer {
     }
 
     pub fn draw(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
-        // Setup bindings. VAO will set up attribs and EBO, but not VBO.
         unsafe {
+            // Bind VAO to enable vertex attribute slots specified in new().
             gl::BindVertexArray(self.vao);
 
-            // Bind VBO only once for buffer data upload in draw_accumulated.
+            // Bind VBO only once for buffer data upload only.
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
             gl::UseProgram(self.program.id);
@@ -117,12 +117,14 @@ impl RectRenderer {
         let center_x = size_info.width() / 2.;
         let center_y = size_info.height() / 2.;
 
+        // Build rect vertices vector.
         let mut vertices = RectVertices::new(rects.len());
         for rect in &rects {
             vertices.add_rect(center_x, center_y, rect);
         }
 
         unsafe {
+            // Upload and render accumulated vertices.
             vertices.draw();
 
             // Disable program.
@@ -160,7 +162,7 @@ impl RectVertices {
             a: (rect.alpha * 255.) as u8,
         };
 
-        // Append rect vertices.
+        // Make quad vertices.
         let quad = [
             Vertex { x, y, color },
             Vertex { x, y: y - height, color },
@@ -168,6 +170,7 @@ impl RectVertices {
             Vertex { x: x + width, y: y - height, color },
         ];
 
+        // Append the vertices to form two triangles.
         self.vertices.push(quad[0]);
         self.vertices.push(quad[1]);
         self.vertices.push(quad[2]);
@@ -185,6 +188,7 @@ impl RectVertices {
             gl::STREAM_DRAW,
         );
 
+        // Draw all vertices as list of triangles.
         gl::DrawArrays(gl::TRIANGLES, 0, self.vertices.len() as i32);
     }
 }
