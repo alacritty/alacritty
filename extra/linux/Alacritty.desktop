@@ -5,6 +5,7 @@ Exec=alacritty
 Icon=Alacritty
 Terminal=false
 Categories=System;TerminalEmulator;
+PrefersNonDefaultGPU=true
 
 Name=Alacritty
 GenericName=Terminal
