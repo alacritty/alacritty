@@ -12,9 +12,9 @@ const MAX_CACHE_SIZE: usize = 1_000;
 
 /// A ring buffer for optimizing indexing and rotation.
 ///
-/// The [`Storage::rotate`] and [`Storage::rotate_up`] functions are fast modular additions on the
-/// internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items in
-/// memory.
+/// The [`Storage::rotate`] and [`Storage::rotate_down`] functions are fast modular additions on
+/// the internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items
+/// in memory.
 ///
 /// As a consequence, both [`Index`] and [`IndexMut`] are reimplemented for this type to account
 /// for the zeroth element not always being at the start of the allocation.
