@@ -308,6 +308,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
+            Action::Reset => ctx.terminal_mut().reset_state(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             Action::ReceiveChar | Action::None => (),
         }

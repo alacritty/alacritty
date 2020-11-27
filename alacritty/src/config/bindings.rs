@@ -142,6 +142,9 @@ pub enum Action {
     /// Scroll all the way to the bottom.
     ScrollToBottom,
 
+    /// Clears scrollback buffer and resets the terminal
+    Reset,
+
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
