@@ -618,6 +618,12 @@ impl QuadRenderer {
                 watcher
                     .watch(TEXT_SHADER_V_PATH, RecursiveMode::NonRecursive)
                     .expect("watch vertex shader");
+                watcher
+                    .watch(rect::RECT_SHADER_V_PATH, RecursiveMode::NonRecursive)
+                    .expect("watch rect vertex shader");
+                watcher
+                    .watch(rect::RECT_SHADER_F_PATH, RecursiveMode::NonRecursive)
+                    .expect("watch rect fragment shader");
 
                 loop {
                     let event = rx.recv().expect("watcher event");
