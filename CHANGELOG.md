@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - New `cursor.style.blinking` option to set the default blinking state
 - New `cursor.blink_interval` option to configure the blinking frequency
 - Support for cursor blinking escapes (`CSI ? 12 h`, `CSI ? 12 l` and `CSI Ps SP q`)
+- `PrefersNonDefaultGPU` entry to Linux .desktop file
 
 ### Changed
 
