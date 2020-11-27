@@ -30,10 +30,8 @@ use crate::config::ui_config::{Delta, UIConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::rect::{RectRenderer, RectShaderProgram};
-use crate::renderer::rects::RenderRect;
+use crate::renderer::rects::{RectRenderer, RectShaderProgram, RenderRect};
 
-mod rect;
 pub mod rects;
 
 // Shader paths for live reload.
@@ -619,10 +617,10 @@ impl QuadRenderer {
                     .watch(TEXT_SHADER_V_PATH, RecursiveMode::NonRecursive)
                     .expect("watch vertex shader");
                 watcher
-                    .watch(rect::RECT_SHADER_V_PATH, RecursiveMode::NonRecursive)
+                    .watch(rects::RECT_SHADER_V_PATH, RecursiveMode::NonRecursive)
                     .expect("watch rect vertex shader");
                 watcher
-                    .watch(rect::RECT_SHADER_F_PATH, RecursiveMode::NonRecursive)
+                    .watch(rects::RECT_SHADER_F_PATH, RecursiveMode::NonRecursive)
                     .expect("watch rect fragment shader");
 
                 loop {
