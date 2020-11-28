@@ -136,7 +136,6 @@ pub struct RenderableCellsIter<'a, C> {
     inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
     cursor: RenderableCursor,
-    show_cursor: bool,
     config: &'a Config<C>,
     colors: &'a color::List,
     selection: Option<SelectionRange<Line>>,
@@ -153,7 +152,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.show_cursor && self.cursor.point == self.inner.point() {
+            if self.cursor.point == self.inner.point() {
                 // Handle cursor rendering.
                 if self.cursor.rendered {
                     return self.next_cursor_cell();
@@ -185,8 +184,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         show_cursor: bool,
     ) -> RenderableCellsIter<'a, C> {
         RenderableCellsIter {
-            cursor: term.renderable_cursor(config),
-            show_cursor,
+            cursor: term.renderable_cursor(config, show_cursor),
             grid: &term.grid,
             inner: term.grid.display_iter(),
             selection: term.visible_selection(),
@@ -1400,7 +1398,7 @@ impl<T> Term<T> {
     }
 
     /// Get rendering information about the active cursor.
-    fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
+    fn renderable_cursor<C>(&self, config: &Config<C>, show_cursor: bool) -> RenderableCursor {
         let vi_mode = self.mode.contains(TermMode::VI);
 
         // Cursor position.
@@ -1413,9 +1411,11 @@ impl<T> Term<T> {
         };
 
         // Cursor shape.
-        let hidden =
-            !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.screen_lines();
-        let cursor_shape = if hidden && !vi_mode {
+        let hidden = !show_cursor
+            || (!self.mode.contains(TermMode::SHOW_CURSOR) && !vi_mode)
+            || point.line >= self.screen_lines();
+
+        let cursor_shape = if hidden {
             point.line = Line(0);
             CursorShape::Hidden
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
