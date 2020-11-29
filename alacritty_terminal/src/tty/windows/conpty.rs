@@ -9,7 +9,7 @@ use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
 use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
 use winapi::shared::winerror::S_OK;
-use winapi::um::libloaderapi::{GetModuleHandleA, GetProcAddress};
+use winapi::um::libloaderapi::{GetModuleHandleA, GetProcAddress, LoadLibraryA};
 use winapi::um::processthreadsapi::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
     PROCESS_INFORMATION, STARTUPINFOW,
@@ -45,7 +45,14 @@ impl ConptyApi {
     pub fn new() -> Option<Self> {
         // Unsafe because windows API calls.
         unsafe {
-            let hmodule = GetModuleHandleA("kernel32\0".as_ptr() as _);
+            // Try to use conpty.dll from the Windows Terminal project, which can use OpenConsole
+            // if it exists. Just copy the conpty.dll and OpenConsole.exe files to the same
+            // directory as the Alacritty.exe to use it.
+            let mut hmodule = LoadLibraryA("conpty.dll\0".as_ptr() as _);
+            if hmodule.is_null() {
+                // Otherwise just use the standard conpty from kernel32.
+                hmodule = GetModuleHandleA("kernel32\0".as_ptr() as _);
+            }
             assert!(!hmodule.is_null());
 
             let cpc = GetProcAddress(hmodule, "CreatePseudoConsole\0".as_ptr() as _);
