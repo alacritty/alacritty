@@ -668,8 +668,6 @@ impl QuadRenderer {
         unsafe {
             // Remove padding from viewport.
             gl::Viewport(0, 0, size_info.width() as i32, size_info.height() as i32);
-
-            gl::Enable(gl::BLEND);
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
         }
 

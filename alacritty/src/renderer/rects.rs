@@ -232,6 +232,8 @@ pub struct RectRenderer {
     vbo: GLuint,
 
     program: RectShaderProgram,
+
+    vertices: Vec<Vertex>,
 }
 
 impl RectRenderer {
@@ -252,7 +254,7 @@ impl RectRenderer {
 
             gl::BindVertexArray(vao);
 
-            // VBO binding is not part ot VAO itself, but VBO binding is stored in attributes.
+            // VBO binding is not part of VAO itself, but VBO binding is stored in attributes.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
             let mut index = 0;
@@ -289,12 +291,12 @@ impl RectRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
-        Ok(Self { vao, vbo, program })
+        Ok(Self { vao, vbo, program, vertices: Vec::new() })
     }
 
     pub fn draw(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
         unsafe {
-            // Bind VAO to enable vertex attribute slots specified in new().
+            // Bind VAO to enable vertex attribute slots.
             gl::BindVertexArray(self.vao);
 
             // Bind VBO only once for buffer data upload only.
@@ -307,14 +309,23 @@ impl RectRenderer {
         let center_y = size_info.height() / 2.;
 
         // Build rect vertices vector.
-        let mut vertices = RectVertices::new(rects.len());
+        self.vertices.clear();
         for rect in &rects {
-            vertices.add_rect(center_x, center_y, rect);
+            self.add_rect(center_x, center_y, rect);
         }
 
         unsafe {
             // Upload and render accumulated vertices.
-            vertices.draw();
+            // Upload accumulated vertices.
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.vertices.len() * std::mem::size_of::<Vertex>()) as isize,
+                self.vertices.as_ptr() as *const _,
+                gl::STREAM_DRAW,
+            );
+
+            // Draw all vertices as list of triangles.
+            gl::DrawArrays(gl::TRIANGLES, 0, self.vertices.len() as i32);
 
             // Disable program.
             gl::UseProgram(0);
@@ -323,19 +334,6 @@ impl RectRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         }
-    }
-}
-
-/// Helper struct to hold transient vertices for rendering.
-struct RectVertices {
-    vertices: Vec<Vertex>,
-}
-
-impl RectVertices {
-    fn new(rects: usize) -> Self {
-        let mut vertices = Vec::new();
-        vertices.reserve(rects * 6);
-        Self { vertices }
     }
 
     fn add_rect(&mut self, center_x: f32, center_y: f32, rect: &RenderRect) {
@@ -366,19 +364,6 @@ impl RectVertices {
         self.vertices.push(quad[2]);
         self.vertices.push(quad[3]);
         self.vertices.push(quad[1]);
-    }
-
-    unsafe fn draw(&self) {
-        // Upload accumulated vertices.
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (self.vertices.len() * std::mem::size_of::<Vertex>()) as isize,
-            self.vertices.as_ptr() as *const _,
-            gl::STREAM_DRAW,
-        );
-
-        // Draw all vertices as list of triangles.
-        gl::DrawArrays(gl::TRIANGLES, 0, self.vertices.len() as i32);
     }
 }
 
