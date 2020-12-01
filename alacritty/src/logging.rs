@@ -108,33 +108,12 @@ impl log::Log for Logger {
         }
 
         let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-
-        let lines = record.args().to_string();
-        let mut lines = lines.split('\n').peekable();
-
         let mut msg = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
-
-        // Alignment for the lines after the first new line character in the payload.
-        let alignment = msg.chars().count();
-
-        // The first line must be on the same line as `target` in the `msg`.
-        if let Some(line) = lines.next() {
-            msg.push_str(&line);
-        }
-
-        // Push the rest of the lines prefixed with `alignment` to make the multiline output look
-        // uniform.
-        for line in lines {
-            let line = format!("\n{:width$}{}", "", line, width = alignment);
-            msg.push_str(&line);
-        }
-
-        // Push the trailing new line character, so the log will reach the output.
-        msg.push('\n');
+        let msg = append_log_message(&mut msg, record);
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.
-            let _ = logfile.write_all(msg.as_ref());
+            let _ = logfile.write_all(msg);
 
             // Write to message bar.
             if record.level() <= Level::Warn {
@@ -144,11 +123,27 @@ impl log::Log for Logger {
 
         // Write to stdout.
         if let Ok(mut stdout) = self.stdout.lock() {
-            let _ = stdout.write_all(msg.as_ref());
+            let _ = stdout.write_all(msg);
         }
     }
 
     fn flush(&self) {}
+}
+
+fn append_log_message<'a>(msg: &'a mut String, record: &log::Record<'_>) -> &'a [u8] {
+    // Alignment for the lines after the first new line character in the payload. We don't deal
+    // with fullwidth/unicode chars here, so just `msg.len()` will work fine.
+    let alignment = msg.len();
+
+    // Push lines with adding extra padding into the next line, we'll trim it later on.
+    let lines = record.args().to_string();
+    for line in lines.split('\n') {
+        let line = format!("{}\n{:width$}", line, "", width = alignment);
+        msg.push_str(&line);
+    }
+
+    // Trim extra alignment we've just pushed.
+    msg.trim_end_matches(' ').as_ref()
 }
 
 struct OnDemandLogFile {
