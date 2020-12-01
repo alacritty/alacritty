@@ -211,12 +211,10 @@ struct Rgba {
     a: u8,
 }
 
-/// Struct that stores vertex 2D coordinates and color for rect rendering.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
     // Normalized screen coordinates.
-    // TODO these can certainly be i16.
     x: f32,
     y: f32,
 
@@ -224,10 +222,9 @@ struct Vertex {
     color: Rgba,
 }
 
-/// Struct to group together rect-related GL objects and rendering functionality.
 #[derive(Debug)]
 pub struct RectRenderer {
-    // GL buffer objects. VAO stores vertex attributes binding.
+    // GL buffer objects.
     vao: GLuint,
     vbo: GLuint,
 
@@ -257,34 +254,27 @@ impl RectRenderer {
             // VBO binding is not part of VAO itself, but VBO binding is stored in attributes.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-            let mut index = 0;
-            let mut size = 0;
-
-            macro_rules! add_attr {
-                ($count:expr, $gl_type:expr, $normalize:expr, $type:ty) => {
-                    gl::VertexAttribPointer(
-                        index,
-                        $count,
-                        $gl_type,
-                        $normalize,
-                        size_of::<Vertex>() as i32,
-                        size as *const _,
-                    );
-                    gl::EnableVertexAttribArray(index);
-
-                    #[allow(unused_assignments)]
-                    {
-                        size += $count * size_of::<$type>();
-                        index += 1;
-                    }
-                };
-            }
-
             // Position.
-            add_attr!(2, gl::FLOAT, gl::FALSE, f32);
+            gl::VertexAttribPointer(
+                0,                          // Attribute location.
+                2,                          // Component count: 2. x and y.
+                gl::FLOAT,                  // Attribute type: f32
+                gl::FALSE,                  // Not normalized.
+                size_of::<Vertex>() as i32, // Stride.
+                0 as *const _,              // Offset of Vertex::x is zero.
+            );
+            gl::EnableVertexAttribArray(0);
 
             // Color.
-            add_attr!(4, gl::UNSIGNED_BYTE, gl::TRUE, u8);
+            gl::VertexAttribPointer(
+                1,                          // Attribute location.
+                4,                          // Component count: 4. r, g, b, a.
+                gl::UNSIGNED_BYTE,          // Attribute type: u8.
+                gl::TRUE,                   // Normalized: 0..255 is mapped to 0..1.
+                size_of::<Vertex>() as i32, // Stride.
+                8 as *const _,              // Offset of Vertex::color.
+            );
+            gl::EnableVertexAttribArray(1);
 
             // Reset buffer bindings.
             gl::BindVertexArray(0);
@@ -315,7 +305,6 @@ impl RectRenderer {
         }
 
         unsafe {
-            // Upload and render accumulated vertices.
             // Upload accumulated vertices.
             gl::BufferData(
                 gl::ARRAY_BUFFER,
