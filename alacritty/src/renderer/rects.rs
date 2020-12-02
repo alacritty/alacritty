@@ -261,7 +261,7 @@ impl RectRenderer {
                 gl::FLOAT,                  // Attribute type: f32
                 gl::FALSE,                  // Not normalized.
                 size_of::<Vertex>() as i32, // Stride.
-                0 as *const _,              // Offset of Vertex::x is zero.
+                std::ptr::null(),           // Offset of Vertex::x is zero.
             );
             gl::EnableVertexAttribArray(0);
 
