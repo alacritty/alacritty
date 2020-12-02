@@ -31,9 +31,13 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
 
     // Scale values instead of filling with `0`s.
     let scale = |input: &str| {
-        let max = u32::pow(16, input.len() as u32) - 1;
-        let value = u32::from_str_radix(input, 16).ok()?;
-        Some((255 * value / max) as u8)
+        if input.len() > 4 {
+            None
+        } else {
+            let max = u32::pow(16, input.len() as u32) - 1;
+            let value = u32::from_str_radix(input, 16).ok()?;
+            Some((255 * value / max) as u8)
+        }
     };
 
     Some(Rgb { r: scale(colors[0])?, g: scale(colors[1])?, b: scale(colors[2])? })
@@ -141,6 +145,9 @@ pub trait Handler {
     /// Set the cursor style.
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
+    /// Set the cursor shape.
+    fn set_cursor_shape(&mut self, _shape: CursorShape) {}
+
     /// A character to be displayed.
     fn input(&mut self, _c: char) {}
 
@@ -183,7 +190,7 @@ pub trait Handler {
     fn move_up_and_cr(&mut self, _: Line) {}
 
     /// Put `count` tabs.
-    fn put_tab(&mut self, _count: i64) {}
+    fn put_tab(&mut self, _count: u16) {}
 
     /// Backspace `count` characters.
     fn backspace(&mut self) {}
@@ -233,10 +240,10 @@ pub trait Handler {
     fn delete_chars(&mut self, _: Column) {}
 
     /// Move backward `count` tabs.
-    fn move_backward_tabs(&mut self, _count: i64) {}
+    fn move_backward_tabs(&mut self, _count: u16) {}
 
     /// Move forward `count` tabs.
-    fn move_forward_tabs(&mut self, _count: i64) {}
+    fn move_forward_tabs(&mut self, _count: u16) {}
 
     /// Save current cursor position.
     fn save_cursor_position(&mut self) {}
@@ -324,9 +331,16 @@ pub trait Handler {
     fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
 }
 
-/// Describes shape of cursor.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
-pub enum CursorStyle {
+/// Terminal cursor configuration.
+#[derive(Deserialize, Default, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub struct CursorStyle {
+    pub shape: CursorShape,
+    pub blinking: bool,
+}
+
+/// Terminal cursor shape.
+#[derive(Deserialize, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+pub enum CursorShape {
     /// Cursor is a block like `▒`.
     Block,
 
@@ -345,9 +359,9 @@ pub enum CursorStyle {
     Hidden,
 }
 
-impl Default for CursorStyle {
-    fn default() -> CursorStyle {
-        CursorStyle::Block
+impl Default for CursorShape {
+    fn default() -> CursorShape {
+        CursorShape::Block
     }
 }
 
@@ -414,7 +428,7 @@ impl Mode {
     /// Create mode from a primitive.
     ///
     /// TODO lots of unhandled values.
-    pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
+    pub fn from_primitive(intermediate: Option<&u8>, num: u16) -> Option<Mode> {
         let private = match intermediate {
             Some(b'?') => true,
             None => false,
@@ -874,13 +888,13 @@ where
                     && params[1].len() >= 13
                     && params[1][0..12] == *b"CursorShape="
                 {
-                    let style = match params[1][12] as char {
-                        '0' => CursorStyle::Block,
-                        '1' => CursorStyle::Beam,
-                        '2' => CursorStyle::Underline,
+                    let shape = match params[1][12] as char {
+                        '0' => CursorShape::Block,
+                        '1' => CursorShape::Beam,
+                        '2' => CursorShape::Underline,
                         _ => return unhandled(params),
                     };
-                    self.handler.set_cursor_style(Some(style));
+                    self.handler.set_cursor_shape(shape);
                     return;
                 }
                 unhandled(params);
@@ -958,7 +972,7 @@ where
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
-        let mut next_param_or = |default: i64| {
+        let mut next_param_or = |default: u16| {
             params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
         };
 
@@ -1065,18 +1079,21 @@ where
             ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let style = match next_param_or(0) {
+                let cursor_style_id = next_param_or(0);
+                let shape = match cursor_style_id {
                     0 => None,
-                    1 | 2 => Some(CursorStyle::Block),
-                    3 | 4 => Some(CursorStyle::Underline),
-                    5 | 6 => Some(CursorStyle::Beam),
+                    1 | 2 => Some(CursorShape::Block),
+                    3 | 4 => Some(CursorShape::Underline),
+                    5 | 6 => Some(CursorShape::Beam),
                     _ => {
                         unhandled!();
                         return;
                     },
                 };
+                let cursor_style =
+                    shape.map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
 
-                handler.set_cursor_style(style);
+                handler.set_cursor_style(cursor_style);
             },
             ('r', None) => {
                 let top = next_param_or(1) as usize;
@@ -1245,7 +1262,7 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
 }
 
 /// Parse a color specifier from list of attributes.
-fn parse_sgr_color(params: &mut dyn Iterator<Item = i64>) -> Option<Color> {
+fn parse_sgr_color(params: &mut dyn Iterator<Item = u16>) -> Option<Color> {
     match params.next() {
         Some(2) => Some(Color::Spec(Rgb {
             r: u8::try_from(params.next()?).ok()?,

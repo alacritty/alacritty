@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
 use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
@@ -61,7 +61,7 @@ struct RenderableCursor {
 /// A key for caching cursor glyphs.
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub struct CursorKey {
-    pub style: CursorStyle,
+    pub shape: CursorShape,
     pub is_wide: bool,
 }
 
@@ -136,7 +136,6 @@ pub struct RenderableCellsIter<'a, C> {
     inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
     cursor: RenderableCursor,
-    show_cursor: bool,
     config: &'a Config<C>,
     colors: &'a color::List,
     selection: Option<SelectionRange<Line>>,
@@ -153,7 +152,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.show_cursor && self.cursor.point == self.inner.point() {
+            if self.cursor.point == self.inner.point() {
                 // Handle cursor rendering.
                 if self.cursor.rendered {
                     return self.next_cursor_cell();
@@ -185,8 +184,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         show_cursor: bool,
     ) -> RenderableCellsIter<'a, C> {
         RenderableCellsIter {
-            cursor: term.renderable_cursor(config),
-            show_cursor,
+            cursor: term.renderable_cursor(config, show_cursor),
             grid: &term.grid,
             inner: term.grid.display_iter(),
             selection: term.visible_selection(),
@@ -202,7 +200,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let cell = self.inner.next()?;
         let mut cell = RenderableCell::new(self, cell);
 
-        if self.cursor.key.style == CursorStyle::Block {
+        if self.cursor.key.shape == CursorShape::Block {
             cell.fg = match self.cursor.cursor_color {
                 // Apply cursor color, or invert the cursor if it has a fixed background
                 // close to the cell's background.
@@ -249,7 +247,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         };
 
         // Do not invert block cursor at selection boundaries.
-        if self.cursor.key.style == CursorStyle::Block
+        if self.cursor.key.shape == CursorShape::Block
             && self.cursor.point == point
             && (selection.start == point
                 || selection.end == point
@@ -855,8 +853,8 @@ impl<T> Term<T> {
             original_colors: colors,
             semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
-            default_cursor_style: config.cursor.style,
-            vi_mode_cursor_style: config.cursor.vi_mode_style,
+            default_cursor_style: config.cursor.style(),
+            vi_mode_cursor_style: config.cursor.vi_mode_style(),
             event_proxy,
             is_focused: true,
             title: None,
@@ -885,8 +883,8 @@ impl<T> Term<T> {
         if let Some(0) = config.scrolling.faux_multiplier() {
             self.mode.remove(TermMode::ALTERNATE_SCROLL);
         }
-        self.default_cursor_style = config.cursor.style;
-        self.vi_mode_cursor_style = config.cursor.vi_mode_style;
+        self.default_cursor_style = config.cursor.style();
+        self.vi_mode_cursor_style = config.cursor.vi_mode_style();
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -1207,7 +1205,10 @@ impl<T> Term<T> {
 
     /// Toggle the vi mode.
     #[inline]
-    pub fn toggle_vi_mode(&mut self) {
+    pub fn toggle_vi_mode(&mut self)
+    where
+        T: EventListener,
+    {
         self.mode ^= TermMode::VI;
 
         let vi_mode = self.mode.contains(TermMode::VI);
@@ -1225,6 +1226,9 @@ impl<T> Term<T> {
         } else {
             self.cancel_search();
         }
+
+        // Update UI about cursor blinking state changes.
+        self.event_proxy.send_event(Event::CursorBlinkingChange(self.cursor_style().blinking));
 
         self.dirty = true;
     }
@@ -1332,6 +1336,20 @@ impl<T> Term<T> {
         &self.semantic_escape_chars
     }
 
+    /// Active terminal cursor style.
+    ///
+    /// While vi mode is active, this will automatically return the vi mode cursor style.
+    #[inline]
+    pub fn cursor_style(&self) -> CursorStyle {
+        let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
+
+        if self.mode.contains(TermMode::VI) {
+            self.vi_mode_cursor_style.unwrap_or(cursor_style)
+        } else {
+            cursor_style
+        }
+    }
+
     /// Insert a linebreak at the current cursor position.
     #[inline]
     fn wrapline(&mut self)
@@ -1380,7 +1398,7 @@ impl<T> Term<T> {
     }
 
     /// Get rendering information about the active cursor.
-    fn renderable_cursor<C>(&self, config: &Config<C>) -> RenderableCursor {
+    fn renderable_cursor<C>(&self, config: &Config<C>, show_cursor: bool) -> RenderableCursor {
         let vi_mode = self.mode.contains(TermMode::VI);
 
         // Cursor position.
@@ -1393,20 +1411,22 @@ impl<T> Term<T> {
         };
 
         // Cursor shape.
-        let hidden =
-            !self.mode.contains(TermMode::SHOW_CURSOR) || point.line >= self.screen_lines();
-        let cursor_style = if hidden && !vi_mode {
+        let hidden = !show_cursor
+            || (!self.mode.contains(TermMode::SHOW_CURSOR) && !vi_mode)
+            || point.line >= self.screen_lines();
+
+        let cursor_shape = if hidden {
             point.line = Line(0);
-            CursorStyle::Hidden
+            CursorShape::Hidden
         } else if !self.is_focused && config.cursor.unfocused_hollow() {
-            CursorStyle::HollowBlock
+            CursorShape::HollowBlock
         } else {
             let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
 
             if vi_mode {
-                self.vi_mode_cursor_style.unwrap_or(cursor_style)
+                self.vi_mode_cursor_style.unwrap_or(cursor_style).shape
             } else {
-                cursor_style
+                cursor_style.shape
             }
         };
 
@@ -1432,7 +1452,7 @@ impl<T> Term<T> {
         RenderableCursor {
             text_color,
             cursor_color,
-            key: CursorKey { style: cursor_style, is_wide },
+            key: CursorKey { shape: cursor_shape, is_wide },
             point,
             rendered: false,
         }
@@ -1671,7 +1691,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Insert tab at cursor position.
     #[inline]
-    fn put_tab(&mut self, mut count: i64) {
+    fn put_tab(&mut self, mut count: u16) {
         // A tab after the last column is the same as a linebreak.
         if self.grid.cursor.input_needs_wrap {
             self.wrapline();
@@ -1863,7 +1883,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_backward_tabs(&mut self, count: i64) {
+    fn move_backward_tabs(&mut self, count: u16) {
         trace!("Moving backward {} tabs", count);
 
         for _ in 0..count {
@@ -1879,7 +1899,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_forward_tabs(&mut self, count: i64) {
+    fn move_forward_tabs(&mut self, count: u16) {
         trace!("[unimplemented] Moving forward {} tabs", count);
     }
 
@@ -2098,6 +2118,9 @@ impl<T: EventListener> Handler for Term<T> {
         // Preserve vi mode across resets.
         self.mode &= TermMode::VI;
         self.mode.insert(TermMode::default());
+
+        let blinking = self.cursor_style().blinking;
+        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
     }
 
     #[inline]
@@ -2199,7 +2222,9 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
-                trace!("... unimplemented mode");
+                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                style.blinking = true;
+                self.event_proxy.send_event(Event::CursorBlinkingChange(true));
             },
         }
     }
@@ -2239,7 +2264,9 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
-                trace!("... unimplemented mode");
+                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                style.blinking = false;
+                self.event_proxy.send_event(Event::CursorBlinkingChange(false));
             },
         }
     }
@@ -2296,6 +2323,18 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("Setting cursor style {:?}", style);
         self.cursor_style = style;
+
+        // Notify UI about blinking changes.
+        let blinking = style.unwrap_or(self.default_cursor_style).blinking;
+        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
+    }
+
+    #[inline]
+    fn set_cursor_shape(&mut self, shape: CursorShape) {
+        trace!("Setting cursor shape {:?}", shape);
+
+        let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+        style.shape = shape;
     }
 
     #[inline]
