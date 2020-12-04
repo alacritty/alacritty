@@ -8,3 +8,6 @@ members = [
 lto = true
 debug = 1
 incremental = false
+
+[patch.crates-io]
+glutin = { git = "https://github.com/samdoiron/glutin" }

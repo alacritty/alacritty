@@ -849,8 +849,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "glutin"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8bae26a39a728b003e9fad473ea89527de0de050143b4df866f18bb154bc86e"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 dependencies = [
  "android_glue",
  "cgl",
@@ -876,8 +875,7 @@ dependencies = [
 [[package]]
 name = "glutin_egl_sys"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2abb6aa55523480c4adc5a56bbaa249992e2dddb2fc63dc96e04a3355364c211"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 dependencies = [
  "gl_generator",
  "winapi 0.3.9",
@@ -886,14 +884,12 @@ dependencies = [
 [[package]]
 name = "glutin_emscripten_sys"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80de4146df76e8a6c32b03007bc764ff3249dcaeb4f675d68a06caf1bac363f1"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 
 [[package]]
 name = "glutin_gles2_sys"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8094e708b730a7c8a1954f4f8a31880af00eb8a1c5b5bf85d28a0a3c6d69103"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 dependencies = [
  "gl_generator",
  "objc",
@@ -902,8 +898,7 @@ dependencies = [
 [[package]]
 name = "glutin_glx_sys"
 version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e393c8fc02b807459410429150e9c4faffdb312d59b8c038566173c81991351"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 dependencies = [
  "gl_generator",
  "x11-dl",
@@ -912,8 +907,7 @@ dependencies = [
 [[package]]
 name = "glutin_wgl_sys"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da5951a1569dbab865c6f2a863efafff193a93caf05538d193e9e3816d21696"
+source = "git+https://github.com/samdoiron/glutin#ec17aa0ba80079b1572d2495c430ccea6d292fa4"
 dependencies = [
  "gl_generator",
 ]
@@ -2363,11 +2357,10 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5bc559da567d8aa671bbcd08304d49e982c7bf2cb91e10288b9188931c1b772"
+source = "git+https://github.com/rust-windowing/winit#8fb7aa5cef1c3bee28730dc771c7ddb16ba47c66"
 dependencies = [
  "bitflags",
- "cocoa 0.23.0",
+ "cocoa 0.24.0",
  "core-foundation 0.9.1",
  "core-graphics 0.22.1",
  "core-video-sys",

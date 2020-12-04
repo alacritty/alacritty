@@ -27,7 +27,8 @@ use std::fmt::{self, Display, Formatter};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
-use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
+use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
+use glutin::window::{UserAttentionType};
 #[cfg(windows)]
 use glutin::platform::windows::IconExtWindows;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
@@ -339,7 +340,7 @@ impl Window {
             return;
         }
 
-        self.window().request_user_attention(RequestUserAttentionType::Critical);
+        self.window().request_user_attention(Some(UserAttentionType::Critical));
     }
 
     #[cfg(any(windows, not(any(feature = "x11", target_os = "macos"))))]
