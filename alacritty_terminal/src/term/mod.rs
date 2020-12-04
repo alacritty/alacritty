@@ -401,7 +401,7 @@ impl RenderableCell {
                 ) {
                     (true, Flags::BOLD, 0..=7) => idx as usize + 8,
                     (false, Flags::DIM, 8..=15) => idx as usize - 8,
-                    (false, Flags::DIM, 0..=7) => idx as usize + 260,
+                    (false, Flags::DIM, 0..=7) => NamedColor::DimBlack as usize + idx as usize,
                     _ => idx as usize,
                 };
 
