@@ -131,14 +131,7 @@ fn run(
     info!("Welcome to Alacritty");
 
     // Log the configuration paths.
-    {
-        let mut msg = String::from("Configuration files loaded from:");
-        for path in &config.ui_config.config_paths {
-            msg.push_str(&format!("\n  {:?}", path.display()));
-        }
-
-        info!("{}", msg);
-    }
+    log_config_path(&config);
 
     // Set environment variables.
     tty::setup_env(&config);
@@ -246,4 +239,13 @@ fn run(
     info!("Goodbye");
 
     Ok(())
+}
+
+fn log_config_path(config: &Config) {
+    let mut msg = String::from("Configuration files loaded from:");
+    for path in &config.ui_config.config_paths {
+        msg.push_str(&format!("\n  {:?}", path.display()));
+    }
+
+    info!("{}", msg);
 }

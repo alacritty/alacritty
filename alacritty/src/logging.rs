@@ -107,9 +107,11 @@ impl log::Log for Logger {
             return;
         }
 
-        let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-        let mut msg = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
-        let msg = append_log_message(&mut msg, record);
+        // Create log message for the given `record` and `target`.
+        let msg = create_log_message(record, &target);
+
+        // Trim extra spaces if there're any.
+        let msg = msg.trim_end_matches(' ').as_ref();
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.
@@ -130,7 +132,10 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
-fn append_log_message<'a>(msg: &'a mut String, record: &log::Record<'_>) -> &'a [u8] {
+fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
+    let now = time::strftime("%F %T.%f", &time::now()).unwrap();
+    let mut msg = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
+
     // Alignment for the lines after the first new line character in the payload. We don't deal
     // with fullwidth/unicode chars here, so just `msg.len()` will work fine.
     let alignment = msg.len();
@@ -142,8 +147,7 @@ fn append_log_message<'a>(msg: &'a mut String, record: &log::Record<'_>) -> &'a 
         msg.push_str(&line);
     }
 
-    // Trim extra alignment we've just pushed.
-    msg.trim_end_matches(' ').as_ref()
+    msg
 }
 
 struct OnDemandLogFile {
