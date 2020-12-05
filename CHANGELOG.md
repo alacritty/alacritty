@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Wide characters sometimes being cut off
 - Preserve vi mode across terminal `reset`
 - Escapes `CSI Ps b` and `CSI Ps Z` with large parameters locking up Alacritty
+- Dimming colors which use the indexed `CSI 38 : 5 : Ps m` notation
 
 ### Removed
 
