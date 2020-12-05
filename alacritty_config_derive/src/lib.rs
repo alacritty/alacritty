@@ -78,7 +78,14 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
 /// The resulting code for one field might look like this:
 ///
 /// ```rust
-///     "field" => config.field = serde::Deserialize::deserialize(value).unwrap_or_default(),
+///     "field" => {
+///         match serde::Deserialize::deserialize(value) {
+///             Ok(value) => config.field = value,
+///             Err(err) => {
+///                 log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
+///             },
+///         }
+///     },
 /// ```
 fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
     let mut fields_deserializer = TokenStream2::new();
@@ -87,7 +94,14 @@ fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
         let lit = Literal2::string(&field.to_string());
         fields_deserializer = quote! {
             #fields_deserializer
-            #lit => config.#field = serde::Deserialize::deserialize(value).unwrap_or_default(),
+            #lit => {
+                match serde::Deserialize::deserialize(value) {
+                    Ok(value) => config.#field = value,
+                    Err(err) => {
+                        log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
+                    },
+                }
+            },
         };
     }
 

@@ -25,6 +25,8 @@ struct Test2<T: Default> {
 }
 
 fn main() {
+    env_logger::init();
+
     let test: Test = serde_yaml::from_str(
         r#"
         field1: 3
