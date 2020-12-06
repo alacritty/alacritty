@@ -458,6 +458,19 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
+    fn push_string_search(&mut self, s: &str) {
+        if let Some(regex) = self.search_state.regex.as_mut() {
+            if !self.terminal.mode().contains(TermMode::VI) {
+                // Clear selection so we do not obstruct any matches.
+                self.terminal.selection = None;
+            }
+
+            regex.push_str(s);
+            self.update_search();
+        }
+    }
+
+    #[inline]
     fn pop_search(&mut self) {
         if let Some(regex) = self.search_state.regex.as_mut() {
             regex.pop();

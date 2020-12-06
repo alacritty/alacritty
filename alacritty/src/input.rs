@@ -98,6 +98,7 @@ pub trait ActionContext<T: EventListener> {
     fn confirm_search(&mut self);
     fn cancel_search(&mut self);
     fn push_search(&mut self, c: char);
+    fn push_string_search(&mut self, s: &str);
     fn pop_search(&mut self);
     fn pop_word_search(&mut self);
     fn advance_search_origin(&mut self, direction: Direction);
@@ -840,7 +841,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                         self.ctx.pop_word_search();
                         *self.ctx.suppress_chars() = true;
                     },
-                    _ => (),
+                    _ => match *self.get_key_binding_action(TermMode::NONE, input) {
+                        Action::Paste => {
+                            let text = self.ctx.clipboard_mut().load(ClipboardType::Clipboard);
+                            self.ctx.push_string_search(&text);
+                            *self.ctx.suppress_chars() = true;
+                        },
+                        Action::PasteSelection => {
+                            let text = self.ctx.clipboard_mut().load(ClipboardType::Selection);
+                            self.ctx.push_string_search(&text);
+                            *self.ctx.suppress_chars() = true;
+                        },
+                        _ => (),
+                    },
                 }
 
                 // Reset search delay when the user is still typing.
@@ -947,6 +960,27 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         // Don't suppress char if no bindings were triggered.
         *self.ctx.suppress_chars() = suppress_chars.unwrap_or(false);
+    }
+
+    /// Attempt to find a binding and return its action.
+    fn get_key_binding_action(&mut self, mode: TermMode, input: KeyboardInput) -> &Action {
+        let mods = *self.ctx.modifiers();
+
+        for i in 0..self.ctx.config().ui_config.key_bindings.len() {
+            let binding = &self.ctx.config().ui_config.key_bindings[i];
+
+            let key = match (binding.trigger, input.virtual_keycode) {
+                (Key::Scancode(_), _) => Key::Scancode(input.scancode),
+                (_, Some(key)) => Key::Keycode(key),
+                _ => continue,
+            };
+
+            if binding.is_triggered_by(mode, mods, &key) {
+                return &binding.action;
+            }
+        }
+
+        &Action::None
     }
 
     /// Attempt to find a binding and execute its action.
@@ -1153,6 +1187,8 @@ mod tests {
         fn cancel_search(&mut self) {}
 
         fn push_search(&mut self, _c: char) {}
+
+        fn push_string_search(&mut self, _s: &str) {}
 
         fn pop_search(&mut self) {}
 
