@@ -545,6 +545,14 @@
 #       Spawn a new instance of Alacritty.
 #   - ClearLogNotice
 #       Clear Alacritty's UI warning and error notice.
+#   - SelectAddNextLine,
+#       Extend selection with the line above
+#   - SelectAddPreviousLine,
+#       Extend selection with the line below
+#   - SelectNextLine,
+#       Select line below the selection or below the cursor when there is no selection
+#   - SelectPreviousLine,
+#       Select line above the selection or below the cursor when there is no selection
 #   - ClearSelection
 #       Remove the active selection.
 #   - ReceiveChar
