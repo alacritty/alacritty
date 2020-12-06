@@ -132,6 +132,87 @@ impl Action {
             selection.include_all();
         }
     }
+
+    fn select_next_line<T, A>(ctx: &mut A, add: bool) where T: EventListener, A: ActionContext<T> {
+        let next_line_number = {
+            let screen_lines = ctx.size_info().screen_lines();
+            let max_line = if screen_lines > Line(1) { screen_lines - Line(1) } else { screen_lines };
+            let actual_line_number = Self::get_actual_selection_or_cursor_line_number(ctx,false);
+            if actual_line_number < max_line {
+                actual_line_number + Line(1)
+            } else {
+                actual_line_number
+            }
+        };
+        if add {
+            ctx.update_selection(
+                Point::new( next_line_number, Column::from(0)), 
+                Side::Left
+            );
+        } else {
+            ctx.start_selection(
+                SelectionType::Lines, 
+                Point::new( next_line_number, Column::from(0)), 
+                Side::Left
+            );
+        }
+    }
+
+    fn select_previous_line<T, A>(ctx: &mut A, add: bool) where T: EventListener, A: ActionContext<T> {
+        let previous_line_number = {
+            let actual_line = Self::get_actual_selection_or_cursor_line_number(ctx, true);
+            if actual_line > Line(0) {
+                actual_line - Line(1)
+            } else {
+                Line(0)
+            }
+        };
+        if add {
+            ctx.update_selection(
+                Point::new( previous_line_number, Column::from(0)), 
+                Side::Left
+            );
+        } else {
+            ctx.start_selection(
+                SelectionType::Lines, 
+                Point::new(previous_line_number,Column::from(0)), 
+                Side::Left
+            )
+        }
+    }
+
+    /// Return the cursor's position if there is no selection.
+    /// Return the selection's start or end based on `from_selection_start` otherwise.
+    fn get_actual_selection_or_cursor_line_number<T, A>(ctx: &mut A, from_selection_start: bool) -> Line
+    where
+        T: EventListener,
+        A: ActionContext<T>,
+    {
+        let screen_lines = ctx.size_info().screen_lines();
+        let cursor_line_number = ctx.terminal().grid().cursor.point.line;
+        let selection_line_number = ctx
+            .terminal()
+            .selection
+            .as_ref()
+            .and_then(|selection| selection.to_range(ctx.terminal()))
+            .and_then(|range| {
+                // range.start.line is reversed so we need to convert it back
+                let selection_line = Line::from(if from_selection_start {
+                    range.start.line
+                } else {
+                    range.end.line
+                });
+                
+                let next_line = screen_lines - selection_line;
+                if next_line > Line(0) {
+                    Some(next_line - Line(1))
+                } else {
+                    Some(Line(0))
+                }
+            });
+        let line_number = selection_line_number.unwrap_or(cursor_line_number);
+        line_number
+    }
 }
 
 impl<T: EventListener> Execute<T> for Action {
@@ -163,6 +244,10 @@ impl<T: EventListener> Execute<T> for Action {
 
                 start_daemon(program, args);
             },
+            Action::SelectNextLine => Self::select_next_line(ctx, false),
+            Action::SelectPreviousLine => Self::select_previous_line(ctx, false),
+            Action::SelectAddNextLine => Self::select_next_line(ctx, true),
+            Action::SelectAddPreviousLine => Self::select_previous_line(ctx, true),
             Action::ClearSelection => ctx.clear_selection(),
             Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),
             Action::ViMotion(motion) => {

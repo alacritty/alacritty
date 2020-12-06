@@ -167,6 +167,18 @@ pub enum Action {
     #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
 
+    // Extend selection with the line above
+    SelectAddNextLine,
+
+    // Extend selection with the line below
+    SelectAddPreviousLine,
+
+    // Select line below the selection or below the cursor when there is no selection
+    SelectNextLine,
+
+    // Select line above the selection or below the cursor when there is no selection
+    SelectPreviousLine,
+
     /// Clear active selection.
     ClearSelection,
 
