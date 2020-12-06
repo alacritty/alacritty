@@ -14,6 +14,5 @@ quote = "1.0.7"
 
 [dev-dependencies]
 serde_yaml = "0.8.14"
-env_logger = "0.8.2"
 serde = "1.0.117"
 log = "0.4.11"

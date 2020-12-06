@@ -3,7 +3,8 @@ use proc_macro2::{Literal as Literal2, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::{
-    parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, GenericParam, TypeParam, Error,
+    parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields, GenericParam, Type,
+    TypeParam,
 };
 
 /// Error if the derive was used on an unsupported type.
@@ -90,19 +91,37 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
 fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
     let mut fields_deserializer = TokenStream2::new();
 
-    for field in fields.iter().filter_map(|field| field.ident.as_ref()) {
-        let lit = Literal2::string(&field.to_string());
-        fields_deserializer = quote! {
-            #fields_deserializer
+    for field in fields.iter() {
+        let ident = field.ident.as_ref().expect("unreachable tuple struct");
+
+        // Create token stream for deserializing "none" string into `Option<T>`.
+        let mut none_string_option = TokenStream2::new();
+        if let Type::Path(type_path) = &field.ty {
+            let segments = type_path.path.segments.iter();
+            if segments.last().map_or(false, |segment| segment.ident.to_string() == "Option") {
+                none_string_option = quote! {
+                    if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
+                        config.#ident = None;
+                        continue;
+                    }
+                };
+            }
+        }
+
+        // Create token stream for deserialization and error handling.
+        let lit = Literal2::string(&ident.to_string());
+        fields_deserializer.extend(quote! {
             #lit => {
+                #none_string_option
+
                 match serde::Deserialize::deserialize(value) {
-                    Ok(value) => config.#field = value,
+                    Ok(value) => config.#ident = value,
                     Err(err) => {
                         log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
                     },
                 }
             },
-        };
+        });
     }
 
     fields_deserializer
@@ -126,18 +145,15 @@ fn generics<T>(params: Punctuated<GenericParam, T>) -> Generics {
     let mut generics = Generics::default();
 
     for generic in params {
-        match generic {
-            GenericParam::Type(TypeParam { ident, .. }) => {
-                generics.unconstrained.extend(quote!( #ident , ));
-                generics.constrained.extend(quote! {
-                    #ident : Default + serde::Deserialize<'de> ,
-                });
-                generics.phantoms.extend(quote! {
-                    #ident : std::marker::PhantomData < #ident >,
-                });
-            },
-            // NOTE: Lifetimes and const params are not supported.
-            _ => (),
+        // NOTE: Lifetimes and const params are not supported.
+        if let GenericParam::Type(TypeParam { ident, .. }) = generic {
+            generics.unconstrained.extend(quote!( #ident , ));
+            generics.constrained.extend(quote! {
+                #ident : Default + serde::Deserialize<'de> ,
+            });
+            generics.phantoms.extend(quote! {
+                #ident : std::marker::PhantomData < #ident >,
+            });
         }
     }
 
