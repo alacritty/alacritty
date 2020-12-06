@@ -1,16 +1,17 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Literal as Literal2, TokenStream as TokenStream2};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::{
     parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields, GenericParam, Type,
-    TypeParam,
+    TypeParam, Path, Ident, Token,
 };
+use syn::parse::{self, Parse, ParseStream};
 
 /// Error if the derive was used on an unsupported type.
 const UNSUPPORTED_ERROR: &str = "ConfigDeserialize must be used on a struct with fields";
 
-#[proc_macro_derive(ConfigDeserialize)]
+#[proc_macro_derive(ConfigDeserialize, attributes(config))]
 pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -74,31 +75,50 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-/// Create the deserialize match arm for each field.
+/// Create the deserialize match arms for all fields.
 ///
 /// The resulting code for one field might look like this:
 ///
-/// ```rust
-///     "field" => {
-///         match serde::Deserialize::deserialize(value) {
-///             Ok(value) => config.field = value,
-///             Err(err) => {
-///                 log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
-///             },
-///         }
-///     },
+/// ```ignore
+/// "field" => {
+///     // This is only generated for `Option<T>` values.
+///     if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
+///         config.field = None;
+///         continue;
+///     }
+///
+///     match serde::Deserialize::deserialize(value) {
+///         Ok(value) => config.field = value,
+///         Err(err) => {
+///             log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
+///         },
+///     }
+/// },
 /// ```
 fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
     let mut fields_deserializer = TokenStream2::new();
 
-    for field in fields.iter() {
+    'fields_loop: for field in fields.iter() {
         let ident = field.ident.as_ref().expect("unreachable tuple struct");
+        let mut literal = Literal2::string(&ident.to_string()).to_token_stream();
+
+        // Iterate over all #[config(...)] attributes.
+        for attr in field.attrs.iter().filter(|attr| path_ends_with(&attr.path, "config")) {
+            // Skip deserialization for `#[config(skip)]` fields.
+            if attr.tokens.to_string() == "(skip)" {
+                continue 'fields_loop;
+            }
+
+            // Add aliases to match pattern.
+            if let Ok(Alias(lit)) = attr.parse_args::<Alias>() {
+                literal.extend(quote! { | #lit });
+            }
+        }
 
         // Create token stream for deserializing "none" string into `Option<T>`.
         let mut none_string_option = TokenStream2::new();
         if let Type::Path(type_path) = &field.ty {
-            let segments = type_path.path.segments.iter();
-            if segments.last().map_or(false, |segment| segment.ident.to_string() == "Option") {
+            if path_ends_with(&type_path.path, "Option") {
                 none_string_option = quote! {
                     if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
                         config.#ident = None;
@@ -109,9 +129,8 @@ fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
         }
 
         // Create token stream for deserialization and error handling.
-        let lit = Literal2::string(&ident.to_string());
         fields_deserializer.extend(quote! {
-            #lit => {
+            #literal => {
                 #none_string_option
 
                 match serde::Deserialize::deserialize(value) {
@@ -125,6 +144,23 @@ fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
     }
 
     fields_deserializer
+}
+
+/// Alias attribute argument parser (`alias = "lit"`).
+struct Alias(syn::LitStr);
+
+impl Parse for Alias {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        input.parse::<Ident>()?;
+        input.parse::<Token![=]>()?;
+        Ok(Self(input.parse()?))
+    }
+}
+
+/// Verify that a token path ends with a specific segment.
+fn path_ends_with(path: &Path, segment: &str) -> bool {
+    let segments = path.segments.iter();
+    segments.last().map_or(false, |s| s.ident.to_string() == segment)
 }
 
 /// Storage for all necessary generics information.

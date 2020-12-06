@@ -6,6 +6,7 @@ use alacritty_config_derive::ConfigDeserialize;
 
 #[derive(ConfigDeserialize)]
 struct Test {
+    #[config(alias = "noalias")]
     field1: usize,
     field2: String,
     field3: Option<u8>,
@@ -27,6 +28,10 @@ impl Default for Test {
 struct Test2<T: Default> {
     field1: T,
     field2: Option<usize>,
+    #[config(skip)]
+    field3: usize,
+    #[config(alias = "aliased")]
+    field4: u8,
 }
 
 fn main() {
@@ -45,6 +50,8 @@ fn main() {
         nesting:
           field1: "testing"
           field2: None
+          field3: 99
+          aliased: 8
     "#,
     )
     .unwrap();
@@ -55,6 +62,8 @@ fn main() {
     assert_eq!(test.field3, Some(32));
     assert_eq!(test.nesting.field1, Test::default().nesting.field1);
     assert_eq!(test.nesting.field2, None);
+    assert_eq!(test.nesting.field3, Test::default().nesting.field3);
+    assert_eq!(test.nesting.field4, 8);
 
     // Verify all log messages are correct.
     let logs = logger.logs.lock().unwrap();

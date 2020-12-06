@@ -8,7 +8,7 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.53", features = ["derive", "parsing", "proc-macro"], default-features = false }
+syn = { version = "1.0.53", features = ["derive", "parsing", "proc-macro", "printing"], default-features = false }
 proc-macro2 = "1.0.24"
 quote = "1.0.7"
 
