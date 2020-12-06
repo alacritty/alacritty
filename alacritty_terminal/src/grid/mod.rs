@@ -320,12 +320,6 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.raw.swap(index, index - positions.0);
         }
 
-        // TODO: Technically the rotation here will rotate dirty fixed lines at the top of the
-        // viewport into history. Should these be cleared? This is only a problem when rotating
-        // more than a single line.
-        //  -> I say it doesn't matter, since you shouldn't use a scrolling region like that
-        //  outside of the alt screen anyways.
-        //
         // Rotate the entire line buffer upward.
         self.raw.rotate(-(positions.0 as isize));
 
