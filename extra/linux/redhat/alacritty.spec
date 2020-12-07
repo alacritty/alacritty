@@ -36,8 +36,6 @@ install -p -D -m755 target/release/alacritty         %{buildroot}%{_bindir}/alac
 install -p -D -m644 extra/linux/Alacritty.desktop    %{buildroot}%{_datadir}/applications/Alacritty.desktop
 install -p -D -m644 extra/logo/alacritty-term.svg    %{buildroot}%{_datadir}/pixmaps/Alacritty.svg
 install -p -D -m644 alacritty.yml                    %{buildroot}%{_datadir}/alacritty/alacritty.yml
-tic     -xe alacritty,alacritty-direct \
-                    extra/alacritty.info       -o    %{buildroot}%{_datadir}/terminfo
 install -p -D -m644 extra/completions/alacritty.bash %{buildroot}%{_datadir}/bash-completion/completions/alacritty
 install -p -D -m644 extra/completions/_alacritty     %{buildroot}%{_datadir}/zsh/site-functions/_alacritty
 install -p -D -m644 extra/completions/alacritty.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/alacritty.fish
@@ -51,7 +49,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/Alacritty.desktop
 %{_datadir}/applications/Alacritty.desktop
 %{_datadir}/pixmaps/Alacritty.svg
 %{_datadir}/alacritty/alacritty.yml
-%{_datadir}/terminfo/a/alacritty*
 %{_datadir}/bash-completion/completions/alacritty
 %{_datadir}/zsh/site-functions/_alacritty
 %{_datadir}/fish/vendor_completions.d/alacritty.fish
