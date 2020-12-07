@@ -254,25 +254,27 @@ impl RectRenderer {
             // VBO binding is not part of VAO itself, but VBO binding is stored in attributes.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
+            let attribute_offset = 0;
             // Position.
             gl::VertexAttribPointer(
-                0,                          // Attribute location.
-                2,                          // Component count: 2. x and y.
-                gl::FLOAT,                  // Attribute type: f32
-                gl::FALSE,                  // Not normalized.
-                size_of::<Vertex>() as i32, // Stride.
-                std::ptr::null(),           // Offset of Vertex::x is zero.
+                0,                            // Attribute location.
+                2,                            // Component count: 2. x and y.
+                gl::FLOAT,                    // Attribute type: f32
+                gl::FALSE,                    // Not normalized.
+                size_of::<Vertex>() as i32,   // Stride.
+                attribute_offset as *const _, // Offset of Vertex::x is zero.
             );
             gl::EnableVertexAttribArray(0);
+            let attribute_offset = attribute_offset + size_of::<f32>() * 2;
 
             // Color.
             gl::VertexAttribPointer(
-                1,                          // Attribute location.
-                4,                          // Component count: 4. r, g, b, a.
-                gl::UNSIGNED_BYTE,          // Attribute type: u8.
-                gl::TRUE,                   // Normalized: 0..255 is mapped to 0..1.
-                size_of::<Vertex>() as i32, // Stride.
-                8 as *const _,              // Offset of Vertex::color.
+                1,                            // Attribute location.
+                4,                            // Component count: 4. r, g, b, a.
+                gl::UNSIGNED_BYTE,            // Attribute type: u8.
+                gl::TRUE,                     // Normalized: 0..255 is mapped to 0..1.
+                size_of::<Vertex>() as i32,   // Stride.
+                attribute_offset as *const _, // Offset of Vertex::color.
             );
             gl::EnableVertexAttribArray(1);
 
