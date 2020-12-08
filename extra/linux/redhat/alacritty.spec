@@ -7,6 +7,13 @@ URL:           https://github.com/alacritty/alacritty
 VCS:           https://github.com/alacritty/alacritty.git
 Source:        alacritty-%{version}.tar
 
+%if 0%{?fedora} >= 33
+Requires: ncurses-base
+%endif
+Requires: freetype
+Requires: fontconfig
+Requires: libxcb
+
 BuildRequires: rust >= 1.43.0
 BuildRequires: cargo
 BuildRequires: cmake
@@ -19,11 +26,7 @@ BuildRequires: desktop-file-utils
 BuildRequires: ncurses
 
 %description
-Alacritty is a terminal emulator with a strong focus on simplicity and
-performance. With such a strong focus on performance, included features are
-carefully considered and you can always expect Alacritty to be blazingly fast.
-By making sane choices for defaults, Alacritty requires no additional setup.
-However, it does allow configuration of many aspects of the terminal.
+Alacritty is the fastest terminal emulator in existence.
 
 %prep
 %setup -q -n alacritty-%{version}
@@ -36,8 +39,10 @@ install -p -D -m755 target/release/alacritty         %{buildroot}%{_bindir}/alac
 install -p -D -m644 extra/linux/Alacritty.desktop    %{buildroot}%{_datadir}/applications/Alacritty.desktop
 install -p -D -m644 extra/logo/alacritty-term.svg    %{buildroot}%{_datadir}/pixmaps/Alacritty.svg
 install -p -D -m644 alacritty.yml                    %{buildroot}%{_datadir}/alacritty/alacritty.yml
+%if 0%{?fedora} < 33
 tic     -xe alacritty,alacritty-direct \
                     extra/alacritty.info       -o    %{buildroot}%{_datadir}/terminfo
+%endif
 install -p -D -m644 extra/completions/alacritty.bash %{buildroot}%{_datadir}/bash-completion/completions/alacritty
 install -p -D -m644 extra/completions/_alacritty     %{buildroot}%{_datadir}/zsh/site-functions/_alacritty
 install -p -D -m644 extra/completions/alacritty.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/alacritty.fish
@@ -50,8 +55,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/Alacritty.desktop
 %{_bindir}/alacritty
 %{_datadir}/applications/Alacritty.desktop
 %{_datadir}/pixmaps/Alacritty.svg
+%dir %{_datadir}/alacritty/
 %{_datadir}/alacritty/alacritty.yml
+%if 0%{?fedora} < 33
 %{_datadir}/terminfo/a/alacritty*
+%endif
 %{_datadir}/bash-completion/completions/alacritty
 %{_datadir}/zsh/site-functions/_alacritty
 %{_datadir}/fish/vendor_completions.d/alacritty.fish
