@@ -51,6 +51,7 @@ Alacritty looks for the configuration file at the following paths:
     4. $HOME/.alacritty.yml
 
 On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
+On Linux, an example is available at /usr/share/doc/alacritty/example/alacritty.yml.
 .TP
 \fB\-\-embed\fR <parent>
 Defines the X11 window ID (as a decimal integer) to embed Alacritty within
