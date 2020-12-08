@@ -254,7 +254,8 @@ impl RectRenderer {
             // VBO binding is not part of VAO itself, but VBO binding is stored in attributes.
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-            let attribute_offset = 0;
+            let mut attribute_offset = 0;
+
             // Position.
             gl::VertexAttribPointer(
                 0,                            // Attribute location.
@@ -265,7 +266,7 @@ impl RectRenderer {
                 attribute_offset as *const _, // Offset of Vertex::x is zero.
             );
             gl::EnableVertexAttribArray(0);
-            let attribute_offset = attribute_offset + size_of::<f32>() * 2;
+            attribute_offset += size_of::<f32>() * 2;
 
             // Color.
             gl::VertexAttribPointer(
