@@ -37,39 +37,39 @@ pub fn get_cursor_glyph(
 /// Return a custom underline cursor character.
 pub fn get_underline_cursor_glyph(width: usize, line_width: usize) -> RasterizedGlyph {
     // Create a new rectangle, the height is relative to the font width.
-    let buf = vec![255u8; width * line_width * 3];
+    let buffer = BitmapBuffer::RGB(vec![255u8; width * line_width * 3]);
 
     // Create a custom glyph with the rectangle data attached to it.
     RasterizedGlyph {
-        c: ' ',
+        character: ' ',
         top: line_width as i32,
         left: 0,
         height: line_width as i32,
         width: width as i32,
-        buf: BitmapBuffer::RGB(buf),
+        buffer,
     }
 }
 
 /// Return a custom beam cursor character.
 pub fn get_beam_cursor_glyph(height: usize, line_width: usize) -> RasterizedGlyph {
     // Create a new rectangle that is at least one pixel wide
-    let buf = vec![255u8; line_width * height * 3];
+    let buffer = BitmapBuffer::RGB(vec![255u8; line_width * height * 3]);
 
     // Create a custom glyph with the rectangle data attached to it
     RasterizedGlyph {
-        c: ' ',
+        character: ' ',
         top: height as i32,
         left: 0,
         height: height as i32,
         width: line_width as i32,
-        buf: BitmapBuffer::RGB(buf),
+        buffer,
     }
 }
 
 /// Returns a custom box cursor character.
 pub fn get_box_cursor_glyph(height: usize, width: usize, line_width: usize) -> RasterizedGlyph {
     // Create a new box outline rectangle.
-    let mut buf = Vec::with_capacity(width * height * 3);
+    let mut buffer = Vec::with_capacity(width * height * 3);
     for y in 0..height {
         for x in 0..width {
             if y < line_width
@@ -77,36 +77,36 @@ pub fn get_box_cursor_glyph(height: usize, width: usize, line_width: usize) -> R
                 || x < line_width
                 || x >= width - line_width
             {
-                buf.append(&mut vec![255u8; 3]);
+                buffer.append(&mut vec![255u8; 3]);
             } else {
-                buf.append(&mut vec![0u8; 3]);
+                buffer.append(&mut vec![0u8; 3]);
             }
         }
     }
 
     // Create a custom glyph with the rectangle data attached to it.
     RasterizedGlyph {
-        c: ' ',
+        character: ' ',
         top: height as i32,
         left: 0,
         height: height as i32,
         width: width as i32,
-        buf: BitmapBuffer::RGB(buf),
+        buffer: BitmapBuffer::RGB(buffer),
     }
 }
 
 /// Return a custom block cursor character.
 pub fn get_block_cursor_glyph(height: usize, width: usize) -> RasterizedGlyph {
     // Create a completely filled glyph.
-    let buf = vec![255u8; width * height * 3];
+    let buffer = BitmapBuffer::RGB(vec![255u8; width * height * 3]);
 
     // Create a custom glyph with the rectangle data attached to it.
     RasterizedGlyph {
-        c: ' ',
+        character: ' ',
         top: height as i32,
         left: 0,
         height: height as i32,
         width: width as i32,
-        buf: BitmapBuffer::RGB(buf),
+        buffer,
     }
 }

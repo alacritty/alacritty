@@ -7,8 +7,8 @@ use std::ptr;
 
 use bitflags::bitflags;
 use crossfont::{
-    BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
-    Style, Weight,
+    BitmapBuffer, Error as RasterizerError, FontDesc, FontKey, GlyphKey, Rasterize,
+    RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
 use fnv::FnvHasher;
 use log::{error, info};
@@ -92,10 +92,17 @@ pub struct TextShaderProgram {
     u_background: GLint,
 }
 
+bitflags! {
+    struct GlyphFlags : u8 {
+        const COLORED = 0b0000_0001;
+        const MISSING_GLYPH = 0b0000_0010;
+    }
+}
+
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
-    multicolor: bool,
+    flags: GlyphFlags,
     top: i16,
     left: i16,
     width: i16,
@@ -156,7 +163,7 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
 
         let metrics = rasterizer.metrics(regular, font.size())?;
 
@@ -180,8 +187,9 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
-        for i in 32u8..=126u8 {
-            self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
+        for character in 32u8..=126u8 {
+            let character = character as char;
+            self.get(GlyphKey { font_key: font, character, size }, loader);
         }
     }
 
@@ -258,14 +266,27 @@ impl GlyphCache {
         let rasterizer = &mut self.rasterizer;
         let metrics = &self.metrics;
         self.cache.entry(glyph_key).or_insert_with(|| {
-            let mut rasterized =
-                rasterizer.get_glyph(glyph_key).unwrap_or_else(|_| Default::default());
+            let mut is_missing = false;
+            let mut rasterized = rasterizer.get_glyph(glyph_key).unwrap_or_else(|err| match err {
+                RasterizerError::MissingGlyph(glyph) => {
+                    is_missing = true;
+                    glyph
+                },
+                _ => Default::default(),
+            });
 
             rasterized.left += i32::from(glyph_offset.x);
             rasterized.top += i32::from(glyph_offset.y);
             rasterized.top -= metrics.descent as i32;
 
-            loader.load_glyph(&rasterized)
+            let mut glyph = loader.load_glyph(&rasterized);
+
+            // Mark glyph as missing.
+            if is_missing {
+                glyph.flags.insert(GlyphFlags::MISSING_GLYPH);
+            }
+
+            glyph
         })
     }
 
@@ -291,7 +312,7 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size(), dpr);
@@ -325,7 +346,7 @@ impl GlyphCache {
         let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes)?;
         let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
         let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size())?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
 
         rasterizer.metrics(regular, font.size())
     }
@@ -428,7 +449,7 @@ impl Batch {
         }
 
         let mut cell_flags = RenderingGlyphFlags::empty();
-        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.multicolor);
+        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.flags.contains(GlyphFlags::COLORED));
         cell_flags.set(RenderingGlyphFlags::WIDE_CHAR, cell.flags.contains(Flags::WIDE_CHAR));
 
         self.instances.push(InstanceData {
@@ -822,7 +843,7 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        let (mut c, zerowidth) = match cell.inner {
+        let (mut character, zerowidth) = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup.
                 let metrics = glyph_cache.metrics;
@@ -852,11 +873,11 @@ impl<'a> RenderApi<'a> {
 
         // Ignore hidden cells and render tabs as spaces to prevent font issues.
         let hidden = cell.flags.contains(Flags::HIDDEN);
-        if c == '\t' || hidden {
-            c = ' ';
+        if character == '\t' || hidden {
+            character = ' ';
         }
 
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c };
+        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, character };
 
         // Add cell to batch.
         let glyph = glyph_cache.get(glyph_key, self);
@@ -864,9 +885,15 @@ impl<'a> RenderApi<'a> {
 
         // Render visible zero-width characters.
         if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
-            for c in zerowidth {
-                glyph_key.c = c;
+            for character in zerowidth {
+                glyph_key.character = character;
                 let mut glyph = *glyph_cache.get(glyph_key, self);
+
+                // Ignore drawing of missing glyphs symbols for zerowidth chars, so they won't
+                // obscure normal characters.
+                if glyph.flags.contains(GlyphFlags::MISSING_GLYPH) {
+                    continue;
+                }
 
                 // The metrics of zero-width characters are based on rendering
                 // the character after the current cell, with the anchor at the
@@ -906,7 +933,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
-            multicolor: false,
+            flags: GlyphFlags::empty(),
             top: 0,
             left: 0,
             width: 0,
@@ -1308,20 +1335,17 @@ impl Atlas {
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
         let width = glyph.width as i32;
-        let multicolor;
+        let mut flags = GlyphFlags::empty();
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL.
-            let (format, buf) = match &glyph.buf {
-                BitmapBuffer::RGB(buf) => {
-                    multicolor = false;
-                    (gl::RGB, buf)
-                },
-                BitmapBuffer::RGBA(buf) => {
-                    multicolor = true;
-                    (gl::RGBA, buf)
+            let (format, buffer) = match &glyph.buffer {
+                BitmapBuffer::RGB(buffer) => (gl::RGB, buffer),
+                BitmapBuffer::RGBA(buffer) => {
+                    flags.insert(GlyphFlags::COLORED);
+                    (gl::RGBA, buffer)
                 },
             };
 
@@ -1334,7 +1358,7 @@ impl Atlas {
                 height,
                 format,
                 gl::UNSIGNED_BYTE,
-                buf.as_ptr() as *const _,
+                buffer.as_ptr() as *const _,
             );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -1355,7 +1379,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            multicolor,
+            flags,
             top: glyph.top as i16,
             left: glyph.left as i16,
             width: width as i16,
