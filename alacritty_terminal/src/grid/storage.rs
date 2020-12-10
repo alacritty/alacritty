@@ -12,9 +12,9 @@ const MAX_CACHE_SIZE: usize = 1_000;
 
 /// A ring buffer for optimizing indexing and rotation.
 ///
-/// The [`Storage::rotate`] and [`Storage::rotate_up`] functions are fast modular additions on the
-/// internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items in
-/// memory.
+/// The [`Storage::rotate`] and [`Storage::rotate_down`] functions are fast modular additions on
+/// the internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items
+/// in memory.
 ///
 /// As a consequence, both [`Index`] and [`IndexMut`] are reimplemented for this type to account
 /// for the zeroth element not always being at the start of the allocation.
@@ -186,16 +186,16 @@ impl<T> Storage<T> {
         debug_assert!(count.abs() as usize <= self.inner.len());
 
         let len = self.inner.len();
-        self.zero = (self.zero as isize + count + len as isize) as usize % self.inner.len();
+        self.zero = (self.zero as isize + count + len as isize) as usize % len;
     }
 
-    /// Rotate the grid up, moving all existing lines down in history.
+    /// Rotate all existing lines down in history.
     ///
     /// This is a faster, specialized version of [`rotate_left`].
     ///
     /// [`rotate_left`]: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.rotate_left
     #[inline]
-    pub fn rotate_up(&mut self, count: usize) {
+    pub fn rotate_down(&mut self, count: usize) {
         self.zero = (self.zero + count) % self.inner.len();
     }
 
