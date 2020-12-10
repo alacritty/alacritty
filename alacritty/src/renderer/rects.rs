@@ -197,8 +197,6 @@ impl RenderLines {
 }
 
 /// Shader sources for rect rendering program.
-pub static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
-pub static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
 static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
@@ -228,11 +226,6 @@ pub struct RectRenderer {
 }
 
 impl RectRenderer {
-    /// Update program when doing live-shader-reload.
-    pub fn set_program(&mut self, program: RectShaderProgram) {
-        self.program = program;
-    }
-
     pub fn new() -> Result<Self, renderer::Error> {
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -359,15 +352,8 @@ pub struct RectShaderProgram {
 
 impl RectShaderProgram {
     pub fn new() -> Result<Self, renderer::ShaderCreationError> {
-        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
-            (None, None)
-        } else {
-            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
-        };
-        let vertex_shader =
-            renderer::create_shader(RECT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
-        let fragment_shader =
-            renderer::create_shader(RECT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
+        let vertex_shader = renderer::create_shader(gl::VERTEX_SHADER, RECT_SHADER_V)?;
+        let fragment_shader = renderer::create_shader(gl::FRAGMENT_SHADER, RECT_SHADER_F)?;
         let program = renderer::create_program(vertex_shader, fragment_shader)?;
 
         unsafe {

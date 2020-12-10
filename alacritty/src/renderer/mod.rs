@@ -1,13 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::fs;
 use std::hash::BuildHasherDefault;
 use std::io;
 use std::mem::size_of;
-use std::path::PathBuf;
 use std::ptr;
-use std::sync::mpsc;
-use std::time::Duration;
 
 use bitflags::bitflags;
 use crossfont::{
@@ -16,29 +12,23 @@ use crossfont::{
 };
 use fnv::FnvHasher;
 use log::{error, info};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
-use alacritty_terminal::thread;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::rects::{RectRenderer, RectShaderProgram, RenderRect};
+use crate::renderer::rects::{RectRenderer, RenderRect};
 
 pub mod rects;
 
-// Shader paths for live reload.
-static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
-static TEXT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
-
-// Shader source which is used when live-shader-reload feature is disable.
+// Shader source.
 static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../res/text.v.glsl");
 
@@ -51,10 +41,6 @@ pub trait LoadGlyph {
     ///
     /// This can, for instance, be used to reset the texture Atlas.
     fn clear(&mut self);
-}
-
-enum Msg {
-    ShaderReload,
 }
 
 #[derive(Debug)]
@@ -402,7 +388,6 @@ pub struct QuadRenderer {
     current_atlas: usize,
     active_tex: GLuint,
     batch: Batch,
-    rx: mpsc::Receiver<Msg>,
 
     rect_renderer: RectRenderer,
 }
@@ -602,43 +587,6 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
-        let (msg_tx, msg_rx) = mpsc::channel();
-
-        if cfg!(feature = "live-shader-reload") {
-            thread::spawn_named("live shader reload", move || {
-                let (tx, rx) = std::sync::mpsc::channel();
-                // The Duration argument is a debouncing period.
-                let mut watcher =
-                    watcher(tx, Duration::from_millis(10)).expect("create file watcher");
-                watcher
-                    .watch(TEXT_SHADER_F_PATH, RecursiveMode::NonRecursive)
-                    .expect("watch fragment shader");
-                watcher
-                    .watch(TEXT_SHADER_V_PATH, RecursiveMode::NonRecursive)
-                    .expect("watch vertex shader");
-                watcher
-                    .watch(rects::RECT_SHADER_V_PATH, RecursiveMode::NonRecursive)
-                    .expect("watch rect vertex shader");
-                watcher
-                    .watch(rects::RECT_SHADER_F_PATH, RecursiveMode::NonRecursive)
-                    .expect("watch rect fragment shader");
-
-                loop {
-                    let event = rx.recv().expect("watcher event");
-
-                    match event {
-                        DebouncedEvent::Rename(..) => continue,
-                        DebouncedEvent::Create(_)
-                        | DebouncedEvent::Write(_)
-                        | DebouncedEvent::Chmod(_) => {
-                            msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        },
-                        _ => {},
-                    }
-                }
-            });
-        }
-
         let mut renderer = Self {
             program,
             rect_renderer: RectRenderer::new()?,
@@ -649,7 +597,6 @@ impl QuadRenderer {
             current_atlas: 0,
             active_tex: 0,
             batch: Batch::new(),
-            rx: msg_rx,
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -697,12 +644,6 @@ impl QuadRenderer {
     where
         F: FnOnce(RenderApi<'_>) -> T,
     {
-        // Flush message queue.
-        if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
-            self.reload_shaders(props);
-        }
-        while self.rx.try_recv().is_ok() {}
-
         unsafe {
             gl::UseProgram(self.program.id);
             self.program.set_term_uniforms(props);
@@ -747,36 +688,6 @@ impl QuadRenderer {
             atlas: &mut self.atlas,
             current_atlas: &mut self.current_atlas,
         })
-    }
-
-    pub fn reload_shaders(&mut self, props: &SizeInfo) {
-        info!("Reloading shaders...");
-        let result = (TextShaderProgram::new(), RectShaderProgram::new());
-        let (program, rect_program) = match result {
-            (Ok(program), Ok(rect_program)) => {
-                unsafe {
-                    gl::UseProgram(program.id);
-                    program.update_projection(
-                        props.width(),
-                        props.height(),
-                        props.padding_x(),
-                        props.padding_y(),
-                    );
-                    gl::UseProgram(0);
-                }
-
-                info!("... successfully reloaded shaders");
-                (program, rect_program)
-            },
-            (Err(err), _) | (_, Err(err)) => {
-                error!("{}", err);
-                return;
-            },
-        };
-
-        self.active_tex = 0;
-        self.program = program;
-        self.rect_renderer.set_program(rect_program);
     }
 
     pub fn resize(&mut self, size: &SizeInfo) {
@@ -1046,13 +957,8 @@ impl<'a> Drop for RenderApi<'a> {
 
 impl TextShaderProgram {
     pub fn new() -> Result<TextShaderProgram, ShaderCreationError> {
-        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
-            (None, None)
-        } else {
-            (Some(TEXT_SHADER_V), Some(TEXT_SHADER_F))
-        };
-        let vertex_shader = create_shader(TEXT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
-        let fragment_shader = create_shader(TEXT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
+        let vertex_shader = create_shader(gl::VERTEX_SHADER, TEXT_SHADER_V)?;
+        let fragment_shader = create_shader(gl::FRAGMENT_SHADER, TEXT_SHADER_F)?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
         unsafe {
@@ -1162,19 +1068,7 @@ pub fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, Shader
     }
 }
 
-pub fn create_shader(
-    path: &str,
-    kind: GLenum,
-    source: Option<&'static str>,
-) -> Result<GLuint, ShaderCreationError> {
-    let from_disk;
-    let source = if let Some(src) = source {
-        src
-    } else {
-        from_disk = fs::read_to_string(path)?;
-        &from_disk[..]
-    };
-
+pub fn create_shader(kind: GLenum, source: &'static str) -> Result<GLuint, ShaderCreationError> {
     let len: [GLint; 1] = [source.len() as GLint];
 
     let shader = unsafe {
@@ -1200,7 +1094,7 @@ pub fn create_shader(
             gl::DeleteShader(shader);
         }
 
-        Err(ShaderCreationError::Compile(PathBuf::from(path), log))
+        Err(ShaderCreationError::Compile(log))
     }
 }
 
@@ -1256,7 +1150,7 @@ pub enum ShaderCreationError {
     Io(io::Error),
 
     /// Error compiling shader.
-    Compile(PathBuf, String),
+    Compile(String),
 
     /// Problem linking.
     Link(String),
@@ -1275,8 +1169,8 @@ impl Display for ShaderCreationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             ShaderCreationError::Io(err) => write!(f, "Unable to read shader: {}", err),
-            ShaderCreationError::Compile(path, log) => {
-                write!(f, "Failed compiling shader at {}: {}", path.display(), log)
+            ShaderCreationError::Compile(log) => {
+                write!(f, "Failed compiling shader: {}", log)
             },
             ShaderCreationError::Link(log) => write!(f, "Failed linking shader: {}", log),
         }
