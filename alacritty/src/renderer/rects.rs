@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::mem::size_of;
+use std::mem;
 
 use crossfont::Metrics;
 
@@ -258,24 +258,24 @@ impl RectRenderer {
 
             // Position.
             gl::VertexAttribPointer(
-                0,                            // Attribute location.
-                2,                            // Component count: 2. x and y.
-                gl::FLOAT,                    // Attribute type: f32
-                gl::FALSE,                    // Not normalized.
-                size_of::<Vertex>() as i32,   // Stride.
-                attribute_offset as *const _, // Offset of Vertex::x is zero.
+                0,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                mem::size_of::<Vertex>() as i32,
+                attribute_offset as *const _,
             );
             gl::EnableVertexAttribArray(0);
-            attribute_offset += size_of::<f32>() * 2;
+            attribute_offset += mem::size_of::<f32>() * 2;
 
             // Color.
             gl::VertexAttribPointer(
-                1,                            // Attribute location.
-                4,                            // Component count: 4. r, g, b, a.
-                gl::UNSIGNED_BYTE,            // Attribute type: u8.
-                gl::TRUE,                     // Normalized: 0..255 is mapped to 0..1.
-                size_of::<Vertex>() as i32,   // Stride.
-                attribute_offset as *const _, // Offset of Vertex::color.
+                1,
+                4,
+                gl::UNSIGNED_BYTE,
+                gl::TRUE,
+                mem::size_of::<Vertex>() as i32,
+                attribute_offset as *const _,
             );
             gl::EnableVertexAttribArray(1);
 
@@ -298,20 +298,20 @@ impl RectRenderer {
             gl::UseProgram(self.program.id);
         }
 
-        let center_x = size_info.width() / 2.;
-        let center_y = size_info.height() / 2.;
+        let half_width = size_info.width() / 2.;
+        let half_height = size_info.height() / 2.;
 
         // Build rect vertices vector.
         self.vertices.clear();
         for rect in &rects {
-            self.add_rect(center_x, center_y, rect);
+            self.add_rect(half_width, half_height, rect);
         }
 
         unsafe {
             // Upload accumulated vertices.
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.vertices.len() * std::mem::size_of::<Vertex>()) as isize,
+                (self.vertices.len() * mem::size_of::<Vertex>()) as isize,
                 self.vertices.as_ptr() as *const _,
                 gl::STREAM_DRAW,
             );
@@ -328,12 +328,13 @@ impl RectRenderer {
         }
     }
 
-    fn add_rect(&mut self, center_x: f32, center_y: f32, rect: &RenderRect) {
-        // Calculate rectangle position.
-        let x = (rect.x - center_x) / center_x;
-        let y = -(rect.y - center_y) / center_y;
-        let width = rect.width / center_x;
-        let height = rect.height / center_y;
+    fn add_rect(&mut self, half_width: f32, half_height: f32, rect: &RenderRect) {
+        // Calculate rectangle vertices positions in normalized device coordinates.
+        // NDC range from -1 to +1, with Y pointing up.
+        let x = rect.x / half_width - 1.0;
+        let y = -rect.y / half_height + 1.0;
+        let width = rect.width / half_width;
+        let height = rect.height / half_height;
         let color = Rgba {
             r: rect.color.r,
             g: rect.color.g,
