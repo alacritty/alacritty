@@ -322,7 +322,6 @@ impl RectRenderer {
         }
     }
 
-    #[allow(clippy::many_single_char_names)]
     fn add_rect(&mut self, half_width: f32, half_height: f32, rect: &RenderRect) {
         // Calculate rectangle vertices positions in normalized device coordinates.
         // NDC range from -1 to +1, with Y pointing up.
@@ -330,9 +329,7 @@ impl RectRenderer {
         let y = -rect.y / half_height + 1.0;
         let width = rect.width / half_width;
         let height = rect.height / half_height;
-        let r = rect.color.r;
-        let g = rect.color.g;
-        let b = rect.color.b;
+        let Rgb { r, g, b } = rect.color;
         let a = (rect.alpha * 255.) as u8;
 
         // Make quad vertices.
