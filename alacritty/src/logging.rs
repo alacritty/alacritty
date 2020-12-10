@@ -72,7 +72,7 @@ impl Logger {
         #[cfg(windows)]
         let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
 
-        let msg = format!(
+        let message = format!(
             "[{}] See log at {} ({}):\n{}",
             record.level(),
             logfile_path,
@@ -85,7 +85,7 @@ impl Logger {
             _ => unreachable!(),
         };
 
-        let mut message = Message::new(msg, message_type);
+        let mut message = Message::new(message, message_type);
         message.set_target(record.target().to_owned());
 
         let _ = event_proxy.send_event(Event::Message(message));
@@ -107,12 +107,12 @@ impl log::Log for Logger {
             return;
         }
 
-        let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-        let msg = format!("[{}] [{:<5}] [{}] {}\n", now, record.level(), target, record.args());
+        // Create log message for the given `record` and `target`.
+        let message = create_log_message(record, &target);
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.
-            let _ = logfile.write_all(msg.as_ref());
+            let _ = logfile.write_all(message.as_ref());
 
             // Write to message bar.
             if record.level() <= Level::Warn {
@@ -122,11 +122,31 @@ impl log::Log for Logger {
 
         // Write to stdout.
         if let Ok(mut stdout) = self.stdout.lock() {
-            let _ = stdout.write_all(msg.as_ref());
+            let _ = stdout.write_all(message.as_ref());
         }
     }
 
     fn flush(&self) {}
+}
+
+fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
+    let now = time::strftime("%F %T.%f", &time::now()).unwrap();
+    let mut message = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
+
+    // Alignment for the lines after the first new line character in the payload. We don't deal
+    // with fullwidth/unicode chars here, so just `message.len()` is sufficient.
+    let alignment = message.len();
+
+    // Push lines with added extra padding on the next line, which is trimmed later.
+    let lines = record.args().to_string();
+    for line in lines.split('\n') {
+        let line = format!("{}\n{:width$}", line, "", width = alignment);
+        message.push_str(&line);
+    }
+
+    // Drop extra trailing alignment.
+    message.truncate(message.len() - alignment);
+    message
 }
 
 struct OnDemandLogFile {
