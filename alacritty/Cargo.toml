@@ -59,7 +59,5 @@ default = ["wayland", "x11"]
 x11 = ["copypasta/x11", "glutin/x11", "x11-dl", "image"]
 wayland = ["copypasta/wayland", "glutin/wayland", "wayland-client"]
 winpty = ["alacritty_terminal/winpty"]
-# Enabling this feature makes shaders automatically reload when changed
-live-shader-reload = []
 nightly = []
 bench = []
