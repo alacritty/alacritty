@@ -204,22 +204,16 @@ static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Rgba {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
 struct Vertex {
     // Normalized screen coordinates.
     x: f32,
     y: f32,
 
     // Color.
-    color: Rgba,
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
 }
 
 #[derive(Debug)]
@@ -328,6 +322,7 @@ impl RectRenderer {
         }
     }
 
+    #[allow(clippy::many_single_char_names)]
     fn add_rect(&mut self, half_width: f32, half_height: f32, rect: &RenderRect) {
         // Calculate rectangle vertices positions in normalized device coordinates.
         // NDC range from -1 to +1, with Y pointing up.
@@ -335,19 +330,17 @@ impl RectRenderer {
         let y = -rect.y / half_height + 1.0;
         let width = rect.width / half_width;
         let height = rect.height / half_height;
-        let color = Rgba {
-            r: rect.color.r,
-            g: rect.color.g,
-            b: rect.color.b,
-            a: (rect.alpha * 255.) as u8,
-        };
+        let r = rect.color.r;
+        let g = rect.color.g;
+        let b = rect.color.b;
+        let a = (rect.alpha * 255.) as u8;
 
         // Make quad vertices.
         let quad = [
-            Vertex { x, y, color },
-            Vertex { x, y: y - height, color },
-            Vertex { x: x + width, y, color },
-            Vertex { x: x + width, y: y - height, color },
+            Vertex { x, y, r, g, b, a },
+            Vertex { x, y: y - height, r, g, b, a },
+            Vertex { x: x + width, y, r, g, b, a },
+            Vertex { x: x + width, y: y - height, r, g, b, a },
         ];
 
         // Append the vertices to form two triangles.
