@@ -30,21 +30,17 @@ use crate::config::ui_config::{Delta, UIConfig};
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::rects::RenderRect;
+use crate::renderer::rects::{RectRenderer, RectShaderProgram, RenderRect};
 
 pub mod rects;
 
 // Shader paths for live reload.
 static TEXT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
-static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
-static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable.
 static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../res/text.v.glsl");
-static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
-static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory.
 pub trait LoadGlyph {
@@ -108,17 +104,6 @@ pub struct TextShaderProgram {
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text.
     u_background: GLint,
-}
-
-/// Rectangle drawing program.
-///
-/// Uniforms are prefixed with "u".
-#[derive(Debug)]
-pub struct RectShaderProgram {
-    /// Program id.
-    id: GLuint,
-    /// Rectangle color.
-    u_color: GLint,
 }
 
 #[derive(Copy, Debug, Clone)]
@@ -410,17 +395,16 @@ struct InstanceData {
 #[derive(Debug)]
 pub struct QuadRenderer {
     program: TextShaderProgram,
-    rect_program: RectShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
-    rect_vao: GLuint,
-    rect_vbo: GLuint,
     atlas: Vec<Atlas>,
     current_atlas: usize,
     active_tex: GLuint,
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
+
+    rect_renderer: RectRenderer,
 }
 
 #[derive(Debug)]
@@ -526,16 +510,11 @@ const ATLAS_SIZE: i32 = 1024;
 impl QuadRenderer {
     pub fn new() -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new()?;
-        let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
 
         let mut vbo_instance: GLuint = 0;
-
-        let mut rect_vao: GLuint = 0;
-        let mut rect_vbo: GLuint = 0;
-        let mut rect_ebo: GLuint = 0;
 
         unsafe {
             gl::Enable(gl::BLEND);
@@ -617,20 +596,6 @@ impl QuadRenderer {
             // Background color.
             add_attr!(4, gl::UNSIGNED_BYTE, u8);
 
-            // Rectangle setup.
-            gl::GenVertexArrays(1, &mut rect_vao);
-            gl::GenBuffers(1, &mut rect_vbo);
-            gl::GenBuffers(1, &mut rect_ebo);
-            gl::BindVertexArray(rect_vao);
-            let indices: [i32; 6] = [0, 1, 3, 1, 2, 3];
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, rect_ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (size_of::<i32>() * indices.len()) as _,
-                indices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
             // Cleanup.
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -651,6 +616,12 @@ impl QuadRenderer {
                 watcher
                     .watch(TEXT_SHADER_V_PATH, RecursiveMode::NonRecursive)
                     .expect("watch vertex shader");
+                watcher
+                    .watch(rects::RECT_SHADER_V_PATH, RecursiveMode::NonRecursive)
+                    .expect("watch rect vertex shader");
+                watcher
+                    .watch(rects::RECT_SHADER_F_PATH, RecursiveMode::NonRecursive)
+                    .expect("watch rect fragment shader");
 
                 loop {
                     let event = rx.recv().expect("watcher event");
@@ -670,12 +641,10 @@ impl QuadRenderer {
 
         let mut renderer = Self {
             program,
-            rect_program,
+            rect_renderer: RectRenderer::new()?,
             vao,
             ebo,
             vbo_instance,
-            rect_vao,
-            rect_vbo,
             atlas: Vec::new(),
             current_atlas: 0,
             active_tex: 0,
@@ -690,56 +659,31 @@ impl QuadRenderer {
     }
 
     /// Draw all rectangles simultaneously to prevent excessive program swaps.
-    pub fn draw_rects(&mut self, props: &SizeInfo, rects: Vec<RenderRect>) {
-        // Swap to rectangle rendering program.
+    pub fn draw_rects(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
+        if rects.is_empty() {
+            return;
+        }
+
+        // Prepare rect rendering state.
         unsafe {
-            // Swap program.
-            gl::UseProgram(self.rect_program.id);
-
             // Remove padding from viewport.
-            gl::Viewport(0, 0, props.width() as i32, props.height() as i32);
-
-            // Change blending strategy.
+            gl::Viewport(0, 0, size_info.width() as i32, size_info.height() as i32);
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
-
-            // Setup data and buffers.
-            gl::BindVertexArray(self.rect_vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
-
-            // Position.
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (size_of::<f32>() * 2) as _,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
         }
 
-        // Draw all the rects.
-        for rect in rects {
-            self.render_rect(&rect, props);
-        }
+        self.rect_renderer.draw(size_info, rects);
 
-        // Deactivate rectangle program again.
+        // Activate regular state again.
         unsafe {
             // Reset blending strategy.
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
 
-            // Reset data and buffers.
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-
-            let padding_x = props.padding_x() as i32;
-            let padding_y = props.padding_y() as i32;
-            let width = props.width() as i32;
-            let height = props.height() as i32;
+            // Restore viewport with padding.
+            let padding_x = size_info.padding_x() as i32;
+            let padding_y = size_info.padding_y() as i32;
+            let width = size_info.width() as i32;
+            let height = size_info.height() as i32;
             gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
-
-            // Disable program.
-            gl::UseProgram(0);
         }
     }
 
@@ -832,7 +776,7 @@ impl QuadRenderer {
 
         self.active_tex = 0;
         self.program = program;
-        self.rect_program = rect_program;
+        self.rect_renderer.set_program(rect_program);
     }
 
     pub fn resize(&mut self, size: &SizeInfo) {
@@ -854,43 +798,6 @@ impl QuadRenderer {
                 size.padding_y(),
             );
             gl::UseProgram(0);
-        }
-    }
-
-    /// Render a rectangle.
-    ///
-    /// This requires the rectangle program to be activated.
-    fn render_rect(&mut self, rect: &RenderRect, size: &SizeInfo) {
-        // Do nothing when alpha is fully transparent.
-        if rect.alpha == 0. {
-            return;
-        }
-
-        // Calculate rectangle position.
-        let center_x = size.width() / 2.;
-        let center_y = size.height() / 2.;
-        let x = (rect.x - center_x) / center_x;
-        let y = -(rect.y - center_y) / center_y;
-        let width = rect.width / center_x;
-        let height = rect.height / center_y;
-
-        unsafe {
-            // Setup vertices.
-            let vertices: [f32; 8] = [x + width, y, x + width, y - height, x, y - height, x, y];
-
-            // Load vertex data into array buffer.
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<f32>() * vertices.len()) as _,
-                vertices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
-
-            // Color.
-            self.rect_program.set_color(rect.color, rect.alpha);
-
-            // Draw the rectangle.
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
     }
 }
@@ -1237,55 +1144,7 @@ impl Drop for TextShaderProgram {
     }
 }
 
-impl RectShaderProgram {
-    pub fn new() -> Result<Self, ShaderCreationError> {
-        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
-            (None, None)
-        } else {
-            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
-        };
-        let vertex_shader = create_shader(RECT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
-        let fragment_shader = create_shader(RECT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
-        let program = create_program(vertex_shader, fragment_shader)?;
-
-        unsafe {
-            gl::DeleteShader(fragment_shader);
-            gl::DeleteShader(vertex_shader);
-            gl::UseProgram(program);
-        }
-
-        // Get uniform locations.
-        let u_color = unsafe { gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _) };
-
-        let shader = Self { id: program, u_color };
-
-        unsafe { gl::UseProgram(0) }
-
-        Ok(shader)
-    }
-
-    fn set_color(&self, color: Rgb, alpha: f32) {
-        unsafe {
-            gl::Uniform4f(
-                self.u_color,
-                f32::from(color.r) / 255.,
-                f32::from(color.g) / 255.,
-                f32::from(color.b) / 255.,
-                alpha,
-            );
-        }
-    }
-}
-
-impl Drop for RectShaderProgram {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.id);
-        }
-    }
-}
-
-fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
+pub fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
     unsafe {
         let program = gl::CreateProgram();
         gl::AttachShader(program, vertex);
@@ -1303,7 +1162,7 @@ fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCrea
     }
 }
 
-fn create_shader(
+pub fn create_shader(
     path: &str,
     kind: GLenum,
     source: Option<&'static str>,
