@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use syn::{DataStruct, Data, Error, Fields, parse_macro_input, DeriveInput, Path};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Error, Fields, Path};
 
 mod de_enum;
 mod de_struct;
@@ -23,5 +23,5 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
 /// Verify that a token path ends with a specific segment.
 pub(crate) fn path_ends_with(path: &Path, segment: &str) -> bool {
     let segments = path.segments.iter();
-    segments.last().map_or(false, |s| s.ident.to_string() == segment)
+    segments.last().map_or(false, |s| s.ident == segment)
 }

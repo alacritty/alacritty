@@ -73,10 +73,7 @@ pub struct InvertedCellColors {
 
 impl Default for InvertedCellColors {
     fn default() -> Self {
-        Self {
-            foreground: CellRgb::CellBackground,
-            background: CellRgb::CellForeground,
-        }
+        Self { foreground: CellRgb::CellBackground, background: CellRgb::CellForeground }
     }
 }
 

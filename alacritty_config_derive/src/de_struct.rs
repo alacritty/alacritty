@@ -1,10 +1,10 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Literal as Literal2, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
 use syn::parse::{self, Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Error, Field, GenericParam, Generics, Ident, Token, Type, TypeParam, LitStr};
+use syn::{Error, Field, GenericParam, Generics, Ident, LitStr, Token, Type, TypeParam};
 
 /// Error message when attempting to flatten multiple fields.
 const MULTIPLE_FLATTEN_ERROR: &str = "At most one instance of #[config(flatten)] is supported";
@@ -85,7 +85,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
 
     'fields_loop: for field in fields.iter() {
         let ident = field.ident.as_ref().expect("unreachable tuple struct");
-        let mut literal = Literal2::string(&ident.to_string()).to_token_stream();
+        let mut literals = vec![ident.to_string()];
 
         // Create default stream for deserializing fields.
         let mut match_assignment_stream = quote! {
@@ -112,7 +112,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
                     // for complexity reasons.
                     if !field_streams.flatten.is_empty() {
                         let error = Error::new(attr.span(), MULTIPLE_FLATTEN_ERROR);
-                        field_streams.flatten = error.to_compile_error().into();
+                        field_streams.flatten = error.to_compile_error();
                         return field_streams;
                     }
 
@@ -124,7 +124,8 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
                 },
                 "deprecated" => {
                     // Construct deprecation message and append optional attribute override.
-                    let mut message = format!("Config warning: `{}` is deprecated", ident.to_string());
+                    let mut message =
+                        format!("Config warning: `{}` is deprecated", ident.to_string());
                     if let Some(warning) = parsed.param {
                         message = format!("{}; {}", message, warning.value());
                     }
@@ -135,8 +136,10 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
                     });
                 },
                 // Add aliases to match pattern.
-                "alias" => if let Some(alias) = parsed.param {
-                    literal.extend(quote! { | #alias });
+                "alias" => {
+                    if let Some(alias) = parsed.param {
+                        literals.push(alias.value());
+                    }
                 },
                 _ => (),
             }
@@ -188,7 +191,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
 
         // Create token stream for deserialization and error handling.
         field_streams.match_assignments.extend(quote! {
-            #literal => { #match_assignment_stream },
+            #(#literals)|* => { #match_assignment_stream },
         });
     }
 

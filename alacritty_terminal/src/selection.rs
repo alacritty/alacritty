@@ -255,8 +255,8 @@ impl Selection {
         match self.ty {
             SelectionType::Simple => self.range_simple(start, end, num_cols),
             SelectionType::Block => self.range_block(start, end),
-            SelectionType::Semantic => Self::range_semantic(term, start.point, end.point),
-            SelectionType::Lines => Self::range_lines(term, start.point, end.point),
+            SelectionType::Semantic => Some(Self::range_semantic(term, start.point, end.point)),
+            SelectionType::Lines => Some(Self::range_lines(term, start.point, end.point)),
         }
     }
 
@@ -294,7 +294,7 @@ impl Selection {
         term: &Term<T>,
         mut start: Point<usize>,
         mut end: Point<usize>,
-    ) -> Option<SelectionRange> {
+    ) -> SelectionRange {
         if start == end {
             if let Some(matching) = term.bracket_search(start) {
                 if (matching.line == start.line && matching.col < start.col)
@@ -305,25 +305,25 @@ impl Selection {
                     end = matching;
                 }
 
-                return Some(SelectionRange { start, end, is_block: false });
+                return SelectionRange { start, end, is_block: false };
             }
         }
 
         start = term.semantic_search_left(start);
         end = term.semantic_search_right(end);
 
-        Some(SelectionRange { start, end, is_block: false })
+        SelectionRange { start, end, is_block: false }
     }
 
     fn range_lines<T>(
         term: &Term<T>,
         mut start: Point<usize>,
         mut end: Point<usize>,
-    ) -> Option<SelectionRange> {
+    ) -> SelectionRange {
         start = term.line_search_left(start);
         end = term.line_search_right(end);
 
-        Some(SelectionRange { start, end, is_block: false })
+        SelectionRange { start, end, is_block: false }
     }
 
     fn range_simple(

@@ -157,7 +157,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                 if self.cursor.rendered {
                     return self.next_cursor_cell();
                 } else {
-                    return self.next_cursor();
+                    return Some(self.next_cursor());
                 }
             } else {
                 // Handle non-cursor cells.
@@ -213,7 +213,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     }
 
     /// Get the next renderable cell as the cursor.
-    fn next_cursor(&mut self) -> Option<RenderableCell> {
+    fn next_cursor(&mut self) -> RenderableCell {
         // Handle cursor.
         self.cursor.rendered = true;
 
@@ -236,7 +236,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
         }
 
-        Some(cell)
+        cell
     }
 
     /// Check selection state of a cell.

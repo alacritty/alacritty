@@ -93,7 +93,7 @@ fn main() {
     let config = config::load(&options);
 
     // Update the log level from config.
-    log::set_max_level(config.ui_config.debug.log_level.into());
+    log::set_max_level(config.ui_config.debug.log_level);
 
     // Switch to home directory.
     #[cfg(target_os = "macos")]

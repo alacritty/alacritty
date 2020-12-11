@@ -22,7 +22,7 @@ use crate::thread;
 use crate::tty;
 
 /// Max bytes to read from the PTY.
-const MAX_READ: usize = 0x10_000;
+const MAX_READ: usize = u16::max_value() as usize;
 
 /// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]

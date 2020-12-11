@@ -714,9 +714,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().shift()
         {
-            let multiplier = f64::from(
-                self.ctx.config().scrolling.multiplier
-            );
+            let multiplier = f64::from(self.ctx.config().scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let cmd = if new_scroll_px > 0. { b'A' } else { b'B' };

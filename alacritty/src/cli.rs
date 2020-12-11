@@ -230,9 +230,15 @@ impl Options {
 
         config.hold = self.hold;
 
-        self.title.clone().map(|title| config.ui_config.window.title = title);
-        self.class_instance.clone().map(|instance| config.ui_config.window.set_instance(instance));
-        self.class_general.clone().map(|general| config.ui_config.window.set_general(general));
+        if let Some(title) = self.title.clone() {
+            config.ui_config.window.title = title
+        }
+        if let Some(class_instance) = self.class_instance.clone() {
+            config.ui_config.window.set_instance(class_instance);
+        }
+        if let Some(class_general) = self.class_general.clone() {
+            config.ui_config.window.set_general(class_general);
+        }
 
         config.ui_config.window.dynamic_title &= self.title.is_none();
         config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());

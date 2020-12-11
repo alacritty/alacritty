@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Literal as Literal2, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
 use syn::{DataEnum, Ident};
 
 pub fn derive_deserialize(ident: Ident, data_enum: DataEnum) -> TokenStream {
@@ -19,14 +19,13 @@ pub fn derive_deserialize(ident: Ident, data_enum: DataEnum) -> TokenStream {
         let variant_str = variant_ident.to_string();
         available_values = format!("{}`{}`, ", available_values, variant_str);
 
-        let literal = Literal2::string(&variant_str.to_lowercase()).to_token_stream();
+        let literal = variant_str.to_lowercase();
 
         match_arms_stream.extend(quote! {
             #literal => Ok(#ident :: #variant_ident),
         });
     }
     available_values.truncate(available_values.len().saturating_sub(2));
-    let available_values = Literal2::string(&available_values).to_token_stream();
 
     // Generate deserialization impl.
     let tokens = quote! {
