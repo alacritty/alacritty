@@ -87,14 +87,15 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
 
     'fields_loop: for field in fields.iter() {
         let ident = field.ident.as_ref().expect("unreachable tuple struct");
-        let mut literals = vec![ident.to_string()];
+        let literal = ident.to_string();
+        let mut literals = vec![literal.clone()];
 
         // Create default stream for deserializing fields.
         let mut match_assignment_stream = quote! {
             match serde::Deserialize::deserialize(value) {
                 Ok(value) => config.#ident = value,
                 Err(err) => {
-                    log::error!(target: #LOG_TARGET, "Config error: {}", err);
+                    log::error!(target: #LOG_TARGET, "Config error: {}: {}", #literal, err);
                 },
             }
         };
@@ -127,7 +128,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
                 "deprecated" => {
                     // Construct deprecation message and append optional attribute override.
                     let mut message =
-                        format!("Config warning: `{}` is deprecated", ident.to_string());
+                        format!("Config warning: {} is deprecated", ident.to_string());
                     if let Some(warning) = parsed.param {
                         message = format!("{}; {}", message, warning.value());
                     }

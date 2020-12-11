@@ -110,13 +110,13 @@ fn config_deserialize() {
     // Verify all log messages are correct.
     let error_logs = logger.error_logs.lock().unwrap();
     assert_eq!(error_logs.as_slice(), [
-        "Config error: invalid type: string \"testing\", expected usize",
-        "Config error: unknown variant `HugaBuga`, expected one of `One`, `Two`, `Three`",
+        "Config error: field1: invalid type: string \"testing\", expected usize",
+        "Config error: enom_error: unknown variant `HugaBuga`, expected one of `One`, `Two`, `Three`",
     ]);
     let warn_logs = logger.warn_logs.lock().unwrap();
     assert_eq!(warn_logs.as_slice(), [
-        "Config warning: `field1` is deprecated; use field2 instead",
-        "Config warning: `enom_error` is deprecated",
+        "Config warning: field1 is deprecated; use field2 instead",
+        "Config warning: enom_error is deprecated",
     ]);
 }
 
