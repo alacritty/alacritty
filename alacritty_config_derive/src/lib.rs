@@ -1,12 +1,8 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Literal as Literal2, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
-use syn::punctuated::Punctuated;
-use syn::{
-    parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields, GenericParam, Type,
-    TypeParam, Path, Ident, Token,
-};
-use syn::parse::{self, Parse, ParseStream};
+use syn::{DataStruct, Data, Error, Fields, parse_macro_input, DeriveInput, Path};
+
+mod de_enum;
+mod de_struct;
 
 /// Error if the derive was used on an unsupported type.
 const UNSUPPORTED_ERROR: &str = "ConfigDeserialize must be used on a struct with fields";
@@ -15,183 +11,17 @@ const UNSUPPORTED_ERROR: &str = "ConfigDeserialize must be used on a struct with
 pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    // Only accept this derive on non-unit structs.
-    let fields = match input.data {
-        Data::Struct(DataStruct { fields: Fields::Named(fields), .. }) => fields.named,
-        _ => {
-            return Error::new(input.ident.span(), UNSUPPORTED_ERROR).to_compile_error().into();
+    match input.data {
+        Data::Struct(DataStruct { fields: Fields::Named(fields), .. }) => {
+            de_struct::derive_deserialize(input.ident, input.generics, fields.named)
         },
-    };
-
-    // Create all necessary tokens for the implementation.
-    let Generics { unconstrained, constrained, phantoms } = generics(input.generics.params);
-    let fields_deserializer = fields_deserializer(fields);
-    let visitor = format_ident!("{}Visitor", input.ident);
-    let ident = input.ident;
-
-    // Generate deserialization impl.
-    let tokens = quote! {
-        #[derive(Default)]
-        #[allow(non_snake_case)]
-        struct #visitor < #unconstrained > {
-            #phantoms
-        }
-
-        impl<'de, #constrained> serde::de::Visitor<'de> for #visitor < #unconstrained > {
-            type Value = #ident < #unconstrained >;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a mapping")
-            }
-
-            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-            where
-                M: serde::de::MapAccess<'de>,
-            {
-                let mut config = Self::Value::default();
-
-                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
-                    match key.as_str() {
-                        #fields_deserializer
-                        // NOTE: Unused variables could be logged here.
-                        _ => (),
-                    }
-                }
-
-                Ok(config)
-            }
-        }
-
-        impl<'de, #constrained> serde::Deserialize<'de> for #ident < #unconstrained > {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                deserializer.deserialize_map(#visitor :: default())
-            }
-        }
-    };
-
-    tokens.into()
-}
-
-/// Create the deserialize match arms for all fields.
-///
-/// The resulting code for one field might look like this:
-///
-/// ```ignore
-/// "field" => {
-///     // This is only generated for `Option<T>` values.
-///     if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
-///         config.field = None;
-///         continue;
-///     }
-///
-///     match serde::Deserialize::deserialize(value) {
-///         Ok(value) => config.field = value,
-///         Err(err) => {
-///             log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
-///         },
-///     }
-/// },
-/// ```
-fn fields_deserializer<T>(fields: Punctuated<Field, T>) -> TokenStream2 {
-    let mut fields_deserializer = TokenStream2::new();
-
-    'fields_loop: for field in fields.iter() {
-        let ident = field.ident.as_ref().expect("unreachable tuple struct");
-        let mut literal = Literal2::string(&ident.to_string()).to_token_stream();
-
-        // Iterate over all #[config(...)] attributes.
-        for attr in field.attrs.iter().filter(|attr| path_ends_with(&attr.path, "config")) {
-            // Skip deserialization for `#[config(skip)]` fields.
-            if attr.tokens.to_string() == "(skip)" {
-                continue 'fields_loop;
-            }
-
-            // Add aliases to match pattern.
-            if let Ok(Alias(lit)) = attr.parse_args::<Alias>() {
-                literal.extend(quote! { | #lit });
-            }
-        }
-
-        // Create token stream for deserializing "none" string into `Option<T>`.
-        let mut none_string_option = TokenStream2::new();
-        if let Type::Path(type_path) = &field.ty {
-            if path_ends_with(&type_path.path, "Option") {
-                none_string_option = quote! {
-                    if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
-                        config.#ident = None;
-                        continue;
-                    }
-                };
-            }
-        }
-
-        // Create token stream for deserialization and error handling.
-        fields_deserializer.extend(quote! {
-            #literal => {
-                #none_string_option
-
-                match serde::Deserialize::deserialize(value) {
-                    Ok(value) => config.#ident = value,
-                    Err(err) => {
-                        log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
-                    },
-                }
-            },
-        });
-    }
-
-    fields_deserializer
-}
-
-/// Alias attribute argument parser (`alias = "lit"`).
-struct Alias(syn::LitStr);
-
-impl Parse for Alias {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        input.parse::<Ident>()?;
-        input.parse::<Token![=]>()?;
-        Ok(Self(input.parse()?))
+        Data::Enum(data_enum) => de_enum::derive_deserialize(input.ident, data_enum),
+        _ => Error::new(input.ident.span(), UNSUPPORTED_ERROR).to_compile_error().into(),
     }
 }
 
 /// Verify that a token path ends with a specific segment.
-fn path_ends_with(path: &Path, segment: &str) -> bool {
+pub(crate) fn path_ends_with(path: &Path, segment: &str) -> bool {
     let segments = path.segments.iter();
     segments.last().map_or(false, |s| s.ident.to_string() == segment)
-}
-
-/// Storage for all necessary generics information.
-#[derive(Default)]
-struct Generics {
-    unconstrained: TokenStream2,
-    constrained: TokenStream2,
-    phantoms: TokenStream2,
-}
-
-/// Create the necessary generics annotations.
-///
-/// This will create three different token streams, which might look like this:
-///  - unconstrained: `T`
-///  - constrained: `T: Default + Deserialize<'de>`
-///  - phantoms: `T: PhantomData<T>,`
-fn generics<T>(params: Punctuated<GenericParam, T>) -> Generics {
-    let mut generics = Generics::default();
-
-    for generic in params {
-        // NOTE: Lifetimes and const params are not supported.
-        if let GenericParam::Type(TypeParam { ident, .. }) = generic {
-            generics.unconstrained.extend(quote!( #ident , ));
-            generics.constrained.extend(quote! {
-                #ident : Default + serde::Deserialize<'de> ,
-            });
-            generics.phantoms.extend(quote! {
-                #ident : std::marker::PhantomData < #ident >,
-            });
-        }
-    }
-
-    generics
 }

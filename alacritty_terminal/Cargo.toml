@@ -8,6 +8,9 @@ readme = "../README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2018"
 
+[dependencies.alacritty_config_derive]
+path = "../alacritty_config_derive"
+
 [dependencies]
 libc = "0.2"
 bitflags = "1"

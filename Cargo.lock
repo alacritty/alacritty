@@ -25,6 +25,7 @@ dependencies = [
 name = "alacritty"
 version = "0.7.0-dev"
 dependencies = [
+ "alacritty_config_derive",
  "alacritty_terminal",
  "bitflags",
  "clap",
@@ -69,6 +70,7 @@ dependencies = [
 name = "alacritty_terminal"
 version = "0.11.1-dev"
 dependencies = [
+ "alacritty_config_derive",
  "base64",
  "bitflags",
  "libc",
@@ -1089,6 +1091,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]

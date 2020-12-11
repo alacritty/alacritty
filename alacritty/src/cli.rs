@@ -230,13 +230,11 @@ impl Options {
 
         config.hold = self.hold;
 
-        let dynamic_title = config.ui_config.dynamic_title() && self.title.is_none();
-        config.ui_config.set_dynamic_title(dynamic_title);
+        self.title.clone().map(|title| config.ui_config.window.title = title);
+        self.class_instance.clone().map(|instance| config.ui_config.window.set_instance(instance));
+        self.class_general.clone().map(|general| config.ui_config.window.set_general(general));
 
-        replace_if_some(&mut config.ui_config.window.title, self.title.clone());
-        replace_if_some(&mut config.ui_config.window.class.instance, self.class_instance.clone());
-        replace_if_some(&mut config.ui_config.window.class.general, self.class_general.clone());
-
+        config.ui_config.window.dynamic_title &= self.title.is_none();
         config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
         config.ui_config.debug.print_events |= self.print_events;
         config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level);
@@ -246,12 +244,6 @@ impl Options {
             config.ui_config.debug.log_level =
                 max(config.ui_config.debug.log_level, LevelFilter::Info);
         }
-    }
-}
-
-fn replace_if_some<T>(option: &mut T, value: Option<T>) {
-    if let Some(value) = value {
-        *option = value;
     }
 }
 
@@ -289,11 +281,11 @@ mod tests {
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
         let mut config = Config::default();
-        let old_dynamic_title = config.ui_config.dynamic_title();
+        let old_dynamic_title = config.ui_config.window.dynamic_title;
 
         Options::default().override_config(&mut config);
 
-        assert_eq!(old_dynamic_title, config.ui_config.dynamic_title());
+        assert_eq!(old_dynamic_title, config.ui_config.window.dynamic_title);
     }
 
     #[test]
@@ -304,7 +296,7 @@ mod tests {
         options.title = Some("foo".to_owned());
         options.override_config(&mut config);
 
-        assert!(!config.ui_config.dynamic_title());
+        assert!(!config.ui_config.window.dynamic_title);
     }
 
     #[test]
@@ -314,7 +306,7 @@ mod tests {
         config.ui_config.window.title = "foo".to_owned();
         Options::default().override_config(&mut config);
 
-        assert!(config.ui_config.dynamic_title());
+        assert!(config.ui_config.window.dynamic_title);
     }
 
     #[test]

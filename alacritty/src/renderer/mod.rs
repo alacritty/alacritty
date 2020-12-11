@@ -156,15 +156,15 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
 
-        let metrics = rasterizer.metrics(regular, font.size)?;
+        let metrics = rasterizer.metrics(regular, font.size())?;
 
         let mut cache = Self {
             cache: HashMap::default(),
             cursor_cache: HashMap::default(),
             rasterizer,
-            font_size: font.size,
+            font_size: font.size(),
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
@@ -190,7 +190,7 @@ impl GlyphCache {
         font: &Font,
         rasterizer: &mut Rasterizer,
     ) -> Result<(FontKey, FontKey, FontKey, FontKey), crossfont::Error> {
-        let size = font.size;
+        let size = font.size();
 
         // Load regular font.
         let regular_desc = Self::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
@@ -291,12 +291,12 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
-        let metrics = self.rasterizer.metrics(regular, font.size)?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        let metrics = self.rasterizer.metrics(regular, font.size())?;
 
-        info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
+        info!("Font size changed to {:?} with DPR of {}", font.size(), dpr);
 
-        self.font_size = font.size;
+        self.font_size = font.size();
         self.font_key = regular;
         self.bold_key = bold;
         self.italic_key = italic;
@@ -322,12 +322,12 @@ impl GlyphCache {
 
     /// Calculate font metrics without access to a glyph cache.
     pub fn static_metrics(font: Font, dpr: f64) -> Result<crossfont::Metrics, crossfont::Error> {
-        let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes())?;
+        let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes)?;
         let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
-        let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size)?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size())?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
 
-        rasterizer.metrics(regular, font.size)
+        rasterizer.metrics(regular, font.size())
     }
 }
 

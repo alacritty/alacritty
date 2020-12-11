@@ -20,8 +20,6 @@ use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
-#[cfg(target_os = "macos")]
-use crossfont::set_font_smoothing;
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::event::{EventListener, OnResize};
@@ -254,7 +252,7 @@ impl Display {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        set_font_smoothing(config.ui_config.font.use_thin_strokes());
+        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         let is_x11 = event_loop.is_x11();
@@ -313,7 +311,7 @@ impl Display {
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.ui_config.font.clone();
-        let rasterizer = Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes())?;
+        let rasterizer = Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes)?;
 
         // Initialize glyph cache.
         let glyph_cache = {
@@ -491,8 +489,8 @@ impl Display {
                             .map_or(false, |viewport_match| viewport_match.contains(&cell_point))
                     {
                         let colors = config.colors.search.focused_match;
-                        let match_fg = colors.foreground().color(cell.fg, cell.bg);
-                        cell.bg = colors.background().color(cell.fg, cell.bg);
+                        let match_fg = colors.foreground.color(cell.fg, cell.bg);
+                        cell.bg = colors.background.color(cell.fg, cell.bg);
                         cell.fg = match_fg;
                         cell.bg_alpha = 1.0;
                     }
@@ -558,8 +556,8 @@ impl Display {
             let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
 
             let color = match message.ty() {
-                MessageType::Error => config.colors.normal().red,
-                MessageType::Warning => config.colors.normal().yellow,
+                MessageType::Error => config.colors.normal.red,
+                MessageType::Warning => config.colors.normal.yellow,
             };
 
             let message_bar_rect =
@@ -680,7 +678,7 @@ impl Display {
 
         let timing = format!("{:.3} usec", self.meter.average());
         let fg = config.colors.primary.background;
-        let bg = config.colors.normal().red;
+        let bg = config.colors.normal.red;
 
         self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
             api.render_string(glyph_cache, size_info.screen_lines() - 2, &timing[..], fg, Some(bg));
