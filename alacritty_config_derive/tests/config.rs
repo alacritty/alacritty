@@ -31,8 +31,6 @@ struct Test {
     nesting: Test2<usize>,
     #[config(flatten)]
     flatten: Test3,
-    vec: Vec<u8>,
-    vec_default: Vec<u8>,
     enom_small: TestEnum,
     enom_big: TestEnum,
     #[config(deprecated)]
@@ -47,8 +45,6 @@ impl Default for Test {
             field3: Some(23),
             nesting: Test2::default(),
             flatten: Test3::default(),
-            vec: Vec::default(),
-            vec_default: vec![1],
             enom_small: TestEnum::default(),
             enom_big: TestEnum::default(),
             enom_error: TestEnum::default(),
@@ -91,8 +87,6 @@ fn config_deserialize() {
           field3: 99
           aliased: 8
         flatty: 123
-        vec: [1, 2, "garbage", 3]
-        vec_default: "not a vec"
         enom_small: "one"
         enom_big: "THREE"
         enom_error: "HugaBuga"
@@ -104,8 +98,6 @@ fn config_deserialize() {
     assert_eq!(test.field1, 3);
     assert_eq!(test.field2, Test::default().field2);
     assert_eq!(test.field3, Some(32));
-    assert_eq!(test.vec, vec![1, 2, 3]);
-    assert_eq!(test.vec_default, Test::default().vec_default);
     assert_eq!(test.enom_small, TestEnum::One);
     assert_eq!(test.enom_big, TestEnum::Three);
     assert_eq!(test.enom_error, Test::default().enom_error);
@@ -119,8 +111,6 @@ fn config_deserialize() {
     let error_logs = logger.error_logs.lock().unwrap();
     assert_eq!(error_logs.as_slice(), [
         "Config error: invalid type: string \"testing\", expected usize",
-        "Config error: invalid type: string \"garbage\", expected u8",
-        "Config error: invalid type: string \"not a vec\", expected a sequence",
         "Config error: unknown variant `HugaBuga`, expected one of `One`, `Two`, `Three`",
     ]);
     let warn_logs = logger.warn_logs.lock().unwrap();

@@ -155,37 +155,6 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
                     }
                     #match_assignment_stream
                 };
-            } else if crate::path_ends_with(&type_path.path, "Vec") {
-                // TODO: This is currently useless? Delete it?
-                //
-                // Create token stream for deserializing Vec elements individually.
-                match_assignment_stream = quote! {
-                    use serde::Deserialize;
-
-                    // Deserialize to Vec of values first, to make sure we have a sequence.
-                    let mut values = match Vec::<serde_yaml::Value>::deserialize(value) {
-                        Ok(values) => values,
-                        Err(err) => {
-                            log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
-                            continue;
-                        },
-                    };
-
-                    // Filter all invalid values and report them as errors.
-                    config.#ident = values.drain(..).filter_map(|v| {
-                        match Deserialize::deserialize(v) {
-                            Ok(value) => Some(value),
-                            Err(err) => {
-                                log::error!(
-                                    target: env!("CARGO_PKG_NAME"),
-                                    "Config error: {}",
-                                    err,
-                                );
-                                None
-                            },
-                        }
-                    }).collect();
-                };
             }
         }
 
