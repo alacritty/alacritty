@@ -16,7 +16,7 @@ pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
 
-pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
+pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const MIN_BLINK_INTERVAL: u64 = 10;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;

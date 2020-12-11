@@ -8,6 +8,8 @@ use syn::{Error, Field, GenericParam, Generics, Ident, LitStr, Token, Type, Type
 
 /// Error message when attempting to flatten multiple fields.
 const MULTIPLE_FLATTEN_ERROR: &str = "At most one instance of #[config(flatten)] is supported";
+/// Use this crate's name as log target.
+const LOG_TARGET: &str = env!("CARGO_PKG_NAME");
 
 pub fn derive_deserialize<T>(
     ident: Ident,
@@ -92,7 +94,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
             match serde::Deserialize::deserialize(value) {
                 Ok(value) => config.#ident = value,
                 Err(err) => {
-                    log::error!(target: env!("CARGO_PKG_NAME"), "Config error: {}", err);
+                    log::error!(target: #LOG_TARGET, "Config error: {}", err);
                 },
             }
         };
@@ -132,7 +134,7 @@ fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
 
                     // Append stream to log deprecation warning.
                     match_assignment_stream.extend(quote! {
-                        log::warn!(target: env!("CARGO_PKG_NAME"), #message);
+                        log::warn!(target: #LOG_TARGET, #message);
                     });
                 },
                 // Add aliases to match pattern.

@@ -23,7 +23,7 @@ use crate::message_bar::{Message, MessageType};
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 /// List of targets which will be logged by Alacritty.
 const ALLOWED_TARGETS: [&str; 4] =
-    ["alacritty_terminal", "alacritty_config", "alacritty", "crossfont"];
+    ["alacritty_terminal", "alacritty_config_derive", "alacritty", "crossfont"];
 
 pub fn initialize(
     options: &Options,
