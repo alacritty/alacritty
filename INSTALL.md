@@ -184,12 +184,8 @@ nix-shell -A alacritty '<nixpkgs>'
 
 #### Gentoo
 
-On Gentoo, you need a few extra libraries to build Alacritty. The following
-command should install all of them. If something is still found to be missing,
-please open an issue.
-
 ```sh
-emerge --onlydeps x11-terms/alacritty
+emerge --ask x11-terms/alacritty
 ```
 
 #### Clear Linux
