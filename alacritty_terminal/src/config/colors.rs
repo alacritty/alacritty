@@ -54,7 +54,7 @@ impl<'de> Deserialize<'de> for ColorIndex {
 
         if index < 16 {
             Err(SerdeError::custom(
-                "Problem with config: indexed_color's index is {}, but a value bigger than 15 was \
+                "Config error: indexed_color's index is {}, but a value bigger than 15 was \
                  expected; ignoring setting",
             ))
         } else {

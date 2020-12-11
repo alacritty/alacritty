@@ -10,6 +10,7 @@ edition = "2018"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
+version = "0.1.0"
 
 [dependencies]
 libc = "0.2"

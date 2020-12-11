@@ -27,8 +27,6 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 use serde_json as json;
 
-#[cfg(target_os = "macos")]
-use crossfont::set_font_smoothing;
 use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
@@ -1279,7 +1277,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        set_font_smoothing(config.ui_config.font.use_thin_strokes);
+        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
 
         *processor.ctx.config = config;
 

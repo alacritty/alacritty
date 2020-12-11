@@ -68,7 +68,7 @@ impl Display for Error {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
             },
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(err) => write!(f, "Problem with config: {}", err),
+            Error::Yaml(err) => write!(f, "Config error: {}", err),
         }
     }
 }

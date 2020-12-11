@@ -1,12 +1,10 @@
 use std::fmt;
 
 use crossfont::Size as FontSize;
-use log::error;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
 
 use crate::config::ui_config::Delta;
 
@@ -126,39 +124,22 @@ impl<'de> Deserialize<'de> for Size {
         D: Deserializer<'de>,
     {
         struct NumVisitor;
-
         impl<'v> Visitor<'v> for NumVisitor {
-            type Value = f64;
+            type Value = Size;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("f64 or u64")
             }
 
             fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
-                Ok(value)
+                Ok(Size(FontSize::new(value as f32)))
             }
 
             fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
-                Ok(value as f64)
+                Ok(Size(FontSize::new(value as f32)))
             }
         }
 
-        let value = serde_yaml::Value::deserialize(deserializer)?;
-        let size = value.deserialize_any(NumVisitor).map(|v| Size(FontSize::new(v as f32)));
-
-        // Use default font size as fallback.
-        match size {
-            Ok(size) => Ok(size),
-            Err(err) => {
-                let size = Self::default();
-                error!(
-                    target: LOG_TARGET_CONFIG,
-                    "Problem with config: {}; using size {}",
-                    err,
-                    size.0.as_f32_pts()
-                );
-                Ok(size)
-            },
-        }
+        deserializer.deserialize_any(NumVisitor)
     }
 }

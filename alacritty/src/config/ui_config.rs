@@ -132,7 +132,7 @@ where
         match Binding::<T>::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring binding", err);
+                error!(target: LOG_TARGET_CONFIG, "Config error: {}; ignoring binding", err);
             },
         }
     }

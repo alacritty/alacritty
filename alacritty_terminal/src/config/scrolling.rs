@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
 
+/// Maximum scrollback amount configurable.
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
 /// Struct for scrolling related settings.
@@ -40,7 +41,6 @@ impl Default for ScrollingHistory {
 }
 
 impl<'de> Deserialize<'de> for ScrollingHistory {
-    // TODO: Reimplement this properly to return Err on > 10_000.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
