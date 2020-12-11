@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - New `cursor.style.blinking` option to set the default blinking state
 - New `cursor.blink_interval` option to configure the blinking frequency
 - Support for cursor blinking escapes (`CSI ? 12 h`, `CSI ? 12 l` and `CSI Ps SP q`)
+- IME support on Windows
+- Urgency support on Windows
 
 ### Changed
 
@@ -26,6 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Dimming colors which use the indexed `CSI 38 : 5 : Ps m` notation
 - Slow rendering performance with a lot of cells with underline/strikeout attributes
 - Performance of scrolling regions with offset from the bottom
+- Extra mouse buttons are no longer ignored on Wayland
+- Numpad arrow keys are now properly recognized on Wayland
+- Compilation when targetting aarch64-apple-darwin
+- Window not being completely opaque on Windows
+- Window being always on top during alt-tab on Windows
 
 ### Removed
 
