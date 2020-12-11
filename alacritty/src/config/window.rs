@@ -101,6 +101,7 @@ impl WindowConfig {
     }
 
     #[inline]
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn instance(&self) -> &str {
         match &self.class {
             Class::Just(instance) | Class::WithGeneral { instance, .. } => instance.as_str(),
@@ -115,6 +116,7 @@ impl WindowConfig {
     }
 
     #[inline]
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn general(&self) -> &str {
         match &self.class {
             Class::Just(_) => DEFAULT_NAME,
