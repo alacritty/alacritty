@@ -27,10 +27,12 @@ use std::fmt::{self, Display, Formatter};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
-use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
+use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
 use glutin::platform::windows::IconExtWindows;
-use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
+use glutin::window::{
+    CursorIcon, Fullscreen, UserAttentionType, Window as GlutinWindow, WindowBuilder, WindowId,
+};
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
@@ -328,22 +330,11 @@ impl Window {
         }
     }
 
-    #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     pub fn set_urgent(&self, is_urgent: bool) {
-        self.window().set_urgent(is_urgent);
+        let attention = if is_urgent { Some(UserAttentionType::Critical) } else { None };
+
+        self.window().request_user_attention(attention);
     }
-
-    #[cfg(target_os = "macos")]
-    pub fn set_urgent(&self, is_urgent: bool) {
-        if !is_urgent {
-            return;
-        }
-
-        self.window().request_user_attention(RequestUserAttentionType::Critical);
-    }
-
-    #[cfg(any(windows, not(any(feature = "x11", target_os = "macos"))))]
-    pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
         self.window().set_outer_position(pos);

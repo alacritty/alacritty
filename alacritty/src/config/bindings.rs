@@ -638,7 +638,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
             type Value = MouseButtonWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Left, Right, Middle, or a number from 0 to 255")
+                f.write_str("Left, Right, Middle, or a number from 0 to 65536")
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<MouseButtonWrapper, E>
@@ -646,7 +646,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                 E: de::Error,
             {
                 match value {
-                    0..=255 => Ok(MouseButtonWrapper(MouseButton::Other(value as u8))),
+                    0..=65536 => Ok(MouseButtonWrapper(MouseButton::Other(value as u16))),
                     _ => Err(E::invalid_value(Unexpected::Unsigned(value), &self)),
                 }
             }
