@@ -403,8 +403,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         if (lmb_pressed || rmb_pressed) && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
             self.ctx.update_selection(point, cell_side);
-        } else if inside_text_area
-            && cell_changed
+        } else if cell_changed
             && point.line < self.ctx.terminal().screen_lines()
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
