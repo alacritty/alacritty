@@ -3,7 +3,7 @@ root = true
 [*]
 charset = utf-8
 end_of_line = lf
-trim_trailing-whitespace = true
+trim_trailing_whitespace = true
 insert_final_newline = true
 
 [*.{glsl,rs,toml}]
