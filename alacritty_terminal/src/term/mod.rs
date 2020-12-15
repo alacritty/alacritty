@@ -201,10 +201,10 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let mut cell = RenderableCell::new(self, cell);
 
         if self.cursor.key.shape == CursorShape::Block {
-            cell.fg = match self.cursor.cursor_color {
-                // Apply cursor color, or invert the cursor if it has a fixed background
-                // close to the cell's background.
-                CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => cell.bg,
+            // Apply cursor foreground color unless it uses a fixed background with poor contrast.
+            cell.fg = match (self.cursor.cursor_color, self.cursor.text_color) {
+                (_, CellRgb::Rgb(_)) => self.cursor.text_color.color(cell.fg, cell.bg),
+                (CellRgb::Rgb(col), _) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => cell.bg,
                 _ => self.cursor.text_color.color(cell.fg, cell.bg),
             };
         }
@@ -227,14 +227,12 @@ impl<'a, C> RenderableCellsIter<'a, C> {
         let mut cell = RenderableCell::new(self, cell);
         cell.inner = RenderableCellContent::Cursor(self.cursor.key);
 
-        // Apply cursor color, or invert the cursor if it has a fixed background close
-        // to the cell's background.
-        if !matches!(
-            self.cursor.cursor_color,
-            CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
-        ) {
-            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
-        }
+        // Apply cursor background color unless it uses a fixed background with poor contrast.
+        cell.fg = match (self.cursor.cursor_color, self.cursor.text_color) {
+            (_, CellRgb::Rgb(_)) => self.cursor.cursor_color.color(cell.fg, cell.bg),
+            (CellRgb::Rgb(col), _) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => cell.fg,
+            _ => self.cursor.cursor_color.color(cell.fg, cell.bg),
+        };
 
         Some(cell)
     }
