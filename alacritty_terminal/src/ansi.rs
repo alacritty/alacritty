@@ -1138,6 +1138,7 @@ where
                     [b'*'] => CharsetIndex::G2,
                     [b'+'] => CharsetIndex::G3,
                     _ => {
+                        unhandled!();
                         return;
                     },
                 };
@@ -1147,26 +1148,26 @@ where
 
         match (byte, intermediates) {
             (b'B', intermediates) => configure_charset!(StandardCharset::Ascii, intermediates),
-            (b'D', _) => self.handler.linefeed(),
-            (b'E', _) => {
+            (b'D', []) => self.handler.linefeed(),
+            (b'E', []) => {
                 self.handler.linefeed();
                 self.handler.carriage_return();
             },
-            (b'H', _) => self.handler.set_horizontal_tabstop(),
-            (b'M', _) => self.handler.reverse_index(),
-            (b'Z', _) => self.handler.identify_terminal(self.writer, None),
-            (b'c', _) => self.handler.reset_state(),
+            (b'H', []) => self.handler.set_horizontal_tabstop(),
+            (b'M', []) => self.handler.reverse_index(),
+            (b'Z', []) => self.handler.identify_terminal(self.writer, None),
+            (b'c', []) => self.handler.reset_state(),
             (b'0', intermediates) => {
                 configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing, intermediates)
             },
-            (b'7', _) => self.handler.save_cursor_position(),
+            (b'7', []) => self.handler.save_cursor_position(),
             (b'8', [b'#']) => self.handler.decaln(),
-            (b'8', _) => self.handler.restore_cursor_position(),
-            (b'=', _) => self.handler.set_keypad_application_mode(),
-            (b'>', _) => self.handler.unset_keypad_application_mode(),
+            (b'8', []) => self.handler.restore_cursor_position(),
+            (b'=', []) => self.handler.set_keypad_application_mode(),
+            (b'>', []) => self.handler.unset_keypad_application_mode(),
             // String terminator, do nothing (parser handles as string terminator).
-            (b'\\', _) => (),
-            _ => (),
+            (b'\\', []) => (),
+            _ => unhandled!(),
         }
     }
 }
