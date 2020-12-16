@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cursor position not reported to apps when mouse is moved with button held outside of window
 - No live config update when starting Alacritty with a broken configuration file
 - PTY not drained to the end with the `--hold` flag enabled
+- High CPU usage on BSD with live config reload enabled
 
 ### Removed
 
