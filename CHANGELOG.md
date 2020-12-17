@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - PTY not drained to the end with the `--hold` flag enabled
 - High CPU usage on BSD with live config reload enabled
 - Alacritty not discarding invalid escape sequences starting with ESC
+- Crash due to clipboard not being properly released on Wayland
 
 ### Removed
 
