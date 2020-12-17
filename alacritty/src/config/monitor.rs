@@ -10,6 +10,11 @@ use alacritty_terminal::thread;
 
 use crate::event::{Event, EventProxy};
 
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+const DEBOUNCE_DELAY: Duration = Duration::from_millis(10);
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+const DEBOUNCE_DELAY: Duration = Duration::from_millis(1000);
+
 pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
     // Canonicalize all paths, filtering out the ones that do not exist.
     paths = paths
@@ -30,7 +35,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
 
     // The Duration argument is a debouncing period.
     let (tx, rx) = mpsc::channel();
-    let mut watcher = match watcher(tx, Duration::from_millis(10)) {
+    let mut watcher = match watcher(tx, DEBOUNCE_DELAY) {
         Ok(watcher) => watcher,
         Err(err) => {
             error!("Unable to watch config file: {}", err);
