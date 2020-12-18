@@ -25,6 +25,8 @@ pub fn derive_deserialize(ident: Ident, data_enum: DataEnum) -> TokenStream {
             #literal => Ok(#ident :: #variant_ident),
         });
     }
+
+    // Remove trailing `, ` from the last enum variant.
     available_values.truncate(available_values.len().saturating_sub(2));
 
     // Generate deserialization impl.

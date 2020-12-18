@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Nonexistent config imports are ignored instead of raising an error
+- Value for disabling logging with `config.log_level` is `Off` instead of `None`
 
 ### Fixed
 
