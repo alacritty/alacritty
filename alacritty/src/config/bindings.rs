@@ -49,7 +49,6 @@ impl<T: Eq> Binding<T> {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
-        let mode: BindingMode = mode.into();
         self.trigger == *input
             && self.mods == mods
             && mode.contains(self.mode)
