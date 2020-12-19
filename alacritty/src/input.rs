@@ -31,7 +31,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, Binding, Config, Key, ViAction, BindingMode, SearchAction};
+use crate::config::{Action, Binding, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};

@@ -2,17 +2,17 @@
 
 use std::fmt::{self, Debug, Display};
 
+use bitflags::bitflags;
 use glutin::event::VirtualKeyCode::*;
 use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
 use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
-use bitflags::bitflags;
 
 use alacritty_terminal::config::Program;
-use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::term::TermMode;
+use alacritty_terminal::vi_mode::ViMotion;
 
 /// Describes a state and action to take in that state.
 ///
@@ -998,7 +998,9 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 Some(vi_action.into())
                             } else if let Ok(vi_motion) = ViMotion::deserialize(value.clone()) {
                                 Some(vi_motion.into())
-                            } else if let Ok(search_action) = SearchAction::deserialize(value.clone()) {
+                            } else if let Ok(search_action) =
+                                SearchAction::deserialize(value.clone())
+                            {
                                 Some(search_action.into())
                             } else {
                                 match Action::deserialize(value.clone()).map_err(V::Error::custom) {
@@ -1056,7 +1058,8 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)
                     | (Some(action @ Action::ViAction(_)), None, None) => {
-                        if !mode.intersects(BindingMode::VI) || not_mode.intersects(BindingMode::VI) {
+                        if !mode.intersects(BindingMode::VI) || not_mode.intersects(BindingMode::VI)
+                        {
                             return Err(V::Error::custom(format!(
                                 "action `{}` is only available in vi mode, try adding `mode: Vi`",
                                 action,
@@ -1067,7 +1070,8 @@ impl<'a> Deserialize<'a> for RawBinding {
                     (Some(action @ Action::SearchAction(_)), None, None) => {
                         if !mode.intersects(BindingMode::SEARCH) {
                             return Err(V::Error::custom(format!(
-                                "action `{}` is only available in search mode, try adding `mode: Search`",
+                                "action `{}` is only available in search mode, try adding `mode: \
+                                 Search`",
                                 action,
                             )));
                         }
