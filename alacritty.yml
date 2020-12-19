@@ -778,8 +778,8 @@
   #- { key: W,              mods: Command,                    action: Quit             }
   #- { key: N,              mods: Command,                    action: SpawnNewInstance }
   #- { key: F,              mods: Command|Control,            action: ToggleFullscreen }
-  #- { key: F,              mods: Command,                    action: SearchForward    }
-  #- { key: B,              mods: Command,                    action: SearchBackward   }
+  #- { key: F,              mods: Command, mode: ~Search,     action: SearchForward    }
+  #- { key: B,              mods: Command, mode: ~Search,     action: SearchBackward   }
 
 #debug:
   # Display the time it takes to redraw each frame.

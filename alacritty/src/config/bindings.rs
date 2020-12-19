@@ -671,8 +671,8 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         M, ModifiersState::LOGO; Action::Minimize;
         Q, ModifiersState::LOGO; Action::Quit;
         W, ModifiersState::LOGO; Action::Quit;
-        F, ModifiersState::LOGO; Action::SearchForward;
-        B, ModifiersState::LOGO; Action::SearchBackward;
+        F, ModifiersState::LOGO, ~BindingMode::SEARCH; Action::SearchForward;
+        B, ModifiersState::LOGO, ~BindingMode::SEARCH; Action::SearchBackward;
     )
 }
 
@@ -711,12 +711,12 @@ struct ModeWrapper {
 
 bitflags! {
     /// Modes available for key bindings.
-    pub struct BindingMode: u32 {
-        const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
-        const APP_KEYPAD          = 0b0000_0000_0000_0000_0100;
-        const ALT_SCREEN          = 0b0000_0001_0000_0000_0000;
-        const VI                  = 0b0001_0000_0000_0000_0000;
-        const SEARCH              = 0b0100_0000_0000_0000_0000;
+    pub struct BindingMode: u8 {
+        const APP_CURSOR          = 0b0000_0001;
+        const APP_KEYPAD          = 0b0000_0010;
+        const ALT_SCREEN          = 0b0000_0100;
+        const VI                  = 0b0000_1000;
+        const SEARCH              = 0b0001_0000;
     }
 }
 
