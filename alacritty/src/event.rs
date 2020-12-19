@@ -418,6 +418,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn confirm_search(&mut self) {
+        // Just cancel search when not in vi mode.
+        if !self.terminal.mode().contains(TermMode::VI) {
+            self.cancel_search();
+            return;
+        }
+
         // Force unlimited search if the previous one was interrupted.
         if self.scheduler.scheduled(TimerId::DelayedSearch) {
             self.goto_match(None);
@@ -445,22 +451,24 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
-    fn push_search(&mut self, c: char) {
+    fn search_input(&mut self, c: char) {
         if let Some(regex) = self.search_state.regex.as_mut() {
+            match c {
+                // Handle backspace/ctrl+h.
+                '\x08' | '\x7f' => {
+                    let _ = regex.pop();
+                },
+                // Add ascii and unicode text.
+                ' '..='~' | '\u{a0}'..='\u{10ffff}' => regex.push(c),
+                // Ignore non-printable characters.
+                _ => return,
+            }
+
             if !self.terminal.mode().contains(TermMode::VI) {
                 // Clear selection so we do not obstruct any matches.
                 self.terminal.selection = None;
             }
 
-            regex.push(c);
-            self.update_search();
-        }
-    }
-
-    #[inline]
-    fn pop_search(&mut self) {
-        if let Some(regex) = self.search_state.regex.as_mut() {
-            regex.pop();
             self.update_search();
         }
     }

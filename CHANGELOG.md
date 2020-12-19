@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for cursor blinking escapes (`CSI ? 12 h`, `CSI ? 12 l` and `CSI Ps SP q`)
 - IME support on Windows
 - Urgency support on Windows
+- Customizable keybindings for search
 
 ### Changed
 
