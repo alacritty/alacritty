@@ -345,14 +345,10 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             Action::Esc("\x1b\x7f".into());
         Back, ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH;
             Action::Esc("\x7f".into());
-        Home,     ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN, ~BindingMode::SEARCH;
-            Action::ScrollToTop;
-        End,      ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN, ~BindingMode::SEARCH;
-            Action::ScrollToBottom;
-        PageUp,   ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN, ~BindingMode::SEARCH;
-            Action::ScrollPageUp;
-        PageDown, ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN, ~BindingMode::SEARCH;
-            Action::ScrollPageDown;
+        Home,     ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToTop;
+        End,      ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToBottom;
+        PageUp,   ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollPageUp;
+        PageDown, ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollPageDown;
         Home,     ModifiersState::SHIFT, +BindingMode::ALT_SCREEN,
             ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[1;2H".into());
         End,      ModifiersState::SHIFT, +BindingMode::ALT_SCREEN,
@@ -665,10 +661,10 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
             Action::Esc("\x1b[2;2~".into());
         K, ModifiersState::LOGO, ~BindingMode::VI, ~BindingMode::SEARCH;
             Action::Esc("\x0c".into());
+        K, ModifiersState::LOGO, ~BindingMode::VI, ~BindingMode::SEARCH;  Action::ClearHistory;
         V, ModifiersState::LOGO, ~BindingMode::VI; Action::Paste;
         N, ModifiersState::LOGO; Action::SpawnNewInstance;
         F, ModifiersState::CTRL | ModifiersState::LOGO; Action::ToggleFullscreen;
-        K, ModifiersState::LOGO, ~BindingMode::SEARCH;  Action::ClearHistory;
         C, ModifiersState::LOGO; Action::Copy;
         C, ModifiersState::LOGO, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         H, ModifiersState::LOGO; Action::Hide;
