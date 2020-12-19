@@ -100,7 +100,7 @@ pub enum Action {
     ViAction(ViAction),
 
     /// Perform search mode action.
-    #[serde(skip)]
+    #[config(skip)]
     SearchAction(SearchAction),
 
     /// Paste contents of system clipboard.
