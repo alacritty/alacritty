@@ -1424,65 +1424,65 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: Binding { trigger: KEY, mods: ModifiersState::SHIFT, action: Action::from("\x1b[1;2D"), mode: TermMode::NONE, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::SHIFT, action: Action::from("\x1b[1;2D"), mode: BindingMode::empty(), notmode: BindingMode::empty() },
         triggers: true,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::SHIFT,
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: Binding { trigger: KEY, mods: ModifiersState::SHIFT, action: Action::from("\x1b[1;2D"), mode: TermMode::NONE, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::SHIFT, action: Action::from("\x1b[1;2D"), mode: BindingMode::empty(), notmode: BindingMode::empty() },
         triggers: false,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::empty(),
     }
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: Binding { trigger: KEY, mods: ModifiersState::CTRL, action: Action::from("\x1b[1;5D"), mode: TermMode::NONE, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::CTRL, action: Action::from("\x1b[1;5D"), mode: BindingMode::empty(), notmode: BindingMode::empty() },
         triggers: true,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::CTRL,
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1b[D"), mode: TermMode::NONE, notmode: TermMode::APP_CURSOR },
+        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1b[D"), mode: BindingMode::empty(), notmode: BindingMode::APP_CURSOR },
         triggers: true,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::empty(),
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: TermMode::APP_CURSOR, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: BindingMode::APP_CURSOR, notmode: BindingMode::empty() },
         triggers: true,
-        mode: TermMode::APP_CURSOR,
+        mode: BindingMode::APP_CURSOR,
         mods: ModifiersState::empty(),
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: TermMode::APP_CURSOR, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: BindingMode::APP_CURSOR, notmode: BindingMode::empty() },
         triggers: false,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::empty(),
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: TermMode::APP_CURSOR, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::empty(), action: Action::from("\x1bOD"), mode: BindingMode::APP_CURSOR, notmode: BindingMode::empty() },
         triggers: true,
-        mode: TermMode::APP_CURSOR | TermMode::APP_KEYPAD,
+        mode: BindingMode::APP_CURSOR | BindingMode::APP_KEYPAD,
         mods: ModifiersState::empty(),
     }
 
     test_process_binding! {
         name: process_binding_fail_with_extra_mods,
-        binding: Binding { trigger: KEY, mods: ModifiersState::LOGO, action: Action::from("arst"), mode: TermMode::NONE, notmode: TermMode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState::LOGO, action: Action::from("arst"), mode: BindingMode::empty(), notmode: BindingMode::empty() },
         triggers: false,
-        mode: TermMode::NONE,
+        mode: BindingMode::empty(),
         mods: ModifiersState::ALT | ModifiersState::LOGO,
     }
 }

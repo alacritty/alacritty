@@ -1170,11 +1170,9 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use glutin::event::ModifiersState;
-
-    use alacritty_terminal::term::BindingMode;
-
-    use crate::config::{Action, Binding};
 
     type MockBinding = Binding<usize>;
 
@@ -1355,9 +1353,9 @@ mod tests {
         let t = binding.trigger;
         let mods = binding.mods;
 
-        assert!(!binding.is_triggered_by(BindingMode::INSERT, mods, &t));
+        assert!(!binding.is_triggered_by(BindingMode::VI, mods, &t));
         assert!(binding.is_triggered_by(BindingMode::ALT_SCREEN, mods, &t));
-        assert!(binding.is_triggered_by(BindingMode::ALT_SCREEN | BindingMode::INSERT, mods, &t));
+        assert!(binding.is_triggered_by(BindingMode::ALT_SCREEN | BindingMode::VI, mods, &t));
     }
 
     #[test]
@@ -1368,8 +1366,8 @@ mod tests {
         let t = binding.trigger;
         let mods = binding.mods;
 
-        assert!(binding.is_triggered_by(BindingMode::INSERT, mods, &t));
+        assert!(binding.is_triggered_by(BindingMode::VI, mods, &t));
         assert!(!binding.is_triggered_by(BindingMode::ALT_SCREEN, mods, &t));
-        assert!(!binding.is_triggered_by(BindingMode::ALT_SCREEN | BindingMode::INSERT, mods, &t));
+        assert!(!binding.is_triggered_by(BindingMode::ALT_SCREEN | BindingMode::VI, mods, &t));
     }
 }
