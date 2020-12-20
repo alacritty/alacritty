@@ -101,7 +101,11 @@ pub struct SearchState {
     /// Focused match during active search.
     focused_match: Option<RangeInclusive<Point<usize>>>,
 
-    /// Search history.
+    /// Search regex and history.
+    ///
+    /// When a search is currently active, the first element will be what the user can modify in
+    /// the current search session. While going through history, the [`history_index`] will point
+    /// to the element in history which is currently being previewed.
     history: VecDeque<String>,
 
     /// Current position in the search history.
