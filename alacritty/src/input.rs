@@ -97,7 +97,9 @@ pub trait ActionContext<T: EventListener> {
     fn confirm_search(&mut self);
     fn cancel_search(&mut self);
     fn search_input(&mut self, c: char);
-    fn pop_word_search(&mut self);
+    fn search_pop_word(&mut self);
+    fn search_history_previous(&mut self);
+    fn search_history_next(&mut self);
     fn advance_search_origin(&mut self, direction: Direction);
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
@@ -221,7 +223,11 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.cancel_search();
                 ctx.start_search(direction);
             },
-            Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.pop_word_search(),
+            Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
+            Action::SearchAction(SearchAction::SearchHistoryPrevious) => {
+                ctx.search_history_previous()
+            },
+            Action::SearchAction(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
@@ -1117,7 +1123,11 @@ mod tests {
 
         fn search_input(&mut self, _c: char) {}
 
-        fn pop_word_search(&mut self) {}
+        fn search_pop_word(&mut self) {}
+
+        fn search_history_previous(&mut self) {}
+
+        fn search_history_next(&mut self) {}
 
         fn advance_search_origin(&mut self, _direction: Direction) {}
 

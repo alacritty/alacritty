@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::collections::VecDeque;
 use std::env;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -59,6 +60,9 @@ pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
 /// Maximum number of lines for the blocking search while still typing the search regex.
 const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
+/// Maximum number of search terms stored in the history.
+const MAX_HISTORY_SIZE: usize = 255;
+
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -85,9 +89,6 @@ impl From<TerminalEvent> for Event {
 
 /// Regex search state.
 pub struct SearchState {
-    /// Search string regex.
-    regex: Option<String>,
-
     /// Search direction.
     direction: Direction,
 
@@ -99,6 +100,16 @@ pub struct SearchState {
 
     /// Focused match during active search.
     focused_match: Option<RangeInclusive<Point<usize>>>,
+
+    /// Search regex and history.
+    ///
+    /// When a search is currently active, the first element will be what the user can modify in
+    /// the current search session. While going through history, the [`history_index`] will point
+    /// to the element in history which is currently being previewed.
+    history: VecDeque<String>,
+
+    /// Current position in the search history.
+    history_index: Option<usize>,
 }
 
 impl SearchState {
@@ -108,7 +119,7 @@ impl SearchState {
 
     /// Search regex text if a search is active.
     pub fn regex(&self) -> Option<&String> {
-        self.regex.as_ref()
+        self.history_index.and_then(|index| self.history.get(index))
     }
 
     /// Direction of the search from the search origin.
@@ -120,16 +131,22 @@ impl SearchState {
     pub fn focused_match(&self) -> Option<&RangeInclusive<Point<usize>>> {
         self.focused_match.as_ref()
     }
+
+    /// Search regex text if a search is active.
+    fn regex_mut(&mut self) -> Option<&mut String> {
+        self.history_index.and_then(move |index| self.history.get_mut(index))
+    }
 }
 
 impl Default for SearchState {
     fn default() -> Self {
         Self {
             direction: Direction::Right,
-            display_offset_delta: 0,
-            origin: Point::default(),
-            focused_match: None,
-            regex: None,
+            display_offset_delta: Default::default(),
+            focused_match: Default::default(),
+            history_index: Default::default(),
+            history: Default::default(),
+            origin: Default::default(),
         }
     }
 }
@@ -397,9 +414,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let num_lines = self.terminal.screen_lines();
         let num_cols = self.terminal.cols();
 
-        self.search_state.focused_match = None;
-        self.search_state.regex = Some(String::new());
+        // Only create new history entry if the previous regex wasn't empty.
+        if self.search_state.history.get(0).map_or(true, |regex| !regex.is_empty()) {
+            self.search_state.history.push_front(String::new());
+            self.search_state.history.truncate(MAX_HISTORY_SIZE);
+        }
+
+        self.search_state.history_index = Some(0);
         self.search_state.direction = direction;
+        self.search_state.focused_match = None;
 
         // Store original search position as origin and reset location.
         self.search_state.display_offset_delta = 0;
@@ -452,34 +475,68 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn search_input(&mut self, c: char) {
-        if let Some(regex) = self.search_state.regex.as_mut() {
-            match c {
-                // Handle backspace/ctrl+h.
-                '\x08' | '\x7f' => {
-                    let _ = regex.pop();
-                },
-                // Add ascii and unicode text.
-                ' '..='~' | '\u{a0}'..='\u{10ffff}' => regex.push(c),
-                // Ignore non-printable characters.
-                _ => return,
-            }
-
-            if !self.terminal.mode().contains(TermMode::VI) {
-                // Clear selection so we do not obstruct any matches.
-                self.terminal.selection = None;
-            }
-
-            self.update_search();
+        match self.search_state.history_index {
+            Some(0) => (),
+            // When currently in history, replace active regex with history on change.
+            Some(index) => {
+                self.search_state.history[0] = self.search_state.history[index].clone();
+                self.search_state.history_index = Some(0);
+            },
+            None => return,
         }
+        let regex = &mut self.search_state.history[0];
+
+        match c {
+            // Handle backspace/ctrl+h.
+            '\x08' | '\x7f' => {
+                let _ = regex.pop();
+            },
+            // Add ascii and unicode text.
+            ' '..='~' | '\u{a0}'..='\u{10ffff}' => regex.push(c),
+            // Ignore non-printable characters.
+            _ => return,
+        }
+
+        if !self.terminal.mode().contains(TermMode::VI) {
+            // Clear selection so we do not obstruct any matches.
+            self.terminal.selection = None;
+        }
+
+        self.update_search();
     }
 
     #[inline]
-    fn pop_word_search(&mut self) {
-        if let Some(regex) = self.search_state.regex.as_mut() {
+    fn search_pop_word(&mut self) {
+        if let Some(regex) = self.search_state.regex_mut() {
             *regex = regex.trim_end().to_owned();
             regex.truncate(regex.rfind(' ').map(|i| i + 1).unwrap_or(0));
             self.update_search();
         }
+    }
+
+    /// Go to the previous regex in the search history.
+    #[inline]
+    fn search_history_previous(&mut self) {
+        let index = match &mut self.search_state.history_index {
+            None => return,
+            Some(index) if *index + 1 >= self.search_state.history.len() => return,
+            Some(index) => index,
+        };
+
+        *index += 1;
+        self.update_search();
+    }
+
+    /// Go to the previous regex in the search history.
+    #[inline]
+    fn search_history_next(&mut self) {
+        let index = match &mut self.search_state.history_index {
+            Some(0) | None => return,
+            Some(index) => index,
+        };
+
+        *index -= 1;
+        self.update_search();
     }
 
     #[inline]
@@ -534,7 +591,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn search_active(&self) -> bool {
-        self.search_state.regex.is_some()
+        self.search_state.history_index.is_some()
     }
 
     fn message(&self) -> Option<&Message> {
@@ -564,7 +621,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn update_search(&mut self) {
-        let regex = match self.search_state.regex.as_mut() {
+        let regex = match self.search_state.regex() {
             Some(regex) => regex,
             None => return,
         };
@@ -615,10 +672,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Jump to the first regex match from the search origin.
     fn goto_match(&mut self, mut limit: Option<usize>) {
-        let regex = match self.search_state.regex.take() {
-            Some(regex) => regex,
-            None => return,
-        };
+        if self.search_state.history_index.is_none() {
+            return;
+        }
 
         // Limit search only when enough lines are available to run into the limit.
         limit = limit.filter(|&limit| limit <= self.terminal.total_lines());
@@ -664,8 +720,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.focused_match = None;
             },
         }
-
-        self.search_state.regex = Some(regex);
     }
 
     /// Cleanup the search state.
@@ -679,7 +733,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         }
 
         self.display_update_pending.dirty = true;
-        self.search_state.regex = None;
+        self.search_state.history_index = None;
         self.terminal.dirty = true;
 
         // Clear focused match.
@@ -918,7 +972,7 @@ impl<N: Notify + OnResize> Processor<N> {
             let mut terminal = terminal.lock();
 
             let mut display_update_pending = DisplayUpdate::default();
-            let old_is_searching = self.search_state.regex.is_some();
+            let old_is_searching = self.search_state.history_index.is_some();
 
             let context = ActionContext {
                 terminal: &mut terminal,
@@ -1256,13 +1310,13 @@ impl<N: Notify + OnResize> Processor<N> {
             terminal,
             &mut self.notifier,
             &self.message_buffer,
-            self.search_state.regex.is_some(),
+            self.search_state.history_index.is_some(),
             &self.config,
             display_update_pending,
         );
 
         // Scroll to make sure search origin is visible and content moves as little as possible.
-        if !old_is_searching && self.search_state.regex.is_some() {
+        if !old_is_searching && self.search_state.history_index.is_some() {
             let display_offset = terminal.grid().display_offset();
             if display_offset == 0 && cursor_at_bottom && !origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(1));
