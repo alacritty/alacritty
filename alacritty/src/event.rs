@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::collections::VecDeque;
 use std::env;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -15,7 +16,6 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::collections::VecDeque;
 
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
@@ -477,7 +477,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(index) => {
                 self.search_state.history[0] = self.search_state.history[index].clone();
                 self.search_state.history_index = Some(0);
-            }
+            },
             None => return,
         }
         let regex = &mut self.search_state.history[0];

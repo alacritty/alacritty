@@ -224,7 +224,9 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.start_search(direction);
             },
             Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
-            Action::SearchAction(SearchAction::SearchHistoryPrevious) => ctx.search_history_previous(),
+            Action::SearchAction(SearchAction::SearchHistoryPrevious) => {
+                ctx.search_history_previous()
+            },
             Action::SearchAction(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
