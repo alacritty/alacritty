@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME support on Windows
 - Urgency support on Windows
 - Customizable keybindings for search
+- History for search mode, bound to ^P/^N/Up/Down by default
 
 ### Changed
 

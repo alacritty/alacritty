@@ -622,6 +622,10 @@
 #       Reset the search regex.
 #   - SearchDeleteWord
 #       Delete the last word in the search regex.
+#   - SearchHistoryPrevious
+#       Go to the previous regex in the search history.
+#   - SearchHistoryNext
+#       Go to the next regex in the search history.
 #
 # - macOS exclusive actions:
 #   - ToggleSimpleFullscreen
@@ -736,12 +740,16 @@
   #- { key: N,      mods: Shift,         mode: Vi|~Search, action: SearchPrevious          }
 
   # Search Mode
-  #- { key: Return,                mode: Search|Vi,  action: SearchConfirm       }
-  #- { key: Escape,                mode: Search,     action: SearchCancel        }
-  #- { key: U,      mods: Control, mode: Search,     action: SearchClear         }
-  #- { key: W,      mods: Control, mode: Search,     action: SearchDeleteWord    }
-  #- { key: Return,                mode: Search|~Vi, action: SearchFocusNext     }
-  #- { key: Return, mods: Shift,   mode: Search|~Vi, action: SearchFocusPrevious }
+  #- { key: Return,                mode: Search|Vi,  action: SearchConfirm         }
+  #- { key: Escape,                mode: Search,     action: SearchCancel          }
+  #- { key: U,      mods: Control, mode: Search,     action: SearchClear           }
+  #- { key: W,      mods: Control, mode: Search,     action: SearchDeleteWord      }
+  #- { key: P,      mods: Control, mode: Search,     action: SearchHistoryPrevious }
+  #- { key: N,      mods: Control, mode: Search,     action: SearchHistoryNext     }
+  #- { key: Up,                    mode: Search,     action: SearchHistoryPrevious }
+  #- { key: Down,                  mode: Search,     action: SearchHistoryNext     }
+  #- { key: Return,                mode: Search|~Vi, action: SearchFocusNext       }
+  #- { key: Return, mods: Shift,   mode: Search|~Vi, action: SearchFocusPrevious   }
 
   # (Windows, Linux, and BSD only)
   #- { key: V,              mods: Control|Shift, mode: ~Vi,        action: Paste            }

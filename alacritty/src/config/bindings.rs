@@ -264,6 +264,10 @@ pub enum SearchAction {
     SearchClear,
     /// Delete the last word in the search regex.
     SearchDeleteWord,
+    /// Go to the previous regex in the search history.
+    SearchHistoryPrevious,
+    /// Go to the next regex in the search history.
+    SearchHistoryNext,
 }
 
 macro_rules! bindings {
@@ -503,6 +507,10 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Escape,                        +BindingMode::SEARCH; SearchAction::SearchCancel;
         U,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchClear;
         W,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchDeleteWord;
+        P,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchHistoryPrevious;
+        N,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchHistoryNext;
+        Up,                            +BindingMode::SEARCH; SearchAction::SearchHistoryPrevious;
+        Down,                          +BindingMode::SEARCH; SearchAction::SearchHistoryNext;
         Return,                        +BindingMode::SEARCH, ~BindingMode::VI;
             SearchAction::SearchFocusNext;
         Return, ModifiersState::SHIFT, +BindingMode::SEARCH, ~BindingMode::VI;
