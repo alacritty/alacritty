@@ -19,8 +19,15 @@ use {
     crate::wayland_theme::AlacrittyWaylandTheme,
 };
 
+#[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
+use {
+    std::io::Cursor,
+
+    x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
+    glutin::window::Icon,
+    png::Decoder,
+};
 
 use std::fmt::{self, Display, Formatter};
 
@@ -44,11 +51,11 @@ use crate::config::window::{Decorations, WindowConfig};
 use crate::config::Config;
 use crate::gl;
 
-// It's required to be in this directory due to the `windows.rc` file.
+/// Window icon for `_NET_WM_ICON` property.
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-static WINDOW_ICON: &[u8] = include_bytes!("../alacritty.ico");
+static WINDOW_ICON: &[u8] = include_bytes!("../alacritty.png");
 
-// This should match the definition of IDI_ICON from `windows.rc`.
+/// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
 
@@ -257,11 +264,11 @@ impl Window {
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
-            let image = image::load_from_memory_with_format(WINDOW_ICON, image::ImageFormat::Ico)
-                .expect("loading icon")
-                .to_rgba();
-            let (width, height) = image.dimensions();
-            glutin::window::Icon::from_rgba(image.into_raw(), width, height)
+            let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            let (info, mut reader) = decoder.read_info().expect("invalid embedded icon");
+            let mut buf = vec![0; info.buffer_size()];
+            let _ = reader.next_frame(&mut buf);
+            Icon::from_rgba(buf, info.width, info.height)
         };
 
         let class = &window_config.class;
