@@ -39,7 +39,7 @@ gl_generator = "0.14.0"
 xdg = "2"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-image = { version = "0.23.3", default-features = false, features = ["ico"], optional = true }
+png = { version = "0.16.8", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
@@ -56,7 +56,7 @@ embed-resource = "1.3"
 
 [features]
 default = ["wayland", "x11"]
-x11 = ["copypasta/x11", "glutin/x11", "x11-dl", "image"]
+x11 = ["copypasta/x11", "glutin/x11", "x11-dl", "png"]
 wayland = ["copypasta/wayland", "glutin/wayland", "wayland-client"]
 winpty = ["alacritty_terminal/winpty"]
 nightly = []
