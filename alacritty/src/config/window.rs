@@ -1,9 +1,13 @@
+use std::fmt::{self, Formatter};
 use std::os::raw::c_ulong;
 
 use glutin::window::Fullscreen;
-use serde::Deserialize;
+use log::error;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::index::{Column, Line};
 
 use crate::config::ui_config::Delta;
@@ -39,7 +43,7 @@ pub struct WindowConfig {
     pub title: String,
 
     /// Window class.
-    class: Class,
+    pub class: Class,
 
     /// Pixel padding.
     padding: Delta<u8>,
@@ -99,41 +103,6 @@ impl WindowConfig {
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
     }
-
-    #[inline]
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn instance(&self) -> &str {
-        match &self.class {
-            Class::Just(instance) | Class::WithGeneral { instance, .. } => instance.as_str(),
-        }
-    }
-
-    #[inline]
-    pub fn set_instance(&mut self, instance: String) {
-        match &mut self.class {
-            Class::Just(i) | Class::WithGeneral { instance: i, .. } => *i = instance,
-        }
-    }
-
-    #[inline]
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn general(&self) -> &str {
-        match &self.class {
-            Class::Just(_) => DEFAULT_NAME,
-            Class::WithGeneral { general, .. } => general.as_str(),
-        }
-    }
-
-    #[inline]
-    pub fn set_general(&mut self, general: String) {
-        match &mut self.class {
-            Class::Just(instance) => {
-                let instance = instance.clone();
-                self.class = Class::WithGeneral { instance, general };
-            },
-            Class::WithGeneral { general: g, .. } => *g = general,
-        }
-    }
 }
 
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
@@ -180,15 +149,72 @@ pub struct Dimensions {
 }
 
 /// Window class hint.
-#[serde(untagged)]
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
-enum Class {
-    Just(String),
-    WithGeneral { instance: String, general: String },
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Class {
+    pub instance: String,
+    pub general: String,
 }
 
 impl Default for Class {
     fn default() -> Self {
-        Class::Just(DEFAULT_NAME.into())
+        Self { instance: DEFAULT_NAME.into(), general: DEFAULT_NAME.into() }
+    }
+}
+
+impl<'de> Deserialize<'de> for Class {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ClassVisitor;
+        impl<'a> Visitor<'a> for ClassVisitor {
+            type Value = Class;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                f.write_str("a mapping")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Self::Value { instance: value.into(), ..Self::Value::default() })
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'a>,
+            {
+                let mut class = Self::Value::default();
+
+                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
+                    match key.as_str() {
+                        "instance" => match String::deserialize(value) {
+                            Ok(instance) => class.instance = instance,
+                            Err(err) => {
+                                error!(
+                                    target: LOG_TARGET_CONFIG,
+                                    "Config error: class.instance: {}", err
+                                );
+                            },
+                        },
+                        "general" => match String::deserialize(value) {
+                            Ok(general) => class.general = general,
+                            Err(err) => {
+                                error!(
+                                    target: LOG_TARGET_CONFIG,
+                                    "Config error: class.instance: {}", err
+                                );
+                            },
+                        },
+                        _ => (),
+                    }
+                }
+
+                Ok(class)
+            }
+        }
+
+        deserializer.deserialize_any(ClassVisitor)
     }
 }

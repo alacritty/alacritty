@@ -283,11 +283,13 @@ impl Window {
         let builder = builder.with_window_icon(icon.ok());
 
         #[cfg(feature = "wayland")]
-        let builder = builder.with_app_id(window_config.instance().to_owned());
+        let builder = builder.with_app_id(window_config.class.instance.to_owned());
 
         #[cfg(feature = "x11")]
-        let builder = builder
-            .with_class(window_config.instance().to_owned(), window_config.general().to_owned());
+        let builder = builder.with_class(
+            window_config.class.instance.to_owned(),
+            window_config.class.general.to_owned(),
+        );
 
         #[cfg(feature = "x11")]
         let builder = match &window_config.gtk_theme_variant {

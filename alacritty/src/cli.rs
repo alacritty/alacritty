@@ -234,10 +234,10 @@ impl Options {
             config.ui_config.window.title = title
         }
         if let Some(class_instance) = self.class_instance.clone() {
-            config.ui_config.window.set_instance(class_instance);
+            config.ui_config.window.class.instance = class_instance;
         }
         if let Some(class_general) = self.class_general.clone() {
-            config.ui_config.window.set_general(class_general);
+            config.ui_config.window.class.general = class_general;
         }
 
         config.ui_config.window.dynamic_title &= self.title.is_none();
