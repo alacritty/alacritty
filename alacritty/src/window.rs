@@ -31,22 +31,22 @@ use {
 
 use std::fmt::{self, Display, Formatter};
 
+#[cfg(target_os = "macos")]
+use cocoa::base::id;
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
-#[cfg(target_os = "macos")]
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-#[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
-#[cfg(target_os = "macos")]
-use cocoa::base::id;
 #[cfg(windows)]
 use glutin::platform::windows::IconExtWindows;
 use glutin::window::{
     CursorIcon, Fullscreen, UserAttentionType, Window as GlutinWindow, WindowBuilder, WindowId,
 };
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
+#[cfg(target_os = "macos")]
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
 
