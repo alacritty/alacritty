@@ -7,7 +7,7 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
+use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 use alacritty_terminal::index::{Column, Line};
 
 use crate::config::ui_config::Delta;
@@ -15,7 +15,7 @@ use crate::config::ui_config::Delta;
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
 
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
 pub struct WindowConfig {
     /// Initial position.
     pub position: Option<Delta<i32>>,
@@ -50,6 +50,9 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// Background opacity from 0.0 to 1.0.
+    background_opacity: Percentage,
 }
 
 impl Default for WindowConfig {
@@ -66,6 +69,7 @@ impl Default for WindowConfig {
             class: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            background_opacity: Default::default(),
         }
     }
 }
@@ -102,6 +106,11 @@ impl WindowConfig {
     #[inline]
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
+    }
+
+    #[inline]
+    pub fn background_opacity(&self) -> f32 {
+        self.background_opacity.as_f32()
     }
 }
 

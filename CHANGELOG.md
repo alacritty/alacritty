@@ -17,11 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Urgency support on Windows
 - Customizable keybindings for search
 - History for search mode, bound to ^P/^N/Up/Down by default
+- Option `colors.opaque_background_color` to allow applying opacity to all background colors
 
 ### Changed
 
 - Nonexistent config imports are ignored instead of raising an error
 - Value for disabling logging with `config.log_level` is `Off` instead of `None`
+- Moved config option `background_opacity` to `window.background_opacity`
 
 ### Fixed
 

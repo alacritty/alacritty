@@ -93,6 +93,12 @@
   # and `light`. Set this to `None` to use the default theme variant.
   #gtk_theme_variant: None
 
+  # Background opacity
+  #
+  # Window opacity as a floating point number from `0.0` to `1.0`.
+  # The value `0.0` is completely transparent and `1.0` is opaque.
+  #background_opacity: 1.0
+
 #scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.
@@ -284,6 +290,13 @@
   #
   #indexed_colors: []
 
+  # Opaque backgrounds with transparency enabled
+  #
+  # Whether or not `background_opacity` applies to all backgrounds or only the
+  # default background. When set to `false` all cells will be transparent
+  # regardless of their background color.
+  #opaque_background_colors: true
+
 # Bell
 #
 # The bell is rung every time the BEL control character is received.
@@ -324,12 +337,6 @@
   #     args: ["Hello, World!"]
   #
   #command: None
-
-# Background opacity
-#
-# Window opacity as a floating point number from `0.0` to `1.0`.
-# The value `0.0` is completely transparent and `1.0` is opaque.
-#background_opacity: 1.0
 
 #selection:
   # This string contains all characters that are used as separators for

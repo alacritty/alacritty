@@ -20,7 +20,8 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 
 use crate::config::font::{Font, FontDescription};
-use crate::config::ui_config::{Delta, UIConfig};
+use crate::config::ui_config::Delta;
+use crate::config::Config;
 use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
@@ -399,7 +400,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
-    config: &'a UIConfig,
+    config: &'a Config,
     cursor_config: Cursor,
 }
 
@@ -453,7 +454,7 @@ impl Batch {
             bg_r: cell.bg.r,
             bg_g: cell.bg.g,
             bg_b: cell.bg.b,
-            bg_a: (cell.bg_alpha * 255.0) as u8,
+            bg_a: cell.bg_alpha as u8,
         });
     }
 
@@ -636,7 +637,7 @@ impl QuadRenderer {
 
     pub fn with_api<F, T>(
         &mut self,
-        config: &UIConfig,
+        config: &Config,
         cursor_config: Cursor,
         props: &SizeInfo,
         func: F,
@@ -716,7 +717,7 @@ impl QuadRenderer {
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         unsafe {
-            let alpha = self.config.background_opacity();
+            let alpha = self.config.ui_config.background_opacity();
             gl::ClearColor(
                 (f32::from(color.r) / 255.0).min(1.0) * alpha,
                 (f32::from(color.g) / 255.0).min(1.0) * alpha,
@@ -807,7 +808,11 @@ impl<'a> RenderApi<'a> {
     }
 
     #[inline]
-    fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
+    fn add_render_item(&mut self, cell: &mut RenderableCell, glyph: &Glyph) {
+        cell.bg_alpha *= 255.;
+        if !self.config.colors.opaque_background_colors {
+            cell.bg_alpha *= self.config.ui_config.background_opacity();
+        }
         // Flush batch if tex changing.
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
             self.render_batch();
@@ -830,13 +835,13 @@ impl<'a> RenderApi<'a> {
                     self.load_glyph(&cursor::get_cursor_glyph(
                         cursor_key.shape,
                         metrics,
-                        self.config.font.offset.x,
-                        self.config.font.offset.y,
+                        self.config.ui_config.font.offset.x,
+                        self.config.ui_config.font.offset.y,
                         cursor_key.is_wide,
                         self.cursor_config.thickness(),
                     ))
                 });
-                self.add_render_item(&cell, glyph);
+                self.add_render_item(&mut cell, glyph);
                 return;
             },
             RenderableCellContent::Chars((c, ref mut zerowidth)) => (c, zerowidth.take()),
@@ -860,7 +865,7 @@ impl<'a> RenderApi<'a> {
 
         // Add cell to batch.
         let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(&cell, glyph);
+        self.add_render_item(&mut cell, glyph);
 
         // Render visible zero-width characters.
         if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
@@ -875,7 +880,7 @@ impl<'a> RenderApi<'a> {
                 // anchor has been moved to the right by one cell.
                 glyph.left += glyph_cache.metrics.average_advance as i16;
 
-                self.add_render_item(&cell, &glyph);
+                self.add_render_item(&mut cell, &glyph);
             }
         }
     }

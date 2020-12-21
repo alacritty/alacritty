@@ -5,7 +5,7 @@ use alacritty_config_derive::ConfigDeserialize;
 
 use crate::term::color::{CellRgb, Rgb};
 
-#[derive(ConfigDeserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Colors {
     pub primary: PrimaryColors,
     pub cursor: InvertedCellColors,
@@ -16,6 +16,24 @@ pub struct Colors {
     pub dim: Option<DimColors>,
     pub indexed_colors: Vec<IndexedColor>,
     pub search: SearchColors,
+    pub opaque_background_colors: bool,
+}
+
+impl Default for Colors {
+    fn default() -> Self {
+        Self {
+            primary: Default::default(),
+            cursor: Default::default(),
+            vi_mode_cursor: Default::default(),
+            selection: Default::default(),
+            normal: Default::default(),
+            bright: Default::default(),
+            dim: Default::default(),
+            indexed_colors: Default::default(),
+            search: Default::default(),
+            opaque_background_colors: true,
+        }
+    }
 }
 
 impl Colors {
