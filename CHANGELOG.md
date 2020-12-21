@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - High CPU usage on BSD with live config reload enabled
 - Alacritty not discarding invalid escape sequences starting with ESC
 - Crash due to clipboard not being properly released on Wayland
+- Shadow artifacts when resizing transparent windows on macOS
 
 ### Removed
 
