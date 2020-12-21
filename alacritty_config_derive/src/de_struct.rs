@@ -85,89 +85,97 @@ struct FieldStreams {
 fn fields_deserializer<T>(fields: &Punctuated<Field, T>) -> FieldStreams {
     let mut field_streams = FieldStreams::default();
 
-    'fields_loop: for field in fields.iter() {
-        let ident = field.ident.as_ref().expect("unreachable tuple struct");
-        let literal = ident.to_string();
-        let mut literals = vec![literal.clone()];
-
-        // Create default stream for deserializing fields.
-        let mut match_assignment_stream = quote! {
-            match serde::Deserialize::deserialize(value) {
-                Ok(value) => config.#ident = value,
-                Err(err) => {
-                    log::error!(target: #LOG_TARGET, "Config error: {}: {}", #literal, err);
-                },
-            }
-        };
-
-        // Iterate over all #[config(...)] attributes.
-        for attr in field.attrs.iter().filter(|attr| crate::path_ends_with(&attr.path, "config")) {
-            let parsed = match attr.parse_args::<Attr>() {
-                Ok(parsed) => parsed,
-                Err(_) => continue,
-            };
-
-            match parsed.ident.as_str() {
-                // Skip deserialization for `#[config(skip)]` fields.
-                "skip" => continue 'fields_loop,
-                "flatten" => {
-                    // NOTE: Currently only a single instance of flatten is supported per struct
-                    // for complexity reasons.
-                    if !field_streams.flatten.is_empty() {
-                        let error = Error::new(attr.span(), MULTIPLE_FLATTEN_ERROR);
-                        field_streams.flatten = error.to_compile_error();
-                        return field_streams;
-                    }
-
-                    // Create the tokens to deserialize the flattened struct from the unused fields.
-                    field_streams.flatten.extend(quote! {
-                        let unused = serde_yaml::Value::Mapping(unused);
-                        config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
-                    });
-                },
-                "deprecated" => {
-                    // Construct deprecation message and append optional attribute override.
-                    let mut message =
-                        format!("Config warning: {} is deprecated", ident.to_string());
-                    if let Some(warning) = parsed.param {
-                        message = format!("{}; {}", message, warning.value());
-                    }
-
-                    // Append stream to log deprecation warning.
-                    match_assignment_stream.extend(quote! {
-                        log::warn!(target: #LOG_TARGET, #message);
-                    });
-                },
-                // Add aliases to match pattern.
-                "alias" => {
-                    if let Some(alias) = parsed.param {
-                        literals.push(alias.value());
-                    }
-                },
-                _ => (),
-            }
+    // Create the deserialization stream for each field.
+    for field in fields.iter() {
+        if let Err(err) = field_deserializer(&mut field_streams, field) {
+            field_streams.flatten = err.to_compile_error();
+            return field_streams;
         }
-
-        if let Type::Path(type_path) = &field.ty {
-            if crate::path_ends_with(&type_path.path, "Option") {
-                // Create token stream for deserializing "none" string into `Option<T>`.
-                match_assignment_stream = quote! {
-                    if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
-                        config.#ident = None;
-                        continue;
-                    }
-                    #match_assignment_stream
-                };
-            }
-        }
-
-        // Create token stream for deserialization and error handling.
-        field_streams.match_assignments.extend(quote! {
-            #(#literals)|* => { #match_assignment_stream },
-        });
     }
 
     field_streams
+}
+
+/// Append a single field deserializer to the stream.
+fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result<(), Error> {
+    let ident = field.ident.as_ref().expect("unreachable tuple struct");
+    let literal = ident.to_string();
+    let mut literals = vec![literal.clone()];
+
+    // Create default stream for deserializing fields.
+    let mut match_assignment_stream = quote! {
+        match serde::Deserialize::deserialize(value) {
+            Ok(value) => config.#ident = value,
+            Err(err) => {
+                log::error!(target: #LOG_TARGET, "Config error: {}: {}", #literal, err);
+            },
+        }
+    };
+
+    // Iterate over all #[config(...)] attributes.
+    for attr in field.attrs.iter().filter(|attr| crate::path_ends_with(&attr.path, "config")) {
+        let parsed = match attr.parse_args::<Attr>() {
+            Ok(parsed) => parsed,
+            Err(_) => continue,
+        };
+
+        match parsed.ident.as_str() {
+            // Skip deserialization for `#[config(skip)]` fields.
+            "skip" => return Ok(()),
+            "flatten" => {
+                // NOTE: Currently only a single instance of flatten is supported per struct
+                // for complexity reasons.
+                if !field_streams.flatten.is_empty() {
+                    return Err(Error::new(attr.span(), MULTIPLE_FLATTEN_ERROR));
+                }
+
+                // Create the tokens to deserialize the flattened struct from the unused fields.
+                field_streams.flatten.extend(quote! {
+                    let unused = serde_yaml::Value::Mapping(unused);
+                    config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
+                });
+            },
+            "deprecated" => {
+                // Construct deprecation message and append optional attribute override.
+                let mut message = format!("Config warning: {} is deprecated", literal);
+                if let Some(warning) = parsed.param {
+                    message = format!("{}; {}", message, warning.value());
+                }
+
+                // Append stream to log deprecation warning.
+                match_assignment_stream.extend(quote! {
+                    log::warn!(target: #LOG_TARGET, #message);
+                });
+            },
+            // Add aliases to match pattern.
+            "alias" => {
+                if let Some(alias) = parsed.param {
+                    literals.push(alias.value());
+                }
+            },
+            _ => (),
+        }
+    }
+
+    // Create token stream for deserializing "none" string into `Option<T>`.
+    if let Type::Path(type_path) = &field.ty {
+        if crate::path_ends_with(&type_path.path, "Option") {
+            match_assignment_stream = quote! {
+                if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
+                    config.#ident = None;
+                    continue;
+                }
+                #match_assignment_stream
+            };
+        }
+    }
+
+    // Create the token stream for deserialization and error handling.
+    field_streams.match_assignments.extend(quote! {
+        #(#literals)|* => { #match_assignment_stream },
+    });
+
+    Ok(())
 }
 
 /// Field attribute.
