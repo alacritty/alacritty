@@ -2,8 +2,6 @@
 
 use std::{env, io};
 
-use terminfo::Database;
-
 use crate::config::Config;
 
 #[cfg(not(windows))]
@@ -67,7 +65,7 @@ pub fn setup_env<C>(config: &Config<C>) {
     // below.
     env::set_var(
         "TERM",
-        if Database::from_name("alacritty").is_ok() { "alacritty" } else { "xterm-256color" },
+        if is_alacritty_terminfo_available() { "alacritty" } else { "xterm-256color" },
     );
 
     // Advertise 24-bit color support.
@@ -80,4 +78,58 @@ pub fn setup_env<C>(config: &Config<C>) {
     for (key, value) in config.env.iter() {
         env::set_var(key, value);
     }
+}
+
+fn is_alacritty_terminfo_available() -> bool {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    let name = "alacritty";
+    let first = 'a';
+    let mut search: Vec<PathBuf> = Vec::new();
+    if let Some(dir) = env::var_os("TERMINFO") {
+        search.push(dir.into());
+    } else if let Some(mut home) = dirs::home_dir() {
+        home.push(".terminfo");
+        search.push(home);
+    }
+    if let Ok(dirs) = env::var("TERMINFO_DIRS") {
+        for dir in dirs.split(':') {
+            search.push(dir.into());
+        }
+    }
+    if let Ok(prefix) = env::var("PREFIX") {
+        let path = Path::new(&prefix);
+        search.push(path.join("etc/terminfo"));
+        search.push(path.join("lib/terminfo"));
+        search.push(path.join("share/terminfo"));
+    }
+    search.push("/etc/terminfo".into());
+    search.push("/lib/terminfo".into());
+    search.push("/usr/share/terminfo".into());
+    search.push("/boot/system/data/terminfo".into());
+    for path in search {
+        if fs::metadata(&path).is_ok() {
+            {
+                let mut path = path.clone();
+                path.push(first.to_string());
+                path.push(name);
+
+                if fs::metadata(&path).is_ok() {
+                    return true;
+                }
+            }
+
+            {
+                let mut path = path.clone();
+                path.push(format!("{:x}", first as usize));
+                path.push(name);
+
+                if fs::metadata(&path).is_ok() {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }
