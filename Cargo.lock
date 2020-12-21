@@ -25,6 +25,7 @@ dependencies = [
 name = "alacritty"
 version = "0.7.0-dev"
 dependencies = [
+ "alacritty_config_derive",
  "alacritty_terminal",
  "bitflags",
  "clap",
@@ -54,9 +55,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "alacritty_config_derive"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_yaml",
+ "syn",
+]
+
+[[package]]
 name = "alacritty_terminal"
 version = "0.11.1-dev"
 dependencies = [
+ "alacritty_config_derive",
  "base64",
  "bitflags",
  "libc",
@@ -1077,6 +1091,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]
@@ -1794,9 +1809,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.13"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae3e2dd40a7cdc18ca80db804b7f461a39bb721160a85c9a1fa30134bf3c02a5"
+checksum = "f7baae0a99f1a324984bcdc5f0718384c1f69775f1c7eec8b859b71b443e3fd7"
 dependencies = [
  "dtoa",
  "linked-hash-map",
@@ -1942,9 +1957,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "syn"
-version = "1.0.46"
+version = "1.0.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ad5de3220ea04da322618ded2c42233d02baca219d6f160a3e9c87cda16c942"
+checksum = "8833e20724c24de12bbaba5ad230ea61c3eafb05b881c7c9d3cfe8638b187e68"
 dependencies = [
  "proc-macro2",
  "quote",

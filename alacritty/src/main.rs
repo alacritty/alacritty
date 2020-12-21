@@ -186,7 +186,7 @@ fn run(
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    if config.ui_config.live_config_reload() {
+    if config.ui_config.live_config_reload {
         monitor::watch(config.ui_config.config_paths.clone(), event_proxy);
     }
 

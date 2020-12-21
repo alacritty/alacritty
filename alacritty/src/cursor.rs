@@ -10,7 +10,7 @@ pub fn get_cursor_glyph(
     offset_x: i8,
     offset_y: i8,
     is_wide: bool,
-    cursor_thickness: f64,
+    cursor_thickness: f32,
 ) -> RasterizedGlyph {
     // Calculate the cell metrics.
     //
@@ -18,7 +18,7 @@ pub fn get_cursor_glyph(
     // https://github.com/rust-lang/rust/commit/14d608f1d8a0b84da5f3bccecb3efb3d35f980dc
     let height = (metrics.line_height + f64::from(offset_y)).max(1.) as usize;
     let mut width = (metrics.average_advance + f64::from(offset_x)).max(1.) as usize;
-    let line_width = (cursor_thickness * width as f64).round().max(1.) as usize;
+    let line_width = (cursor_thickness * width as f32).round().max(1.) as usize;
 
     // Double the cursor width if it's above a double-width glyph.
     if is_wide {

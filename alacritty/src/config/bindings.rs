@@ -10,6 +10,8 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
+use alacritty_config_derive::ConfigDeserialize;
+
 use alacritty_terminal::config::Program;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
@@ -79,26 +81,26 @@ impl<T: Eq> Binding<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     /// Write an escape sequence.
-    #[serde(skip)]
+    #[config(skip)]
     Esc(String),
 
     /// Run given command.
-    #[serde(skip)]
+    #[config(skip)]
     Command(Program),
 
     /// Move vi mode cursor.
-    #[serde(skip)]
+    #[config(skip)]
     ViMotion(ViMotion),
 
     /// Perform vi mode action.
-    #[serde(skip)]
+    #[config(skip)]
     ViAction(ViAction),
 
     /// Perform search mode action.
-    #[serde(skip)]
+    #[config(skip)]
     SearchAction(SearchAction),
 
     /// Paste contents of system clipboard.
@@ -227,7 +229,7 @@ impl Display for Action {
 }
 
 /// Vi mode specific actions.
-#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ViAction {
     /// Toggle normal vi selection.
     ToggleNormalSelection,
@@ -912,7 +914,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                     where
                         E: de::Error,
                     {
-                        match value {
+                        match value.to_ascii_lowercase().as_str() {
                             "key" => Ok(Field::Key),
                             "mods" => Ok(Field::Mods),
                             "mode" => Ok(Field::Mode),

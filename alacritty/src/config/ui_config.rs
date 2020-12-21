@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use log::error;
 use serde::{Deserialize, Deserializer};
 
-use alacritty_terminal::config::{failure_default, Percentage, LOG_TARGET_CONFIG};
+use alacritty_config_derive::ConfigDeserialize;
+use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 
 use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding};
 use crate::config::debug::Debug;
@@ -11,66 +12,52 @@ use crate::config::font::Font;
 use crate::config::mouse::Mouse;
 use crate::config::window::WindowConfig;
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(ConfigDeserialize, Debug, PartialEq)]
 pub struct UIConfig {
     /// Font configuration.
-    #[serde(default, deserialize_with = "failure_default")]
     pub font: Font,
 
     /// Window configuration.
-    #[serde(default, deserialize_with = "failure_default")]
     pub window: WindowConfig,
 
-    #[serde(default, deserialize_with = "failure_default")]
     pub mouse: Mouse,
 
-    /// Keybindings.
-    #[serde(default = "default_key_bindings", deserialize_with = "deserialize_key_bindings")]
-    pub key_bindings: Vec<KeyBinding>,
-
-    /// Bindings for the mouse.
-    #[serde(default = "default_mouse_bindings", deserialize_with = "deserialize_mouse_bindings")]
-    pub mouse_bindings: Vec<MouseBinding>,
-
     /// Debug options.
-    #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
 
     /// Send escape sequences using the alt key.
-    #[serde(default, deserialize_with = "failure_default")]
-    alt_send_esc: DefaultTrueBool,
+    pub alt_send_esc: bool,
 
     /// Live config reload.
-    #[serde(default, deserialize_with = "failure_default")]
-    live_config_reload: DefaultTrueBool,
-
-    /// Background opacity from 0.0 to 1.0.
-    #[serde(default, deserialize_with = "failure_default")]
-    background_opacity: Percentage,
+    pub live_config_reload: bool,
 
     /// Path where config was loaded from.
-    #[serde(skip)]
+    #[config(skip)]
     pub config_paths: Vec<PathBuf>,
 
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    pub dynamic_title: Option<bool>,
+    /// Keybindings.
+    key_bindings: KeyBindings,
+
+    /// Bindings for the mouse.
+    mouse_bindings: MouseBindings,
+
+    /// Background opacity from 0.0 to 1.0.
+    background_opacity: Percentage,
 }
 
 impl Default for UIConfig {
     fn default() -> Self {
-        UIConfig {
+        Self {
+            alt_send_esc: true,
+            live_config_reload: true,
             font: Default::default(),
             window: Default::default(),
             mouse: Default::default(),
-            key_bindings: default_key_bindings(),
-            mouse_bindings: default_mouse_bindings(),
             debug: Default::default(),
-            alt_send_esc: Default::default(),
-            background_opacity: Default::default(),
-            live_config_reload: Default::default(),
-            dynamic_title: Default::default(),
             config_paths: Default::default(),
+            key_bindings: Default::default(),
+            mouse_bindings: Default::default(),
+            background_opacity: Default::default(),
         }
     }
 }
@@ -82,48 +69,50 @@ impl UIConfig {
     }
 
     #[inline]
-    pub fn dynamic_title(&self) -> bool {
-        self.dynamic_title.unwrap_or_else(|| self.window.dynamic_title())
+    pub fn key_bindings(&self) -> &[KeyBinding] {
+        &self.key_bindings.0.as_slice()
     }
 
     #[inline]
-    pub fn set_dynamic_title(&mut self, dynamic_title: bool) {
-        self.window.set_dynamic_title(dynamic_title);
-    }
-
-    /// Live config reload.
-    #[inline]
-    pub fn live_config_reload(&self) -> bool {
-        self.live_config_reload.0
-    }
-
-    /// Send escape sequences using the alt key.
-    #[inline]
-    pub fn alt_send_esc(&self) -> bool {
-        self.alt_send_esc.0
+    pub fn mouse_bindings(&self) -> &[MouseBinding] {
+        self.mouse_bindings.0.as_slice()
     }
 }
 
-fn default_key_bindings() -> Vec<KeyBinding> {
-    bindings::default_key_bindings()
+#[derive(Debug, PartialEq)]
+struct KeyBindings(Vec<KeyBinding>);
+
+impl Default for KeyBindings {
+    fn default() -> Self {
+        Self(bindings::default_key_bindings())
+    }
 }
 
-fn default_mouse_bindings() -> Vec<MouseBinding> {
-    bindings::default_mouse_bindings()
+impl<'de> Deserialize<'de> for KeyBindings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
+    }
 }
 
-fn deserialize_key_bindings<'a, D>(deserializer: D) -> Result<Vec<KeyBinding>, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    deserialize_bindings(deserializer, bindings::default_key_bindings())
+#[derive(Debug, PartialEq)]
+struct MouseBindings(Vec<MouseBinding>);
+
+impl Default for MouseBindings {
+    fn default() -> Self {
+        Self(bindings::default_mouse_bindings())
+    }
 }
 
-fn deserialize_mouse_bindings<'a, D>(deserializer: D) -> Result<Vec<MouseBinding>, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    deserialize_bindings(deserializer, bindings::default_mouse_bindings())
+impl<'de> Deserialize<'de> for MouseBindings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
+    }
 }
 
 fn deserialize_bindings<'a, D, T>(
@@ -143,7 +132,7 @@ where
         match Binding::<T>::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring binding", err);
+                error!(target: LOG_TARGET_CONFIG, "Config error: {}; ignoring binding", err);
             },
         }
     }
@@ -158,23 +147,11 @@ where
     Ok(bindings)
 }
 
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
-pub struct DefaultTrueBool(pub bool);
-
-impl Default for DefaultTrueBool {
-    fn default() -> Self {
-        DefaultTrueBool(true)
-    }
-}
-
 /// A delta for a point in a 2 dimensional plane.
-#[serde(default, bound(deserialize = "T: Deserialize<'de> + Default"))]
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
-pub struct Delta<T: Default + PartialEq + Eq> {
+#[derive(ConfigDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Delta<T: Default> {
     /// Horizontal change.
-    #[serde(deserialize_with = "failure_default")]
     pub x: T,
     /// Vertical change.
-    #[serde(deserialize_with = "failure_default")]
     pub y: T,
 }

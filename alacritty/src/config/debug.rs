@@ -1,64 +1,33 @@
-use log::{error, LevelFilter};
-use serde::{Deserialize, Deserializer};
+use log::LevelFilter;
 
-use alacritty_terminal::config::{failure_default, LOG_TARGET_CONFIG};
+use alacritty_config_derive::ConfigDeserialize;
 
 /// Debugging options.
-#[serde(default)]
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Debug {
-    #[serde(default = "default_log_level", deserialize_with = "deserialize_log_level")]
     pub log_level: LevelFilter,
 
-    #[serde(deserialize_with = "failure_default")]
     pub print_events: bool,
 
     /// Keep the log file after quitting.
-    #[serde(deserialize_with = "failure_default")]
     pub persistent_logging: bool,
 
     /// Should show render timer.
-    #[serde(deserialize_with = "failure_default")]
     pub render_timer: bool,
 
     /// Record ref test.
-    #[serde(skip)]
+    #[config(skip)]
     pub ref_test: bool,
 }
 
 impl Default for Debug {
     fn default() -> Self {
         Self {
-            log_level: default_log_level(),
+            log_level: LevelFilter::Warn,
             print_events: Default::default(),
             persistent_logging: Default::default(),
             render_timer: Default::default(),
             ref_test: Default::default(),
         }
     }
-}
-
-fn default_log_level() -> LevelFilter {
-    LevelFilter::Warn
-}
-
-fn deserialize_log_level<'a, D>(deserializer: D) -> Result<LevelFilter, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    Ok(match failure_default::<D, String>(deserializer)?.to_lowercase().as_str() {
-        "off" | "none" => LevelFilter::Off,
-        "error" => LevelFilter::Error,
-        "warn" => LevelFilter::Warn,
-        "info" => LevelFilter::Info,
-        "debug" => LevelFilter::Debug,
-        "trace" => LevelFilter::Trace,
-        level => {
-            error!(
-                target: LOG_TARGET_CONFIG,
-                "Problem with config: invalid log level {}; using level Warn", level
-            );
-            default_log_level()
-        },
-    })
 }

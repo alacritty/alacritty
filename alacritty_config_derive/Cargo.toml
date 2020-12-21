@@ -1,0 +1,21 @@
+[package]
+name = "alacritty_config_derive"
+version = "0.1.0"
+authors = ["Christian Duerr <contact@christianduerr.com>"]
+license = "MIT/Apache-2.0"
+description = "Failure resistant deserialization derive"
+homepage = "https://github.com/alacritty/alacritty"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.53", features = ["derive", "parsing", "proc-macro", "printing"], default-features = false }
+proc-macro2 = "1.0.24"
+quote = "1.0.7"
+
+[dev-dependencies]
+serde_yaml = "0.8.14"
+serde = "1.0.117"
+log = "0.4.11"

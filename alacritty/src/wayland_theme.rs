@@ -17,9 +17,9 @@ pub struct AlacrittyWaylandTheme {
 
 impl AlacrittyWaylandTheme {
     pub fn new(colors: &Colors) -> Self {
-        let hovered_close_icon = colors.normal().red.into_rgba();
-        let hovered_maximize_icon = colors.normal().green.into_rgba();
-        let hovered_minimize_icon = colors.normal().yellow.into_rgba();
+        let hovered_close_icon = colors.normal.red.into_rgba();
+        let hovered_maximize_icon = colors.normal.green.into_rgba();
+        let hovered_minimize_icon = colors.normal.yellow.into_rgba();
         let foreground = colors.search_bar_foreground().into_rgba();
         let background = colors.search_bar_background().into_rgba();
 

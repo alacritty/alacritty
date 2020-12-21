@@ -561,10 +561,10 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                     self.ctx.mouse_mut().last_click_button = button;
                     ClickState::Click
                 },
-                ClickState::Click if elapsed < mouse_config.double_click.threshold => {
+                ClickState::Click if elapsed < mouse_config.double_click.threshold() => {
                     ClickState::DoubleClick
                 },
-                ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold => {
+                ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold() => {
                     ClickState::TripleClick
                 },
                 _ => ClickState::Click,
@@ -714,13 +714,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().shift()
         {
-            let multiplier = f64::from(
-                self.ctx
-                    .config()
-                    .scrolling
-                    .faux_multiplier()
-                    .unwrap_or_else(|| self.ctx.config().scrolling.multiplier()),
-            );
+            let multiplier = f64::from(self.ctx.config().scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let cmd = if new_scroll_px > 0. { b'A' } else { b'B' };
@@ -734,7 +728,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = f64::from(self.ctx.config().scrolling.multiplier());
+            let multiplier = f64::from(self.ctx.config().scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
@@ -878,7 +872,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             c.encode_utf8(&mut bytes[..]);
         }
 
-        if self.ctx.config().ui_config.alt_send_esc()
+        if self.ctx.config().ui_config.alt_send_esc
             && *self.ctx.received_count() == 0
             && self.ctx.modifiers().alt()
             && utf8_len == 1
@@ -900,8 +894,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mods = *self.ctx.modifiers();
         let mut suppress_chars = None;
 
-        for i in 0..self.ctx.config().ui_config.key_bindings.len() {
-            let binding = &self.ctx.config().ui_config.key_bindings[i];
+        for i in 0..self.ctx.config().ui_config.key_bindings().len() {
+            let binding = &self.ctx.config().ui_config.key_bindings()[i];
 
             let key = match (binding.trigger, input.virtual_keycode) {
                 (Key::Scancode(_), _) => Key::Scancode(input.scancode),
@@ -932,8 +926,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mouse_mode = self.ctx.mouse_mode();
         let mods = *self.ctx.modifiers();
 
-        for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {
-            let mut binding = self.ctx.config().ui_config.mouse_bindings[i].clone();
+        for i in 0..self.ctx.config().ui_config.mouse_bindings().len() {
+            let mut binding = self.ctx.config().ui_config.mouse_bindings()[i].clone();
 
             // Require shift for all modifiers when mouse mode is active.
             if mouse_mode {
@@ -1072,7 +1066,6 @@ mod tests {
     use alacritty_terminal::event::Event as TerminalEvent;
     use alacritty_terminal::selection::Selection;
 
-    use crate::config::ClickHandler;
     use crate::message_bar::MessageBuffer;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
@@ -1251,18 +1244,8 @@ mod tests {
         } => {
             #[test]
             fn $name() {
-                let mut cfg = Config::default();
-                cfg.ui_config.mouse = crate::config::Mouse {
-                    double_click: ClickHandler {
-                        threshold: Duration::from_millis(1000),
-                    },
-                    triple_click: ClickHandler {
-                        threshold: Duration::from_millis(1000),
-                    },
-                    hide_when_typing: false,
-                    url: Default::default(),
-                };
-
+                let mut clipboard = Clipboard::new_nop();
+                let cfg = Config::default();
                 let size = SizeInfo::new(
                     21.0,
                     51.0,
@@ -1272,8 +1255,6 @@ mod tests {
                     0.,
                     false,
                 );
-
-                let mut clipboard = Clipboard::new_nop();
 
                 let mut terminal = Term::new(&cfg, size, MockEventProxy);
 

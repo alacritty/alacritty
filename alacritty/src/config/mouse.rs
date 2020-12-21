@@ -1,69 +1,32 @@
 use std::time::Duration;
 
 use glutin::event::ModifiersState;
-use log::error;
-use serde::{Deserialize, Deserializer};
 
-use alacritty_terminal::config::{failure_default, Program, LOG_TARGET_CONFIG};
+use alacritty_config_derive::ConfigDeserialize;
+use alacritty_terminal::config::Program;
 
 use crate::config::bindings::ModsWrapper;
 
-#[serde(default)]
-#[derive(Default, Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct Mouse {
-    #[serde(deserialize_with = "failure_default")]
     pub double_click: ClickHandler,
-    #[serde(deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
-    #[serde(deserialize_with = "failure_default")]
     pub hide_when_typing: bool,
-    #[serde(deserialize_with = "failure_default")]
     pub url: Url,
 }
 
-#[serde(default)]
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Url {
     /// Program for opening links.
-    #[serde(deserialize_with = "deserialize_launcher")]
     pub launcher: Option<Program>,
 
     /// Modifier used to open links.
-    #[serde(deserialize_with = "failure_default")]
     modifiers: ModsWrapper,
 }
 
 impl Url {
     pub fn mods(&self) -> ModifiersState {
         self.modifiers.into_inner()
-    }
-}
-
-fn deserialize_launcher<'a, D>(deserializer: D) -> std::result::Result<Option<Program>, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    let default = Url::default().launcher;
-
-    // Deserialize to generic value.
-    let val = serde_yaml::Value::deserialize(deserializer)?;
-
-    // Accept `None` to disable the launcher.
-    if val.as_str().filter(|v| v.to_lowercase() == "none").is_some() {
-        return Ok(None);
-    }
-
-    match <Option<Program>>::deserialize(val) {
-        Ok(launcher) => Ok(launcher),
-        Err(err) => {
-            error!(
-                target: LOG_TARGET_CONFIG,
-                "Problem with config: {}; using {}",
-                err,
-                default.clone().unwrap().program()
-            );
-            Ok(default)
-        },
     }
 }
 
@@ -81,33 +44,19 @@ impl Default for Url {
     }
 }
 
-#[serde(default)]
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClickHandler {
-    #[serde(deserialize_with = "deserialize_duration_ms")]
-    pub threshold: Duration,
+    threshold: u16,
 }
 
 impl Default for ClickHandler {
     fn default() -> Self {
-        ClickHandler { threshold: default_threshold_ms() }
+        Self { threshold: 300 }
     }
 }
 
-fn default_threshold_ms() -> Duration {
-    Duration::from_millis(300)
-}
-
-fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Duration, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    let value = serde_yaml::Value::deserialize(deserializer)?;
-    match u64::deserialize(value) {
-        Ok(threshold_ms) => Ok(Duration::from_millis(threshold_ms)),
-        Err(err) => {
-            error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; using default value", err);
-            Ok(default_threshold_ms())
-        },
+impl ClickHandler {
+    pub fn threshold(&self) -> Duration {
+        Duration::from_millis(self.threshold as u64)
     }
 }

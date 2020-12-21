@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
 use std::env;
+use std::f32;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
@@ -26,8 +27,6 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 use serde_json as json;
 
-#[cfg(target_os = "macos")]
-use crossfont::set_font_smoothing;
 use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
@@ -396,7 +395,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.config.ui_config.font.size;
+        *self.font_size = self.config.ui_config.font.size();
         self.display_update_pending.set_font(self.config.ui_config.font.clone());
         self.terminal.dirty = true;
     }
@@ -874,7 +873,7 @@ impl<N: Notify + OnResize> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
-            font_size: config.ui_config.font.size,
+            font_size: config.ui_config.font.size(),
             config,
             message_buffer,
             display,
@@ -1080,13 +1079,13 @@ impl<N: Notify + OnResize> Processor<N> {
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
-                        if ui_config.dynamic_title() {
+                        if ui_config.window.dynamic_title {
                             processor.ctx.window.set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
                         let ui_config = &processor.ctx.config.ui_config;
-                        if ui_config.dynamic_title() {
+                        if ui_config.window.dynamic_title {
                             processor.ctx.window.set_title(&ui_config.window.title);
                         }
                     },
@@ -1241,15 +1240,15 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Reload cursor if its thickness has changed.
         if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
-            > std::f64::EPSILON
+            > f32::EPSILON
         {
             processor.ctx.display_update_pending.set_cursor_dirty();
         }
 
         if processor.ctx.config.ui_config.font != config.ui_config.font {
             // Do not update font size if it has been changed at runtime.
-            if *processor.ctx.font_size == processor.ctx.config.ui_config.font.size {
-                *processor.ctx.font_size = config.ui_config.font.size;
+            if *processor.ctx.font_size == processor.ctx.config.ui_config.font.size() {
+                *processor.ctx.font_size = config.ui_config.font.size();
             }
 
             let font = config.ui_config.font.clone().with_size(*processor.ctx.font_size);
@@ -1265,7 +1264,7 @@ impl<N: Notify + OnResize> Processor<N> {
         }
 
         // Live title reload.
-        if !config.ui_config.dynamic_title()
+        if !config.ui_config.window.dynamic_title
             || processor.ctx.config.ui_config.window.title != config.ui_config.window.title
         {
             processor.ctx.window.set_title(&config.ui_config.window.title);
@@ -1278,7 +1277,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        set_font_smoothing(config.ui_config.font.use_thin_strokes());
+        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
 
         *processor.ctx.config = config;
 

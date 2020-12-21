@@ -13,9 +13,13 @@ path = "../alacritty_terminal"
 version = "0.11.1-dev"
 default-features = false
 
+[dependencies.alacritty_config_derive]
+path = "../alacritty_config_derive"
+version = "0.1.0"
+
 [dependencies]
 clap = "2"
-log = { version = "0.4", features = ["std"] }
+log = { version = "0.4", features = ["std", "serde"] }
 time = "0.1.40"
 fnv = "1"
 serde = { version = "1", features = ["derive"] }

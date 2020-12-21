@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::{env, fs, io};
 
-use log::{error, info, warn};
+use log::{error, info};
 use serde::Deserialize;
 use serde_yaml::mapping::Mapping;
 use serde_yaml::Value;
@@ -68,7 +68,7 @@ impl Display for Error {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
             },
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(err) => write!(f, "Problem with config: {}", err),
+            Error::Yaml(err) => write!(f, "Config error: {}", err),
         }
     }
 }
@@ -156,8 +156,6 @@ fn read_config(path: &PathBuf, cli_config: Value) -> Result<Config> {
     // Deserialize to concrete type.
     let mut config = Config::deserialize(config_value)?;
     config.ui_config.config_paths = config_paths;
-
-    print_deprecation_warnings(&config);
 
     Ok(config)
 }
@@ -285,56 +283,6 @@ fn installed_config() -> Option<PathBuf> {
 #[cfg(windows)]
 fn installed_config() -> Option<PathBuf> {
     dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
-}
-
-fn print_deprecation_warnings(config: &Config) {
-    if config.scrolling.faux_multiplier().is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config scrolling.faux_multiplier is deprecated; the alternate scroll escape can now \
-             be used to disable it and `scrolling.multiplier` controls the number of scrolled \
-             lines"
-        );
-    }
-
-    if config.scrolling.auto_scroll.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config scrolling.auto_scroll has been removed and is now always disabled, it can be \
-             safely removed from the config"
-        );
-    }
-
-    if config.tabspaces.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config tabspaces has been removed and is now always 8, it can be safely removed from \
-             the config"
-        );
-    }
-
-    if config.visual_bell.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config visual_bell has been deprecated; please use bell instead"
-        )
-    }
-
-    if config.ui_config.dynamic_title.is_some() {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config dynamic_title is deprecated; please use window.dynamic_title instead",
-        )
-    }
-
-    #[cfg(all(windows, not(feature = "winpty")))]
-    if config.winpty_backend {
-        warn!(
-            target: LOG_TARGET_CONFIG,
-            "Config winpty_backend is deprecated and requires a compilation flag; it should be \
-             removed from the config",
-        )
-    }
 }
 
 #[cfg(test)]

@@ -157,7 +157,7 @@ impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
                 if self.cursor.rendered {
                     return self.next_cursor_cell();
                 } else {
-                    return self.next_cursor();
+                    return Some(self.next_cursor());
                 }
             } else {
                 // Handle non-cursor cells.
@@ -213,7 +213,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
     }
 
     /// Get the next renderable cell as the cursor.
-    fn next_cursor(&mut self) -> Option<RenderableCell> {
+    fn next_cursor(&mut self) -> RenderableCell {
         // Handle cursor.
         self.cursor.rendered = true;
 
@@ -236,7 +236,7 @@ impl<'a, C> RenderableCellsIter<'a, C> {
             cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
         }
 
-        Some(cell)
+        cell
     }
 
     /// Check selection state of a cell.
@@ -323,8 +323,8 @@ impl RenderableCell {
         let mut is_match = false;
 
         if iter.is_selected(point) {
-            let config_bg = iter.config.colors.selection.background();
-            let selected_fg = iter.config.colors.selection.foreground().color(fg_rgb, bg_rgb);
+            let config_bg = iter.config.colors.selection.background;
+            let selected_fg = iter.config.colors.selection.foreground.color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
 
@@ -377,7 +377,7 @@ impl RenderableCell {
                 _ => rgb,
             },
             Color::Named(ansi) => {
-                match (config.draw_bold_text_with_bright_colors(), flags & Flags::DIM_BOLD) {
+                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
                     (_, Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
@@ -395,7 +395,7 @@ impl RenderableCell {
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    config.draw_bold_text_with_bright_colors(),
+                    config.draw_bold_text_with_bright_colors,
                     flags & Flags::DIM_BOLD,
                     idx,
                 ) {
@@ -851,7 +851,7 @@ impl<T> Term<T> {
             colors,
             color_modified: [false; color::COUNT],
             original_colors: colors,
-            semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
+            semantic_escape_chars: config.selection.semantic_escape_chars.to_owned(),
             cursor_style: None,
             default_cursor_style: config.cursor.style(),
             vi_mode_cursor_style: config.cursor.vi_mode_style(),
@@ -870,7 +870,7 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
-        self.semantic_escape_chars = config.selection.semantic_escape_chars().to_owned();
+        self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
         self.original_colors.fill_named(&config.colors);
         self.original_colors.fill_cube(&config.colors);
         self.original_colors.fill_gray_ramp(&config.colors);
@@ -880,9 +880,6 @@ impl<T> Term<T> {
             }
         }
         self.visual_bell.update_config(config);
-        if let Some(0) = config.scrolling.faux_multiplier() {
-            self.mode.remove(TermMode::ALTERNATE_SCROLL);
-        }
         self.default_cursor_style = config.cursor.style();
         self.vi_mode_cursor_style = config.cursor.vi_mode_style();
 
@@ -1418,7 +1415,7 @@ impl<T> Term<T> {
         let cursor_shape = if hidden {
             point.line = Line(0);
             CursorShape::Hidden
-        } else if !self.is_focused && config.cursor.unfocused_hollow() {
+        } else if !self.is_focused && config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
         } else {
             let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
@@ -1435,9 +1432,9 @@ impl<T> Term<T> {
         let cursor_color = if self.color_modified[NamedColor::Cursor as usize] {
             CellRgb::Rgb(self.colors[NamedColor::Cursor])
         } else {
-            color.cursor()
+            color.background
         };
-        let text_color = color.text();
+        let text_color = color.foreground;
 
         // Expand across wide cell when inside wide char or spacer.
         let buffer_point = self.visible_to_buffer(point);
