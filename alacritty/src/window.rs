@@ -31,6 +31,8 @@ use {
 
 use std::fmt::{self, Display, Formatter};
 
+#[cfg(target_os = "macos")]
+use cocoa::base::id;
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
@@ -41,6 +43,10 @@ use glutin::window::{
     CursorIcon, Fullscreen, UserAttentionType, Window as GlutinWindow, WindowBuilder, WindowId,
 };
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
+#[cfg(target_os = "macos")]
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 #[cfg(windows)]
 use winapi::shared::minwindef::WORD;
 
@@ -433,6 +439,19 @@ impl Window {
 
     pub fn resize(&self, size: PhysicalSize<u32>) {
         self.windowed_context.resize(size);
+    }
+
+    /// Force macOS to clear shadow of transparent windows.
+    #[cfg(target_os = "macos")]
+    pub fn invalidate_shadow(&self) {
+        let raw_window = match self.window().raw_window_handle() {
+            RawWindowHandle::MacOS(handle) => handle.ns_window as id,
+            _ => return,
+        };
+
+        unsafe {
+            let _: () = msg_send![raw_window, invalidateShadow];
+        }
     }
 
     fn window(&self) -> &GlutinWindow {

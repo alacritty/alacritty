@@ -610,6 +610,12 @@ impl Display {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         self.request_frame(&self.window);
 
+        // Clear window shadows to prevent shadow artifacts on macOS.
+        #[cfg(target_os = "macos")]
+        if config.ui_config.background_opacity() < 1.0 {
+            self.window.invalidate_shadow();
+        }
+
         self.window.swap_buffers();
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]

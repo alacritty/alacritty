@@ -46,6 +46,8 @@ xdg = "2"
 png = { version = "0.16.8", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+raw-window-handle = "0.3.3"
+cocoa = "0.24.0"
 objc = "0.2.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
