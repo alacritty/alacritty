@@ -617,7 +617,7 @@ impl Display {
         // Clear window shadows to prevent shadow artifacts on macOS.
         #[cfg(target_os = "macos")]
         if config.ui_config.background_opacity() < 1.0 {
-            self.window.invalidate_shadow();
+            self.window.set_has_shadow(false);
         }
 
         self.window.swap_buffers();

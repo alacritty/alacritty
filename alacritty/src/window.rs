@@ -445,7 +445,7 @@ impl Window {
     ///
     /// This prevents rendering artifacts from showing up when the window is transparent.
     #[cfg(target_os = "macos")]
-    pub fn set_has_shadows(&self, has_shadows: bool) {
+    pub fn set_has_shadow(&self, has_shadows: bool) {
         let raw_window = match self.window().raw_window_handle() {
             RawWindowHandle::MacOS(handle) => handle.ns_window as id,
             _ => return,
