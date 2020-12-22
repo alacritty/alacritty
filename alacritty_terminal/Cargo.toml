@@ -24,8 +24,8 @@ mio-extras = "2"
 log = "0.4"
 unicode-width = "0.1"
 base64 = "0.12.0"
-terminfo = "0.7.1"
 regex-automata = "0.1.9"
+dirs = "2.0.2"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.18.0"
