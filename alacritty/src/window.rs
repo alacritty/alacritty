@@ -217,15 +217,6 @@ impl Window {
             None
         };
 
-        // Disable window shadows on macOS to prevent artifacts with transparency.
-        #[cfg(target_os = "macos")]
-        if let RawWindowHandle::MacOS(handle) = windowed_context.window().raw_window_handle() {
-            let raw_window = handle.ns_window as id;
-            unsafe {
-                let _: () = msg_send![raw_window, setHasShadow: NO];
-            }
-        }
-
         let dpr = windowed_context.window().scale_factor();
 
         Ok(Self {
