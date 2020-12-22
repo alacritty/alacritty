@@ -32,7 +32,7 @@ use {
 use std::fmt::{self, Display, Formatter};
 
 #[cfg(target_os = "macos")]
-use cocoa::base::id;
+use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
@@ -441,16 +441,19 @@ impl Window {
         self.windowed_context.resize(size);
     }
 
-    /// Force macOS to clear shadow of transparent windows.
+    /// Disable macOS window shadows.
+    ///
+    /// This prevents rendering artifacts from showing up when the window is transparent.
     #[cfg(target_os = "macos")]
-    pub fn invalidate_shadow(&self) {
+    pub fn set_has_shadow(&self, has_shadows: bool) {
         let raw_window = match self.window().raw_window_handle() {
             RawWindowHandle::MacOS(handle) => handle.ns_window as id,
             _ => return,
         };
 
+        let value = if has_shadows { YES } else { NO };
         unsafe {
-            let _: () = msg_send![raw_window, invalidateShadow];
+            let _: () = msg_send![raw_window, setHasShadow: value];
         }
     }
 
