@@ -187,9 +187,8 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
-        for character in 32u8..=126u8 {
-            let character = character as char;
-            self.get(GlyphKey { font_key: font, character, size }, loader);
+        for i in 32u8..=126u8 {
+            self.get(GlyphKey { font_key: font, character: i as char, size }, loader);
         }
     }
 
@@ -312,7 +311,11 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey {
+            font_key: regular,
+            character: 'm',
+            size: font.size(),
+        })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size(), dpr);
