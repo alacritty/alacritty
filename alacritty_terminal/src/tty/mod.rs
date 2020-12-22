@@ -1,6 +1,6 @@
 //! TTY related functionality.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{env, io};
 
 use crate::config::Config;
@@ -64,7 +64,8 @@ pub fn setup_env<C>(config: &Config<C>) {
     // Default to 'alacritty' terminfo if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.
-    env::set_var("TERM", if is_terminfo_available() { "alacritty" } else { "xterm-256color" });
+    let terminfo = if terminfo_exists("alacritty") { "alacritty" } else { "xterm-256color" };
+    env::set_var("TERM", terminfo);
 
     // Advertise 24-bit color support.
     env::set_var("COLORTERM", "truecolor");
@@ -78,46 +79,47 @@ pub fn setup_env<C>(config: &Config<C>) {
     }
 }
 
-fn is_terminfo_available() -> bool {
-    let mut search: Vec<PathBuf> = Vec::new();
-    if let Some(dir) = env::var_os("TERMINFO") {
-        search.push(PathBuf::from(dir));
-    } else if let Some(mut home) = dirs::home_dir() {
-        home.push(".terminfo");
-        search.push(home);
+/// Check if a terminfo entry exists on the system.
+fn terminfo_exists(terminfo: &str) -> bool {
+    // Get first terminfo character for the parent directory.
+    let first = terminfo.get(..1).unwrap_or_default();
+    let first_hex = format!("{:x}", first.chars().next().unwrap_or_default() as usize);
+
+    // Return true if the terminfo file exists at the specified location.
+    macro_rules! check_path {
+        ($path:expr) => {
+            if $path.join(first).join(terminfo).exists()
+                || $path.join(&first_hex).join(terminfo).exists()
+            {
+                return true;
+            }
+        };
     }
+
+    if let Some(dir) = env::var_os("TERMINFO") {
+        check_path!(PathBuf::from(&dir));
+    } else if let Some(home) = dirs::home_dir() {
+        check_path!(home.join(".terminfo"));
+    }
+
     if let Ok(dirs) = env::var("TERMINFO_DIRS") {
         for dir in dirs.split(':') {
-            search.push(PathBuf::from(dir));
+            check_path!(PathBuf::from(dir));
         }
     }
-    if let Ok(prefix) = env::var("PREFIX") {
-        let path = Path::new(&prefix);
-        search.push(path.join("etc/terminfo"));
-        search.push(path.join("lib/terminfo"));
-        search.push(path.join("share/terminfo"));
-    }
-    search.push(PathBuf::from("/etc/terminfo"));
-    search.push(PathBuf::from("/lib/terminfo"));
-    search.push(PathBuf::from("/usr/share/terminfo"));
-    search.push(PathBuf::from("/boot/system/data/terminfo"));
-    search
-        .iter()
-        .any(|path| terminfo_paths_exists(path))
-}
 
-fn terminfo_paths_exists(path_buf: &PathBuf) -> bool {
-    if !path_buf.exists() {
-        return false;
+    if let Ok(prefix) = env::var("PREFIX") {
+        let path = PathBuf::from(prefix);
+        check_path!(path.join("etc/terminfo"));
+        check_path!(path.join("lib/terminfo"));
+        check_path!(path.join("share/terminfo"));
     }
-    let mut path = path_buf.clone();
-    path.push("a");
-    path.push("alacritty");
-    if path.exists() {
-        return true;
-    }
-    let mut path = path_buf.clone();
-    path.push(format!("{:x}", 'a' as usize));
-    path.push("alacritty");
-    path.exists()
+
+    check_path!(PathBuf::from("/etc/terminfo"));
+    check_path!(PathBuf::from("/lib/terminfo"));
+    check_path!(PathBuf::from("/usr/share/terminfo"));
+    check_path!(PathBuf::from("/boot/system/data/terminfo"));
+
+    // No valid terminfo path has been found.
+    false
 }
