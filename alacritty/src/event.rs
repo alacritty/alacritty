@@ -1281,11 +1281,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        if processor.ctx.config.ui_config.background_opacity()
-            != config.ui_config.background_opacity()
-        {
-            processor.ctx.window.set_has_shadow(config.ui_config.background_opacity() >= 1.0);
-        }
+        processor.ctx.window.set_has_shadow(config.ui_config.background_opacity() >= 1.0);
 
         *processor.ctx.config = config;
 
