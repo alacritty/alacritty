@@ -1279,6 +1279,14 @@ impl<N: Notify + OnResize> Processor<N> {
         #[cfg(target_os = "macos")]
         crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
 
+        // Disable shadows for transparent windows on macOS.
+        #[cfg(target_os = "macos")]
+        if processor.ctx.config.ui_config.background_opacity()
+            != config.ui_config.background_opacity()
+        {
+            processor.ctx.window.set_has_shadows(config.ui_config.background_opacity() >= 1.0);
+        }
+
         *processor.ctx.config = config;
 
         // Update cursor blinking.

@@ -254,6 +254,10 @@ impl Display {
         #[cfg(target_os = "macos")]
         crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
 
+        // Disable shadows for transparent windows on macOS.
+        #[cfg(target_os = "macos")]
+        window.set_has_shadows(config.ui_config.background_opacity() >= 1.0);
+
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         let is_x11 = event_loop.is_x11();
         #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
