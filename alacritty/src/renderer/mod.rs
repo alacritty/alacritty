@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::hash::BuildHasherDefault;
@@ -11,7 +12,8 @@ use crossfont::{
     RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
 use fnv::FnvHasher;
-use log::{error, info};
+use log::{debug, error, info};
+use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
@@ -99,7 +101,7 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Glyph {
     tex_id: GLuint,
     flags: GlyphFlags,
@@ -187,8 +189,13 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
+
+        // Cache the "missing glyph" character.
+        self.cache_glyph(GlyphKey { font_key: font, character: '\0', size }, loader);
+
+        // Cache all ascii characters.
         for i in 32u8..=126u8 {
-            self.get(GlyphKey { font_key: font, character: i as char, size }, loader);
+            self.cache_glyph(GlyphKey { font_key: font, character: i as char, size }, loader);
         }
     }
 
@@ -257,36 +264,72 @@ impl GlyphCache {
         FontDesc::new(desc.family.clone(), style)
     }
 
-    pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L) -> &Glyph
+    /// Get a glyph from the font.
+    ///
+    /// If the glyph has never been loaded before, it will be rasterized and inserted into the
+    /// cache.
+    ///
+    /// # Errors
+    ///
+    /// This will fail when the glyph could not be rasterized. Usually this is due to the glyph
+    /// not being present in any font.
+    fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L) -> Result<&Glyph, RasterizerError>
     where
         L: LoadGlyph,
     {
-        let glyph_offset = self.glyph_offset;
-        let rasterizer = &mut self.rasterizer;
-        let metrics = &self.metrics;
-        self.cache.entry(glyph_key).or_insert_with(|| {
-            let mut is_missing = false;
-            let mut rasterized = rasterizer.get_glyph(glyph_key).unwrap_or_else(|err| match err {
-                RasterizerError::MissingGlyph(glyph) => {
-                    is_missing = true;
-                    glyph
+        match self.cache.entry(glyph_key) {
+            // Glyph was loaded from cache.
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            // Try to rasterize the glyph if it's uncached.
+            Entry::Vacant(entry) => match self.rasterizer.get_glyph(glyph_key) {
+                // Add rasterized glyph to the cache.
+                Ok(mut rasterized) => {
+                    rasterized.left += i32::from(self.glyph_offset.x);
+                    rasterized.top += i32::from(self.glyph_offset.y);
+                    rasterized.top -= self.metrics.descent as i32;
+
+                    // The metrics of zero-width characters are based on rendering
+                    // the character after the current cell, with the anchor at the
+                    // right side of the preceding character. Since we render the
+                    // zero-width characters inside the preceding character, the
+                    // anchor has been moved to the right by one cell.
+                    if glyph_key.character.width() == Some(0) {
+                        rasterized.left += self.metrics.average_advance as i32;
+                    }
+
+                    Ok(entry.insert(loader.load_glyph(&rasterized)))
                 },
-                _ => Default::default(),
-            });
+                // Propagate rasterization failure.
+                Err(err) => Err(err),
+            },
+        }
+    }
 
-            rasterized.left += i32::from(glyph_offset.x);
-            rasterized.top += i32::from(glyph_offset.y);
-            rasterized.top -= metrics.descent as i32;
+    /// Load a glyph into the cache.
+    ///
+    /// This will always insert a new glyph in the cache, even if the rasterization returned a
+    /// "missing" glyph or failed completely.
+    fn cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
+    where
+        L: LoadGlyph,
+    {
+        let rasterized = match self.rasterizer.get_glyph(glyph_key) {
+            // Insert successful and "missing" glyph.
+            Ok(mut rasterized) | Err(RasterizerError::MissingGlyph(mut rasterized)) => {
+                rasterized.left += i32::from(self.glyph_offset.x);
+                rasterized.top += i32::from(self.glyph_offset.y);
+                rasterized.top -= self.metrics.descent as i32;
+                rasterized
+            },
+            // Load empty glyph as fallback.
+            Err(err) => {
+                debug!("{}", err);
+                Default::default()
+            },
+        };
 
-            let mut glyph = loader.load_glyph(&rasterized);
-
-            // Mark glyph as missing.
-            if is_missing {
-                glyph.flags.insert(GlyphFlags::MISSING_GLYPH);
-            }
-
-            glyph
-        })
+        // Cache rasterized glyph.
+        self.cache.insert(glyph_key, loader.load_glyph(&rasterized));
     }
 
     /// Clear currently cached data in both GL and the registry.
@@ -883,29 +926,24 @@ impl<'a> RenderApi<'a> {
         let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, character };
 
         // Add cell to batch.
-        let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(&cell, glyph);
+        match glyph_cache.get(glyph_key, self) {
+            Ok(glyph) => self.add_render_item(&cell, glyph),
+            // Cache the "missing" glyph on error.
+            Err(_) => {
+                let missing_key = GlyphKey { character: '\0', ..glyph_key };
+                let glyph = *glyph_cache.get(missing_key, self).expect("missing fallback glyph");
+                glyph_cache.cache.insert(glyph_key, glyph);
+                self.add_render_item(&cell, &glyph)
+            },
+        }
 
         // Render visible zero-width characters.
         if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
-            for character in zerowidth {
-                glyph_key.character = character;
-                let mut glyph = *glyph_cache.get(glyph_key, self);
-
-                // Ignore drawing of missing glyphs symbols for zerowidth chars, so they won't
-                // obscure normal characters.
-                if glyph.flags.contains(GlyphFlags::MISSING_GLYPH) {
-                    continue;
+            for character in zerowidth.iter() {
+                glyph_key.character = *character;
+                if let Ok(glyph) = glyph_cache.get(glyph_key, self) {
+                    self.add_render_item(&cell, &glyph);
                 }
-
-                // The metrics of zero-width characters are based on rendering
-                // the character after the current cell, with the anchor at the
-                // right side of the preceding character. Since we render the
-                // zero-width characters inside the preceding character, the
-                // anchor has been moved to the right by one cell.
-                glyph.left += glyph_cache.metrics.average_advance as i16;
-
-                self.add_render_item(&cell, &glyph);
             }
         }
     }
