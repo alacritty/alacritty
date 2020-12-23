@@ -94,17 +94,10 @@ pub struct TextShaderProgram {
     u_background: GLint,
 }
 
-bitflags! {
-    struct GlyphFlags : u8 {
-        const COLORED = 0b0000_0001;
-        const MISSING_GLYPH = 0b0000_0010;
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct Glyph {
     tex_id: GLuint,
-    flags: GlyphFlags,
+    multicolor: bool,
     top: i16,
     left: i16,
     width: i16,
@@ -314,14 +307,13 @@ impl GlyphCache {
         L: LoadGlyph,
     {
         let rasterized = match self.rasterizer.get_glyph(glyph_key) {
-            // Insert successful and "missing" glyph.
             Ok(mut rasterized) | Err(RasterizerError::MissingGlyph(mut rasterized)) => {
                 rasterized.left += i32::from(self.glyph_offset.x);
                 rasterized.top += i32::from(self.glyph_offset.y);
                 rasterized.top -= self.metrics.descent as i32;
                 rasterized
             },
-            // Load empty glyph as fallback.
+            // Use empty glyph as fallback.
             Err(err) => {
                 debug!("{}", err);
                 Default::default()
@@ -495,7 +487,7 @@ impl Batch {
         }
 
         let mut cell_flags = RenderingGlyphFlags::empty();
-        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.flags.contains(GlyphFlags::COLORED));
+        cell_flags.set(RenderingGlyphFlags::COLORED, glyph.multicolor);
         cell_flags.set(RenderingGlyphFlags::WIDE_CHAR, cell.flags.contains(Flags::WIDE_CHAR));
 
         self.instances.push(InstanceData {
@@ -928,10 +920,10 @@ impl<'a> RenderApi<'a> {
         // Add cell to batch.
         match glyph_cache.get(glyph_key, self) {
             Ok(glyph) => self.add_render_item(&cell, glyph),
-            // Cache the "missing" glyph on error.
+            // Insert the "missing" glyph for this key into the cache on error.
             Err(_) => {
                 let missing_key = GlyphKey { character: '\0', ..glyph_key };
-                let glyph = *glyph_cache.get(missing_key, self).expect("missing fallback glyph");
+                let glyph = *glyph_cache.get(missing_key, self).expect("no 'missing' glyph");
                 glyph_cache.cache.insert(glyph_key, glyph);
                 self.add_render_item(&cell, &glyph)
             },
@@ -974,7 +966,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
-            flags: GlyphFlags::empty(),
+            multicolor: false,
             top: 0,
             left: 0,
             width: 0,
@@ -1376,16 +1368,19 @@ impl Atlas {
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
         let width = glyph.width as i32;
-        let mut flags = GlyphFlags::empty();
+        let multicolor;
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL.
             let (format, buffer) = match &glyph.buffer {
-                BitmapBuffer::RGB(buffer) => (gl::RGB, buffer),
+                BitmapBuffer::RGB(buffer) => {
+                    multicolor = false;
+                    (gl::RGB, buffer)
+                }
                 BitmapBuffer::RGBA(buffer) => {
-                    flags.insert(GlyphFlags::COLORED);
+                    multicolor = true;
                     (gl::RGBA, buffer)
                 },
             };
@@ -1420,7 +1415,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            flags,
+            multicolor,
             top: glyph.top as i16,
             left: glyph.left as i16,
             width: width as i16,
