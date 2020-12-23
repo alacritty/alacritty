@@ -1378,7 +1378,7 @@ impl Atlas {
                 BitmapBuffer::RGB(buffer) => {
                     multicolor = false;
                     (gl::RGB, buffer)
-                }
+                },
                 BitmapBuffer::RGBA(buffer) => {
                     multicolor = true;
                     (gl::RGBA, buffer)
