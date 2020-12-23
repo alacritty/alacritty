@@ -28,7 +28,7 @@ serde_json = "1"
 glutin = { version = "0.26.0", default-features = false, features = ["serde"] }
 notify = "4"
 parking_lot = "0.11.0"
-crossfont = { version = "0.1.0", features = ["force_system_fontconfig"] }
+crossfont = { version = "0.2.0", features = ["force_system_fontconfig"] }
 urlocator = "0.1.3"
 copypasta = { version = "0.7.0", default-features = false }
 libc = "0.2"

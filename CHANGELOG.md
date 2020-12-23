@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Nonexistent config imports are ignored instead of raising an error
 - Value for disabling logging with `config.log_level` is `Off` instead of `None`
+- Missing glyph symbols are no longer drawn for zerowidth characters
 
 ### Fixed
 
@@ -43,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Alacritty not discarding invalid escape sequences starting with ESC
 - Crash due to clipboard not being properly released on Wayland
 - Shadow artifacts when resizing transparent windows on macOS
+- Missing glyph symbols not being rendered for missing glyphs on macOS and Windows
 
 ### Removed
 
