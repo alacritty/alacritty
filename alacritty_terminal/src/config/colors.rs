@@ -22,6 +22,7 @@ pub struct Colors {
 impl Default for Colors {
     fn default() -> Self {
         Self {
+            opaque_background_colors: true,
             primary: Default::default(),
             cursor: Default::default(),
             vi_mode_cursor: Default::default(),
@@ -31,7 +32,6 @@ impl Default for Colors {
             dim: Default::default(),
             indexed_colors: Default::default(),
             search: Default::default(),
-            opaque_background_colors: true,
         }
     }
 }
