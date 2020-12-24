@@ -41,7 +41,6 @@ pub struct UIConfig {
     /// Bindings for the mouse.
     mouse_bindings: MouseBindings,
 
-    /// TODO: Deprcated
     #[config(deprecated = "use `window.background_opacity` instead")]
     pub background_opacity: Option<Percentage>,
 }
