@@ -1,12 +1,12 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
 use std::cmp::{max, min};
-use std::iter::Peekable;
-use std::ops::{Index, IndexMut, Range, RangeInclusive};
+use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{io, iter, mem, ptr, str};
+use std::{io, mem, ptr, str};
 
+use bitflags::bitflags;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
@@ -16,26 +16,22 @@ use crate::ansi::{
 };
 use crate::config::{BellAnimation, BellConfig, Config};
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, DisplayIter, Grid, IndexRegion, Indexed, Scroll};
+use crate::grid::{Dimensions, Grid, IndexRegion, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
-use crate::term::color::{CellRgb, Rgb, DIM_FACTOR};
-use crate::term::search::{RegexIter, RegexSearch};
+use crate::term::color::Rgb;
+use crate::term::render::RenderableContent;
+use crate::term::search::RegexSearch;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
 pub mod color;
+pub mod render;
 mod search;
 
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
-
-/// Minimum contrast between a fixed cursor color and the cell's background.
-const MIN_CURSOR_CONTRAST: f64 = 1.5;
-
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-const MAX_SEARCH_LINES: usize = 100;
 
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
@@ -48,432 +44,40 @@ pub const MIN_COLS: usize = 2;
 /// Minimum number of visible lines.
 pub const MIN_SCREEN_LINES: usize = 1;
 
-/// Cursor storing all information relevant for rendering.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
-struct RenderableCursor {
-    text_color: CellRgb,
-    cursor_color: CellRgb,
-    key: CursorKey,
-    point: Point,
-    rendered: bool,
-}
-
-/// A key for caching cursor glyphs.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
-pub struct CursorKey {
-    pub shape: CursorShape,
-    pub is_wide: bool,
-}
-
-type MatchIter<'a> = Box<dyn Iterator<Item = RangeInclusive<Point<usize>>> + 'a>;
-
-/// Regex search highlight tracking.
-pub struct RenderableSearch<'a> {
-    iter: Peekable<MatchIter<'a>>,
-}
-
-impl<'a> RenderableSearch<'a> {
-    /// Create a new renderable search iterator.
-    fn new<T>(term: &'a Term<T>) -> Self {
-        let viewport_end = term.grid().display_offset();
-        let viewport_start = viewport_end + term.screen_lines().0 - 1;
-
-        // Compute start of the first and end of the last line.
-        let start_point = Point::new(viewport_start, Column(0));
-        let mut start = term.line_search_left(start_point);
-        let end_point = Point::new(viewport_end, term.cols() - 1);
-        let mut end = term.line_search_right(end_point);
-
-        // Set upper bound on search before/after the viewport to prevent excessive blocking.
-        if start.line > viewport_start + MAX_SEARCH_LINES {
-            if start.line == 0 {
-                // Do not highlight anything if this line is the last.
-                let iter: MatchIter<'a> = Box::new(iter::empty());
-                return Self { iter: iter.peekable() };
-            } else {
-                // Start at next line if this one is too long.
-                start.line -= 1;
-            }
-        }
-        end.line = max(end.line, viewport_end.saturating_sub(MAX_SEARCH_LINES));
-
-        // Create an iterater for the current regex search for all visible matches.
-        let iter: MatchIter<'a> = Box::new(
-            RegexIter::new(start, end, Direction::Right, &term)
-                .skip_while(move |rm| rm.end().line > viewport_start)
-                .take_while(move |rm| rm.start().line >= viewport_end),
-        );
-
-        Self { iter: iter.peekable() }
-    }
-
-    /// Advance the search tracker to the next point.
-    ///
-    /// This will return `true` if the point passed is part of a search match.
-    fn advance(&mut self, point: Point<usize>) -> bool {
-        while let Some(regex_match) = &self.iter.peek() {
-            if regex_match.start() > &point {
-                break;
-            } else if regex_match.end() < &point {
-                let _ = self.iter.next();
-            } else {
-                return true;
-            }
-        }
-        false
+bitflags! {
+    pub struct TermMode: u32 {
+        const NONE                = 0;
+        const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
+        const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
+        const APP_KEYPAD          = 0b0000_0000_0000_0000_0100;
+        const MOUSE_REPORT_CLICK  = 0b0000_0000_0000_0000_1000;
+        const BRACKETED_PASTE     = 0b0000_0000_0000_0001_0000;
+        const SGR_MOUSE           = 0b0000_0000_0000_0010_0000;
+        const MOUSE_MOTION        = 0b0000_0000_0000_0100_0000;
+        const LINE_WRAP           = 0b0000_0000_0000_1000_0000;
+        const LINE_FEED_NEW_LINE  = 0b0000_0000_0001_0000_0000;
+        const ORIGIN              = 0b0000_0000_0010_0000_0000;
+        const INSERT              = 0b0000_0000_0100_0000_0000;
+        const FOCUS_IN_OUT        = 0b0000_0000_1000_0000_0000;
+        const ALT_SCREEN          = 0b0000_0001_0000_0000_0000;
+        const MOUSE_DRAG          = 0b0000_0010_0000_0000_0000;
+        const MOUSE_MODE          = 0b0000_0010_0000_0100_1000;
+        const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
+        const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
+        const VI                  = 0b0001_0000_0000_0000_0000;
+        const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
+        const ANY                 = std::u32::MAX;
     }
 }
 
-/// Iterator that yields cells needing render.
-///
-/// Yields cells that require work to be displayed (that is, not a an empty
-/// background cell). Additionally, this manages some state of the grid only
-/// relevant for rendering like temporarily changing the cell with the cursor.
-///
-/// This manages the cursor during a render. The cursor location is inverted to
-/// draw it, and reverted after drawing to maintain state.
-pub struct RenderableCellsIter<'a, C> {
-    inner: DisplayIter<'a, Cell>,
-    grid: &'a Grid<Cell>,
-    cursor: RenderableCursor,
-    config: &'a Config<C>,
-    colors: &'a color::List,
-    selection: Option<SelectionRange<Line>>,
-    search: RenderableSearch<'a>,
-}
-
-impl<'a, C> Iterator for RenderableCellsIter<'a, C> {
-    type Item = RenderableCell;
-
-    /// Gets the next renderable cell.
-    ///
-    /// Skips empty (background) cells and applies any flags to the cell state
-    /// (eg. invert fg and bg colors).
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.cursor.point == self.inner.point() {
-                // Handle cursor rendering.
-                if self.cursor.rendered {
-                    return self.next_cursor_cell();
-                } else {
-                    return Some(self.next_cursor());
-                }
-            } else {
-                // Handle non-cursor cells.
-                let cell = self.inner.next()?;
-                let cell = RenderableCell::new(self, cell);
-
-                // Skip empty cells and wide char spacers.
-                if !cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-                    return Some(cell);
-                }
-            }
-        }
+impl Default for TermMode {
+    fn default() -> TermMode {
+        TermMode::SHOW_CURSOR
+            | TermMode::LINE_WRAP
+            | TermMode::ALTERNATE_SCROLL
+            | TermMode::URGENCY_HINTS
     }
 }
-
-impl<'a, C> RenderableCellsIter<'a, C> {
-    /// Create the renderable cells iterator.
-    ///
-    /// The cursor and terminal mode are required for properly displaying the
-    /// cursor.
-    fn new<T>(
-        term: &'a Term<T>,
-        config: &'a Config<C>,
-        show_cursor: bool,
-    ) -> RenderableCellsIter<'a, C> {
-        RenderableCellsIter {
-            cursor: term.renderable_cursor(config, show_cursor),
-            grid: &term.grid,
-            inner: term.grid.display_iter(),
-            selection: term.visible_selection(),
-            config,
-            colors: &term.colors,
-            search: RenderableSearch::new(term),
-        }
-    }
-
-    /// Get the next renderable cell as the cell below the cursor.
-    fn next_cursor_cell(&mut self) -> Option<RenderableCell> {
-        // Handle cell below cursor.
-        let cell = self.inner.next()?;
-        let mut cell = RenderableCell::new(self, cell);
-
-        if self.cursor.key.shape == CursorShape::Block {
-            cell.fg = match self.cursor.cursor_color {
-                // Apply cursor color, or invert the cursor if it has a fixed background
-                // close to the cell's background.
-                CellRgb::Rgb(col) if col.contrast(cell.bg) < MIN_CURSOR_CONTRAST => cell.bg,
-                _ => self.cursor.text_color.color(cell.fg, cell.bg),
-            };
-        }
-
-        Some(cell)
-    }
-
-    /// Get the next renderable cell as the cursor.
-    fn next_cursor(&mut self) -> RenderableCell {
-        // Handle cursor.
-        self.cursor.rendered = true;
-
-        let buffer_point = self.grid.visible_to_buffer(self.cursor.point);
-        let cell = Indexed {
-            inner: &self.grid[buffer_point.line][buffer_point.col],
-            column: self.cursor.point.col,
-            line: self.cursor.point.line,
-        };
-
-        let mut cell = RenderableCell::new(self, cell);
-        cell.inner = RenderableCellContent::Cursor(self.cursor.key);
-
-        // Apply cursor color, or invert the cursor if it has a fixed background close
-        // to the cell's background.
-        if !matches!(
-            self.cursor.cursor_color,
-            CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
-        ) {
-            cell.fg = self.cursor.cursor_color.color(cell.fg, cell.bg);
-        }
-
-        cell
-    }
-
-    /// Check selection state of a cell.
-    fn is_selected(&self, point: Point) -> bool {
-        let selection = match self.selection {
-            Some(selection) => selection,
-            None => return false,
-        };
-
-        // Do not invert block cursor at selection boundaries.
-        if self.cursor.key.shape == CursorShape::Block
-            && self.cursor.point == point
-            && (selection.start == point
-                || selection.end == point
-                || (selection.is_block
-                    && ((selection.start.line == point.line && selection.end.col == point.col)
-                        || (selection.end.line == point.line && selection.start.col == point.col))))
-        {
-            return false;
-        }
-
-        // Point itself is selected.
-        if selection.contains(point.col, point.line) {
-            return true;
-        }
-
-        let num_cols = self.grid.cols();
-
-        // Convert to absolute coordinates to adjust for the display offset.
-        let buffer_point = self.grid.visible_to_buffer(point);
-        let cell = &self.grid[buffer_point];
-
-        // Check if wide char's spacers are selected.
-        if cell.flags.contains(Flags::WIDE_CHAR) {
-            let prev = point.sub(num_cols, 1);
-            let buffer_prev = self.grid.visible_to_buffer(prev);
-            let next = point.add(num_cols, 1);
-
-            // Check trailing spacer.
-            selection.contains(next.col, next.line)
-                // Check line-wrapping, leading spacer.
-                || (self.grid[buffer_prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
-                    && selection.contains(prev.col, prev.line))
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RenderableCellContent {
-    Chars((char, Option<Vec<char>>)),
-    Cursor(CursorKey),
-}
-
-#[derive(Clone, Debug)]
-pub struct RenderableCell {
-    /// A _Display_ line (not necessarily an _Active_ line).
-    pub line: Line,
-    pub column: Column,
-    pub inner: RenderableCellContent,
-    pub fg: Rgb,
-    pub bg: Rgb,
-    pub bg_alpha: f32,
-    pub flags: Flags,
-    pub is_match: bool,
-}
-
-impl RenderableCell {
-    fn new<'a, C>(iter: &mut RenderableCellsIter<'a, C>, cell: Indexed<&Cell>) -> Self {
-        let point = Point::new(cell.line, cell.column);
-
-        // Lookup RGB values.
-        let mut fg_rgb = Self::compute_fg_rgb(iter.config, iter.colors, cell.fg, cell.flags);
-        let mut bg_rgb = Self::compute_bg_rgb(iter.colors, cell.bg);
-
-        let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
-            mem::swap(&mut fg_rgb, &mut bg_rgb);
-            1.0
-        } else {
-            Self::compute_bg_alpha(cell.bg)
-        };
-
-        let mut is_match = false;
-
-        if iter.is_selected(point) {
-            let config_bg = iter.config.colors.selection.background;
-            let selected_fg = iter.config.colors.selection.foreground.color(fg_rgb, bg_rgb);
-            bg_rgb = config_bg.color(fg_rgb, bg_rgb);
-            fg_rgb = selected_fg;
-
-            if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
-                // Reveal inversed text when fg/bg is the same.
-                fg_rgb = iter.colors[NamedColor::Background];
-                bg_rgb = iter.colors[NamedColor::Foreground];
-                bg_alpha = 1.0;
-            } else if config_bg != CellRgb::CellBackground {
-                bg_alpha = 1.0;
-            }
-        } else if iter.search.advance(iter.grid.visible_to_buffer(point)) {
-            // Highlight the cell if it is part of a search match.
-            let config_bg = iter.config.colors.search.matches.background;
-            let matched_fg = iter.config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
-            bg_rgb = config_bg.color(fg_rgb, bg_rgb);
-            fg_rgb = matched_fg;
-
-            if config_bg != CellRgb::CellBackground {
-                bg_alpha = 1.0;
-            }
-
-            is_match = true;
-        }
-
-        let zerowidth = cell.zerowidth().map(|zerowidth| zerowidth.to_vec());
-
-        RenderableCell {
-            line: cell.line,
-            column: cell.column,
-            inner: RenderableCellContent::Chars((cell.c, zerowidth)),
-            fg: fg_rgb,
-            bg: bg_rgb,
-            bg_alpha,
-            flags: cell.flags,
-            is_match,
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.bg_alpha == 0.
-            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
-            && self.inner == RenderableCellContent::Chars((' ', None))
-    }
-
-    fn compute_fg_rgb<C>(config: &Config<C>, colors: &color::List, fg: Color, flags: Flags) -> Rgb {
-        match fg {
-            Color::Spec(rgb) => match flags & Flags::DIM {
-                Flags::DIM => rgb * DIM_FACTOR,
-                _ => rgb,
-            },
-            Color::Named(ansi) => {
-                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
-                    // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
-                    (_, Flags::DIM_BOLD)
-                        if ansi == NamedColor::Foreground
-                            && config.colors.primary.bright_foreground.is_none() =>
-                    {
-                        colors[NamedColor::DimForeground]
-                    },
-                    // Draw bold text in bright colors *and* contains bold flag.
-                    (true, Flags::BOLD) => colors[ansi.to_bright()],
-                    // Cell is marked as dim and not bold.
-                    (_, Flags::DIM) | (false, Flags::DIM_BOLD) => colors[ansi.to_dim()],
-                    // None of the above, keep original color..
-                    _ => colors[ansi],
-                }
-            },
-            Color::Indexed(idx) => {
-                let idx = match (
-                    config.draw_bold_text_with_bright_colors,
-                    flags & Flags::DIM_BOLD,
-                    idx,
-                ) {
-                    (true, Flags::BOLD, 0..=7) => idx as usize + 8,
-                    (false, Flags::DIM, 8..=15) => idx as usize - 8,
-                    (false, Flags::DIM, 0..=7) => NamedColor::DimBlack as usize + idx as usize,
-                    _ => idx as usize,
-                };
-
-                colors[idx]
-            },
-        }
-    }
-
-    /// Compute background alpha based on cell's original color.
-    ///
-    /// Since an RGB color matching the background should not be transparent, this is computed
-    /// using the named input color, rather than checking the RGB of the background after its color
-    /// is computed.
-    #[inline]
-    fn compute_bg_alpha(bg: Color) -> f32 {
-        if bg == Color::Named(NamedColor::Background) {
-            0.
-        } else {
-            1.
-        }
-    }
-
-    #[inline]
-    fn compute_bg_rgb(colors: &color::List, bg: Color) -> Rgb {
-        match bg {
-            Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => colors[ansi],
-            Color::Indexed(idx) => colors[idx],
-        }
-    }
-}
-
-pub mod mode {
-    use bitflags::bitflags;
-
-    bitflags! {
-        pub struct TermMode: u32 {
-            const NONE                = 0;
-            const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
-            const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
-            const APP_KEYPAD          = 0b0000_0000_0000_0000_0100;
-            const MOUSE_REPORT_CLICK  = 0b0000_0000_0000_0000_1000;
-            const BRACKETED_PASTE     = 0b0000_0000_0000_0001_0000;
-            const SGR_MOUSE           = 0b0000_0000_0000_0010_0000;
-            const MOUSE_MOTION        = 0b0000_0000_0000_0100_0000;
-            const LINE_WRAP           = 0b0000_0000_0000_1000_0000;
-            const LINE_FEED_NEW_LINE  = 0b0000_0000_0001_0000_0000;
-            const ORIGIN              = 0b0000_0000_0010_0000_0000;
-            const INSERT              = 0b0000_0000_0100_0000_0000;
-            const FOCUS_IN_OUT        = 0b0000_0000_1000_0000_0000;
-            const ALT_SCREEN          = 0b0000_0001_0000_0000_0000;
-            const MOUSE_DRAG          = 0b0000_0010_0000_0000_0000;
-            const MOUSE_MODE          = 0b0000_0010_0000_0100_1000;
-            const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
-            const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
-            const VI                  = 0b0001_0000_0000_0000_0000;
-            const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
-            const ANY                 = std::u32::MAX;
-        }
-    }
-
-    impl Default for TermMode {
-        fn default() -> TermMode {
-            TermMode::SHOW_CURSOR
-                | TermMode::LINE_WRAP
-                | TermMode::ALTERNATE_SCROLL
-                | TermMode::URGENCY_HINTS
-        }
-    }
-}
-
-pub use crate::term::mode::TermMode;
 
 pub struct VisualBell {
     /// Visual bell animation.
@@ -1017,17 +621,19 @@ impl<T> Term<T> {
         &mut self.grid
     }
 
-    /// Iterate over the *renderable* cells in the terminal.
+    /// Terminal content required for rendering.
     ///
-    /// A renderable cell is any cell which has content other than the default
-    /// background color.  Cells with an alternate background color are
-    /// considered renderable as are cells with any text content.
-    pub fn renderable_cells<'b, C>(
+    /// A renderable cell is any cell which has content other than the default background color.
+    /// Cells with an alternate background color are considered renderable, as are cells with any
+    /// text content.
+    ///
+    /// The cursor itself is always considered renderable and provided separately.
+    pub fn renderable_content<'b, C>(
         &'b self,
         config: &'b Config<C>,
         show_cursor: bool,
-    ) -> RenderableCellsIter<'_, C> {
-        RenderableCellsIter::new(&self, config, show_cursor)
+    ) -> RenderableContent<'_, T, C> {
+        RenderableContent::new(&self, config, show_cursor)
     }
 
     /// Get the selection within the viewport.
@@ -1392,67 +998,6 @@ impl<T> Term<T> {
         cursor_cell.flags = flags;
 
         cursor_cell
-    }
-
-    /// Get rendering information about the active cursor.
-    fn renderable_cursor<C>(&self, config: &Config<C>, show_cursor: bool) -> RenderableCursor {
-        let vi_mode = self.mode.contains(TermMode::VI);
-
-        // Cursor position.
-        let mut point = if vi_mode {
-            self.vi_mode_cursor.point
-        } else {
-            let mut point = self.grid.cursor.point;
-            point.line += self.grid.display_offset();
-            point
-        };
-
-        // Cursor shape.
-        let hidden = !show_cursor
-            || (!self.mode.contains(TermMode::SHOW_CURSOR) && !vi_mode)
-            || point.line >= self.screen_lines();
-
-        let cursor_shape = if hidden {
-            point.line = Line(0);
-            CursorShape::Hidden
-        } else if !self.is_focused && config.cursor.unfocused_hollow {
-            CursorShape::HollowBlock
-        } else {
-            let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
-
-            if vi_mode {
-                self.vi_mode_cursor_style.unwrap_or(cursor_style).shape
-            } else {
-                cursor_style.shape
-            }
-        };
-
-        // Cursor colors.
-        let color = if vi_mode { config.colors.vi_mode_cursor } else { config.colors.cursor };
-        let cursor_color = if self.color_modified[NamedColor::Cursor as usize] {
-            CellRgb::Rgb(self.colors[NamedColor::Cursor])
-        } else {
-            color.background
-        };
-        let text_color = color.foreground;
-
-        // Expand across wide cell when inside wide char or spacer.
-        let buffer_point = self.visible_to_buffer(point);
-        let cell = &self.grid[buffer_point.line][buffer_point.col];
-        let is_wide = if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-            point.col -= 1;
-            true
-        } else {
-            cell.flags.contains(Flags::WIDE_CHAR)
-        };
-
-        RenderableCursor {
-            text_color,
-            cursor_color,
-            key: CursorKey { shape: cursor_shape, is_wide },
-            point,
-            rendered: false,
-        }
     }
 }
 

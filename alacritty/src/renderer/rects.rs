@@ -6,7 +6,8 @@ use crossfont::Metrics;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{RenderableCell, SizeInfo};
+use alacritty_terminal::term::render::RenderableCell;
+use alacritty_terminal::term::SizeInfo;
 
 use crate::gl;
 use crate::gl::types::*;

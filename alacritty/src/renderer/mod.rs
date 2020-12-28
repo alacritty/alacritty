@@ -15,15 +15,14 @@ use fnv::FnvHasher;
 use log::{debug, error, info};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::term::render::RenderableCell;
+use alacritty_terminal::term::SizeInfo;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
-use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
@@ -116,9 +115,6 @@ pub struct GlyphCache {
     /// Cache of buffered glyphs.
     cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
-    /// Cache of buffered cursor glyphs.
-    cursor_cache: HashMap<CursorKey, Glyph, BuildHasherDefault<FnvHasher>>,
-
     /// Rasterizer for loading new glyphs.
     rasterizer: Rasterizer,
 
@@ -164,7 +160,6 @@ impl GlyphCache {
 
         let mut cache = Self {
             cache: HashMap::default(),
-            cursor_cache: HashMap::default(),
             rasterizer,
             font_size: font.size(),
             font_key: regular,
@@ -328,7 +323,6 @@ impl GlyphCache {
     pub fn clear_glyph_cache<L: LoadGlyph>(&mut self, loader: &mut L) {
         loader.clear();
         self.cache = HashMap::default();
-        self.cursor_cache = HashMap::default();
 
         self.load_common_glyphs(loader);
     }
@@ -459,7 +453,6 @@ pub struct RenderApi<'a> {
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
     config: &'a UIConfig,
-    cursor_config: Cursor,
 }
 
 #[derive(Debug)]
@@ -693,13 +686,7 @@ impl QuadRenderer {
         }
     }
 
-    pub fn with_api<F, T>(
-        &mut self,
-        config: &UIConfig,
-        cursor_config: Cursor,
-        props: &SizeInfo,
-        func: F,
-    ) -> T
+    pub fn with_api<F, T>(&mut self, config: &UIConfig, props: &SizeInfo, func: F) -> T
     where
         F: FnOnce(RenderApi<'_>) -> T,
     {
@@ -720,7 +707,6 @@ impl QuadRenderer {
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
             config,
-            cursor_config,
         });
 
         unsafe {
@@ -848,10 +834,11 @@ impl<'a> RenderApi<'a> {
         let cells = string
             .chars()
             .enumerate()
-            .map(|(i, c)| RenderableCell {
+            .map(|(i, character)| RenderableCell {
                 line,
                 column: Column(i),
-                inner: RenderableCellContent::Chars((c, None)),
+                character,
+                zerowidth: None,
                 flags: Flags::empty(),
                 bg_alpha,
                 fg,
@@ -881,26 +868,6 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        let (mut character, zerowidth) = match cell.inner {
-            RenderableCellContent::Cursor(cursor_key) => {
-                // Raw cell pixel buffers like cursors don't need to go through font lookup.
-                let metrics = glyph_cache.metrics;
-                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
-                    self.load_glyph(&cursor::get_cursor_glyph(
-                        cursor_key.shape,
-                        metrics,
-                        self.config.font.offset.x,
-                        self.config.font.offset.y,
-                        cursor_key.is_wide,
-                        self.cursor_config.thickness(),
-                    ))
-                });
-                self.add_render_item(&cell, glyph);
-                return;
-            },
-            RenderableCellContent::Chars((c, ref mut zerowidth)) => (c, zerowidth.take()),
-        };
-
         // Get font key for cell.
         let font_key = match cell.flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
@@ -911,11 +878,12 @@ impl<'a> RenderApi<'a> {
 
         // Ignore hidden cells and render tabs as spaces to prevent font issues.
         let hidden = cell.flags.contains(Flags::HIDDEN);
-        if character == '\t' || hidden {
-            character = ' ';
+        if cell.character == '\t' || hidden {
+            cell.character = ' ';
         }
 
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, character };
+        let mut glyph_key =
+            GlyphKey { font_key, size: glyph_cache.font_size, character: cell.character };
 
         // Add cell to batch.
         match glyph_cache.get(glyph_key, self) {
@@ -930,9 +898,9 @@ impl<'a> RenderApi<'a> {
         }
 
         // Render visible zero-width characters.
-        if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
-            for character in zerowidth.iter() {
-                glyph_key.character = *character;
+        if let Some(zerowidth) = cell.zerowidth.take().filter(|_| !hidden) {
+            for character in zerowidth {
+                glyph_key.character = character;
                 if let Ok(glyph) = glyph_cache.get(glyph_key, self) {
                     self.add_render_item(&cell, &glyph);
                 }

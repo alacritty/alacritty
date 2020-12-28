@@ -8,7 +8,7 @@ use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
 use serde::{Deserialize, Serialize};
 
 use crate::grid::Dimensions;
-use crate::term::RenderableCell;
+use crate::term::render::RenderableCell;
 
 /// The side of a cell.
 pub type Side = Direction;

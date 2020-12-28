@@ -33,6 +33,7 @@ use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
 use crate::config::Config;
+use crate::cursor::IntoRects;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::meter::Meter;
@@ -246,7 +247,7 @@ impl Display {
 
         // Clear screen.
         let background_color = config.colors.primary.background;
-        renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+        renderer.with_api(&config.ui_config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -268,7 +269,7 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         if is_x11 {
             window.swap_buffers();
-            renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+            renderer.with_api(&config.ui_config, &size_info, |api| {
                 api.finish();
             });
         }
@@ -450,7 +451,14 @@ impl Display {
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
         let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
-        let grid_cells = terminal.renderable_cells(config, !cursor_hidden).collect::<Vec<_>>();
+        // Collect renderable content before the terminal is dropped.
+        let mut content = terminal.renderable_content(config, !cursor_hidden);
+        let mut grid_cells = Vec::new();
+        while let Some(cell) = content.next() {
+            grid_cells.push(cell);
+        }
+        let cursor = content.cursor();
+
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
         let cursor_point = terminal.grid().cursor.point;
@@ -471,7 +479,7 @@ impl Display {
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
-        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+        self.renderer.with_api(&config.ui_config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -482,7 +490,7 @@ impl Display {
         {
             let _sampler = self.meter.sampler();
 
-            self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
+            self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
                     // Invert the active match in vi-less search.
@@ -538,6 +546,13 @@ impl Display {
             }
         }
 
+        // Push the cursor rects for rendering.
+        if let Some(cursor) = cursor {
+            for rect in cursor.rects(&size_info, config.cursor.thickness()) {
+                rects.push(rect);
+            }
+        }
+
         // Push visual bell after url/underline/strikeout rects.
         if visual_bell_intensity != 0. {
             let visual_bell_rect = RenderRect::new(
@@ -576,7 +591,7 @@ impl Display {
             // Relay messages to the user.
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
-                self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
+                self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                     api.render_string(glyph_cache, start_line + i, &message_text, fg, None);
                 });
             }
@@ -621,7 +636,7 @@ impl Display {
             // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
             // will block to synchronize (this is `glClear` in Alacritty), which causes a
             // permanent one frame delay.
-            self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |api| {
+            self.renderer.with_api(&config.ui_config, &size_info, |api| {
                 api.finish();
             });
         }
@@ -668,7 +683,7 @@ impl Display {
 
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
-        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
             api.render_string(glyph_cache, size_info.screen_lines(), &text, fg, Some(bg));
         });
     }
@@ -684,7 +699,7 @@ impl Display {
         let fg = config.colors.primary.background;
         let bg = config.colors.normal.red;
 
-        self.renderer.with_api(&config.ui_config, config.cursor, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
             api.render_string(glyph_cache, size_info.screen_lines() - 2, &timing[..], fg, Some(bg));
         });
     }
