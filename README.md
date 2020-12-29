@@ -1,28 +1,24 @@
-<h1 align="center">Alacritty</h1>
 <p align="center">
     <img width="200" alt="Alacritty Logo" src="extra/logo/compat/alacritty-term+scanlines.png">
 </p>
 
-Alacritty is the fastest terminal emulator in existence. Using the GPU for
-rendering enables optimizations that simply aren't possible without it.
-Alacritty currently supports macOS, Linux, BSD, and Windows.
+<h1 align="center">Alacritty - A fast, cross-platform, OpenGL terminal emulator</h1>
 
 <p align="center">
   <img width="600"
        alt="Alacritty running vim inside tmux"
-       src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
+       src="https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png">
 </p>
 
 ## About
 
-Alacritty is a terminal emulator with a strong focus on simplicity and
-performance. With such a strong focus on performance, included features are
-carefully considered and you can always expect Alacritty to be blazingly fast.
-By making sane choices for defaults, Alacritty requires no additional setup.
-However, it does allow [configuration](#configuration) of many aspects of the
-terminal.
+Alacritty is a modern terminal emulator that comes with sensible defaults, but
+allows for extensive [configuration](#configuration). By integrating with other
+applications, rather than reimplementing their functionality, it manages to
+provide a flexible set of [features](./docs/features.md) with high performance.
+The supported platforms currently consist of BSD, Linux, macOS and Windows.
 
-The software is considered to be at a **beta** level of readiness -- there are
+The software is considered to be at a **beta** level of readiness; there are
 a few missing features and bugs to be fixed, but it is already used by many as
 a daily driver.
 
@@ -78,27 +74,26 @@ On Windows, the config file should be located at:
 
 ## Contributing
 
-A full guideline about contributing to Alacritty can be found in the
+A guideline about contributing to Alacritty can be found in the
 [`CONTRIBUTING.md`](CONTRIBUTING.md) file.
-
-## Issues (known, unknown, feature requests, etc.)
-
-If you run into a problem with Alacritty, please file an issue. If you've got a
-feature request, feel free to ask about it. Please just keep in mind Alacritty
-is focused on simplicity and performance, and not all features are in line with
-that goal.
-
-Before opening a new issue, please check if it has already been reported.
-There's a chance someone else has already reported it, and you can subscribe to
-that issue to keep up on the latest developments.
 
 ## FAQ
 
 **_Is it really the fastest terminal emulator?_**
 
-In the terminals we've [benchmarked](http://github.com/alacritty/vtebench),
-Alacritty is either faster or **way** faster than the others. If you've found a
-case where this isn't true, please report a bug.
+Benchmarking terminal emulators is complicated. Alacritty uses
+[vtebench](https://github.com/alacritty/vtebench) to quantify terminal emulator
+throughput and manages to consistently score better than the competition using
+it. If you have found an example where this is not the case, please report a
+bug.
+
+Other aspects like latency or framerate and frame consistency are more difficult
+to quantify. Some terminal emulators also intentionally slow down to save
+resources, which might be preferred by some users.
+
+If you have doubts about Alacritty's performance or usability, the best way to
+quantify terminal emulators is always to test them with **your** specific
+usecases.
 
 **_Why isn't feature X implemented?_**
 
@@ -108,27 +103,9 @@ good fit for Alacritty. This means you won't find things like tabs or splits
 (which are best left to a window manager or [terminal multiplexer][tmux]) nor
 niceties like a GUI config editor.
 
-**_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
-
-This appears to be an issue outside of terminal emulators; either macOS has an
-IPC performance issue, or either tmux or vim (or both) have a bug. This same
-issue can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is
-running on another machine which is connected to Alacritty via SSH, this issue
-disappears. Actual throughput and rendering performance are still better in
-Alacritty.
-
 ## IRC
 
-Alacritty discussion can be found in `#alacritty` on freenode.
-
-## Wayland
-
-Wayland is used by default on systems that support it. Using XWayland may
-circumvent Wayland specific issues and can be enabled through:
-
-```sh
-env WINIT_UNIX_BACKEND=x11 alacritty
-```
+Alacritty discussions can be found in `#alacritty` on freenode.
 
 ## License
 

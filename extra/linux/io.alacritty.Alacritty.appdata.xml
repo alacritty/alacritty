@@ -7,18 +7,19 @@
   <project_license>APACHE-2.0</project_license>
   <metadata_license>APACHE-2.0</metadata_license>
   <!-- Translators: The application's summary / tagline -->
-  <summary>A cross-platform, GPU enhanced terminal emulator</summary>
+  <summary>A fast, cross-platform, OpenGL terminal emulator</summary>
   <description>
-    <p>Alacritty is a terminal emulator with a strong focus on simplicity and
-performance. With such a strong focus on performance, included features are
-carefully considered and you can always expect Alacritty to be blazingly fast.
-By making sane choices for defaults, Alacritty requires no additional setup.
-However, it does allow configuration of many aspects of the terminal.</p>
+    <p>
+      Alacritty is a modern terminal emulator that comes with sensible defaults,
+      but allows for extensive configuration. By integrating with other
+      applications, rather than reimplementing their functionality, it manages
+      to provide a flexible set of features with high performance.
+    </p>
   </description>
   <screenshots>
     <screenshot type="default">
-      <image>https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png</image>
-      <caption>Alacritty is a cross-platform, GPU enhanced terminal emulator</caption>
+      <image>https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png</image>
+      <caption>Alacritty - A fast, cross-platform, OpenGL terminal emulator</caption>
     </screenshot>
   </screenshots>
   <keywords>
@@ -31,5 +32,5 @@ However, it does allow configuration of many aspects of the terminal.</p>
     <release version="0.7.0-dev" date="2019-06-16" unix_timestamp="1560694196"/>
   </releases>
   <update_contact>https://github.com/alacritty/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
-  <developer_name>Joe Wilm</developer_name>
+  <developer_name>Christian Duerr</developer_name>
 </component>
