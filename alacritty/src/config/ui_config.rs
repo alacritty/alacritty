@@ -65,7 +65,9 @@ impl Default for UIConfig {
 impl UIConfig {
     #[inline]
     pub fn background_opacity(&self) -> f32 {
-        self.background_opacity.map(Percentage::as_f32).unwrap_or_else(|| self.window.background_opacity())
+        self.background_opacity
+            .map(Percentage::as_f32)
+            .unwrap_or_else(|| self.window.background_opacity())
     }
 
     #[inline]
