@@ -502,7 +502,7 @@ impl Batch {
             bg_r: cell.bg.r,
             bg_g: cell.bg.g,
             bg_b: cell.bg.b,
-            bg_a: cell.bg_alpha as u8,
+            bg_a: (cell.bg_alpha * 255.0) as u8,
         });
     }
 
@@ -851,7 +851,6 @@ impl<'a> RenderApi<'a> {
 
     #[inline]
     fn add_render_item(&mut self, cell: &mut RenderableCell, glyph: &Glyph) {
-        cell.bg_alpha *= 255.;
         if !self.config.colors.opaque_background_colors {
             cell.bg_alpha *= self.config.ui_config.background_opacity();
         }
