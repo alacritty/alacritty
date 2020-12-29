@@ -760,9 +760,9 @@ impl<'a> RenderApi<'a> {
         unsafe {
             let alpha = self.config.ui_config.background_opacity();
             gl::ClearColor(
-                (f32::from(color.r) / 255.0).min(1.0) * alpha,
-                (f32::from(color.g) / 255.0).min(1.0) * alpha,
-                (f32::from(color.b) / 255.0).min(1.0) * alpha,
+                (f32::from(color.r) / 255.0).min(1.0),
+                (f32::from(color.g) / 255.0).min(1.0),
+                (f32::from(color.b) / 255.0).min(1.0),
                 alpha,
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
