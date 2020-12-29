@@ -8,7 +8,7 @@ Categories=System;TerminalEmulator;
 
 Name=Alacritty
 GenericName=Terminal
-Comment=A cross-platform, GPU enhanced terminal emulator
+Comment=A fast, cross-platform, OpenGL terminal emulator
 StartupWMClass=Alacritty
 Actions=New;
 
