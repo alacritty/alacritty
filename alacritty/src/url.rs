@@ -8,7 +8,8 @@ use urlocator::{UrlLocation, UrlLocator};
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::term::render::RenderableCell;
+use alacritty_terminal::term::SizeInfo;
 
 use crate::config::Config;
 use crate::event::Mouse;
@@ -72,12 +73,6 @@ impl Urls {
 
     // Update tracked URLs.
     pub fn update(&mut self, num_cols: Column, cell: &RenderableCell) {
-        // Convert cell to character.
-        let c = match &cell.inner {
-            RenderableCellContent::Chars((c, _zerowidth)) => *c,
-            RenderableCellContent::Cursor(_) => return,
-        };
-
         let point: Point = cell.into();
         let mut end = point;
 
@@ -107,7 +102,7 @@ impl Urls {
         }
 
         // Advance parser.
-        let last_state = mem::replace(&mut self.state, self.locator.advance(c));
+        let last_state = mem::replace(&mut self.state, self.locator.advance(cell.character));
         match (self.state, last_state) {
             (UrlLocation::Url(_length, end_offset), UrlLocation::Scheme) => {
                 // Create empty URL.
@@ -204,8 +199,9 @@ mod tests {
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
         text.chars()
             .enumerate()
-            .map(|(i, c)| RenderableCell {
-                inner: RenderableCellContent::Chars((c, None)),
+            .map(|(i, character)| RenderableCell {
+                character,
+                zerowidth: None,
                 line: Line(0),
                 column: Column(i),
                 fg: Default::default(),

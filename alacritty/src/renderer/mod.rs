@@ -7,22 +7,22 @@ use std::ptr;
 
 use bitflags::bitflags;
 use crossfont::{
-    BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, Size, Slant,
-    Style, Weight,
+    BitmapBuffer, Error as RasterizerError, FontDesc, FontKey, GlyphKey, Rasterize,
+    RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
 use fnv::FnvHasher;
 use log::{error, info};
+use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::config::Cursor;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::term::render::RenderableCell;
+use alacritty_terminal::term::SizeInfo;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::Delta;
 use crate::config::Config;
-use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
@@ -93,7 +93,7 @@ pub struct TextShaderProgram {
     u_background: GLint,
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Glyph {
     tex_id: GLuint,
     multicolor: bool,
@@ -114,9 +114,6 @@ pub struct Glyph {
 pub struct GlyphCache {
     /// Cache of buffered glyphs.
     cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
-
-    /// Cache of buffered cursor glyphs.
-    cursor_cache: HashMap<CursorKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs.
     rasterizer: Rasterizer,
@@ -157,13 +154,12 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
 
         let metrics = rasterizer.metrics(regular, font.size())?;
 
         let mut cache = Self {
             cache: HashMap::default(),
-            cursor_cache: HashMap::default(),
             rasterizer,
             font_size: font.size(),
             font_key: regular,
@@ -181,8 +177,10 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
+
+        // Cache all ascii characters.
         for i in 32u8..=126u8 {
-            self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
+            self.get(GlyphKey { font_key: font, character: i as char, size }, loader, true);
         }
     }
 
@@ -251,30 +249,77 @@ impl GlyphCache {
         FontDesc::new(desc.family.clone(), style)
     }
 
-    pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L) -> &Glyph
+    /// Get a glyph from the font.
+    ///
+    /// If the glyph has never been loaded before, it will be rasterized and inserted into the
+    /// cache.
+    ///
+    /// # Errors
+    ///
+    /// This will fail when the glyph could not be rasterized. Usually this is due to the glyph
+    /// not being present in any font.
+    fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L, show_missing: bool) -> Glyph
     where
         L: LoadGlyph,
     {
-        let glyph_offset = self.glyph_offset;
-        let rasterizer = &mut self.rasterizer;
-        let metrics = &self.metrics;
-        self.cache.entry(glyph_key).or_insert_with(|| {
-            let mut rasterized =
-                rasterizer.get_glyph(glyph_key).unwrap_or_else(|_| Default::default());
+        // Try to load glyph from cache.
+        if let Some(glyph) = self.cache.get(&glyph_key) {
+            return *glyph;
+        };
 
-            rasterized.left += i32::from(glyph_offset.x);
-            rasterized.top += i32::from(glyph_offset.y);
-            rasterized.top -= metrics.descent as i32;
+        // Rasterize glyph.
+        let glyph = match self.rasterizer.get_glyph(glyph_key) {
+            Ok(rasterized) => self.load_glyph(loader, rasterized),
+            // Load fallback glyph.
+            Err(RasterizerError::MissingGlyph(rasterized)) if show_missing => {
+                // Use `\0` as "missing" glyph to cache it only once.
+                let missing_key = GlyphKey { character: '\0', ..glyph_key };
+                if let Some(glyph) = self.cache.get(&missing_key) {
+                    *glyph
+                } else {
+                    // If no missing glyph was loaded yet, insert it as `\0`.
+                    let glyph = self.load_glyph(loader, rasterized);
+                    self.cache.insert(missing_key, glyph);
 
-            loader.load_glyph(&rasterized)
-        })
+                    glyph
+                }
+            },
+            Err(_) => self.load_glyph(loader, Default::default()),
+        };
+
+        // Cache rasterized glyph.
+        *self.cache.entry(glyph_key).or_insert(glyph)
+    }
+
+    /// Load glyph into the atlas.
+    ///
+    /// This will apply all transforms defined for the glyph cache to the rasterized glyph before
+    /// insertion.
+    fn load_glyph<L>(&self, loader: &mut L, mut glyph: RasterizedGlyph) -> Glyph
+    where
+        L: LoadGlyph,
+    {
+        glyph.left += i32::from(self.glyph_offset.x);
+        glyph.top += i32::from(self.glyph_offset.y);
+        glyph.top -= self.metrics.descent as i32;
+
+        // The metrics of zero-width characters are based on rendering
+        // the character after the current cell, with the anchor at the
+        // right side of the preceding character. Since we render the
+        // zero-width characters inside the preceding character, the
+        // anchor has been moved to the right by one cell.
+        if glyph.character.width() == Some(0) {
+            glyph.left += self.metrics.average_advance as i32;
+        }
+
+        // Add glyph to cache.
+        loader.load_glyph(&glyph)
     }
 
     /// Clear currently cached data in both GL and the registry.
     pub fn clear_glyph_cache<L: LoadGlyph>(&mut self, loader: &mut L) {
         loader.clear();
         self.cache = HashMap::default();
-        self.cursor_cache = HashMap::default();
 
         self.load_common_glyphs(loader);
     }
@@ -292,7 +337,11 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey {
+            font_key: regular,
+            character: 'm',
+            size: font.size(),
+        })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size(), dpr);
@@ -326,7 +375,7 @@ impl GlyphCache {
         let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes)?;
         let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
         let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size())?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
 
         rasterizer.metrics(regular, font.size())
     }
@@ -401,7 +450,6 @@ pub struct RenderApi<'a> {
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
     config: &'a Config,
-    cursor_config: Cursor,
 }
 
 #[derive(Debug)]
@@ -635,13 +683,7 @@ impl QuadRenderer {
         }
     }
 
-    pub fn with_api<F, T>(
-        &mut self,
-        config: &Config,
-        cursor_config: Cursor,
-        props: &SizeInfo,
-        func: F,
-    ) -> T
+    pub fn with_api<F, T>(&mut self, config: &Config, props: &SizeInfo, func: F) -> T
     where
         F: FnOnce(RenderApi<'_>) -> T,
     {
@@ -662,7 +704,6 @@ impl QuadRenderer {
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
             config,
-            cursor_config,
         });
 
         unsafe {
@@ -790,10 +831,11 @@ impl<'a> RenderApi<'a> {
         let cells = string
             .chars()
             .enumerate()
-            .map(|(i, c)| RenderableCell {
+            .map(|(i, character)| RenderableCell {
                 line,
                 column: Column(i),
-                inner: RenderableCellContent::Chars((c, None)),
+                character,
+                zerowidth: None,
                 flags: Flags::empty(),
                 bg_alpha,
                 fg,
@@ -827,26 +869,6 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        let (mut c, zerowidth) = match cell.inner {
-            RenderableCellContent::Cursor(cursor_key) => {
-                // Raw cell pixel buffers like cursors don't need to go through font lookup.
-                let metrics = glyph_cache.metrics;
-                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
-                    self.load_glyph(&cursor::get_cursor_glyph(
-                        cursor_key.shape,
-                        metrics,
-                        self.config.ui_config.font.offset.x,
-                        self.config.ui_config.font.offset.y,
-                        cursor_key.is_wide,
-                        self.cursor_config.thickness(),
-                    ))
-                });
-                self.add_render_item(&mut cell, glyph);
-                return;
-            },
-            RenderableCellContent::Chars((c, ref mut zerowidth)) => (c, zerowidth.take()),
-        };
-
         // Get font key for cell.
         let font_key = match cell.flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
@@ -857,29 +879,22 @@ impl<'a> RenderApi<'a> {
 
         // Ignore hidden cells and render tabs as spaces to prevent font issues.
         let hidden = cell.flags.contains(Flags::HIDDEN);
-        if c == '\t' || hidden {
-            c = ' ';
+        if cell.character == '\t' || hidden {
+            cell.character = ' ';
         }
 
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c };
+        let mut glyph_key =
+            GlyphKey { font_key, size: glyph_cache.font_size, character: cell.character };
 
         // Add cell to batch.
-        let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(&mut cell, glyph);
+        let glyph = glyph_cache.get(glyph_key, self, true);
+        self.add_render_item(&mut cell, &glyph);
 
         // Render visible zero-width characters.
-        if let Some(zerowidth) = zerowidth.filter(|_| !hidden) {
-            for c in zerowidth {
-                glyph_key.c = c;
-                let mut glyph = *glyph_cache.get(glyph_key, self);
-
-                // The metrics of zero-width characters are based on rendering
-                // the character after the current cell, with the anchor at the
-                // right side of the preceding character. Since we render the
-                // zero-width characters inside the preceding character, the
-                // anchor has been moved to the right by one cell.
-                glyph.left += glyph_cache.metrics.average_advance as i16;
-
+        if let Some(zerowidth) = cell.zerowidth.take().filter(|_| !hidden) {
+            for character in zerowidth {
+                glyph_key.character = character;
+                let glyph = glyph_cache.get(glyph_key, self, false);
                 self.add_render_item(&mut cell, &glyph);
             }
         }
@@ -1290,12 +1305,12 @@ impl Atlas {
         }
 
         // If there's not enough room in current row, go onto next one.
-        if !self.room_in_row(glyph) {
+        if !self.room_in_row(&glyph) {
             self.advance_row()?;
         }
 
         // If there's still not room, there's nothing that can be done here..
-        if !self.room_in_row(glyph) {
+        if !self.room_in_row(&glyph) {
             return Err(AtlasInsertError::Full);
         }
 
@@ -1319,14 +1334,14 @@ impl Atlas {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL.
-            let (format, buf) = match &glyph.buf {
-                BitmapBuffer::RGB(buf) => {
+            let (format, buffer) = match &glyph.buffer {
+                BitmapBuffer::RGB(buffer) => {
                     multicolor = false;
-                    (gl::RGB, buf)
+                    (gl::RGB, buffer)
                 },
-                BitmapBuffer::RGBA(buf) => {
+                BitmapBuffer::RGBA(buffer) => {
                     multicolor = true;
-                    (gl::RGBA, buf)
+                    (gl::RGBA, buffer)
                 },
             };
 
@@ -1339,7 +1354,7 @@ impl Atlas {
                 height,
                 format,
                 gl::UNSIGNED_BYTE,
-                buf.as_ptr() as *const _,
+                buffer.as_ptr() as *const _,
             );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
