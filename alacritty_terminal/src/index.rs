@@ -45,7 +45,7 @@ pub enum Boundary {
 }
 
 /// Index in the grid using row, column notation.
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
 pub struct Point<L = Line> {
     pub line: L,
     pub col: Column,
@@ -199,7 +199,7 @@ impl From<&RenderableCell> for Point<Line> {
 /// A line.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Line(pub usize);
 
 impl fmt::Display for Line {
@@ -211,7 +211,7 @@ impl fmt::Display for Line {
 /// A column.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Column(pub usize);
 
 impl fmt::Display for Column {

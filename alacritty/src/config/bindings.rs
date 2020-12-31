@@ -252,7 +252,7 @@ pub enum ViAction {
 }
 
 /// Search mode specific actions.
-#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SearchAction {
     /// Move the focus to the next search match.
     SearchFocusNext,
