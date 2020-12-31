@@ -540,25 +540,25 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn advance_search_origin(&mut self, direction: Direction) {
-        let origin = self.absolute_origin();
-        self.terminal.scroll_to_point(origin);
-
-        // Move the search origin right in front of the next match in the specified direction.
-        if let Some(regex_match) = self.terminal.search_next(origin, direction, Side::Left, None) {
-            let origin = match direction {
-                Direction::Right => *regex_match.end(),
-                Direction::Left => {
-                    regex_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
-                },
+        // Use focused match as new search origin if available.
+        if let Some(focused_match) = &self.search_state.focused_match {
+            let new_origin = match direction {
+                Direction::Right => *focused_match.end(),
+                Direction::Left => *focused_match.start(),
             };
-            self.terminal.scroll_to_point(origin);
 
-            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(origin);
+            println!("ORIGIN: {:?}", new_origin);
+
+            self.terminal.scroll_to_point(new_origin);
+
+            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
             self.search_state.origin = origin_relative;
             self.search_state.display_offset_delta = 0;
-
-            self.update_search();
         }
+
+        let search_direction = mem::replace(&mut self.search_state.direction, direction);
+        self.goto_match(None);
+        self.search_state.direction = search_direction;
     }
 
     /// Handle keyboard typing start.
@@ -719,6 +719,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.focused_match = None;
             },
         }
+
+        self.terminal.dirty = true;
     }
 
     /// Cleanup the search state.
