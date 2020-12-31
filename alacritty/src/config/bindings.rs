@@ -507,6 +507,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Return,                        +BindingMode::SEARCH, +BindingMode::VI;
             SearchAction::SearchConfirm;
         Escape,                        +BindingMode::SEARCH; SearchAction::SearchCancel;
+        C,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchCancel;
         U,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchClear;
         W,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchDeleteWord;
         P,      ModifiersState::CTRL,  +BindingMode::SEARCH; SearchAction::SearchHistoryPrevious;

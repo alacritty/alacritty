@@ -742,6 +742,7 @@
   # Search Mode
   #- { key: Return,                mode: Search|Vi,  action: SearchConfirm         }
   #- { key: Escape,                mode: Search,     action: SearchCancel          }
+  #- { key: C,      mods: Control, mode: Search,     action: SearchCancel          }
   #- { key: U,      mods: Control, mode: Search,     action: SearchClear           }
   #- { key: W,      mods: Control, mode: Search,     action: SearchDeleteWord      }
   #- { key: P,      mods: Control, mode: Search,     action: SearchHistoryPrevious }
