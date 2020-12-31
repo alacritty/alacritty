@@ -16,6 +16,7 @@ pub struct Colors {
     pub dim: Option<DimColors>,
     pub indexed_colors: Vec<IndexedColor>,
     pub search: SearchColors,
+    pub line_indicator: LineIndicatorColors,
 }
 
 impl Colors {
@@ -26,6 +27,12 @@ impl Colors {
     pub fn search_bar_background(&self) -> Rgb {
         self.search.bar.background.unwrap_or(self.primary.foreground)
     }
+}
+
+#[derive(ConfigDeserialize, Copy, Clone, Default, Debug, PartialEq, Eq)]
+pub struct LineIndicatorColors {
+    pub foreground: Option<Rgb>,
+    pub background: Option<Rgb>,
 }
 
 #[derive(Deserialize, Copy, Clone, Default, Debug, PartialEq, Eq)]
