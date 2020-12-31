@@ -126,7 +126,7 @@ impl IndexMut<CharsetIndex> for Charsets {
 ///                           ^
 ///                          cols
 /// ```
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Grid<T> {
     /// Current cursor for writing data.
     #[serde(skip)]

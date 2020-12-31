@@ -7,6 +7,8 @@ use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use vte::{Params, ParamsIter};
 
+use alacritty_config_derive::ConfigDeserialize;
+
 use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 
@@ -332,14 +334,14 @@ pub trait Handler {
 }
 
 /// Terminal cursor configuration.
-#[derive(Deserialize, Default, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(ConfigDeserialize, Default, Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub struct CursorStyle {
     pub shape: CursorShape,
     pub blinking: bool,
 }
 
 /// Terminal cursor shape.
-#[derive(Deserialize, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(ConfigDeserialize, Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum CursorShape {
     /// Cursor is a block like `▒`.
     Block,
@@ -351,11 +353,11 @@ pub enum CursorShape {
     Beam,
 
     /// Cursor is a box like `☐`.
-    #[serde(skip)]
+    #[config(skip)]
     HollowBlock,
 
     /// Invisible cursor.
-    #[serde(skip)]
+    #[config(skip)]
     Hidden,
 }
 
@@ -509,7 +511,7 @@ pub enum TabulationClearMode {
 ///
 /// The order here matters since the enum should be castable to a `usize` for
 /// indexing a color list.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum NamedColor {
     /// Black.
     Black = 0,
@@ -621,7 +623,7 @@ impl NamedColor {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     Named(NamedColor),
     Spec(Rgb),

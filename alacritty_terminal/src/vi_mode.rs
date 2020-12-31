@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use serde::Deserialize;
+use alacritty_config_derive::ConfigDeserialize;
 
 use crate::event::EventListener;
 use crate::grid::{Dimensions, GridCell};
@@ -9,7 +9,7 @@ use crate::term::cell::Flags;
 use crate::term::Term;
 
 /// Possible vi mode motion movements.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ViMotion {
     /// Move up.
     Up,
