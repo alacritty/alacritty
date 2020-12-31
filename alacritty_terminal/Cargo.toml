@@ -32,17 +32,12 @@ nix = "0.18.0"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]
-mio-named-pipes = "0.1"
 miow = "0.3"
 winapi = { version = "0.3.7", features = [
     "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
     "wincon", "wincontypes", "winerror", "winnt", "winuser",
 ]}
 mio-anonymous-pipes = "0.1"
-
-# Winpty crate supports only MSVC.
-[target.'cfg(all(target_os="windows", target_env="msvc"))'.dependencies]
-winpty = { version = "0.2.0", optional = true }
 
 [features]
 default = []

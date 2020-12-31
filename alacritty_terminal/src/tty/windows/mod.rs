@@ -10,22 +10,11 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
-#[cfg(all(feature = "winpty", target_env = "msvc"))]
-mod automatic_backend;
 mod child;
 mod conpty;
-#[cfg(all(feature = "winpty", target_env = "msvc"))]
-mod winpty;
 
-#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use conpty::Conpty as Backend;
-#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
 use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
-
-#[cfg(all(feature = "winpty", target_env = "msvc"))]
-use automatic_backend::{
-    EventedReadablePipe as ReadPipe, EventedWritablePipe as WritePipe, PtyBackend as Backend,
-};
 
 pub struct Pty {
     // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
@@ -39,14 +28,8 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-#[cfg(not(all(feature = "winpty", target_env = "msvc")))]
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
-    conpty::new(config, size, window_id).expect("Failed to create ConPTY backend")
-}
-
-#[cfg(all(feature = "winpty", target_env = "msvc"))]
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
-    automatic_backend::new(config, size, window_id)
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
+    conpty::new(config, size).expect("Failed to create ConPTY backend")
 }
 
 impl Pty {

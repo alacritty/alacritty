@@ -57,10 +57,6 @@ pub struct Config<T> {
     /// Bell configuration.
     bell: BellConfig,
 
-    #[cfg(windows)]
-    #[config(deprecated = "recompile with winpty feature or remove this setting")]
-    pub winpty_backend: bool,
-
     #[config(deprecated = "use `bell` instead")]
     pub visual_bell: Option<BellConfig>,
 }

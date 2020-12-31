@@ -44,12 +44,6 @@ macOS and Windows.
 Prebuilt binaries for macOS and Windows can also be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
-On Windows, Alacritty requires winpty to emulate UNIX's PTY API for versions
-older than Windows 10 (October 2018 Update) and Microsoft's VC++
-redistributable. The winpty agent (`winpty-agent.exe`) **must** be in the same
-directory as the Alacritty executable and is available through the
-[GitHub releases page](https://github.com/alacritty/alacritty/releases).
-
 For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
 
