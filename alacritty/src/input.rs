@@ -824,7 +824,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
                 *self.ctx.received_count() = 0;
                 self.process_key_bindings(input);
             },
-            ElementState::Released => (),
+            ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
 
@@ -853,8 +853,6 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             if search_active && !suppress_chars {
                 self.ctx.search_input(c);
             }
-
-            *self.ctx.suppress_chars() = false;
 
             return;
         }
