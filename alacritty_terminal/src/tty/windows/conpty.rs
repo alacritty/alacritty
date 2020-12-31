@@ -9,13 +9,13 @@ use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::BYTE;
 use winapi::shared::ntdef::LPWSTR;
 use winapi::shared::winerror::S_OK;
+use winapi::um::consoleapi::{ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole};
 use winapi::um::processthreadsapi::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
     PROCESS_INFORMATION, STARTUPINFOW,
 };
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
-use winapi::um::consoleapi::{CreatePseudoConsole, ResizePseudoConsole, ClosePseudoConsole};
 
 use crate::config::Config;
 use crate::event::OnResize;

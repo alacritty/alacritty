@@ -348,6 +348,7 @@ fn shrink_reflow_disabled() {
     assert_eq!(grid[0][Column(1)], cell('2'));
 }
 
+#[allow(clippy::field_reassign_with_default)]
 fn cell(c: char) -> Cell {
     let mut cell = Cell::default();
     cell.c = c;
