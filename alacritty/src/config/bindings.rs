@@ -1266,10 +1266,7 @@ mod tests {
             mode: BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD,
             ..MockBinding::default()
         };
-        let b2 = MockBinding {
-            mode: BindingMode::APP_KEYPAD,
-            ..MockBinding::default()
-        };
+        let b2 = MockBinding { mode: BindingMode::APP_KEYPAD, ..MockBinding::default() };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
