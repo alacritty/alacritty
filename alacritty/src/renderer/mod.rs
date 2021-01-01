@@ -14,7 +14,7 @@ use fnv::FnvHasher;
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::render::RenderableCell;
@@ -820,25 +820,23 @@ impl<'a> RenderApi<'a> {
     pub fn render_string(
         &mut self,
         glyph_cache: &mut GlyphCache,
-        line: Line,
-        string: &str,
+        point: Point,
         fg: Rgb,
-        bg: Option<Rgb>,
+        bg: Rgb,
+        string: &str,
     ) {
-        let bg_alpha = bg.map(|_| 1.0).unwrap_or(0.0);
-
         let cells = string
             .chars()
             .enumerate()
             .map(|(i, character)| RenderableCell {
-                line,
-                column: Column(i),
+                line: point.line,
+                column: point.col + i,
                 character,
                 zerowidth: None,
                 flags: Flags::empty(),
-                bg_alpha,
+                bg_alpha: 1.0,
                 fg,
-                bg: bg.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
+                bg,
                 is_match: false,
             })
             .collect::<Vec<_>>();
