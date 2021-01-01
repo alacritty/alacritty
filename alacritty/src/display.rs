@@ -446,7 +446,6 @@ impl Display {
     ) {
         // Convert search match from viewport to absolute indexing.
         let search_active = search_state.regex().is_some();
-        println!("FOCUSED MATCH: {:?}", search_state.focused_match());
         let viewport_match = search_state
             .focused_match()
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
