@@ -62,6 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `live-shader-reload` feature
 - Config option `dynamic_title`, you should use `window.dynamic_title` instead
 - Config option `scrolling.faux_multiplier`, which was replaced by escape `CSI ? 1007 h/l`
+- WinPTY support on Windows
 
 ## 0.6.0
 

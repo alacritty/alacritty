@@ -240,7 +240,6 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
-On Windows this directory should also contain the `winpty-agent.exe`.
 
 ### macOS
 

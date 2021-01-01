@@ -1118,8 +1118,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     WindowEvent::Resized(size) => {
                         // Minimizing the window sends a Resize event with zero width and
                         // height. But there's no need to ever actually resize to this.
-                        // Both WinPTY & ConPTY have issues when resizing down to zero size
-                        // and back.
+                        // ConPTY has issues when resizing down to zero size and back.
                         #[cfg(windows)]
                         if size.width == 0 && size.height == 0 {
                             return;

@@ -1255,8 +1255,10 @@ mod tests {
 
                 let mut terminal = Term::new(&cfg, size, MockEventProxy);
 
-                let mut mouse = Mouse::default();
-                mouse.click_state = $initial_state;
+                let mut mouse = Mouse {
+                    click_state: $initial_state,
+                    ..Mouse::default()
+                };
 
                 let mut selection = None;
 

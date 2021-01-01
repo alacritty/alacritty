@@ -1210,8 +1210,8 @@ mod tests {
     #[test]
     fn binding_matches_different_action() {
         let binding = MockBinding::default();
-        let mut different_action = MockBinding::default();
-        different_action.action = Action::ClearHistory;
+        let different_action =
+            MockBinding { action: Action::ClearHistory, ..MockBinding::default() };
 
         assert!(binding.triggers_match(&different_action));
         assert!(different_action.triggers_match(&binding));
@@ -1219,10 +1219,8 @@ mod tests {
 
     #[test]
     fn mods_binding_requires_strict_match() {
-        let mut superset_mods = MockBinding::default();
-        superset_mods.mods = ModifiersState::all();
-        let mut subset_mods = MockBinding::default();
-        subset_mods.mods = ModifiersState::ALT;
+        let superset_mods = MockBinding { mods: ModifiersState::all(), ..MockBinding::default() };
+        let subset_mods = MockBinding { mods: ModifiersState::ALT, ..MockBinding::default() };
 
         assert!(!superset_mods.triggers_match(&subset_mods));
         assert!(!subset_mods.triggers_match(&superset_mods));
@@ -1230,10 +1228,8 @@ mod tests {
 
     #[test]
     fn binding_matches_identical_mode() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN;
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::ALT_SCREEN;
+        let b1 = MockBinding { mode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
+        let b2 = MockBinding { mode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
@@ -1242,18 +1238,22 @@ mod tests {
     #[test]
     fn binding_without_mode_matches_any_mode() {
         let b1 = MockBinding::default();
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD;
-        b2.notmode = BindingMode::ALT_SCREEN;
+        let b2 = MockBinding {
+            mode: BindingMode::APP_KEYPAD,
+            notmode: BindingMode::ALT_SCREEN,
+            ..MockBinding::default()
+        };
 
         assert!(b1.triggers_match(&b2));
     }
 
     #[test]
     fn binding_with_mode_matches_empty_mode() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::APP_KEYPAD;
-        b1.notmode = BindingMode::ALT_SCREEN;
+        let b1 = MockBinding {
+            mode: BindingMode::APP_KEYPAD,
+            notmode: BindingMode::ALT_SCREEN,
+            ..MockBinding::default()
+        };
         let b2 = MockBinding::default();
 
         assert!(b1.triggers_match(&b2));
@@ -1262,10 +1262,11 @@ mod tests {
 
     #[test]
     fn binding_matches_modes() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD;
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD;
+        let b1 = MockBinding {
+            mode: BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD,
+            ..MockBinding::default()
+        };
+        let b2 = MockBinding { mode: BindingMode::APP_KEYPAD, ..MockBinding::default() };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
@@ -1273,10 +1274,14 @@ mod tests {
 
     #[test]
     fn binding_matches_partial_intersection() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD;
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD | BindingMode::APP_CURSOR;
+        let b1 = MockBinding {
+            mode: BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD,
+            ..MockBinding::default()
+        };
+        let b2 = MockBinding {
+            mode: BindingMode::APP_KEYPAD | BindingMode::APP_CURSOR,
+            ..MockBinding::default()
+        };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
@@ -1284,10 +1289,8 @@ mod tests {
 
     #[test]
     fn binding_mismatches_notmode() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN;
-        let mut b2 = MockBinding::default();
-        b2.notmode = BindingMode::ALT_SCREEN;
+        let b1 = MockBinding { mode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
+        let b2 = MockBinding { notmode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
 
         assert!(!b1.triggers_match(&b2));
         assert!(!b2.triggers_match(&b1));
@@ -1295,10 +1298,8 @@ mod tests {
 
     #[test]
     fn binding_mismatches_unrelated() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN;
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD;
+        let b1 = MockBinding { mode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
+        let b2 = MockBinding { mode: BindingMode::APP_KEYPAD, ..MockBinding::default() };
 
         assert!(!b1.triggers_match(&b2));
         assert!(!b2.triggers_match(&b1));
@@ -1306,10 +1307,12 @@ mod tests {
 
     #[test]
     fn binding_matches_notmodes() {
-        let mut subset_notmodes = MockBinding::default();
-        let mut superset_notmodes = MockBinding::default();
-        subset_notmodes.notmode = BindingMode::VI | BindingMode::APP_CURSOR;
-        superset_notmodes.notmode = BindingMode::APP_CURSOR;
+        let subset_notmodes = MockBinding {
+            notmode: BindingMode::VI | BindingMode::APP_CURSOR,
+            ..MockBinding::default()
+        };
+        let superset_notmodes =
+            MockBinding { notmode: BindingMode::APP_CURSOR, ..MockBinding::default() };
 
         assert!(subset_notmodes.triggers_match(&superset_notmodes));
         assert!(superset_notmodes.triggers_match(&subset_notmodes));
@@ -1317,11 +1320,12 @@ mod tests {
 
     #[test]
     fn binding_matches_mode_notmode() {
-        let mut b1 = MockBinding::default();
-        let mut b2 = MockBinding::default();
-        b1.mode = BindingMode::VI;
-        b1.notmode = BindingMode::APP_CURSOR;
-        b2.notmode = BindingMode::APP_CURSOR;
+        let b1 = MockBinding {
+            mode: BindingMode::VI,
+            notmode: BindingMode::APP_CURSOR,
+            ..MockBinding::default()
+        };
+        let b2 = MockBinding { notmode: BindingMode::APP_CURSOR, ..MockBinding::default() };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
@@ -1329,8 +1333,7 @@ mod tests {
 
     #[test]
     fn binding_trigger_input() {
-        let mut binding = MockBinding::default();
-        binding.trigger = 13;
+        let binding = MockBinding { trigger: 13, ..MockBinding::default() };
 
         let mods = binding.mods;
         let mode = binding.mode;
@@ -1341,8 +1344,10 @@ mod tests {
 
     #[test]
     fn binding_trigger_mods() {
-        let mut binding = MockBinding::default();
-        binding.mods = ModifiersState::ALT | ModifiersState::LOGO;
+        let binding = MockBinding {
+            mods: ModifiersState::ALT | ModifiersState::LOGO,
+            ..MockBinding::default()
+        };
 
         let superset_mods = ModifiersState::all();
         let subset_mods = ModifiersState::empty();
@@ -1357,8 +1362,7 @@ mod tests {
 
     #[test]
     fn binding_trigger_modes() {
-        let mut binding = MockBinding::default();
-        binding.mode = BindingMode::ALT_SCREEN;
+        let binding = MockBinding { mode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
 
         let t = binding.trigger;
         let mods = binding.mods;
@@ -1370,8 +1374,7 @@ mod tests {
 
     #[test]
     fn binding_trigger_notmodes() {
-        let mut binding = MockBinding::default();
-        binding.notmode = BindingMode::ALT_SCREEN;
+        let binding = MockBinding { notmode: BindingMode::ALT_SCREEN, ..MockBinding::default() };
 
         let t = binding.trigger;
         let mods = binding.mods;
