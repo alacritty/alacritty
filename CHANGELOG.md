@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cursor not being rendered with a lot of unicode glyphs visible
 - IME input swallowed after triggering a key binding
 - Crash on Wayland due to non-standard fontconfig configuration
+- Search without vi mode not jumping properly between all matches
 
 ### Removed
 
