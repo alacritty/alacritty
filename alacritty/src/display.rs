@@ -717,7 +717,7 @@ impl Display {
         });
     }
 
-    /// Draw an indicator for the current position in the history.
+    /// Draw an indicator for the position of a line in history.
     fn draw_line_indicator(
         &mut self,
         config: &Config,
