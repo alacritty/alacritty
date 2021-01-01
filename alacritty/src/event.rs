@@ -664,12 +664,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         if regex.is_empty() {
             // Stop search if there's nothing to search for.
+            self.search_reset_state();
             self.terminal.cancel_search();
-
-            // Reset display offset to the cursor position in vi mode.
-            if self.terminal.mode().contains(TermMode::VI) {
-                self.search_reset_state();
-            }
         } else {
             // Create terminal search from the new regex string.
             self.terminal.start_search(&regex);
