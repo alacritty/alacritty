@@ -1238,9 +1238,11 @@ mod tests {
     #[test]
     fn binding_without_mode_matches_any_mode() {
         let b1 = MockBinding::default();
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD;
-        b2.notmode = BindingMode::ALT_SCREEN;
+        let b2 = MockBinding {
+            mode: BindingMode::APP_KEYPAD,
+            notmode: BindingMode::ALT_SCREEN,
+            ..MockBinding::default()
+        };
 
         assert!(b1.triggers_match(&b2));
     }
@@ -1260,10 +1262,14 @@ mod tests {
 
     #[test]
     fn binding_matches_modes() {
-        let mut b1 = MockBinding::default();
-        b1.mode = BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD;
-        let mut b2 = MockBinding::default();
-        b2.mode = BindingMode::APP_KEYPAD;
+        let b1 = MockBinding {
+            mode: BindingMode::ALT_SCREEN | BindingMode::APP_KEYPAD,
+            ..MockBinding::default()
+        };
+        let b2 = MockBinding {
+            mode: BindingMode::APP_KEYPAD,
+            ..MockBinding::default()
+        };
 
         assert!(b1.triggers_match(&b2));
         assert!(b2.triggers_match(&b1));
