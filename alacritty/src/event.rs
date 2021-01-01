@@ -424,15 +424,21 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.focused_match = None;
 
         // Store original search position as origin and reset location.
-        self.search_state.display_offset_delta = 0;
-        self.search_state.origin = if self.terminal.mode().contains(TermMode::VI) {
-            self.terminal.vi_mode_cursor.point
+        if self.terminal.mode().contains(TermMode::VI) {
+            self.search_state.origin = self.terminal.vi_mode_cursor.point;
+            self.search_state.display_offset_delta = 0;
         } else {
             match direction {
-                Direction::Right => Point::new(Line(0), Column(0)),
-                Direction::Left => Point::new(num_lines - 2, num_cols - 1),
+                Direction::Right => {
+                    self.search_state.origin = Point::new(Line(0), num_cols - 1);
+                    self.search_state.display_offset_delta = 1;
+                },
+                Direction::Left => {
+                    self.search_state.origin = Point::new(num_lines - 2, Column(0));
+                    self.search_state.display_offset_delta = -1;
+                },
             }
-        };
+        }
 
         self.display_update_pending.dirty = true;
         self.terminal.dirty = true;
@@ -540,25 +546,51 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn advance_search_origin(&mut self, direction: Direction) {
-        let origin = self.absolute_origin();
-        self.terminal.scroll_to_point(origin);
-
-        // Move the search origin right in front of the next match in the specified direction.
-        if let Some(regex_match) = self.terminal.search_next(origin, direction, Side::Left, None) {
-            let origin = match direction {
-                Direction::Right => *regex_match.end(),
-                Direction::Left => {
-                    regex_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
-                },
+        // Use focused match as new search origin if available.
+        if let Some(focused_match) = &self.search_state.focused_match {
+            let new_origin = match direction {
+                Direction::Right => *focused_match.end(),
+                Direction::Left => *focused_match.start(),
             };
-            self.terminal.scroll_to_point(origin);
 
-            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(origin);
+            self.terminal.scroll_to_point(new_origin);
+
+            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
             self.search_state.origin = origin_relative;
             self.search_state.display_offset_delta = 0;
-
-            self.update_search();
         }
+
+        // Search for the next match using the supplied direction.
+        let search_direction = mem::replace(&mut self.search_state.direction, direction);
+        self.goto_match(None);
+        self.search_state.direction = search_direction;
+
+        // If we found a match, we set the search origin right in front of it to make sure that
+        // after modifications to the regex the search is started without moving the focused match
+        // around.
+        let focused_match = match &self.search_state.focused_match {
+            Some(focused_match) => focused_match,
+            None => return,
+        };
+
+        // Set new origin to the left/right of the match, depending on search direction.
+        let new_origin = match self.search_state.direction {
+            Direction::Right => {
+                focused_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
+            },
+            Direction::Left => focused_match.end().add_absolute(self.terminal, Boundary::Wrap, 1),
+        };
+
+        // Store the search origin with display offset by checking how far we need to scroll to it.
+        let old_display_offset = self.terminal.grid().display_offset() as isize;
+        self.terminal.scroll_to_point(new_origin);
+        let new_display_offset = self.terminal.grid().display_offset() as isize;
+        self.search_state.display_offset_delta = new_display_offset - old_display_offset;
+
+        // Store origin and scroll back to the match.
+        let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
+        self.terminal.scroll_display(Scroll::Delta(-self.search_state.display_offset_delta));
+        self.search_state.origin = origin_relative;
     }
 
     /// Handle keyboard typing start.
@@ -634,11 +666,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             // Stop search if there's nothing to search for.
             self.search_reset_state();
             self.terminal.cancel_search();
-
-            if !self.terminal.mode().contains(TermMode::VI) {
-                // Restart search without vi mode to clear the search origin.
-                self.start_search(self.search_state.direction);
-            }
         } else {
             // Create terminal search from the new regex string.
             self.terminal.start_search(&regex);
@@ -652,6 +679,16 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
+        // Unschedule pending timers.
+        self.scheduler.unschedule(TimerId::DelayedSearch);
+
+        // The viewport reset logic is only needed for vi mode, since without it our origin is
+        // always at the current display offset instead of at the vi cursor position which we need
+        // to recover to.
+        if !self.terminal.mode().contains(TermMode::VI) {
+            return;
+        }
+
         // Reset display offset.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
@@ -664,9 +701,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         origin.line = min(origin.line, self.terminal.screen_lines() - 1);
         origin.col = min(origin.col, self.terminal.cols() - 1);
         self.terminal.vi_mode_cursor.point = origin;
-
-        // Unschedule pending timers.
-        self.scheduler.unschedule(TimerId::DelayedSearch);
     }
 
     /// Jump to the first regex match from the search origin.
@@ -719,6 +753,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.focused_match = None;
             },
         }
+
+        self.terminal.dirty = true;
     }
 
     /// Cleanup the search state.
