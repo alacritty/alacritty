@@ -131,7 +131,12 @@ impl Cursor {
 #[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ConfigCursorStyle {
     Shape(CursorShape),
-    WithBlinking { shape: CursorShape, blinking: CursorBlinking },
+    WithBlinking {
+        #[serde(default)]
+        shape: CursorShape,
+        #[serde(default)]
+        blinking: CursorBlinking,
+    },
 }
 
 impl Default for ConfigCursorStyle {
@@ -195,7 +200,11 @@ impl Into<bool> for CursorBlinking {
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Program {
     Just(String),
-    WithArgs { program: String, args: Vec<String> },
+    WithArgs {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
 }
 
 impl Program {
