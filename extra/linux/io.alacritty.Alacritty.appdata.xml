@@ -28,9 +28,6 @@
   </keywords>
   <url type="homepage">https://github.com/alacritty/alacritty</url>
   <url type="bugtracker">https://github.com/alacritty/alacritty/issues</url>
-  <releases>
-    <release version="0.7.0-dev" date="2019-06-16" unix_timestamp="1560694196"/>
-  </releases>
   <update_contact>https://github.com/alacritty/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
   <developer_name>Christian Duerr</developer_name>
 </component>
