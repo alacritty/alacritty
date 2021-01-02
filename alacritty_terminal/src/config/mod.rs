@@ -135,7 +135,7 @@ pub enum ConfigCursorStyle {
         #[serde(default)]
         shape: CursorShape,
         #[serde(default)]
-        blinking: CursorBlinking
+        blinking: CursorBlinking,
     },
 }
 
