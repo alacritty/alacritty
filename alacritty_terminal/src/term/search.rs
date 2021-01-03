@@ -87,8 +87,6 @@ impl<T> Term<T> {
         side: Side,
         max_lines: Option<usize>,
     ) -> Option<Match> {
-        // Skip origin itself to exclude it from the search results.
-        let origin = origin.add_absolute(self, Boundary::Wrap, 1);
         let start = self.line_search_left(origin);
         let mut end = start;
 
@@ -128,8 +126,6 @@ impl<T> Term<T> {
         side: Side,
         max_lines: Option<usize>,
     ) -> Option<Match> {
-        // Skip origin itself to exclude it from the search results.
-        let origin = origin.sub_absolute(self, Boundary::Wrap, 1);
         let start = self.line_search_right(origin);
         let mut end = start;
 
