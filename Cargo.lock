@@ -1637,7 +1637,8 @@ checksum = "14e39a4f106dafb0a748b951494667a44e62b55fd7942b4fc12706d63cc535a0"
 [[package]]
 name = "utf8parse"
 version = "0.2.0"
-source = "git+https://github.com/alacritty/vte#b4b08a6de09ebecc6a4c14c81435418fd5a4e8a8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936e4b492acfd135421d8dca4b1aa80a7bfc26e702ef3af710e0752684df5372"
 
 [[package]]
 name = "vec_map"
@@ -1673,8 +1674,9 @@ dependencies = [
 
 [[package]]
 name = "vte"
-version = "0.9.0"
-source = "git+https://github.com/alacritty/vte#b4b08a6de09ebecc6a4c14c81435418fd5a4e8a8"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2df25fed2855d2fbcbdf1016c69a6ac070fa1aabc8b5d7aedaab8703dce0d2d6"
 dependencies = [
  "utf8parse",
  "vte_generate_state_changes",
@@ -1683,7 +1685,8 @@ dependencies = [
 [[package]]
 name = "vte_generate_state_changes"
 version = "0.1.1"
-source = "git+https://github.com/alacritty/vte#b4b08a6de09ebecc6a4c14c81435418fd5a4e8a8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d257817081c7dffcdbab24b9e62d2def62e2ff7d00b1c20062551e6cccc145ff"
 dependencies = [
  "proc-macro2",
  "quote",
