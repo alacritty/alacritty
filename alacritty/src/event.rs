@@ -429,13 +429,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.display_offset_delta = 0;
         } else {
             match direction {
-                Direction::Right => {
-                    self.search_state.origin = Point::new(Line(0), num_cols - 1);
-                    self.search_state.display_offset_delta = 1;
-                },
+                Direction::Right => self.search_state.origin = Point::new(Line(0), Column(0)),
                 Direction::Left => {
-                    self.search_state.origin = Point::new(num_lines - 2, Column(0));
-                    self.search_state.display_offset_delta = -1;
+                    self.search_state.origin = Point::new(num_lines - 2, num_cols - 1);
                 },
             }
         }
@@ -549,8 +545,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Use focused match as new search origin if available.
         if let Some(focused_match) = &self.search_state.focused_match {
             let new_origin = match direction {
-                Direction::Right => *focused_match.end(),
-                Direction::Left => *focused_match.start(),
+                Direction::Right => {
+                    focused_match.end().add_absolute(self.terminal, Boundary::Wrap, 1)
+                },
+                Direction::Left => {
+                    focused_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
+                },
             };
 
             self.terminal.scroll_to_point(new_origin);
@@ -575,10 +575,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Set new origin to the left/right of the match, depending on search direction.
         let new_origin = match self.search_state.direction {
-            Direction::Right => {
-                focused_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
-            },
-            Direction::Left => focused_match.end().add_absolute(self.terminal, Boundary::Wrap, 1),
+            Direction::Right => *focused_match.start(),
+            Direction::Left => *focused_match.end(),
         };
 
         // Store the search origin with display offset by checking how far we need to scroll to it.
