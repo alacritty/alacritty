@@ -122,12 +122,12 @@ back into master.
 The exact steps for an exemplary `0.2.0` release might look like this:
   1. Initially, the version on the latest master is `0.2.0-dev`
   2. A new `v0.2.0` branch is created for the release
-  3. On master, the version is bumped to `0.3.0-dev`
+  3. In the branch, the version is bumped to `0.2.0-rc1`
+  4. The new commit in the branch is tagged as `v0.2.0-rc1`
+  5. A GitHub release is created for the `v0.2.0-rc1` tag
+  6. The changelog since the last release (stable or RC) is added to the GitHub release description
+  7. On master, the version is bumped to `0.3.0-dev`
      and the `-dev` suffix is removed from the `0.2.0-dev` changelog
-  4. In the branch, the version is bumped to `0.2.0-rc1`
-  5. The new commit in the branch is tagged as `v0.2.0-rc1`
-  6. A GitHub release is created for the `v0.2.0-rc1` tag
-  7. The changelog since the last release (stable or RC) is added to the GitHub release description
   8. Bug fixes are cherry-picked from master into the branch and steps 4-7 are repeated until no
      major issues are found in the release candidates
   9. In the branch, the version is bumped to `0.2.0`
