@@ -492,12 +492,11 @@ impl Display {
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
-                    // Invert the active match in vi-less search.
-                    let cell_point = Point::new(cell.line, cell.column);
+                    // Invert the active match during search.
                     if cell.is_match
                         && viewport_match
                             .as_ref()
-                            .map_or(false, |viewport_match| viewport_match.contains(&cell_point))
+                            .map_or(false, |viewport_match| viewport_match.contains(&cell.point()))
                     {
                         let colors = config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);

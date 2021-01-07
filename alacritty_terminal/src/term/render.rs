@@ -258,6 +258,11 @@ impl RenderableCell {
         }
     }
 
+    /// Position of the cell.
+    pub fn point(&self) -> Point {
+        Point::new(self.line, self.column)
+    }
+
     /// Check if cell contains any renderable content.
     fn is_empty(&self) -> bool {
         self.bg_alpha == 0.
@@ -370,6 +375,12 @@ struct RenderableSearch<'a> {
 impl<'a> RenderableSearch<'a> {
     /// Create a new renderable search iterator.
     fn new<T>(term: &'a Term<T>) -> Self {
+        // Avoid constructing search if there is none.
+        if term.regex_search.is_none() {
+            let iter: MatchIter<'a> = Box::new(iter::empty());
+            return Self { iter: iter.peekable() };
+        }
+
         let viewport_end = term.grid().display_offset();
         let viewport_start = viewport_end + term.screen_lines().0 - 1;
 
