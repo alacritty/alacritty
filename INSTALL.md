@@ -104,7 +104,7 @@ missing, please open an issue.
 dnf install cmake freetype-devel fontconfig-devel libxcb-devel g++
 ```
 
-#### CentOS/RHEL 7
+#### CentOS/RHEL 7/Oracle Linux 7
 
 On CentOS/RHEL 7, you need a few extra libraries to build Alacritty. Here's a `yum`
 command that should install all of them. If something is still found to be
