@@ -177,10 +177,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
-                let origin = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
-                    Direction::Right => origin.add_absolute(terminal, Boundary::Wrap, 1),
-                    Direction::Left => origin.sub_absolute(terminal, Boundary::Wrap, 1),
+                    Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
+                    Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
                 let regex_match = terminal.search_next(origin, direction, Side::Left, None);
@@ -191,10 +191,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
-                let origin = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
-                    Direction::Right => origin.add_absolute(terminal, Boundary::Wrap, 1),
-                    Direction::Left => origin.sub_absolute(terminal, Boundary::Wrap, 1),
+                    Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
+                    Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
                 let regex_match = terminal.search_next(origin, direction, Side::Left, None);
