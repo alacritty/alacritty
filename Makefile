@@ -8,6 +8,7 @@ COMPLETIONS_DIR = $(ASSETS_DIR)/completions
 COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
 	$(COMPLETIONS_DIR)/alacritty.bash \
 	$(COMPLETIONS_DIR)/alacritty.fish
+BUILD_ARCHS = aarch64 x86_64
 
 APP_NAME = Alacritty.app
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
@@ -16,6 +17,7 @@ APP_BINARY = $(RELEASE_DIR)/$(TARGET)
 APP_BINARY_DIR = $(APP_DIR)/$(APP_NAME)/Contents/MacOS
 APP_EXTRAS_DIR = $(APP_DIR)/$(APP_NAME)/Contents/Resources
 APP_COMPLETIONS_DIR = $(APP_EXTRAS_DIR)/completions
+APP_TARGETS = $(addprefix target/,$(addsuffix -apple-darwin/release/$(TARGET),$(BUILD_ARCHS)))
 
 DMG_NAME = Alacritty.dmg
 DMG_DIR = $(RELEASE_DIR)/osx
@@ -33,14 +35,18 @@ binary: | $(TARGET) ## Build release binary with cargo
 $(TARGET):
 	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release
 
+target/%/release/$(TARGET): phony_explicit
+	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release --target=$*
+
 app: | $(APP_NAME) ## Clone Alacritty.app template and mount binary
-$(APP_NAME): $(TARGET)
+$(APP_NAME): $(APP_TARGETS)
 	@mkdir -p $(APP_BINARY_DIR)
 	@mkdir -p $(APP_EXTRAS_DIR)
 	@mkdir -p $(APP_COMPLETIONS_DIR)
 	@gzip -c $(MANPAGE) > $(APP_EXTRAS_DIR)/alacritty.1.gz
 	@tic -xe alacritty,alacritty-direct -o $(APP_EXTRAS_DIR) $(TERMINFO)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
+	@lipo $^ -create -output $(APP_BINARY)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
 	@cp -fp $(COMPLETIONS) $(APP_COMPLETIONS_DIR)
 	@touch -r "$(APP_BINARY)" "$(APP_DIR)/$(APP_NAME)"
@@ -60,7 +66,7 @@ $(DMG_NAME): $(APP_NAME)
 install: $(DMG_NAME) ## Mount disk image
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: app binary clean dmg install $(TARGET)
+.PHONY: app binary clean dmg install phony_explicit $(TARGET)
 
 clean: ## Remove all artifacts
-	-rm -rf $(APP_DIR)
+	-rm -rf target
