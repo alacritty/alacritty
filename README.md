@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="200" alt="Alacritty Logo" src="extra/logo/compat/alacritty-term+scanlines.png">
+    <img width="200" alt="Alacritty Logo" src="https://github.com/alacritty/alacritty/blob/master/extra/logo/compat/alacritty-term+scanlines.png">
 </p>
 
 <h1 align="center">Alacritty - A fast, cross-platform, OpenGL terminal emulator</h1>
