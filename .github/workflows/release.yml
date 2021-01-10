@@ -10,12 +10,12 @@ env:
 
 jobs:
   macos:
-    runs-on: macos-latest
+    runs-on: macos-11.0
 
     steps:
       - uses: actions/checkout@v2
       - name: Install targets
-        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+        run: rustup update && rustup target add x86_64-apple-darwin aarch64-apple-darwin
       - name: Test
         run: cargo test --release
       - name: Make App
