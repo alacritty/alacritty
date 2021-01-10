@@ -19,7 +19,7 @@ jobs:
       - name: Test
         run: cargo test --release
       - name: Make App
-        run: make dmg "MULTI_ARCH=x86_64 aarch64"
+        run: make universal
       - name: Upload Application
         run: |
           mv ./target/release/osx/Alacritty.dmg ./Alacritty-${GITHUB_REF##*/}.dmg
