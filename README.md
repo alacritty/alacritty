@@ -48,8 +48,7 @@ For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
 
 Since Alacritty uses OpenGL to render the terminal content on all platforms, it
-is currently not possible to run Alacritty without at support for at least
-OpenGL 3.3.
+is currently not possible to run it without support for at least OpenGL 3.3.
 
 ## Configuration
 
