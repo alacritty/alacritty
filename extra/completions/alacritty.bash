@@ -23,11 +23,6 @@ _alacritty()
         fi
     done
 
-    # Make sure the Y dimension isn't completed
-    if [[ "${prevprev}" == "--dimensions" ]] || [[ "${prevprev}" == "-d" ]]; then
-        return 0
-    fi
-
     # Match the previous word
     case "${prev}" in
         --command | -e)
