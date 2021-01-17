@@ -11,7 +11,7 @@ _alacritty()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="-h --help -V --version --live-config-reload --no-live-config-reload --persistent-logging --print-events -q -qq -v -vv -vvv --ref-test --hold -e --command --config-file -d --dimensions --position -t --title --embed --class --working-directory"
+    opts="-h --help -V --version --print-events -q -qq -v -vv -vvv --ref-test --hold -e --command --config-file -o --option -t --title --embed --class --working-directory"
 
     # If `--command` or `-e` is used, stop completing
     for i in "${!COMP_WORDS[@]}"; do
@@ -22,11 +22,6 @@ _alacritty()
             return 0
         fi
     done
-
-    # Make sure the Y dimension isn't completed
-    if [[ "${prevprev}" == "--dimensions" ]] || [[ "${prevprev}" == "-d" ]]; then
-        return 0
-    fi
 
     # Match the previous word
     case "${prev}" in

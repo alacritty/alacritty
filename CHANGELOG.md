@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.7.2-rc1
 
+### Packaging
+
+- Updated shell completions
+
 ### Fixed
 
 - Crash due to assertion failure on 32-bit architectures
