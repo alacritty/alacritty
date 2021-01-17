@@ -31,6 +31,10 @@ complete -c alacritty \
 complete -c alacritty \
   -l "hold" \
   -d "Remain open after child process exits"
+complete -c alacritty \
+  -s "o" \
+  -l "option" \
+  -d "Override config file options [example: cursor.style=Beam]"
 
 # Output
 complete \
