@@ -15,6 +15,6 @@ _arguments \
   "--embed=[define the X11 window ID (as a decimal integer) to embed Alacritty within]:windowId" \
   "(-e --command)"{-e,--command}"[execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal" \
   "--config-file=[specify an alternative config file]:file:_files" \
-  "(-o --option)"{-o+,--option=}"[override config file options]:option" \
-  "(-t --title)"{-t+,--title=}"[define the window title]:title" \
+  "*"{-o=,--option=}"[override config file options]:option" \
+  "(-t --title)"{-t=,--title=}"[define the window title]:title" \
   "--working-directory=[start shell in specified directory]:directory:_directories"
