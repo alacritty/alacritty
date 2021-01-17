@@ -34,7 +34,7 @@ complete -c alacritty \
 complete -c alacritty \
   -s "o" \
   -l "option" \
-  -d "Override config file options [example: cursor.style=Beam]"
+  -d "Override config file options"
 
 # Output
 complete \
