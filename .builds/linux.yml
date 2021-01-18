@@ -24,6 +24,9 @@ tasks:
       cd alacritty
       rustup toolchain install nightly -c rustfmt
       cargo +nightly fmt -- --check
+  - benchmark: |
+      cd alacritty
+      cargo +nightly bench --benches --features bench
   - clippy: |
       cd alacritty
       rustup component add clippy

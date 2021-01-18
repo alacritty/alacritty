@@ -21,6 +21,11 @@ jobs:
         run: |
           rustup component add clippy
           cargo clippy --all-targets
+      - name: Benchmark alacritty_terminal
+        run: |
+          rustup toolchain install nightly
+          cd alacritty_terminal
+          cargo +nightly bench --benches --features bench
       - name: Oldstable
         run: |
           rustup default 1.43.1
