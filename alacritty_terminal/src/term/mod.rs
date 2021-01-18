@@ -2429,7 +2429,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, true);
+            let iter = terminal.renderable_content(&config, true);
             for cell in iter {
                 test::black_box(cell);
             }
