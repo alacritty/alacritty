@@ -34,7 +34,7 @@ signal-hook = { version = "0.1", features = ["mio-support"] }
 [target.'cfg(windows)'.dependencies]
 miow = "0.3"
 winapi = { version = "0.3.7", features = [
-    "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
+    "consoleapi", "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
     "wincon", "wincontypes", "winerror", "winnt", "winuser",
 ]}
 mio-anonymous-pipes = "0.1"
