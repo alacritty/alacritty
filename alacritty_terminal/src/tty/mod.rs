@@ -67,6 +67,9 @@ pub fn setup_env<C>(config: &Config<C>) {
     let terminfo = if terminfo_exists("alacritty") { "alacritty" } else { "xterm-256color" };
     env::set_var("TERM", terminfo);
 
+    // TERM_PROGRAM is used on macOS and like commonly used
+    env::set_var("TERM_PROGRAM", "alacritty");
+
     // Advertise 24-bit color support.
     env::set_var("COLORTERM", "truecolor");
 
