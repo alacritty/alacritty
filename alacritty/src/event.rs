@@ -35,8 +35,8 @@ use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
+use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
-use alacritty_terminal::term::search::{RegexSearch, Match};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 
@@ -615,8 +615,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     /// Find the next search match.
-    fn search_next(&mut self, origin: Point<usize>, direction: Direction, side: Side) -> Option<Match> {
-        self.search_state.dfas.as_ref().and_then(|dfas| self.terminal.search_next(dfas, origin, direction, side, None))
+    fn search_next(
+        &mut self,
+        origin: Point<usize>,
+        direction: Direction,
+        side: Side,
+    ) -> Option<Match> {
+        self.search_state
+            .dfas
+            .as_ref()
+            .and_then(|dfas| self.terminal.search_next(dfas, origin, direction, side, None))
     }
 
     #[inline]
@@ -1304,10 +1312,8 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     /// Reload the configuration files from disk.
-    fn reload_config<T>(
-        path: &Path,
-        processor: &mut input::Processor<T, ActionContext<'_, N, T>>,
-    ) where
+    fn reload_config<T>(path: &Path, processor: &mut input::Processor<T, ActionContext<'_, N, T>>)
+    where
         T: EventListener,
     {
         if !processor.ctx.message_buffer.is_empty() {

@@ -19,9 +19,9 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::display::content::RenderableCell;
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};

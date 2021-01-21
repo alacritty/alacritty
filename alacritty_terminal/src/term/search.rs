@@ -154,7 +154,12 @@ impl<T> Term<T> {
     /// Find the next regex match to the left of the origin point.
     ///
     /// The origin is always included in the regex.
-    pub fn regex_search_left(&self, dfas: &RegexSearch, start: Point<usize>, end: Point<usize>) -> Option<Match> {
+    pub fn regex_search_left(
+        &self,
+        dfas: &RegexSearch,
+        start: Point<usize>,
+        end: Point<usize>,
+    ) -> Option<Match> {
         // Find start and end of match.
         let match_start = self.regex_search(start, end, Direction::Left, &dfas.left_fdfa)?;
         let match_end = self.regex_search(match_start, start, Direction::Right, &dfas.left_rdfa)?;
@@ -165,7 +170,12 @@ impl<T> Term<T> {
     /// Find the next regex match to the right of the origin point.
     ///
     /// The origin is always included in the regex.
-    pub fn regex_search_right(&self, dfas: &RegexSearch, start: Point<usize>, end: Point<usize>) -> Option<Match> {
+    pub fn regex_search_right(
+        &self,
+        dfas: &RegexSearch,
+        start: Point<usize>,
+        end: Point<usize>,
+    ) -> Option<Match> {
         // Find start and end of match.
         let match_end = self.regex_search(start, end, Direction::Right, &dfas.right_fdfa)?;
         let match_start = self.regex_search(match_end, start, Direction::Left, &dfas.right_rdfa)?;

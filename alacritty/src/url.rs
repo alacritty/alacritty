@@ -10,8 +10,8 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::display::content::RenderableCell;
 use crate::config::Config;
+use crate::display::content::RenderableCell;
 use crate::event::Mouse;
 use crate::renderer::rects::{RenderLine, RenderRect};
 

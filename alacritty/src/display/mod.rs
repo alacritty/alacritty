@@ -34,7 +34,7 @@ use crate::config::window::Dimensions;
 use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::display::bell::VisualBell;
-use crate::display::content::{RenderableContent};
+use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
 use crate::display::meter::Meter;
 use crate::display::window::Window;

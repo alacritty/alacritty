@@ -463,7 +463,8 @@ impl<T> Grid<T> {
         let display_offset = self.display_offset;
         let lines = self.lines.0;
 
-        let take_while: DisplayIterTakeFun<'_, T> = Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
+        let take_while: DisplayIterTakeFun<'_, T> =
+            Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
         let map: DisplayIterMapFun<'_, T> = Box::new(move |indexed: Indexed<&T>| {
             let line = Line(lines + display_offset - indexed.point.line - 1);
             Indexed { point: Point::new(line, indexed.point.column), cell: indexed.cell }
@@ -671,7 +672,9 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         let last_col = self.grid.cols() - 1;
 
         match self.point {
-            Point { line, column: Column(0) } if line == self.grid.total_lines() - 1 => return None,
+            Point { line, column: Column(0) } if line == self.grid.total_lines() - 1 => {
+                return None
+            },
             Point { column: Column(0), .. } => {
                 self.point.line += 1;
                 self.point.column = last_col;
@@ -683,9 +686,7 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     }
 }
 
-pub type DisplayIter<'a, T> = Map<
-    TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>,
-    DisplayIterMapFun<'a, T>,
->;
+pub type DisplayIter<'a, T> =
+    Map<TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>, DisplayIterMapFun<'a, T>>;
 type DisplayIterTakeFun<'a, T> = Box<dyn Fn(&Indexed<&'a T>) -> bool>;
 type DisplayIterMapFun<'a, T> = Box<dyn FnMut(Indexed<&'a T>) -> Indexed<&'a T, Line>>;

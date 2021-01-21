@@ -56,11 +56,7 @@ impl SelectionRange<Line> {
     }
 
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell(
-        &self,
-        indexed: &Indexed<&Cell, Line>,
-        cursor: RenderableCursor,
-    ) -> bool {
+    pub fn contains_cell(&self, indexed: &Indexed<&Cell, Line>, cursor: RenderableCursor) -> bool {
         // Do not invert block cursor at selection boundaries.
         if cursor.shape == CursorShape::Block
             && cursor.point == indexed.point

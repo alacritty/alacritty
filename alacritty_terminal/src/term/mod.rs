@@ -1,10 +1,10 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
+use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
 use std::{io, mem, ptr, str};
-use std::borrow::Cow;
 
 use bitflags::bitflags;
 use log::{debug, trace};
@@ -16,7 +16,7 @@ use crate::ansi::{
 };
 use crate::config::Config;
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, Grid, Scroll, DisplayIter};
+use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};

@@ -1,6 +1,6 @@
 use std::cmp::max;
-use std::ops::RangeInclusive;
 use std::mem;
+use std::ops::RangeInclusive;
 
 use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::config::Config;
