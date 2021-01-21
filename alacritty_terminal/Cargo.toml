@@ -39,9 +39,5 @@ winapi = { version = "0.3.7", features = [
 ]}
 mio-anonymous-pipes = "0.1"
 
-[features]
-default = []
-bench = []
-
 [dev-dependencies]
 serde_json = "1.0.0"

@@ -770,26 +770,3 @@ mod tests {
         assert_eq!(term.regex_search_left(start, end), Some(match_start..=match_end));
     }
 }
-
-#[cfg(all(test, feature = "bench"))]
-mod benches {
-    extern crate test;
-
-    use super::*;
-
-    use crate::term::test::mock_term;
-
-    #[bench]
-    fn regex_search(b: &mut test::Bencher) {
-        let input = format!("{:^10000}", "Alacritty");
-        let mut term = mock_term(&input);
-        term.regex_search = Some(RegexSearch::new("   Alacritty   ").unwrap());
-        let start = Point::new(0, Column(0));
-        let end = Point::new(0, Column(input.len() - 1));
-
-        b.iter(|| {
-            test::black_box(term.regex_search_right(start, end));
-            test::black_box(term.regex_search_left(end, start));
-        });
-    }
-}
