@@ -151,7 +151,7 @@ impl Writing {
 impl<T, U> EventLoop<T, U>
 where
     T: tty::EventedPty + event::OnResize + Send + 'static,
-    U: EventListener,
+    U: EventListener + Send + 'static,
 {
     /// Create a new event loop.
     pub fn new(

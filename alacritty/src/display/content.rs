@@ -33,20 +33,19 @@ pub struct RenderableContent<'a, C> {
 
 impl<'a, C> RenderableContent<'a, C> {
     pub fn new<T: EventListener>(
-        term: &'a mut Term<T>,
+        term: &'a Term<T>,
         dfas: Option<&RegexSearch>,
         config: &'a Config<C>,
         show_cursor: bool,
     ) -> Self {
         let search = dfas.map(|dfas| RenderableSearch::new(&term, dfas)).unwrap_or_default();
-
-        let is_focused = term.is_focused;
         let terminal_content = term.renderable_content();
-        let mut terminal_cursor = terminal_content.cursor;
 
+        // Copy the cursor and override its shape if necessary.
+        let mut terminal_cursor = terminal_content.cursor;
         if !show_cursor {
             terminal_cursor.shape = CursorShape::Hidden;
-        } else if !is_focused && config.cursor.unfocused_hollow {
+        } else if !term.is_focused && config.cursor.unfocused_hollow {
             terminal_cursor.shape = CursorShape::HollowBlock;
         }
 

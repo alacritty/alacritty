@@ -458,7 +458,7 @@ impl<T> Term<T> {
 
     /// Terminal content required for rendering.
     #[inline]
-    pub fn renderable_content(&mut self) -> RenderableContent<'_>
+    pub fn renderable_content(&self) -> RenderableContent<'_>
     where
         T: EventListener,
     {
@@ -1954,23 +1954,15 @@ mod tests {
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
     use crate::config::MockConfig;
-    use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
 
-    #[derive(Copy, Clone)]
-    struct Mock;
-
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
     #[test]
     fn semantic_selection_works() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0);
         for i in 0..5 {
             for j in 0..2 {
@@ -2018,7 +2010,7 @@ mod tests {
     #[test]
     fn line_selection_works() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2039,7 +2031,7 @@ mod tests {
     #[test]
     fn selecting_empty_line() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0);
         for l in 0..3 {
             if l != 1 {
@@ -2074,7 +2066,7 @@ mod tests {
     #[test]
     fn input_line_drawing_character() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2085,7 +2077,7 @@ mod tests {
     #[test]
     fn clear_saved_lines() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1));
@@ -2107,7 +2099,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_active_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2127,7 +2119,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_inactive_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2153,7 +2145,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_active_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2173,7 +2165,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_inactive_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2199,7 +2191,7 @@ mod tests {
     #[test]
     fn window_title() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Title None by default.
         assert_eq!(term.title, None);

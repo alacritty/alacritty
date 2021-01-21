@@ -451,7 +451,7 @@ impl Display {
     /// This call may block if vsync is enabled.
     pub fn draw<T: EventListener>(
         &mut self,
-        mut terminal: MutexGuard<'_, Term<T>>,
+        terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
         config: &Config,
         mouse: &Mouse,
@@ -467,7 +467,7 @@ impl Display {
 
         // Collect renderable content before the terminal is dropped.
         let dfas = search_state.dfas();
-        let mut content = RenderableContent::new(&mut terminal, dfas, config, !cursor_hidden);
+        let mut content = RenderableContent::new(&terminal, dfas, config, !cursor_hidden);
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);

@@ -1096,12 +1096,8 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
-    #[derive(Copy, Clone)]
     struct MockEventProxy;
-
-    impl EventListener for MockEventProxy {
-        fn send_event(&self, _event: TerminalEvent) {}
-    }
+    impl EventListener for MockEventProxy {}
 
     struct ActionContext<'a, T> {
         pub terminal: &'a mut Term<T>,

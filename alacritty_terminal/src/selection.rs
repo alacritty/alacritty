@@ -433,20 +433,12 @@ mod tests {
     use super::*;
 
     use crate::config::MockConfig;
-    use crate::event::{Event, EventListener};
     use crate::index::{Column, Line, Point, Side};
     use crate::term::{SizeInfo, Term};
 
-    #[derive(Copy, Clone)]
-    struct Mock;
-
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
-    fn term(height: usize, width: usize) -> Term<Mock> {
+    fn term(height: usize, width: usize) -> Term<()> {
         let size = SizeInfo::new(width as f32, height as f32, 1.0, 1.0, 0.0, 0.0, false);
-        Term::new(&MockConfig::default(), size, Mock)
+        Term::new(&MockConfig::default(), size, ())
     }
 
     /// Test case of single cell selection.

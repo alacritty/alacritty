@@ -397,20 +397,12 @@ mod tests {
     use super::*;
 
     use crate::config::MockConfig;
-    use crate::event::Event;
     use crate::index::{Column, Line};
     use crate::term::{SizeInfo, Term};
 
-    #[derive(Copy, Clone)]
-    struct Mock;
-
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
-    fn term() -> Term<Mock> {
+    fn term() -> Term<()> {
         let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, false);
-        Term::new(&MockConfig::default(), size, Mock)
+        Term::new(&MockConfig::default(), size, ())
     }
 
     #[test]
@@ -517,7 +509,7 @@ mod tests {
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
-    fn motion_semantic_term() -> Term<Mock> {
+    fn motion_semantic_term() -> Term<()> {
         let mut term = term();
 
         term.grid_mut()[Line(0)][Column(0)].c = 'x';
