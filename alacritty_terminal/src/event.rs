@@ -47,6 +47,6 @@ pub trait OnResize {
 }
 
 /// Event Loop for notifying the renderer about terminal events.
-pub trait EventListener {
+pub trait EventListener: Clone + Send + 'static {
     fn send_event(&self, event: Event);
 }

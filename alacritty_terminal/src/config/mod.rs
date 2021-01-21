@@ -6,13 +6,11 @@ use serde::Deserialize;
 
 use alacritty_config_derive::ConfigDeserialize;
 
-mod bell;
 mod colors;
 mod scrolling;
 
 use crate::ansi::{CursorShape, CursorStyle};
 
-pub use crate::config::bell::{BellAnimation, BellConfig};
 pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
 
@@ -53,19 +51,6 @@ pub struct Config<T> {
     /// Remain open after child process exits.
     #[config(skip)]
     pub hold: bool,
-
-    /// Bell configuration.
-    bell: BellConfig,
-
-    #[config(deprecated = "use `bell` instead")]
-    pub visual_bell: Option<BellConfig>,
-}
-
-impl<T> Config<T> {
-    #[inline]
-    pub fn bell(&self) -> &BellConfig {
-        self.visual_bell.as_ref().unwrap_or(&self.bell)
-    }
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
@@ -190,9 +175,9 @@ impl CursorBlinking {
     }
 }
 
-impl Into<bool> for CursorBlinking {
-    fn into(self) -> bool {
-        self == Self::On || self == Self::Always
+impl From<CursorBlinking> for bool {
+    fn from(blinking: CursorBlinking) -> bool {
+        blinking == CursorBlinking::On || blinking == CursorBlinking::Always
     }
 }
 

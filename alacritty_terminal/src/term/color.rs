@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::ops::{Add, Index, IndexMut, Mul};
+use std::ops::{Add, Index, Mul};
 use std::str::FromStr;
 
 use log::trace;
@@ -7,7 +7,7 @@ use serde::de::{Error as _, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml::Value;
 
-use crate::ansi;
+use crate::ansi::NamedColor;
 use crate::config::Colors;
 
 pub const COUNT: usize = 269;
@@ -239,12 +239,17 @@ impl<'de> Deserialize<'de> for CellRgb {
 /// color, item 258 is the cursor color. Following that are 8 positions for dim colors.
 /// Item 267 is the bright foreground color, 268 the dim foreground.
 #[derive(Copy, Clone)]
-pub struct List([Rgb; COUNT]);
+pub struct List {
+    /// Indexed terminal colors.
+    colors: [Rgb; COUNT],
+
+    /// Color value changes from escape sequences.
+    modified: [Option<Rgb>; COUNT],
+}
 
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
-        // Type inference fails without this annotation.
-        let mut list = List([Rgb::default(); COUNT]);
+        let mut list = List { colors: [Rgb::default(); COUNT], modified: [None; COUNT] };
 
         list.fill_named(colors);
         list.fill_cube(colors);
@@ -255,58 +260,86 @@ impl<'a> From<&'a Colors> for List {
 }
 
 impl List {
+    /// Get the current value of a color.
+    pub fn get(&self, index: usize) -> &Rgb {
+        self.modified[index].as_ref().unwrap_or(&self.colors[index])
+    }
+
+    pub fn get_modified(&self, index: usize) -> Option<Rgb> {
+        self.modified[index]
+    }
+
+    /// Set the current value of a color.
+    pub fn set(&mut self, index: usize, color: Rgb) {
+        self.modified[index] = Some(color);
+    }
+
+    /// Reset the value of a color to the default.
+    pub fn reset(&mut self, index: usize) {
+        self.modified[index] = None;
+    }
+
+    /// Update the default colors.
+    ///
+    /// This modifies the default colors without changing the values that have been set using
+    /// escape sequences.
+    pub fn update_defaults(&mut self, colors: &Colors) {
+        let list = Self::from(colors);
+        self.colors = list.colors;
+    }
+
     pub fn fill_named(&mut self, colors: &Colors) {
         // Normals.
-        self[ansi::NamedColor::Black] = colors.normal.black;
-        self[ansi::NamedColor::Red] = colors.normal.red;
-        self[ansi::NamedColor::Green] = colors.normal.green;
-        self[ansi::NamedColor::Yellow] = colors.normal.yellow;
-        self[ansi::NamedColor::Blue] = colors.normal.blue;
-        self[ansi::NamedColor::Magenta] = colors.normal.magenta;
-        self[ansi::NamedColor::Cyan] = colors.normal.cyan;
-        self[ansi::NamedColor::White] = colors.normal.white;
+        self.colors[NamedColor::Black as usize] = colors.normal.black;
+        self.colors[NamedColor::Red as usize] = colors.normal.red;
+        self.colors[NamedColor::Green as usize] = colors.normal.green;
+        self.colors[NamedColor::Yellow as usize] = colors.normal.yellow;
+        self.colors[NamedColor::Blue as usize] = colors.normal.blue;
+        self.colors[NamedColor::Magenta as usize] = colors.normal.magenta;
+        self.colors[NamedColor::Cyan as usize] = colors.normal.cyan;
+        self.colors[NamedColor::White as usize] = colors.normal.white;
 
         // Brights.
-        self[ansi::NamedColor::BrightBlack] = colors.bright.black;
-        self[ansi::NamedColor::BrightRed] = colors.bright.red;
-        self[ansi::NamedColor::BrightGreen] = colors.bright.green;
-        self[ansi::NamedColor::BrightYellow] = colors.bright.yellow;
-        self[ansi::NamedColor::BrightBlue] = colors.bright.blue;
-        self[ansi::NamedColor::BrightMagenta] = colors.bright.magenta;
-        self[ansi::NamedColor::BrightCyan] = colors.bright.cyan;
-        self[ansi::NamedColor::BrightWhite] = colors.bright.white;
-        self[ansi::NamedColor::BrightForeground] =
+        self.colors[NamedColor::BrightBlack as usize] = colors.bright.black;
+        self.colors[NamedColor::BrightRed as usize] = colors.bright.red;
+        self.colors[NamedColor::BrightGreen as usize] = colors.bright.green;
+        self.colors[NamedColor::BrightYellow as usize] = colors.bright.yellow;
+        self.colors[NamedColor::BrightBlue as usize] = colors.bright.blue;
+        self.colors[NamedColor::BrightMagenta as usize] = colors.bright.magenta;
+        self.colors[NamedColor::BrightCyan as usize] = colors.bright.cyan;
+        self.colors[NamedColor::BrightWhite as usize] = colors.bright.white;
+        self.colors[NamedColor::BrightForeground as usize] =
             colors.primary.bright_foreground.unwrap_or(colors.primary.foreground);
 
         // Foreground and background.
-        self[ansi::NamedColor::Foreground] = colors.primary.foreground;
-        self[ansi::NamedColor::Background] = colors.primary.background;
+        self.colors[NamedColor::Foreground as usize] = colors.primary.foreground;
+        self.colors[NamedColor::Background as usize] = colors.primary.background;
 
         // Dims.
-        self[ansi::NamedColor::DimForeground] =
+        self.colors[NamedColor::DimForeground as usize] =
             colors.primary.dim_foreground.unwrap_or(colors.primary.foreground * DIM_FACTOR);
         match colors.dim {
             Some(ref dim) => {
                 trace!("Using config-provided dim colors");
-                self[ansi::NamedColor::DimBlack] = dim.black;
-                self[ansi::NamedColor::DimRed] = dim.red;
-                self[ansi::NamedColor::DimGreen] = dim.green;
-                self[ansi::NamedColor::DimYellow] = dim.yellow;
-                self[ansi::NamedColor::DimBlue] = dim.blue;
-                self[ansi::NamedColor::DimMagenta] = dim.magenta;
-                self[ansi::NamedColor::DimCyan] = dim.cyan;
-                self[ansi::NamedColor::DimWhite] = dim.white;
+                self.colors[NamedColor::DimBlack as usize] = dim.black;
+                self.colors[NamedColor::DimRed as usize] = dim.red;
+                self.colors[NamedColor::DimGreen as usize] = dim.green;
+                self.colors[NamedColor::DimYellow as usize] = dim.yellow;
+                self.colors[NamedColor::DimBlue as usize] = dim.blue;
+                self.colors[NamedColor::DimMagenta as usize] = dim.magenta;
+                self.colors[NamedColor::DimCyan as usize] = dim.cyan;
+                self.colors[NamedColor::DimWhite as usize] = dim.white;
             },
             None => {
                 trace!("Deriving dim colors from normal colors");
-                self[ansi::NamedColor::DimBlack] = colors.normal.black * DIM_FACTOR;
-                self[ansi::NamedColor::DimRed] = colors.normal.red * DIM_FACTOR;
-                self[ansi::NamedColor::DimGreen] = colors.normal.green * DIM_FACTOR;
-                self[ansi::NamedColor::DimYellow] = colors.normal.yellow * DIM_FACTOR;
-                self[ansi::NamedColor::DimBlue] = colors.normal.blue * DIM_FACTOR;
-                self[ansi::NamedColor::DimMagenta] = colors.normal.magenta * DIM_FACTOR;
-                self[ansi::NamedColor::DimCyan] = colors.normal.cyan * DIM_FACTOR;
-                self[ansi::NamedColor::DimWhite] = colors.normal.white * DIM_FACTOR;
+                self.colors[NamedColor::DimBlack as usize] = colors.normal.black * DIM_FACTOR;
+                self.colors[NamedColor::DimRed as usize] = colors.normal.red * DIM_FACTOR;
+                self.colors[NamedColor::DimGreen as usize] = colors.normal.green * DIM_FACTOR;
+                self.colors[NamedColor::DimYellow as usize] = colors.normal.yellow * DIM_FACTOR;
+                self.colors[NamedColor::DimBlue as usize] = colors.normal.blue * DIM_FACTOR;
+                self.colors[NamedColor::DimMagenta as usize] = colors.normal.magenta * DIM_FACTOR;
+                self.colors[NamedColor::DimCyan as usize] = colors.normal.cyan * DIM_FACTOR;
+                self.colors[NamedColor::DimWhite as usize] = colors.normal.white * DIM_FACTOR;
             },
         }
     }
@@ -321,9 +354,9 @@ impl List {
                     if let Some(indexed_color) =
                         colors.indexed_colors.iter().find(|ic| ic.index() == index as u8)
                     {
-                        self[index] = indexed_color.color;
+                        self.colors[index] = indexed_color.color;
                     } else {
-                        self[index] = Rgb {
+                        self.colors[index] = Rgb {
                             r: if r == 0 { 0 } else { r * 40 + 55 },
                             b: if b == 0 { 0 } else { b * 40 + 55 },
                             g: if g == 0 { 0 } else { g * 40 + 55 },
@@ -348,13 +381,13 @@ impl List {
             if let Some(indexed_color) =
                 colors.indexed_colors.iter().find(|ic| ic.index() == color_index)
             {
-                self[index] = indexed_color.color;
+                self.colors[index] = indexed_color.color;
                 index += 1;
                 continue;
             }
 
             let value = i * 10 + 8;
-            self[index] = Rgb { r: value, g: value, b: value };
+            self.colors[index] = Rgb { r: value, g: value, b: value };
             index += 1;
         }
 
@@ -368,35 +401,12 @@ impl fmt::Debug for List {
     }
 }
 
-impl Index<ansi::NamedColor> for List {
-    type Output = Rgb;
-
-    #[inline]
-    fn index(&self, idx: ansi::NamedColor) -> &Self::Output {
-        &self.0[idx as usize]
-    }
-}
-
-impl IndexMut<ansi::NamedColor> for List {
-    #[inline]
-    fn index_mut(&mut self, idx: ansi::NamedColor) -> &mut Self::Output {
-        &mut self.0[idx as usize]
-    }
-}
-
 impl Index<usize> for List {
     type Output = Rgb;
 
     #[inline]
-    fn index(&self, idx: usize) -> &Self::Output {
-        &self.0[idx]
-    }
-}
-
-impl IndexMut<usize> for List {
-    #[inline]
-    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.0[idx]
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index)
     }
 }
 
@@ -404,15 +414,17 @@ impl Index<u8> for List {
     type Output = Rgb;
 
     #[inline]
-    fn index(&self, idx: u8) -> &Self::Output {
-        &self.0[idx as usize]
+    fn index(&self, index: u8) -> &Self::Output {
+        self.get(index as usize)
     }
 }
 
-impl IndexMut<u8> for List {
+impl Index<NamedColor> for List {
+    type Output = Rgb;
+
     #[inline]
-    fn index_mut(&mut self, idx: u8) -> &mut Self::Output {
-        &mut self.0[idx as usize]
+    fn index(&self, index: NamedColor) -> &Self::Output {
+        self.get(index as usize)
     }
 }
 

@@ -6,9 +6,9 @@ use crossfont::Metrics;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::render::RenderableCell;
 use alacritty_terminal::term::SizeInfo;
 
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer;
@@ -105,8 +105,8 @@ impl RenderLine {
         mut thickness: f32,
         color: Rgb,
     ) -> RenderRect {
-        let start_x = start.col.0 as f32 * size.cell_width();
-        let end_x = (end.col.0 + 1) as f32 * size.cell_width();
+        let start_x = start.column.0 as f32 * size.cell_width();
+        let end_x = (end.column.0 + 1) as f32 * size.cell_width();
         let width = end_x - start_x;
 
         // Make sure lines are always visible.
@@ -169,16 +169,16 @@ impl RenderLines {
         }
 
         // Include wide char spacer if the current cell is a wide char.
-        let mut end: Point = cell.into();
+        let mut end = cell.point;
         if cell.flags.contains(Flags::WIDE_CHAR) {
-            end.col += 1;
+            end.column += 1;
         }
 
         // Check if there's an active line.
         if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
             if cell.fg == line.color
-                && cell.column == line.end.col + 1
-                && cell.line == line.end.line
+                && cell.point.column == line.end.column + 1
+                && cell.point.line == line.end.line
             {
                 // Update the length of the line.
                 line.end = end;
@@ -187,7 +187,7 @@ impl RenderLines {
         }
 
         // Start new line if there currently is none.
-        let line = RenderLine { start: cell.into(), end, color: cell.fg };
+        let line = RenderLine { start: cell.point, end, color: cell.fg };
         match self.inner.get_mut(&flag) {
             Some(lines) => lines.push(line),
             None => {

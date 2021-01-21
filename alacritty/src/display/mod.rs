@@ -33,14 +33,25 @@ use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
 use crate::config::Config;
-use crate::cursor::IntoRects;
+use crate::display::bell::VisualBell;
+use crate::display::content::{RenderableContent};
+use crate::display::cursor::IntoRects;
+use crate::display::meter::Meter;
+use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
-use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
-use crate::window::{self, Window};
+
+pub mod content;
+pub mod cursor;
+pub mod window;
+
+mod bell;
+mod meter;
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+mod wayland_theme;
 
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
@@ -161,6 +172,8 @@ pub struct Display {
 
     /// UI cursor visibility for blinking.
     pub cursor_hidden: bool,
+
+    pub visual_bell: VisualBell,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -307,6 +320,7 @@ impl Display {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
             cursor_hidden: false,
+            visual_bell: VisualBell::from(&config.ui_config.bell),
         })
     }
 
@@ -435,9 +449,9 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled.
-    pub fn draw<T>(
+    pub fn draw<T: EventListener>(
         &mut self,
-        terminal: MutexGuard<'_, Term<T>>,
+        mut terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
         config: &Config,
         mouse: &Mouse,
@@ -452,16 +466,16 @@ impl Display {
         let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
         // Collect renderable content before the terminal is dropped.
-        let mut content = terminal.renderable_content(config, !cursor_hidden);
+        let dfas = search_state.dfas();
+        let mut content = RenderableContent::new(&mut terminal, dfas, config, !cursor_hidden);
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }
+        let background_color = content.background_color();
+        let display_offset = content.display_offset();
         let cursor = content.cursor();
 
-        let visual_bell_intensity = terminal.visual_bell.intensity();
-        let display_offset = terminal.grid().display_offset();
-        let background_color = terminal.background_color();
         let cursor_point = terminal.grid().cursor.point;
         let total_lines = terminal.grid().total_lines();
         let metrics = self.glyph_cache.font_metrics();
@@ -496,7 +510,7 @@ impl Display {
                     if cell.is_match
                         && viewport_match
                             .as_ref()
-                            .map_or(false, |viewport_match| viewport_match.contains(&cell.point()))
+                            .map_or(false, |viewport_match| viewport_match.contains(&cell.point))
                     {
                         let colors = config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);
@@ -560,13 +574,14 @@ impl Display {
         }
 
         // Push visual bell after url/underline/strikeout rects.
+        let visual_bell_intensity = self.visual_bell.intensity();
         if visual_bell_intensity != 0. {
             let visual_bell_rect = RenderRect::new(
                 0.,
                 0.,
                 size_info.width(),
                 size_info.height(),
-                config.bell().color,
+                config.ui_config.bell.color,
                 visual_bell_intensity as f32,
             );
             rects.push(visual_bell_rect);
@@ -732,7 +747,7 @@ impl Display {
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.col < column) {
+        if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);

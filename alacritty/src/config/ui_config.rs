@@ -6,6 +6,7 @@ use serde::{Deserialize, Deserializer};
 use alacritty_config_derive::ConfigDeserialize;
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 
+use crate::config::bell::BellConfig;
 use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding};
 use crate::config::debug::Debug;
 use crate::config::font::Font;
@@ -30,6 +31,9 @@ pub struct UIConfig {
 
     /// Live config reload.
     pub live_config_reload: bool,
+
+    /// Bell configuration.
+    pub bell: BellConfig,
 
     /// Path where config was loaded from.
     #[config(skip)]
@@ -58,6 +62,7 @@ impl Default for UIConfig {
             key_bindings: Default::default(),
             mouse_bindings: Default::default(),
             background_opacity: Default::default(),
+            bell: Default::default(),
         }
     }
 }

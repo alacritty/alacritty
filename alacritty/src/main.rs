@@ -32,7 +32,6 @@ use alacritty_terminal::tty;
 mod cli;
 mod clipboard;
 mod config;
-mod cursor;
 mod daemon;
 mod display;
 mod event;
@@ -41,16 +40,11 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
 mod message_bar;
-mod meter;
 #[cfg(windows)]
 mod panic;
 mod renderer;
 mod scheduler;
 mod url;
-mod window;
-
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-mod wayland_theme;
 
 mod gl {
     #![allow(clippy::all)]

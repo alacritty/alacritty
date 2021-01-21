@@ -123,6 +123,10 @@ fn scroll_down() {
 // Test that GridIterator works.
 #[test]
 fn test_iter() {
+    let assert_indexed = |value: usize, indexed: Option<Indexed<&usize>>| {
+        assert_eq!(Some(&value), indexed.map(|indexed| indexed.cell));
+    };
+
     let mut grid = Grid::<usize>::new(Line(5), Column(5), 0);
     for i in 0..5 {
         for j in 0..5 {
@@ -130,33 +134,33 @@ fn test_iter() {
         }
     }
 
-    let mut iter = grid.iter_from(Point { line: 4, col: Column(0) });
+    let mut iter = grid.iter_from(Point::new(4, Column(0)));
 
     assert_eq!(None, iter.prev());
-    assert_eq!(Some(&1), iter.next());
-    assert_eq!(Column(1), iter.point().col);
+    assert_indexed(1, iter.next());
+    assert_eq!(Column(1), iter.point().column);
     assert_eq!(4, iter.point().line);
 
-    assert_eq!(Some(&2), iter.next());
-    assert_eq!(Some(&3), iter.next());
-    assert_eq!(Some(&4), iter.next());
+    assert_indexed(2, iter.next());
+    assert_indexed(3, iter.next());
+    assert_indexed(4, iter.next());
 
     // Test line-wrapping.
-    assert_eq!(Some(&5), iter.next());
-    assert_eq!(Column(0), iter.point().col);
+    assert_indexed(5, iter.next());
+    assert_eq!(Column(0), iter.point().column);
     assert_eq!(3, iter.point().line);
 
-    assert_eq!(Some(&4), iter.prev());
-    assert_eq!(Column(4), iter.point().col);
+    assert_indexed(4, iter.prev());
+    assert_eq!(Column(4), iter.point().column);
     assert_eq!(4, iter.point().line);
 
     // Make sure iter.cell() returns the current iterator position.
     assert_eq!(&4, iter.cell());
 
     // Test that iter ends at end of grid.
-    let mut final_iter = grid.iter_from(Point { line: 0, col: Column(4) });
+    let mut final_iter = grid.iter_from(Point { line: 0, column: Column(4) });
     assert_eq!(None, final_iter.next());
-    assert_eq!(Some(&23), final_iter.prev());
+    assert_indexed(23, final_iter.prev());
 }
 
 #[test]

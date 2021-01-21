@@ -778,10 +778,10 @@ where
     }
 
     #[inline]
-    fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, _c: char) {
+    fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, action: char) {
         debug!(
-            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
-            params, intermediates, ignore
+            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
+            params, intermediates, ignore, action
         );
     }
 
