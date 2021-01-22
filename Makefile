@@ -71,4 +71,4 @@ install: $(DMG_NAME) ## Mount disk image
 .PHONY: app binary clean dmg install $(TARGET)-native $(TARGET)-universal
 
 clean: ## Remove all artifacts
-	-rm -rf target
+	cargo clean
