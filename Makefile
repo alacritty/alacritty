@@ -53,6 +53,7 @@ $(APP_NAME)-%: $(TARGET)-%
 	@echo "Created '$(APP_NAME)' in '$(APP_DIR)'"
 
 dmg: | $(DMG_NAME)-native ## Pack Alacritty.app into .dmg
+dmg-universal: $(DMG_NAME)-universal ## Build universal Alacritty.app and package into .dmg
 $(DMG_NAME)-%: $(APP_NAME)-%
 	@echo "Packing disk image..."
 	@ln -sf /Applications $(DMG_DIR)/Applications
@@ -62,8 +63,6 @@ $(DMG_NAME)-%: $(APP_NAME)-%
 		-srcfolder $(APP_DIR) \
 		-ov -format UDZO
 	@echo "Packed '$(DMG_NAME)' in '$(APP_DIR)'"
-
-universal: $(DMG_NAME)-universal ## Build universal Alacritty.app and package into .dmg
 
 install: $(DMG_NAME) ## Mount disk image
 	@open $(DMG_DIR)/$(DMG_NAME)

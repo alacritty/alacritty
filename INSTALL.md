@@ -243,10 +243,21 @@ If all goes well, this should place a binary at `target/release/alacritty`.
 
 ### macOS
 
+For macOS you can build and install the app as follows:
+
 ```sh
 make app
 cp -r target/release/osx/Alacritty.app /Applications/
 ```
+
+If you want to build cross-compile a universal .dmg file, you can run the following:
+
+```sh
+rustup update && rustup target add x86_64-apple-darwin aarch64-apple-darwin
+make dmg-universal
+```
+
+You will then find `Alacritty.dmg` in `target/release/osx`.
 
 ## Post Build
 
