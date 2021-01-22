@@ -265,6 +265,9 @@ impl List {
         self.modified[index].as_ref().unwrap_or(&self.colors[index])
     }
 
+    /// Get the modified color value.
+    ///
+    /// Returns `None` if the color hasn't been modified.
     pub fn get_modified(&self, index: usize) -> Option<Rgb> {
         self.modified[index]
     }
