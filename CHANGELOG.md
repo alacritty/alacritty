@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Packaging
 
+- Update macOS icon for Big Sur
 - Updated shell completions
 
 ## 0.7.1
