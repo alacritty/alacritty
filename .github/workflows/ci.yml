@@ -25,3 +25,11 @@ jobs:
         run: |
           rustup default 1.43.1
           cargo test
+  build-macos-universal:
+    runs-on: macos-11.0
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install targets
+        run: rustup update && rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - name: Make App
+        run: make universal
