@@ -52,6 +52,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Minimum Rust version has been bumped to 1.45.0
 
+### Packaging
+
+- Updated shell completions
+- Added ARM executable to prebuilt macOS binaries
+
 ### Added
 
 - IME composition preview not appearing on Windows
