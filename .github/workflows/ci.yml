@@ -25,11 +25,11 @@ jobs:
         run: |
           rustup default 1.43.1
           cargo test
-  build-macos-universal:
+  build-macos-apple-silicon:
     runs-on: macos-11.0
     steps:
       - uses: actions/checkout@v2
-      - name: Install targets
-        run: rustup update && rustup target add x86_64-apple-darwin aarch64-apple-darwin
-      - name: Make App
-        run: make universal
+      - name: Install target
+        run: rustup update && rustup target add aarch64-apple-darwin
+      - name: Ensure it builds for Apple Silicon
+        run: MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release --target=aarch64-apple-darwin
