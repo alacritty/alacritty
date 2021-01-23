@@ -1,6 +1,5 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
-use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
@@ -1864,7 +1863,7 @@ pub struct RenderableContent<'a> {
     pub selection: Option<SelectionRange<Line>>,
     pub cursor: RenderableCursor,
     pub display_offset: usize,
-    pub colors: Cow<'a, color::List>,
+    pub colors: &'a color::List,
     pub mode: TermMode,
 }
 
@@ -1875,7 +1874,7 @@ impl<'a> RenderableContent<'a> {
             display_offset: term.grid().display_offset(),
             cursor: RenderableCursor::new(term),
             selection: term.visible_selection(),
-            colors: Cow::Borrowed(&term.colors),
+            colors: &term.colors,
             mode: *term.mode(),
         }
     }
