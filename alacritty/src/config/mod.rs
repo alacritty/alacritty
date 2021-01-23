@@ -10,6 +10,7 @@ use serde_yaml::Value;
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
 pub mod bell;
+pub mod color;
 pub mod debug;
 pub mod font;
 pub mod monitor;

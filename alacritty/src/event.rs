@@ -1196,6 +1196,10 @@ impl<N: Notify + OnResize> Processor<N> {
                         let text = format(processor.ctx.clipboard.load(clipboard_type).as_str());
                         processor.ctx.write_to_pty(text.into_bytes());
                     },
+                    TerminalEvent::ColorRequest(index, format) => {
+                        let text = format(processor.ctx.display.colors[index]);
+                        processor.ctx.write_to_pty(text.into_bytes());
+                    },
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange(_) => {
@@ -1326,7 +1330,7 @@ impl<N: Notify + OnResize> Processor<N> {
             Err(_) => return,
         };
 
-        processor.ctx.display.visual_bell.update_config(&config.ui_config.bell);
+        processor.ctx.display.update_config(&config);
         processor.ctx.terminal.update_config(&config);
 
         // Reload cursor if its thickness has changed.
@@ -1363,7 +1367,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         if processor.ctx.event_loop.is_wayland() {
-            processor.ctx.window_mut().set_wayland_theme(&config.colors);
+            processor.ctx.window_mut().set_wayland_theme(&config.ui_config.colors);
         }
 
         // Set subpixel anti-aliasing.

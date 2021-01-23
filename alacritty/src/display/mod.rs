@@ -22,6 +22,7 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use crossfont::{self, Rasterize, Rasterizer};
 
+use alacritty_terminal::ansi::NamedColor;
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
@@ -34,6 +35,7 @@ use crate::config::window::Dimensions;
 use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::display::bell::VisualBell;
+use crate::display::color::List;
 use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
 use crate::display::meter::Meter;
@@ -49,6 +51,7 @@ pub mod cursor;
 pub mod window;
 
 mod bell;
+mod color;
 mod meter;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
@@ -175,6 +178,9 @@ pub struct Display {
 
     pub visual_bell: VisualBell,
 
+    /// Mapped RGB values for each terminal color.
+    pub colors: List,
+
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
@@ -259,7 +265,7 @@ impl Display {
         renderer.resize(&size_info);
 
         // Clear screen.
-        let background_color = config.colors.primary.background;
+        let background_color = config.ui_config.colors.primary.background;
         renderer.with_api(&config.ui_config, &size_info, |api| {
             api.clear(background_color);
         });
@@ -321,6 +327,7 @@ impl Display {
             wayland_event_queue,
             cursor_hidden: false,
             visual_bell: VisualBell::from(&config.ui_config.bell),
+            colors: List::from(&config.ui_config.colors),
         })
     }
 
@@ -467,12 +474,13 @@ impl Display {
 
         // Collect renderable content before the terminal is dropped.
         let dfas = search_state.dfas();
-        let mut content = RenderableContent::new(&terminal, dfas, config, !cursor_hidden);
+        let colors = &self.colors;
+        let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }
-        let background_color = content.background_color();
+        let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
 
@@ -512,7 +520,7 @@ impl Display {
                             .as_ref()
                             .map_or(false, |viewport_match| viewport_match.contains(&cell.point))
                     {
-                        let colors = config.colors.search.focused_match;
+                        let colors = config.ui_config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);
                         cell.bg = colors.background.color(cell.fg, cell.bg);
                         cell.fg = match_fg;
@@ -596,8 +604,8 @@ impl Display {
             let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
 
             let bg = match message.ty() {
-                MessageType::Error => config.colors.normal.red,
-                MessageType::Warning => config.colors.normal.yellow,
+                MessageType::Error => config.ui_config.colors.normal.red,
+                MessageType::Warning => config.ui_config.colors.normal.yellow,
             };
 
             let message_bar_rect =
@@ -611,7 +619,7 @@ impl Display {
 
             // Relay messages to the user.
             let glyph_cache = &mut self.glyph_cache;
-            let fg = config.colors.primary.background;
+            let fg = config.ui_config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
                 self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
@@ -665,6 +673,12 @@ impl Display {
         }
     }
 
+    /// Update to a new configuration.
+    pub fn update_config(&mut self, config: &Config) {
+        self.visual_bell.update_config(&config.ui_config.bell);
+        self.colors = List::from(&config.ui_config.colors);
+    }
+
     /// Format search regex to account for the cursor and fullwidth characters.
     fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
         // Add spacers for wide chars.
@@ -705,8 +719,8 @@ impl Display {
         let text = format!("{:<1$}", text, num_cols);
 
         let point = Point::new(size_info.screen_lines(), Column(0));
-        let fg = config.colors.search_bar_foreground();
-        let bg = config.colors.search_bar_background();
+        let fg = config.ui_config.colors.search_bar_foreground();
+        let bg = config.ui_config.colors.search_bar_background();
 
         self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &text);
@@ -723,8 +737,8 @@ impl Display {
 
         let timing = format!("{:.3} usec", self.meter.average());
         let point = Point::new(size_info.screen_lines() - 2, Column(0));
-        let fg = config.colors.primary.background;
-        let bg = config.colors.normal.red;
+        let fg = config.ui_config.colors.primary.background;
+        let bg = config.ui_config.colors.normal.red;
 
         self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &timing);
@@ -742,7 +756,7 @@ impl Display {
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);
         let column = Column(size_info.cols().0.saturating_sub(text.len()));
-        let colors = &config.colors;
+        let colors = &config.ui_config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 

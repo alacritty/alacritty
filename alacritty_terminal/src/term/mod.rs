@@ -19,7 +19,7 @@ use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
-use crate::term::color::Rgb;
+use crate::term::color::{Colors, Rgb};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
@@ -251,8 +251,8 @@ pub struct Term<T> {
 
     semantic_escape_chars: String,
 
-    /// Colors used for rendering.
-    colors: color::List,
+    /// Modified terminal colors.
+    colors: Colors,
 
     /// Current style of the cursor.
     cursor_style: Option<CursorStyle>,
@@ -300,8 +300,6 @@ impl<T> Term<T> {
 
         let scroll_region = Line(0)..grid.screen_lines();
 
-        let colors = color::List::from(&config.colors);
-
         Term {
             grid,
             inactive_grid: alt,
@@ -310,7 +308,7 @@ impl<T> Term<T> {
             tabs,
             mode: Default::default(),
             scroll_region,
-            colors,
+            colors: color::Colors::default(),
             semantic_escape_chars: config.selection.semantic_escape_chars.to_owned(),
             cursor_style: None,
             default_cursor_style: config.cursor.style(),
@@ -330,7 +328,6 @@ impl<T> Term<T> {
         T: EventListener,
     {
         self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
-        self.colors.update_defaults(&config.colors);
         self.default_cursor_style = config.cursor.style();
         self.vi_mode_cursor_style = config.cursor.vi_mode_style();
 
@@ -631,11 +628,6 @@ impl<T> Term<T> {
 
         // Clear grid.
         self.grid.reset_region(..);
-    }
-
-    #[inline]
-    pub fn background_color(&self) -> Rgb {
-        self.colors[NamedColor::Background]
     }
 
     #[inline]
@@ -1324,32 +1316,31 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
-        self.colors.set(index, color);
+        self.colors[index] = Some(color);
     }
 
     /// Write a foreground/background color escape sequence with the current color.
     #[inline]
-    fn dynamic_color_sequence<W: io::Write>(
-        &mut self,
-        writer: &mut W,
-        code: u8,
-        index: usize,
-        terminator: &str,
-    ) {
-        trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
-        let color = self.colors[index];
-        let response = format!(
-            "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
-            code, color.r, color.g, color.b, terminator
-        );
-        let _ = writer.write_all(response.as_bytes());
+    fn dynamic_color_sequence(&mut self, code: u8, index: usize, terminator: &str) {
+        trace!("Requested write of escape sequence for color code {}: color[{}]", code, index);
+
+        let terminator = terminator.to_owned();
+        self.event_proxy.send_event(Event::ColorRequest(
+            index,
+            Arc::new(move |color| {
+                format!(
+                    "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
+                    code, color.r, color.g, color.b, terminator
+                )
+            }),
+        ));
     }
 
     /// Reset the indexed color to original value.
     #[inline]
     fn reset_color(&mut self, index: usize) {
         trace!("Resetting color[{}]", index);
-        self.colors.reset(index);
+        self.colors[index] = None;
     }
 
     /// Store data into clipboard.
@@ -1863,7 +1854,7 @@ pub struct RenderableContent<'a> {
     pub selection: Option<SelectionRange<Line>>,
     pub cursor: RenderableCursor,
     pub display_offset: usize,
-    pub colors: &'a color::List,
+    pub colors: &'a color::Colors,
     pub mode: TermMode,
 }
 

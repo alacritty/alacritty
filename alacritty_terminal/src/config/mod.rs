@@ -6,12 +6,10 @@ use serde::Deserialize;
 
 use alacritty_config_derive::ConfigDeserialize;
 
-mod colors;
 mod scrolling;
 
 use crate::ansi::{CursorShape, CursorStyle};
 
-pub use crate::config::colors::Colors;
 pub use crate::config::scrolling::Scrolling;
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
@@ -24,11 +22,6 @@ pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 pub struct Config<T> {
     /// TERM env variable.
     pub env: HashMap<String, String>,
-
-    /// Should draw bold text with brighter colors instead of bold font.
-    pub draw_bold_text_with_bright_colors: bool,
-
-    pub colors: Colors,
 
     pub selection: Selection,
 

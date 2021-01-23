@@ -2,8 +2,7 @@ use serde::de::Error as SerdeError;
 use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
-
-use crate::term::color::{CellRgb, Rgb};
+use alacritty_terminal::term::color::{CellRgb, Rgb};
 
 #[derive(ConfigDeserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Colors {

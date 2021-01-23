@@ -8,11 +8,14 @@ use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
-use alacritty_terminal::term::color::{self, CellRgb, Rgb, DIM_FACTOR};
+use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{RegexIter, RegexSearch};
 use alacritty_terminal::term::{
     RenderableContent as TerminalContent, RenderableCursor as TerminalCursor, Term, TermMode,
 };
+
+use crate::config::ui_config::UIConfig;
+use crate::display::color::{List, DIM_FACTOR};
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
@@ -23,19 +26,21 @@ const MAX_SEARCH_LINES: usize = 100;
 /// Renderable terminal content.
 ///
 /// This provides the terminal cursor and an iterator over all non-empty cells.
-pub struct RenderableContent<'a, C> {
+pub struct RenderableContent<'a> {
     terminal_content: TerminalContent<'a>,
     terminal_cursor: TerminalCursor,
     cursor: Option<RenderableCursor>,
     search: RenderableSearch,
-    config: &'a Config<C>,
+    config: &'a Config<UIConfig>,
+    colors: &'a List,
 }
 
-impl<'a, C> RenderableContent<'a, C> {
+impl<'a> RenderableContent<'a> {
     pub fn new<T: EventListener>(
         term: &'a Term<T>,
         dfas: Option<&RegexSearch>,
-        config: &'a Config<C>,
+        config: &'a Config<UIConfig>,
+        colors: &'a List,
         show_cursor: bool,
     ) -> Self {
         let search = dfas.map(|dfas| RenderableSearch::new(&term, dfas)).unwrap_or_default();
@@ -49,12 +54,7 @@ impl<'a, C> RenderableContent<'a, C> {
             terminal_cursor.shape = CursorShape::HollowBlock;
         }
 
-        Self { cursor: None, terminal_content, terminal_cursor, search, config }
-    }
-
-    /// Terminal background color.
-    pub fn background_color(&self) -> Rgb {
-        self.terminal_content.colors[NamedColor::Background]
+        Self { cursor: None, terminal_content, terminal_cursor, search, config, colors }
     }
 
     /// Viewport offset.
@@ -68,6 +68,11 @@ impl<'a, C> RenderableContent<'a, C> {
         while self.next().is_some() && self.cursor.is_none() {}
 
         self.cursor
+    }
+
+    /// Get the RGB value for a color index.
+    pub fn color(&self, color: usize) -> Rgb {
+        self.terminal_content.colors[color].unwrap_or(self.colors[color])
     }
 
     /// Assemble the information required to render the terminal cursor.
@@ -88,15 +93,12 @@ impl<'a, C> RenderableContent<'a, C> {
 
         // Cursor colors.
         let color = if self.terminal_content.mode.contains(TermMode::VI) {
-            self.config.colors.vi_mode_cursor
+            self.config.ui_config.colors.vi_mode_cursor
         } else {
-            self.config.colors.cursor
+            self.config.ui_config.colors.cursor
         };
-        let mut cursor_color = self
-            .terminal_content
-            .colors
-            .get_modified(NamedColor::Cursor as usize)
-            .map_or(color.background, CellRgb::Rgb);
+        let mut cursor_color =
+            self.terminal_content.colors[NamedColor::Cursor].map_or(color.background, CellRgb::Rgb);
         let mut text_color = color.foreground;
 
         // Invert the cursor if it has a fixed background close to the cell's background.
@@ -122,7 +124,7 @@ impl<'a, C> RenderableContent<'a, C> {
     }
 }
 
-impl<'a, C> Iterator for RenderableContent<'a, C> {
+impl<'a> Iterator for RenderableContent<'a> {
     type Item = RenderableCell;
 
     /// Gets the next renderable cell.
@@ -173,11 +175,10 @@ pub struct RenderableCell {
 }
 
 impl RenderableCell {
-    fn new<'a, C>(content: &mut RenderableContent<'a, C>, cell: Indexed<&Cell, Line>) -> Self {
+    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell, Line>) -> Self {
         // Lookup RGB values.
-        let colors = &content.terminal_content.colors;
-        let mut fg_rgb = Self::compute_fg_rgb(content.config, &colors, cell.fg, cell.flags);
-        let mut bg_rgb = Self::compute_bg_rgb(&colors, cell.bg);
+        let mut fg_rgb = Self::compute_fg_rgb(content, cell.fg, cell.flags);
+        let mut bg_rgb = Self::compute_bg_rgb(content, cell.bg);
 
         let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
             mem::swap(&mut fg_rgb, &mut bg_rgb);
@@ -192,24 +193,25 @@ impl RenderableCell {
             .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
         let mut is_match = false;
 
+        let colors = &content.config.ui_config.colors;
         if is_selected {
-            let config_bg = content.config.colors.selection.background;
-            let selected_fg = content.config.colors.selection.foreground.color(fg_rgb, bg_rgb);
+            let config_bg = colors.selection.background;
+            let selected_fg = colors.selection.foreground.color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = selected_fg;
 
             if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
-                fg_rgb = colors[NamedColor::Background];
-                bg_rgb = colors[NamedColor::Foreground];
+                fg_rgb = content.color(NamedColor::Background as usize);
+                bg_rgb = content.color(NamedColor::Foreground as usize);
                 bg_alpha = 1.0;
             } else if config_bg != CellRgb::CellBackground {
                 bg_alpha = 1.0;
             }
         } else if content.search.advance(cell.point) {
             // Highlight the cell if it is part of a search match.
-            let config_bg = content.config.colors.search.matches.background;
-            let matched_fg = content.config.colors.search.matches.foreground.color(fg_rgb, bg_rgb);
+            let config_bg = colors.search.matches.background;
+            let matched_fg = colors.search.matches.foreground.color(fg_rgb, bg_rgb);
             bg_rgb = config_bg.color(fg_rgb, bg_rgb);
             fg_rgb = matched_fg;
 
@@ -241,32 +243,35 @@ impl RenderableCell {
     }
 
     /// Get the RGB color from a cell's foreground color.
-    fn compute_fg_rgb<C>(config: &Config<C>, colors: &color::List, fg: Color, flags: Flags) -> Rgb {
+    fn compute_fg_rgb(content: &mut RenderableContent<'_>, fg: Color, flags: Flags) -> Rgb {
+        let ui_config = &content.config.ui_config;
         match fg {
             Color::Spec(rgb) => match flags & Flags::DIM {
                 Flags::DIM => rgb * DIM_FACTOR,
                 _ => rgb,
             },
             Color::Named(ansi) => {
-                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
+                match (ui_config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
                     (_, Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
-                            && config.colors.primary.bright_foreground.is_none() =>
+                            && ui_config.colors.primary.bright_foreground.is_none() =>
                     {
-                        colors[NamedColor::DimForeground]
+                        content.color(NamedColor::DimForeground as usize)
                     },
                     // Draw bold text in bright colors *and* contains bold flag.
-                    (true, Flags::BOLD) => colors[ansi.to_bright()],
+                    (true, Flags::BOLD) => content.color(ansi.to_bright() as usize),
                     // Cell is marked as dim and not bold.
-                    (_, Flags::DIM) | (false, Flags::DIM_BOLD) => colors[ansi.to_dim()],
+                    (_, Flags::DIM) | (false, Flags::DIM_BOLD) => {
+                        content.color(ansi.to_dim() as usize)
+                    },
                     // None of the above, keep original color..
-                    _ => colors[ansi],
+                    _ => content.color(ansi as usize),
                 }
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    config.draw_bold_text_with_bright_colors,
+                    ui_config.draw_bold_text_with_bright_colors,
                     flags & Flags::DIM_BOLD,
                     idx,
                 ) {
@@ -276,18 +281,18 @@ impl RenderableCell {
                     _ => idx as usize,
                 };
 
-                colors[idx]
+                content.color(idx)
             },
         }
     }
 
     /// Get the RGB color from a cell's background color.
     #[inline]
-    fn compute_bg_rgb(colors: &color::List, bg: Color) -> Rgb {
+    fn compute_bg_rgb(content: &mut RenderableContent<'_>, bg: Color) -> Rgb {
         match bg {
             Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => colors[ansi],
-            Color::Indexed(idx) => colors[idx],
+            Color::Named(ansi) => content.color(ansi as usize),
+            Color::Indexed(idx) => content.color(idx as usize),
         }
     }
 

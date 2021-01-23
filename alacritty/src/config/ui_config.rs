@@ -8,6 +8,7 @@ use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding};
+use crate::config::color::Colors;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
 use crate::config::mouse::Mouse;
@@ -34,6 +35,12 @@ pub struct UIConfig {
 
     /// Bell configuration.
     pub bell: BellConfig,
+
+    /// RGB values for colors.
+    pub colors: Colors,
+
+    /// Should draw bold text with brighter colors instead of bold font.
+    pub draw_bold_text_with_bright_colors: bool,
 
     /// Path where config was loaded from.
     #[config(skip)]
@@ -63,6 +70,8 @@ impl Default for UIConfig {
             mouse_bindings: Default::default(),
             background_opacity: Default::default(),
             bell: Default::default(),
+            colors: Default::default(),
+            draw_bold_text_with_bright_colors: Default::default(),
         }
     }
 }

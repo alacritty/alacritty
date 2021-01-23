@@ -1,7 +1,8 @@
 use glutin::platform::unix::{ARGBColor, Button, ButtonState, Element, Theme as WaylandTheme};
 
-use alacritty_terminal::config::Colors;
 use alacritty_terminal::term::color::Rgb;
+
+use crate::config::color::Colors;
 
 const INACTIVE_OPACITY: u8 = 127;
 

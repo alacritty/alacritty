@@ -14,8 +14,7 @@ use {
     wayland_client::{Attached, EventQueue, Proxy},
     glutin::platform::unix::EventLoopWindowTargetExtUnix,
 
-    alacritty_terminal::config::Colors,
-
+    crate::config::color::Colors,
     crate::display::wayland_theme::AlacrittyWaylandTheme,
 };
 
@@ -206,7 +205,7 @@ impl Window {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let wayland_surface = if is_wayland {
             // Apply client side decorations theme.
-            let theme = AlacrittyWaylandTheme::new(&config.colors);
+            let theme = AlacrittyWaylandTheme::new(&config.ui_config.colors);
             windowed_context.window().set_wayland_theme(theme);
 
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
