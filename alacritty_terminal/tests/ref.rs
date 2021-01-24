@@ -84,7 +84,9 @@ struct RefConfig {
     history_size: u32,
 }
 
+#[derive(Copy, Clone)]
 struct Mock;
+
 impl EventListener for Mock {
     fn send_event(&self, _event: Event) {}
 }

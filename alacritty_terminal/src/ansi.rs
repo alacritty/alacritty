@@ -306,7 +306,7 @@ pub trait Handler {
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
     /// Write a foreground/background color escape sequence with the current color.
-    fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize, _: &str) {}
+    fn dynamic_color_sequence(&mut self, _: u8, _: usize, _: &str) {}
 
     /// Reset an indexed color to original value.
     fn reset_color(&mut self, _: usize) {}
@@ -778,10 +778,10 @@ where
     }
 
     #[inline]
-    fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, _c: char) {
+    fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, action: char) {
         debug!(
-            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
-            params, intermediates, ignore
+            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
+            params, intermediates, ignore, action
         );
     }
 
@@ -798,7 +798,6 @@ where
     // TODO replace OSC parsing with parser combinators.
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]], bell_terminated: bool) {
-        let writer = &mut self.writer;
         let terminator = if bell_terminated { "\x07" } else { "\x1b\\" };
 
         fn unhandled(params: &[&[u8]]) {
@@ -868,7 +867,6 @@ where
                                 self.handler.set_color(index, color);
                             } else if param == b"?" {
                                 self.handler.dynamic_color_sequence(
-                                    writer,
                                     dynamic_code,
                                     index,
                                     terminator,

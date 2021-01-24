@@ -10,10 +10,10 @@ use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
 
 use crate::ansi::CursorShape;
-use crate::grid::{Dimensions, Grid, GridCell};
+use crate::grid::{Dimensions, GridCell, Indexed};
 use crate::index::{Column, Line, Point, Side};
-use crate::term::cell::Flags;
-use crate::term::Term;
+use crate::term::cell::{Cell, Flags};
+use crate::term::{RenderableCursor, Term};
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -43,68 +43,42 @@ impl<L> SelectionRange<L> {
     pub fn new(start: Point<L>, end: Point<L>, is_block: bool) -> Self {
         Self { start, end, is_block }
     }
-
-    /// Check if a point lies within the selection.
-    pub fn contains(&self, point: Point<L>) -> bool
-    where
-        L: PartialEq + PartialOrd,
-    {
-        self.start.line <= point.line
-            && self.end.line >= point.line
-            && (self.start.col <= point.col || (self.start.line != point.line && !self.is_block))
-            && (self.end.col >= point.col || (self.end.line != point.line && !self.is_block))
-    }
 }
 
 impl SelectionRange<Line> {
+    /// Check if a point lies within the selection.
+    pub fn contains(&self, point: Point) -> bool {
+        self.start.line <= point.line
+            && self.end.line >= point.line
+            && (self.start.column <= point.column
+                || (self.start.line != point.line && !self.is_block))
+            && (self.end.column >= point.column || (self.end.line != point.line && !self.is_block))
+    }
+
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell<T>(
-        &self,
-        grid: &Grid<T>,
-        point: Point,
-        cursor_point: Point,
-        cursor_shape: CursorShape,
-    ) -> bool
-    where
-        T: GridCell,
-    {
+    pub fn contains_cell(&self, indexed: &Indexed<&Cell, Line>, cursor: RenderableCursor) -> bool {
         // Do not invert block cursor at selection boundaries.
-        if cursor_shape == CursorShape::Block
-            && cursor_point == point
-            && (self.start == point
-                || self.end == point
+        if cursor.shape == CursorShape::Block
+            && cursor.point == indexed.point
+            && (self.start == indexed.point
+                || self.end == indexed.point
                 || (self.is_block
-                    && ((self.start.line == point.line && self.end.col == point.col)
-                        || (self.end.line == point.line && self.start.col == point.col))))
+                    && ((self.start.line == indexed.point.line
+                        && self.end.column == indexed.point.column)
+                        || (self.end.line == indexed.point.line
+                            && self.start.column == indexed.point.column))))
         {
             return false;
         }
 
         // Point itself is selected.
-        if self.contains(point) {
+        if self.contains(indexed.point) {
             return true;
         }
 
-        let num_cols = grid.cols();
-
-        // Convert to absolute coordinates to adjust for the display offset.
-        let buffer_point = grid.visible_to_buffer(point);
-        let cell = &grid[buffer_point];
-
-        // Check if wide char's spacers are selected.
-        if cell.flags().contains(Flags::WIDE_CHAR) {
-            let prev = point.sub(num_cols, 1);
-            let buffer_prev = grid.visible_to_buffer(prev);
-            let next = point.add(num_cols, 1);
-
-            // Check trailing spacer.
-            self.contains(next)
-                // Check line-wrapping, leading spacer.
-                || (grid[buffer_prev].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER)
-                    && self.contains(prev))
-        } else {
-            false
-        }
+        // Check if a wide char's trailing spacer is selected.
+        indexed.cell.flags().contains(Flags::WIDE_CHAR)
+            && self.contains(Point::new(indexed.point.line, indexed.point.column + 1))
     }
 }
 
@@ -184,7 +158,7 @@ impl Selection {
             // Clamp selection to start of region.
             if start.point.line >= range_top && range_top != num_lines {
                 if self.ty != SelectionType::Block {
-                    start.point.col = Column(0);
+                    start.point.column = Column(0);
                     start.side = Side::Left;
                 }
                 start.point.line = range_top - 1;
@@ -204,7 +178,7 @@ impl Selection {
             // Clamp selection to end of region.
             if end.point.line < range_bottom {
                 if self.ty != SelectionType::Block {
-                    end.point.col = Column(num_cols - 1);
+                    end.point.column = Column(num_cols - 1);
                     end.side = Side::Right;
                 }
                 end.point.line = range_bottom;
@@ -228,7 +202,7 @@ impl Selection {
                     || (start.side == Side::Right
                         && end.side == Side::Left
                         && (start.point.line == end.point.line)
-                        && start.point.col + 1 == end.point.col)
+                        && start.point.column + 1 == end.point.column)
             },
             SelectionType::Block => {
                 let (start, end) = (self.region.start, self.region.end);
@@ -236,11 +210,11 @@ impl Selection {
                 // Block selection is empty when the points' columns and sides are identical
                 // or two cells with adjacent columns have the sides right -> left,
                 // regardless of their lines
-                (start.point.col == end.point.col && start.side == end.side)
-                    || (start.point.col + 1 == end.point.col
+                (start.point.column == end.point.column && start.side == end.side)
+                    || (start.point.column + 1 == end.point.column
                         && start.side == Side::Right
                         && end.side == Side::Left)
-                    || (end.point.col + 1 == start.point.col
+                    || (end.point.column + 1 == start.point.column
                         && start.side == Side::Left
                         && end.side == Side::Right)
             },
@@ -277,7 +251,8 @@ impl Selection {
         let (start, end) = (self.region.start.point, self.region.end.point);
         let (start_side, end_side) = match self.ty {
             SelectionType::Block
-                if start.col > end.col || (start.col == end.col && start.line < end.line) =>
+                if start.column > end.column
+                    || (start.column == end.column && start.line < end.line) =>
             {
                 (Side::Right, Side::Left)
             },
@@ -317,7 +292,7 @@ impl Selection {
 
     /// Bring start and end points in the correct order.
     fn points_need_swap(start: Point<usize>, end: Point<usize>) -> bool {
-        start.line < end.line || start.line == end.line && start.col > end.col
+        start.line < end.line || start.line == end.line && start.column > end.column
     }
 
     /// Clamp selection inside grid to prevent OOB.
@@ -337,7 +312,7 @@ impl Selection {
             // Clamp to grid if it is still partially visible.
             if !is_block {
                 start.side = Side::Left;
-                start.point.col = Column(0);
+                start.point.column = Column(0);
             }
             start.point.line = lines - 1;
         }
@@ -352,7 +327,7 @@ impl Selection {
     ) -> SelectionRange {
         if start == end {
             if let Some(matching) = term.bracket_search(start) {
-                if (matching.line == start.line && matching.col < start.col)
+                if (matching.line == start.line && matching.column < start.column)
                     || (matching.line > start.line)
                 {
                     start = matching;
@@ -394,20 +369,20 @@ impl Selection {
         // Remove last cell if selection ends to the left of a cell.
         if end.side == Side::Left && start.point != end.point {
             // Special case when selection ends to left of first cell.
-            if end.point.col == Column(0) {
-                end.point.col = num_cols - 1;
+            if end.point.column == Column(0) {
+                end.point.column = num_cols - 1;
                 end.point.line += 1;
             } else {
-                end.point.col -= 1;
+                end.point.column -= 1;
             }
         }
 
         // Remove first cell if selection starts at the right of a cell.
         if start.side == Side::Right && start.point != end.point {
-            start.point.col += 1;
+            start.point.column += 1;
 
             // Wrap to next line when selection starts to the right of last column.
-            if start.point.col == num_cols {
+            if start.point.column == num_cols {
                 start.point = Point::new(start.point.line.saturating_sub(1), Column(0));
             }
         }
@@ -421,19 +396,19 @@ impl Selection {
         }
 
         // Always go top-left -> bottom-right.
-        if start.point.col > end.point.col {
+        if start.point.column > end.point.column {
             mem::swap(&mut start.side, &mut end.side);
-            mem::swap(&mut start.point.col, &mut end.point.col);
+            mem::swap(&mut start.point.column, &mut end.point.column);
         }
 
         // Remove last cell if selection ends to the left of a cell.
-        if end.side == Side::Left && start.point != end.point && end.point.col.0 > 0 {
-            end.point.col -= 1;
+        if end.side == Side::Left && start.point != end.point && end.point.column.0 > 0 {
+            end.point.column -= 1;
         }
 
         // Remove first cell if selection starts at the right of a cell.
         if start.side == Side::Right && start.point != end.point {
-            start.point.col += 1;
+            start.point.column += 1;
         }
 
         Some(SelectionRange { start: start.point, end: end.point, is_block: true })
@@ -454,18 +429,12 @@ mod tests {
     use super::*;
 
     use crate::config::MockConfig;
-    use crate::event::{Event, EventListener};
     use crate::index::{Column, Line, Point, Side};
     use crate::term::{SizeInfo, Term};
 
-    struct Mock;
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
-    fn term(height: usize, width: usize) -> Term<Mock> {
+    fn term(height: usize, width: usize) -> Term<()> {
         let size = SizeInfo::new(width as f32, height as f32, 1.0, 1.0, 0.0, 0.0, false);
-        Term::new(&MockConfig::default(), size, Mock)
+        Term::new(&MockConfig::default(), size, ())
     }
 
     /// Test case of single cell selection.
@@ -475,7 +444,7 @@ mod tests {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Point { line: 0, col: Column(0) };
+        let location = Point { line: 0, column: Column(0) };
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Left);
         selection.update(location, Side::Right);
 
@@ -493,7 +462,7 @@ mod tests {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Point { line: 0, col: Column(0) };
+        let location = Point { line: 0, column: Column(0) };
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Right);
         selection.update(location, Side::Left);
 

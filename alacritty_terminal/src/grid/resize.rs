@@ -113,7 +113,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Remove the linewrap special case, by moving the cursor outside of the grid.
         if self.cursor.input_needs_wrap && reflow {
             self.cursor.input_needs_wrap = false;
-            self.cursor.point.col += 1;
+            self.cursor.point.column += 1;
         }
 
         let mut rows = self.raw.take_all();
@@ -171,11 +171,11 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 let mut target = self.cursor.point.sub(cols, num_wrapped);
 
                 // Clamp to the last column, if no content was reflown with the cursor.
-                if target.col.0 == 0 && row.is_clear() {
+                if target.column.0 == 0 && row.is_clear() {
                     self.cursor.input_needs_wrap = true;
                     target = target.sub(cols, 1);
                 }
-                self.cursor.point.col = target.col;
+                self.cursor.point.column = target.column;
 
                 // Get required cursor line changes. Since `num_wrapped` is smaller than `cols`
                 // this will always be either `0` or `1`.
@@ -248,7 +248,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Remove the linewrap special case, by moving the cursor outside of the grid.
         if self.cursor.input_needs_wrap && reflow {
             self.cursor.input_needs_wrap = false;
-            self.cursor.point.col += 1;
+            self.cursor.point.column += 1;
         }
 
         let mut new_raw = Vec::with_capacity(self.raw.len());
@@ -262,7 +262,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 // width it is then later reflown.
                 let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
                 if i == cursor_buffer_line {
-                    self.cursor.point.col += buffered.len();
+                    self.cursor.point.column += buffered.len();
                 }
 
                 row.append_front(buffered);
@@ -274,7 +274,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                     Some(wrapped) if reflow => wrapped,
                     _ => {
                         let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-                        if reflow && i == cursor_buffer_line && self.cursor.point.col > cols {
+                        if reflow && i == cursor_buffer_line && self.cursor.point.column > cols {
                             // If there are empty cells before the cursor, we assume it is explicit
                             // whitespace and need to wrap it like normal content.
                             Vec::new()
@@ -333,17 +333,17 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 } else {
                     // Reflow cursor if a line below it is deleted.
                     let cursor_buffer_line = (self.lines - self.cursor.point.line - 1).0;
-                    if (i == cursor_buffer_line && self.cursor.point.col < cols)
+                    if (i == cursor_buffer_line && self.cursor.point.column < cols)
                         || i < cursor_buffer_line
                     {
                         self.cursor.point.line.0 = self.cursor.point.line.saturating_sub(1);
                     }
 
                     // Reflow the cursor if it is on this line beyond the width.
-                    if i == cursor_buffer_line && self.cursor.point.col >= cols {
+                    if i == cursor_buffer_line && self.cursor.point.column >= cols {
                         // Since only a single new line is created, we subtract only `cols`
                         // from the cursor instead of reflowing it completely.
-                        self.cursor.point.col -= cols;
+                        self.cursor.point.column -= cols;
                     }
 
                     // Make sure new row is at least as long as new width.
@@ -363,17 +363,17 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
         // Reflow the primary cursor, or clamp it if reflow is disabled.
         if !reflow {
-            self.cursor.point.col = min(self.cursor.point.col, cols - 1);
-        } else if self.cursor.point.col == cols
+            self.cursor.point.column = min(self.cursor.point.column, cols - 1);
+        } else if self.cursor.point.column == cols
             && !self[self.cursor.point.line][cols - 1].flags().contains(Flags::WRAPLINE)
         {
             self.cursor.input_needs_wrap = true;
-            self.cursor.point.col -= 1;
+            self.cursor.point.column -= 1;
         } else {
             self.cursor.point = self.cursor.point.add(cols, 0);
         }
 
         // Clamp the saved cursor to the grid.
-        self.saved_cursor.point.col = min(self.saved_cursor.point.col, cols - 1);
+        self.saved_cursor.point.column = min(self.saved_cursor.point.column, cols - 1);
     }
 }

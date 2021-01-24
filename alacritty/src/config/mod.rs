@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
 use log::{error, info};
@@ -9,6 +9,8 @@ use serde_yaml::Value;
 
 use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
+pub mod bell;
+pub mod color;
 pub mod debug;
 pub mod font;
 pub mod monitor;
@@ -123,10 +125,10 @@ pub fn load(options: &Options) -> Config {
 }
 
 /// Attempt to reload the configuration file.
-pub fn reload(config_path: &PathBuf, options: &Options) -> Result<Config> {
+pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
     // Load config, propagating errors.
     let config_options = options.config_options().clone();
-    let mut config = load_from(&config_path, config_options)?;
+    let mut config = load_from(config_path, config_options)?;
 
     // Override config with CLI options.
     options.override_config(&mut config);
@@ -135,7 +137,7 @@ pub fn reload(config_path: &PathBuf, options: &Options) -> Result<Config> {
 }
 
 /// Load configuration file and log errors.
-fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
+fn load_from(path: &Path, cli_config: Value) -> Result<Config> {
     match read_config(path, cli_config) {
         Ok(config) => Ok(config),
         Err(err) => {
@@ -146,7 +148,7 @@ fn load_from(path: &PathBuf, cli_config: Value) -> Result<Config> {
 }
 
 /// Deserialize configuration file from path.
-fn read_config(path: &PathBuf, cli_config: Value) -> Result<Config> {
+fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     let mut config_paths = Vec::new();
     let mut config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
@@ -162,7 +164,7 @@ fn read_config(path: &PathBuf, cli_config: Value) -> Result<Config> {
 
 /// Deserialize all configuration files as generic Value.
 fn parse_config(
-    path: &PathBuf,
+    path: &Path,
     config_paths: &mut Vec<PathBuf>,
     recursion_limit: usize,
 ) -> Result<Value> {

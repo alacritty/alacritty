@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use alacritty_config_derive::ConfigDeserialize;
 
-use crate::config::Program;
-use crate::term::color::Rgb;
+use alacritty_terminal::config::Program;
+use alacritty_terminal::term::color::Rgb;
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct BellConfig {

@@ -8,7 +8,6 @@ use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
 use serde::{Deserialize, Serialize};
 
 use crate::grid::Dimensions;
-use crate::term::render::RenderableCell;
 
 /// The side of a cell.
 pub type Side = Direction;
@@ -48,12 +47,12 @@ pub enum Boundary {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
 pub struct Point<L = Line> {
     pub line: L,
-    pub col: Column,
+    pub column: Column,
 }
 
 impl<L> Point<L> {
     pub fn new(line: L, col: Column) -> Point<L> {
-        Point { line, col }
+        Point { line, column: col }
     }
 
     #[inline]
@@ -63,10 +62,10 @@ impl<L> Point<L> {
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let num_cols = num_cols.0;
-        let line_changes = (rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols;
+        let line_changes = (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
         if self.line.into() >= Line(line_changes) {
             self.line = self.line - line_changes;
-            self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
+            self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
             self
         } else {
             Point::new(L::default(), Column(0))
@@ -80,8 +79,8 @@ impl<L> Point<L> {
         L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let num_cols = num_cols.0;
-        self.line = self.line + (rhs + self.col.0) / num_cols;
-        self.col = Column((self.col.0 + rhs) % num_cols);
+        self.line = self.line + (rhs + self.column.0) / num_cols;
+        self.column = Column((self.column.0 + rhs) % num_cols);
         self
     }
 }
@@ -96,13 +95,13 @@ impl Point<usize> {
         let total_lines = dimensions.total_lines();
         let num_cols = dimensions.cols().0;
 
-        self.line += (rhs + num_cols - 1).saturating_sub(self.col.0) / num_cols;
-        self.col = Column((num_cols + self.col.0 - rhs % num_cols) % num_cols);
+        self.line += (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
+        self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
 
         if self.line >= total_lines {
             match boundary {
                 Boundary::Clamp => Point::new(total_lines - 1, Column(0)),
-                Boundary::Wrap => Point::new(self.line - total_lines, self.col),
+                Boundary::Wrap => Point::new(self.line - total_lines, self.column),
             }
         } else {
             self
@@ -117,17 +116,17 @@ impl Point<usize> {
     {
         let num_cols = dimensions.cols();
 
-        let line_delta = (rhs + self.col.0) / num_cols.0;
+        let line_delta = (rhs + self.column.0) / num_cols.0;
 
         if self.line >= line_delta {
             self.line -= line_delta;
-            self.col = Column((self.col.0 + rhs) % num_cols.0);
+            self.column = Column((self.column.0 + rhs) % num_cols.0);
             self
         } else {
             match boundary {
                 Boundary::Clamp => Point::new(0, num_cols - 1),
                 Boundary::Wrap => {
-                    let col = Column((self.col.0 + rhs) % num_cols.0);
+                    let col = Column((self.column.0 + rhs) % num_cols.0);
                     let line = dimensions.total_lines() + self.line - line_delta;
                     Point::new(line, col)
                 },
@@ -144,7 +143,7 @@ impl PartialOrd for Point {
 
 impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
-        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+        match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
             (Ordering::Equal, ord) | (ord, _) => ord,
         }
     }
@@ -158,7 +157,7 @@ impl PartialOrd for Point<usize> {
 
 impl Ord for Point<usize> {
     fn cmp(&self, other: &Point<usize>) -> Ordering {
-        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+        match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
             (Ordering::Equal, ord) => ord,
             (Ordering::Less, _) => Ordering::Greater,
             (Ordering::Greater, _) => Ordering::Less,
@@ -168,31 +167,25 @@ impl Ord for Point<usize> {
 
 impl From<Point<usize>> for Point<isize> {
     fn from(point: Point<usize>) -> Self {
-        Point::new(point.line as isize, point.col)
+        Point::new(point.line as isize, point.column)
     }
 }
 
 impl From<Point<usize>> for Point<Line> {
     fn from(point: Point<usize>) -> Self {
-        Point::new(Line(point.line), point.col)
+        Point::new(Line(point.line), point.column)
     }
 }
 
 impl From<Point<isize>> for Point<usize> {
     fn from(point: Point<isize>) -> Self {
-        Point::new(point.line as usize, point.col)
+        Point::new(point.line as usize, point.column)
     }
 }
 
 impl From<Point> for Point<usize> {
     fn from(point: Point) -> Self {
-        Point::new(point.line.0, point.col)
-    }
-}
-
-impl From<&RenderableCell> for Point<Line> {
-    fn from(cell: &RenderableCell) -> Self {
-        Point::new(cell.line, cell.column)
+        Point::new(point.line.0, point.column)
     }
 }
 
@@ -485,7 +478,7 @@ mod tests {
 
         let result = point.sub(num_cols, 1);
 
-        assert_eq!(result, Point::new(0, point.col - 1));
+        assert_eq!(result, Point::new(0, point.column - 1));
     }
 
     #[test]
@@ -515,7 +508,7 @@ mod tests {
 
         let result = point.add(num_cols, 1);
 
-        assert_eq!(result, Point::new(0, point.col + 1));
+        assert_eq!(result, Point::new(0, point.column + 1));
     }
 
     #[test]
@@ -534,7 +527,7 @@ mod tests {
 
         let result = point.add_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
 
-        assert_eq!(result, Point::new(0, point.col + 1));
+        assert_eq!(result, Point::new(0, point.column + 1));
     }
 
     #[test]
@@ -588,7 +581,7 @@ mod tests {
 
         let result = point.sub_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
 
-        assert_eq!(result, Point::new(0, point.col - 1));
+        assert_eq!(result, Point::new(0, point.column - 1));
     }
 
     #[test]

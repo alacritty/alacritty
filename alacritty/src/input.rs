@@ -26,17 +26,18 @@ use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::SelectionType;
+use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, Binding, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
+use crate::display::window::Window;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
-use crate::window::Window;
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -54,20 +55,20 @@ const SELECTION_SCROLLING_STEP: f64 = 20.;
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
 /// are activated.
-pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
+pub struct Processor<T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
-    pub highlighted_url: &'a Option<Url>,
     _phantom: PhantomData<T>,
 }
 
 pub trait ActionContext<T: EventListener> {
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, data: B);
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _data: B) {}
+    fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&mut self, ty: ClipboardType);
-    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side);
-    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side);
-    fn update_selection(&mut self, point: Point, side: Side);
-    fn clear_selection(&mut self);
+    fn copy_selection(&mut self, _ty: ClipboardType) {}
+    fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
+    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
+    fn update_selection(&mut self, _point: Point, _side: Side) {}
+    fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
@@ -75,34 +76,42 @@ pub trait ActionContext<T: EventListener> {
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
-    fn scroll(&mut self, scroll: Scroll);
+    fn scroll(&mut self, _scroll: Scroll) {}
     fn window(&self) -> &Window;
     fn window_mut(&mut self) -> &mut Window;
     fn terminal(&self) -> &Term<T>;
     fn terminal_mut(&mut self) -> &mut Term<T>;
-    fn spawn_new_instance(&mut self);
-    fn change_font_size(&mut self, delta: f32);
-    fn reset_font_size(&mut self);
-    fn pop_message(&mut self);
+    fn spawn_new_instance(&mut self) {}
+    fn change_font_size(&mut self, _delta: f32) {}
+    fn reset_font_size(&mut self) {}
+    fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn urls(&self) -> &Urls;
-    fn launch_url(&self, url: Url);
+    fn launch_url(&self, _url: Url) {}
+    fn highlighted_url(&self) -> Option<&Url>;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
-    fn start_search(&mut self, direction: Direction);
-    fn confirm_search(&mut self);
-    fn cancel_search(&mut self);
-    fn search_input(&mut self, c: char);
-    fn search_pop_word(&mut self);
-    fn search_history_previous(&mut self);
-    fn search_history_next(&mut self);
-    fn advance_search_origin(&mut self, direction: Direction);
+    fn start_search(&mut self, _direction: Direction) {}
+    fn confirm_search(&mut self) {}
+    fn cancel_search(&mut self) {}
+    fn search_input(&mut self, _c: char) {}
+    fn search_pop_word(&mut self) {}
+    fn search_history_previous(&mut self) {}
+    fn search_history_next(&mut self) {}
+    fn search_next(
+        &mut self,
+        origin: Point<usize>,
+        direction: Direction,
+        side: Side,
+    ) -> Option<Match>;
+    fn advance_search_origin(&mut self, _direction: Direction) {}
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
-    fn on_typing_start(&mut self);
+    fn on_typing_start(&mut self) {}
+    fn toggle_vi_mode(&mut self) {}
 }
 
 trait Execute<T: EventListener> {
@@ -120,8 +129,8 @@ impl<T, U: EventListener> Execute<U> for Binding<T> {
 impl Action {
     fn toggle_selection<T, A>(ctx: &mut A, ty: SelectionType)
     where
-        T: EventListener,
         A: ActionContext<T>,
+        T: EventListener,
     {
         let cursor_point = ctx.terminal().vi_mode_cursor.point;
         ctx.toggle_selection(ty, cursor_point, Side::Left);
@@ -151,10 +160,11 @@ impl<T: EventListener> Execute<T> for Action {
 
                 start_daemon(program, args);
             },
-            Action::ToggleViMode => ctx.terminal_mut().toggle_vi_mode(),
+            Action::ToggleViMode => ctx.toggle_vi_mode(),
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
-                ctx.terminal_mut().vi_motion(motion)
+                ctx.terminal_mut().vi_motion(motion);
+                ctx.mark_dirty();
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Simple)
@@ -183,9 +193,9 @@ impl<T: EventListener> Execute<T> for Action {
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
-                let regex_match = terminal.search_next(origin, direction, Side::Left, None);
-                if let Some(regex_match) = regex_match {
+                if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchPrevious) => {
@@ -197,9 +207,9 @@ impl<T: EventListener> Execute<T> for Action {
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
-                let regex_match = terminal.search_next(origin, direction, Side::Left, None);
-                if let Some(regex_match) = regex_match {
+                if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchStart) => {
@@ -208,9 +218,9 @@ impl<T: EventListener> Execute<T> for Action {
                     .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .sub_absolute(terminal, Boundary::Wrap, 1);
 
-                let regex_match = terminal.search_next(origin, Direction::Left, Side::Left, None);
-                if let Some(regex_match) = regex_match {
+                if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchEnd) => {
@@ -219,9 +229,9 @@ impl<T: EventListener> Execute<T> for Action {
                     .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .add_absolute(terminal, Boundary::Wrap, 1);
 
-                let regex_match = terminal.search_next(origin, Direction::Right, Side::Right, None);
-                if let Some(regex_match) = regex_match {
+                if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
+                    ctx.mark_dirty();
                 }
             },
             Action::SearchAction(SearchAction::SearchFocusNext) => {
@@ -328,6 +338,7 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move vi mode cursor.
                 ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
+                ctx.mark_dirty();
             },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
@@ -339,6 +350,7 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
                 term.vi_motion(ViMotion::FirstOccupied);
+                ctx.mark_dirty();
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
@@ -387,9 +399,9 @@ impl From<MouseState> for CursorIcon {
     }
 }
 
-impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
-    pub fn new(ctx: A, highlighted_url: &'a Option<Url>) -> Self {
-        Self { ctx, highlighted_url, _phantom: Default::default() }
+impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
+    pub fn new(ctx: A) -> Self {
+        Self { ctx, _phantom: Default::default() }
     }
 
     #[inline]
@@ -415,7 +427,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let cell_side = self.get_mouse_side();
 
         let cell_changed =
-            point.line != self.ctx.mouse().line || point.col != self.ctx.mouse().column;
+            point.line != self.ctx.mouse().line || point.column != self.ctx.mouse().column;
 
         // Update mouse state and check for URL change.
         let mouse_state = self.mouse_state();
@@ -433,7 +445,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
         self.ctx.mouse_mut().line = point.line;
-        self.ctx.mouse_mut().column = point.col;
+        self.ctx.mouse_mut().column = point.column;
 
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_url_launcher = true;
@@ -757,7 +769,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             // Try to restore vi mode cursor position, to keep it above its previous content.
             let term = self.ctx.terminal_mut();
             term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible(absolute);
-            term.vi_mode_cursor.point.col = absolute.col;
+            term.vi_mode_cursor.point.column = absolute.column;
 
             // Update selection.
             if term.mode().contains(TermMode::VI) {
@@ -986,12 +998,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     /// Trigger redraw when URL highlight changed.
     #[inline]
     fn update_url_state(&mut self, mouse_state: &MouseState) {
+        let highlighted_url = self.ctx.highlighted_url();
         if let MouseState::Url(url) = mouse_state {
-            if Some(url) != self.highlighted_url.as_ref() {
-                self.ctx.terminal_mut().dirty = true;
+            if Some(url) != highlighted_url {
+                self.ctx.mark_dirty();
             }
-        } else if self.highlighted_url.is_some() {
-            self.ctx.terminal_mut().dirty = true;
+        } else if highlighted_url.is_some() {
+            self.ctx.mark_dirty();
         }
     }
 
@@ -1084,10 +1097,7 @@ mod tests {
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
     struct MockEventProxy;
-
-    impl EventListener for MockEventProxy {
-        fn send_event(&self, _event: TerminalEvent) {}
-    }
+    impl EventListener for MockEventProxy {}
 
     struct ActionContext<'a, T> {
         pub terminal: &'a mut Term<T>,
@@ -1103,39 +1113,14 @@ mod tests {
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
-        fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
-
-        fn update_selection(&mut self, _point: Point, _side: Side) {}
-
-        fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-
-        fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-
-        fn copy_selection(&mut self, _: ClipboardType) {}
-
-        fn clear_selection(&mut self) {}
-
-        fn spawn_new_instance(&mut self) {}
-
-        fn change_font_size(&mut self, _delta: f32) {}
-
-        fn reset_font_size(&mut self) {}
-
-        fn start_search(&mut self, _direction: Direction) {}
-
-        fn confirm_search(&mut self) {}
-
-        fn cancel_search(&mut self) {}
-
-        fn search_input(&mut self, _c: char) {}
-
-        fn search_pop_word(&mut self) {}
-
-        fn search_history_previous(&mut self) {}
-
-        fn search_history_next(&mut self) {}
-
-        fn advance_search_origin(&mut self, _direction: Direction) {}
+        fn search_next(
+            &mut self,
+            _origin: Point<usize>,
+            _direction: Direction,
+            _side: Side,
+        ) -> Option<Match> {
+            None
+        }
 
         fn search_direction(&self) -> Direction {
             Direction::Right
@@ -1234,15 +1219,11 @@ mod tests {
             unimplemented!();
         }
 
-        fn launch_url(&self, _: Url) {
+        fn highlighted_url(&self) -> Option<&Url> {
             unimplemented!();
         }
 
         fn scheduler_mut(&mut self) -> &mut Scheduler {
-            unimplemented!();
-        }
-
-        fn on_typing_start(&mut self) {
             unimplemented!();
         }
     }
@@ -1293,7 +1274,7 @@ mod tests {
                     config: &cfg,
                 };
 
-                let mut processor = Processor::new(context, &None);
+                let mut processor = Processor::new(context);
 
                 let event: GlutinEvent::<'_, TerminalEvent> = $input;
                 if let GlutinEvent::WindowEvent {

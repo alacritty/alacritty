@@ -8,10 +8,10 @@ use urlocator::{UrlLocation, UrlLocator};
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::render::RenderableCell;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::Config;
+use crate::display::content::RenderableCell;
 use crate::event::Mouse;
 use crate::renderer::rects::{RenderLine, RenderRect};
 
@@ -73,12 +73,12 @@ impl Urls {
 
     // Update tracked URLs.
     pub fn update(&mut self, num_cols: Column, cell: &RenderableCell) {
-        let point: Point = cell.into();
+        let point = cell.point;
         let mut end = point;
 
         // Include the following wide char spacer.
         if cell.flags.contains(Flags::WIDE_CHAR) {
-            end.col += 1;
+            end.column += 1;
         }
 
         // Reset URL when empty cells have been skipped.
@@ -119,13 +119,13 @@ impl Urls {
             (UrlLocation::Url(_length, end_offset), UrlLocation::Url(..)) => {
                 self.extend_url(point, end, cell.fg, end_offset);
             },
-            (UrlLocation::Scheme, _) => self.scheme_buffer.push((cell.into(), cell.fg)),
+            (UrlLocation::Scheme, _) => self.scheme_buffer.push((cell.point, cell.fg)),
             (UrlLocation::Reset, _) => self.reset(),
             _ => (),
         }
 
         // Reset at un-wrapped linebreak.
-        if cell.column + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
+        if cell.point.column + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
             self.reset();
         }
     }
@@ -202,8 +202,7 @@ mod tests {
             .map(|(i, character)| RenderableCell {
                 character,
                 zerowidth: None,
-                line: Line(0),
-                column: Column(i),
+                point: Point::new(Line(0), Column(i)),
                 fg: Default::default(),
                 bg: Default::default(),
                 bg_alpha: 0.,
@@ -227,8 +226,8 @@ mod tests {
         }
 
         let url = urls.urls.first().unwrap();
-        assert_eq!(url.start().col, Column(5));
-        assert_eq!(url.end().col, Column(23));
+        assert_eq!(url.start().column, Column(5));
+        assert_eq!(url.end().column, Column(23));
     }
 
     #[test]
@@ -244,14 +243,14 @@ mod tests {
 
         assert_eq!(urls.urls.len(), 3);
 
-        assert_eq!(urls.urls[0].start().col, Column(5));
-        assert_eq!(urls.urls[0].end().col, Column(9));
+        assert_eq!(urls.urls[0].start().column, Column(5));
+        assert_eq!(urls.urls[0].end().column, Column(9));
 
-        assert_eq!(urls.urls[1].start().col, Column(11));
-        assert_eq!(urls.urls[1].end().col, Column(15));
+        assert_eq!(urls.urls[1].start().column, Column(11));
+        assert_eq!(urls.urls[1].end().column, Column(15));
 
-        assert_eq!(urls.urls[2].start().col, Column(17));
-        assert_eq!(urls.urls[2].end().col, Column(21));
+        assert_eq!(urls.urls[2].start().column, Column(17));
+        assert_eq!(urls.urls[2].end().column, Column(21));
     }
 
     #[test]
@@ -267,10 +266,10 @@ mod tests {
 
         assert_eq!(urls.urls.len(), 2);
 
-        assert_eq!(urls.urls[0].start().col, Column(5));
-        assert_eq!(urls.urls[0].end().col, Column(17));
+        assert_eq!(urls.urls[0].start().column, Column(5));
+        assert_eq!(urls.urls[0].end().column, Column(17));
 
-        assert_eq!(urls.urls[1].start().col, Column(20));
-        assert_eq!(urls.urls[1].end().col, Column(28));
+        assert_eq!(urls.urls[1].start().column, Column(20));
+        assert_eq!(urls.urls[1].end().column, Column(28));
     }
 }

@@ -81,13 +81,13 @@ impl ViModeCursor {
             ViMotion::Left => {
                 buffer_point = term.expand_wide(buffer_point, Direction::Left);
                 let wrap_point = Point::new(buffer_point.line + 1, cols - 1);
-                if buffer_point.col.0 == 0
+                if buffer_point.column.0 == 0
                     && buffer_point.line + 1 < term.total_lines()
                     && is_wrap(term, wrap_point)
                 {
                     buffer_point = wrap_point;
                 } else {
-                    buffer_point.col = Column(buffer_point.col.saturating_sub(1));
+                    buffer_point.column = Column(buffer_point.column.saturating_sub(1));
                 }
             },
             ViMotion::Right => {
@@ -95,34 +95,34 @@ impl ViModeCursor {
                 if is_wrap(term, buffer_point) {
                     buffer_point = Point::new(buffer_point.line - 1, Column(0));
                 } else {
-                    buffer_point.col = min(buffer_point.col + 1, cols - 1);
+                    buffer_point.column = min(buffer_point.column + 1, cols - 1);
                 }
             },
             ViMotion::First => {
                 buffer_point = term.expand_wide(buffer_point, Direction::Left);
-                while buffer_point.col.0 == 0
+                while buffer_point.column.0 == 0
                     && buffer_point.line + 1 < term.total_lines()
                     && is_wrap(term, Point::new(buffer_point.line + 1, cols - 1))
                 {
                     buffer_point.line += 1;
                 }
-                buffer_point.col = Column(0);
+                buffer_point.column = Column(0);
             },
             ViMotion::Last => buffer_point = last(term, buffer_point),
             ViMotion::FirstOccupied => buffer_point = first_occupied(term, buffer_point),
             ViMotion::High => {
                 let line = display_offset + lines.0 - 1;
-                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 buffer_point = Point::new(line, col);
             },
             ViMotion::Middle => {
                 let line = display_offset + lines.0 / 2;
-                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 buffer_point = Point::new(line, col);
             },
             ViMotion::Low => {
                 let line = display_offset;
-                let col = first_occupied_in_line(term, line).unwrap_or_default().col;
+                let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 buffer_point = Point::new(line, col);
             },
             ViMotion::SemanticLeft => {
@@ -181,7 +181,7 @@ impl ViModeCursor {
         let buffer_point = term.visible_to_buffer(self.point);
         let mut target_line = buffer_point.line as isize + lines;
         target_line = max(0, min(term.total_lines() as isize - 1, target_line));
-        let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().col;
+        let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().column;
 
         // Move cursor.
         self.point = Point::new(Line(line as usize), col);
@@ -200,7 +200,7 @@ fn last<T>(term: &Term<T>, mut point: Point<usize>) -> Point<usize> {
     // Find last non-empty cell in the current line.
     let occupied = last_occupied_in_line(term, point.line).unwrap_or_default();
 
-    if point.col < occupied.col {
+    if point.column < occupied.column {
         // Jump to last occupied cell when not already at or beyond it.
         occupied
     } else if is_wrap(term, point) {
@@ -269,7 +269,7 @@ fn semantic<T: EventListener>(
     // Expand semantically based on movement direction.
     let expand_semantic = |point: Point<usize>| {
         // Do not expand when currently on a semantic escape char.
-        let cell = &term.grid()[point.line][point.col];
+        let cell = &term.grid()[point.line][point.column];
         if term.semantic_escape_chars().contains(cell.c)
             && !cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         {
@@ -375,21 +375,21 @@ fn advance<T>(term: &Term<T>, point: Point<usize>, direction: Direction) -> Poin
 
 /// Check if cell at point contains whitespace.
 fn is_space<T>(term: &Term<T>, point: Point<usize>) -> bool {
-    let cell = &term.grid()[point.line][point.col];
+    let cell = &term.grid()[point.line][point.column];
     !cell.flags().intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         && (cell.c == ' ' || cell.c == '\t')
 }
 
 fn is_wrap<T>(term: &Term<T>, point: Point<usize>) -> bool {
-    point.line != 0 && term.grid()[point.line][point.col].flags.contains(Flags::WRAPLINE)
+    point.line != 0 && term.grid()[point.line][point.column].flags.contains(Flags::WRAPLINE)
 }
 
 /// Check if point is at screen boundary.
 fn is_boundary<T>(term: &Term<T>, point: Point<usize>, direction: Direction) -> bool {
     let total_lines = term.total_lines();
     let num_cols = term.cols();
-    (point.line + 1 >= total_lines && point.col.0 == 0 && direction == Direction::Left)
-        || (point.line == 0 && point.col + 1 >= num_cols && direction == Direction::Right)
+    (point.line + 1 >= total_lines && point.column.0 == 0 && direction == Direction::Left)
+        || (point.line == 0 && point.column + 1 >= num_cols && direction == Direction::Right)
 }
 
 #[cfg(test)]
@@ -397,18 +397,12 @@ mod tests {
     use super::*;
 
     use crate::config::MockConfig;
-    use crate::event::Event;
     use crate::index::{Column, Line};
     use crate::term::{SizeInfo, Term};
 
-    struct Mock;
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
-    fn term() -> Term<Mock> {
+    fn term() -> Term<()> {
         let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, false);
-        Term::new(&MockConfig::default(), size, Mock)
+        Term::new(&MockConfig::default(), size, ())
     }
 
     #[test]
@@ -515,7 +509,7 @@ mod tests {
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
-    fn motion_semantic_term() -> Term<Mock> {
+    fn motion_semantic_term() -> Term<()> {
         let mut term = term();
 
         term.grid_mut()[Line(0)][Column(0)].c = 'x';

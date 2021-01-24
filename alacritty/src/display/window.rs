@@ -14,9 +14,8 @@ use {
     wayland_client::{Attached, EventQueue, Proxy},
     glutin::platform::unix::EventLoopWindowTargetExtUnix,
 
-    alacritty_terminal::config::Colors,
-
-    crate::wayland_theme::AlacrittyWaylandTheme,
+    crate::config::color::Colors,
+    crate::display::wayland_theme::AlacrittyWaylandTheme,
 };
 
 #[rustfmt::skip]
@@ -59,7 +58,7 @@ use crate::gl;
 
 /// Window icon for `_NET_WM_ICON` property.
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-static WINDOW_ICON: &[u8] = include_bytes!("../alacritty.png");
+static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
 
 /// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
@@ -206,7 +205,7 @@ impl Window {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let wayland_surface = if is_wayland {
             // Apply client side decorations theme.
-            let theme = AlacrittyWaylandTheme::new(&config.colors);
+            let theme = AlacrittyWaylandTheme::new(&config.ui_config.colors);
             windowed_context.window().set_wayland_theme(theme);
 
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
@@ -422,7 +421,7 @@ impl Window {
 
     /// Adjust the IME editor position according to the new location of the cursor.
     pub fn update_ime_position(&mut self, point: Point, size: &SizeInfo) {
-        let nspot_x = f64::from(size.padding_x() + point.col.0 as f32 * size.cell_width());
+        let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line.0 + 1) as f32 * size.cell_height());
 
         self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));

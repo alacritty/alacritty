@@ -17,11 +17,11 @@ use unicode_width::UnicodeWidthChar;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::render::RenderableCell;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::{Delta, UIConfig};
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
@@ -480,8 +480,8 @@ impl Batch {
         cell_flags.set(RenderingGlyphFlags::WIDE_CHAR, cell.flags.contains(Flags::WIDE_CHAR));
 
         self.instances.push(InstanceData {
-            col: cell.column.0 as u16,
-            row: cell.line.0 as u16,
+            col: cell.point.column.0 as u16,
+            row: cell.point.line.0 as u16,
 
             top: glyph.top,
             left: glyph.left,
@@ -829,8 +829,7 @@ impl<'a> RenderApi<'a> {
             .chars()
             .enumerate()
             .map(|(i, character)| RenderableCell {
-                line: point.line,
-                column: point.col + i,
+                point: Point::new(point.line, point.column + i),
                 character,
                 zerowidth: None,
                 flags: Flags::empty(),

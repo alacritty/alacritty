@@ -3,7 +3,6 @@
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
 
 use bitflags::bitflags;
@@ -14,27 +13,18 @@ use unicode_width::UnicodeWidthChar;
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
-use crate::config::{BellAnimation, BellConfig, Config};
+use crate::config::Config;
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, Grid, IndexRegion, Scroll};
+use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
 use crate::index::{self, Boundary, Column, Direction, IndexRange, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
-use crate::term::color::Rgb;
-use crate::term::render::RenderableContent;
-use crate::term::search::RegexSearch;
+use crate::term::color::{Colors, Rgb};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
 pub mod color;
-pub mod render;
-mod search;
-
-/// Max size of the window title stack.
-const TITLE_STACK_MAX_DEPTH: usize = 4096;
-
-/// Default tab interval, corresponding to terminfo `it` value.
-const INITIAL_TABSTOPS: usize = 8;
+pub mod search;
 
 /// Minimum number of columns.
 ///
@@ -43,6 +33,12 @@ pub const MIN_COLS: usize = 2;
 
 /// Minimum number of visible lines.
 pub const MIN_SCREEN_LINES: usize = 1;
+
+/// Max size of the window title stack.
+const TITLE_STACK_MAX_DEPTH: usize = 4096;
+
+/// Default tab interval, corresponding to terminfo `it` value.
+const INITIAL_TABSTOPS: usize = 8;
 
 bitflags! {
     pub struct TermMode: u32 {
@@ -76,126 +72,6 @@ impl Default for TermMode {
             | TermMode::LINE_WRAP
             | TermMode::ALTERNATE_SCROLL
             | TermMode::URGENCY_HINTS
-    }
-}
-
-pub struct VisualBell {
-    /// Visual bell animation.
-    animation: BellAnimation,
-
-    /// Visual bell duration.
-    duration: Duration,
-
-    /// The last time the visual bell rang, if at all.
-    start_time: Option<Instant>,
-}
-
-fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
-    (1.0 - x).powi(3) * p0
-        + 3.0 * (1.0 - x).powi(2) * x * p1
-        + 3.0 * (1.0 - x) * x.powi(2) * p2
-        + x.powi(3) * p3
-}
-
-impl VisualBell {
-    /// Ring the visual bell, and return its intensity.
-    pub fn ring(&mut self) -> f64 {
-        let now = Instant::now();
-        self.start_time = Some(now);
-        self.intensity_at_instant(now)
-    }
-
-    /// Get the currently intensity of the visual bell. The bell's intensity
-    /// ramps down from 1.0 to 0.0 at a rate determined by the bell's duration.
-    pub fn intensity(&self) -> f64 {
-        self.intensity_at_instant(Instant::now())
-    }
-
-    /// Check whether or not the visual bell has completed "ringing".
-    pub fn completed(&mut self) -> bool {
-        match self.start_time {
-            Some(earlier) => {
-                if Instant::now().duration_since(earlier) >= self.duration {
-                    self.start_time = None;
-                }
-                false
-            },
-            None => true,
-        }
-    }
-
-    /// Get the intensity of the visual bell at a particular instant. The bell's
-    /// intensity ramps down from 1.0 to 0.0 at a rate determined by the bell's
-    /// duration.
-    pub fn intensity_at_instant(&self, instant: Instant) -> f64 {
-        // If `duration` is zero, then the VisualBell is disabled; therefore,
-        // its `intensity` is zero.
-        if self.duration == Duration::from_secs(0) {
-            return 0.0;
-        }
-
-        match self.start_time {
-            // Similarly, if `start_time` is `None`, then the VisualBell has not
-            // been "rung"; therefore, its `intensity` is zero.
-            None => 0.0,
-
-            Some(earlier) => {
-                // Finally, if the `instant` at which we wish to compute the
-                // VisualBell's `intensity` occurred before the VisualBell was
-                // "rung", then its `intensity` is also zero.
-                if instant < earlier {
-                    return 0.0;
-                }
-
-                let elapsed = instant.duration_since(earlier);
-                let elapsed_f =
-                    elapsed.as_secs() as f64 + f64::from(elapsed.subsec_nanos()) / 1e9f64;
-                let duration_f = self.duration.as_secs() as f64
-                    + f64::from(self.duration.subsec_nanos()) / 1e9f64;
-
-                // Otherwise, we compute a value `time` from 0.0 to 1.0
-                // inclusive that represents the ratio of `elapsed` time to the
-                // `duration` of the VisualBell.
-                let time = (elapsed_f / duration_f).min(1.0);
-
-                // We use this to compute the inverse `intensity` of the
-                // VisualBell. When `time` is 0.0, `inverse_intensity` is 0.0,
-                // and when `time` is 1.0, `inverse_intensity` is 1.0.
-                let inverse_intensity = match self.animation {
-                    BellAnimation::Ease | BellAnimation::EaseOut => {
-                        cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
-                    },
-                    BellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
-                    BellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
-                    BellAnimation::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
-                    BellAnimation::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
-                    BellAnimation::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
-                    BellAnimation::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
-                    BellAnimation::EaseOutCirc => cubic_bezier(0.075, 0.82, 0.165, 1.0, time),
-                    BellAnimation::Linear => time,
-                };
-
-                // Since we want the `intensity` of the VisualBell to decay over
-                // `time`, we subtract the `inverse_intensity` from 1.0.
-                1.0 - inverse_intensity
-            },
-        }
-    }
-
-    pub fn update_config<C>(&mut self, config: &Config<C>) {
-        let bell_config = config.bell();
-        self.animation = bell_config.animation;
-        self.duration = bell_config.duration();
-    }
-}
-
-impl From<&BellConfig> for VisualBell {
-    fn from(bell_config: &BellConfig) -> VisualBell {
-        VisualBell {
-            animation: bell_config.animation,
-            duration: bell_config.duration(),
-            start_time: None,
-        }
     }
 }
 
@@ -287,7 +163,7 @@ impl SizeInfo {
 
         Point {
             line: min(line, Line(self.screen_lines.saturating_sub(1))),
-            col: min(col, Column(self.cols.saturating_sub(1))),
+            column: min(col, Column(self.cols.saturating_sub(1))),
         }
     }
 
@@ -339,12 +215,6 @@ impl SizeInfo {
 }
 
 pub struct Term<T> {
-    /// Terminal requires redraw.
-    pub dirty: bool,
-
-    /// Visual bell configuration and status.
-    pub visual_bell: VisualBell,
-
     /// Terminal focus controlling the cursor shape.
     pub is_focused: bool,
 
@@ -381,14 +251,8 @@ pub struct Term<T> {
 
     semantic_escape_chars: String,
 
-    /// Colors used for rendering.
-    colors: color::List,
-
-    /// Is color in `colors` modified or not.
-    color_modified: [bool; color::COUNT],
-
-    /// Original colors from config.
-    original_colors: color::List,
+    /// Modified terminal colors.
+    colors: Colors,
 
     /// Current style of the cursor.
     cursor_style: Option<CursorStyle>,
@@ -409,9 +273,6 @@ pub struct Term<T> {
     /// term is set.
     title_stack: Vec<Option<String>>,
 
-    /// Current forward and backward buffer search regexes.
-    regex_search: Option<RegexSearch>,
-
     /// Information about cell dimensions.
     cell_width: usize,
     cell_height: usize,
@@ -425,7 +286,6 @@ impl<T> Term<T> {
     {
         self.grid.scroll_display(scroll);
         self.event_proxy.send_event(Event::MouseCursorDirty);
-        self.dirty = true;
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
@@ -440,11 +300,7 @@ impl<T> Term<T> {
 
         let scroll_region = Line(0)..grid.screen_lines();
 
-        let colors = color::List::from(&config.colors);
-
         Term {
-            dirty: false,
-            visual_bell: config.bell().into(),
             grid,
             inactive_grid: alt,
             active_charset: Default::default(),
@@ -452,9 +308,7 @@ impl<T> Term<T> {
             tabs,
             mode: Default::default(),
             scroll_region,
-            colors,
-            color_modified: [false; color::COUNT],
-            original_colors: colors,
+            colors: color::Colors::default(),
             semantic_escape_chars: config.selection.semantic_escape_chars.to_owned(),
             cursor_style: None,
             default_cursor_style: config.cursor.style(),
@@ -464,7 +318,6 @@ impl<T> Term<T> {
             title: None,
             title_stack: Vec::new(),
             selection: None,
-            regex_search: None,
             cell_width: size.cell_width as usize,
             cell_height: size.cell_height as usize,
         }
@@ -475,15 +328,6 @@ impl<T> Term<T> {
         T: EventListener,
     {
         self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
-        self.original_colors.fill_named(&config.colors);
-        self.original_colors.fill_cube(&config.colors);
-        self.original_colors.fill_gray_ramp(&config.colors);
-        for i in 0..color::COUNT {
-            if !self.color_modified[i] {
-                self.colors[i] = self.original_colors[i];
-            }
-        }
-        self.visual_bell.update_config(config);
         self.default_cursor_style = config.cursor.style();
         self.vi_mode_cursor_style = config.cursor.vi_mode_style();
 
@@ -510,14 +354,14 @@ impl<T> Term<T> {
 
         if is_block {
             for line in (end.line + 1..=start.line).rev() {
-                res += &self.line_to_string(line, start.col..end.col, start.col.0 != 0);
+                res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
 
                 // If the last column is included, newline is appended automatically.
-                if end.col != self.cols() - 1 {
+                if end.column != self.cols() - 1 {
                     res += "\n";
                 }
             }
-            res += &self.line_to_string(end.line, start.col..end.col, true);
+            res += &self.line_to_string(end.line, start.column..end.column, true);
         } else {
             res = self.bounds_to_string(start, end);
         }
@@ -530,8 +374,8 @@ impl<T> Term<T> {
         let mut res = String::new();
 
         for line in (end.line..=start.line).rev() {
-            let start_col = if line == start.line { start.col } else { Column(0) };
-            let end_col = if line == end.line { end.col } else { self.cols() - 1 };
+            let start_col = if line == start.line { start.column } else { Column(0) };
+            let end_col = if line == end.line { end.column } else { self.cols() - 1 };
 
             res += &self.line_to_string(line, start_col..end_col, line == end.line);
         }
@@ -603,8 +447,18 @@ impl<T> Term<T> {
         text
     }
 
+    #[inline]
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         self.grid.visible_to_buffer(point)
+    }
+
+    /// Terminal content required for rendering.
+    #[inline]
+    pub fn renderable_content(&self) -> RenderableContent<'_>
+    where
+        T: EventListener,
+    {
+        RenderableContent::new(self)
     }
 
     /// Access to the raw grid data structure.
@@ -619,43 +473,6 @@ impl<T> Term<T> {
     #[cfg(test)]
     pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
         &mut self.grid
-    }
-
-    /// Terminal content required for rendering.
-    ///
-    /// A renderable cell is any cell which has content other than the default background color.
-    /// Cells with an alternate background color are considered renderable, as are cells with any
-    /// text content.
-    ///
-    /// The cursor itself is always considered renderable and provided separately.
-    pub fn renderable_content<'b, C>(
-        &'b self,
-        config: &'b Config<C>,
-        show_cursor: bool,
-    ) -> RenderableContent<'_, T, C> {
-        RenderableContent::new(&self, config, show_cursor)
-    }
-
-    /// Get the selection within the viewport.
-    pub fn visible_selection(&self) -> Option<SelectionRange<Line>> {
-        let selection = self.selection.as_ref()?.to_range(self)?;
-
-        // Set horizontal limits for block selection.
-        let (limit_start, limit_end) = if selection.is_block {
-            (selection.start.col, selection.end.col)
-        } else {
-            (Column(0), self.cols() - 1)
-        };
-
-        let range = self.grid.clamp_buffer_range_to_visible(&(selection.start..=selection.end))?;
-        let mut start = *range.start();
-        let mut end = *range.end();
-
-        // Trim start/end with partially visible block selection.
-        start.col = max(limit_start, start.col);
-        end.col = min(limit_end, end.col);
-
-        Some(SelectionRange::new(start, end, selection.is_block))
     }
 
     /// Resize terminal to new dimensions.
@@ -699,7 +516,7 @@ impl<T> Term<T> {
         self.inactive_grid.resize(is_alt, num_lines, num_cols);
 
         // Clamp vi cursor to viewport.
-        self.vi_mode_cursor.point.col = min(self.vi_mode_cursor.point.col, num_cols - 1);
+        self.vi_mode_cursor.point.column = min(self.vi_mode_cursor.point.column, num_cols - 1);
         self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
 
         // Reset scrolling region.
@@ -722,13 +539,34 @@ impl<T> Term<T> {
             self.grid.saved_cursor = self.grid.cursor.clone();
 
             // Reset alternate screen contents.
-            let bg = self.inactive_grid.cursor.template.bg;
-            self.inactive_grid.region_mut(..).each(|cell| *cell = bg.into());
+            self.inactive_grid.reset_region(..);
         }
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
+    }
+
+    /// Get the selection within the viewport.
+    fn visible_selection(&self) -> Option<SelectionRange<Line>> {
+        let selection = self.selection.as_ref()?.to_range(self)?;
+
+        // Set horizontal limits for block selection.
+        let (limit_start, limit_end) = if selection.is_block {
+            (selection.start.column, selection.end.column)
+        } else {
+            (Column(0), self.cols() - 1)
+        };
+
+        let range = self.grid.clamp_buffer_range_to_visible(&(selection.start..=selection.end))?;
+        let mut start = *range.start();
+        let mut end = *range.end();
+
+        // Trim start/end with partially visible block selection.
+        start.column = max(limit_start, start.column);
+        end.column = min(limit_end, end.column);
+
+        Some(SelectionRange::new(start, end, selection.is_block))
     }
 
     /// Scroll screen down.
@@ -789,13 +627,7 @@ impl<T> Term<T> {
         self.set_scrolling_region(1, None);
 
         // Clear grid.
-        let bg = self.grid.cursor.template.bg;
-        self.grid.region_mut(..).each(|cell| *cell = bg.into());
-    }
-
-    #[inline]
-    pub fn background_color(&self) -> Rgb {
-        self.colors[NamedColor::Background]
+        self.grid.reset_region(..);
     }
 
     #[inline]
@@ -814,26 +646,15 @@ impl<T> Term<T> {
     {
         self.mode ^= TermMode::VI;
 
-        let vi_mode = self.mode.contains(TermMode::VI);
-
-        // Do not clear selection when entering search.
-        if self.regex_search.is_none() || !vi_mode {
-            self.selection = None;
-        }
-
-        if vi_mode {
+        if self.mode.contains(TermMode::VI) {
             // Reset vi mode cursor position to match primary cursor.
             let cursor = self.grid.cursor.point;
             let line = min(cursor.line + self.grid.display_offset(), self.screen_lines() - 1);
-            self.vi_mode_cursor = ViModeCursor::new(Point::new(line, cursor.col));
-        } else {
-            self.cancel_search();
+            self.vi_mode_cursor = ViModeCursor::new(Point::new(line, cursor.column));
         }
 
         // Update UI about cursor blinking state changes.
         self.event_proxy.send_event(Event::CursorBlinkingChange(self.cursor_style().blinking));
-
-        self.dirty = true;
     }
 
     /// Move vi mode cursor.
@@ -850,8 +671,6 @@ impl<T> Term<T> {
         // Move cursor.
         self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
         self.vi_mode_recompute_selection();
-
-        self.dirty = true;
     }
 
     /// Move vi cursor to absolute point in grid.
@@ -867,8 +686,6 @@ impl<T> Term<T> {
         self.vi_mode_cursor.point = self.grid.clamp_buffer_to_visible(point);
 
         self.vi_mode_recompute_selection();
-
-        self.dirty = true;
     }
 
     /// Update the active selection to match the vi mode cursor position.
@@ -910,17 +727,17 @@ impl<T> Term<T> {
 
     /// Jump to the end of a wide cell.
     pub fn expand_wide(&self, mut point: Point<usize>, direction: Direction) -> Point<usize> {
-        let flags = self.grid[point.line][point.col].flags;
+        let flags = self.grid[point.line][point.column].flags;
 
         match direction {
             Direction::Right if flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
-                point.col = Column(1);
+                point.column = Column(1);
                 point.line -= 1;
             },
-            Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.col += 1,
+            Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.column += 1,
             Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
                 if flags.contains(Flags::WIDE_CHAR_SPACER) {
-                    point.col -= 1;
+                    point.column -= 1;
                 }
 
                 let prev = point.sub_absolute(self, Boundary::Clamp, 1);
@@ -973,16 +790,13 @@ impl<T> Term<T> {
             self.grid.cursor.point.line += 1;
         }
 
-        self.grid.cursor.point.col = Column(0);
+        self.grid.cursor.point.column = Column(0);
         self.grid.cursor.input_needs_wrap = false;
     }
 
     /// Write `c` to the cell at the cursor position.
     #[inline(always)]
-    fn write_at_cursor(&mut self, c: char) -> &mut Cell
-    where
-        T: EventListener,
-    {
+    fn write_at_cursor(&mut self, c: char) -> &mut Cell {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
@@ -1031,7 +845,7 @@ impl<T: EventListener> Handler for Term<T> {
         // Handle zero-width characters.
         if width == 0 {
             // Get previous column.
-            let mut col = self.grid.cursor.point.col.0;
+            let mut col = self.grid.cursor.point.column.0;
             if !self.grid.cursor.input_needs_wrap {
                 col = col.saturating_sub(1);
             }
@@ -1054,9 +868,10 @@ impl<T: EventListener> Handler for Term<T> {
         let num_cols = self.cols();
 
         // If in insert mode, first shift cells to the right.
-        if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.col + width < num_cols {
+        if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.column + width < num_cols
+        {
             let line = self.grid.cursor.point.line;
-            let col = self.grid.cursor.point.col;
+            let col = self.grid.cursor.point.column;
             let row = &mut self.grid[line][..];
 
             for col in (col.0..(num_cols - width).0).rev() {
@@ -1067,7 +882,7 @@ impl<T: EventListener> Handler for Term<T> {
         if width == 1 {
             self.write_at_cursor(c);
         } else {
-            if self.grid.cursor.point.col + 1 >= num_cols {
+            if self.grid.cursor.point.column + 1 >= num_cols {
                 if self.mode.contains(TermMode::LINE_WRAP) {
                     // Insert placeholder before wide char if glyph does not fit in this row.
                     self.write_at_cursor(' ').flags.insert(Flags::LEADING_WIDE_CHAR_SPACER);
@@ -1083,12 +898,12 @@ impl<T: EventListener> Handler for Term<T> {
             self.write_at_cursor(c).flags.insert(Flags::WIDE_CHAR);
 
             // Write spacer to cell following the wide glyph.
-            self.grid.cursor.point.col += 1;
+            self.grid.cursor.point.column += 1;
             self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
         }
 
-        if self.grid.cursor.point.col + 1 < num_cols {
-            self.grid.cursor.point.col += 1;
+        if self.grid.cursor.point.column + 1 < num_cols {
+            self.grid.cursor.point.column += 1;
         } else {
             self.grid.cursor.input_needs_wrap = true;
         }
@@ -1098,10 +913,13 @@ impl<T: EventListener> Handler for Term<T> {
     fn decaln(&mut self) {
         trace!("Decalnning");
 
-        self.grid.region_mut(..).each(|cell| {
-            *cell = Cell::default();
-            cell.c = 'E';
-        });
+        for line in 0..self.screen_lines().0 {
+            for column in 0..self.cols().0 {
+                let cell = &mut self.grid[line][Column(column)];
+                *cell = Cell::default();
+                cell.c = 'E';
+            }
+        }
     }
 
     #[inline]
@@ -1114,14 +932,14 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         self.grid.cursor.point.line = min(line + y_offset, max_y);
-        self.grid.cursor.point.col = min(col, self.cols() - 1);
+        self.grid.cursor.point.column = min(col, self.cols() - 1);
         self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
         trace!("Going to line: {}", line);
-        self.goto(line, self.grid.cursor.point.col)
+        self.goto(line, self.grid.cursor.point.column)
     }
 
     #[inline]
@@ -1136,10 +954,10 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = cursor.template.bg;
 
         // Ensure inserting within terminal bounds
-        let count = min(count, self.cols() - cursor.point.col);
+        let count = min(count, self.cols() - cursor.point.column);
 
-        let source = cursor.point.col;
-        let destination = cursor.point.col + count;
+        let source = cursor.point.column;
+        let destination = cursor.point.column + count;
         let num_cells = (self.cols() - destination).0;
 
         let line = cursor.point.line;
@@ -1160,28 +978,29 @@ impl<T: EventListener> Handler for Term<T> {
     fn move_up(&mut self, lines: Line) {
         trace!("Moving up: {}", lines);
         let move_to = Line(self.grid.cursor.point.line.0.saturating_sub(lines.0));
-        self.goto(move_to, self.grid.cursor.point.col)
+        self.goto(move_to, self.grid.cursor.point.column)
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         trace!("Moving down: {}", lines);
         let move_to = self.grid.cursor.point.line + lines;
-        self.goto(move_to, self.grid.cursor.point.col)
+        self.goto(move_to, self.grid.cursor.point.column)
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         trace!("Moving forward: {}", cols);
         let num_cols = self.cols();
-        self.grid.cursor.point.col = min(self.grid.cursor.point.col + cols, num_cols - 1);
+        self.grid.cursor.point.column = min(self.grid.cursor.point.column + cols, num_cols - 1);
         self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         trace!("Moving backward: {}", cols);
-        self.grid.cursor.point.col = Column(self.grid.cursor.point.col.saturating_sub(cols.0));
+        self.grid.cursor.point.column =
+            Column(self.grid.cursor.point.column.saturating_sub(cols.0));
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -1210,7 +1029,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
             6 => {
                 let pos = self.grid.cursor.point;
-                let response = format!("\x1b[{};{}R", pos.line + 1, pos.col + 1);
+                let response = format!("\x1b[{};{}R", pos.line + 1, pos.column + 1);
                 let _ = writer.write_all(response.as_bytes());
             },
             _ => debug!("unknown device status query: {}", arg),
@@ -1240,7 +1059,7 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        while self.grid.cursor.point.col < self.cols() && count != 0 {
+        while self.grid.cursor.point.column < self.cols() && count != 0 {
             count -= 1;
 
             let c = self.grid.cursor.charsets[self.active_charset].map('\t');
@@ -1250,13 +1069,13 @@ impl<T: EventListener> Handler for Term<T> {
             }
 
             loop {
-                if (self.grid.cursor.point.col + 1) == self.cols() {
+                if (self.grid.cursor.point.column + 1) == self.cols() {
                     break;
                 }
 
-                self.grid.cursor.point.col += 1;
+                self.grid.cursor.point.column += 1;
 
-                if self.tabs[self.grid.cursor.point.col] {
+                if self.tabs[self.grid.cursor.point.column] {
                     break;
                 }
             }
@@ -1268,8 +1087,8 @@ impl<T: EventListener> Handler for Term<T> {
     fn backspace(&mut self) {
         trace!("Backspace");
 
-        if self.grid.cursor.point.col > Column(0) {
-            self.grid.cursor.point.col -= 1;
+        if self.grid.cursor.point.column > Column(0) {
+            self.grid.cursor.point.column -= 1;
             self.grid.cursor.input_needs_wrap = false;
         }
     }
@@ -1278,7 +1097,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn carriage_return(&mut self) {
         trace!("Carriage return");
-        self.grid.cursor.point.col = Column(0);
+        self.grid.cursor.point.column = Column(0);
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -1298,7 +1117,6 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn bell(&mut self) {
         trace!("Bell");
-        self.visual_bell.ring();
         self.event_proxy.send_event(Event::Bell);
     }
 
@@ -1341,7 +1159,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn set_horizontal_tabstop(&mut self) {
         trace!("Setting horizontal tabstop");
-        self.tabs[self.grid.cursor.point.col] = true;
+        self.tabs[self.grid.cursor.point.column] = true;
     }
 
     #[inline]
@@ -1382,9 +1200,9 @@ impl<T: EventListener> Handler for Term<T> {
     fn erase_chars(&mut self, count: Column) {
         let cursor = &self.grid.cursor;
 
-        trace!("Erasing chars: count={}, col={}", count, cursor.point.col);
+        trace!("Erasing chars: count={}, col={}", count, cursor.point.column);
 
-        let start = cursor.point.col;
+        let start = cursor.point.column;
         let end = min(start + count, self.cols());
 
         // Cleared cells have current background color set.
@@ -1405,7 +1223,7 @@ impl<T: EventListener> Handler for Term<T> {
         // Ensure deleting within terminal bounds.
         let count = min(count, cols);
 
-        let start = cursor.point.col;
+        let start = cursor.point.column;
         let end = min(start + count, cols - 1);
         let num_cells = (cols - end).0;
 
@@ -1429,14 +1247,14 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Moving backward {} tabs", count);
 
         for _ in 0..count {
-            let mut col = self.grid.cursor.point.col;
+            let mut col = self.grid.cursor.point.column;
             for i in (0..(col.0)).rev() {
                 if self.tabs[index::Column(i)] {
                     col = index::Column(i);
                     break;
                 }
             }
-            self.grid.cursor.point.col = col;
+            self.grid.cursor.point.column = col;
         }
     }
 
@@ -1471,12 +1289,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         match mode {
             ansi::LineClearMode::Right => {
-                for cell in &mut row[point.col..] {
+                for cell in &mut row[point.column..] {
                     *cell = bg.into();
                 }
             },
             ansi::LineClearMode::Left => {
-                for cell in &mut row[..=point.col] {
+                for cell in &mut row[..=point.column] {
                     *cell = bg.into();
                 }
             },
@@ -1498,34 +1316,31 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
-        self.colors[index] = color;
-        self.color_modified[index] = true;
+        self.colors[index] = Some(color);
     }
 
     /// Write a foreground/background color escape sequence with the current color.
     #[inline]
-    fn dynamic_color_sequence<W: io::Write>(
-        &mut self,
-        writer: &mut W,
-        code: u8,
-        index: usize,
-        terminator: &str,
-    ) {
-        trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
-        let color = self.colors[index];
-        let response = format!(
-            "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
-            code, color.r, color.g, color.b, terminator
-        );
-        let _ = writer.write_all(response.as_bytes());
+    fn dynamic_color_sequence(&mut self, code: u8, index: usize, terminator: &str) {
+        trace!("Requested write of escape sequence for color code {}: color[{}]", code, index);
+
+        let terminator = terminator.to_owned();
+        self.event_proxy.send_event(Event::ColorRequest(
+            index,
+            Arc::new(move |color| {
+                format!(
+                    "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
+                    code, color.r, color.g, color.b, terminator
+                )
+            }),
+        ));
     }
 
     /// Reset the indexed color to original value.
     #[inline]
     fn reset_color(&mut self, index: usize) {
         trace!("Resetting color[{}]", index);
-        self.colors[index] = self.original_colors[index];
-        self.color_modified[index] = false;
+        self.colors[index] = None;
     }
 
     /// Store data into clipboard.
@@ -1579,11 +1394,11 @@ impl<T: EventListener> Handler for Term<T> {
                 // If clearing more than one line.
                 if cursor.line > Line(1) {
                     // Fully clear all lines before the current line.
-                    self.grid.region_mut(..cursor.line).each(|cell| *cell = bg.into());
+                    self.grid.reset_region(..cursor.line);
                 }
 
                 // Clear up to the current column in the current line.
-                let end = min(cursor.col + 1, self.cols());
+                let end = min(cursor.column + 1, self.cols());
                 for cell in &mut self.grid[cursor.line][..end] {
                     *cell = bg.into();
                 }
@@ -1595,12 +1410,12 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
-                for cell in &mut self.grid[cursor.line][cursor.col..] {
+                for cell in &mut self.grid[cursor.line][cursor.column..] {
                     *cell = bg.into();
                 }
 
                 if cursor.line.0 < num_lines - 1 {
-                    self.grid.region_mut((cursor.line + 1)..).each(|cell| *cell = bg.into());
+                    self.grid.reset_region((cursor.line + 1)..);
                 }
 
                 self.selection =
@@ -1608,7 +1423,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
-                    self.grid.region_mut(..).each(|cell| *cell = bg.into());
+                    self.grid.reset_region(..);
                 } else {
                     self.grid.clear_viewport();
                 }
@@ -1630,7 +1445,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing tabs: {:?}", mode);
         match mode {
             ansi::TabulationClearMode::Current => {
-                self.tabs[self.grid.cursor.point.col] = false;
+                self.tabs[self.grid.cursor.point.column] = false;
             },
             ansi::TabulationClearMode::All => {
                 self.tabs.clear_all();
@@ -1645,8 +1460,6 @@ impl<T: EventListener> Handler for Term<T> {
             mem::swap(&mut self.grid, &mut self.inactive_grid);
         }
         self.active_charset = Default::default();
-        self.colors = self.original_colors;
-        self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
         self.grid.reset();
         self.inactive_grid.reset();
@@ -1655,7 +1468,6 @@ impl<T: EventListener> Handler for Term<T> {
         self.title_stack = Vec::new();
         self.title = None;
         self.selection = None;
-        self.regex_search = None;
 
         // Preserve vi mode across resets.
         self.mode &= TermMode::VI;
@@ -2006,6 +1818,59 @@ impl IndexMut<Column> for TabStops {
     }
 }
 
+/// Terminal cursor rendering information.
+#[derive(Copy, Clone)]
+pub struct RenderableCursor {
+    pub shape: CursorShape,
+    pub point: Point,
+}
+
+impl RenderableCursor {
+    fn new<T>(term: &Term<T>) -> Self {
+        // Cursor position.
+        let vi_mode = term.mode().contains(TermMode::VI);
+        let point = if vi_mode { term.vi_mode_cursor.point } else { term.grid().cursor.point };
+
+        // Cursor shape.
+        let absolute_line = term.screen_lines() - point.line - 1;
+        let display_offset = term.grid().display_offset();
+        let shape = if !vi_mode
+            && (!term.mode().contains(TermMode::SHOW_CURSOR) || absolute_line.0 < display_offset)
+        {
+            CursorShape::Hidden
+        } else {
+            term.cursor_style().shape
+        };
+
+        Self { shape, point }
+    }
+}
+
+/// Visible terminal content.
+///
+/// This contains all content required to render the current terminal view.
+pub struct RenderableContent<'a> {
+    pub display_iter: DisplayIter<'a, Cell>,
+    pub selection: Option<SelectionRange<Line>>,
+    pub cursor: RenderableCursor,
+    pub display_offset: usize,
+    pub colors: &'a color::Colors,
+    pub mode: TermMode,
+}
+
+impl<'a> RenderableContent<'a> {
+    fn new<T>(term: &'a Term<T>) -> Self {
+        Self {
+            display_iter: term.grid().display_iter(),
+            display_offset: term.grid().display_offset(),
+            cursor: RenderableCursor::new(term),
+            selection: term.visible_selection(),
+            colors: &term.colors,
+            mode: *term.mode(),
+        }
+    }
+}
+
 /// Terminal test helpers.
 pub mod test {
     use super::*;
@@ -2079,21 +1944,15 @@ mod tests {
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
     use crate::config::MockConfig;
-    use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
 
-    struct Mock;
-    impl EventListener for Mock {
-        fn send_event(&self, _event: Event) {}
-    }
-
     #[test]
     fn semantic_selection_works() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0);
         for i in 0..5 {
             for j in 0..2 {
@@ -2113,7 +1972,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 2, col: Column(1) },
+                Point { line: 2, column: Column(1) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aa")));
@@ -2122,7 +1981,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 2, col: Column(4) },
+                Point { line: 2, column: Column(4) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
@@ -2131,7 +1990,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 1, col: Column(1) },
+                Point { line: 1, column: Column(1) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
@@ -2141,7 +2000,7 @@ mod tests {
     #[test]
     fn line_selection_works() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2153,7 +2012,7 @@ mod tests {
 
         term.selection = Some(Selection::new(
             SelectionType::Lines,
-            Point { line: 0, col: Column(3) },
+            Point { line: 0, column: Column(3) },
             Side::Left,
         ));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
@@ -2162,7 +2021,7 @@ mod tests {
     #[test]
     fn selecting_empty_line() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0);
         for l in 0..3 {
             if l != 1 {
@@ -2175,8 +2034,8 @@ mod tests {
         mem::swap(&mut term.grid, &mut grid);
 
         let mut selection =
-            Selection::new(SelectionType::Simple, Point { line: 2, col: Column(0) }, Side::Left);
-        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
+            Selection::new(SelectionType::Simple, Point { line: 2, column: Column(0) }, Side::Left);
+        selection.update(Point { line: 0, column: Column(2) }, Side::Right);
         term.selection = Some(selection);
         assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
@@ -2197,18 +2056,18 @@ mod tests {
     #[test]
     fn input_line_drawing_character() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
 
-        assert_eq!(term.grid()[&cursor].c, '▒');
+        assert_eq!(term.grid()[cursor].c, '▒');
     }
 
     #[test]
     fn clear_saved_lines() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1));
@@ -2230,7 +2089,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_active_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2250,7 +2109,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_inactive_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2276,7 +2135,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_active_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2296,7 +2155,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_inactive_cursor_pos() {
         let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2322,7 +2181,7 @@ mod tests {
     #[test]
     fn window_title() {
         let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, Mock);
+        let mut term = Term::new(&MockConfig::default(), size, ());
 
         // Title None by default.
         assert_eq!(term.title, None);
