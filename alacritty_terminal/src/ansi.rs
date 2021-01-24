@@ -976,13 +976,13 @@ where
             params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
         };
 
-        match (action, intermediates.get(0)) {
-            ('@', None) => handler.insert_blank(Column(next_param_or(1) as usize)),
-            ('A', None) => {
+        match (action, intermediates) {
+            ('@', []) => handler.insert_blank(Column(next_param_or(1) as usize)),
+            ('A', []) => {
                 handler.move_up(Line(next_param_or(1) as usize));
             },
-            ('B', None) | ('e', None) => handler.move_down(Line(next_param_or(1) as usize)),
-            ('b', None) => {
+            ('B', []) | ('e', []) => handler.move_down(Line(next_param_or(1) as usize)),
+            ('b', []) => {
                 if let Some(c) = self.state.preceding_char {
                     for _ in 0..next_param_or(1) {
                         handler.input(c);
@@ -991,16 +991,16 @@ where
                     debug!("tried to repeat with no preceding char");
                 }
             },
-            ('C', None) | ('a', None) => handler.move_forward(Column(next_param_or(1) as usize)),
-            ('c', intermediate) if next_param_or(0) == 0 => {
-                handler.identify_terminal(writer, intermediate.map(|&i| i as char))
+            ('C', []) | ('a', []) => handler.move_forward(Column(next_param_or(1) as usize)),
+            ('c', intermediates) if next_param_or(0) == 0 => {
+                handler.identify_terminal(writer, intermediates.get(0).map(|&i| i as char))
             },
-            ('D', None) => handler.move_backward(Column(next_param_or(1) as usize)),
-            ('d', None) => handler.goto_line(Line(next_param_or(1) as usize - 1)),
-            ('E', None) => handler.move_down_and_cr(Line(next_param_or(1) as usize)),
-            ('F', None) => handler.move_up_and_cr(Line(next_param_or(1) as usize)),
-            ('G', None) | ('`', None) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
-            ('g', None) => {
+            ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
+            ('d', []) => handler.goto_line(Line(next_param_or(1) as usize - 1)),
+            ('E', []) => handler.move_down_and_cr(Line(next_param_or(1) as usize)),
+            ('F', []) => handler.move_up_and_cr(Line(next_param_or(1) as usize)),
+            ('G', []) | ('`', []) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
+            ('g', []) => {
                 let mode = match next_param_or(0) {
                     0 => TabulationClearMode::Current,
                     3 => TabulationClearMode::All,
@@ -1012,21 +1012,21 @@ where
 
                 handler.clear_tabs(mode);
             },
-            ('H', None) | ('f', None) => {
+            ('H', []) | ('f', []) => {
                 let y = next_param_or(1) as usize;
                 let x = next_param_or(1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
             },
-            ('h', intermediate) => {
+            ('h', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
-                    match Mode::from_primitive(intermediate, param) {
+                    match Mode::from_primitive(intermediates.get(0), param) {
                         Some(mode) => handler.set_mode(mode),
                         None => unhandled!(),
                     }
                 }
             },
-            ('I', None) => handler.move_forward_tabs(next_param_or(1)),
-            ('J', None) => {
+            ('I', []) => handler.move_forward_tabs(next_param_or(1)),
+            ('J', []) => {
                 let mode = match next_param_or(0) {
                     0 => ClearMode::Below,
                     1 => ClearMode::Above,
@@ -1040,7 +1040,7 @@ where
 
                 handler.clear_screen(mode);
             },
-            ('K', None) => {
+            ('K', []) => {
                 let mode = match next_param_or(0) {
                     0 => LineClearMode::Right,
                     1 => LineClearMode::Left,
@@ -1053,17 +1053,17 @@ where
 
                 handler.clear_line(mode);
             },
-            ('L', None) => handler.insert_blank_lines(Line(next_param_or(1) as usize)),
-            ('l', intermediate) => {
+            ('L', []) => handler.insert_blank_lines(Line(next_param_or(1) as usize)),
+            ('l', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
-                    match Mode::from_primitive(intermediate, param) {
+                    match Mode::from_primitive(intermediates.get(0), param) {
                         Some(mode) => handler.unset_mode(mode),
                         None => unhandled!(),
                     }
                 }
             },
-            ('M', None) => handler.delete_lines(Line(next_param_or(1) as usize)),
-            ('m', None) => {
+            ('M', []) => handler.delete_lines(Line(next_param_or(1) as usize)),
+            ('m', []) => {
                 if params.is_empty() {
                     handler.terminal_attribute(Attr::Reset);
                 } else {
@@ -1075,9 +1075,9 @@ where
                     }
                 }
             },
-            ('n', None) => handler.device_status(writer, next_param_or(0) as usize),
-            ('P', None) => handler.delete_chars(Column(next_param_or(1) as usize)),
-            ('q', Some(b' ')) => {
+            ('n', []) => handler.device_status(writer, next_param_or(0) as usize),
+            ('P', []) => handler.delete_chars(Column(next_param_or(1) as usize)),
+            ('q', [b' ']) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
                 let cursor_style_id = next_param_or(0);
                 let shape = match cursor_style_id {
@@ -1095,26 +1095,26 @@ where
 
                 handler.set_cursor_style(cursor_style);
             },
-            ('r', None) => {
+            ('r', []) => {
                 let top = next_param_or(1) as usize;
                 let bottom =
                     params_iter.next().map(|param| param[0] as usize).filter(|&param| param != 0);
 
                 handler.set_scrolling_region(top, bottom);
             },
-            ('S', None) => handler.scroll_up(Line(next_param_or(1) as usize)),
-            ('s', None) => handler.save_cursor_position(),
-            ('T', None) => handler.scroll_down(Line(next_param_or(1) as usize)),
-            ('t', None) => match next_param_or(1) as usize {
+            ('S', []) => handler.scroll_up(Line(next_param_or(1) as usize)),
+            ('s', []) => handler.save_cursor_position(),
+            ('T', []) => handler.scroll_down(Line(next_param_or(1) as usize)),
+            ('t', []) => match next_param_or(1) as usize {
                 14 => handler.text_area_size_pixels(writer),
                 18 => handler.text_area_size_chars(writer),
                 22 => handler.push_title(),
                 23 => handler.pop_title(),
                 _ => unhandled!(),
             },
-            ('u', None) => handler.restore_cursor_position(),
-            ('X', None) => handler.erase_chars(Column(next_param_or(1) as usize)),
-            ('Z', None) => handler.move_backward_tabs(next_param_or(1)),
+            ('u', []) => handler.restore_cursor_position(),
+            ('X', []) => handler.erase_chars(Column(next_param_or(1) as usize)),
+            ('Z', []) => handler.move_backward_tabs(next_param_or(1)),
             _ => unhandled!(),
         }
     }
