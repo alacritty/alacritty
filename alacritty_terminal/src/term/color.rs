@@ -39,8 +39,9 @@ impl Rgb {
         0.2126 * r_luminance + 0.7152 * g_luminance + 0.0722 * b_luminance
     }
 
-    /// Implementation of W3C's contrast algorithm:
-    /// https://www.w3.org/TR/WCAG20/#contrast-ratiodef
+    /// Implementation of [W3C's contrast algorithm].
+    ///
+    /// [W3C's contrast algorithm]: https://www.w3.org/TR/WCAG20/#contrast-ratiodef
     pub fn contrast(self, other: Rgb) -> f64 {
         let self_luminance = self.luminance();
         let other_luminance = other.luminance();
@@ -230,15 +231,17 @@ impl<'de> Deserialize<'de> for CellRgb {
 
 /// Array of indexed colors.
 ///
-/// 0..16: Named ANSI colors.
-/// 16..232: Color cube.
-/// 233..256: Grayscale ramp.
-/// 256: Foreground
-/// 257: Background
-/// 258: Cursor
-/// 259..267: Dim colors.
-/// 267: Bright foreground.
-/// 268: Dim background.
+/// | Indices  | Description       |
+/// | -------- | ----------------- |
+/// | 0..16    | Named ANSI colors |
+/// | 16..232  | Color cube        |
+/// | 233..256 | Grayscale ramp    |
+/// | 256      | Foreground        |
+/// | 257      | Background        |
+/// | 258      | Cursor            |
+/// | 259..267 | Dim colors        |
+/// | 267      | Bright foreground |
+/// | 268      | Dim background    |
 #[derive(Copy, Clone)]
 pub struct Colors([Option<Rgb>; COUNT]);
 
