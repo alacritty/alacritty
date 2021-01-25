@@ -7,6 +7,7 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use log::error;
 #[cfg(not(windows))]
@@ -58,16 +59,6 @@ struct Writing {
     written: usize,
 }
 
-/// All of the mutable state needed to run the event loop.
-///
-/// Contains list of items to write, current write state, etc. Anything that
-/// would otherwise be mutated on the `EventLoop` goes here.
-pub struct State {
-    write_list: VecDeque<Cow<'static, [u8]>>,
-    writing: Option<Writing>,
-    parser: ansi::Processor,
-}
-
 pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
@@ -91,10 +82,15 @@ impl event::OnResize for Notifier {
     }
 }
 
-impl Default for State {
-    fn default() -> State {
-        State { write_list: VecDeque::new(), parser: ansi::Processor::new(), writing: None }
-    }
+/// All of the mutable state needed to run the event loop.
+///
+/// Contains list of items to write, current write state, etc. Anything that
+/// would otherwise be mutated on the `EventLoop` goes here.
+#[derive(Default)]
+pub struct State {
+    write_list: VecDeque<Cow<'static, [u8]>>,
+    writing: Option<Writing>,
+    parser: ansi::Processor,
 }
 
 impl State {
@@ -261,8 +257,8 @@ where
             }
         }
 
-        if processed > 0 {
-            // Queue terminal redraw.
+        // Queue terminal redraw unless all processed bytes were synchronized.
+        if state.parser.sync_bytes_count() < processed && processed > 0 {
             self.event_proxy.send_event(Event::Wakeup);
         }
 
@@ -325,11 +321,22 @@ where
             };
 
             'event_loop: loop {
-                if let Err(err) = self.poll.poll(&mut events, None) {
+                // Wakeup the event loop when a synchronized update timeout was reached.
+                let sync_timeout = state.parser.sync_timeout();
+                let timeout = sync_timeout.map(|st| st.saturating_duration_since(Instant::now()));
+
+                if let Err(err) = self.poll.poll(&mut events, timeout) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
                         _ => panic!("EventLoop polling error: {:?}", err),
                     }
+                }
+
+                // Handle synchronized update timeout.
+                if events.is_empty() {
+                    state.parser.stop_sync(&mut *self.terminal.lock(), &mut self.pty.writer());
+                    self.event_proxy.send_event(Event::Wakeup);
+                    continue;
                 }
 
                 for event in events.iter() {
