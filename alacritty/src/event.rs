@@ -406,6 +406,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Copy URL when right clicking.
+    fn copy_url(&mut self, url: Url) {
+        if self.config.ui_config.mouse.url.right_click_copy {
+            let start = self.terminal.visible_to_buffer(url.start());
+            let end = self.terminal.visible_to_buffer(url.end());
+            self.clipboard
+                .store(ClipboardType::Clipboard, self.terminal.bounds_to_string(start, end));
+        }
+    }
+
     fn highlighted_url(&self) -> Option<&Url> {
         self.display.highlighted_url.as_ref()
     }

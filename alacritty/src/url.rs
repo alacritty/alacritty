@@ -161,7 +161,7 @@ impl Urls {
         }
 
         // Make sure all prerequisites for highlighting are met.
-        if selection
+        if (selection && !config.ui_config.mouse.url.right_click_copy)
             || !mouse.inside_text_area
             || config.ui_config.mouse.url.launcher.is_none()
             || required_mods != mods

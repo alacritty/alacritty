@@ -22,6 +22,9 @@ pub struct Url {
 
     /// Modifier used to open links.
     modifiers: ModsWrapper,
+
+    /// Whether to copy URL on right click.
+    pub right_click_copy: bool,
 }
 
 impl Url {
@@ -40,6 +43,7 @@ impl Default for Url {
             #[cfg(windows)]
             launcher: Some(Program::Just(String::from("explorer"))),
             modifiers: Default::default(),
+            right_click_copy: false,
         }
     }
 }

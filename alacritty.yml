@@ -450,6 +450,11 @@
     # binding section.
     #modifiers: None
 
+    # URL right click copy
+    #
+    # If true, right-clicking on a URL will copy it to the clipboard.
+    #right_click_copy: false
+
 # Mouse bindings
 #
 # Mouse bindings are specified as a list of objects, much like the key

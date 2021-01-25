@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - IME composition preview not appearing on Windows
+- New `mouse.url.right_click_copy` option to support copying URLs with right click
 
 ### Fixed
 

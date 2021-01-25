@@ -90,6 +90,7 @@ pub trait ActionContext<T: EventListener> {
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn urls(&self) -> &Urls;
     fn launch_url(&self, _url: Url) {}
+    fn copy_url(&mut self, url: Url);
     fn highlighted_url(&self) -> Option<&Url>;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
@@ -695,6 +696,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
             self.ctx.launch_url(url);
+        } else if let (MouseButton::Right, MouseState::Url(url)) = (button, self.mouse_state()) {
+            self.ctx.copy_url(url);
         }
 
         self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
@@ -1220,6 +1223,10 @@ mod tests {
         }
 
         fn highlighted_url(&self) -> Option<&Url> {
+            unimplemented!();
+        }
+
+        fn copy_url(&mut self, _: Url) {
             unimplemented!();
         }
 
