@@ -1,6 +1,7 @@
 //! ANSI Terminal Stream Parsing.
 
 use std::convert::TryFrom;
+use std::time::{Duration, Instant};
 use std::{io, iter, str};
 
 use log::{debug, trace};
@@ -11,6 +12,21 @@ use alacritty_config_derive::ConfigDeserialize;
 
 use crate::index::{Column, Line};
 use crate::term::color::Rgb;
+
+/// Maximum time before a synchronized update is aborted.
+const SYNC_UPDATE_TIMEOUT: Duration = Duration::from_millis(150);
+
+/// Maximum number of bytes read in one synchronized update (2MiB).
+const SYNC_BUFFER_SIZE: usize = 0x20_0000;
+
+/// Number of bytes in the synchronized update DCS sequence before the passthrough parameters.
+const SYNC_ESCAPE_START_LEN: usize = 5;
+
+/// Start of the DCS sequence for beginning synchronized updates.
+const SYNC_START_ESCAPE_START: [u8; SYNC_ESCAPE_START_LEN] = [b'\x1b', b'P', b'=', b'1', b's'];
+
+/// Start of the DCS sequence for terminating synchronized updates.
+const SYNC_END_ESCAPE_START: [u8; SYNC_ESCAPE_START_LEN] = [b'\x1b', b'P', b'=', b'2', b's'];
 
 /// Parse colors in XParseColor format.
 fn xparse_color(color: &[u8]) -> Option<Rgb> {
@@ -81,15 +97,157 @@ fn parse_number(input: &[u8]) -> Option<u8> {
     Some(num)
 }
 
+/// Internal state for VTE processor.
+#[derive(Debug, Default)]
+struct ProcessorState {
+    /// Last processed character for repetition.
+    preceding_char: Option<char>,
+
+    /// DCS sequence waiting for termination.
+    dcs: Option<Dcs>,
+
+    /// State for synchronized terminal updates.
+    sync_state: SyncState,
+}
+
+#[derive(Debug)]
+struct SyncState {
+    /// Expiration time of the synchronized update.
+    timeout: Option<Instant>,
+
+    /// Sync DCS waiting for termination sequence.
+    pending_dcs: Option<Dcs>,
+
+    /// Bytes read during the synchronized update.
+    buffer: Vec<u8>,
+}
+
+impl Default for SyncState {
+    fn default() -> Self {
+        Self { buffer: Vec::with_capacity(SYNC_BUFFER_SIZE), pending_dcs: None, timeout: None }
+    }
+}
+
+/// Pending DCS sequence.
+#[derive(Debug)]
+enum Dcs {
+    /// Begin of the synchronized update.
+    SyncStart,
+
+    /// End of the synchronized update.
+    SyncEnd,
+}
+
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler.
+#[derive(Default)]
 pub struct Processor {
     state: ProcessorState,
     parser: vte::Parser,
 }
 
-/// Internal state for VTE processor.
-struct ProcessorState {
-    preceding_char: Option<char>,
+impl Processor {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Process a new byte from the PTY.
+    #[inline]
+    pub fn advance<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    where
+        H: Handler,
+        W: io::Write,
+    {
+        if self.state.sync_state.timeout.is_none() {
+            let mut performer = Performer::new(&mut self.state, handler, writer);
+            self.parser.advance(&mut performer, byte);
+        } else {
+            self.advance_sync(handler, byte, writer);
+        }
+    }
+
+    /// End a synchronized update.
+    pub fn stop_sync<H, W>(&mut self, handler: &mut H, writer: &mut W)
+    where
+        H: Handler,
+        W: io::Write,
+    {
+        // Process all synchronized bytes.
+        for i in 0..self.state.sync_state.buffer.len() {
+            let byte = self.state.sync_state.buffer[i];
+            let mut performer = Performer::new(&mut self.state, handler, writer);
+            self.parser.advance(&mut performer, byte);
+        }
+
+        // Resetting state after processing makes sure we don't interpret buffered sync escapes.
+        self.state.sync_state.buffer.clear();
+        self.state.sync_state.timeout = None;
+    }
+
+    /// Synchronized update expiration time.
+    #[inline]
+    pub fn sync_timeout(&self) -> Option<&Instant> {
+        self.state.sync_state.timeout.as_ref()
+    }
+
+    /// Number of bytes in the synchronization buffer.
+    #[inline]
+    pub fn sync_bytes_count(&self) -> usize {
+        self.state.sync_state.buffer.len()
+    }
+
+    /// Process a new byte during a synchronized update.
+    #[cold]
+    fn advance_sync<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    where
+        H: Handler,
+        W: io::Write,
+    {
+        self.state.sync_state.buffer.push(byte);
+
+        // Handle sync DCS escape sequences.
+        match self.state.sync_state.pending_dcs {
+            Some(_) => self.advance_sync_dcs_end(handler, byte, writer),
+            None => self.advance_sync_dcs_start(),
+        }
+    }
+
+    /// Find the start of sync DCS sequences.
+    fn advance_sync_dcs_start(&mut self) {
+        // Get the last few bytes for comparison.
+        let len = self.state.sync_state.buffer.len();
+        let offset = len.saturating_sub(SYNC_ESCAPE_START_LEN);
+        let end = &self.state.sync_state.buffer[offset..];
+
+        // Check for extension/termination of the synchronized update.
+        if end == SYNC_START_ESCAPE_START {
+            self.state.sync_state.pending_dcs = Some(Dcs::SyncStart);
+        } else if end == SYNC_END_ESCAPE_START || len >= SYNC_BUFFER_SIZE - 1 {
+            self.state.sync_state.pending_dcs = Some(Dcs::SyncEnd);
+        }
+    }
+
+    /// Parse the DCS termination sequence for synchronized updates.
+    fn advance_sync_dcs_end<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    where
+        H: Handler,
+        W: io::Write,
+    {
+        match byte {
+            // Ignore DCS passthrough characters.
+            0x00..=0x17 | 0x19 | 0x1c..=0x7f | 0xa0..=0xff => (),
+            // Cancel the DCS sequence.
+            0x18 | 0x1a | 0x80..=0x9f => self.state.sync_state.pending_dcs = None,
+            // Dispatch on ESC.
+            0x1b => match self.state.sync_state.pending_dcs.take() {
+                Some(Dcs::SyncStart) => {
+                    self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
+                },
+                Some(Dcs::SyncEnd) => self.stop_sync(handler, writer),
+                None => (),
+            },
+        }
+    }
 }
 
 /// Helper type that implements `vte::Perform`.
@@ -111,28 +269,6 @@ impl<'a, H: Handler + 'a, W: io::Write> Performer<'a, H, W> {
         writer: &'b mut W,
     ) -> Performer<'b, H, W> {
         Performer { state, handler, writer }
-    }
-}
-
-impl Default for Processor {
-    fn default() -> Processor {
-        Processor { state: ProcessorState { preceding_char: None }, parser: vte::Parser::new() }
-    }
-}
-
-impl Processor {
-    pub fn new() -> Processor {
-        Default::default()
-    }
-
-    #[inline]
-    pub fn advance<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
-    where
-        H: Handler,
-        W: io::Write,
-    {
-        let mut performer = Performer::new(&mut self.state, handler, writer);
-        self.parser.advance(&mut performer, byte);
     }
 }
 
@@ -172,8 +308,6 @@ pub trait Handler {
     fn move_down(&mut self, _: Line) {}
 
     /// Identify the terminal (should write back to the pty stream).
-    ///
-    /// TODO this should probably return an io::Result
     fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {}
 
     /// Report device status.
@@ -428,8 +562,6 @@ pub enum Mode {
 
 impl Mode {
     /// Create mode from a primitive.
-    ///
-    /// TODO lots of unhandled values.
     pub fn from_primitive(intermediate: Option<&u8>, num: u16) -> Option<Mode> {
         let private = match intermediate {
             Some(b'?') => true,
@@ -779,10 +911,18 @@ where
 
     #[inline]
     fn hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, action: char) {
-        debug!(
-            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
-            params, intermediates, ignore, action
-        );
+        match (action, intermediates) {
+            ('s', [b'=']) => {
+                // Start a synchronized update. The end is handled with a separate parser.
+                if params.iter().next().map_or(false, |param| param[0] == 1) {
+                    self.state.dcs = Some(Dcs::SyncStart);
+                }
+            },
+            _ => debug!(
+                "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
+                params, intermediates, ignore, action
+            ),
+        }
     }
 
     #[inline]
@@ -792,10 +932,15 @@ where
 
     #[inline]
     fn unhook(&mut self) {
-        debug!("[unhandled unhook]");
+        match self.state.dcs {
+            Some(Dcs::SyncStart) => {
+                self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
+            },
+            Some(Dcs::SyncEnd) => (),
+            _ => debug!("[unhandled unhook]"),
+        }
     }
 
-    // TODO replace OSC parsing with parser combinators.
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]], bell_terminated: bool) {
         let terminator = if bell_terminated { "\x07" } else { "\x1b\\" };
@@ -1172,6 +1317,7 @@ where
     }
 }
 
+#[inline]
 fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
     let mut attrs = Vec::with_capacity(params.size_hint().0);
 
