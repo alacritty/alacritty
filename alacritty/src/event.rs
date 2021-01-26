@@ -1226,6 +1226,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
+                        processor.ctx.dirty = true;
                     },
                     WindowEvent::ModifiersChanged(modifiers) => {
                         processor.modifiers_input(modifiers)
