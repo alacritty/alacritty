@@ -1,4 +1,4 @@
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::ffi::c_void;
 
 use log::{debug, warn};
@@ -7,9 +7,9 @@ use alacritty_terminal::term::ClipboardType;
 
 #[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
 use copypasta::nop_clipboard::NopClipboardContext;
-#[cfg(all(not(any(target_os = "macos", windows)), feature = "wayland"))]
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use copypasta::wayland_clipboard;
-#[cfg(all(not(any(target_os = "macos", windows)), feature = "x11"))]
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
 #[cfg(any(feature = "x11", target_os = "macos", windows))]
 use copypasta::ClipboardContext;
@@ -21,28 +21,21 @@ pub struct Clipboard {
 }
 
 impl Clipboard {
-    #[cfg(any(target_os = "macos", windows))]
+    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
     pub fn new() -> Self {
         Self::default()
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn new(_display: Option<*mut c_void>) -> Self {
-        #[cfg(feature = "wayland")]
-        if let Some(display) = _display {
-            let (selection, clipboard) =
-                unsafe { wayland_clipboard::create_clipboards_from_external(display) };
-            return Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) };
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+    pub unsafe fn new(display: Option<*mut c_void>) -> Self {
+        match display {
+            Some(display) => {
+                let (selection, clipboard) =
+                    wayland_clipboard::create_clipboards_from_external(display);
+                Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
+            },
+            None => Self::default(),
         }
-
-        #[cfg(feature = "x11")]
-        return Self {
-            clipboard: Box::new(ClipboardContext::new().unwrap()),
-            selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap())),
-        };
-
-        #[cfg(not(feature = "x11"))]
-        return Self::new_nop();
     }
 
     /// Used for tests and to handle missing clipboard provider when built without the `x11`
@@ -55,8 +48,15 @@ impl Clipboard {
 
 impl Default for Clipboard {
     fn default() -> Self {
-        #[cfg(any(feature = "x11", target_os = "macos", windows))]
+        #[cfg(any(target_os = "macos", windows))]
         return Self { clipboard: Box::new(ClipboardContext::new().unwrap()), selection: None };
+
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        return Self {
+            clipboard: Box::new(ClipboardContext::new().unwrap()),
+            selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap())),
+        };
+
         #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
         return Self::new_nop();
     }

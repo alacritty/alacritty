@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Crash due to assertion failure on 32-bit architectures
+- Segmentation fault on shutdown with Wayland
 
 ### Removed
 
