@@ -178,7 +178,7 @@ pub struct ActionContext<'a, N, T> {
     pub search_state: &'a mut SearchState,
     cli_options: &'a CLIOptions,
     font_size: &'a mut Size,
-    dirty: bool,
+    dirty: &'a mut bool,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -190,7 +190,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Request a redraw.
     #[inline]
     fn mark_dirty(&mut self) {
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     #[inline]
@@ -222,7 +222,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.update_selection(point, cell_side);
         }
 
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn copy_selection(&mut self, ty: ClipboardType) {
@@ -239,7 +239,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn clear_selection(&mut self) {
         self.terminal.selection = None;
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -262,13 +262,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.terminal.selection = Some(selection);
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         let point = self.terminal.visible_to_buffer(point);
         self.terminal.selection = Some(Selection::new(ty, point, side));
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -278,7 +278,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             },
             Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
-                self.dirty = true;
+                *self.dirty = true;
             },
             _ => self.start_selection(ty, point, side),
         }
@@ -414,13 +414,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
         let font = self.config.ui_config.font.clone().with_size(*self.font_size);
         self.display_update_pending.set_font(font);
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
         *self.font_size = self.config.ui_config.font.size();
         self.display_update_pending.set_font(self.config.ui_config.font.clone());
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     #[inline]
@@ -428,7 +428,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if !self.message_buffer.is_empty() {
             self.display_update_pending.dirty = true;
             self.message_buffer.pop();
-            self.dirty = true;
+            *self.dirty = true;
         }
     }
 
@@ -461,7 +461,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.display_update_pending.dirty = true;
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     #[inline]
@@ -651,7 +651,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
             timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
             self.display.cursor_hidden = false;
-            self.dirty = true;
+            *self.dirty = true;
         }
 
         // Hide mouse cursor.
@@ -670,7 +670,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.cancel_search();
         self.terminal.toggle_vi_mode();
 
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     fn message(&self) -> Option<&Message> {
@@ -722,7 +722,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             self.goto_match(MAX_SEARCH_WHILE_TYPING);
         }
 
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     /// Reset terminal to the state before search was started.
@@ -750,7 +750,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         origin.column = min(origin.column, self.terminal.cols() - 1);
         self.terminal.vi_mode_cursor.point = origin;
 
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     /// Jump to the first regex match from the search origin.
@@ -806,7 +806,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             },
         }
 
-        self.dirty = true;
+        *self.dirty = true;
     }
 
     /// Cleanup the search state.
@@ -821,7 +821,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         self.display_update_pending.dirty = true;
         self.search_state.history_index = None;
-        self.dirty = true;
+        *self.dirty = true;
 
         // Clear focused match.
         self.search_state.focused_match = None;
@@ -864,7 +864,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             )
         } else {
             self.display.cursor_hidden = false;
-            self.dirty = true;
+            *self.dirty = true;
         }
     }
 }
@@ -937,6 +937,7 @@ pub struct Processor<N> {
     event_queue: Vec<GlutinEvent<'static, Event>>,
     search_state: SearchState,
     cli_options: CLIOptions,
+    dirty: bool,
 }
 
 impl<N: Notify + OnResize> Processor<N> {
@@ -969,6 +970,7 @@ impl<N: Notify + OnResize> Processor<N> {
             clipboard,
             search_state: SearchState::new(),
             cli_options,
+            dirty: false,
         }
     }
 
@@ -1077,7 +1079,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
                 cli_options: &self.cli_options,
-                dirty: false,
+                dirty: &mut self.dirty,
                 event_loop,
             };
             let mut processor = input::Processor::new(context);
@@ -1085,7 +1087,6 @@ impl<N: Notify + OnResize> Processor<N> {
             for event in self.event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
             }
-            let dirty = processor.ctx.dirty;
 
             // Process DisplayUpdate events.
             if display_update_pending.dirty {
@@ -1098,7 +1099,9 @@ impl<N: Notify + OnResize> Processor<N> {
                 return;
             }
 
-            if dirty {
+            if self.dirty {
+                self.dirty = false;
+
                 // Request immediate re-draw if visual bell animation is not finished yet.
                 if !self.display.visual_bell.completed() {
                     let event: Event = TerminalEvent::Wakeup.into();
@@ -1147,19 +1150,19 @@ impl<N: Notify + OnResize> Processor<N> {
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     processor.ctx.window_mut().dpr = scale_factor;
-                    processor.ctx.dirty = true;
+                    *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
                     processor.ctx.display_update_pending.dirty = true;
-                    processor.ctx.dirty = true;
+                    *processor.ctx.dirty = true;
                 },
                 Event::SearchNext => processor.ctx.goto_match(None),
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
                 Event::BlinkCursor => {
                     processor.ctx.display.cursor_hidden ^= true;
-                    processor.ctx.dirty = true;
+                    *processor.ctx.dirty = true;
                 },
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
@@ -1174,7 +1177,7 @@ impl<N: Notify + OnResize> Processor<N> {
                             processor.ctx.display.window.set_title(&ui_config.window.title);
                         }
                     },
-                    TerminalEvent::Wakeup => processor.ctx.dirty = true,
+                    TerminalEvent::Wakeup => *processor.ctx.dirty = true,
                     TerminalEvent::Bell => {
                         // Set window urgency.
                         if processor.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
@@ -1208,7 +1211,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                 },
             },
-            GlutinEvent::RedrawRequested(_) => processor.ctx.dirty = true,
+            GlutinEvent::RedrawRequested(_) => *processor.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, window_id, .. } => {
                 match event {
                     WindowEvent::CloseRequested => processor.ctx.terminal.exit(),
@@ -1222,7 +1225,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         }
 
                         processor.ctx.display_update_pending.set_dimensions(size);
-                        processor.ctx.dirty = true;
+                        *processor.ctx.dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
@@ -1234,7 +1237,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window_mut().set_mouse_visible(true);
                         processor.mouse_input(state, button);
-                        processor.ctx.dirty = true;
+                        *processor.ctx.dirty = true;
                     },
                     WindowEvent::CursorMoved { position, .. } => {
                         processor.ctx.window_mut().set_mouse_visible(true);
@@ -1247,7 +1250,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window().window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
-                            processor.ctx.dirty = true;
+                            *processor.ctx.dirty = true;
 
                             if is_focused {
                                 processor.ctx.window_mut().set_urgent(false);
@@ -1267,7 +1270,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.mouse.inside_text_area = false;
 
                         if processor.ctx.highlighted_url().is_some() {
-                            processor.ctx.dirty = true;
+                            *processor.ctx.dirty = true;
                         }
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
@@ -1384,7 +1387,7 @@ impl<N: Notify + OnResize> Processor<N> {
         // Update cursor blinking.
         processor.ctx.update_cursor_blinking();
 
-        processor.ctx.dirty = true;
+        *processor.ctx.dirty = true;
     }
 
     /// Submit the pending changes to the `Display`.
