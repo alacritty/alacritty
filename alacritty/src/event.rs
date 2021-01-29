@@ -874,7 +874,6 @@ pub struct Processor<N> {
     mouse: Mouse,
     received_count: usize,
     suppress_chars: bool,
-    clipboard: Clipboard,
     modifiers: ModifiersState,
     config: Config,
     message_buffer: MessageBuffer,
@@ -896,11 +895,6 @@ impl<N: Notify + OnResize> Processor<N> {
         display: Display,
         cli_options: CLIOptions,
     ) -> Processor<N> {
-        #[cfg(not(any(target_os = "macos", windows)))]
-        let clipboard = Clipboard::new(display.window.wayland_display());
-        #[cfg(any(target_os = "macos", windows))]
-        let clipboard = Clipboard::new();
-
         Processor {
             notifier,
             mouse: Default::default(),
@@ -912,7 +906,6 @@ impl<N: Notify + OnResize> Processor<N> {
             message_buffer,
             display,
             event_queue: Vec::new(),
-            clipboard,
             search_state: SearchState::new(),
             cli_options,
         }
@@ -955,6 +948,12 @@ impl<N: Notify + OnResize> Processor<N> {
             let event: Event = TerminalEvent::CursorBlinkingChange(true).into();
             self.event_queue.push(event.into());
         }
+
+        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let mut clipboard = unsafe { Clipboard::new(event_loop.wayland_display()) };
+        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
+        let mut clipboard = Clipboard::new();
 
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.ui_config.debug.print_events {
@@ -1011,8 +1010,8 @@ impl<N: Notify + OnResize> Processor<N> {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
-                clipboard: &mut self.clipboard,
                 size_info: &mut self.display.size_info,
+                clipboard: &mut clipboard,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 modifiers: &mut self.modifiers,
