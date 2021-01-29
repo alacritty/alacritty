@@ -401,16 +401,6 @@ impl Window {
     }
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
-        self.window().wayland_display()
-    }
-
-    #[cfg(not(any(feature = "wayland", target_os = "macos", windows)))]
-    pub fn wayland_display(&self) -> Option<*mut std::ffi::c_void> {
-        None
-    }
-
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub fn wayland_surface(&self) -> Option<&Attached<WlSurface>> {
         self.wayland_surface.as_ref()
     }
