@@ -35,7 +35,7 @@ _alacritty()
             compopt -o filenames
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0;;
-        --dimensions | -d | --class | --title | -t)
+        --class | --title | -t)
             # Don't complete here
             return 0;;
         --working-directory)
