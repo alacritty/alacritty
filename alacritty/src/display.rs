@@ -169,9 +169,18 @@ pub struct Display {
 
 impl Display {
     pub fn new<E>(config: &Config, event_loop: &EventLoop<E>) -> Result<Display, Error> {
-        // Guess DPR based on first monitor.
-        let estimated_dpr =
-            event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.);
+        #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
+        let is_x11 = false;
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        let is_x11 = event_loop.is_x11();
+
+        // Guess DPR based on first monitor. On Wayland the initial frame always renders at a DPR
+        // of 1.
+        let estimated_dpr = if cfg!(any(target_os = "macos", windows)) || is_x11 {
+            event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.)
+        } else {
+            1.
+        };
 
         // Guess the target window dimensions.
         let metrics = GlyphCache::static_metrics(config.ui_config.font.clone(), estimated_dpr)?;
@@ -258,11 +267,6 @@ impl Display {
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
         window.set_has_shadow(config.ui_config.background_opacity() >= 1.0);
-
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        let is_x11 = event_loop.is_x11();
-        #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
-        let is_x11 = false;
 
         // On Wayland we can safely ignore this call, since the window isn't visible until you
         // actually draw something into it and commit those changes.
