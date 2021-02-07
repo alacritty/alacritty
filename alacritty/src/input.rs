@@ -10,8 +10,6 @@ use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
-use log::trace;
-
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
@@ -31,10 +29,10 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, Binding, BindingMode, Config, Key, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::window::Window;
-use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY, HintState};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
@@ -66,7 +64,7 @@ pub trait ActionContext<T: EventListener> {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
     fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
+    fn toggle_vi_selection(&mut self, _ty: SelectionType) {}
     fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
@@ -112,249 +110,229 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
+    fn hint_state(&mut self) -> &mut HintState;
+    fn hint_input(&mut self, _character: char) {}
 }
 
-trait Execute<T: EventListener> {
-    fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
-}
+macro_rules! execute_action {
+    ($ctx:expr, $action:expr) => {
+        match $action {
+            Action::Esc(s) => {
+                let bytes = s.clone().into_bytes();
 
-impl<T, U: EventListener> Execute<U> for Binding<T> {
-    /// Execute the action associate with this binding.
-    #[inline]
-    fn execute<A: ActionContext<U>>(&self, ctx: &mut A) {
-        self.action.execute(ctx)
-    }
-}
+                $ctx.on_typing_start();
 
-impl Action {
-    fn toggle_selection<T, A>(ctx: &mut A, ty: SelectionType)
-    where
-        A: ActionContext<T>,
-        T: EventListener,
-    {
-        let cursor_point = ctx.terminal().vi_mode_cursor.point;
-        ctx.toggle_selection(ty, cursor_point, Side::Left);
-
-        // Make sure initial selection is not empty.
-        if let Some(selection) = &mut ctx.terminal_mut().selection {
-            selection.include_all();
-        }
-    }
-}
-
-impl<T: EventListener> Execute<T> for Action {
-    #[inline]
-    fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
-        match *self {
-            Action::Esc(ref s) => {
-                ctx.on_typing_start();
-
-                ctx.clear_selection();
-                ctx.scroll(Scroll::Bottom);
-                ctx.write_to_pty(s.clone().into_bytes())
+                $ctx.clear_selection();
+                $ctx.scroll(Scroll::Bottom);
+                $ctx.write_to_pty(bytes)
             },
-            Action::Command(ref program) => {
-                let args = program.args();
-                let program = program.program();
-                trace!("Running command {} with args {:?}", program, args);
+            Action::Command(program) => start_daemon(program.program(), program.args()),
+            Action::Hint(hint) => {
+                // Make sure the hint is compiled.
+                hint.regex.compile();
+                let hint = hint.clone();
 
-                start_daemon(program, args);
-            },
-            Action::ToggleViMode => ctx.toggle_vi_mode(),
+                $ctx.hint_state().start(hint);
+                $ctx.mark_dirty();
+            }
+            Action::ToggleViMode => $ctx.toggle_vi_mode(),
             Action::ViMotion(motion) => {
-                ctx.on_typing_start();
-                ctx.terminal_mut().vi_motion(motion);
-                ctx.mark_dirty();
+                let motion = *motion;
+                $ctx.on_typing_start();
+                $ctx.terminal_mut().vi_motion(motion);
+                $ctx.mark_dirty();
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Simple)
+                $ctx.toggle_vi_selection(SelectionType::Simple);
             },
             Action::ViAction(ViAction::ToggleLineSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Lines)
+                $ctx.toggle_vi_selection(SelectionType::Lines);
             },
             Action::ViAction(ViAction::ToggleBlockSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Block)
+                $ctx.toggle_vi_selection(SelectionType::Block);
             },
             Action::ViAction(ViAction::ToggleSemanticSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Semantic)
+                $ctx.toggle_vi_selection(SelectionType::Semantic);
             },
             Action::ViAction(ViAction::Open) => {
-                ctx.mouse_mut().block_url_launcher = false;
-                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_mode_cursor.point) {
-                    ctx.launch_url(url);
+                $ctx.mouse_mut().block_url_launcher = false;
+                let point = $ctx.terminal().vi_mode_cursor.point;
+                if let Some(url) = $ctx.urls().find_at(point) {
+                    $ctx.launch_url(url);
                 }
             },
             Action::ViAction(ViAction::SearchNext) => {
-                let terminal = ctx.terminal();
-                let direction = ctx.search_direction();
+                let direction = $ctx.search_direction();
+                let terminal = $ctx.terminal();
                 let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
-                if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
-                    ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                if let Some(regex_match) = $ctx.search_next(origin, direction, Side::Left) {
+                    $ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    $ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchPrevious) => {
-                let terminal = ctx.terminal();
-                let direction = ctx.search_direction().opposite();
+                let direction = $ctx.search_direction().opposite();
+                let terminal = $ctx.terminal();
                 let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
                 };
 
-                if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
-                    ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                if let Some(regex_match) = $ctx.search_next(origin, direction, Side::Left) {
+                    $ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    $ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchStart) => {
-                let terminal = ctx.terminal();
+                let terminal = $ctx.terminal();
                 let origin = terminal
                     .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .sub_absolute(terminal, Boundary::Wrap, 1);
 
-                if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
-                    ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                if let Some(regex_match) = $ctx.search_next(origin, Direction::Left, Side::Left) {
+                    $ctx.terminal_mut().vi_goto_point(*regex_match.start());
+                    $ctx.mark_dirty();
                 }
             },
             Action::ViAction(ViAction::SearchEnd) => {
-                let terminal = ctx.terminal();
+                let terminal = $ctx.terminal();
                 let origin = terminal
                     .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .add_absolute(terminal, Boundary::Wrap, 1);
 
-                if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
-                    ctx.terminal_mut().vi_goto_point(*regex_match.end());
-                    ctx.mark_dirty();
+                if let Some(regex_match) = $ctx.search_next(origin, Direction::Right, Side::Right) {
+                    $ctx.terminal_mut().vi_goto_point(*regex_match.end());
+                    $ctx.mark_dirty();
                 }
             },
             Action::SearchAction(SearchAction::SearchFocusNext) => {
-                ctx.advance_search_origin(ctx.search_direction());
+                let direction = $ctx.search_direction();
+                $ctx.advance_search_origin(direction);
             },
             Action::SearchAction(SearchAction::SearchFocusPrevious) => {
-                let direction = ctx.search_direction().opposite();
-                ctx.advance_search_origin(direction);
+                let direction = $ctx.search_direction().opposite();
+                $ctx.advance_search_origin(direction);
             },
-            Action::SearchAction(SearchAction::SearchConfirm) => ctx.confirm_search(),
-            Action::SearchAction(SearchAction::SearchCancel) => ctx.cancel_search(),
+            Action::SearchAction(SearchAction::SearchConfirm) => $ctx.confirm_search(),
+            Action::SearchAction(SearchAction::SearchCancel) => $ctx.cancel_search(),
             Action::SearchAction(SearchAction::SearchClear) => {
-                let direction = ctx.search_direction();
-                ctx.cancel_search();
-                ctx.start_search(direction);
+                let direction = $ctx.search_direction();
+                $ctx.cancel_search();
+                $ctx.start_search(direction);
             },
-            Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
+            Action::SearchAction(SearchAction::SearchDeleteWord) => $ctx.search_pop_word(),
             Action::SearchAction(SearchAction::SearchHistoryPrevious) => {
-                ctx.search_history_previous()
+                $ctx.search_history_previous()
             },
-            Action::SearchAction(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
-            Action::SearchForward => ctx.start_search(Direction::Right),
-            Action::SearchBackward => ctx.start_search(Direction::Left),
-            Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
+            Action::SearchAction(SearchAction::SearchHistoryNext) => $ctx.search_history_next(),
+            Action::SearchForward => $ctx.start_search(Direction::Right),
+            Action::SearchBackward => $ctx.start_search(Direction::Left),
+            Action::Copy => $ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
-            Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
-            Action::ClearSelection => ctx.clear_selection(),
+            Action::CopySelection => $ctx.copy_selection(ClipboardType::Selection),
+            Action::ClearSelection => $ctx.clear_selection(),
             Action::Paste => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                paste(ctx, &text);
+                let text = $ctx.clipboard_mut().load(ClipboardType::Clipboard);
+                paste($ctx, &text);
             },
             Action::PasteSelection => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                paste(ctx, &text);
+                let text = $ctx.clipboard_mut().load(ClipboardType::Selection);
+                paste($ctx, &text);
             },
-            Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
+            Action::ToggleFullscreen => $ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
-            Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
+            Action::ToggleSimpleFullscreen => $ctx.window_mut().toggle_simple_fullscreen(),
             #[cfg(target_os = "macos")]
-            Action::Hide => ctx.event_loop().hide_application(),
+            Action::Hide => $ctx.event_loop().hide_application(),
             #[cfg(not(target_os = "macos"))]
-            Action::Hide => ctx.window().set_visible(false),
-            Action::Minimize => ctx.window().set_minimized(true),
-            Action::Quit => ctx.terminal_mut().exit(),
-            Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
-            Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
-            Action::ResetFontSize => ctx.reset_font_size(),
+            Action::Hide => $ctx.window().set_visible(false),
+            Action::Minimize => $ctx.window().set_minimized(true),
+            Action::Quit => $ctx.terminal_mut().exit(),
+            Action::IncreaseFontSize => $ctx.change_font_size(FONT_SIZE_STEP),
+            Action::DecreaseFontSize => $ctx.change_font_size(FONT_SIZE_STEP * -1.),
+            Action::ResetFontSize => $ctx.reset_font_size(),
             Action::ScrollPageUp => {
                 // Move vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = $ctx.terminal_mut();
                 let scroll_lines = term.screen_lines().0 as isize;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
-                ctx.scroll(Scroll::PageUp);
+                $ctx.scroll(Scroll::PageUp);
             },
             Action::ScrollPageDown => {
                 // Move vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = $ctx.terminal_mut();
                 let scroll_lines = -(term.screen_lines().0 as isize);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
-                ctx.scroll(Scroll::PageDown);
+                $ctx.scroll(Scroll::PageDown);
             },
             Action::ScrollHalfPageUp => {
                 // Move vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = $ctx.terminal_mut();
                 let scroll_lines = term.screen_lines().0 as isize / 2;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
-                ctx.scroll(Scroll::Delta(scroll_lines));
+                $ctx.scroll(Scroll::Delta(scroll_lines));
             },
             Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = $ctx.terminal_mut();
                 let scroll_lines = -(term.screen_lines().0 as isize / 2);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
-                ctx.scroll(Scroll::Delta(scroll_lines));
+                $ctx.scroll(Scroll::Delta(scroll_lines));
             },
             Action::ScrollLineUp => {
                 // Move vi mode cursor.
-                let term = ctx.terminal();
+                let term = $ctx.terminal();
                 if term.grid().display_offset() != term.history_size()
                     && term.vi_mode_cursor.point.line + 1 != term.screen_lines()
                 {
-                    ctx.terminal_mut().vi_mode_cursor.point.line += 1;
+                    $ctx.terminal_mut().vi_mode_cursor.point.line += 1;
                 }
 
-                ctx.scroll(Scroll::Delta(1));
+                $ctx.scroll(Scroll::Delta(1));
             },
             Action::ScrollLineDown => {
                 // Move vi mode cursor.
-                if ctx.terminal().grid().display_offset() != 0
-                    && ctx.terminal().vi_mode_cursor.point.line.0 != 0
+                if $ctx.terminal().grid().display_offset() != 0
+                    && $ctx.terminal().vi_mode_cursor.point.line.0 != 0
                 {
-                    ctx.terminal_mut().vi_mode_cursor.point.line -= 1;
+                    $ctx.terminal_mut().vi_mode_cursor.point.line -= 1;
                 }
 
-                ctx.scroll(Scroll::Delta(-1));
+                $ctx.scroll(Scroll::Delta(-1));
             },
             Action::ScrollToTop => {
-                ctx.scroll(Scroll::Top);
+                $ctx.scroll(Scroll::Top);
 
                 // Move vi mode cursor.
-                ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
-                ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
-                ctx.mark_dirty();
+                $ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
+                $ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
+                $ctx.mark_dirty();
             },
             Action::ScrollToBottom => {
-                ctx.scroll(Scroll::Bottom);
+                $ctx.scroll(Scroll::Bottom);
 
                 // Move vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = $ctx.terminal_mut();
                 term.vi_mode_cursor.point.line = term.screen_lines() - 1;
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
                 term.vi_motion(ViMotion::FirstOccupied);
-                ctx.mark_dirty();
+                $ctx.mark_dirty();
             },
-            Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
-            Action::ClearLogNotice => ctx.pop_message(),
-            Action::SpawnNewInstance => ctx.spawn_new_instance(),
+            Action::ClearHistory => $ctx.terminal_mut().clear_screen(ClearMode::Saved),
+            Action::ClearLogNotice => $ctx.pop_message(),
+            Action::SpawnNewInstance => $ctx.spawn_new_instance(),
             Action::ReceiveChar | Action::None => (),
         }
     }
@@ -840,6 +818,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Process key input.
     pub fn key_input(&mut self, input: KeyboardInput) {
+        // All key bindings are disabled while a hint is being selected.
+        if self.ctx.hint_state().active() {
+            *self.ctx.suppress_chars() = false;
+            return;
+        }
+
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
             if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::DelayedSearch) {
@@ -876,8 +860,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         let suppress_chars = *self.ctx.suppress_chars();
+
+        // Handle hint selection over anything else.
+        let hint_state = self.ctx.hint_state();
+        if hint_state.active() && !suppress_chars {
+            self.ctx.hint_input(c);
+            return;
+        }
+
+        // Pass keys to search and ignore them during `suppress_chars`.
         let search_active = self.ctx.search_active();
-        if suppress_chars || self.ctx.terminal().mode().contains(TermMode::VI) || search_active {
+        if suppress_chars || search_active || self.ctx.terminal().mode().contains(TermMode::VI) {
             if search_active && !suppress_chars {
                 self.ctx.search_input(c);
             }
@@ -929,12 +922,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
 
             if binding.is_triggered_by(mode, mods, &key) {
-                // Binding was triggered; run the action.
-                let binding = binding.clone();
-                binding.execute(&mut self.ctx);
-
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
+
+                // Binding was triggered; run the action.
+                execute_action!(&mut self.ctx, &binding.action);
             }
         }
 
@@ -960,7 +952,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
 
             if binding.is_triggered_by(mode, mods, &button) {
-                binding.execute(&mut self.ctx);
+                execute_action!(&mut self.ctx, &binding.action);
             }
         }
     }

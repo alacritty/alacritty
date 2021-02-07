@@ -40,7 +40,7 @@ use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
 use crate::display::meter::Meter;
 use crate::display::window::Window;
-use crate::event::{Mouse, SearchState};
+use crate::event::{Mouse, SearchState, HintState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
@@ -468,6 +468,7 @@ impl Display {
         mouse: &Mouse,
         mods: ModifiersState,
         search_state: &SearchState,
+        hint_state: &mut HintState,
     ) {
         // Convert search match from viewport to absolute indexing.
         let search_active = search_state.regex().is_some();
@@ -477,9 +478,16 @@ impl Display {
         let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
         // Collect renderable content before the terminal is dropped.
-        let dfas = search_state.dfas();
+        let search_dfas = search_state.dfas();
         let colors = &self.colors;
-        let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
+        let mut content = RenderableContent::new(
+            config,
+            &terminal,
+            colors,
+            search_dfas,
+            hint_state,
+            !cursor_hidden,
+        );
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);

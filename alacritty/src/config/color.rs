@@ -16,6 +16,7 @@ pub struct Colors {
     pub indexed_colors: Vec<IndexedColor>,
     pub search: SearchColors,
     pub line_indicator: LineIndicatorColors,
+    pub hints: HintColors,
 }
 
 impl Colors {
@@ -32,6 +33,42 @@ impl Colors {
 pub struct LineIndicatorColors {
     pub foreground: Option<Rgb>,
     pub background: Option<Rgb>,
+}
+
+#[derive(ConfigDeserialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintColors {
+    pub start: HintStartColors,
+    pub end: HintEndColors,
+}
+
+#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintStartColors {
+    pub foreground: CellRgb,
+    pub background: CellRgb,
+}
+
+impl Default for HintStartColors {
+    fn default() -> Self {
+        Self {
+            foreground: CellRgb::Rgb(Rgb { r: 0x1d, g: 0x1f, b: 0x21 }),
+            background: CellRgb::Rgb(Rgb { r: 0xe9, g: 0xff, b: 0x5e }),
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintEndColors {
+    pub foreground: CellRgb,
+    pub background: CellRgb,
+}
+
+impl Default for HintEndColors {
+    fn default() -> Self {
+        Self {
+            foreground: CellRgb::Rgb(Rgb { r: 0xe9, g: 0xff, b: 0x5e }),
+            background: CellRgb::Rgb(Rgb { r: 0x1d, g: 0x1f, b: 0x21 }),
+        }
+    }
 }
 
 #[derive(Deserialize, Copy, Clone, Default, Debug, PartialEq, Eq)]

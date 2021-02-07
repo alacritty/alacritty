@@ -15,6 +15,7 @@ const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('
 pub type Match = RangeInclusive<Point<usize>>;
 
 /// Terminal regex search state.
+#[derive(Clone, Debug)]
 pub struct RegexSearch {
     /// Locate end of match searching right.
     right_fdfa: DenseDFA<Vec<usize>, usize>,
