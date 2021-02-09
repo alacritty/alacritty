@@ -10,7 +10,7 @@ use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
@@ -18,6 +18,9 @@ use log::{self, Level};
 use crate::cli::Options;
 use crate::event::Event;
 use crate::message_bar::{Message, MessageType};
+
+use chrono::prelude::*;
+use time::Duration;
 
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
@@ -130,8 +133,8 @@ impl log::Log for Logger {
 }
 
 fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
-    let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-    let mut message = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
+    
+    let mut message = format!("[{}] [{:<5}] [{}] ", chrono::Utc::now(), record.level(), target);
 
     // Alignment for the lines after the first new line character in the payload. We don't deal
     // with fullwidth/unicode chars here, so just `message.len()` is sufficient.

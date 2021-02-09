@@ -30,6 +30,14 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
+impl Row<crate::term::cell::Cell> {
+    pub fn to_string(&self) -> String {
+        let row_string: String = self.inner.clone().into_iter().map(|cell| cell.c).collect();
+        row_string
+    }
+}
+
+
 impl<T: Clone + Default> Row<T> {
     /// Create a new terminal row.
     ///

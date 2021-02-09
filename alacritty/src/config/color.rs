@@ -114,6 +114,7 @@ pub struct BarColors {
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct PrimaryColors {
     pub foreground: Rgb,
+    pub tabs: Rgb,
     pub background: Rgb,
     pub bright_foreground: Option<Rgb>,
     pub dim_foreground: Option<Rgb>,
@@ -124,6 +125,7 @@ impl Default for PrimaryColors {
         PrimaryColors {
             background: Rgb { r: 0x1d, g: 0x1f, b: 0x21 },
             foreground: Rgb { r: 0xc5, g: 0xc8, b: 0xc6 },
+            tabs: Rgb { r: 245, g: 209, b: 66 },
             bright_foreground: Default::default(),
             dim_foreground: Default::default(),
         }

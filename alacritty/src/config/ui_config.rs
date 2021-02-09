@@ -14,13 +14,15 @@ use crate::config::font::Font;
 use crate::config::mouse::Mouse;
 use crate::config::window::WindowConfig;
 
-#[derive(ConfigDeserialize, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct UIConfig {
     /// Font configuration.
     pub font: Font,
 
     /// Window configuration.
     pub window: WindowConfig,
+
+    pub grep_after: usize,
 
     pub mouse: Mouse,
 
@@ -63,6 +65,7 @@ impl Default for UIConfig {
             live_config_reload: true,
             font: Default::default(),
             window: Default::default(),
+            grep_after: Default::default(),
             mouse: Default::default(),
             debug: Default::default(),
             config_paths: Default::default(),
@@ -93,7 +96,7 @@ impl UIConfig {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct KeyBindings(Vec<KeyBinding>);
 
 impl Default for KeyBindings {
@@ -111,7 +114,7 @@ impl<'de> Deserialize<'de> for KeyBindings {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct MouseBindings(Vec<MouseBinding>);
 
 impl Default for MouseBindings {

@@ -1,3 +1,10 @@
+# This branch is using RwLock
+
+Notice how much slower this is!
+
+# Original Readme.md:
+
+
 <p align="center">
     <img width="200" alt="Alacritty Logo" src="https://raw.githubusercontent.com/alacritty/alacritty/master/extra/logo/compat/alacritty-term%2Bscanlines.png">
 </p>

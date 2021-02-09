@@ -103,6 +103,10 @@ pub enum Action {
     #[config(skip)]
     SearchAction(SearchAction),
 
+    NewTab,
+    PreviousTab,
+    NextTab,
+
     /// Paste contents of system clipboard.
     Paste,
 
@@ -343,6 +347,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Copy,  +BindingMode::VI; Action::ClearSelection;
         Paste, ~BindingMode::VI; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
+        T, ModifiersState::LOGO; Action::NewTab;
+        LBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::PreviousTab;
+        RBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::NextTab;
         L,    ModifiersState::CTRL,  ~BindingMode::VI, ~BindingMode::SEARCH;
             Action::Esc("\x0c".into());
         Tab,  ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH;

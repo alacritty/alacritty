@@ -2,8 +2,11 @@
 
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 use std::{io, mem, ptr, str};
+
+use crate::sync::FairMutex;
 
 use bitflags::bitflags;
 use log::{debug, trace};
@@ -166,6 +169,7 @@ impl SizeInfo {
             column: min(col, Column(self.cols.saturating_sub(1))),
         }
     }
+
 
     #[inline]
     pub fn width(&self) -> f32 {
@@ -631,7 +635,7 @@ impl<T> Term<T> {
     }
 
     #[inline]
-    pub fn exit(&mut self)
+    pub fn exit(&self)
     where
         T: EventListener,
     {

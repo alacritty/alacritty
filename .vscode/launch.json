@@ -1,0 +1,93 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+          {
+            "type": "lldb",
+            "request": "attach",
+            "pid": "${command:pickMyProcess}",
+            "name": "Attach LLDB to process - pick",
+            "program": "${workspaceRoot}/target/debug/alacritty",
+            "sourceLanguages": [
+                "rust"
+            ],
+        }
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'alacritty'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=alacritty",
+                    "--package=alacritty"
+                ],
+                "filter": {
+                    "name": "alacritty",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'alacritty'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=alacritty",
+                    "--package=alacritty"
+                ],
+                "filter": {
+                    "name": "alacritty",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'alacritty_terminal'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=alacritty_terminal"
+                ],
+                "filter": {
+                    "name": "alacritty_terminal",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'ref'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=ref",
+                    "--package=alacritty_terminal"
+                ],
+                "filter": {
+                    "name": "ref",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

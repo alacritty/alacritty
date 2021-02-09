@@ -1,12 +1,15 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
+use regex::Regex;
 use std::cmp::min;
 use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+
+use std::sync::{Arc, RwLock};
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
@@ -51,10 +54,12 @@ pub mod cursor;
 pub mod window;
 
 mod bell;
-mod color;
+pub mod color;
 mod meter;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
+
+use crate::tab_manager::TabManager;
 
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
@@ -184,10 +189,11 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+    tab_manager: Arc<TabManager>,
 }
 
 impl Display {
-    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>) -> Result<Display, Error> {
+    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>, tab_manager: Arc<TabManager>) -> Result<Display, Error> {
         #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
         let is_x11 = false;
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -332,6 +338,7 @@ impl Display {
             cursor_hidden: false,
             visual_bell: VisualBell::from(&config.ui_config.bell),
             colors: List::from(&config.ui_config.colors),
+            tab_manager
         })
     }
 
@@ -390,17 +397,13 @@ impl Display {
     }
 
     /// Process update events.
-    pub fn handle_update<T>(
+    pub fn handle_update(
         &mut self,
-        terminal: &mut Term<T>,
-        pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
         search_active: bool,
         config: &Config,
         update_pending: DisplayUpdate,
-    ) where
-        T: EventListener,
-    {
+    ) {
         let (mut cell_width, mut cell_height) =
             (self.size_info.cell_width(), self.size_info.cell_height());
 
@@ -439,11 +442,8 @@ impl Display {
         let search_lines = if search_active { 1 } else { 0 };
         self.size_info.reserve_lines(message_bar_lines + search_lines);
 
-        // Resize PTY.
-        pty_resize_handle.on_resize(&self.size_info);
-
-        // Resize terminal.
-        terminal.resize(self.size_info);
+        let tab_manager = self.tab_manager.clone();
+        tab_manager.resize(self.size_info);
 
         // Resize renderer.
         let physical =
@@ -462,7 +462,8 @@ impl Display {
     /// This call may block if vsync is enabled.
     pub fn draw<T: EventListener>(
         &mut self,
-        terminal: MutexGuard<'_, Term<T>>,
+        tab_manager: Arc<TabManager>,
+        terminal: &mut Term<T>,
         message_buffer: &MessageBuffer,
         config: &Config,
         mouse: &Mouse,
@@ -476,11 +477,14 @@ impl Display {
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
         let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
+        
+        
         // Collect renderable content before the terminal is dropped.
         let dfas = search_state.dfas();
         let colors = &self.colors;
         let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
         let mut grid_cells = Vec::new();
+        
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }
@@ -518,7 +522,10 @@ impl Display {
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
-                    // Invert the active match during search.
+                    // TODO: Line addition for tab - remove?
+                    
+                                    // Invert the active match in vi-less search.
+                    
                     if cell.is_match
                         && viewport_match
                             .as_ref()
@@ -536,6 +543,8 @@ impl Display {
 
                     // Update underline/strikeout.
                     lines.update(&cell);
+
+                    // cell.point.line += 1; // Leave the first line open for the tab list
 
                     // Draw the cell.
                     api.render_cell(cell, glyph_cache);
@@ -599,6 +608,40 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
+        let sel_tab = match tab_manager.selected_tab_idx() {
+            Some(idx) => idx,
+            None => 0,
+        };
+
+        let glyph_cache = &mut self.glyph_cache;
+
+        let tab_min = 0;
+        let mut tab_max = tab_manager.num_tabs() - 1;
+
+        let tab_buttons = (tab_min..=tab_max)
+            .map(|i| if i == sel_tab { format!("[*{:0>3}]", i) } else { format!("[{:0>3}]", i) })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        let tabs_string = format!("{} Tab: {} of {}", tab_buttons, sel_tab, tab_max + 1);
+        let tab_string_len = tabs_string.len() + 2;
+
+        let mut columns = (size_info.width() / size_info.cell_width()) as usize;
+        columns = if columns > 2 { columns - 2 } else { columns };
+
+        let tab_string_location = if columns > tab_string_len { columns - tab_string_len } else { 0 };
+
+        let p: Point = Point::new(Line(0), Column(tab_string_location));
+        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
+            api.render_string(
+                glyph_cache,
+                p,
+                config.ui_config.colors.primary.tabs,
+                config.ui_config.colors.primary.background,
+                &tabs_string,
+            );
+        });
+
         if let Some(message) = message_buffer.message() {
             let search_offset = if search_active { 1 } else { 0 };
             let text = message.text(&size_info);
@@ -634,6 +677,21 @@ impl Display {
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, rects);
         }
+
+
+
+        // DRAW POPOVER WINDOW
+        if (false) {
+            let mut rects: Vec<RenderRect> = Vec::new();
+            let popover_rect =
+                RenderRect::new(0.0, 0.0, size_info.width(), size_info.height(), config.ui_config.colors.dim.as_ref().unwrap().black, 0.95);
+            rects.push(popover_rect);
+            self.renderer.draw_rects(&size_info, rects);
+        }
+
+
+
+
 
         self.draw_render_timer(config, &size_info);
 

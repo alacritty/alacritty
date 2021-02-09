@@ -18,7 +18,7 @@ const MIN_BLINK_INTERVAL: u64 = 10;
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
 /// Top-level config type.
-#[derive(ConfigDeserialize, Debug, PartialEq, Default)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Default)]
 pub struct Config<T> {
     /// TERM env variable.
     pub env: HashMap<String, String>,

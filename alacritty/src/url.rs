@@ -208,6 +208,7 @@ mod tests {
                 bg_alpha: 0.,
                 flags: Flags::empty(),
                 is_match: false,
+                grep_search: false
             })
             .collect()
     }

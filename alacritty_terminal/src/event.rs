@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::term::color::Rgb;
 use crate::term::{ClipboardType, SizeInfo};
@@ -44,6 +44,9 @@ pub enum Event {
     /// Terminal bell ring.
     Bell,
 
+    // Closing a tab
+    Close(usize),
+
     /// Shutdown request.
     Exit,
 }
@@ -60,6 +63,7 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
+            Event::Close(idx) => write!(f, "Close {}", idx),
             Event::CursorBlinkingChange(blinking) => write!(f, "CursorBlinking({})", blinking),
         }
     }

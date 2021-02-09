@@ -5,6 +5,8 @@ members = [
     "alacritty_config_derive",
 ]
 
+
+
 [profile.release]
 lto = true
 debug = 1
