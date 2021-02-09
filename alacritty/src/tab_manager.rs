@@ -1,6 +1,6 @@
 use libc::winsize;
 
-use std::io;
+
 
 use std::{
     io::Read,
@@ -58,14 +58,14 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         for tab in tab_r.into_iter() {
             let terminal_mutex = tab.terminal.clone();
             let mut terminal_guard = terminal_mutex.lock();
-            let mut terminal = &mut *terminal_guard;
+            let terminal = &mut *terminal_guard;
             let term_sz = sz.clone();
             terminal.resize(term_sz);
             drop(terminal_guard);
 
             let pty_mutex = tab.pty.clone();
             let mut pty_guard = pty_mutex.lock();
-            let mut pty = &mut *pty_guard;
+            let pty = &mut *pty_guard;
             let pty_sz = sz.clone();
             pty.on_resize(&pty_sz);
             drop(pty_guard);
@@ -129,7 +129,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                     Ok(rlen) => {
                         if rlen > 0 {
                             let mut terminal_guard = terminal_arc.lock();
-                            let mut terminal = &mut *terminal_guard;
+                            let terminal = &mut *terminal_guard;
                             let mut pty_guard = pty_arc.lock();
                             let mut unlocked_pty = &mut *pty_guard;
 
