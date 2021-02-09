@@ -283,7 +283,7 @@ impl Pty {
             ws_ypixel: win.ws_ypixel,
         };
 
-        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &new_winsize as *const _) };
+        let res = unsafe { libc::ioctl(self.fd, libc::TIOCSWINSZ, &new_winsize as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
