@@ -42,6 +42,7 @@ dependencies = [
  "futures-core",
  "gl_generator",
  "glutin",
+ "handle",
  "libc",
  "log",
  "miniserde",
@@ -958,6 +959,12 @@ checksum = "3da5951a1569dbab865c6f2a863efafff193a93caf05538d193e9e3816d21696"
 dependencies = [
  "gl_generator",
 ]
+
+[[package]]
+name = "handle"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17d6ba76fcedf88ca8501fbc08dc714952480f4daeb328697a65e473452611f9"
 
 [[package]]
 name = "hermit-abi"

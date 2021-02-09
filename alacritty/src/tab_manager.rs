@@ -17,6 +17,7 @@ use log::{error, info};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
 
+use std::io::Read;
 
 use alacritty_terminal::term::SizeInfo;
 

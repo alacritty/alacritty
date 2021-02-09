@@ -11,6 +11,7 @@ use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 
 use std::io;
+use std::boxed::Box;
 
 use nix::sys::termios::{self, InputFlags, SetArg};
 
@@ -174,8 +175,8 @@ impl Clone for Pty {
 impl Pty {
 
 
-    pub fn fin_clone(&mut self) -> File {
-        self.file.try_clone().unwrap()
+    pub fn fin_clone(&mut self) -> Box<dyn io::Read> {
+        Box::new(self.file.try_clone().unwrap())
     }
     pub fn get_file(&mut self) -> &mut File {
         &mut self.file

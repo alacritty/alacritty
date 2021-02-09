@@ -7,10 +7,19 @@ use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 // use crate::child_pty::windows::child::ChildExitWatcher;
 
+use std::boxed::Box;
+
 mod child;
 
-use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 
+
+// use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
+
+
+// use miow::pipe;
+use miow;
+use std::os::windows::io::AsRawHandle;
+use std::os::windows::io::FromRawHandle;
 
 use std::i16;
 use std::io::Error;
@@ -18,7 +27,8 @@ use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 
-use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
+// use handle::Handle;
+
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::BYTE;
 use winapi::shared::ntdef::LPWSTR;
@@ -139,6 +149,7 @@ pub fn new(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo) -
         }
     }
 
+
     // Set thread attribute list's Pseudo Console to the specified ConPTY.
     unsafe {
         success = UpdateProcThreadAttribute(
@@ -179,8 +190,8 @@ pub fn new(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo) -
         }
     }
 
-    let conin = EventedAnonWrite::new(conin);
-    let conout = EventedAnonRead::new(conout);
+    // let conin = EventedAnonWrite::new(conin);
+    // let conout = EventedAnonRead::new(conout);
 
     // let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let conpty = Conpty { handle: pty_handle };
@@ -211,17 +222,17 @@ fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
 
 
 
-pub fn new_pty(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo, _window_id: Option<usize>) -> Pty {
-    self::new(config, size).expect("Failed to create ConPTY backend")
-}
+// pub fn new_pty(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo, _window_id: Option<usize>) -> Pty {
+    // self::new(config, size).expect("Failed to create ConPTY backend")
+// }
 
 
 pub struct Pty {
     // XXX: Backend (Conpty) is required to be the first field, to ensure correct drop order. Dropping
     // `conout` before `backend` will cause a deadlock (with Conpty).
     pub backend: Conpty,
-    pub fout: ReadPipe,
-    pub fin: WritePipe,
+    pub fout: miow::pipe::AnonRead,
+    pub fin: miow::pipe::AnonWrite,
     // pub read_token: mio::Token,
     // pub write_token: mio::Token,
     // pub child_event_token: mio::Token,
@@ -250,8 +261,8 @@ impl std::io::Write for Pty {
 impl Pty {
     pub fn new(
         backend: impl Into<Conpty>,
-        conout: impl Into<ReadPipe>,
-        conin: impl Into<WritePipe>,
+        conout: miow::pipe::AnonRead,
+        conin: miow::pipe::AnonWrite,
         // child_watcher: ChildExitWatcher,
     ) -> Result<Self, ()> {
         Ok(Self {
@@ -265,8 +276,11 @@ impl Pty {
         })
     }
 
-    pub fn fin_clone(&mut self) -> File {
-        self.fin.inner
+    pub fn fin_clone(&mut self) -> miow::pipe::AnonRead {
+        // unsafe { miow::pipe::AnonRead::from_raw_handle(self.fout.as_raw_handle()) }
+        // miow::pipe::AnonRead::from_raw_handle(winapi::um::winnt::HANDLE::new(self.fout.as_raw_handle()))
+        let ret = unsafe { miow::pipe::AnonRead::from_raw_handle(self.fout.as_raw_handle()) };
+        ret
     }
 
     pub fn on_resize(&mut self, size: &SizeInfo) {
