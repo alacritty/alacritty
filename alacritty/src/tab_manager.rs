@@ -104,7 +104,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         let pty_arc = new_tab.pty.clone();
         let mut pty_guard = pty_arc.lock();
         let unlocked_pty = &mut *pty_guard;
-        let mut pty_output_file = unlocked_pty.fin.try_clone().unwrap();
+        let mut pty_output_file = unlocked_pty.fin;
         drop(pty_guard);
 
         let terminal_arc = new_tab.terminal.clone();
