@@ -1,3 +1,4 @@
+use std::io::prelude::*;
 use std::ffi::OsStr;
 use std::io;
 use std::iter::once;
@@ -13,7 +14,6 @@ mod conpty;
 
 use conpty::Conpty as Backend;
 use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
-
 
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
@@ -35,19 +35,19 @@ pub struct Pty {
 
 impl io::Read for Pty {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let nbytes = self.fin.read(buf)?;
+        let nbytes = self.fout.read(buf)?;
         Ok(nbytes)
     }
 }
 
 impl std::io::Write for Pty {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.fout.write(buf)?;
+        self.fin.write(buf)?;
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
-        self.fout.flush()?;
+        self.fin.flush()?;
         Ok(())
     }
 }

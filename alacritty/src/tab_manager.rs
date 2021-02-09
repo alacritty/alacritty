@@ -1,6 +1,7 @@
 // #[cfg(not(target_os = "windows"))]
 // use libc::winsize;
 
+use std::io::prelude::*;
 
 
 use std::{

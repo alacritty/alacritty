@@ -7,3 +7,5 @@ pub use self::unix::*;
 pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
+#[cfg(windows)]
+pub const PTY_BUFFER_SIZE: usize = 0x500;

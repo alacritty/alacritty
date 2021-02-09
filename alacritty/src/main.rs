@@ -13,7 +13,6 @@
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
 
-#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 use std::{env, io};
 use std::error::Error;
