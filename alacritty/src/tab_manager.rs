@@ -11,8 +11,6 @@ use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use std::io::Write;
-
 pub const DEFAULT_SHELL: &str = "/bin/zsh";
 
 use log::{error, info};
@@ -24,23 +22,24 @@ use alacritty_terminal::term::Term;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::child_pty::ChildPty;
-use crate::event::EventProxy;
 use thiserror::Error;
+
+use alacritty_terminal::event::EventListener;
 
 use crate::config::Config;
 
-pub struct TabManager {
+pub struct TabManager<T> {
     pub to_exit: RwLock<bool>,
     pub selected_tab: RwLock<Option<usize>>,
-    pub tabs: RwLock<Vec<Tab>>,
+    pub tabs: RwLock<Vec<Tab<T>>>,
     pub size: RwLock<Option<SizeInfo>>,
-    pub event_proxy: crate::event::EventProxy,
+    pub event_proxy: T,
     pub config: Config,
     pub last_update: std::time::Instant,
 }
 
-impl TabManager {
-    pub fn new(event_proxy: crate::event::EventProxy, config: Config) -> TabManager {
+impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
+    pub fn new(event_proxy: T, config: Config) -> TabManager<T> {
         Self {
             to_exit: RwLock::new(false),
             selected_tab: RwLock::new(None),
@@ -122,8 +121,8 @@ impl TabManager {
 
         info!("Inserted and selected new tab {}\n", tab_idx);
 
-        let event_proxy = self.event_proxy.clone();
-        thread::spawn(move || {
+        let event_proxy_clone = self.event_proxy.clone();
+        thread::spawn( move || {
             let mut processor = alacritty_terminal::ansi::Processor::new();
             loop {
                 let mut buffer: [u8; crate::child_pty::PTY_BUFFER_SIZE] =
@@ -147,9 +146,7 @@ impl TabManager {
 
                         if rlen == 0 {
                             // Close this tty
-                            event_proxy.send_event(crate::event::Event::TerminalEvent(
-                                alacritty_terminal::event::Event::Close(tab_idx),
-                            ));
+                            event_proxy_clone.send_event(alacritty_terminal::event::Event::Close(tab_idx));
                             break; // break out of loop
                         }
                     },
@@ -225,11 +222,11 @@ impl TabManager {
         self.selected_tab_arc().pty.clone()
     }
 
-    pub fn get_selected_tab_terminal(&self) -> Arc<FairMutex<Term<EventProxy>>> {
+    pub fn get_selected_tab_terminal(&self) -> Arc<FairMutex<Term<T>>> {
         self.selected_tab_arc().terminal.clone()
     }
 
-    fn selected_tab_arc(&self) -> Arc<Tab> {
+    fn selected_tab_arc(&self) -> Arc<Tab<T>> {
         match self.selected_tab_idx() {
             Some(sel_idx) => {
                 let tabs_guard = self.tabs.read().unwrap();
@@ -258,7 +255,7 @@ impl TabManager {
         }
     }
 
-    pub fn selected_tab_mut(&mut self) -> &mut Tab {
+    pub fn selected_tab_mut(&mut self) -> &mut Tab<T> {
         match self.selected_tab_idx() {
             Some(sel_idx) => {
                 let mut tabs = self.tabs.get_mut().unwrap();
@@ -328,18 +325,18 @@ impl TabManager {
 }
 
 #[derive(Clone)]
-pub struct Tab {
+pub struct Tab<T> {
     pub pty: Arc<FairMutex<ChildPty>>,
-    pub terminal: Arc<FairMutex<Term<EventProxy>>>,
+    pub terminal: Arc<FairMutex<Term<T>>>,
 }
 
-impl Tab {
+impl<T: Clone + EventListener> Tab<T> {
     pub fn new(
         command: &str,
         size: SizeInfo,
         config: Config,
-        event_proxy: crate::event::EventProxy,
-    ) -> Tab {
+        event_proxy: T,
+    ) -> Tab<T> {
         let terminal = Term::new(&config, size, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 

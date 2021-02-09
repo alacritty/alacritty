@@ -24,7 +24,6 @@ use glutin::window::CursorIcon;
 
 use crate::event::EventProxy;
 
-
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -66,9 +65,9 @@ pub struct Processor<T: EventListener, A: ActionContext<T>> {
 }
 
 pub trait ActionContext<T: EventListener> {
-    fn tab_manager(&mut self) -> Arc<TabManager>;
+    fn tab_manager(&mut self) -> Arc<TabManager<EventProxy>>;
     fn find_word<U: EventListener>(&self, point_p: Point,  terminal: &Term<U>) -> Option<String>;
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _data: B);
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {}
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
@@ -87,8 +86,7 @@ pub trait ActionContext<T: EventListener> {
     fn window(&self) -> &Window;
     fn window_mut(&mut self) -> &mut Window;
     fn terminal(&self) -> &Term<T>;
-
-    fn terminal_mut(&mut self) -> &mut Term<EventProxy>;
+    fn terminal_mut(&mut self) -> &mut Term<T>;
     fn spawn_new_instance(&mut self) {}
     fn change_font_size(&mut self, _delta: f32) {}
     fn reset_font_size(&mut self) {}
@@ -1184,11 +1182,13 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
+    #[derive(Debug, Clone)]
     struct MockEventProxy;
     impl EventListener for MockEventProxy {}
 
-    struct ActionContext<'a> {
-        pub tab_mananger: Arc<TabManager>,
+    struct ActionContext<'a, T> {
+        pub tab_manager: Arc<TabManager<T>>,
+        pub terminal: &'a mut Term<T>,
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
@@ -1200,7 +1200,7 @@ mod tests {
         config: &'a Config,
     }
 
-    impl<'a> super::ActionContext<T> for ActionContext<'a> {
+    impl<'a, T: Clone + EventListener> super::ActionContext<T> for ActionContext<'a, T> {
         fn search_next(
             &mut self,
             _origin: Point<usize>,
@@ -1218,12 +1218,12 @@ mod tests {
             false
         }
 
-        fn tab_manager(&mut self) -> Arc<TabManager> {
+        fn tab_manager(&mut self) -> Arc<TabManager<EventProxy>> {
             unimplemented!();
         }
 
         fn find_word<U: EventListener>(&self, point_p: Point, terminal: &Term<U>) -> Option<String> {
-            ""
+            unimplemented!();
         }
         fn size_info(&self) -> SizeInfo {
             *self.size_info
@@ -1234,7 +1234,7 @@ mod tests {
         }
 
         fn scroll(&mut self, scroll: Scroll) {
-            self.terminal.scroll_display(scroll);
+            self.terminal_mut().scroll_display(scroll);
         }
 
         fn mouse_coords(&self) -> Option<Point> {
@@ -1285,11 +1285,11 @@ mod tests {
         }
 
         fn terminal(& self) -> &Term<T> {
-            unimplemented!();
+            self.terminal
         }
 
-        fn terminal_mut(&mut self) -> &mut Term<EventProxy> {
-            unimplemented();
+        fn terminal_mut(&mut self) -> &mut Term<T> {
+            &mut self.terminal
         }
 
         fn pop_message(&mut self) {
@@ -1348,7 +1348,8 @@ mod tests {
                 );
 
                 let mut terminal = Term::new(&cfg, size, MockEventProxy);
-
+                let mut tab_manager = TabManager::new(MockEventProxy, cfg.clone());
+                let mut tab_manager_arc =  Arc::new(tab_manager);
                 let mut mouse = Mouse {
                     click_state: $initial_state,
                     ..Mouse::default()
@@ -1359,6 +1360,7 @@ mod tests {
                 let mut message_buffer = MessageBuffer::new();
 
                 let context = ActionContext {
+                    tab_manager: tab_manager_arc,
                     terminal: &mut terminal,
                     selection: &mut selection,
                     mouse: &mut mouse,

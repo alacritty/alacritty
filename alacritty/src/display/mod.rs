@@ -29,6 +29,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
 
+use crate::event::EventProxy;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -186,11 +187,11 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
-    tab_manager: Arc<TabManager>,
+    tab_manager: Arc<TabManager<EventProxy>>,
 }
 
 impl Display {
-    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>, tab_manager: Arc<TabManager>) -> Result<Display, Error> {
+    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>, tab_manager: Arc<TabManager<EventProxy>>) -> Result<Display, Error> {
         #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
         let is_x11 = false;
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -459,7 +460,7 @@ impl Display {
     /// This call may block if vsync is enabled.
     pub fn draw<T: EventListener>(
         &mut self,
-        tab_manager: Arc<TabManager>,
+        tab_manager: Arc<TabManager<EventProxy>>,
         terminal: &mut Term<T>,
         message_buffer: &MessageBuffer,
         config: &Config,

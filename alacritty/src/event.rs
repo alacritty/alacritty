@@ -162,7 +162,7 @@ impl Default for SearchState {
 }
 
 pub struct ActionContext<'a> {
-    pub tab_manager: Arc<TabManager>,
+    pub tab_manager: Arc<TabManager<EventProxy>>,
     pub terminal: &'a mut Term<EventProxy>,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
@@ -292,7 +292,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
     }
 
 
-    fn tab_manager(&mut self) -> Arc<TabManager> {
+    fn tab_manager(&mut self) -> Arc<TabManager<EventProxy>> {
         self.tab_manager.clone()
     }
 
@@ -1011,7 +1011,7 @@ impl Default for Mouse {
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor {
-    tab_manager: Arc<TabManager>,
+    tab_manager: Arc<TabManager<EventProxy>>,
     mouse: Mouse,
     received_count: usize,
     suppress_chars: bool,
@@ -1031,7 +1031,7 @@ impl Processor {
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a PTY.
     pub fn new(
-        tab_manager: Arc<TabManager>,
+        tab_manager: Arc<TabManager<EventProxy>>,
         message_buffer: MessageBuffer,
         config: Config,
         display: Display,
