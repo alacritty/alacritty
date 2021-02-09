@@ -34,19 +34,19 @@ pub struct Pty {
 }
 
 impl io::Read for Pty {
-    pub fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let nbytes = self.fout.read(buf)?;
         Ok(nbytes)
     }
 }
 
 impl std::io::Write for Pty {
-    pub fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.fin.write(buf)?;
         Ok(buf.len())
     }
 
-    pub fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
+    fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
         self.fin.flush()?;
         Ok(())
     }
@@ -58,8 +58,8 @@ impl Pty {
         conout: impl Into<ReadPipe>,
         conin: impl Into<WritePipe>,
         // child_watcher: ChildExitWatcher,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ()> {
+        Ok(Self {
             backend: backend.into(),
             fout: conout.into(),
             fin: conin.into(),
@@ -67,7 +67,7 @@ impl Pty {
             // write_token: 0.into(),
             // child_event_token: 0.into(),
             // child_watcher,
-        }
+        })
     }
 
     pub fn on_resize(&mut self, size: &SizeInfo) {
