@@ -51,6 +51,7 @@ dependencies = [
  "nix 0.19.1",
  "notify",
  "objc",
+ "pad",
  "parking_lot",
  "png",
  "raw-window-handle",
@@ -1449,6 +1450,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f923fb806c46266c02ab4a5b239735c144bdeda724a50ed058e5226f594cde3"
 dependencies = [
  "ttf-parser",
+]
+
+[[package]]
+name = "pad"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ad9b889f1b12e0b9ee24db044b5129150d5eada288edc800f789928dc8c0e3"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]

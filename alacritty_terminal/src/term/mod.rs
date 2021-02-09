@@ -268,7 +268,7 @@ pub struct Term<T> {
     event_proxy: T,
 
     /// Current title of the window.
-    title: Option<String>,
+    pub title: Option<String>,
 
     /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
     /// term is set.
