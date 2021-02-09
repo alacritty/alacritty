@@ -915,11 +915,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 }
             }
 
-            if button == MouseButton::Left && self.ctx.modifiers().alt() {
-                if state == ElementState::Released {
-                    self.ctx.copy_selection(alacritty_terminal::term::ClipboardType::Selection);
-                    self.ctx.clear_selection();
-                }
+            if button == MouseButton::Left && self.ctx.modifiers().alt() && state == ElementState::Released {
+                self.ctx.copy_selection(alacritty_terminal::term::ClipboardType::Selection);
+                self.ctx.clear_selection();
             }
         }
     }
