@@ -52,8 +52,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn resize(&self, sz: SizeInfo) {
         let mut sz_option_guard = self.size.write().unwrap();
-        let mut size_option = &mut *sz_option_guard;
-        *size_option = Some(sz);
+        *sz_option_guard = Some(sz);
         drop(sz_option_guard);
 
         let tab_r = &*self.tabs.read().unwrap();
@@ -77,8 +76,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn set_size(&self, size: SizeInfo) {
         let mut size_guard = self.size.write().unwrap();
-        let mut size_option = &mut *size_guard;
-        *size_option = Some(size.clone());
+        *size_guard = Some(size.clone());
          drop(size_guard);
     }
 
@@ -162,8 +160,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn set_selected_tab(&self, idx: usize) {
         let mut wg = self.selected_tab.write().unwrap();
-        let mut tab_idx_option = &mut *wg;
-        *tab_idx_option = Some(idx);
+        *wg = Some(idx);
         drop(wg);
     }
 
