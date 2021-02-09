@@ -42,7 +42,7 @@ mod logging;
 mod macos;
 mod message_bar;
 #[cfg(windows)]
-mod panic;
+mod tpanic;
 mod renderer;
 mod scheduler;
 mod tab_manager;
@@ -65,7 +65,7 @@ use crate::message_bar::MessageBuffer;
 fn main() {
 
     #[cfg(windows)]
-    panic::attach_handler();
+    tpanic::attach_handler();
 
     // When linked with the windows subsystem windows won't automatically attach
     // to the console of the parent process, so we do it explicitly. This fails
