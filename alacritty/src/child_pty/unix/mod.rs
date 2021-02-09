@@ -11,7 +11,6 @@ use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 
 use std::io;
-use std::boxed::Box;
 
 use nix::sys::termios::{self, InputFlags, SetArg};
 

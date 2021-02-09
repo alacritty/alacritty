@@ -7,7 +7,7 @@ use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 // use crate::child_pty::windows::child::ChildExitWatcher;
 
-use std::boxed::Box;
+
 
 // mod child;
 
