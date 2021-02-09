@@ -247,7 +247,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
                     if let Ok(mut tab_titles_guard) = self.tab_titles.write() {
                         let tab_titles = &mut *tab_titles_guard;
-                        *tab_titles = all_cur_tabs.into_iter().map(|cur_tab| {
+                        *tab_titles = all_cur_tabs.iter().map(|cur_tab| {
                             let term_guard = cur_tab.terminal.lock();
                             let term = &*term_guard;
                             let formatted_title: String;
