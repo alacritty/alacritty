@@ -30,10 +30,10 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
-impl Row<crate::term::cell::Cell> {
-    pub fn to_string(&self) -> String {
+impl std::fmt::Display for Row<crate::term::cell::Cell> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let row_string: String = self.inner.clone().into_iter().map(|cell| cell.c).collect();
-        row_string
+        write!(f, "{}", row_string)
     }
 }
 
