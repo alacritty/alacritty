@@ -347,9 +347,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Copy,  +BindingMode::VI; Action::ClearSelection;
         Paste, ~BindingMode::VI; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
-        T, ModifiersState::LOGO; Action::NewTab;
-        LBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::PreviousTab;
-        RBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::NextTab;
         L,    ModifiersState::CTRL,  ~BindingMode::VI, ~BindingMode::SEARCH;
             Action::Esc("\x0c".into());
         Tab,  ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH;
@@ -632,6 +629,12 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
+        T,        ModifiersState::LOGO;                         Action::NewTab;
+        LBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::PreviousTab;
+        RBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::NextTab;        
+        T,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::NewTab;
+        LBracket, ModifiersState::CTRL | ModifiersState::SHIFT; Action::PreviousTab;
+        RBracket, ModifiersState::CTRL | ModifiersState::SHIFT; Action::NextTab;
         V,        ModifiersState::CTRL | ModifiersState::SHIFT, ~BindingMode::VI; Action::Paste;
         C,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::Copy;
         F,        ModifiersState::CTRL | ModifiersState::SHIFT, ~BindingMode::SEARCH;
