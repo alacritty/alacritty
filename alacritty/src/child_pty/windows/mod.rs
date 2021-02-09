@@ -9,7 +9,7 @@ use alacritty_terminal::term::SizeInfo;
 
 use std::boxed::Box;
 
-mod child;
+// mod child;
 
 
 
