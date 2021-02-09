@@ -1287,10 +1287,10 @@ impl Processor {
                         }
                     },
                     TerminalEvent::Wakeup => *processor.ctx.dirty = true,
-                    TerminalEvent::Close(idx) => {
+                    TerminalEvent::Close(tab_idx) => {
                         let tab_manager = processor.ctx.tab_manager();
-                        
-                        tab_manager.remove_tab(idx);
+                        info!("Removing active tab, close was sent for tab idx: {}", tab_idx);
+                        tab_manager.remove_selected_tab();
 
                         *processor.ctx.dirty = true;
                     },

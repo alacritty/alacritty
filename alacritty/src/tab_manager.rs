@@ -163,10 +163,13 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         drop(wg);
     }
 
-    pub fn remove_tab(&self, idx: usize) {
-        if self.num_tabs() > idx {
-            self.tabs.write().unwrap().remove(idx);
-        }
+    pub fn remove_selected_tab(&self) {
+        match self.selected_tab_idx() {
+            Some(idx) => {
+                self.tabs.write().unwrap().remove(idx);
+            },
+            None => {},
+        };
 
         if self.num_tabs() == 0 {
             match self.new_tab() {
