@@ -1,18 +1,14 @@
-use std::io::prelude::*;
 use std::ffi::OsStr;
 use std::io;
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
-use std::sync::mpsc::TryRecvError;
 
 use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 // use crate::child_pty::windows::child::ChildExitWatcher;
 
 mod child;
-mod conpty;
 
-use conpty::Conpty as Backend;
 use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 
 
@@ -35,10 +31,7 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-use alacritty_terminal::config::Config;
-use alacritty_terminal::term::SizeInfo;
 // use self::windows::child::ChildExitWatcher;
-use crate::child_pty::windows::{cmdline, win32_string, Pty};
 
 /// RAII Pseudoconsole.
 pub struct Conpty {
@@ -218,15 +211,15 @@ fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
 
 
 
-pub fn new_pty<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
-    conpty::new(config, size).expect("Failed to create ConPTY backend")
+pub fn new_pty(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo, _window_id: Option<usize>) -> Pty {
+    self::new(config, size).expect("Failed to create ConPTY backend")
 }
 
 
 pub struct Pty {
-    // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
+    // XXX: Backend (Conpty) is required to be the first field, to ensure correct drop order. Dropping
     // `conout` before `backend` will cause a deadlock (with Conpty).
-    pub backend: Backend,
+    pub backend: Conpty,
     pub fout: ReadPipe,
     pub fin: WritePipe,
     // pub read_token: mio::Token,
@@ -256,7 +249,7 @@ impl std::io::Write for Pty {
 
 impl Pty {
     pub fn new(
-        backend: impl Into<Backend>,
+        backend: impl Into<Conpty>,
         conout: impl Into<ReadPipe>,
         conin: impl Into<WritePipe>,
         // child_watcher: ChildExitWatcher,
@@ -270,6 +263,10 @@ impl Pty {
             // child_event_token: 0.into(),
             // child_watcher,
         })
+    }
+
+    pub fn fin_clone(&mut self) -> File {
+        self.fin.inner
     }
 
     pub fn on_resize(&mut self, size: &SizeInfo) {
