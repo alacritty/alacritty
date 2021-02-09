@@ -358,11 +358,6 @@ impl Window {
         self.window().xlib_window().map(|xlib_window| xlib_window as usize)
     }
 
-    #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
-    pub fn x11_window_id(&self) -> Option<usize> {
-        None
-    }
-
     pub fn window_id(&self) -> WindowId {
         self.window().id()
     }

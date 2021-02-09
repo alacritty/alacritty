@@ -1289,10 +1289,7 @@ impl Processor {
                     TerminalEvent::Wakeup => *processor.ctx.dirty = true,
                     TerminalEvent::Close(idx) => {
                         let tab_manager = processor.ctx.tab_manager();
-
-                        // Note: Removing the tab index that was active at the time. The remove_selected_tab 
-                        // function could also be used to remove the tab currently being shown when the event is
-                        // processed
+                        
                         tab_manager.remove_tab(idx);
 
                         *processor.ctx.dirty = true;

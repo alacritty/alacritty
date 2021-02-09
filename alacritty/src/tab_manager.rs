@@ -163,33 +163,6 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         drop(wg);
     }
 
-    pub fn remove_selected_tab(&self) {
-        match self.selected_tab_idx() {
-            Some(idx) => {
-                self.tabs.write().unwrap().remove(idx);
-            },
-            None => {},
-        };
-
-        if self.num_tabs() == 0 {
-            match self.new_tab() {
-                Ok(_idx) => {
-                    self.set_selected_tab(0);
-                },
-                Err(e) => {
-                    error!("Attempted to remove a tab when no tabs exist: {}", e);
-                },
-            }
-        } else {
-            let next_idx = self.next_tab_idx().unwrap();
-            if next_idx >= self.num_tabs() {
-                self.set_selected_tab(self.num_tabs() - 1);
-            } else {
-                self.set_selected_tab(next_idx);
-            }
-        }
-    }
-
     pub fn remove_tab(&self, idx: usize) {
         if self.num_tabs() > idx {
             self.tabs.write().unwrap().remove(idx);
