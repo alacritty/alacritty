@@ -98,7 +98,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         info!("Creating new tab {}\n", tab_idx);
         info!("Default shell {}\n", DEFAULT_SHELL);
 
-        let mut size_info_option: Option<SizeInfo> = None;
+        let size_info_option: Option<SizeInfo>;
         loop {
             if let Ok(size_read_guard) = self.size.read() {
                 size_info_option = *size_read_guard;
@@ -123,11 +123,11 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         drop(pty_guard);
 
         let terminal_arc = new_tab.terminal.clone();
-        
+
         if let Ok(mut tabs_write_guard) = self.tabs.write() {
             (*tabs_write_guard).push(new_tab);
         }
-        
+
 
         if self.num_tabs() == 1 {
             self.set_selected_tab(0);
@@ -241,7 +241,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                 loop {
                     if let Ok(tabs_guard) = self.tabs.read() {
                         let tabs = & *tabs_guard;
-                        let tab = tabs.get(0).unwrap().clone(); 
+                        let tab = tabs.get(0).unwrap().clone();
                         return Arc::new(tab);
                     }
                 }

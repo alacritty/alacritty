@@ -18,6 +18,8 @@ applications, rather than reimplementing their functionality, it manages to
 provide a flexible set of [features](./docs/features.md) with high performance.
 The supported platforms currently consist of BSD, Linux, macOS and Windows.
 
+This branch contains support for tabs, terminal multiplexing persisting as long as the Alacritty process lives.
+
 The software is considered to be at a **beta** level of readiness; there are
 a few missing features and bugs to be fixed, but it is already used by many as
 a daily driver.
