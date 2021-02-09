@@ -7,6 +7,8 @@ use std::{
 };
 use std::os::unix::io::AsRawFd;
 
+use alacritty_terminal::config::{Config, Program};
+
 use alacritty_terminal::term::SizeInfo;
 
 use std::io;
@@ -20,6 +22,8 @@ use nix::pty::openpty;
 use nix::{
     unistd::setsid,
 };
+
+use log::error;
 
 use die::die;
 
@@ -170,14 +174,15 @@ impl Clone for Pty {
 
 impl Pty {
 
+
+    pub fn fin_clone(&mut self) -> File {
+        self.file.try_clone().unwrap()
+    }
     pub fn get_file(&mut self) -> &mut File {
         &mut self.file
     }
     /// Spawn a process in a new pty.
-    pub fn new<I, S>(command: &str, args: I, size: SizeInfo) -> Result<Pty, ()>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
+    pub fn new(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo) -> Result<Pty, ()>
     {
 
         let new_winsize = winsize {
@@ -202,9 +207,27 @@ impl Pty {
         let slave = pty.slave.clone();
         let master = pty.master.clone();
 
+        let (command, args) = match config.shell {
+            Some(program) => {
+                match program {
+                    Program::Just(str) => {
+                        (str, Vec::<String>::new())
+                    }, 
+                    Program::WithArgs { program, args } => {
+                        (program, args)
+                    }
+                }
+            }, 
+            None => {
+                (crate::tab_manager::DEFAULT_SHELL.to_string(), Vec::<String>::new())
+            }
+        };
+
+        println!("command {} args {:?}", command, args);
+
         unsafe {
             Command::new(&command)
-                .args(args)
+                .args(args.to_vec())
                 .stdin(Stdio::from_raw_fd(pty.slave))
                 .stdout(Stdio::from_raw_fd(pty.slave))
                 .stderr(Stdio::from_raw_fd(pty.slave))
@@ -234,11 +257,10 @@ impl Pty {
                     Ok(())
                 })
                 .spawn()
-                .map_err(|_err| ())
+                .map_err(|err| {
+                    error!("Error creating Pty: {}", err);
+                })
                 .and_then(|_ch| {
-
-                    // ch.id
-
                     let child = Pty {
                         fd: pty.master,
                         file: File::from_raw_fd(pty.master),

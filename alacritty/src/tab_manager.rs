@@ -95,7 +95,6 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         info!("Default shell {}\n", DEFAULT_SHELL);
         let szinfo = (*self.size.read().unwrap()).unwrap();
         let new_tab = Tab::new(
-            DEFAULT_SHELL,
             szinfo.clone(),
             self.config.clone(),
             self.event_proxy.clone(),
@@ -104,7 +103,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         let pty_arc = new_tab.pty.clone();
         let mut pty_guard = pty_arc.lock();
         let unlocked_pty = &mut *pty_guard;
-        let mut pty_output_file = unlocked_pty.fin;
+        let mut pty_output_file = unlocked_pty.fin_clone();
         drop(pty_guard);
 
         let terminal_arc = new_tab.terminal.clone();
@@ -282,7 +281,6 @@ pub struct Tab<T> {
 
 impl<T: Clone + EventListener> Tab<T> {
     pub fn new(
-        command: &str,
         size: SizeInfo,
         config: Config,
         event_proxy: T,
@@ -290,8 +288,7 @@ impl<T: Clone + EventListener> Tab<T> {
         let terminal = Term::new(&config, size, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 
-        let args: [&str; 0] = [];
-        let pty = Arc::new(FairMutex::new(Pty::new(command, &args, size).unwrap()));
+        let pty = Arc::new(FairMutex::new(Pty::new(config, size).unwrap()));
 
         Tab { pty, terminal }
     }
