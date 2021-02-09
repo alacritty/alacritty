@@ -1349,7 +1349,7 @@ mod tests {
 
                 let mut terminal = Term::new(&cfg, size, MockEventProxy);
                 let tab_manager = TabManager::new(MockEventProxy, cfg.clone());
-                let mut tab_manager_arc =  Arc::new(tab_manager);
+                let tab_manager_arc =  Arc::new(tab_manager);
                 let mut mouse = Mouse {
                     click_state: $initial_state,
                     ..Mouse::default()

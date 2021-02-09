@@ -190,7 +190,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
         let data: &[u8] = &vc;
         let pty_arc = tab_manager.get_selected_tab_pty();
         let mut pty_guard = pty_arc.lock();
-        let mut pty = &mut *pty_guard;
+        let pty = &mut *pty_guard;
         match pty.write(data) {
             Ok(_len) => {
 
@@ -1209,7 +1209,7 @@ impl Processor {
                 let tab_manager_after_clone = self.tab_manager.clone();
                 let terminal_arc_mutex_clone = tab_manager_after_clone.get_selected_tab_terminal();
                 let mut terminal_guard = terminal_arc_mutex_clone.lock();
-                let mut terminal = &mut *terminal_guard;
+                let terminal = &mut *terminal_guard;
                 
                 // Redraw screen.
                 self.display.draw(
@@ -1232,7 +1232,7 @@ impl Processor {
             let tab_manager = self.tab_manager.clone();
             let terminal_arc_mutex_clone = tab_manager.get_selected_tab_terminal();
             let mut terminal_guard = terminal_arc_mutex_clone.lock();
-            let mut terminal = &mut *terminal_guard;
+            let terminal = &mut *terminal_guard;
             self.write_ref_test_results(&terminal);
             drop(terminal_guard);
         }
@@ -1545,7 +1545,7 @@ impl Processor {
         let tab_manager_arc_clone = self.tab_manager.clone();
         let terminal_mutex = &*tab_manager_arc_clone.get_selected_tab_terminal();
         let mut terminal_guard = terminal_mutex.lock();
-        let mut terminal = &mut *terminal_guard;
+        let terminal = &mut *terminal_guard;
 
         // Scroll to make sure search origin is visible and content moves as little as possible.
         if !old_is_searching && self.search_state.history_index.is_some() {
