@@ -59,6 +59,8 @@ pub struct ChildPty {
     pub fd: RawFd,
     /// The File used by this PTY.
     pub file: File,
+    pub slave: i32,
+    pub master: i32,
 }
 
 
@@ -84,6 +86,8 @@ impl Clone for ChildPty {
         Self {
             fd: self.fd.clone(),
             file,
+            slave: self.slave,
+            master: self.master,
         }
     }
 }
@@ -160,6 +164,8 @@ impl ChildPty {
                     let child = ChildPty {
                         fd: pty.master,
                         file: File::from_raw_fd(pty.master),
+                        slave,
+                        master
                     };
 
                     child.resize(size)?;
