@@ -242,7 +242,7 @@ impl io::Read for Pty {
 
 impl std::io::Write for Pty {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.fin.write(buf)?;
+        self.fin.write_all(buf)?;
         Ok(buf.len())
     }
 
@@ -261,8 +261,8 @@ impl Pty {
     ) -> Result<Self, ()> {
         Ok(Self {
             backend: backend.into(),
-            fout: conout.into(),
-            fin: conin.into(),
+            fout: conout,
+            fin: conin,
             // read_token: 0.into(),
             // write_token: 0.into(),
             // child_event_token: 0.into(),
@@ -271,10 +271,7 @@ impl Pty {
     }
 
     pub fn fin_clone(&mut self) -> miow::pipe::AnonRead {
-        // unsafe { miow::pipe::AnonRead::from_raw_handle(self.fout.as_raw_handle()) }
-        // miow::pipe::AnonRead::from_raw_handle(winapi::um::winnt::HANDLE::new(self.fout.as_raw_handle()))
-        let ret = unsafe { miow::pipe::AnonRead::from_raw_handle(self.fout.as_raw_handle()) };
-        ret
+        unsafe { miow::pipe::AnonRead::from_raw_handle(self.fout.as_raw_handle()) }
     }
 
     pub fn on_resize(&mut self, size: &SizeInfo) {

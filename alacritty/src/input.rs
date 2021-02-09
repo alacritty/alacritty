@@ -911,7 +911,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 let word_clicked_option = self.ctx.find_word(point, terminal);
 
                 if word_clicked_option.is_some() && state == ElementState::Pressed {
-                    self.ctx.write_to_pty(word_clicked_option.unwrap().as_bytes().to_vec());
+                    if let Some(wc) = word_clicked_option {
+                        self.ctx.write_to_pty(wc.as_bytes().to_vec());
+                    }
                 }
             }
 

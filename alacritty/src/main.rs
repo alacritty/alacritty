@@ -140,8 +140,7 @@ fn run(
 
     // Create a display.
     //
-    let tab_manage_display_clone = tab_manager_mutex.clone();
-    let display = Display::new(&config, &window_event_loop, tab_manage_display_clone)?;
+    let display = Display::new(&config, &window_event_loop, tab_manager_mutex.clone())?;
     info!(
         "PTY dimensions: {:?} x {:?}",
         display.size_info.screen_lines(),
@@ -149,7 +148,7 @@ fn run(
     );
 
     let tab_manager_main_clone = tab_manager_mutex.clone();
-    tab_manager_main_clone.set_size(display.size_info.clone());
+    tab_manager_main_clone.set_size(display.size_info);
 
     let idx = tab_manager_main_clone.new_tab().unwrap();
     tab_manager_main_clone.select_tab(idx);
@@ -175,7 +174,7 @@ fn run(
     let message_buffer = MessageBuffer::new();
 
     // Event processor.
-    let tab_manager_processor_mutex_clone = tab_manager_mutex.clone();
+    let tab_manager_processor_mutex_clone = tab_manager_mutex;
     let mut processor =
         Processor::new(tab_manager_processor_mutex_clone, message_buffer, config, display, options);
 

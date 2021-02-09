@@ -57,18 +57,18 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
         let tab_r = &*self.tabs.read().unwrap();
 
-        for tab in tab_r.into_iter() {
+        for tab in tab_r.iter() {
             let terminal_mutex = tab.terminal.clone();
             let mut terminal_guard = terminal_mutex.lock();
             let terminal = &mut *terminal_guard;
-            let term_sz = sz.clone();
+            let term_sz = sz;
             terminal.resize(term_sz);
             drop(terminal_guard);
 
             let pty_mutex = tab.pty.clone();
             let mut pty_guard = pty_mutex.lock();
             let pty = &mut *pty_guard;
-            let pty_sz = sz.clone();
+            let pty_sz = sz;
             pty.on_resize(&pty_sz);
             drop(pty_guard);
         }
@@ -95,7 +95,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         info!("Default shell {}\n", DEFAULT_SHELL);
         let szinfo = (*self.size.read().unwrap()).unwrap();
         let new_tab = Tab::new(
-            szinfo.clone(),
+            szinfo,
             self.config.clone(),
             self.event_proxy.clone(),
         );
@@ -167,7 +167,9 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     pub fn remove_selected_tab(&self) {
         match self.selected_tab_idx() {
             Some(idx) => {
-                self.tabs.write().unwrap().remove(idx);
+                if let Ok(mut rwlock_tabs) = self.tabs.write() {
+                    rwlock_tabs.remove(idx);
+                }
             },
             None => {},
         };
@@ -285,7 +287,7 @@ impl<T: Clone + EventListener> Tab<T> {
         config: Config,
         event_proxy: T,
     ) -> Tab<T> {
-        let terminal = Term::new(&config, size, event_proxy.clone());
+        let terminal = Term::new(&config, size, event_proxy);
         let terminal = Arc::new(FairMutex::new(terminal));
 
         let pty = Arc::new(FairMutex::new(crate::child_pty::new(config, size).unwrap()));

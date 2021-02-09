@@ -186,7 +186,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {
         let tab_manager = self.tab_manager();
         let c: Cow<'_, [u8]> = val.into();
-        let vc: Vec<u8> = c.into_iter().map(|c| *c).collect();
+        let vc: Vec<u8> = c.iter().map(|c| *c).collect();
         let data: &[u8] = &vc;
         let pty_arc = tab_manager.get_selected_tab_pty();
         let mut pty_guard = pty_arc.lock();
@@ -302,6 +302,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
         let mut content = RenderableContent::new(&terminal, dfas, self.config, &colors, false);
         let mut grid_cells = Vec::new();
         
+        
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }
@@ -314,7 +315,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
         let mut last_column = 0;
         let mut cell_iter = grid_cells.iter();
         let mut cell_or_none = cell_iter.next();
-        while found_end == false && !cell_or_none.is_none() {
+        while found_end == false && cell_or_none.is_some() {
             let cell = (*cell_or_none.unwrap()).clone();
             let c = cell.character;
 
@@ -324,11 +325,11 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
                 } else {
                     string = String::new();
                     if c != ' ' {
-                        string.push(c.clone());
+                        string.push(c);
                     }
                 }
             } else {
-                string.push(c.clone());
+                string.push(c);
             }
 
             if cell.point.column == point.column && cell.point.line == point.line {
@@ -921,7 +922,7 @@ impl<'a> ActionContext<'a> {
         let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
 
-        return origin;
+        origin
     }
 
     /// Update the cursor blinking state.

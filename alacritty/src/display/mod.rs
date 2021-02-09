@@ -458,6 +458,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw<T: EventListener>(
         &mut self,
         tab_manager: Arc<TabManager<EventProxy>>,
@@ -503,7 +504,7 @@ impl Display {
         let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
 
         // Drop terminal as early as possible to free lock.
-        drop(terminal);
+        // drop(terminal);
 
         self.renderer.with_api(&config.ui_config, &size_info, |api| {
             api.clear(background_color);
@@ -601,10 +602,7 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
-        let sel_tab = match tab_manager.selected_tab_idx() {
-            Some(idx) => idx,
-            None => 0,
-        };
+        let sel_tab = tab_manager.selected_tab_idx().unwrap_or(0);
 
         let glyph_cache = &mut self.glyph_cache;
 
