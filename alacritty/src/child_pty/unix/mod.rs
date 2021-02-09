@@ -223,8 +223,6 @@ impl Pty {
             }
         };
 
-        println!("command {} args {:?}", command, args);
-
         unsafe {
             Command::new(&command)
                 .args(args.to_vec())
