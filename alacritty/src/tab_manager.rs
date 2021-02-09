@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub const DEFAULT_SHELL: &str = "/bin/zsh";
 
@@ -22,7 +22,6 @@ use alacritty_terminal::term::Term;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::child_pty::ChildPty;
-use thiserror::Error;
 
 use alacritty_terminal::event::EventListener;
 
@@ -75,9 +74,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn set_size(&self, size: SizeInfo) {
         let mut size_guard = self.size.write().unwrap();
-        let mut size_mut  = &mut *size_guard;
-        let size_clone = size.clone();
-        *size_mut = Some(size_clone);
+        *(&mut *size_guard) = Some(size.clone());
          drop(size_guard);
     }
 
@@ -162,8 +159,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn set_selected_tab(&self, idx: usize) {
         let mut wg = self.selected_tab.write().unwrap();
-        let mut sel_tab = &mut *wg;
-        *sel_tab = Some(idx);
+        *(&mut *wg) = Some(idx);
         drop(wg);
     }
 
@@ -251,30 +247,6 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                 let tabs = & *tabs_guard;
                 let tab = tabs.get(0).unwrap().clone(); 
                 Arc::new(tab)
-            },
-        }
-    }
-
-    pub fn selected_tab_mut(&mut self) -> &mut Tab<T> {
-        match self.selected_tab_idx() {
-            Some(sel_idx) => {
-                let mut tabs = self.tabs.get_mut().unwrap();
-                tabs.get_mut(sel_idx).unwrap()
-            },
-            None => {
-                if self.num_tabs() == 0 {
-                    match self.new_tab() {
-                        Ok(idx) => {
-                            info!("Created new tab {}", idx);
-                        },
-                        Err(e) => {
-                            error!("Error creating new tab: {}", e);
-                        },
-                    }
-                }
-                self.set_selected_tab(0);
-                let mut tabs = self.tabs.get_mut().unwrap();
-                tabs.get_mut(0).unwrap()
             },
         }
     }

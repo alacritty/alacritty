@@ -67,7 +67,7 @@ pub struct Processor<T: EventListener, A: ActionContext<T>> {
 pub trait ActionContext<T: EventListener> {
     fn tab_manager(&mut self) -> Arc<TabManager<EventProxy>>;
     fn find_word<U: EventListener>(&self, point_p: Point,  terminal: &Term<U>) -> Option<String>;
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {}
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
@@ -1222,7 +1222,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn find_word<U: EventListener>(&self, point_p: Point, terminal: &Term<U>) -> Option<String> {
+        fn find_word<U: EventListener>(&self, _point_p: Point, _terminal: &Term<U>) -> Option<String> {
             unimplemented!();
         }
         fn size_info(&self) -> SizeInfo {
@@ -1348,7 +1348,7 @@ mod tests {
                 );
 
                 let mut terminal = Term::new(&cfg, size, MockEventProxy);
-                let mut tab_manager = TabManager::new(MockEventProxy, cfg.clone());
+                let tab_manager = TabManager::new(MockEventProxy, cfg.clone());
                 let mut tab_manager_arc =  Arc::new(tab_manager);
                 let mut mouse = Mouse {
                     click_state: $initial_state,

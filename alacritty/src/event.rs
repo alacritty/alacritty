@@ -1152,7 +1152,7 @@ impl Processor {
 
             let terminal_arc_mutex = self.tab_manager.clone().get_selected_tab_terminal();
             let mut terminal_guard = terminal_arc_mutex.lock();
-            let mut terminal = &mut *terminal_guard;
+            let terminal = &mut *terminal_guard;
 
             let context = ActionContext {
                 tab_manager: self.tab_manager.clone(),

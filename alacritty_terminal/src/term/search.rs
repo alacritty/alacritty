@@ -52,19 +52,18 @@ impl<T> Term<T> {
     pub fn search_next(
         &self,
         dfas: &RegexSearch,
-        mut origin: Point<usize>,
+        mut _origin: Point<usize>,
         direction: Direction,
         side: Side,
         mut max_lines: Option<usize>,
     ) -> Option<Match> {
-        // origin = self.expand_wide(origin, direction);
-        origin = Point::new(0, Column(0));
+        let actual_origin = Point::new(0, Column(0));
 
         max_lines = max_lines.filter(|max_lines| max_lines + 1 < self.total_lines());
 
         match direction {
-            Direction::Right => self.next_match_right(dfas, origin, side, max_lines),
-            Direction::Left => self.next_match_left(dfas, origin, side, max_lines),
+            Direction::Right => self.next_match_right(dfas, actual_origin, side, max_lines),
+            Direction::Left => self.next_match_left(dfas, actual_origin, side, max_lines),
         }
     }
 
