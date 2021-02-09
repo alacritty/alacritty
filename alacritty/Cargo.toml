@@ -22,7 +22,6 @@ version = "0.1.0"
 [dependencies]
 copypasta = { version = "0.7.0", default-features = false }# tokio = { version = "1.0.2",  features = ["full"] }
 url = "2.2.0"
-# deno_core = "0.76.0"
 serde_json = "1.0.62"
 regex = "1.4.3"
 nix = "0.19.1"

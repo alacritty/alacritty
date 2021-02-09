@@ -522,10 +522,7 @@ impl Display {
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
-                    // TODO: Line addition for tab - remove?
-                    
-                                    // Invert the active match in vi-less search.
-                    
+                    // Invert the active match in vi-less search.
                     if cell.is_match
                         && viewport_match
                             .as_ref()
@@ -543,8 +540,6 @@ impl Display {
 
                     // Update underline/strikeout.
                     lines.update(&cell);
-
-                    // cell.point.line += 1; // Leave the first line open for the tab list
 
                     // Draw the cell.
                     api.render_cell(cell, glyph_cache);
@@ -677,20 +672,6 @@ impl Display {
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, rects);
         }
-
-
-
-        // DRAW POPOVER WINDOW
-        if (false) {
-            let mut rects: Vec<RenderRect> = Vec::new();
-            let popover_rect =
-                RenderRect::new(0.0, 0.0, size_info.width(), size_info.height(), config.ui_config.colors.dim.as_ref().unwrap().black, 0.95);
-            rects.push(popover_rect);
-            self.renderer.draw_rects(&size_info, rects);
-        }
-
-
-
 
 
         self.draw_render_timer(config, &size_info);
