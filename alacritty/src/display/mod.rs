@@ -22,6 +22,7 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use crossfont::{self, Rasterize, Rasterizer};
 
+// use alacritty_terminal::ansi::Handler;
 use alacritty_terminal::ansi::NamedColor;
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::Dimensions as _;
@@ -476,14 +477,14 @@ impl Display {
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
         let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
-        
-        
+
+
         // Collect renderable content before the terminal is dropped.
         let dfas = search_state.dfas();
         let colors = &self.colors;
         let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
         let mut grid_cells = Vec::new();
-        
+
         #[allow(clippy::while_let_on_iterator)]
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
@@ -607,13 +608,20 @@ impl Display {
 
         let glyph_cache = &mut self.glyph_cache;
 
-        let tab_min = 0;
+        // let tab_min = 0;
         let tab_max = tab_manager.num_tabs() - 1;
+        // let tab_buttons = (tab_min..=tab_max)
+        //     .map(|i| if i == sel_tab { format!("[*{:0>3}]", i) } else { format!("[{:0>3}]", i) })
+        //     .collect::<Vec<String>>()
+        //     .join(" ");
 
-        let tab_buttons = (tab_min..=tab_max)
-            .map(|i| if i == sel_tab { format!("[*{:0>3}]", i) } else { format!("[{:0>3}]", i) })
-            .collect::<Vec<String>>()
-            .join(" ");
+        let tab_buttons: String;
+        loop {
+            if let Ok(tab_titles) = tab_manager.tab_titles.read() {
+                tab_buttons = tab_titles.join(" ");
+                break;
+            }
+        }
 
         let tabs_string = format!("{} Tab: {} of {}", tab_buttons, sel_tab, tab_max + 1);
         let tab_string_len = tabs_string.len() + 2;

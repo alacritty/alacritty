@@ -15,6 +15,8 @@ pub const DEFAULT_SHELL: &str = "/bin/zsh";
 
 use log::{error, info};
 
+use pad::PadStr;
+
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
 
@@ -28,6 +30,9 @@ use alacritty_terminal::event::EventListener;
 
 use crate::config::Config;
 
+
+const TAB_TITLE_WIDTH: usize = 8;
+
 pub struct TabManager<T> {
     pub to_exit: RwLock<bool>,
     pub selected_tab: RwLock<Option<usize>>,
@@ -36,6 +41,7 @@ pub struct TabManager<T> {
     pub event_proxy: T,
     pub config: Config,
     pub last_update: std::time::Instant,
+    pub tab_titles: RwLock<Vec<String>>,
 }
 
 impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
@@ -48,6 +54,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
             event_proxy,
             config,
             last_update: Instant::now(),
+            tab_titles: RwLock::new(Vec::new()),
         }
     }
 
@@ -212,6 +219,71 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     pub fn get_selected_tab_terminal(&self) -> Arc<FairMutex<Term<T>>> {
         self.selected_tab_arc().terminal.clone()
+    }
+
+    pub fn update_tab_titles(&self) {
+        let mut tab_idx: usize = 0;
+        loop {
+            if let Ok(all_cur_tabs_guard) = self.tabs.read() {
+                let all_cur_tabs = &*all_cur_tabs_guard;
+
+                let tabs_count = all_cur_tabs.len();
+                if tabs_count == 0 {
+                    if let Ok(mut tab_titles_guard) = self.tab_titles.write() {
+                        let tab_titles = &mut *tab_titles_guard;
+                        *tab_titles = Vec::new();
+                    }
+                } else {
+                    let selected_tab_idx: usize;
+                    loop {
+                        if let Ok(tab_idx_guard) = self.selected_tab.read() {
+                            let tab_idx_option = *tab_idx_guard;
+                            if let Some(idx) = tab_idx_option {
+                                selected_tab_idx = idx;
+                                break;
+                            }
+                        }
+                    }
+
+                    if let Ok(mut tab_titles_guard) = self.tab_titles.write() {
+                        let tab_titles = &mut *tab_titles_guard;
+                        *tab_titles = all_cur_tabs.iter().map(|cur_tab| {
+                            let term_guard = cur_tab.terminal.lock();
+                            let term = &*term_guard;
+                            let formatted_title: String;
+
+                            let selected_tab_char = if tab_idx == selected_tab_idx { "*".to_string() } else { "".to_string() };
+
+                            if  let Some(actual_title_string) = &term.title {
+                                if actual_title_string.len() > TAB_TITLE_WIDTH {
+                                    formatted_title = actual_title_string[(actual_title_string.len() - 8)..].to_string()
+                                } else {
+                                    formatted_title = actual_title_string.with_exact_width(TAB_TITLE_WIDTH);
+                                }
+    
+                            } else {
+                                // let temp_formatted_title = format!("[*{:0>8}]", tab_idx);
+                                let temp_formatted_title = format!("{}", tab_idx);
+                                formatted_title = temp_formatted_title.pad(TAB_TITLE_WIDTH, ' ', pad::Alignment::Left, true)
+                            }
+
+                            let final_formatted_title = format!("{}{}", selected_tab_char, formatted_title);
+    
+                            tab_idx += 1;
+                            final_formatted_title
+                        }).collect();
+                    }
+                }
+
+
+                break;
+            }
+            // else {
+                // tab_titles = Vec::new();
+            // }
+        }
+
+        // self.tab_titles = tab_titles;
     }
 
     fn selected_tab_arc(&self) -> Arc<Tab<T>> {

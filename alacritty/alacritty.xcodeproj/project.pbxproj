@@ -1,0 +1,234 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 48;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		CA6055D4425507F3E1C542E6 /* Cargo */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = CA607D42C92E6170CE0E0138 /* Build configuration list for PBXAggregateTarget "Cargo" */;
+			buildPhases = (
+				CA609494420ECAE2169D8707 /* Cargo build */,
+			);
+			dependencies = (
+			);
+			name = Cargo;
+			productName = Cargo;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		CA60F3C83C9022AF9BF66428 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA6055D92ADE6B5DC6DFECC5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CA6055D4425507F3E1C542E6;
+			remoteInfo = Cargo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B14C43EA25D2DF81006437B8 /* alacritty_terminal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = alacritty_terminal; path = ../alacritty_terminal; sourceTree = "<group>"; };
+		B1B6B50325D2E5E9000E0AE1 /* alacritty */ = {isa = PBXFileReference; lastKnownFileType = folder; name = alacritty; sourceTree = "<group>"; };
+		CA608B7E0A5E0C95DF6BBA1D /* alacritty */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = alacritty; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA60C8024CECAFF69DF6FABC /* Cargo.toml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.text-based-dylib-definition"; path = Cargo.toml; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		CA604FE14B9FE87D30D20ADE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA608B7E0A5E0C95DF6BBA1D /* alacritty */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CA605520A6A8EFD8A2FDA352 = {
+			isa = PBXGroup;
+			children = (
+				B1B6B50325D2E5E9000E0AE1 /* alacritty */,
+				B14C43EA25D2DF81006437B8 /* alacritty_terminal */,
+				CA60C8024CECAFF69DF6FABC /* Cargo.toml */,
+				CA604FE14B9FE87D30D20ADE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA60195FD2C691254865C9B0 /* alacritty-bin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA6097BF86FA699C4DFAFAEE /* Build configuration list for PBXNativeTarget "alacritty-bin" */;
+			buildPhases = (
+				CA6013621E5D398103741C42 /* Copy files (alacritty) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CA60B0367813E0FB2E2CABFF /* PBXTargetDependency */,
+			);
+			name = "alacritty-bin";
+			productName = alacritty;
+			productReference = CA608B7E0A5E0C95DF6BBA1D /* alacritty */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CA6055D92ADE6B5DC6DFECC5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0920;
+				TargetAttributes = {
+					CA60195FD2C691254865C9B0 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+					CA6055D4425507F3E1C542E6 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = CA607D42C92E6170CE0E0138 /* Build configuration list for PBXAggregateTarget "Cargo" */;
+			compatibilityVersion = "Xcode 8.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CA605520A6A8EFD8A2FDA352;
+			productRefGroup = CA604FE14B9FE87D30D20ADE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CA60195FD2C691254865C9B0 /* alacritty-bin */,
+				CA6055D4425507F3E1C542E6 /* Cargo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CA6013621E5D398103741C42 /* Copy files (alacritty) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(CARGO_XCODE_PRODUCTS_DIR)/alacritty",
+			);
+			name = "Copy files (alacritty)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/alacritty",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ln -f \"${CARGO_XCODE_PRODUCTS_DIR}/alacritty\" \"${BUILT_PRODUCTS_DIR}/\"";
+		};
+		CA609494420ECAE2169D8707 /* Cargo build */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Cargo.toml",
+			);
+			name = "Cargo build";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -e; export PATH=$PATH:~/.cargo/bin:/usr/local/bin;\nif [ \"$ACTION\" = \"clean\" ]; then\n\tcargo clean;\nelse\n\tcargo build $CARGO_FLAGS;\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CA60B0367813E0FB2E2CABFF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CA6055D4425507F3E1C542E6 /* Cargo */;
+			targetProxy = CA60F3C83C9022AF9BF66428 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CA607694DF10E9E9154AAE89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				PRODUCT_NAME = alacritty;
+			};
+			name = Debug;
+		};
+		CA609C08E427C4EF9A8B3FE4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				PRODUCT_NAME = alacritty;
+			};
+			name = Release;
+		};
+		CA60E9EA60E0B74669E0DCF0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				CARGO_FLAGS = "--release";
+				CARGO_TARGET_DIR = "$(BUILD_DIR)/cargo-target";
+				CARGO_XCODE_PRODUCTS_DIR = "$(BUILD_DIR)/cargo-target/release";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = alacritty;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		CA60FE172DBFCEEC1DA16548 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				CARGO_FLAGS = "";
+				CARGO_TARGET_DIR = "$(BUILD_DIR)/cargo-target";
+				CARGO_XCODE_PRODUCTS_DIR = "$(BUILD_DIR)/cargo-target/debug";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = alacritty;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CA607D42C92E6170CE0E0138 /* Build configuration list for PBXAggregateTarget "Cargo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA60E9EA60E0B74669E0DCF0 /* Release */,
+				CA60FE172DBFCEEC1DA16548 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA6097BF86FA699C4DFAFAEE /* Build configuration list for PBXNativeTarget "alacritty-bin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA609C08E427C4EF9A8B3FE4 /* Release */,
+				CA607694DF10E9E9154AAE89 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CA6055D92ADE6B5DC6DFECC5 /* Project object */;
+}

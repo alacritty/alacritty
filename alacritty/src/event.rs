@@ -1208,6 +1208,8 @@ impl Processor {
                     *control_flow = ControlFlow::Poll;
                 }
 
+                self.tab_manager.update_tab_titles();
+
                 let tab_manager_after_clone = self.tab_manager.clone();
                 let terminal_arc_mutex_clone = tab_manager_after_clone.get_selected_tab_terminal();
                 let mut terminal_guard = terminal_arc_mutex_clone.lock();
