@@ -9,6 +9,7 @@ use std::{
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use std::panic;
 
 pub const DEFAULT_SHELL: &str = "/bin/zsh";
 
@@ -51,39 +52,42 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     }
 
     pub fn resize(&self, sz: SizeInfo) {
-        let mut sz_option_guard = self.size.write().unwrap();
-        *sz_option_guard = Some(sz);
-        drop(sz_option_guard);
+        if let Ok(mut size_write_guard) = self.size.write() {
+            *size_write_guard = Some(sz);
+        }
 
-        let tab_r = &*self.tabs.read().unwrap();
+        if let Ok(tabs_read_guard) = self.tabs.read() {
+            for tab in (*tabs_read_guard).iter() {
+                let terminal_mutex = tab.terminal.clone();
+                let mut terminal_guard = terminal_mutex.lock();
+                let terminal = &mut *terminal_guard;
+                let term_sz = sz;
+                terminal.resize(term_sz);
+                drop(terminal_guard);
 
-        for tab in tab_r.iter() {
-            let terminal_mutex = tab.terminal.clone();
-            let mut terminal_guard = terminal_mutex.lock();
-            let terminal = &mut *terminal_guard;
-            let term_sz = sz;
-            terminal.resize(term_sz);
-            drop(terminal_guard);
-
-            let pty_mutex = tab.pty.clone();
-            let mut pty_guard = pty_mutex.lock();
-            let pty = &mut *pty_guard;
-            let pty_sz = sz;
-            pty.on_resize(&pty_sz);
-            drop(pty_guard);
+                let pty_mutex = tab.pty.clone();
+                let mut pty_guard = pty_mutex.lock();
+                let pty = &mut *pty_guard;
+                let pty_sz = sz;
+                pty.on_resize(&pty_sz);
+                drop(pty_guard);
+            }
         }
     }
 
-    pub fn set_size(&self, size: SizeInfo) {
-        let mut size_guard = self.size.write().unwrap();
-        *size_guard = Some(size.clone());
-         drop(size_guard);
+    pub fn set_size(&self, sz: SizeInfo) {
+        if let Ok(mut size_write_guard) = self.size.write() {
+            *size_write_guard = Some(sz);
+        }
     }
 
     #[inline]
     pub fn num_tabs(&self) -> usize {
-        let tabs = &*self.tabs.read().unwrap();
-        tabs.len()
+        loop {
+            if let Ok(tabs_read_guard) = self.tabs.read() {
+                return (*tabs_read_guard).len();
+            }
+        }
     }
 
     pub fn new_tab(&self) -> Result<usize> {
@@ -93,9 +97,21 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         };
         info!("Creating new tab {}\n", tab_idx);
         info!("Default shell {}\n", DEFAULT_SHELL);
-        let szinfo = (*self.size.read().unwrap()).unwrap();
+
+        let mut size_info_option: Option<SizeInfo> = None;
+        loop {
+            if let Ok(size_read_guard) = self.size.read() {
+                size_info_option = *size_read_guard;
+                break;
+            }
+        }
+        if size_info_option.is_none() {
+            panic!("Unable to read the current terminal size");
+        };
+
+        let sz = size_info_option.unwrap();
         let new_tab = Tab::new(
-            szinfo,
+            sz,
             self.config.clone(),
             self.event_proxy.clone(),
         );
@@ -108,10 +124,10 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
         let terminal_arc = new_tab.terminal.clone();
         
-        let mut tabs_guard = self.tabs.write().unwrap();
-        let tabs = &mut *tabs_guard;
-        tabs.push(new_tab);
-        drop(tabs_guard);
+        if let Ok(mut tabs_write_guard) = self.tabs.write() {
+            (*tabs_write_guard).push(new_tab);
+        }
+        
 
         if self.num_tabs() == 1 {
             self.set_selected_tab(0);
@@ -159,20 +175,17 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     }
 
     pub fn set_selected_tab(&self, idx: usize) {
-        let mut wg = self.selected_tab.write().unwrap();
-        *wg = Some(idx);
-        drop(wg);
+        if let Ok(mut write_guard) = self.selected_tab.write() {
+            *write_guard = Some(idx);
+        }
     }
 
     pub fn remove_selected_tab(&self) {
-        match self.selected_tab_idx() {
-            Some(idx) => {
-                if let Ok(mut rwlock_tabs) = self.tabs.write() {
-                    rwlock_tabs.remove(idx);
-                }
-            },
-            None => {},
-        };
+        if let Some(idx) = self.selected_tab_idx() {
+            if let Ok(mut rwlock_tabs) = self.tabs.write() {
+                rwlock_tabs.remove(idx);
+            }
+        }
 
         if self.num_tabs() == 0 {
             match self.new_tab() {
@@ -204,11 +217,14 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     fn selected_tab_arc(&self) -> Arc<Tab<T>> {
         match self.selected_tab_idx() {
             Some(sel_idx) => {
-                let tabs_guard = self.tabs.read().unwrap();
-                let tabs = & *tabs_guard;
-                let tab = tabs.get(sel_idx).unwrap();
-                let tab_clone = tab.clone();
-                Arc::new(tab_clone)
+                loop {
+                    if let Ok(tabs_guard) = self.tabs.read() {
+                        let tabs = & *tabs_guard;
+                        let tab = tabs.get(sel_idx).unwrap();
+                        let tab_clone = tab.clone();
+                        return Arc::new(tab_clone);
+                    }
+                }
             },
             None => {
                 if self.num_tabs() == 0 {
@@ -222,10 +238,13 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                     }
                 }
                 self.set_selected_tab(0);
-                let tabs_guard = self.tabs.read().unwrap();
-                let tabs = & *tabs_guard;
-                let tab = tabs.get(0).unwrap().clone(); 
-                Arc::new(tab)
+                loop {
+                    if let Ok(tabs_guard) = self.tabs.read() {
+                        let tabs = & *tabs_guard;
+                        let tab = tabs.get(0).unwrap().clone(); 
+                        return Arc::new(tab);
+                    }
+                }
             },
         }
     }
@@ -237,7 +256,11 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
     #[inline]
     pub fn selected_tab_idx(&self) -> Option<usize> {
-        *self.selected_tab.read().unwrap()
+        loop {
+            if let Ok(selected_tab_guard) = self.selected_tab.read() {
+                return *selected_tab_guard;
+            }
+        }
     }
 
     /// Get index of next oldest tab.

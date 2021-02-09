@@ -186,6 +186,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {
         let tab_manager = self.tab_manager();
         let c: Cow<'_, [u8]> = val.into();
+        #[allow(clippy::map_clone)]
         let vc: Vec<u8> = c.iter().map(|c| *c).collect();
         let data: &[u8] = &vc;
         let pty_arc = tab_manager.get_selected_tab_pty();
@@ -302,7 +303,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
         let mut content = RenderableContent::new(&terminal, dfas, self.config, &colors, false);
         let mut grid_cells = Vec::new();
         
-        
+        #[allow(clippy::while_let_on_iterator)]
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }
@@ -315,7 +316,7 @@ impl<'a> input::ActionContext<EventProxy> for ActionContext<'a> {
         let mut last_column = 0;
         let mut cell_iter = grid_cells.iter();
         let mut cell_or_none = cell_iter.next();
-        while found_end == false && cell_or_none.is_some() {
+        while !found_end && cell_or_none.is_some() {
             let cell = (*cell_or_none.unwrap()).clone();
             let c = cell.character;
 

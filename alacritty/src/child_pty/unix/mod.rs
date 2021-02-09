@@ -160,7 +160,7 @@ impl Clone for Pty {
         let file = unsafe { File::from_raw_fd(self.fd) };
 
         Self {
-            fd: self.fd.clone(),
+            fd: self.fd,
             file,
             fin,
             slave: self.slave,
@@ -203,8 +203,8 @@ impl Pty {
         let pw = get_pw_entry(&mut buf);
 
 
-        let slave = pty.slave.clone();
-        let master = pty.master.clone();
+        let slave = pty.slave;
+        let master = pty.master;
 
         let (command, args) = match config.shell {
             Some(program) => {

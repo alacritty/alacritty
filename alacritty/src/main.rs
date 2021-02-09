@@ -20,7 +20,7 @@ use std::fs;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
-
+use std::panic;
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::{error, info};
@@ -150,8 +150,11 @@ fn run(
     let tab_manager_main_clone = tab_manager_mutex.clone();
     tab_manager_main_clone.set_size(display.size_info);
 
-    let idx = tab_manager_main_clone.new_tab().unwrap();
-    tab_manager_main_clone.select_tab(idx);
+    if let Ok(idx) = tab_manager_main_clone.new_tab() {
+        tab_manager_main_clone.select_tab(idx);
+    } else {
+        panic!("Error: Unable to create and select the initial tab!");
+    }
 
     let event_proxy_clone = event_proxy.clone();
     std::thread::spawn(move || loop {

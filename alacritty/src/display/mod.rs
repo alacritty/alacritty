@@ -484,6 +484,7 @@ impl Display {
         let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
         let mut grid_cells = Vec::new();
         
+        #[allow(clippy::while_let_on_iterator)]
         while let Some(cell) = content.next() {
             grid_cells.push(cell);
         }

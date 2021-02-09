@@ -156,22 +156,24 @@ impl<T: EventListener> Execute<T> for Action {
         match *self {
             Action::NewTab => {
                 let tab_manager = ctx.tab_manager();
-                let idx = tab_manager.new_tab().unwrap();
-                tab_manager.select_tab(idx);
-                ctx.mark_dirty();
+                if let Ok(idx) = tab_manager.new_tab() {
+                    tab_manager.select_tab(idx);
+                    ctx.mark_dirty();
+                }
             },
             Action::PreviousTab => {
                 let tab_manager = ctx.tab_manager();
-                let prev_tab = tab_manager.prev_tab_idx().unwrap();
-                tab_manager.select_tab(prev_tab);
-                ctx.mark_dirty();
+                if let Some(idx) = tab_manager.prev_tab_idx() {
+                    tab_manager.select_tab(idx);
+                    ctx.mark_dirty();
+                }
             },            
             Action::NextTab => {
                 let tab_manager = ctx.tab_manager();
-                let next_tab = tab_manager.next_tab_idx().unwrap();
-                tab_manager.select_tab(next_tab);
-
-                ctx.mark_dirty();
+                if let Some(idx) = tab_manager.next_tab_idx() {
+                    tab_manager.select_tab(idx);
+                    ctx.mark_dirty();
+                }
             },
             Action::Esc(ref s) => {
                 ctx.on_typing_start();
