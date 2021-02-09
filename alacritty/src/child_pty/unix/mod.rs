@@ -4,7 +4,6 @@ use std::{
     os::unix::process::CommandExt,
     process::{Command, Stdio},
 };
-use std::os::unix::io::AsRawFd;
 
 use alacritty_terminal::config::{Config, Program};
 
