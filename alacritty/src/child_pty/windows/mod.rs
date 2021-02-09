@@ -26,8 +26,8 @@ pub struct Pty {
     // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
     // `conout` before `backend` will cause a deadlock (with Conpty).
     pub backend: Backend,
-    pub conout: ReadPipe,
-    pub conin: WritePipe,
+    pub fout: ReadPipe,
+    pub fin: WritePipe,
     // pub read_token: mio::Token,
     // pub write_token: mio::Token,
     // pub child_event_token: mio::Token,
@@ -36,19 +36,19 @@ pub struct Pty {
 
 impl io::Read for Pty {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let nbytes = self.conin.read(buf)?;
+        let nbytes = self.fin.read(buf)?;
         Ok(nbytes)
     }
 }
 
 impl std::io::Write for Pty {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.conout.write(buf)?;
+        self.fout.write(buf)?;
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
-        self.conout.flush(buf)?;
+        self.fout.flush(buf)?;
         Ok(())
     }
 }
@@ -62,8 +62,8 @@ impl Pty {
     ) -> Self {
         Self {
             backend: backend.into(),
-            conout: conout.into(),
-            conin: conin.into(),
+            fout: conout.into(),
+            fin: conin.into(),
             // read_token: 0.into(),
             // write_token: 0.into(),
             // child_event_token: 0.into(),

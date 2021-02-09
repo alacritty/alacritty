@@ -1,4 +1,5 @@
-use libc::winsize;
+// #[cfg(not(target_os = "windows"))]
+// use libc::winsize;
 
 
 
@@ -287,13 +288,6 @@ impl<T: Clone + EventListener> Tab<T> {
     ) -> Tab<T> {
         let terminal = Term::new(&config, size, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
-
-        let new_winsize = winsize {
-            ws_row: size.screen_lines().0 as u16,
-            ws_col: size.cols().0 as u16,
-            ws_xpixel: size.width() as libc::c_ushort,
-            ws_ypixel: size.height() as libc::c_ushort,
-        };
 
         let args: [&str; 0] = [];
         let pty = Arc::new(FairMutex::new(Pty::new(command, &args, size).unwrap()));
