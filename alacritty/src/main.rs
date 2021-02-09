@@ -44,7 +44,6 @@ mod macos;
 mod message_bar;
 #[cfg(windows)]
 mod panic;
-mod passwd;
 mod renderer;
 mod scheduler;
 mod tab_manager;

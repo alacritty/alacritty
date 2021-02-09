@@ -46,6 +46,7 @@ dependencies = [
  "log",
  "miniserde",
  "mio-anonymous-pipes",
+ "miow 0.3.6",
  "nix 0.19.1",
  "notify",
  "objc",

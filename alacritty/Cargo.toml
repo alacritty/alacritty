@@ -69,6 +69,7 @@ wayland-client = { version = "0.28.0", features = ["dlopen"], optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
+miow = "0.3"
 mio-anonymous-pipes = "0.1.0"
 
 [target.'cfg(windows)'.build-dependencies]

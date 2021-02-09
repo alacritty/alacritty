@@ -4,8 +4,7 @@ use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
 
-use crate::config::{Config, Program};
-use crate::event::OnResize;
+use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
 // use crate::child_pty::windows::child::ChildExitWatcher;
 
@@ -48,7 +47,7 @@ impl std::io::Write for Pty {
     }
 
     fn flush(&mut self) -> std::result::Result<(), std::io::Error> {
-        self.fout.flush(buf)?;
+        self.fout.flush()?;
         Ok(())
     }
 }
