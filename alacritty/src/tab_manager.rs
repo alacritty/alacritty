@@ -21,7 +21,7 @@ use alacritty_terminal::term::Term;
 
 use alacritty_terminal::term::SizeInfo;
 
-use crate::child_pty::ChildPty;
+use crate::child_pty::Pty;
 
 use alacritty_terminal::event::EventListener;
 
@@ -102,7 +102,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         let pty_arc = new_tab.pty.clone();
         let mut pty_guard = pty_arc.lock();
         let unlocked_pty = &mut *pty_guard;
-        let mut pty_output_file = unlocked_pty.file.try_clone().unwrap();
+        let mut pty_output_file = unlocked_pty.fin.try_clone().unwrap();
         drop(pty_guard);
 
         let terminal_arc = new_tab.terminal.clone();
@@ -190,7 +190,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
         }
     }
 
-    pub fn get_selected_tab_pty(&self) -> Arc<FairMutex<ChildPty>> {
+    pub fn get_selected_tab_pty(&self) -> Arc<FairMutex<Pty>> {
         self.selected_tab_arc().pty.clone()
     }
 
@@ -274,7 +274,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
 #[derive(Clone)]
 pub struct Tab<T> {
-    pub pty: Arc<FairMutex<ChildPty>>,
+    pub pty: Arc<FairMutex<Pty>>,
     pub terminal: Arc<FairMutex<Term<T>>>,
 }
 
@@ -296,7 +296,7 @@ impl<T: Clone + EventListener> Tab<T> {
         };
 
         let args: [&str; 0] = [];
-        let pty = Arc::new(FairMutex::new(ChildPty::new(command, &args, new_winsize).unwrap()));
+        let pty = Arc::new(FairMutex::new(Pty::new(command, &args, size).unwrap()));
 
         Tab { pty, terminal }
     }

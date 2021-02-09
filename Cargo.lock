@@ -45,6 +45,7 @@ dependencies = [
  "libc",
  "log",
  "miniserde",
+ "mio-anonymous-pipes",
  "nix 0.19.1",
  "notify",
  "objc",

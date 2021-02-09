@@ -55,17 +55,23 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 
-pub struct ChildPty {
+pub struct Pty {
     pub fd: RawFd,
     /// The File used by this PTY.
     pub file: File,
+    pub fin: File,
     pub slave: i32,
     pub master: i32,
 }
 
+impl io::Read for Pty {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let nbytes = self.file.read(buf)?;
+        Ok(nbytes)
+    }
+}
 
-
-impl std::io::Write for ChildPty {
+impl std::io::Write for Pty {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.get_file().write_all(buf)?;
         Ok(buf.len())
@@ -79,13 +85,15 @@ impl std::io::Write for ChildPty {
 }
 
 
-impl Clone for ChildPty {
-    fn clone(&self) -> ChildPty {
+impl Clone for Pty {
+    fn clone(&self) -> Pty {
+        let fin = unsafe { File::from_raw_fd(self.fd) };
         let file = unsafe { File::from_raw_fd(self.fd) };
 
         Self {
             fd: self.fd.clone(),
             file,
+            fin,
             slave: self.slave,
             master: self.master,
         }
@@ -98,18 +106,26 @@ impl Clone for ChildPty {
 
 
 
-impl ChildPty {
+impl Pty {
 
     pub fn get_file(&mut self) -> &mut File {
         &mut self.file
     }
     /// Spawn a process in a new pty.
-    pub fn new<I, S>(command: &str, args: I, size: winsize) -> Result<ChildPty, ()>
+    pub fn new<I, S>(command: &str, args: I, size: SizeInfo) -> Result<Pty, ()>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let pty = openpty(&size, None).unwrap();
+
+        let new_winsize = winsize {
+            ws_row: size.screen_lines().0 as u16,
+            ws_col: size.cols().0 as u16,
+            ws_xpixel: size.width() as libc::c_ushort,
+            ws_ypixel: size.height() as libc::c_ushort,
+        };
+
+        let pty = openpty(&new_winsize, None).unwrap();
 
         if let Ok(mut termios) = termios::tcgetattr(pty.master) {
             // Set character encoding to UTF-8.
@@ -161,14 +177,15 @@ impl ChildPty {
 
                     // ch.id
 
-                    let child = ChildPty {
+                    let child = Pty {
                         fd: pty.master,
                         file: File::from_raw_fd(pty.master),
+                        fin: File::from_raw_fd(pty.master),
                         slave,
                         master
                     };
 
-                    child.resize(size)?;
+                    child.resize(new_winsize)?;
 
                     Ok(child)
                 })
