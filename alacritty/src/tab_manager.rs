@@ -1,41 +1,21 @@
-use std::os::unix::io::AsRawFd;
-
 use libc::winsize;
-use objc::sel_impl;
+
 use std::io;
 
-
 use std::{
-    ffi::OsStr,
-    fs::File,
     io::Read,
-    process::{Command, Stdio},
     thread,
 };
 
 use anyhow::Result;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use std::io::Write;
 
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
-
-
-
-use std::marker::PhantomData;
-
-use std::hash::{BuildHasher, Hash};
-
-use miniserde::ser::{Fragment, Map, Seq};
-
-use std::borrow::Cow;
-
-use miniserde::{json, Deserialize, Serialize};
-
 pub const DEFAULT_SHELL: &str = "/bin/zsh";
 
-use log::{debug, error, info, warn};
+use log::{error, info};
 
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
@@ -44,44 +24,10 @@ use alacritty_terminal::term::Term;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::child_pty::ChildPty;
-use crate::child_pty::PtyUpdate;
-
 use crate::event::EventProxy;
 use thiserror::Error;
 
 use crate::config::Config;
-
-const DELAY_DURATION: Duration = Duration::from_millis(400);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TabManagerUpdate {
-    tab_idx: usize,
-    data: PtyUpdate,
-}
-
-macro_rules! seltab_cl {
-    ($seltab:expr, $terminal:ident,  { $($b:tt)* } ) => {
-        let tab = $seltab.unwrap();
-        let terminal_mutex =  tab.terminal.clone();
-        let mut terminal_guard = terminal_mutex.lock();
-        let mut $terminal = &mut *terminal_guard;
-
-        $($b)*
-
-        drop(terminal_guard);
-
-
-    };
-}
-
-#[derive(Debug)]
-pub enum Msg {
-    /// Data that should be written to the PTY.
-    Input(Vec<u8>),
-
-    /// Instruction to resize the PTY.
-    Resize(SizeInfo),
-}
 
 pub struct TabManager {
     pub to_exit: RwLock<bool>,
@@ -94,14 +40,8 @@ pub struct TabManager {
 }
 
 impl TabManager {
-    pub fn set_to_exit(&self) {
-        let mut to_exit_guard = self.to_exit.write().unwrap();
-        let mut to_exit_mut = &mut *to_exit_guard;
-        *to_exit_mut = true;
-        drop(to_exit_guard);
-    }
     pub fn new(event_proxy: crate::event::EventProxy, config: Config) -> TabManager {
-        let mut tm = Self {
+        Self {
             to_exit: RwLock::new(false),
             selected_tab: RwLock::new(None),
             tabs: RwLock::new(Vec::new()),
@@ -109,16 +49,11 @@ impl TabManager {
             event_proxy,
             config,
             last_update: Instant::now(),
-        };
-
-        return tm;
+        }
     }
 
     pub fn resize(&self, sz: SizeInfo) {
-        let mut size_guard = self.size.write().unwrap();
-        let mut size  = &mut *size_guard;
-        *size = Some(sz);
-         drop(size_guard);
+        *(&mut *(self.size.write().unwrap())) = Some(sz);
 
         let tab_r = &*self.tabs.read().unwrap();
 
@@ -152,18 +87,6 @@ impl TabManager {
         let tabs = &*self.tabs.read().unwrap();
         tabs.len()
     }
-    pub fn get_next_tab(&mut self) -> usize {
-        match self.selected_tab_idx() {
-            Some(idx) => {
-                if idx + 1 >= self.num_tabs()  {
-                    0
-                } else {
-                    idx + 1
-                }
-            },
-            None => 0,
-        }
-    }
 
     pub fn new_tab(&self) -> Result<usize> {
         let tab_idx = match self.selected_tab_idx() {
@@ -178,20 +101,18 @@ impl TabManager {
             szinfo.clone(),
             self.config.clone(),
             self.event_proxy.clone(),
-            self,
         );
 
         let pty_arc = new_tab.pty.clone();
         let mut pty_guard = pty_arc.lock();
-        let mut unlocked_pty = &mut *pty_guard;
-        let raw_fd: std::os::unix::io::RawFd = unlocked_pty.file.as_raw_fd();
+        let unlocked_pty = &mut *pty_guard;
         let mut pty_output_file = unlocked_pty.file.try_clone().unwrap();
         drop(pty_guard);
 
         let terminal_arc = new_tab.terminal.clone();
         
         let mut tabs_guard = self.tabs.write().unwrap();
-        let mut tabs = &mut *tabs_guard;
+        let tabs = &mut *tabs_guard;
         tabs.push(new_tab);
         drop(tabs_guard);
 
@@ -215,16 +136,11 @@ impl TabManager {
                             let mut terminal = &mut *terminal_guard;
                             let mut pty_guard = pty_arc.lock();
                             let mut unlocked_pty = &mut *pty_guard;
-                            
-                            // event_proxy.send_event(crate::event::Event::TerminalEvent(
-                            //     alacritty_terminal::event::Event::Wakeup,
-                            // ));
-                            buffer.into_iter().for_each(|byte| {
+
+                            buffer.iter().for_each(|byte| {
                                 processor.advance(terminal, *byte, &mut unlocked_pty)
                             });
 
-                            // terminal.dirty = true;
-                            
                             drop(pty_guard);
                             drop(terminal_guard);
                         }
@@ -257,18 +173,42 @@ impl TabManager {
     pub fn remove_selected_tab(&self) {
         match self.selected_tab_idx() {
             Some(idx) => {
-                let tabs_guard = self.tabs.write().unwrap().remove(idx);
+                self.tabs.write().unwrap().remove(idx);
             },
             None => {},
         };
 
         if self.num_tabs() == 0 {
             match self.new_tab() {
-                Ok(idx) => {
+                Ok(_idx) => {
                     self.set_selected_tab(0);
                 },
                 Err(e) => {
-                    error!("Attempted to remove a tab when no tabs exist");
+                    error!("Attempted to remove a tab when no tabs exist: {}", e);
+                },
+            }
+        } else {
+            let next_idx = self.next_tab_idx().unwrap();
+            if next_idx >= self.num_tabs() {
+                self.set_selected_tab(self.num_tabs() - 1);
+            } else {
+                self.set_selected_tab(next_idx);
+            }
+        }
+    }
+
+    pub fn remove_tab(&self, idx: usize) {
+        if self.num_tabs() > idx {
+            self.tabs.write().unwrap().remove(idx);
+        }
+
+        if self.num_tabs() == 0 {
+            match self.new_tab() {
+                Ok(_idx) => {
+                    self.set_selected_tab(0);
+                },
+                Err(e) => {
+                    error!("Attempted to remove a tab when no tabs exist: {}", e);
                 },
             }
         } else {
@@ -305,7 +245,7 @@ impl TabManager {
                             info!("Created new tab {}", idx);
                         },
                         Err(e) => {
-                            error!("Error creating new tab");
+                            error!("Error creating new tab: {}", e);
                         },
                     }
                 }
@@ -331,7 +271,7 @@ impl TabManager {
                             info!("Created new tab {}", idx);
                         },
                         Err(e) => {
-                            error!("Error creating new tab");
+                            error!("Error creating new tab: {}", e);
                         },
                     }
                 }
@@ -385,55 +325,6 @@ impl TabManager {
             None => None,
         }
     }
-
-    /// Get index of youngest tab.
-    pub fn first_tab_idx(&self) -> Option<usize> {
-        // Next here will just iterate to the first value
-        Some(0)
-    }
-
-    /// Get index of oldest tab.
-    pub fn last_tab_idx(&self) -> Option<usize> {
-        // Next back will iterate back around to the last value
-        Some(self.num_tabs())
-    }
-
-    /// Receive stdin for the active `Window`.
-    pub fn receive_stdin(& self, data: &[u8]) -> Result<(), TabError> {
-        let sel_idx_option = *self.selected_tab.read().unwrap();
-        let sel_idx = sel_idx_option.unwrap();
-
-        let tab_rw = self.tabs.read();
-        let tabs = tab_rw.unwrap();
-
-        let tab = tabs.get(sel_idx).unwrap();
-        Ok(tab.receive_stdin(data).unwrap())
-        // Ok(self.selected_tab_mut().receive_stdin(data)?)
-    }
-}
-
-pub fn stringify(err: &dyn std::fmt::Display) -> String {
-    format!("error code: {}", err.to_string())
-}
-// pub fn stringify(err: &dyn std::error::Error) -> String { format!("error code: {}",
-// err.to_string()) }
-
-#[derive(Error, Debug)]
-pub enum TabError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    #[error("no selected tab")]
-    NoSelectedTab,
-    #[error("attempted to select an invalid tab")]
-    TabLost,
-}
-
-#[derive(Error, Debug)]
-pub enum TabWriteError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    #[error("Unable to write for some other reason")]
-    UnableToWriteOtherReason,
 }
 
 #[derive(Clone)]
@@ -448,7 +339,6 @@ impl Tab {
         size: SizeInfo,
         config: Config,
         event_proxy: crate::event::EventProxy,
-        tab_manager: & TabManager,
     ) -> Tab {
         let terminal = Term::new(&config, size, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
@@ -465,19 +355,4 @@ impl Tab {
 
         Tab { pty, terminal }
     }
-
-    pub fn receive_stdin(&self, data: &[u8]) -> Result<(), io::Error> {
-        let tab_terminal = self.terminal.clone();
-        let mut terminal_guard = tab_terminal.lock();
-        let terminal = &mut *terminal_guard;
-        // terminal.dirty = true;
-        drop(terminal_guard);
-
-        let mut pty_guard = self.pty.lock();
-        let mut unlocked_pty = &mut *pty_guard;
-        unlocked_pty.write(data)?;
-        drop(pty_guard);
-        Ok(())
-    }
-    
 }

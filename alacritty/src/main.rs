@@ -19,8 +19,8 @@ use std::{env, io};
 use std::error::Error;
 use std::fs;
 use std::io::Write;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
@@ -28,14 +28,7 @@ use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::Term;
-
-
 use crate::tab_manager::TabManager;
-
-#[macro_use]
-mod macros;
 
 mod child_pty;
 mod cli;

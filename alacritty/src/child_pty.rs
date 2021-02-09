@@ -1,36 +1,25 @@
 use std::{
     ffi::OsStr,
     fs::File,
-    io::Read,
     os::unix::io::{FromRawFd, RawFd},
     os::unix::process::CommandExt,
     process::{Command, Stdio},
-    thread,
 };
 use std::os::unix::io::AsRawFd;
 
-
-
-use std::sync::{Arc, Mutex, RwLock};
 use alacritty_terminal::term::SizeInfo;
 
 use std::io;
 
 use nix::sys::termios::{self, InputFlags, SetArg};
 
-use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
-
-use signal_hook::{self as sighook, iterator::Signals};
-
-
+use libc::{self, winsize};
 
 use nix::pty::openpty;
 
 use nix::{
     unistd::setsid,
 };
-
-use log::{error, info, debug, warn};
 
 
 use die::die;
@@ -66,21 +55,6 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 
-
-
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PtyUpdate {
-    /// The PTY has closed the file.
-    Exited,
-    /// PTY sends byte.
-    Byte(u8),
-    Bytes([u8; PTY_BUFFER_SIZE]),
-    // Bytes(Vec<u8>),
-}
-
-
-
 pub struct ChildPty {
     pub fd: RawFd,
     /// The File used by this PTY.
@@ -90,7 +64,6 @@ pub struct ChildPty {
 
 
 impl std::io::Write for ChildPty {
-    // fn write(&mut self, buf: &[u8]) -> std::io::Result<usize, TabWriteError> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.get_file().write_all(buf)?;
         Ok(buf.len())
@@ -106,7 +79,7 @@ impl std::io::Write for ChildPty {
 
 impl Clone for ChildPty {
     fn clone(&self) -> ChildPty {
-        let mut file = unsafe { File::from_raw_fd(self.fd) };
+        let file = unsafe { File::from_raw_fd(self.fd) };
 
         Self {
             fd: self.fd.clone(),
@@ -179,8 +152,8 @@ impl ChildPty {
                     Ok(())
                 })
                 .spawn()
-                .map_err(|err| ())
-                .and_then(|ch| {
+                .map_err(|_err| ())
+                .and_then(|_ch| {
 
                     // ch.id
 

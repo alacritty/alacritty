@@ -5,13 +5,12 @@
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
 
-use crate::{clipboard, tab_manager::TabManager};
-use alacritty_terminal::sync::FairMutex;
+use crate:: tab_manager::TabManager;
 use log::trace;
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use glutin::dpi::PhysicalPosition;
@@ -44,8 +43,6 @@ use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 use crate::url::{Url, Urls};
 
-#[macro_use]
-use crate::macros;
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -70,7 +67,7 @@ pub struct Processor<T: EventListener, A: ActionContext<T>> {
 
 pub trait ActionContext<T: EventListener> {
     fn tab_manager(&mut self) -> Arc<TabManager>;
-    fn find_word<U: EventListener>(&self, point_p: Point, side: Side, terminal: &Term<U>) -> String;
+    fn find_word<U: EventListener>(&self, point_p: Point,  terminal: &Term<U>) -> Option<String>;
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _data: B);
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
@@ -267,7 +264,6 @@ impl<T: EventListener> Execute<T> for Action {
                 
             },
             Action::ViAction(ViAction::SearchEnd) => {
-                let terminal = ctx.terminal();
                 let origin = ctx.terminal()
                     .visible_to_buffer(ctx.terminal().vi_mode_cursor.point)
                     .add_absolute(ctx.terminal(), Boundary::Wrap, 1);
@@ -912,15 +908,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             if button == MouseButton::Left && self.ctx.modifiers().logo() {
                 let mouse = self.ctx.mouse();
-                let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
-                let side = self.ctx.mouse().cell_side;
+                let point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
                 let terminal = self.ctx.terminal();
-                let word_clicked = self.ctx.find_word(point, side, terminal);
+                let word_clicked_option = self.ctx.find_word(point, terminal);
 
-                if state == ElementState::Pressed {
-                    self.ctx.write_to_pty(word_clicked.as_bytes().to_vec());
+                if word_clicked_option.is_some() && state == ElementState::Pressed {
+                    self.ctx.write_to_pty(word_clicked_option.unwrap().as_bytes().to_vec());
                 }
-
             }
 
             if button == MouseButton::Left && self.ctx.modifiers().alt() {
@@ -1193,9 +1187,8 @@ mod tests {
     struct MockEventProxy;
     impl EventListener for MockEventProxy {}
 
-    struct ActionContext<'a, T> {
+    struct ActionContext<'a> {
         pub tab_mananger: Arc<TabManager>,
-        // pub terminal: &'a mut Term<T>,
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
@@ -1207,7 +1200,7 @@ mod tests {
         config: &'a Config,
     }
 
-    impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
+    impl<'a> super::ActionContext<T> for ActionContext<'a> {
         fn search_next(
             &mut self,
             _origin: Point<usize>,
@@ -1229,7 +1222,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn find_word<U: EventListener>(&self, point_p: Point, side: Side, terminal: &Term<U>) -> String {
+        fn find_word<U: EventListener>(&self, point_p: Point, terminal: &Term<U>) -> Option<String> {
             ""
         }
         fn size_info(&self) -> SizeInfo {

@@ -1,18 +1,10 @@
-
-use std::borrow::Cow;
 #[cfg(not(target_os = "macos"))]
 use std::env;
 use std::ffi::CStr;
-use std::fs::File;
-use std::io;
 use std::mem::MaybeUninit;
 
-use std::process::{Child, Command, Stdio};
 use std::ptr;
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
-use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
-use log::error;
 // use crate::die;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]

@@ -1,7 +1,5 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-
-use regex::Regex;
 use std::cmp::min;
 use std::f64;
 use std::fmt::{self, Formatter};
@@ -9,7 +7,7 @@ use std::fmt::{self, Formatter};
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
@@ -18,7 +16,6 @@ use glutin::event_loop::EventLoop;
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
-use parking_lot::MutexGuard;
 use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
@@ -26,7 +23,7 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::ansi::NamedColor;
-use alacritty_terminal::event::{EventListener, OnResize};
+use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
@@ -611,7 +608,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let tab_min = 0;
-        let mut tab_max = tab_manager.num_tabs() - 1;
+        let tab_max = tab_manager.num_tabs() - 1;
 
         let tab_buttons = (tab_min..=tab_max)
             .map(|i| if i == sel_tab { format!("[*{:0>3}]", i) } else { format!("[{:0>3}]", i) })

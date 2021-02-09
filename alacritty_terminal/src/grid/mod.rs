@@ -6,10 +6,6 @@ use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeInclusive
 
 use serde::{Deserialize, Serialize};
 
-use crate::sync::FairMutex;
-use regex::Regex;
-use std::sync::{Arc, Mutex};
-
 use crate::ansi::{CharsetIndex, StandardCharset};
 use crate::index::{Column, IndexRange, Line, Point};
 use crate::term::cell::{Flags, ResetDiscriminant};

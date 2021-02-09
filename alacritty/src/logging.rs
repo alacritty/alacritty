@@ -10,7 +10,7 @@ use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
@@ -19,8 +19,6 @@ use crate::cli::Options;
 use crate::event::Event;
 use crate::message_bar::{Message, MessageType};
 
-use chrono::prelude::*;
-use time::Duration;
 
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
