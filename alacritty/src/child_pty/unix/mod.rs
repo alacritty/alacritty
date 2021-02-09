@@ -175,8 +175,8 @@ impl Clone for Pty {
 impl Pty {
 
 
-    pub fn fin_clone(&mut self) -> Box<dyn io::Read> {
-        Box::new(self.file.try_clone().unwrap())
+    pub fn fin_clone(&mut self) -> std::fs::File {
+        self.file.try_clone().unwrap()
     }
     pub fn get_file(&mut self) -> &mut File {
         &mut self.file
