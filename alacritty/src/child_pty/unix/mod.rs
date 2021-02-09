@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     fs::File,
     os::unix::io::{FromRawFd, RawFd},
     os::unix::process::CommandExt,
@@ -121,6 +120,10 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 
+pub fn new(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo) -> Option<Pty> {
+    Some(Pty::new(config, size).unwrap())
+}
+
 pub struct Pty {
     pub fd: RawFd,
     /// The File used by this PTY.
@@ -165,10 +168,6 @@ impl Clone for Pty {
         }
     }
 }
-
-
-
-
 
 
 

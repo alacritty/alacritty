@@ -1,8 +1,6 @@
 // #[cfg(not(target_os = "windows"))]
 // use libc::winsize;
 
-use std::io::prelude::*;
-
 
 use std::{
     io::Read,
@@ -288,7 +286,7 @@ impl<T: Clone + EventListener> Tab<T> {
         let terminal = Term::new(&config, size, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 
-        let pty = Arc::new(FairMutex::new(Pty::new(config, size).unwrap()));
+        let pty = Arc::new(FairMutex::new(crate::child_pty::new(config, size).unwrap()));
 
         Tab { pty, terminal }
     }
