@@ -67,6 +67,7 @@ const MAX_HISTORY_SIZE: usize = 255;
 #[derive(Debug, Clone)]
 pub enum Event {
     TerminalEvent(TerminalEvent),
+    #[allow(clippy::upper_case_acronyms)]
     DPRChanged(f64, (u32, u32)),
     Scroll(Scroll),
     ConfigReload(PathBuf),
@@ -1291,9 +1292,9 @@ impl Processor {
                         }
                     },
                     TerminalEvent::Wakeup => *processor.ctx.dirty = true,
-                    TerminalEvent::Close(tab_idx) => {
+                    TerminalEvent::Close => {
                         let tab_manager = processor.ctx.tab_manager();
-                        info!("Removing active tab, close was sent for tab idx: {}", tab_idx);
+                        info!("Removing active tab, close was sent for the current tab");
                         tab_manager.remove_selected_tab();
 
                         *processor.ctx.dirty = true;

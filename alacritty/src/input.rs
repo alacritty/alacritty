@@ -7,6 +7,8 @@
 
 use crate:: tab_manager::TabManager;
 use log::trace;
+
+
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
@@ -1175,6 +1177,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 mod tests {
     use super::*;
 
+    use std::vec::Vec;
+    use std::sync::RwLock;
     use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
 
     use alacritty_terminal::event::Event as TerminalEvent;
@@ -1182,11 +1186,30 @@ mod tests {
 
     use crate::message_bar::MessageBuffer;
 
-    const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
-
     #[derive(Debug, Clone)]
-    struct MockEventProxy;
-    impl EventListener for MockEventProxy {}
+    struct MockEventProxy {
+        pub events_sent: Arc<RwLock<Vec<alacritty_terminal::event::Event>>>,
+    }
+
+    impl MockEventProxy {
+        pub fn new() -> Self {
+            Self {
+                events_sent: Arc::new(RwLock::new(Vec::new()))
+            }
+        }
+    }
+
+    impl EventListener for MockEventProxy {
+        fn send_event(&self, event: alacritty_terminal::event::Event) {
+            if let Ok(mut event_sent_guard) = self.events_sent.write() {
+                let events_sent = &mut *event_sent_guard;
+                events_sent.push(event);
+            }
+            
+        }
+    }
+
+    const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
     struct ActionContext<'a, T> {
         pub tab_manager: Arc<TabManager<T>>,
@@ -1349,8 +1372,8 @@ mod tests {
                     false,
                 );
 
-                let mut terminal = Term::new(&cfg, size, MockEventProxy);
-                let tab_manager = TabManager::new(MockEventProxy, cfg.clone());
+                let mut terminal = Term::new(&cfg, size, MockEventProxy::new());
+                let tab_manager = TabManager::new(MockEventProxy::new(), cfg.clone());
                 let tab_manager_arc =  Arc::new(tab_manager);
                 let mut mouse = Mouse {
                     click_state: $initial_state,

@@ -1,5 +1,5 @@
 //! Alacritty - The GPU Enhanced Terminal.
-
+#![feature(new_uninit)]
 #![warn(rust_2018_idioms, future_incompatible)]
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 #![cfg_attr(feature = "cargo-clippy", deny(warnings))]
@@ -19,8 +19,18 @@ use std::error::Error;
 use std::fs;
 use std::io::Write;
 use std::sync::Arc;
+
+#[cfg(windows)]
+use std::sync::Mutex;
+
 use std::time::Duration;
 use std::panic;
+
+#[cfg(windows)]
+use std::mem::MaybeUninit;
+
+#[cfg(windows)]
+use glutin::event_loop::EventLoopProxy;
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::{error, info};
@@ -62,6 +72,7 @@ use crate::event::{Event, EventProxy, Processor};
 use crate::macos::locale;
 use crate::message_bar::MessageBuffer;
 
+
 fn main() {
 
     #[cfg(windows)]
@@ -80,6 +91,14 @@ fn main() {
 
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
+
+
+    #[cfg(windows)]
+    let mut event_loop_mutex_box = MaybeUninit::<Mutex<EventLoopProxy<Event>>>::uninit();
+    #[cfg(windows)]
+    unsafe { event_loop_mutex_box.as_mut_ptr().write(Mutex::new(window_event_loop.create_proxy())); }
+    #[cfg(windows)]
+    crate::child_pty::windows::EVENT_LOOP_PROXY.store(Arc::new(Box::new(event_loop_mutex_box)));
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())

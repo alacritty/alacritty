@@ -15,13 +15,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Stable
-        run: cargo test
+      - name: Nightly
+        run: |
+          rustup default nightly
+          cargo test
       - name: Clippy
         run: |
+          rustup default nightly
           rustup component add clippy
           cargo clippy --all-targets
-      - name: Oldstable
-        run: |
-          rustup default 1.43.1
-          cargo test

@@ -15,6 +15,7 @@ use crate::config::mouse::Mouse;
 use crate::config::window::WindowConfig;
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct UIConfig {
     /// Font configuration.
     pub font: Font,

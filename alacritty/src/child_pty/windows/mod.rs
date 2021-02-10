@@ -5,13 +5,6 @@ use std::os::windows::ffi::OsStrExt;
 
 use alacritty_terminal::config::{Config, Program};
 use alacritty_terminal::term::SizeInfo;
-// use crate::child_pty::windows::child::ChildExitWatcher;
-
-
-
-// mod child;
-
-// use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
 use std::os::windows::io::AsRawHandle;
 use std::os::windows::io::FromRawHandle;
 
@@ -20,8 +13,6 @@ use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
-
-// use handle::Handle;
 
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::BYTE;
@@ -35,7 +26,11 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-// use self::windows::child::ChildExitWatcher;
+mod child;
+
+pub use self::child::EVENT_LOOP_PROXY;
+
+use self::child::ChildExitWatcher;
 
 /// RAII Pseudoconsole.
 pub struct Conpty {
@@ -184,16 +179,12 @@ pub fn new(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo) -
         }
     }
 
-    // let conin = EventedAnonWrite::new(conin);
-    // let conout = EventedAnonRead::new(conout);
-
-    // let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
+    let _child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let conpty = Conpty { handle: pty_handle };
 
     Some(Pty::new(conpty, 
                   conout, 
                   conin, 
-                //   child_watcher
                 ).unwrap())
 }
 
@@ -214,23 +205,10 @@ fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
     }
 }
 
-
-
-// pub fn new_pty(config: Config<crate::config::ui_config::UIConfig>, size: SizeInfo, _window_id: Option<usize>) -> Pty {
-    // self::new(config, size).expect("Failed to create ConPTY backend")
-// }
-
-
 pub struct Pty {
-    // XXX: Backend (Conpty) is required to be the first field, to ensure correct drop order. Dropping
-    // `conout` before `backend` will cause a deadlock (with Conpty).
     pub backend: Conpty,
     pub fout: miow::pipe::AnonRead,
     pub fin: miow::pipe::AnonWrite,
-    // pub read_token: mio::Token,
-    // pub write_token: mio::Token,
-    // pub child_event_token: mio::Token,
-    // child_watcher: ChildExitWatcher,
 }
 
 impl io::Read for Pty {
@@ -257,16 +235,11 @@ impl Pty {
         backend: impl Into<Conpty>,
         conout: miow::pipe::AnonRead,
         conin: miow::pipe::AnonWrite,
-        // child_watcher: ChildExitWatcher,
     ) -> Result<Self, ()> {
         Ok(Self {
             backend: backend.into(),
             fout: conout,
             fin: conin,
-            // read_token: 0.into(),
-            // write_token: 0.into(),
-            // child_event_token: 0.into(),
-            // child_watcher,
         })
     }
 
@@ -278,100 +251,6 @@ impl Pty {
         self.backend.on_resize(size)
     }
 }
-
-// impl EventedReadWrite for Pty {
-//     type Reader = ReadPipe;
-//     type Writer = WritePipe;
-
-//     #[inline]
-//     fn register(
-//         &mut self,
-//         poll: &mio::Poll,
-//         token: &mut dyn Iterator<Item = mio::Token>,
-//         interest: mio::Ready,
-//         poll_opts: mio::PollOpt,
-//     ) -> io::Result<()> {
-//         self.read_token = token.next().unwrap();
-//         self.write_token = token.next().unwrap();
-
-//         if interest.is_readable() {
-//             poll.register(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?
-//         } else {
-//             poll.register(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?
-//         }
-//         if interest.is_writable() {
-//             poll.register(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?
-//         } else {
-//             poll.register(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?
-//         }
-
-//         self.child_event_token = token.next().unwrap();
-//         poll.register(
-//             self.child_watcher.event_rx(),
-//             self.child_event_token,
-//             mio::Ready::readable(),
-//             poll_opts,
-//         )?;
-
-//         Ok(())
-//     }
-
-//     #[inline]
-//     fn reregister(
-//         &mut self,
-//         poll: &mio::Poll,
-//         interest: mio::Ready,
-//         poll_opts: mio::PollOpt,
-//     ) -> io::Result<()> {
-//         if interest.is_readable() {
-//             poll.reregister(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?;
-//         } else {
-//             poll.reregister(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?;
-//         }
-//         if interest.is_writable() {
-//             poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?;
-//         } else {
-//             poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
-//         }
-
-//         poll.reregister(
-//             self.child_watcher.event_rx(),
-//             self.child_event_token,
-//             mio::Ready::readable(),
-//             poll_opts,
-//         )?;
-
-//         Ok(())
-//     }
-
-//     #[inline]
-//     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-//         poll.deregister(&self.conout)?;
-//         poll.deregister(&self.conin)?;
-//         poll.deregister(self.child_watcher.event_rx())?;
-//         Ok(())
-//     }
-
-//     #[inline]
-//     fn reader(&mut self) -> &mut Self::Reader {
-//         &mut self.conout
-//     }
-
-//     #[inline]
-//     fn read_token(&self) -> mio::Token {
-//         self.read_token
-//     }
-
-//     #[inline]
-//     fn writer(&mut self) -> &mut Self::Writer {
-//         &mut self.conin
-//     }
-
-//     #[inline]
-//     fn write_token(&self) -> mio::Token {
-//         self.write_token
-//     }
-// }
 
 fn cmdline<C>(config: &Config<C>) -> String {
     let default_shell = Program::Just("powershell".to_owned());

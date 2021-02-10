@@ -1,103 +1,90 @@
-// use std::ffi::c_void;
-// use std::io::Error;
-// use std::sync::atomic::{AtomicPtr, Ordering};
 
-// use mio_extras::channel::{channel, Receiver, Sender};
+use std::io::Error;
 
-// use winapi::shared::ntdef::{BOOLEAN, HANDLE, PVOID};
-// use winapi::um::winbase::{RegisterWaitForSingleObject, UnregisterWait, INFINITE};
-// use winapi::um::winnt::{WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE};
 
-// use self::ChildEvent;
+use winapi::shared::ntdef::{BOOLEAN, HANDLE, PVOID};
+use winapi::um::winbase::{RegisterWaitForSingleObject, INFINITE};
+use winapi::um::winnt::{WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE};
 
-// /// WinAPI callback to run when child process exits.
-// extern "system" fn child_exit_callback(ctx: PVOID, timed_out: BOOLEAN) {
-//     if timed_out != 0 {
-//         return;
-//     }
+use glutin::event_loop::EventLoopProxy;
+use crate::event::Event;
+use once_cell::sync::Lazy;
+use arc_swap::ArcSwap;
+use std::sync::Arc;
+use std::boxed::Box;
+use std::mem::MaybeUninit;
+use std::sync::Mutex;
 
-//     let event_tx: Box<_> = unsafe { Box::from_raw(ctx as *mut Sender<ChildEvent>) };
-//     let _ = event_tx.send(ChildEvent::Exited);
-// }
+use log::error;
 
-// pub struct ChildExitWatcher {
-//     wait_handle: AtomicPtr<c_void>,
-//     event_rx: Receiver<ChildEvent>,
-// }
+extern "system" fn child_exit_callback(_ctx: PVOID, timed_out: BOOLEAN) {
+    if timed_out == 0 {
+        let event_loop_box = EVENT_LOOP_PROXY.load();
+        let ea1 = &*event_loop_box;
+        let ea2 = &*ea1;
+        let event_loop_box_mutex = &*ea2;
+        unsafe { 
+            let ebox = &*event_loop_box_mutex;
+            let ref_box = ebox.as_ptr(); 
+            if let Ok(event_loop_guard) = (*ref_box).lock() {
+                let event_loop = &*event_loop_guard;
+                let event_sent_result = event_loop.send_event(crate::event::Event::TerminalEvent(alacritty_terminal::event::Event::Close));
+                match event_sent_result {
+                    Ok(_res) => {
 
-// impl ChildExitWatcher {
-//     pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
-//         let (event_tx, event_rx) = channel::<ChildEvent>();
+                    },
+                    Err(e) => {
+                        error!("Error occurred sending event to close tab {}", e);
+                    }
+                };
+                drop(event_loop_guard);
+            }
+        };
+    }
+}
 
-//         let mut wait_handle: HANDLE = 0 as HANDLE;
-//         let sender_ref = Box::new(event_tx);
 
-//         let success = unsafe {
-//             RegisterWaitForSingleObject(
-//                 &mut wait_handle,
-//                 child_handle,
-//                 Some(child_exit_callback),
-//                 Box::into_raw(sender_ref) as PVOID,
-//                 INFINITE,
-//                 WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE,
-//             )
-//         };
+#[allow(clippy::type_complexity)]
+pub static EVENT_LOOP_PROXY: Lazy<ArcSwap<Box<MaybeUninit<Mutex<EventLoopProxy<Event>>>>>> = Lazy::new(|| ArcSwap::from(Arc::new(Box::<Mutex<EventLoopProxy<Event>>>::new_uninit())));
 
-//         if success == 0 {
-//             Err(Error::last_os_error())
-//         } else {
-//             Ok(ChildExitWatcher { wait_handle: AtomicPtr::from(wait_handle), event_rx })
-//         }
-//     }
+pub struct ChildExitWatcher {
+}
 
-//     pub fn event_rx(&self) -> &Receiver<ChildEvent> {
-//         &self.event_rx
-//     }
-// }
+impl ChildExitWatcher {
+    pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
+        let mut wait_handle: HANDLE = 0 as HANDLE;
 
-// impl Drop for ChildExitWatcher {
-//     fn drop(&mut self) {
-//         unsafe {
-//             UnregisterWait(self.wait_handle.load(Ordering::Relaxed));
-//         }
-//     }
-// }
+        let success = unsafe {
+            RegisterWaitForSingleObject(
+                &mut wait_handle,
+                child_handle,
+                Some(child_exit_callback),
+                0 as PVOID,
+                INFINITE,
+                WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE,
+            )
+        };
 
-// #[cfg(test)]
-// mod tests {
-//     use std::os::windows::io::AsRawHandle;
-//     use std::process::Command;
-//     use std::time::Duration;
+        if success == 0 {
+            Err(Error::last_os_error())
+        } else {
+            Ok(ChildExitWatcher { })
+        }
+    }
+}
 
-//     use mio::{Events, Poll, PollOpt, Ready, Token};
+#[cfg(test)]
+mod tests {
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Command;
 
-//     use super::*;
+    use super::*;
 
-//     #[test]
-//     pub fn event_is_emitted_when_child_exits() {
-//         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
+    #[test]
+    pub fn event_is_emitted_when_child_exits() {
+        let mut child = Command::new("cmd.exe").spawn().unwrap();
+        let _child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle()).unwrap();
 
-//         let mut child = Command::new("cmd.exe").spawn().unwrap();
-//         let child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle()).unwrap();
-
-//         let mut events = Events::with_capacity(1);
-//         let poll = Poll::new().unwrap();
-//         let child_events_token = Token::from(0usize);
-
-//         poll.register(
-//             child_exit_watcher.event_rx(),
-//             child_events_token,
-//             Ready::readable(),
-//             PollOpt::oneshot(),
-//         )
-//         .unwrap();
-
-//         child.kill().unwrap();
-
-//         // Poll for the event or fail with timeout if nothing has been sent.
-//         poll.poll(&mut events, Some(WAIT_TIMEOUT)).unwrap();
-//         assert_eq!(events.iter().next().unwrap().token(), child_events_token);
-//         // Verify that at least one `ChildEvent::Exited` was received.
-//         assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
-//     }
-// }
+        child.kill().unwrap();
+    }
+}

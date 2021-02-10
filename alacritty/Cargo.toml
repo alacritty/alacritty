@@ -20,6 +20,8 @@ path = "../alacritty_config_derive"
 version = "0.1.0"
 
 [dependencies]
+once_cell = "1.5.2"
+arc-swap = "1.2.0"
 pad = "0.1.6"
 copypasta = { version = "0.7.0", default-features = false }# tokio = { version = "1.0.2",  features = ["full"] }
 url = "2.2.0"

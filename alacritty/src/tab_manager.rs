@@ -167,7 +167,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
                         if rlen == 0 {
                             // Close this tty
-                            event_proxy_clone.send_event(alacritty_terminal::event::Event::Close(tab_idx));
+                            event_proxy_clone.send_event(alacritty_terminal::event::Event::Close);
                             break; // break out of loop
                         }
                     },
@@ -274,13 +274,8 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                         }).collect();
                     }
                 }
-
-
                 break;
             }
-            // else {
-                // tab_titles = Vec::new();
-            // }
         }
 
         // self.tab_titles = tab_titles;

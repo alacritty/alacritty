@@ -15,7 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Test
-        run: cargo test --release
+        run: |
+          rustup default nightly
+          cargo test --release
       - name: Make App
         run: make dmg
       - name: Upload Application
@@ -33,9 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Test
-        run: cargo test --release
+        run: |
+          rustup default nightly
+          cargo test --release
       - name: Build
-        run: cargo build --release
+        run: |
+          rustup default nightly
+          cargo build --release
       - name: Upload portable executable
         run: |
           cp ./target/release/alacritty.exe ./Alacritty-${GITHUB_REF##*/}-portable.exe
@@ -65,7 +71,9 @@ jobs:
           sudo apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
             libxcb-xfixes0-dev python3
       - name: Test
-        run: cargo test --release
+        run: |
+          rustup default nightly
+          cargo test --release
       - name: Gzip manpage
         run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
       - name: Upload Assets
