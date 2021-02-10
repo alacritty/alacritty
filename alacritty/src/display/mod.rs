@@ -617,7 +617,7 @@ impl Display {
 
         let tab_buttons: String;
         loop {
-            if let Ok(tab_titles) = tab_manager.tab_titles.read() {
+            if let Ok(tab_titles) = tab_manager.tab_titles.try_read() {
                 tab_buttons = tab_titles.join(" ");
                 break;
             }

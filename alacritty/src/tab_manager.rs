@@ -59,39 +59,47 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     }
 
     pub fn resize(&self, sz: SizeInfo) {
-        if let Ok(mut size_write_guard) = self.size.write() {
-            *size_write_guard = Some(sz);
+        loop {
+            if let Ok(mut size_write_guard) = self.size.try_write() {
+                *size_write_guard = Some(sz);
+                break;
+            }
         }
+        loop {
+            if let Ok(tabs_read_guard) = self.tabs.try_read() {
+                for tab in (*tabs_read_guard).iter() {
+                    let terminal_mutex = tab.terminal.clone();
+                    let mut terminal_guard = terminal_mutex.lock();
+                    let terminal = &mut *terminal_guard;
+                    let term_sz = sz;
+                    terminal.resize(term_sz);
+                    drop(terminal_guard);
 
-        if let Ok(tabs_read_guard) = self.tabs.read() {
-            for tab in (*tabs_read_guard).iter() {
-                let terminal_mutex = tab.terminal.clone();
-                let mut terminal_guard = terminal_mutex.lock();
-                let terminal = &mut *terminal_guard;
-                let term_sz = sz;
-                terminal.resize(term_sz);
-                drop(terminal_guard);
-
-                let pty_mutex = tab.pty.clone();
-                let mut pty_guard = pty_mutex.lock();
-                let pty = &mut *pty_guard;
-                let pty_sz = sz;
-                pty.on_resize(&pty_sz);
-                drop(pty_guard);
+                    let pty_mutex = tab.pty.clone();
+                    let mut pty_guard = pty_mutex.lock();
+                    let pty = &mut *pty_guard;
+                    let pty_sz = sz;
+                    pty.on_resize(&pty_sz);
+                    drop(pty_guard);
+                }
+                break;
             }
         }
     }
 
     pub fn set_size(&self, sz: SizeInfo) {
-        if let Ok(mut size_write_guard) = self.size.write() {
-            *size_write_guard = Some(sz);
+        loop {
+            if let Ok(mut size_write_guard) = self.size.try_write() {
+                *size_write_guard = Some(sz);
+                break;
+            }
         }
     }
 
     #[inline]
     pub fn num_tabs(&self) -> usize {
         loop {
-            if let Ok(tabs_read_guard) = self.tabs.read() {
+            if let Ok(tabs_read_guard) = self.tabs.try_read() {
                 return (*tabs_read_guard).len();
             }
         }
@@ -107,7 +115,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
         let size_info_option: Option<SizeInfo>;
         loop {
-            if let Ok(size_read_guard) = self.size.read() {
+            if let Ok(size_read_guard) = self.size.try_read() {
                 size_info_option = *size_read_guard;
                 break;
             }
@@ -131,8 +139,11 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
 
         let terminal_arc = new_tab.terminal.clone();
 
-        if let Ok(mut tabs_write_guard) = self.tabs.write() {
-            (*tabs_write_guard).push(new_tab);
+        loop {
+            if let Ok(mut tabs_write_guard) = self.tabs.try_write() {
+                (*tabs_write_guard).push(new_tab);
+                break;
+            }
         }
 
 
@@ -182,15 +193,21 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     }
 
     pub fn set_selected_tab(&self, idx: usize) {
-        if let Ok(mut write_guard) = self.selected_tab.write() {
-            *write_guard = Some(idx);
+        loop {
+            if let Ok(mut write_guard) = self.selected_tab.try_write() {
+                *write_guard = Some(idx);
+                break;
+            }
         }
     }
 
     pub fn remove_selected_tab(&self) {
         if let Some(idx) = self.selected_tab_idx() {
-            if let Ok(mut rwlock_tabs) = self.tabs.write() {
-                rwlock_tabs.remove(idx);
+            loop {
+                if let Ok(mut rwlock_tabs) = self.tabs.try_write() {
+                    rwlock_tabs.remove(idx);
+                    break;
+                }
             }
         }
 
@@ -224,19 +241,22 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     pub fn update_tab_titles(&self) {
         let mut tab_idx: usize = 0;
         loop {
-            if let Ok(all_cur_tabs_guard) = self.tabs.read() {
+            if let Ok(all_cur_tabs_guard) = self.tabs.try_read() {
                 let all_cur_tabs = &*all_cur_tabs_guard;
 
                 let tabs_count = all_cur_tabs.len();
                 if tabs_count == 0 {
-                    if let Ok(mut tab_titles_guard) = self.tab_titles.write() {
-                        let tab_titles = &mut *tab_titles_guard;
-                        *tab_titles = Vec::new();
+                    loop {
+                        if let Ok(mut tab_titles_guard) = self.tab_titles.try_write() {
+                            let tab_titles = &mut *tab_titles_guard;
+                            *tab_titles = Vec::new();
+                            break;
+                        }
                     }
                 } else {
                     let selected_tab_idx: usize;
                     loop {
-                        if let Ok(tab_idx_guard) = self.selected_tab.read() {
+                        if let Ok(tab_idx_guard) = self.selected_tab.try_read() {
                             let tab_idx_option = *tab_idx_guard;
                             if let Some(idx) = tab_idx_option {
                                 selected_tab_idx = idx;
@@ -245,47 +265,48 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                         }
                     }
 
-                    if let Ok(mut tab_titles_guard) = self.tab_titles.write() {
-                        let tab_titles = &mut *tab_titles_guard;
-                        *tab_titles = all_cur_tabs.iter().map(|cur_tab| {
-                            let term_guard = cur_tab.terminal.lock();
-                            let term = &*term_guard;
-                            let formatted_title: String;
+                    loop {
+                        if let Ok(mut tab_titles_guard) = self.tab_titles.try_write() {
+                            let tab_titles = &mut *tab_titles_guard;
+                            *tab_titles = all_cur_tabs.iter().map(|cur_tab| {
+                                let term_guard = cur_tab.terminal.lock();
+                                let term = &*term_guard;
+                                let formatted_title: String;
 
-                            let selected_tab_char = if tab_idx == selected_tab_idx { "*".to_string() } else { "".to_string() };
+                                let selected_tab_char = if tab_idx == selected_tab_idx { "*".to_string() } else { "".to_string() };
 
-                            if  let Some(actual_title_string) = &term.title {
-                                if actual_title_string.len() > TAB_TITLE_WIDTH {
-                                    formatted_title = actual_title_string[(actual_title_string.len() - 8)..].to_string()
+                                if  let Some(actual_title_string) = &term.title {
+                                    if actual_title_string.len() > TAB_TITLE_WIDTH {
+                                        formatted_title = actual_title_string[(actual_title_string.len() - 8)..].to_string()
+                                    } else {
+                                        formatted_title = actual_title_string.with_exact_width(TAB_TITLE_WIDTH);
+                                    }
+        
                                 } else {
-                                    formatted_title = actual_title_string.with_exact_width(TAB_TITLE_WIDTH);
+                                    // let temp_formatted_title = format!("[*{:0>8}]", tab_idx);
+                                    let temp_formatted_title = format!("{}", tab_idx);
+                                    formatted_title = temp_formatted_title.pad(TAB_TITLE_WIDTH, ' ', pad::Alignment::Left, true)
                                 }
-    
-                            } else {
-                                // let temp_formatted_title = format!("[*{:0>8}]", tab_idx);
-                                let temp_formatted_title = format!("{}", tab_idx);
-                                formatted_title = temp_formatted_title.pad(TAB_TITLE_WIDTH, ' ', pad::Alignment::Left, true)
-                            }
 
-                            let final_formatted_title = format!("{}{}", selected_tab_char, formatted_title);
-    
-                            tab_idx += 1;
-                            final_formatted_title
-                        }).collect();
+                                let final_formatted_title = format!("{}{}", selected_tab_char, formatted_title);
+        
+                                tab_idx += 1;
+                                final_formatted_title
+                            }).collect();
+                            break;
+                        }
                     }
                 }
                 break;
             }
         }
-
-        // self.tab_titles = tab_titles;
     }
 
     fn selected_tab_arc(&self) -> Arc<Tab<T>> {
         match self.selected_tab_idx() {
             Some(sel_idx) => {
                 loop {
-                    if let Ok(tabs_guard) = self.tabs.read() {
+                    if let Ok(tabs_guard) = self.tabs.try_read() {
                         let tabs = & *tabs_guard;
                         let tab = tabs.get(sel_idx).unwrap();
                         let tab_clone = tab.clone();
@@ -306,7 +327,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
                 }
                 self.set_selected_tab(0);
                 loop {
-                    if let Ok(tabs_guard) = self.tabs.read() {
+                    if let Ok(tabs_guard) = self.tabs.try_read() {
                         let tabs = & *tabs_guard;
                         let tab = tabs.get(0).unwrap().clone();
                         return Arc::new(tab);
@@ -324,7 +345,7 @@ impl<T: Clone + EventListener + Send + 'static> TabManager<T> {
     #[inline]
     pub fn selected_tab_idx(&self) -> Option<usize> {
         loop {
-            if let Ok(selected_tab_guard) = self.selected_tab.read() {
+            if let Ok(selected_tab_guard) = self.selected_tab.try_read() {
                 return *selected_tab_guard;
             }
         }

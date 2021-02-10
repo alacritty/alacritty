@@ -1201,9 +1201,12 @@ mod tests {
 
     impl EventListener for MockEventProxy {
         fn send_event(&self, event: alacritty_terminal::event::Event) {
-            if let Ok(mut event_sent_guard) = self.events_sent.write() {
-                let events_sent = &mut *event_sent_guard;
-                events_sent.push(event);
+            loop {
+                if let Ok(mut event_sent_guard) = self.events_sent.try_write() {
+                    let events_sent = &mut *event_sent_guard;
+                    events_sent.push(event);
+                    break;
+                }
             }
             
         }

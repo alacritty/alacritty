@@ -347,12 +347,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Copy,  +BindingMode::VI; Action::ClearSelection;
         Paste, ~BindingMode::VI; Action::Paste;
         L, ModifiersState::CTRL; Action::ClearLogNotice;
-        T, ModifiersState::CTRL; Action::NewTab;
-        D, ModifiersState::CTRL; Action::NewTab;
-        S, ModifiersState::CTRL; Action::NewTab;
-        G, ModifiersState::ALT; Action::NewTab;
-        LBracket, ModifiersState::CTRL | ModifiersState::SHIFT; Action::PreviousTab;
-        RBracket, ModifiersState::CTRL | ModifiersState::SHIFT; Action::NextTab;
+        T, ModifiersState::LOGO; Action::NewTab;
+        LBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::PreviousTab;
+        RBracket, ModifiersState::LOGO | ModifiersState::SHIFT; Action::NextTab;
         L,    ModifiersState::CTRL,  ~BindingMode::VI, ~BindingMode::SEARCH;
             Action::Esc("\x0c".into());
         Tab,  ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH;
