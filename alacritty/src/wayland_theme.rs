@@ -69,11 +69,11 @@ impl WaylandTheme for AlacrittyWaylandTheme {
     }
 }
 
-trait IntoARGBColor {
+trait IntoArgbColor {
     fn into_rgba(self) -> ARGBColor;
 }
 
-impl IntoARGBColor for Rgb {
+impl IntoArgbColor for Rgb {
     fn into_rgba(self) -> ARGBColor {
         ARGBColor { a: 0xff, r: self.r, g: self.g, b: self.b }
     }

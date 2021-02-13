@@ -1761,7 +1761,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
-            ansi::Mode::DECCOLM => self.deccolm(),
+            ansi::Mode::ColumnMode => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
@@ -1803,7 +1803,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::LineWrap => self.mode.remove(TermMode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
-            ansi::Mode::DECCOLM => self.deccolm(),
+            ansi::Mode::ColumnMode => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
@@ -2429,7 +2429,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, true);
+            let iter = terminal.renderable_content(&config, true);
             for cell in iter {
                 test::black_box(cell);
             }

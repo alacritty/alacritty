@@ -127,8 +127,8 @@ impl Cursor {
     }
 }
 
-#[serde(untagged)]
 #[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum ConfigCursorStyle {
     Shape(CursorShape),
     WithBlinking {
@@ -190,14 +190,14 @@ impl CursorBlinking {
     }
 }
 
-impl Into<bool> for CursorBlinking {
-    fn into(self) -> bool {
-        self == Self::On || self == Self::Always
+impl From<CursorBlinking> for bool {
+    fn from(cursor_blinking: CursorBlinking) -> bool {
+        cursor_blinking == CursorBlinking::On || cursor_blinking == CursorBlinking::Always
     }
 }
 
-#[serde(untagged)]
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum Program {
     Just(String),
     WithArgs {
