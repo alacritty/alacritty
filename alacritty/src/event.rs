@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::Write;
 use std::mem;
 use std::ops::RangeInclusive;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -66,7 +66,7 @@ const MAX_HISTORY_SIZE: usize = 255;
 #[derive(Debug, Clone)]
 pub enum Event {
     TerminalEvent(TerminalEvent),
-    DPRChanged(f64, (u32, u32)),
+    DprChanged(f64, (u32, u32)),
     Scroll(Scroll),
     ConfigReload(PathBuf),
     Message(Message),
@@ -989,7 +989,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 } => {
                     *control_flow = ControlFlow::Poll;
                     let size = (new_inner_size.width, new_inner_size.height);
-                    self.event_queue.push(Event::DPRChanged(scale_factor, size).into());
+                    self.event_queue.push(Event::DprChanged(scale_factor, size).into());
                     return;
                 },
                 // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
@@ -1084,7 +1084,7 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         match event {
             GlutinEvent::UserEvent(event) => match event {
-                Event::DPRChanged(scale_factor, (width, height)) => {
+                Event::DprChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut processor.ctx.display_update_pending;
 
                     // Push current font to update its DPR.
@@ -1253,7 +1253,7 @@ impl<N: Notify + OnResize> Processor<N> {
     }
 
     fn reload_config<T>(
-        path: &PathBuf,
+        path: &Path,
         processor: &mut input::Processor<'_, T, ActionContext<'_, N, T>>,
     ) where
         T: EventListener,

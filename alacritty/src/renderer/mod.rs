@@ -21,7 +21,7 @@ use alacritty_terminal::term::render::RenderableCell;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::font::{Font, FontDescription};
-use crate::config::ui_config::{Delta, UIConfig};
+use crate::config::ui_config::{Delta, UiConfig};
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
@@ -448,7 +448,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
-    config: &'a UIConfig,
+    config: &'a UiConfig,
 }
 
 #[derive(Debug)]
@@ -682,7 +682,7 @@ impl QuadRenderer {
         }
     }
 
-    pub fn with_api<F, T>(&mut self, config: &UIConfig, props: &SizeInfo, func: F) -> T
+    pub fn with_api<F, T>(&mut self, config: &UiConfig, props: &SizeInfo, func: F) -> T
     where
         F: FnOnce(RenderApi<'_>) -> T,
     {
