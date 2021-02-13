@@ -221,7 +221,7 @@ where
         let mut terminal = None;
 
         loop {
-            match self.pty.reader().read(&mut buf[..]) {
+            match self.pty.reader().read(buf) {
                 Ok(0) => break,
                 Ok(got) => {
                     // Record bytes read; used to limit time spent in pty_read.

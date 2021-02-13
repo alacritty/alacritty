@@ -14,7 +14,7 @@ use alacritty_terminal::term::{
     RenderableContent as TerminalContent, RenderableCursor as TerminalCursor, Term, TermMode,
 };
 
-use crate::config::ui_config::UIConfig;
+use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
@@ -31,7 +31,7 @@ pub struct RenderableContent<'a> {
     terminal_cursor: TerminalCursor,
     cursor: Option<RenderableCursor>,
     search: RenderableSearch,
-    config: &'a Config<UIConfig>,
+    config: &'a Config<UiConfig>,
     colors: &'a List,
 }
 
@@ -39,7 +39,7 @@ impl<'a> RenderableContent<'a> {
     pub fn new<T: EventListener>(
         term: &'a Term<T>,
         dfas: Option<&RegexSearch>,
-        config: &'a Config<UIConfig>,
+        config: &'a Config<UiConfig>,
         colors: &'a List,
         show_cursor: bool,
     ) -> Self {
