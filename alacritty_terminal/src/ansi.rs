@@ -372,7 +372,7 @@ impl Default for CursorShape {
 pub enum Mode {
     /// ?1
     CursorKeys = 1,
-    /// Select 80 or 132 columns per page.
+    /// Select 80 or 132 columns per page (DECCOLM).
     ///
     /// CSI ? 3 h -> set 132 column font.
     /// CSI ? 3 l -> reset 80 column font.
@@ -383,7 +383,7 @@ pub enum Mode {
     /// * erases all data in page memory
     /// * resets DECLRMM to unavailable
     /// * clears data from the status line (if set to host-writable)
-    DECCOLM = 3,
+    ColumnMode = 3,
     /// IRM Insert Mode.
     ///
     /// NB should be part of non-private mode enum.
@@ -440,7 +440,7 @@ impl Mode {
         if private {
             Some(match num {
                 1 => Mode::CursorKeys,
-                3 => Mode::DECCOLM,
+                3 => Mode::ColumnMode,
                 6 => Mode::Origin,
                 7 => Mode::LineWrap,
                 12 => Mode::BlinkingCursor,
@@ -1404,7 +1404,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &BYTES[..] {
+        for byte in BYTES {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1418,7 +1418,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &bytes[..] {
+        for byte in bytes {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1427,7 +1427,7 @@ mod tests {
 
         let bytes: &[u8] = &[0x1b, b'[', b'c'];
 
-        for byte in &bytes[..] {
+        for byte in bytes {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1436,7 +1436,7 @@ mod tests {
 
         let bytes: &[u8] = &[0x1b, b'[', b'0', b'c'];
 
-        for byte in &bytes[..] {
+        for byte in bytes {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1450,7 +1450,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &bytes[..] {
+        for byte in bytes {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1462,7 +1462,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &bytes[..] {
+        for byte in bytes {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1480,7 +1480,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &BYTES[..] {
+        for byte in BYTES {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 
@@ -1511,7 +1511,7 @@ mod tests {
         let mut handler = MockHandler::default();
         let mut parser = Processor::new();
 
-        for byte in &BYTES[..] {
+        for byte in BYTES {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
     }
@@ -1522,7 +1522,7 @@ mod tests {
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
 
-        for byte in &BYTES[..] {
+        for byte in BYTES {
             parser.advance(&mut handler, *byte, &mut io::sink());
         }
 

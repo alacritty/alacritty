@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash due to assertion failure on 32-bit architectures
 - Segmentation fault on shutdown with Wayland
 - Incorrect estimated DPR with Wayland
+- Consecutive clipboard stores dropped on Wayland until the application is refocused
 
 ### Removed
 

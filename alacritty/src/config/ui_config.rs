@@ -15,7 +15,7 @@ use crate::config::mouse::Mouse;
 use crate::config::window::WindowConfig;
 
 #[derive(ConfigDeserialize, Debug, PartialEq)]
-pub struct UIConfig {
+pub struct UiConfig {
     /// Font configuration.
     pub font: Font,
 
@@ -56,7 +56,7 @@ pub struct UIConfig {
     background_opacity: Percentage,
 }
 
-impl Default for UIConfig {
+impl Default for UiConfig {
     fn default() -> Self {
         Self {
             alt_send_esc: true,
@@ -76,7 +76,7 @@ impl Default for UIConfig {
     }
 }
 
-impl UIConfig {
+impl UiConfig {
     #[inline]
     pub fn background_opacity(&self) -> f32 {
         self.background_opacity.as_f32()
