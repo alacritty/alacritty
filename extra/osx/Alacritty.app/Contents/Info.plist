@@ -15,7 +15,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.7.1</string>
+  <string>0.7.2-rc1</string>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>
