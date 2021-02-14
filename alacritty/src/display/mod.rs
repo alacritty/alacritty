@@ -29,6 +29,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
 
+use crate::config::ui_config::Hint;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -36,15 +37,16 @@ use crate::config::window::StartupMode;
 use crate::config::Config;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
-use crate::display::content::RenderableContent;
+use crate::display::content::{RenderableContent, RegexMatches};
 use crate::display::cursor::IntoRects;
 use crate::display::meter::Meter;
 use crate::display::window::Window;
-use crate::event::{Mouse, SearchState, HintState};
+use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
+use crate::daemon::start_daemon;
 
 pub mod content;
 pub mod cursor;
@@ -55,6 +57,9 @@ mod color;
 mod meter;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
+
+/// Percentage of characters in the hints alphabet used for the last character.
+const HINT_SPLIT_PERCENTAGE: f32 = 0.5;
 
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
@@ -180,6 +185,9 @@ pub struct Display {
 
     /// Mapped RGB values for each terminal color.
     pub colors: List,
+
+    /// State of the keyboard hints.
+    pub hint_state: HintState,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -317,10 +325,13 @@ impl Display {
             _ => (),
         }
 
+        let hint_state = HintState::new(config.ui_config.hints.alphabet().to_owned());
+
         Ok(Self {
             window,
             renderer,
             glyph_cache,
+            hint_state,
             meter: Meter::new(),
             size_info,
             urls: Urls::new(),
@@ -468,7 +479,6 @@ impl Display {
         mouse: &Mouse,
         mods: ModifiersState,
         search_state: &SearchState,
-        hint_state: &mut HintState,
     ) {
         // Convert search match from viewport to absolute indexing.
         let search_active = search_state.regex().is_some();
@@ -485,7 +495,7 @@ impl Display {
             &terminal,
             colors,
             search_dfas,
-            hint_state,
+            &mut self.hint_state,
             !cursor_hidden,
         );
         let mut grid_cells = Vec::new();
@@ -832,4 +842,217 @@ fn window_size(
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)
+}
+
+/// Keyboard regex hint state.
+pub struct HintState {
+    /// Hint currently in use.
+    hint: Option<Hint>,
+
+    /// Alphabet for hint labels.
+    alphabet: String,
+
+    /// Visible matches.
+    matches: RegexMatches,
+
+    /// Key label for each hint.
+    labels: Vec<Vec<char>>,
+
+    /// Keys pressed for hint selection.
+    keys: Vec<char>,
+}
+
+impl HintState {
+    /// Initialize an empty hint state.
+    fn new(alphabet: String) -> Self {
+        Self {
+            alphabet,
+            hint: Default::default(),
+            matches: Default::default(),
+            labels: Default::default(),
+            keys: Default::default(),
+        }
+    }
+
+    /// Check if a hint selection is in progress.
+    pub fn active(&self) -> bool {
+        self.hint.is_some()
+    }
+
+    /// Start the hint selection process.
+    pub fn start(&mut self, hint: Hint) {
+        self.hint = Some(hint.clone());
+    }
+
+    /// Cancel the hint highlighting process.
+    fn stop(&mut self) {
+        self.matches.clear();
+        self.labels.clear();
+        self.keys.clear();
+        self.hint = None;
+    }
+
+    /// Update the visible hint matches and key labels.
+    pub fn update_matches<T>(&mut self, term: &Term<T>) {
+        let hint = match self.hint.as_mut() {
+            Some(hint) => hint,
+            None => return,
+        };
+
+        // Find visible matches.
+        self.matches = RegexMatches::new(term, hint.regex.dfas());
+
+        // Cancel highlight with no visible matches.
+        if self.matches.is_empty() {
+            self.stop();
+            return;
+        }
+
+        let mut generator = HintLabels::new(&self.alphabet, HINT_SPLIT_PERCENTAGE);
+        let match_count = self.matches.len();
+        let keys_len = self.keys.len();
+
+        // Get the label for each match.
+        self.labels.resize(match_count, Vec::new());
+        for i in (0..match_count).rev() {
+            let mut label = generator.next();
+            if label.len() >= keys_len && &label[..keys_len] == self.keys {
+                self.labels[i] = label.split_off(keys_len);
+            } else {
+                self.labels[i] = Vec::new();
+            }
+        }
+    }
+
+    /// Handle keyboard input during hint selection.
+    pub fn keyboard_input<T>(&mut self, term: &Term<T>, character: char) {
+        match character {
+            // Use backspace to remove the last character pressed.
+            '\x08' | '\x1f' => {
+                self.keys.pop();
+            }
+            // Cancel hint highlighting on ESC.
+            '\x1b' => self.stop(),
+            _ => (),
+        }
+
+        self.update_matches(term);
+
+        let hint = match self.hint.as_ref() {
+            Some(hint) => hint,
+            None => return,
+        };
+
+        for i in (0..self.labels.len()).rev() {
+            let label = &self.labels[i];
+            if label.is_empty() || label[0] != character {
+                continue;
+            }
+
+            if label.len() == 1 {
+                // Get text for the hint's regex match.
+                let hint_match = &self.matches[i];
+                let start = term.visible_to_buffer(*hint_match.start());
+                let end = term.visible_to_buffer(*hint_match.end());
+                let text = term.bounds_to_string(start, end);
+
+                // Append text as last argument to the command.
+                let program = hint.command.program();
+                let mut args = hint.command.args().to_vec();
+                args.push(text);
+                start_daemon(program, &args);
+
+                self.stop();
+            } else {
+                self.keys.push(character);
+            }
+
+            return;
+        }
+    }
+
+    /// Hint key labels.
+    pub fn labels(&self) -> &Vec<Vec<char>> {
+        &self.labels
+    }
+
+    /// Visible hint regex matches.
+    pub fn matches(&self) -> &RegexMatches {
+        &self.matches
+    }
+
+    /// Update the alphabet used for hint labels.
+    pub fn update_alphabet(&mut self, alphabet: &str) {
+        if self.alphabet != alphabet {
+            self.alphabet = alphabet.to_owned();
+            self.keys.clear();
+        }
+    }
+}
+
+/// Generator for creating new hint labels.
+struct HintLabels {
+    /// Full character set available.
+    alphabet: Vec<char>,
+
+    /// Alphabet indices for the next label.
+    indices: Vec<usize>,
+
+    /// Point separating the alphabet's head and tail characters.
+    ///
+    /// To make identification of the tail character easy, part of the alphabet cannot be used for
+    /// any other position.
+    ///
+    /// All characters in the alphabet before this index will be used for the tail, while the rest
+    /// will be used for the head.
+    split_point: usize,
+}
+
+impl HintLabels {
+    /// Create a new generator.
+    ///
+    /// The `split_ratio` should be a number between 0.0 and 1.0 representing the percentage of
+    /// elements in the alphabet which are reserved for the tail of the hint label.
+    fn new(alphabet: impl Into<String>, split_ratio: f32) -> Self {
+        let alphabet: Vec<char> = alphabet.into().chars().collect();
+        let split_point = ((alphabet.len() - 1) as f32 * split_ratio.min(1.)) as usize;
+
+        Self { indices: vec![0], split_point, alphabet }
+    }
+
+    /// Get the characters for the next hints label.
+    fn next(&mut self) -> Vec<char> {
+        let shit = self.indices.iter().rev().map(|index| self.alphabet[*index]).collect();
+        self.increment();
+        shit
+    }
+
+    /// Increment the character sequence.
+    fn increment(&mut self) {
+        // Increment the last character; if it's not at the split point we're done.
+        let tail = &mut self.indices[0];
+        if *tail < self.split_point {
+            *tail += 1;
+            return;
+        }
+        *tail = 0;
+
+        // Increment all other characters in reverse order.
+        let alphabet_len = self.alphabet.len();
+        for i in 1..self.indices.len() {
+            let index = &mut self.indices[i];
+
+            if *index + 1 == alphabet_len {
+                // Reset character and move to the next if it's already at the limit.
+                *index = self.split_point + 1;
+            } else {
+                // If the character can be incremented, we're done.
+                *index += 1;
+                return;
+            }
+        }
+
+        // Extend the sequence with another character when no character could be incremented.
+        self.indices.push(self.split_point + 1);
+    }
 }

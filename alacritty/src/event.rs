@@ -43,11 +43,9 @@ use alacritty_terminal::tty;
 use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
 use crate::config::{self, Config};
-use crate::config::ui_config::Hint;
 use crate::daemon::start_daemon;
 use crate::display::window::Window;
-use crate::display::{Display, DisplayUpdate};
-use crate::display::content::RegexMatches;
+use crate::display::{Display, DisplayUpdate, HintState};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(target_os = "macos")]
 use crate::macos;
@@ -63,9 +61,6 @@ const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
 /// Maximum number of search terms stored in the history.
 const MAX_SEARCH_HISTORY_SIZE: usize = 255;
-
-/// Percentage of characters in the hints alphabet used for the last character.
-const HINT_SPLIT_PERCENTAGE: f32 = 0.5;
 
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
@@ -161,219 +156,6 @@ impl Default for SearchState {
     }
 }
 
-/// Keyboard regex hint state.
-pub struct HintState {
-    /// Hint currently in use.
-    hint: Option<Hint>,
-
-    /// Alphabet for hint labels.
-    alphabet: String,
-
-    /// Visible matches.
-    matches: RegexMatches,
-
-    /// Key label for each hint.
-    labels: Vec<Vec<char>>,
-
-    /// Keys pressed for hint selection.
-    keys: Vec<char>,
-}
-
-impl HintState {
-    /// Initialize an empty hint state.
-    fn new(alphabet: String) -> Self {
-        Self {
-            alphabet,
-            hint: Default::default(),
-            matches: Default::default(),
-            labels: Default::default(),
-            keys: Default::default(),
-        }
-    }
-
-    /// Check if a hint selection is in progress.
-    pub fn active(&self) -> bool {
-        self.hint.is_some()
-    }
-
-    /// Start the hint selection process.
-    pub fn start(&mut self, hint: Hint) {
-        self.hint = Some(hint.clone());
-    }
-
-    /// Cancel the hint highlighting process.
-    fn stop(&mut self) {
-        self.matches.clear();
-        self.labels.clear();
-        self.keys.clear();
-        self.hint = None;
-    }
-
-    /// Update the visible hint matches and key labels.
-    pub fn update_matches<T>(&mut self, term: &Term<T>) {
-        let hint = match self.hint.as_mut() {
-            Some(hint) => hint,
-            None => return,
-        };
-
-        // Find visible matches.
-        self.matches = RegexMatches::new(term, hint.regex.dfas());
-
-        // Cancel highlight with no visible matches.
-        if self.matches.is_empty() {
-            self.stop();
-            return;
-        }
-
-        let mut generator = HintLabels::new(&self.alphabet, HINT_SPLIT_PERCENTAGE);
-        let match_count = self.matches.len();
-        let keys_len = self.keys.len();
-
-        // Get the label for each match.
-        self.labels.resize(match_count, Vec::new());
-        for i in (0..match_count).rev() {
-            let mut label = generator.next();
-            if label.len() >= keys_len && &label[..keys_len] == self.keys {
-                self.labels[i] = label.split_off(keys_len);
-            } else {
-                self.labels[i] = Vec::new();
-            }
-        }
-    }
-
-    /// Handle keyboard input during hint selection.
-    pub fn keyboard_input<T>(&mut self, term: &Term<T>, character: char) {
-        match character {
-            // Use backspace to remove the last character pressed.
-            '\x08' | '\x1f' => {
-                self.keys.pop();
-            }
-            // Cancel hint highlighting on ESC.
-            '\x1b' => self.stop(),
-            _ => (),
-        }
-
-        self.update_matches(term);
-
-        let hint = match self.hint.as_ref() {
-            Some(hint) => hint,
-            None => return,
-        };
-
-        for i in (0..self.labels.len()).rev() {
-            let label = &self.labels[i];
-            if label.is_empty() || label[0] != character {
-                continue;
-            }
-
-            if label.len() == 1 {
-                // Get text for the hint's regex match.
-                let hint_match = &self.matches[i];
-                let start = term.visible_to_buffer(*hint_match.start());
-                let end = term.visible_to_buffer(*hint_match.end());
-                let text = term.bounds_to_string(start, end);
-
-                // Append text as last argument to the command.
-                let program = hint.command.program();
-                let mut args = hint.command.args().to_vec();
-                args.push(text);
-                start_daemon(program, &args);
-
-                self.stop();
-            } else {
-                self.keys.push(character);
-            }
-
-            return;
-        }
-    }
-
-    /// Hint key labels.
-    pub fn labels(&self) -> &Vec<Vec<char>> {
-        &self.labels
-    }
-
-    /// Visible hint regex matches.
-    pub fn matches(&self) -> &RegexMatches {
-        &self.matches
-    }
-
-    /// Update the alphabet used for hint labels.
-    fn update_alphabet(&mut self, alphabet: &str) {
-        if self.alphabet != alphabet {
-            self.alphabet = alphabet.to_owned();
-            self.keys.clear();
-        }
-    }
-}
-
-/// Generator for creating new hint labels.
-struct HintLabels {
-    /// Full character set available.
-    alphabet: Vec<char>,
-
-    /// Alphabet indices for the next label.
-    indices: Vec<usize>,
-
-    /// Point separating the alphabet's head and tail characters.
-    ///
-    /// To make identification of the tail character easy, part of the alphabet cannot be used for
-    /// any other position.
-    ///
-    /// All characters in the alphabet before this index will be used for the tail, while the rest
-    /// will be used for the head.
-    split_point: usize,
-}
-
-impl HintLabels {
-    /// Create a new generator.
-    ///
-    /// The `split_ratio` should be a number between 0.0 and 1.0 representing the percentage of
-    /// elements in the alphabet which are reserved for the tail of the hint label.
-    fn new(alphabet: impl Into<String>, split_ratio: f32) -> Self {
-        let alphabet: Vec<char> = alphabet.into().chars().collect();
-        let split_point = ((alphabet.len() - 1) as f32 * split_ratio.min(1.)) as usize;
-
-        Self { indices: vec![0], split_point, alphabet }
-    }
-
-    /// Get the characters for the next hints label.
-    fn next(&mut self) -> Vec<char> {
-        let shit = self.indices.iter().rev().map(|index| self.alphabet[*index]).collect();
-        self.increment();
-        shit
-    }
-
-    /// Increment the character sequence.
-    fn increment(&mut self) {
-        // Increment the last character; if it's not at the split point we're done.
-        let tail = &mut self.indices[0];
-        if *tail < self.split_point {
-            *tail += 1;
-            return;
-        }
-        *tail = 0;
-
-        // Increment all other characters in reverse order.
-        let alphabet_len = self.alphabet.len();
-        for i in 1..self.indices.len() {
-            let index = &mut self.indices[i];
-
-            if *index + 1 == alphabet_len {
-                // Reset character and move to the next if it's already at the limit.
-                *index = self.split_point + 1;
-            } else {
-                // If the character can be incremented, we're done.
-                *index += 1;
-                return;
-            }
-        }
-
-        // Extend the sequence with another character when no character could be incremented.
-        self.indices.push(self.split_point + 1);
-    }
-}
-
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
@@ -389,7 +171,6 @@ pub struct ActionContext<'a, N, T> {
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
-    hint_state: &'a mut HintState,
     cli_options: &'a CLIOptions,
     font_size: &'a mut Size,
     dirty: &'a mut bool,
@@ -882,12 +663,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn hint_state(&mut self) -> &mut HintState {
-        self.hint_state
+        &mut self.display.hint_state
     }
 
     /// Process a new character for keyboard hints.
     fn hint_input(&mut self, c: char) {
-        self.hint_state.keyboard_input(self.terminal, c);
+        self.display.hint_state.keyboard_input(self.terminal, c);
         *self.dirty = true;
     }
 
@@ -1166,7 +947,6 @@ pub struct Processor<N> {
     font_size: Size,
     event_queue: Vec<GlutinEvent<'static, Event>>,
     search_state: SearchState,
-    hint_state: HintState,
     cli_options: CLIOptions,
     dirty: bool,
 }
@@ -1182,13 +962,10 @@ impl<N: Notify + OnResize> Processor<N> {
         display: Display,
         cli_options: CLIOptions,
     ) -> Processor<N> {
-        let hint_state = HintState::new(config.ui_config.hints.alphabet().to_owned());
-
         Processor {
             font_size: config.ui_config.font.size(),
             message_buffer,
             cli_options,
-            hint_state,
             notifier,
             display,
             config,
@@ -1312,7 +1089,6 @@ impl<N: Notify + OnResize> Processor<N> {
                 config: &mut self.config,
                 scheduler: &mut scheduler,
                 search_state: &mut self.search_state,
-                hint_state: &mut self.hint_state,
                 cli_options: &self.cli_options,
                 dirty: &mut self.dirty,
                 event_loop,
@@ -1353,7 +1129,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     &self.mouse,
                     self.modifiers,
                     &self.search_state,
-                    &mut self.hint_state,
                 );
             }
         });
@@ -1619,7 +1394,7 @@ impl<N: Notify + OnResize> Processor<N> {
         processor.ctx.window_mut().set_has_shadow(config.ui_config.background_opacity() >= 1.0);
 
         // Update hint keys.
-        processor.ctx.hint_state.update_alphabet(config.ui_config.hints.alphabet());
+        processor.ctx.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());
 
         *processor.ctx.config = config;
 
