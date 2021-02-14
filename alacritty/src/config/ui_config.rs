@@ -1,17 +1,19 @@
-use std::path::PathBuf;
 use std::cell::RefCell;
+use std::path::PathBuf;
 
 use log::error;
-use serde::{Deserialize, Deserializer};
 use serde::de::Error as SerdeError;
+use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG, Program};
+use alacritty_terminal::config::{Percentage, Program, LOG_TARGET_CONFIG};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
-use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding, Key, BindingMode, Action, ModsWrapper};
+use crate::config::bindings::{
+    self, Action, Binding, BindingMode, Key, KeyBinding, ModsWrapper, MouseBinding,
+};
 use crate::config::color::Colors;
 use crate::config::debug::Debug;
 use crate::config::font::Font;

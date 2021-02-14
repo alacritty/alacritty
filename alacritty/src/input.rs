@@ -31,8 +31,8 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
-use crate::display::HintState;
 use crate::display::window::Window;
+use crate::display::HintState;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
@@ -136,7 +136,7 @@ macro_rules! execute_action {
 
                 $ctx.hint_state().start(hint);
                 $ctx.mark_dirty();
-            }
+            },
             Action::ToggleViMode => $ctx.toggle_vi_mode(),
             Action::ViMotion(motion) => {
                 let motion = *motion;
@@ -337,7 +337,7 @@ macro_rules! execute_action {
             Action::SpawnNewInstance => $ctx.spawn_new_instance(),
             Action::ReceiveChar | Action::None => (),
         }
-    }
+    };
 }
 
 fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {
@@ -1085,8 +1085,8 @@ mod tests {
     use alacritty_terminal::event::Event as TerminalEvent;
     use alacritty_terminal::selection::Selection;
 
-    use crate::message_bar::MessageBuffer;
     use crate::config::Binding;
+    use crate::message_bar::MessageBuffer;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 

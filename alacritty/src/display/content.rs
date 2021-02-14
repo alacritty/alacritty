@@ -62,15 +62,9 @@ impl<'a> RenderableContent<'a> {
         display.hint_state.update_matches(term);
         let hint = Hint::from(&display.hint_state);
 
-        Self {
-            cursor: None,
-            terminal_content,
-            terminal_cursor,
-            search,
-            config,
-            colors: &display.colors,
-            hint,
-        }
+        let colors = &display.colors;
+
+        Self { cursor: None, terminal_content, terminal_cursor, search, config, colors, hint }
     }
 
     /// Viewport offset.
