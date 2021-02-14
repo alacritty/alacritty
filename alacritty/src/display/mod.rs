@@ -907,7 +907,7 @@ impl HintState {
         self.labels.resize(match_count, Vec::new());
         for i in (0..match_count).rev() {
             let mut label = generator.next();
-            if label.len() >= keys_len && label[..keys_len] == self.keys {
+            if label.len() >= keys_len && &label[..keys_len] == self.keys {
                 self.labels[i] = label.split_off(keys_len);
             } else {
                 self.labels[i] = Vec::new();
