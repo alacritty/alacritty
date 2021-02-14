@@ -863,8 +863,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let suppress_chars = *self.ctx.suppress_chars();
 
         // Handle hint selection over anything else.
-        let hint_state = self.ctx.hint_state();
-        if hint_state.active() && !suppress_chars {
+        if self.ctx.hint_state().active() && !suppress_chars {
             self.ctx.hint_input(c);
             return;
         }

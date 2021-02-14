@@ -17,7 +17,7 @@ use alacritty_terminal::term::{
 
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
-use crate::display::HintState;
+use crate::display::{Display, HintState};
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
@@ -41,27 +41,36 @@ pub struct RenderableContent<'a> {
 impl<'a> RenderableContent<'a> {
     pub fn new<T: EventListener>(
         config: &'a Config<UiConfig>,
+        display: &'a mut Display,
         term: &'a Term<T>,
-        colors: &'a List,
         search_dfas: Option<&RegexSearch>,
-        hint_state: &'a mut HintState,
-        show_cursor: bool,
     ) -> Self {
         let search = search_dfas.map(|dfas| Regex::new(&term, dfas)).unwrap_or_default();
         let terminal_content = term.renderable_content();
 
         // Copy the cursor and override its shape if necessary.
         let mut terminal_cursor = terminal_content.cursor;
-        if !show_cursor || terminal_cursor.shape == CursorShape::Hidden {
+        if terminal_cursor.shape == CursorShape::Hidden
+            || display.cursor_hidden
+            || search_dfas.is_some()
+        {
             terminal_cursor.shape = CursorShape::Hidden;
         } else if !term.is_focused && config.cursor.unfocused_hollow {
             terminal_cursor.shape = CursorShape::HollowBlock;
         }
 
-        hint_state.update_matches(term);
-        let hint = hint_state.into();
+        display.hint_state.update_matches(term);
+        let hint = Hint::from(&display.hint_state);
 
-        Self { cursor: None, terminal_content, terminal_cursor, search, config, colors, hint }
+        Self {
+            cursor: None,
+            terminal_content,
+            terminal_cursor,
+            search,
+            config,
+            colors: &display.colors,
+            hint,
+        }
     }
 
     /// Viewport offset.
@@ -377,7 +386,7 @@ struct Hint<'a> {
 impl<'a> Hint<'a> {
     /// Advance the hint iterator.
     ///
-    /// If the point is within a hint the keyboard shortcut character that should be displayed at
+    /// If the point is within a hint, the keyboard shortcut character that should be displayed at
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
@@ -397,7 +406,6 @@ impl<'a> Hint<'a> {
 
         // Position within the hint label.
         let label_position = point.column.0 - start.column.0;
-
         let is_first = label_position == 0;
 
         // Hint label character.
@@ -405,8 +413,8 @@ impl<'a> Hint<'a> {
     }
 }
 
-impl<'a> From<&'a mut HintState> for Hint<'a> {
-    fn from(hint_state: &'a mut HintState) -> Self {
+impl<'a> From<&'a HintState> for Hint<'a> {
+    fn from(hint_state: &'a HintState) -> Self {
         let regex = Regex { matches: Cow::Borrowed(hint_state.matches()), index: 0 };
         Self { labels: hint_state.labels(), regex }
     }
