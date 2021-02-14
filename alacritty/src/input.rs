@@ -1085,6 +1085,7 @@ mod tests {
     use alacritty_terminal::selection::Selection;
 
     use crate::message_bar::MessageBuffer;
+    use crate::config::Binding;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -1216,6 +1217,10 @@ mod tests {
         }
 
         fn scheduler_mut(&mut self) -> &mut Scheduler {
+            unimplemented!();
+        }
+
+        fn hint_state(&mut self) -> &mut HintState {
             unimplemented!();
         }
     }
