@@ -298,7 +298,7 @@ impl Eq for LazyRegex {}
 /// Regex which is compiled on demand, to avoid expensive computations at startup.
 #[derive(Clone, Debug)]
 pub enum LazyRegexVariant {
-    Compiled(RegexSearch),
+    Compiled(Box<RegexSearch>),
     Uncompiled(String),
 }
 
@@ -318,7 +318,7 @@ impl LazyRegexVariant {
                 RegexSearch::new("").unwrap()
             },
         };
-        *self = Self::Compiled(regex_search);
+        *self = Self::Compiled(Box::new(regex_search));
     }
 
     /// Get the compile hint regex DFAs.

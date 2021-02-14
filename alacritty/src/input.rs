@@ -117,6 +117,7 @@ pub trait ActionContext<T: EventListener> {
 
 macro_rules! execute_action {
     ($ctx:expr, $action:expr) => {
+        #[allow(clippy::unnecessary_mut_passed)]
         match $action {
             Action::Esc(s) => {
                 let bytes = s.clone().into_bytes();
