@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Segmentation fault on shutdown with Wayland
 - Incorrect estimated DPR with Wayland
 - Consecutive clipboard stores dropped on Wayland until the application is refocused
+- Alacritty failing to start on X11 with invalid DPI reported by XRandr
 
 ### Removed
 

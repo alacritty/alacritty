@@ -60,6 +60,10 @@ use crate::gl;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
 
+/// Maximum DPR on X11 before it is assumed that XRandr is reporting incorrect values.
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+const MAX_X11_DPR: f64 = 10.;
+
 /// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
@@ -216,7 +220,14 @@ impl Window {
             None
         };
 
-        let dpr = windowed_context.window().scale_factor();
+        #[allow(unused_mut)]
+        let mut dpr = windowed_context.window().scale_factor();
+
+        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if !is_wayland && dpr > MAX_X11_DPR {
+            dpr = 1.;
+        }
 
         Ok(Self {
             current_mouse_cursor,
