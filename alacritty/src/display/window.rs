@@ -220,6 +220,7 @@ impl Window {
             None
         };
 
+        #[allow(unused_mut)]
         let mut dpr = windowed_context.window().scale_factor();
 
         // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
