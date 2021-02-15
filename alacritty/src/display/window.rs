@@ -24,7 +24,6 @@ use {
     std::io::Cursor,
 
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
-    glutin::platform::unix::EventLoopWindowTargetExtUnix,
     glutin::window::Icon,
     png::Decoder,
 };
@@ -226,7 +225,7 @@ impl Window {
 
         // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if event_loop.is_x11() && dpr > MAX_X11_DPR {
+        if !is_wayland && dpr > MAX_X11_DPR {
             dpr = 1.;
         }
 
