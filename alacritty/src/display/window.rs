@@ -24,6 +24,7 @@ use {
     std::io::Cursor,
 
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
+    glutin::platform::unix::EventLoopWindowTargetExtUnix,
     glutin::window::Icon,
     png::Decoder,
 };
