@@ -5,7 +5,7 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.7.2-rc1
+## 0.7.2-rc2
 
 ### Packaging
 
