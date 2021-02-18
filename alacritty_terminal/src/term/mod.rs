@@ -1829,14 +1829,19 @@ impl RenderableCursor {
     fn new<T>(term: &Term<T>) -> Self {
         // Cursor position.
         let vi_mode = term.mode().contains(TermMode::VI);
-        let point = if vi_mode { term.vi_mode_cursor.point } else { term.grid().cursor.point };
+        let mut point = if vi_mode {
+            term.vi_mode_cursor.point
+        } else {
+            let mut point = term.grid.cursor.point;
+            point.line += term.grid.display_offset();
+            point
+        };
 
         // Cursor shape.
-        let absolute_line = term.screen_lines() - point.line - 1;
-        let display_offset = term.grid().display_offset();
         let shape = if !vi_mode
-            && (!term.mode().contains(TermMode::SHOW_CURSOR) || absolute_line.0 < display_offset)
+            && (!term.mode().contains(TermMode::SHOW_CURSOR) || point.line >= term.screen_lines())
         {
+            point.line = Line(0);
             CursorShape::Hidden
         } else {
             term.cursor_style().shape
