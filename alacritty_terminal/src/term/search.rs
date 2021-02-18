@@ -469,16 +469,25 @@ impl<'a, T> Iterator for RegexIter<'a, T> {
     type Item = Match;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        // Since the end itself might be a single cell match, we search one more time.
         if self.point == self.end {
             self.done = true;
-        } else if self.done {
-            return None;
         }
 
         let regex_match = self.next_match()?;
 
         self.point = *regex_match.end();
-        self.skip();
+        if self.point == self.end {
+            // Stop when the match terminates right on the end limit.
+            self.done = true;
+        } else {
+            // Move the new search origin past the match.
+            self.skip();
+        }
 
         Some(regex_match)
     }
