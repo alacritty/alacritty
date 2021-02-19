@@ -344,6 +344,15 @@ impl RectRenderer {
     }
 }
 
+impl Drop for RectRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
 /// Rectangle drawing program.
 #[derive(Debug)]
 pub struct RectShaderProgram {
