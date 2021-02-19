@@ -754,6 +754,16 @@ impl QuadRenderer {
     }
 }
 
+impl Drop for QuadRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo_instance);
+            gl::DeleteBuffers(1, &self.ebo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         unsafe {
@@ -1400,5 +1410,13 @@ impl Atlas {
         self.row_tallest = 0;
 
         Ok(())
+    }
+}
+
+impl Drop for Atlas {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
+        }
     }
 }
