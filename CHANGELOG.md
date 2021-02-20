@@ -7,13 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.8.0-dev
 
-### Packaging
-
-- Updated shell completions
-
 ### Added
 
 - IME composition preview not appearing on Windows
+
+### Fixed
+
+- Alacritty failing to start on X11 with invalid DPI reported by XRandr
+
+### Removed
+
+- Config field `visual_bell`, you should use `bell` instead
+
+## 0.7.2
+
+### Packaging
+
+- Updated shell completions
 
 ### Fixed
 
@@ -21,11 +31,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Segmentation fault on shutdown with Wayland
 - Incorrect estimated DPR with Wayland
 - Consecutive clipboard stores dropped on Wayland until the application is refocused
-- Alacritty failing to start on X11 with invalid DPI reported by XRandr
-
-### Removed
-
-- Config field `visual_bell`, you should use `bell` instead
 
 ## 0.7.1
 
