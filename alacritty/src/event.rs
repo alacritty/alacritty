@@ -730,6 +730,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Unschedule pending timers.
         self.scheduler.unschedule(TimerId::DelayedSearch);
 
+        // Clear focused match.
+        self.search_state.focused_match = None;
+
         // The viewport reset logic is only needed for vi mode, since without it our origin is
         // always at the current display offset instead of at the vi cursor position which we need
         // to recover to.
@@ -740,9 +743,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Reset display offset.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
-
-        // Clear focused match.
-        self.search_state.focused_match = None;
 
         // Reset vi mode cursor.
         let mut origin = self.search_state.origin;

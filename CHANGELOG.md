@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Alacritty failing to start on X11 with invalid DPI reported by XRandr
+- Text selected after search without any match
 
 ### Removed
 
