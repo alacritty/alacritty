@@ -99,4 +99,6 @@ brevity.
 
 ### DCS (Device Control String) - `ESC P`
 
-Alacritty does not support any DCS escapes.
+| ESCAPE    | STATUS      | NOTE                                               |
+| --------- | ----------- | -------------------------------------------------- |
+| `DCS = s` | IMPLEMENTED |                                                    |
