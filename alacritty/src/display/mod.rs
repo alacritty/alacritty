@@ -891,7 +891,7 @@ impl HintState {
         };
 
         // Find visible matches.
-        self.matches = RegexMatches::new(term, hint.regex.dfas());
+        self.matches = hint.regex.with_compiled(|regex| RegexMatches::new(term, regex));
 
         // Cancel highlight with no visible matches.
         if self.matches.is_empty() {

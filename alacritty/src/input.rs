@@ -130,10 +130,7 @@ macro_rules! execute_action {
             },
             Action::Command(program) => start_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
-                // Make sure the hint is compiled.
-                hint.regex.compile();
                 let hint = hint.clone();
-
                 $ctx.hint_state().start(hint);
                 $ctx.mark_dirty();
             },
