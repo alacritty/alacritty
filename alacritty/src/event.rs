@@ -1430,6 +1430,7 @@ impl<N: Notify + OnResize> Processor<N> {
         } else if old_is_searching
             && !new_is_searching
             && old_display_offset == 0
+            && cursor_at_bottom
             && origin_at_bottom
             && vi_mode
         {
