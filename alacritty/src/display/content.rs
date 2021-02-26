@@ -48,7 +48,7 @@ impl<'a> RenderableContent<'a> {
 
         // Copy the cursor and override its shape if necessary.
         let mut terminal_cursor = terminal_content.cursor;
-        if !show_cursor {
+        if !show_cursor || terminal_cursor.shape == CursorShape::Hidden {
             terminal_cursor.shape = CursorShape::Hidden;
         } else if !term.is_focused && config.cursor.unfocused_hollow {
             terminal_cursor.shape = CursorShape::HollowBlock;

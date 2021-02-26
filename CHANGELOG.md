@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Alacritty failing to start on X11 with invalid DPI reported by XRandr
 - Text selected after search without any match
 - Incorrect vi cursor position after leaving search
+- Hollow block cursor being drawn when the cursor is hidden for unfocused window
 
 ### Removed
 
