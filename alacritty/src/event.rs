@@ -1400,12 +1400,14 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
+        let vi_mode = terminal.mode().contains(TermMode::VI);
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
-        let origin_at_bottom = if terminal.mode().contains(TermMode::VI) {
+        let origin_at_bottom = if vi_mode {
             terminal.vi_mode_cursor.point.line == num_lines - 1
         } else {
             self.search_state.direction == Direction::Left
         };
+        let old_display_offset = terminal.grid().display_offset();
 
         self.display.handle_update(
             terminal,
@@ -1416,14 +1418,24 @@ impl<N: Notify + OnResize> Processor<N> {
             display_update_pending,
         );
 
-        // Scroll to make sure search origin is visible and content moves as little as possible.
-        if !old_is_searching && self.search_state.history_index.is_some() {
+        let new_is_searching = self.search_state.history_index.is_some();
+        if !old_is_searching && new_is_searching {
+            // Scroll on search start to make sure origin is visible with minimal viewport motion.
             let display_offset = terminal.grid().display_offset();
             if display_offset == 0 && cursor_at_bottom && !origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(1));
             } else if display_offset != 0 && origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(-1));
             }
+        } else if old_is_searching
+            && !new_is_searching
+            && old_display_offset == 0
+            && cursor_at_bottom
+            && origin_at_bottom
+            && vi_mode
+        {
+            // Pull down the vi cursor if it was moved up when the search was started.
+            terminal.vi_mode_cursor.point.line += 1;
         }
     }
 
