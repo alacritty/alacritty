@@ -481,12 +481,14 @@
   # The fields `command`, `binding.key` and `binding.mods` accept the same
   # values as they do in the `key_bindings` section.
   #
-  # Example:
-  #  - regex: "alacritty/alacritty#\\d*"
-  #    command: firefox
-  #    binding:
-  #      key: G
-  #      mods: Control|Shift
+  # Example
+  #
+  # enabled:
+  #   - regex: "alacritty/alacritty#\\d*"
+  #     command: firefox
+  #     binding:
+  #       key: G
+  #       mods: Control|Shift
   #enabled: []
 
 # Mouse bindings

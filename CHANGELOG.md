@@ -10,12 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.45.0
+- Minimum Rust version has been bumped to 1.43.0
 
 ### Added
 
 - IME composition preview not appearing on Windows
 - Synchronized terminal updates using `DCS = 1 s ST`/`DCS = 2 s ST`
-- Regex terminal hints
+- Regex terminal hints ([see features.md](./docs/features.md#hints))
 
 ### Fixed
 

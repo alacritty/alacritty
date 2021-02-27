@@ -44,8 +44,9 @@ use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
 use crate::config::{self, Config};
 use crate::daemon::start_daemon;
+use crate::display::hint::HintState;
 use crate::display::window::Window;
-use crate::display::{Display, DisplayUpdate, HintState};
+use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(target_os = "macos")]
 use crate::macos;

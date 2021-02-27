@@ -284,7 +284,7 @@ impl<'de> Deserialize<'de> for LazyRegex {
     where
         D: Deserializer<'de>,
     {
-        let regex = LazyRegexVariant::Uncompiled(String::deserialize(deserializer)?);
+        let regex = LazyRegexVariant::Pattern(String::deserialize(deserializer)?);
         Ok(Self(Rc::new(RefCell::new(regex))))
     }
 }
@@ -301,7 +301,7 @@ impl Eq for LazyRegex {}
 #[derive(Clone, Debug)]
 pub enum LazyRegexVariant {
     Compiled(Box<RegexSearch>),
-    Uncompiled(String),
+    Pattern(String),
 }
 
 impl LazyRegexVariant {
@@ -312,8 +312,8 @@ impl LazyRegexVariant {
     fn compiled(&mut self) -> &RegexSearch {
         // Check if the regex has already been compiled.
         let regex = match self {
-            Self::Uncompiled(regex) => regex,
             Self::Compiled(regex_search) => return regex_search,
+            Self::Pattern(regex) => regex,
         };
 
         // Compile the regex.
@@ -329,7 +329,7 @@ impl LazyRegexVariant {
         // Return a reference to the compiled DFAs.
         match self {
             Self::Compiled(dfas) => dfas,
-            Self::Uncompiled(_) => unreachable!(),
+            Self::Pattern(_) => unreachable!(),
         }
     }
 }

@@ -54,6 +54,16 @@ you can still jump between matches using <kbd>Enter</kbd> and <kbd>Shift</kbd>
 <kbd>Enter</kbd>. After leaving search with <kbd>Escape</kbd> your active match
 stays selected, allowing you to easily copy it.
 
+## Hints
+
+Terminal hints allow easily interacting with visible text without having to
+start vi mode. They consist of a regex that detects these text elements and then
+either feeds them to an external application or triggers one of Alacritty's
+built-in actions.
+
+They can be configured in the `hints` and `colors.hints` section in the
+Alacritty configuration file.
+
 ## Selection expansion
 
 After making a selection, you can use the right mouse button to expand it.
