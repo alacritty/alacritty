@@ -24,17 +24,18 @@ tasks:
       cd alacritty
       rustup toolchain install nightly -c rustfmt
       cargo +nightly fmt -- --check
+  - oldstable: |
+      cd alacritty
+      rustup toolchain install --profile minimal 1.45.2
+      rustup default 1.45.2
+      cargo test
   - clippy: |
       cd alacritty
       rustup component add clippy
       cargo clippy --all-targets
-  - oldstable: |
-      cd alacritty
-      rustup toolchain install --profile minimal 1.43.1
-      cargo +1.43.1 test
   - feature-wayland: |
       cd alacritty/alacritty
-      cargo +1.43.1 test --no-default-features --features=wayland
+      cargo test --no-default-features --features=wayland
   - feature-x11: |
       cd alacritty/alacritty
-      cargo +1.43.1 test --no-default-features --features=x11
+      cargo test --no-default-features --features=x11
