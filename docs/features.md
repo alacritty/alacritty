@@ -58,8 +58,7 @@ stays selected, allowing you to easily copy it.
 
 Terminal hints allow easily interacting with visible text without having to
 start vi mode. They consist of a regex that detects these text elements and then
-either feeds them to an external application or triggers one of Alacritty's
-built-in actions.
+feeds them to an external application.
 
 They can be configured in the `hints` and `colors.hints` section in the
 Alacritty configuration file.
