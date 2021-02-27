@@ -17,11 +17,11 @@ jobs:
       - uses: actions/checkout@v2
       - name: Stable
         run: cargo test
-      - name: Clippy
-        run: |
-          rustup component add clippy
-          cargo clippy --all-targets
       - name: Oldstable
         run: |
           rustup default 1.43.1
           cargo test
+      - name: Clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets
