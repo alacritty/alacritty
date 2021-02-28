@@ -51,7 +51,7 @@ Since Alacritty uses OpenGL to render the terminal content on all platforms, it
 is currently not possible to run it without support for at least OpenGL 3.3.
 
 On Windows, a native PTY API was only introduced [in 2018](https://devblogs.microsoft.com/commandline/windows-command-line-introducing-the-windows-pseudo-console-conpty/).
-As Alacritty has adopted this API exclusively, Windows 10 version 1903 or greater
+As Alacritty has adopted this API exclusively, Windows 10 version 1809 or greater
 is now required.
 
 ## Configuration
