@@ -48,6 +48,7 @@ For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
 
 ### Requirements
+
 - OpenGL 3.3 or higher
 - [Windows] ConPTY support (Windows 10 version 1809 or higher)
 
