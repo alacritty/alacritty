@@ -47,12 +47,9 @@ Prebuilt binaries for macOS and Windows can also be downloaded from the
 For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
 
-Since Alacritty uses OpenGL to render the terminal content on all platforms, it
-is currently not possible to run it without support for at least OpenGL 3.3.
-
-On Windows, a native PTY API was only introduced [in 2018](https://devblogs.microsoft.com/commandline/windows-command-line-introducing-the-windows-pseudo-console-conpty/).
-As Alacritty has adopted this API exclusively, Windows 10 version 1809 or greater
-is now required.
+### Requirements
+- OpenGL 3.3 or higher
+- [Windows] ConPTY support (Windows 10 version 1809 or higher)
 
 ## Configuration
 
