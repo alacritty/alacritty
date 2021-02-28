@@ -27,9 +27,9 @@ pub struct HintState {
 
 impl HintState {
     /// Initialize an inactive hint state.
-    pub fn new(alphabet: String) -> Self {
+    pub fn new<S: Into<String>>(alphabet: S) -> Self {
         Self {
-            alphabet,
+            alphabet: alphabet.into(),
             hint: Default::default(),
             matches: Default::default(),
             labels: Default::default(),
@@ -88,8 +88,8 @@ impl HintState {
     }
 
     /// Handle keyboard input during hint selection.
-    pub fn keyboard_input<T>(&mut self, term: &Term<T>, character: char) {
-        match character {
+    pub fn keyboard_input<T>(&mut self, term: &Term<T>, c: char) {
+        match c {
             // Use backspace to remove the last character pressed.
             '\x08' | '\x1f' => {
                 self.keys.pop();
@@ -107,33 +107,31 @@ impl HintState {
             None => return,
         };
 
-        // Update labels and launch program on match.
-        for i in (0..self.labels.len()).rev() {
-            let label = &self.labels[i];
-            if label.is_empty() || label[0] != character {
-                continue;
-            }
+        // Find the last label starting with the input character.
+        let mut labels = self.labels.iter().enumerate().rev();
+        let (index, label) = match labels.find(|(_, label)| !label.is_empty() && label[0] == c) {
+            Some(last) => last,
+            None => return,
+        };
 
-            // Check if the selected label is fully matched.
-            if label.len() == 1 {
-                // Get text for the hint's regex match.
-                let hint_match = &self.matches[i];
-                let start = term.visible_to_buffer(*hint_match.start());
-                let end = term.visible_to_buffer(*hint_match.end());
-                let text = term.bounds_to_string(start, end);
+        // Check if the selected label is fully matched.
+        if label.len() == 1 {
+            // Get text for the hint's regex match.
+            let hint_match = &self.matches[index];
+            let start = term.visible_to_buffer(*hint_match.start());
+            let end = term.visible_to_buffer(*hint_match.end());
+            let text = term.bounds_to_string(start, end);
 
-                // Append text as last argument and launch command.
-                let program = hint.command.program();
-                let mut args = hint.command.args().to_vec();
-                args.push(text);
-                start_daemon(program, &args);
+            // Append text as last argument and launch command.
+            let program = hint.command.program();
+            let mut args = hint.command.args().to_vec();
+            args.push(text);
+            start_daemon(program, &args);
 
-                self.stop();
-            } else {
-                self.keys.push(character);
-            }
-
-            break;
+            self.stop();
+        } else {
+            // Store character to preserve the selection.
+            self.keys.push(c);
         }
     }
 
@@ -205,9 +203,7 @@ impl HintLabels {
 
         // Increment all other characters in reverse order.
         let alphabet_len = self.alphabet.len();
-        for i in 1..self.indices.len() {
-            let index = &mut self.indices[i];
-
+        for index in self.indices.iter_mut().skip(1) {
             if *index + 1 == alphabet_len {
                 // Reset character and move to the next if it's already at the limit.
                 *index = self.split_point + 1;
@@ -218,7 +214,7 @@ impl HintLabels {
             }
         }
 
-        // Extend the sequence with another character when no character could be incremented.
+        // Extend the sequence with another character when nothing could be incremented.
         self.indices.push(self.split_point + 1);
     }
 }

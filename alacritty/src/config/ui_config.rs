@@ -53,7 +53,7 @@ pub struct UiConfig {
     #[config(skip)]
     pub config_paths: Vec<PathBuf>,
 
-    /// Regex hints for piping terminal text to other applications.
+    /// Regex hints for interacting with terminal content.
     pub hints: Hints,
 
     /// Keybindings.
@@ -202,7 +202,7 @@ pub struct Hints {
     /// Characters for the hint labels.
     alphabet: HintsAlphabet,
 
-    /// Available hint configurations.
+    /// All configured terminal hints.
     enabled: Vec<Hint>,
 }
 
@@ -245,7 +245,7 @@ impl<'de> Deserialize<'de> for HintsAlphabet {
     }
 }
 
-/// Configuration for a hint.
+/// Hint configuration.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
     /// Command the text will be piped to.

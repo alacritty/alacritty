@@ -322,7 +322,7 @@ impl Display {
             _ => (),
         }
 
-        let hint_state = HintState::new(config.ui_config.hints.alphabet().to_owned());
+        let hint_state = HintState::new(config.ui_config.hints.alphabet());
 
         Ok(Self {
             window,

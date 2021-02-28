@@ -60,7 +60,7 @@ Terminal hints allow easily interacting with visible text without having to
 start vi mode. They consist of a regex that detects these text elements and then
 feeds them to an external application.
 
-They can be configured in the `hints` and `colors.hints` section in the
+Hints can be configured in the `hints` and `colors.hints` sections in the
 Alacritty configuration file.
 
 ## Selection expansion

@@ -64,7 +64,6 @@ impl<'a> RenderableContent<'a> {
         let hint = Hint::from(&display.hint_state);
 
         let colors = &display.colors;
-
         Self { cursor: None, terminal_content, terminal_cursor, search, config, colors, hint }
     }
 

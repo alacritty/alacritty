@@ -65,7 +65,7 @@ pub trait ActionContext<T: EventListener> {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
     fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-    fn toggle_vi_selection(&mut self, _ty: SelectionType) {}
+    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
     fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
@@ -115,6 +115,22 @@ pub trait ActionContext<T: EventListener> {
     fn hint_input(&mut self, _character: char) {}
 }
 
+impl Action {
+    fn toggle_selection<T, A>(ctx: &mut A, ty: SelectionType)
+    where
+        A: ActionContext<T>,
+        T: EventListener,
+    {
+        let cursor_point = ctx.terminal().vi_mode_cursor.point;
+        ctx.toggle_selection(ty, cursor_point, Side::Left);
+
+        // Make sure initial selection is not empty.
+        if let Some(selection) = &mut ctx.terminal_mut().selection {
+            selection.include_all();
+        }
+    }
+}
+
 trait Execute<T: EventListener> {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
 }
@@ -124,13 +140,11 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match self {
             Action::Esc(s) => {
-                let bytes = s.clone().into_bytes();
-
                 ctx.on_typing_start();
 
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
-                ctx.write_to_pty(bytes)
+                ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Command(program) => start_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
@@ -144,27 +158,26 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.mark_dirty();
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
-                ctx.toggle_vi_selection(SelectionType::Simple);
+                Self::toggle_selection(ctx, SelectionType::Simple);
             },
             Action::ViAction(ViAction::ToggleLineSelection) => {
-                ctx.toggle_vi_selection(SelectionType::Lines);
+                Self::toggle_selection(ctx, SelectionType::Lines);
             },
             Action::ViAction(ViAction::ToggleBlockSelection) => {
-                ctx.toggle_vi_selection(SelectionType::Block);
+                Self::toggle_selection(ctx, SelectionType::Block);
             },
             Action::ViAction(ViAction::ToggleSemanticSelection) => {
-                ctx.toggle_vi_selection(SelectionType::Semantic);
+                Self::toggle_selection(ctx, SelectionType::Semantic);
             },
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
-                let point = ctx.terminal().vi_mode_cursor.point;
-                if let Some(url) = ctx.urls().find_at(point) {
+                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_mode_cursor.point) {
                     ctx.launch_url(url);
                 }
             },
             Action::ViAction(ViAction::SearchNext) => {
-                let direction = ctx.search_direction();
                 let terminal = ctx.terminal();
+                let direction = ctx.search_direction();
                 let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
@@ -177,8 +190,8 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::ViAction(ViAction::SearchPrevious) => {
-                let direction = ctx.search_direction().opposite();
                 let terminal = ctx.terminal();
+                let direction = ctx.search_direction().opposite();
                 let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),

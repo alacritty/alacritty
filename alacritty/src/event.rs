@@ -267,9 +267,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
-    fn toggle_vi_selection(&mut self, ty: SelectionType) {
-        let point = self.terminal.vi_mode_cursor.point;
-
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         match &mut self.terminal.selection {
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
@@ -278,12 +276,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 selection.ty = ty;
                 *self.dirty = true;
             },
-            _ => self.start_selection(ty, point, Side::Left),
-        }
-
-        // Make sure initial selection is not empty.
-        if let Some(selection) = &mut self.terminal.selection {
-            selection.include_all();
+            _ => self.start_selection(ty, point, side),
         }
     }
 
