@@ -16,6 +16,8 @@ use alacritty_terminal::config::Program;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
+use crate::config::ui_config::Hint;
+
 /// Describes a state and action to take in that state.
 ///
 /// This is the shared component of `MouseBinding` and `KeyBinding`.
@@ -90,6 +92,10 @@ pub enum Action {
     /// Run given command.
     #[config(skip)]
     Command(Program),
+
+    /// Regex keyboard hints.
+    #[config(skip)]
+    Hint(Hint),
 
     /// Move vi mode cursor.
     #[config(skip)]
@@ -1132,7 +1138,7 @@ impl<'a> Deserialize<'a> for KeyBinding {
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.
 #[derive(Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
-pub struct ModsWrapper(ModifiersState);
+pub struct ModsWrapper(pub ModifiersState);
 
 impl ModsWrapper {
     pub fn into_inner(self) -> ModifiersState {

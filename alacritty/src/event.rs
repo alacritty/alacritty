@@ -42,9 +42,9 @@ use alacritty_terminal::tty;
 
 use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
-use crate::config;
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::daemon::start_daemon;
+use crate::display::hint::HintState;
 use crate::display::window::Window;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
@@ -61,7 +61,7 @@ pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
 const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
 /// Maximum number of search terms stored in the history.
-const MAX_HISTORY_SIZE: usize = 255;
+const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
@@ -117,10 +117,6 @@ pub struct SearchState {
 }
 
 impl SearchState {
-    fn new() -> Self {
-        Self::default()
-    }
-
     /// Search regex text if a search is active.
     pub fn regex(&self) -> Option<&String> {
         self.history_index.and_then(|index| self.history.get(index))
@@ -440,7 +436,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Only create new history entry if the previous regex wasn't empty.
         if self.search_state.history.get(0).map_or(true, |regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
-            self.search_state.history.truncate(MAX_HISTORY_SIZE);
+            self.search_state.history.truncate(MAX_SEARCH_HISTORY_SIZE);
         }
 
         self.search_state.history_index = Some(0);
@@ -658,6 +654,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.config.ui_config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
+    }
+
+    fn hint_state(&mut self) -> &mut HintState {
+        &mut self.display.hint_state
+    }
+
+    /// Process a new character for keyboard hints.
+    fn hint_input(&mut self, c: char) {
+        self.display.hint_state.keyboard_input(self.terminal, c);
+        *self.dirty = true;
     }
 
     /// Toggle the vi mode status.
@@ -951,19 +957,19 @@ impl<N: Notify + OnResize> Processor<N> {
         cli_options: CLIOptions,
     ) -> Processor<N> {
         Processor {
-            notifier,
-            mouse: Default::default(),
-            received_count: 0,
-            suppress_chars: false,
-            modifiers: Default::default(),
             font_size: config.ui_config.font.size(),
-            config,
             message_buffer,
-            display,
-            event_queue: Vec::new(),
-            search_state: SearchState::new(),
             cli_options,
-            dirty: false,
+            notifier,
+            display,
+            config,
+            received_count: Default::default(),
+            suppress_chars: Default::default(),
+            search_state: Default::default(),
+            event_queue: Default::default(),
+            modifiers: Default::default(),
+            mouse: Default::default(),
+            dirty: Default::default(),
         }
     }
 
@@ -1380,6 +1386,9 @@ impl<N: Notify + OnResize> Processor<N> {
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
         processor.ctx.window_mut().set_has_shadow(config.ui_config.background_opacity() >= 1.0);
+
+        // Update hint keys.
+        processor.ctx.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());
 
         *processor.ctx.config = config;
 

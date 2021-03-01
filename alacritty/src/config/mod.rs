@@ -159,6 +159,9 @@ fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     let mut config = Config::deserialize(config_value)?;
     config.ui_config.config_paths = config_paths;
 
+    // Create key bindings for regex hints.
+    config.ui_config.generate_hint_bindings();
+
     Ok(config)
 }
 

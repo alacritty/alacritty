@@ -38,6 +38,7 @@ use crate::display::bell::VisualBell;
 use crate::display::color::List;
 use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
+use crate::display::hint::HintState;
 use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
@@ -48,6 +49,7 @@ use crate::url::{Url, Urls};
 
 pub mod content;
 pub mod cursor;
+pub mod hint;
 pub mod window;
 
 mod bell;
@@ -180,6 +182,9 @@ pub struct Display {
 
     /// Mapped RGB values for each terminal color.
     pub colors: List,
+
+    /// State of the keyboard hints.
+    pub hint_state: HintState,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -317,10 +322,13 @@ impl Display {
             _ => (),
         }
 
+        let hint_state = HintState::new(config.ui_config.hints.alphabet());
+
         Ok(Self {
             window,
             renderer,
             glyph_cache,
+            hint_state,
             meter: Meter::new(),
             size_info,
             urls: Urls::new(),
@@ -474,12 +482,10 @@ impl Display {
         let viewport_match = search_state
             .focused_match()
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
-        let cursor_hidden = self.cursor_hidden || search_state.regex().is_some();
 
         // Collect renderable content before the terminal is dropped.
-        let dfas = search_state.dfas();
-        let colors = &self.colors;
-        let mut content = RenderableContent::new(&terminal, dfas, config, colors, !cursor_hidden);
+        let search_dfas = search_state.dfas();
+        let mut content = RenderableContent::new(config, self, &terminal, search_dfas);
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);

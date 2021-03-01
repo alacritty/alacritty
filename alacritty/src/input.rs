@@ -10,8 +10,6 @@ use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
-use log::trace;
-
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
@@ -31,8 +29,9 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, Binding, BindingMode, Config, Key, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
+use crate::display::hint::HintState;
 use crate::display::window::Window;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
@@ -112,18 +111,8 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
-}
-
-trait Execute<T: EventListener> {
-    fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
-}
-
-impl<T, U: EventListener> Execute<U> for Binding<T> {
-    /// Execute the action associate with this binding.
-    #[inline]
-    fn execute<A: ActionContext<U>>(&self, ctx: &mut A) {
-        self.action.execute(ctx)
-    }
+    fn hint_state(&mut self) -> &mut HintState;
+    fn hint_input(&mut self, _character: char) {}
 }
 
 impl Action {
@@ -142,41 +131,43 @@ impl Action {
     }
 }
 
+trait Execute<T: EventListener> {
+    fn execute<A: ActionContext<T>>(&self, ctx: &mut A);
+}
+
 impl<T: EventListener> Execute<T> for Action {
     #[inline]
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
-        match *self {
-            Action::Esc(ref s) => {
+        match self {
+            Action::Esc(s) => {
                 ctx.on_typing_start();
 
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
-            Action::Command(ref program) => {
-                let args = program.args();
-                let program = program.program();
-                trace!("Running command {} with args {:?}", program, args);
-
-                start_daemon(program, args);
+            Action::Command(program) => start_daemon(program.program(), program.args()),
+            Action::Hint(hint) => {
+                ctx.hint_state().start(hint.clone());
+                ctx.mark_dirty();
             },
             Action::ToggleViMode => ctx.toggle_vi_mode(),
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
-                ctx.terminal_mut().vi_motion(motion);
+                ctx.terminal_mut().vi_motion(*motion);
                 ctx.mark_dirty();
             },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Simple)
+                Self::toggle_selection(ctx, SelectionType::Simple);
             },
             Action::ViAction(ViAction::ToggleLineSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Lines)
+                Self::toggle_selection(ctx, SelectionType::Lines);
             },
             Action::ViAction(ViAction::ToggleBlockSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Block)
+                Self::toggle_selection(ctx, SelectionType::Block);
             },
             Action::ViAction(ViAction::ToggleSemanticSelection) => {
-                Self::toggle_selection(ctx, SelectionType::Semantic)
+                Self::toggle_selection(ctx, SelectionType::Semantic);
             },
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
@@ -840,6 +831,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Process key input.
     pub fn key_input(&mut self, input: KeyboardInput) {
+        // All key bindings are disabled while a hint is being selected.
+        if self.ctx.hint_state().active() {
+            *self.ctx.suppress_chars() = false;
+            return;
+        }
+
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
             if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::DelayedSearch) {
@@ -876,8 +873,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         let suppress_chars = *self.ctx.suppress_chars();
+
+        // Handle hint selection over anything else.
+        if self.ctx.hint_state().active() && !suppress_chars {
+            self.ctx.hint_input(c);
+            return;
+        }
+
+        // Pass keys to search and ignore them during `suppress_chars`.
         let search_active = self.ctx.search_active();
-        if suppress_chars || self.ctx.terminal().mode().contains(TermMode::VI) || search_active {
+        if suppress_chars || search_active || self.ctx.terminal().mode().contains(TermMode::VI) {
             if search_active && !suppress_chars {
                 self.ctx.search_input(c);
             }
@@ -929,12 +934,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
 
             if binding.is_triggered_by(mode, mods, &key) {
-                // Binding was triggered; run the action.
-                let binding = binding.clone();
-                binding.execute(&mut self.ctx);
-
                 // Pass through the key if any of the bindings has the `ReceiveChar` action.
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
+
+                // Binding was triggered; run the action.
+                binding.action.clone().execute(&mut self.ctx);
             }
         }
 
@@ -960,7 +964,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
 
             if binding.is_triggered_by(mode, mods, &button) {
-                binding.execute(&mut self.ctx);
+                binding.action.execute(&mut self.ctx);
             }
         }
     }
@@ -1092,6 +1096,7 @@ mod tests {
     use alacritty_terminal::event::Event as TerminalEvent;
     use alacritty_terminal::selection::Selection;
 
+    use crate::config::Binding;
     use crate::message_bar::MessageBuffer;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
@@ -1224,6 +1229,10 @@ mod tests {
         }
 
         fn scheduler_mut(&mut self) -> &mut Scheduler {
+            unimplemented!();
+        }
+
+        fn hint_state(&mut self) -> &mut HintState {
             unimplemented!();
         }
     }

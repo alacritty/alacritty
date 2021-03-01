@@ -195,7 +195,7 @@
   #
   # Colors which should be used to draw the terminal cursor.
   #
-  # Allowed values are CellForeground and CellBackground, which reference the
+  # Allowed values are CellForeground/CellBackground, which reference the
   # affected cell, or hexadecimal colors like #ff00ff.
   #cursor:
   #  text: CellBackground
@@ -205,7 +205,7 @@
   #
   # Colors for the cursor when the vi mode is active.
   #
-  # Allowed values are CellForeground and CellBackground, which reference the
+  # Allowed values are CellForeground/CellBackground, which reference the
   # affected cell, or hexadecimal colors like #ff00ff.
   #vi_mode_cursor:
   #  text: CellBackground
@@ -215,7 +215,7 @@
   #
   # Colors used for the search bar and match highlighting.
   #search:
-    # Allowed values are CellForeground and CellBackground, which reference the
+    # Allowed values are CellForeground/CellBackground, which reference the
     # affected cell, or hexadecimal colors like #ff00ff.
     #matches:
     #  foreground: '#000000'
@@ -227,6 +227,24 @@
     #bar:
     #  background: '#c5c8c6'
     #  foreground: '#1d1f21'
+
+  # Keyboard hints
+  #hints:
+    # Fist character in the hint label
+    #
+    # Allowed values are CellForeground/CellBackground, which reference the
+    # affected cell, or hexadecimal colors like #ff00ff.
+    #start:
+    #  foreground: '#1d1f21'
+    #  background: '#e9ff5e'
+
+    # All characters after the first one in the hint label
+    #
+    # Allowed values are CellForeground/CellBackground, which reference the
+    # affected cell, or hexadecimal colors like #ff00ff.
+    #end:
+    #  foreground: '#e9ff5e'
+    #  background: '#1d1f21'
 
   # Line indicator
   #
@@ -242,7 +260,7 @@
   #
   # Colors which should be used to draw the selection area.
   #
-  # Allowed values are CellForeground and CellBackground, which reference the
+  # Allowed values are CellForeground/CellBackground, which reference the
   # affected cell, or hexadecimal colors like #ff00ff.
   #selection:
   #  text: CellBackground
@@ -449,6 +467,29 @@
     # clicking on them. The available modifiers are documented in the key
     # binding section.
     #modifiers: None
+
+# Regex hints
+#
+# Terminal hints can be used to find text in the visible part of the terminal
+# and pipe it to other applications.
+#hints:
+  # Keys used for the hint labels.
+  #alphabet: "jfkdls;ahgurieowpq"
+
+  # List with all available hints
+  #
+  # The fields `command`, `binding.key` and `binding.mods` accept the same
+  # values as they do in the `key_bindings` section.
+  #
+  # Example
+  #
+  # enabled:
+  #   - regex: "alacritty/alacritty#\\d*"
+  #     command: firefox
+  #     binding:
+  #       key: G
+  #       mods: Control|Shift
+  #enabled: []
 
 # Mouse bindings
 #
