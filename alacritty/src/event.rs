@@ -41,9 +41,10 @@ use alacritty_terminal::tty;
 
 use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
+use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
 use crate::daemon::start_daemon;
-use crate::display::hint::HintState;
+use crate::display::hint::{HintMatch, HintState};
 use crate::display::window::Window;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
@@ -178,7 +179,7 @@ pub struct ActionContext<'a, N, T> {
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
     #[inline]
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&self, val: B) {
         self.notifier.notify(val);
     }
 
@@ -639,8 +640,28 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     /// Process a new character for keyboard hints.
     fn hint_input(&mut self, c: char) {
-        self.display.hint_state.keyboard_input(self.terminal, c);
+        let action = self.display.hint_state.keyboard_input(self.terminal, c);
         *self.dirty = true;
+
+        let HintMatch { text, action } = match action {
+            Some(action) => action,
+            None => return,
+        };
+
+        match action {
+            // Launch an external program.
+            HintAction::Command(command) => {
+                let mut args = command.args().to_vec();
+                args.push(text);
+                start_daemon(command.program(), &args);
+            },
+            // Copy the text to the clipboard.
+            HintAction::Action(HintInternalAction::Copy) => {
+                self.clipboard.store(ClipboardType::Clipboard, text);
+            },
+            // Write the text to the PTY.
+            HintAction::Action(HintInternalAction::Paste) => self.write_to_pty(text.into_bytes()),
+        }
     }
 
     /// Toggle the vi mode status.

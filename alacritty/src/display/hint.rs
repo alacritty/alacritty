@@ -1,7 +1,6 @@
 use alacritty_terminal::term::Term;
 
-use crate::config::ui_config::Hint;
-use crate::daemon::start_daemon;
+use crate::config::ui_config::{Hint, HintAction};
 use crate::display::content::RegexMatches;
 
 /// Percentage of characters in the hints alphabet used for the last character.
@@ -88,7 +87,7 @@ impl HintState {
     }
 
     /// Handle keyboard input during hint selection.
-    pub fn keyboard_input<T>(&mut self, term: &Term<T>, c: char) {
+    pub fn keyboard_input<T>(&mut self, term: &Term<T>, c: char) -> Option<HintMatch> {
         match c {
             // Use backspace to remove the last character pressed.
             '\x08' | '\x1f' => {
@@ -102,17 +101,11 @@ impl HintState {
         // Update the visible matches.
         self.update_matches(term);
 
-        let hint = match self.hint.as_ref() {
-            Some(hint) => hint,
-            None => return,
-        };
+        let hint = self.hint.as_ref()?;
 
         // Find the last label starting with the input character.
         let mut labels = self.labels.iter().enumerate().rev();
-        let (index, label) = match labels.find(|(_, label)| !label.is_empty() && label[0] == c) {
-            Some(last) => last,
-            None => return,
-        };
+        let (index, label) = labels.find(|(_, label)| !label.is_empty() && label[0] == c)?;
 
         // Check if the selected label is fully matched.
         if label.len() == 1 {
@@ -120,16 +113,16 @@ impl HintState {
             let hint_match = &self.matches[index];
             let text = term.bounds_to_string(*hint_match.start(), *hint_match.end());
 
-            // Append text as last argument and launch command.
-            let program = hint.command.program();
-            let mut args = hint.command.args().to_vec();
-            args.push(text);
-            start_daemon(program, &args);
+            let action = hint.action.clone();
 
             self.stop();
+
+            Some(HintMatch { text, action })
         } else {
             // Store character to preserve the selection.
             self.keys.push(c);
+
+            None
         }
     }
 
@@ -150,6 +143,15 @@ impl HintState {
             self.keys.clear();
         }
     }
+}
+
+/// Hint match which was selected by the user.
+pub struct HintMatch {
+    /// Action for handling the text.
+    pub action: HintAction,
+
+    /// Hint match text.
+    pub text: String,
 }
 
 /// Generator for creating new hint labels.

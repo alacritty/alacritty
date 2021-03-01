@@ -62,7 +62,7 @@ struct Writing {
 pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
-    fn notify<B>(&mut self, bytes: B)
+    fn notify<B>(&self, bytes: B)
     where
         B: Into<Cow<'static, [u8]>>,
     {
