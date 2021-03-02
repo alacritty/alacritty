@@ -531,7 +531,9 @@ impl<T> Term<T> {
 
     /// Swap primary and alternate screen buffer.
     pub fn swap_alt(&mut self) {
-        if !self.mode.contains(TermMode::ALT_SCREEN) {
+        if self.mode.contains(TermMode::ALT_SCREEN) {
+            self.cursor_style = None;
+        } else {
             // Set alt screen cursor to the current primary screen cursor.
             self.inactive_grid.cursor = self.grid.cursor.clone();
 
