@@ -484,8 +484,7 @@ impl Display {
             .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
 
         // Collect renderable content before the terminal is dropped.
-        let search_dfas = search_state.dfas();
-        let mut content = RenderableContent::new(config, self, &terminal, search_dfas);
+        let mut content = RenderableContent::new(config, self, &terminal, search_state);
         let mut grid_cells = Vec::new();
         while let Some(cell) = content.next() {
             grid_cells.push(cell);

@@ -19,6 +19,7 @@ use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
 use crate::display::Display;
+use crate::event::SearchState;
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
@@ -44,16 +45,17 @@ impl<'a> RenderableContent<'a> {
         config: &'a Config<UiConfig>,
         display: &'a mut Display,
         term: &'a Term<T>,
-        search_dfas: Option<&RegexSearch>,
+        search_state: &SearchState,
     ) -> Self {
-        let search = search_dfas.map(|dfas| Regex::new(&term, dfas)).unwrap_or_default();
+        let search = search_state.dfas().map(|dfas| Regex::new(&term, dfas)).unwrap_or_default();
         let terminal_content = term.renderable_content();
 
         // Copy the cursor and override its shape if necessary.
         let mut terminal_cursor = terminal_content.cursor;
+
         if terminal_cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
-            || search_dfas.is_some()
+            || search_state.regex().is_some()
         {
             terminal_cursor.shape = CursorShape::Hidden;
         } else if !term.is_focused && config.cursor.unfocused_hollow {
