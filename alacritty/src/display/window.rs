@@ -163,6 +163,7 @@ pub struct Window {
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+    current_ime_position: PhysicalPosition<f64>,
 }
 
 impl Window {
@@ -194,6 +195,10 @@ impl Window {
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
         windowed_context.window().set_cursor_icon(current_mouse_cursor);
+
+        // IME position.
+        let current_ime_position = PhysicalPosition::new(0.0, 0.0);
+        windowed_context.window().set_ime_position(current_ime_position);
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
@@ -230,6 +235,7 @@ impl Window {
         }
 
         Ok(Self {
+            current_ime_position,
             current_mouse_cursor,
             mouse_visible: true,
             windowed_context,
@@ -420,12 +426,20 @@ impl Window {
         self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
     }
 
+    #[inline]
+    fn set_ime_position(&mut self, ime_position: PhysicalPosition<f64>) {
+        if ime_position != self.current_ime_position {
+            self.current_ime_position = ime_position;
+            self.window().set_ime_position(ime_position);
+        }
+    }
+
     /// Adjust the IME editor position according to the new location of the cursor.
     pub fn update_ime_position(&mut self, point: Point, size: &SizeInfo) {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line.0 + 1) as f32 * size.cell_height());
 
-        self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
+        self.set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }
 
     pub fn swap_buffers(&self) {
