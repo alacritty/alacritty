@@ -194,7 +194,7 @@ impl Urls {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::index::{Column, LineOld};
 
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
         text.chars()
@@ -202,7 +202,7 @@ mod tests {
             .map(|(i, character)| RenderableCell {
                 character,
                 zerowidth: None,
-                point: Point::new(Line(0), Column(i)),
+                point: Point::new(LineOld(0), Column(i)),
                 fg: Default::default(),
                 bg: Default::default(),
                 bg_alpha: 0.,

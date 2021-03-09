@@ -7,7 +7,7 @@ use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::config::Config;
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Indexed};
-use alacritty_terminal::index::{Column, Direction, Line, Point};
+use alacritty_terminal::index::{Column, Direction, LineOld, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{RegexIter, RegexSearch};
@@ -187,7 +187,7 @@ pub struct RenderableCell {
 }
 
 impl RenderableCell {
-    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell, Line>) -> Self {
+    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell, LineOld>) -> Self {
         // Lookup RGB values.
         let mut fg_rgb = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(content, cell.bg);

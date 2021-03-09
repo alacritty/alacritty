@@ -22,7 +22,7 @@ use glutin::window::CursorIcon;
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, LineOld, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
@@ -327,7 +327,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Top);
 
                 // Move vi mode cursor.
-                ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
+                ctx.terminal_mut().vi_mode_cursor.point.line = LineOld(0);
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
             },
@@ -488,7 +488,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let max_point = if utf8 { 2015 } else { 223 };
 
-        if line >= Line(max_point) || column >= Column(max_point) {
+        if line >= LineOld(max_point) || column >= Column(max_point) {
             return;
         }
 
@@ -507,7 +507,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             msg.push(32 + 1 + column.0 as u8);
         }
 
-        if utf8 && line >= Line(95) {
+        if utf8 && line >= LineOld(95) {
             msg.append(&mut mouse_pos_encode(line.0));
         } else {
             msg.push(32 + 1 + line.0 as u8);

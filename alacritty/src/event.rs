@@ -32,7 +32,7 @@ use crossfont::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, LineOld, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -449,7 +449,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.display_offset_delta = 0;
         } else {
             match direction {
-                Direction::Right => self.search_state.origin = Point::new(Line(0), Column(0)),
+                Direction::Right => self.search_state.origin = Point::new(LineOld(0), Column(0)),
                 Direction::Left => {
                     self.search_state.origin = Point::new(num_lines - 2, num_cols - 1);
                 },
@@ -895,7 +895,7 @@ pub struct Mouse {
     pub last_click_button: MouseButton,
     pub click_state: ClickState,
     pub scroll_px: f64,
-    pub line: Line,
+    pub line: LineOld,
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
@@ -915,7 +915,7 @@ impl Default for Mouse {
             right_button_state: ElementState::Released,
             click_state: ClickState::None,
             scroll_px: 0.,
-            line: Line(0),
+            line: LineOld(0),
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.,

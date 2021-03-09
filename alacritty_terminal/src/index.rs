@@ -3,7 +3,7 @@
 /// Indexing types and implementations for Grid and Line.
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
+use std::ops::{self, Add, AddAssign, Deref, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,7 @@ pub enum Boundary {
 
 /// Index in the grid using row, column notation.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
-pub struct Point<L = Line> {
+pub struct Point<L = LineOld> {
     pub line: L,
     pub column: Column,
 }
@@ -59,11 +59,11 @@ impl<L> Point<L> {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn sub(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Copy + Default + Into<LineOld> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let num_cols = num_cols.0;
         let line_changes = (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
-        if self.line.into() >= Line(line_changes) {
+        if self.line.into() >= LineOld(line_changes) {
             self.line = self.line - line_changes;
             self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
             self
@@ -76,7 +76,7 @@ impl<L> Point<L> {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn add(mut self, num_cols: Column, rhs: usize) -> Point<L>
     where
-        L: Copy + Default + Into<Line> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Copy + Default + Into<LineOld> + Add<usize, Output = L> + Sub<usize, Output = L>,
     {
         let num_cols = num_cols.0;
         self.line = self.line + (rhs + self.column.0) / num_cols;
@@ -171,9 +171,9 @@ impl From<Point<usize>> for Point<isize> {
     }
 }
 
-impl From<Point<usize>> for Point<Line> {
+impl From<Point<usize>> for Point<LineOld> {
     fn from(point: Point<usize>) -> Self {
-        Point::new(Line(point.line), point.column)
+        Point::new(LineOld(point.line), point.column)
     }
 }
 
@@ -193,11 +193,57 @@ impl From<Point> for Point<usize> {
 ///
 /// Newtype to avoid passing values incorrectly.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
-pub struct Line(pub usize);
+pub struct LineOld(pub usize);
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+pub struct Line(pub isize);
+
+impl fmt::Display for LineOld {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl From<usize> for Line {
+    fn from(source: usize) -> Self {
+        Self(source as isize)
+    }
+}
+
+impl ops::Add<usize> for Line {
+    type Output = Line;
+
+    #[inline]
+    fn add(self, rhs: usize) -> Line {
+        self + rhs as isize
+    }
+}
+
+impl AddAssign<usize> for Line {
+    #[inline]
+    fn add_assign(&mut self, rhs: usize) {
+        *self += rhs as isize;
+    }
+}
+
+impl ops::Sub<usize> for Line {
+    type Output = Line;
+
+    #[inline]
+    fn sub(self, rhs: usize) -> Line {
+        self - rhs as isize
+    }
+}
+
+impl SubAssign<usize> for Line {
+    #[inline]
+    fn sub_assign(&mut self, rhs: usize) {
+        *self -= rhs as isize;
     }
 }
 
@@ -256,22 +302,26 @@ macro_rules! forward_ref_binop {
     };
 }
 
-/// Macro for deriving deref.
-macro_rules! deref {
-    ($ty:ty, $target:ty) => {
+macro_rules! ops {
+    ($ty:ty, $construct:expr, $primitive:ty) => {
+        forward_ref_binop!(impl Add, add for $ty, $ty);
+
         impl Deref for $ty {
-            type Target = $target;
+            type Target = $primitive;
 
             #[inline]
-            fn deref(&self) -> &$target {
+            fn deref(&self) -> &$primitive {
                 &self.0
             }
         }
-    };
-}
 
-macro_rules! add {
-    ($ty:ty, $construct:expr) => {
+        impl From<$primitive> for $ty {
+            #[inline]
+            fn from(val: $primitive) -> $ty {
+                $construct(val)
+            }
+        }
+
         impl ops::Add<$ty> for $ty {
             type Output = $ty;
 
@@ -280,11 +330,30 @@ macro_rules! add {
                 $construct(self.0 + rhs.0)
             }
         }
-    };
-}
 
-macro_rules! sub {
-    ($ty:ty, $construct:expr) => {
+        impl AddAssign<$ty> for $ty {
+            #[inline]
+            fn add_assign(&mut self, rhs: $ty) {
+                self.0 += rhs.0;
+            }
+        }
+
+        impl Add<$primitive> for $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn add(self, rhs: $primitive) -> $ty {
+                $construct(self.0 + rhs)
+            }
+        }
+
+        impl AddAssign<$primitive> for $ty {
+            #[inline]
+            fn add_assign(&mut self, rhs: $primitive) {
+                self.0 += rhs
+            }
+        }
+
         impl ops::Sub<$ty> for $ty {
             type Output = $ty;
 
@@ -294,168 +363,62 @@ macro_rules! sub {
             }
         }
 
-        impl<'a> ops::Sub<$ty> for &'a $ty {
-            type Output = $ty;
-
-            #[inline]
-            fn sub(self, rhs: $ty) -> $ty {
-                $construct(self.0 - rhs.0)
-            }
-        }
-
-        impl<'a> ops::Sub<&'a $ty> for $ty {
-            type Output = $ty;
-
-            #[inline]
-            fn sub(self, rhs: &'a $ty) -> $ty {
-                $construct(self.0 - rhs.0)
-            }
-        }
-
-        impl<'a, 'b> ops::Sub<&'a $ty> for &'b $ty {
-            type Output = $ty;
-
-            #[inline]
-            fn sub(self, rhs: &'a $ty) -> $ty {
-                $construct(self.0 - rhs.0)
-            }
-        }
-    };
-}
-
-/// This exists because we can't implement Iterator on Range
-/// and the existing impl needs the unstable Step trait
-/// This should be removed and replaced with a Step impl
-/// in the ops macro when `step_by` is stabilized.
-pub struct IndexRange<T>(pub Range<T>);
-
-impl<T> From<Range<T>> for IndexRange<T> {
-    fn from(from: Range<T>) -> Self {
-        IndexRange(from)
-    }
-}
-
-macro_rules! ops {
-    ($ty:ty, $construct:expr) => {
-        add!($ty, $construct);
-        sub!($ty, $construct);
-        deref!($ty, usize);
-        forward_ref_binop!(impl Add, add for $ty, $ty);
-
-        impl $ty {
-            #[inline]
-            fn steps_between(start: $ty, end: $ty, by: $ty) -> Option<usize> {
-                if by == $construct(0) { return None; }
-                if start < end {
-                    // Note: We assume $t <= usize here.
-                    let diff = (end - start).0;
-                    let by = by.0;
-                    if diff % by > 0 {
-                        Some(diff / by + 1)
-                    } else {
-                        Some(diff / by)
-                    }
-                } else {
-                    Some(0)
-                }
-            }
-
-            #[inline]
-            fn steps_between_by_one(start: $ty, end: $ty) -> Option<usize> {
-                Self::steps_between(start, end, $construct(1))
-            }
-        }
-
-        impl Iterator for IndexRange<$ty> {
-            type Item = $ty;
-            #[inline]
-            fn next(&mut self) -> Option<$ty> {
-                if self.0.start < self.0.end {
-                    let old = self.0.start;
-                    self.0.start = old + 1;
-                    Some(old)
-                } else {
-                    None
-                }
-            }
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                match Self::Item::steps_between_by_one(self.0.start, self.0.end) {
-                    Some(hint) => (hint, Some(hint)),
-                    None => (0, None)
-                }
-            }
-        }
-
-        impl DoubleEndedIterator for IndexRange<$ty> {
-            #[inline]
-            fn next_back(&mut self) -> Option<$ty> {
-                if self.0.start < self.0.end {
-                    let new = self.0.end - 1;
-                    self.0.end = new;
-                    Some(new)
-                } else {
-                    None
-                }
-            }
-        }
-        impl AddAssign<$ty> for $ty {
-            #[inline]
-            fn add_assign(&mut self, rhs: $ty) {
-                self.0 += rhs.0
-            }
-        }
-
         impl SubAssign<$ty> for $ty {
             #[inline]
             fn sub_assign(&mut self, rhs: $ty) {
-                self.0 -= rhs.0
+                self.0 -= rhs.0;
             }
         }
 
-        impl AddAssign<usize> for $ty {
+        impl Sub<$primitive> for $ty {
+            type Output = $ty;
+
             #[inline]
-            fn add_assign(&mut self, rhs: usize) {
-                self.0 += rhs
+            fn sub(self, rhs: $primitive) -> $ty {
+                $construct(self.0 - rhs)
             }
         }
 
-        impl SubAssign<usize> for $ty {
+        impl SubAssign<$primitive> for $ty {
             #[inline]
-            fn sub_assign(&mut self, rhs: usize) {
+            fn sub_assign(&mut self, rhs: $primitive) {
                 self.0 -= rhs
             }
         }
 
-        impl From<usize> for $ty {
+        impl PartialEq<$ty> for $primitive {
             #[inline]
-            fn from(val: usize) -> $ty {
-                $construct(val)
+            fn eq(&self, other: &$ty) -> bool {
+                self.eq(&other.0)
             }
         }
 
-        impl Add<usize> for $ty {
-            type Output = $ty;
-
+        impl PartialOrd<$ty> for $primitive {
             #[inline]
-            fn add(self, rhs: usize) -> $ty {
-                $construct(self.0 + rhs)
+            fn partial_cmp(&self, other: &$ty) -> Option<Ordering> {
+                self.partial_cmp(&other.0)
             }
         }
 
-        impl Sub<usize> for $ty {
-            type Output = $ty;
-
+        impl PartialEq<$primitive> for $ty {
             #[inline]
-            fn sub(self, rhs: usize) -> $ty {
-                $construct(self.0 - rhs)
+            fn eq(&self, other: &$primitive) -> bool {
+                self.0.eq(other)
+            }
+        }
+
+        impl PartialOrd<$primitive> for $ty {
+            #[inline]
+            fn partial_cmp(&self, other: &$primitive) -> Option<Ordering> {
+                self.0.partial_cmp(other)
             }
         }
     }
 }
 
-ops!(Line, Line);
-ops!(Column, Column);
+ops!(LineOld, LineOld, usize);
+ops!(Column, Column, usize);
+ops!(Line, Line, isize);
 
 #[cfg(test)]
 mod tests {
@@ -463,12 +426,12 @@ mod tests {
 
     #[test]
     fn location_ordering() {
-        assert!(Point::new(Line(0), Column(0)) == Point::new(Line(0), Column(0)));
-        assert!(Point::new(Line(1), Column(0)) > Point::new(Line(0), Column(0)));
-        assert!(Point::new(Line(0), Column(1)) > Point::new(Line(0), Column(0)));
-        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(0)));
-        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(1)));
-        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(1), Column(0)));
+        assert!(Point::new(LineOld(0), Column(0)) == Point::new(LineOld(0), Column(0)));
+        assert!(Point::new(LineOld(1), Column(0)) > Point::new(LineOld(0), Column(0)));
+        assert!(Point::new(LineOld(0), Column(1)) > Point::new(LineOld(0), Column(0)));
+        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(0), Column(0)));
+        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(0), Column(1)));
+        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(1), Column(0)));
     }
 
     #[test]
@@ -525,7 +488,7 @@ mod tests {
     fn add_absolute() {
         let point = Point::new(0, Column(13));
 
-        let result = point.add_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.column + 1));
     }
@@ -534,7 +497,7 @@ mod tests {
     fn add_absolute_wrapline() {
         let point = Point::new(1, Column(41));
 
-        let result = point.add_absolute(&(Line(2), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(LineOld(2), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, Column(0)));
     }
@@ -543,7 +506,7 @@ mod tests {
     fn add_absolute_multiline_wrapline() {
         let point = Point::new(2, Column(9));
 
-        let result = point.add_absolute(&(Line(3), Column(10)), Boundary::Clamp, 11);
+        let result = point.add_absolute(&(LineOld(3), Column(10)), Boundary::Clamp, 11);
 
         assert_eq!(result, Point::new(0, Column(0)));
     }
@@ -552,7 +515,7 @@ mod tests {
     fn add_absolute_clamp() {
         let point = Point::new(0, Column(41));
 
-        let result = point.add_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, point);
     }
@@ -561,7 +524,7 @@ mod tests {
     fn add_absolute_wrap() {
         let point = Point::new(0, Column(41));
 
-        let result = point.add_absolute(&(Line(3), Column(42)), Boundary::Wrap, 1);
+        let result = point.add_absolute(&(LineOld(3), Column(42)), Boundary::Wrap, 1);
 
         assert_eq!(result, Point::new(2, Column(0)));
     }
@@ -570,7 +533,7 @@ mod tests {
     fn add_absolute_multiline_wrap() {
         let point = Point::new(0, Column(9));
 
-        let result = point.add_absolute(&(Line(3), Column(10)), Boundary::Wrap, 11);
+        let result = point.add_absolute(&(LineOld(3), Column(10)), Boundary::Wrap, 11);
 
         assert_eq!(result, Point::new(1, Column(0)));
     }
@@ -579,7 +542,7 @@ mod tests {
     fn sub_absolute() {
         let point = Point::new(0, Column(13));
 
-        let result = point.sub_absolute(&(Line(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.sub_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.column - 1));
     }
@@ -588,7 +551,7 @@ mod tests {
     fn sub_absolute_wrapline() {
         let point = Point::new(0, Column(0));
 
-        let result = point.sub_absolute(&(Line(2), Column(42)), Boundary::Clamp, 1);
+        let result = point.sub_absolute(&(LineOld(2), Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(1, Column(41)));
     }
@@ -597,7 +560,7 @@ mod tests {
     fn sub_absolute_multiline_wrapline() {
         let point = Point::new(0, Column(0));
 
-        let result = point.sub_absolute(&(Line(3), Column(10)), Boundary::Clamp, 11);
+        let result = point.sub_absolute(&(LineOld(3), Column(10)), Boundary::Clamp, 11);
 
         assert_eq!(result, Point::new(2, Column(9)));
     }
@@ -606,7 +569,7 @@ mod tests {
     fn sub_absolute_wrap() {
         let point = Point::new(2, Column(0));
 
-        let result = point.sub_absolute(&(Line(3), Column(42)), Boundary::Wrap, 1);
+        let result = point.sub_absolute(&(LineOld(3), Column(42)), Boundary::Wrap, 1);
 
         assert_eq!(result, Point::new(0, Column(41)));
     }
@@ -615,7 +578,7 @@ mod tests {
     fn sub_absolute_multiline_wrap() {
         let point = Point::new(2, Column(0));
 
-        let result = point.sub_absolute(&(Line(3), Column(10)), Boundary::Wrap, 11);
+        let result = point.sub_absolute(&(LineOld(3), Column(10)), Boundary::Wrap, 11);
 
         assert_eq!(result, Point::new(1, Column(9)));
     }

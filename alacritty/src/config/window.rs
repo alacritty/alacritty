@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::index::{Column, LineOld};
 
 use crate::config::ui_config::Delta;
 
@@ -145,7 +145,7 @@ pub struct Dimensions {
     pub columns: Column,
 
     /// Window Height in character lines.
-    pub lines: Line,
+    pub lines: LineOld,
 }
 
 /// Window class hint.

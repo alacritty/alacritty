@@ -25,7 +25,7 @@ use crossfont::{self, Rasterize, Rasterizer};
 use alacritty_terminal::ansi::NamedColor;
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
-use alacritty_terminal::index::{Column, Direction, Line, Point};
+use alacritty_terminal::index::{Column, Direction, LineOld, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
 
@@ -773,7 +773,7 @@ impl Display {
         if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);
+                api.render_string(glyph_cache, Point::new(LineOld(0), column), fg, bg, &text);
             });
         }
     }

@@ -3,7 +3,7 @@
 use std::cmp::{min, Ordering};
 use std::mem;
 
-use crate::index::{Column, Line};
+use crate::index::{Column, Line, LineOld};
 use crate::term::cell::{Flags, ResetDiscriminant};
 
 use crate::grid::row::Row;
@@ -11,7 +11,7 @@ use crate::grid::{Dimensions, Grid, GridCell};
 
 impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
-    pub fn resize<D>(&mut self, reflow: bool, lines: Line, cols: Column)
+    pub fn resize<D>(&mut self, reflow: bool, lines: LineOld, cols: Column)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
@@ -40,7 +40,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Alacritty keeps the cursor at the bottom of the terminal as long as there
     /// is scrollback available. Once scrollback is exhausted, new lines are
     /// simply added to the bottom of the screen.
-    fn grow_lines<D>(&mut self, new_line_count: Line)
+    fn grow_lines<D>(&mut self, new_line_count: LineOld)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
@@ -57,7 +57,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added.0 {
             let delta = lines_added - from_history;
-            self.scroll_up(&(Line(0)..new_line_count), delta);
+            self.scroll_up(&(Line(0)..Line(new_line_count.0 as isize)), delta.0);
         }
 
         // Move cursor down for every line pulled from history.
@@ -75,7 +75,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// of the terminal window.
     ///
     /// Alacritty takes the same approach.
-    fn shrink_lines<D>(&mut self, target: Line)
+    fn shrink_lines<D>(&mut self, target: LineOld)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
@@ -83,7 +83,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line + 1).saturating_sub(target.0);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..self.lines), Line(required_scrolling));
+            self.scroll_up(&(Line(0)..Line(self.lines.0 as isize)), required_scrolling);
 
             // Clamp cursors to the new viewport size.
             self.cursor.point.line = min(self.cursor.point.line, target - 1);

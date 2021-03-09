@@ -24,47 +24,47 @@ impl GridCell for usize {
 
 #[test]
 fn grid_clamp_buffer_point() {
-    let mut grid = Grid::<usize>::new(Line(10), Column(10), 1_000);
+    let mut grid = Grid::<usize>::new(LineOld(10), Column(10), 1_000);
     grid.display_offset = 5;
 
     let point = grid.clamp_buffer_to_visible(Point::new(10, Column(3)));
-    assert_eq!(point, Point::new(Line(4), Column(3)));
+    assert_eq!(point, Point::new(LineOld(4), Column(3)));
 
     let point = grid.clamp_buffer_to_visible(Point::new(15, Column(3)));
-    assert_eq!(point, Point::new(Line(0), Column(0)));
+    assert_eq!(point, Point::new(LineOld(0), Column(0)));
 
     let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
-    assert_eq!(point, Point::new(Line(9), Column(9)));
+    assert_eq!(point, Point::new(LineOld(9), Column(9)));
 
     grid.display_offset = 0;
 
     let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
-    assert_eq!(point, Point::new(Line(5), Column(3)));
+    assert_eq!(point, Point::new(LineOld(5), Column(3)));
 }
 
 #[test]
 fn visible_to_buffer() {
-    let mut grid = Grid::<usize>::new(Line(10), Column(10), 1_000);
+    let mut grid = Grid::<usize>::new(LineOld(10), Column(10), 1_000);
     grid.display_offset = 5;
 
-    let point = grid.visible_to_buffer(Point::new(Line(4), Column(3)));
+    let point = grid.visible_to_buffer(Point::new(LineOld(4), Column(3)));
     assert_eq!(point, Point::new(10, Column(3)));
 
     grid.display_offset = 0;
 
-    let point = grid.visible_to_buffer(Point::new(Line(5), Column(3)));
+    let point = grid.visible_to_buffer(Point::new(LineOld(5), Column(3)));
     assert_eq!(point, Point::new(4, Column(3)));
 }
 
 // Scroll up moves lines upward.
 #[test]
 fn scroll_up() {
-    let mut grid = Grid::<usize>::new(Line(10), Column(1), 0);
+    let mut grid = Grid::<usize>::new(LineOld(10), Column(1), 0);
     for i in 0..10 {
-        grid[Line(i)][Column(0)] = i;
+        grid[Line(i as isize)][Column(0)] = i;
     }
 
-    grid.scroll_up::<usize>(&(Line(0)..Line(10)), Line(2));
+    grid.scroll_up::<usize>(&(Line(0)..Line(10)), 2);
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);
@@ -91,12 +91,44 @@ fn scroll_up() {
 // Scroll down moves lines downward.
 #[test]
 fn scroll_down() {
-    let mut grid = Grid::<usize>::new(Line(10), Column(1), 0);
+    let mut grid = Grid::<usize>::new(LineOld(10), Column(1), 0);
     for i in 0..10 {
-        grid[Line(i)][Column(0)] = i;
+        grid[Line(i as isize)][Column(0)] = i;
     }
 
-    grid.scroll_down::<usize>(&(Line(0)..Line(10)), Line(2));
+    grid.scroll_down::<usize>(&(Line(0)..Line(10)), 2);
+
+    assert_eq!(grid[Line(0)][Column(0)], 0); // was 8.
+    assert_eq!(grid[Line(0)].occ, 0);
+    assert_eq!(grid[Line(1)][Column(0)], 0); // was 9.
+    assert_eq!(grid[Line(1)].occ, 0);
+    assert_eq!(grid[Line(2)][Column(0)], 0);
+    assert_eq!(grid[Line(2)].occ, 1);
+    assert_eq!(grid[Line(3)][Column(0)], 1);
+    assert_eq!(grid[Line(3)].occ, 1);
+    assert_eq!(grid[Line(4)][Column(0)], 2);
+    assert_eq!(grid[Line(4)].occ, 1);
+    assert_eq!(grid[Line(5)][Column(0)], 3);
+    assert_eq!(grid[Line(5)].occ, 1);
+    assert_eq!(grid[Line(6)][Column(0)], 4);
+    assert_eq!(grid[Line(6)].occ, 1);
+    assert_eq!(grid[Line(7)][Column(0)], 5);
+    assert_eq!(grid[Line(7)].occ, 1);
+    assert_eq!(grid[Line(8)][Column(0)], 6);
+    assert_eq!(grid[Line(8)].occ, 1);
+    assert_eq!(grid[Line(9)][Column(0)], 7);
+    assert_eq!(grid[Line(9)].occ, 1);
+}
+
+#[test]
+fn scroll_down_with_history() {
+    let mut grid = Grid::<usize>::new(LineOld(10), Column(1), 1);
+    grid.increase_scroll_limit(1);
+    for i in 0..10 {
+        grid[Line(i as isize)][Column(0)] = i;
+    }
+
+    grid.scroll_down::<usize>(&(Line(0)..Line(10)), 2);
 
     assert_eq!(grid[Line(0)][Column(0)], 0); // was 8.
     assert_eq!(grid[Line(0)].occ, 0);
@@ -127,10 +159,10 @@ fn test_iter() {
         assert_eq!(Some(&value), indexed.map(|indexed| indexed.cell));
     };
 
-    let mut grid = Grid::<usize>::new(Line(5), Column(5), 0);
+    let mut grid = Grid::<usize>::new(LineOld(5), Column(5), 0);
     for i in 0..5 {
         for j in 0..5 {
-            grid[Line(i)][Column(j)] = i * 5 + j;
+            grid[LineOld(i)][Column(j)] = i * 5 + j;
         }
     }
 
@@ -165,14 +197,14 @@ fn test_iter() {
 
 #[test]
 fn shrink_reflow() {
-    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = cell('2');
-    grid[Line(0)][Column(2)] = cell('3');
-    grid[Line(0)][Column(3)] = cell('4');
-    grid[Line(0)][Column(4)] = cell('5');
+    let mut grid = Grid::<Cell>::new(LineOld(1), Column(5), 2);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = cell('2');
+    grid[LineOld(0)][Column(2)] = cell('3');
+    grid[LineOld(0)][Column(3)] = cell('4');
+    grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(true, Line(1), Column(2));
+    grid.resize(true, LineOld(1), Column(2));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -191,15 +223,15 @@ fn shrink_reflow() {
 
 #[test]
 fn shrink_reflow_twice() {
-    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = cell('2');
-    grid[Line(0)][Column(2)] = cell('3');
-    grid[Line(0)][Column(3)] = cell('4');
-    grid[Line(0)][Column(4)] = cell('5');
+    let mut grid = Grid::<Cell>::new(LineOld(1), Column(5), 2);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = cell('2');
+    grid[LineOld(0)][Column(2)] = cell('3');
+    grid[LineOld(0)][Column(3)] = cell('4');
+    grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(true, Line(1), Column(4));
-    grid.resize(true, Line(1), Column(2));
+    grid.resize(true, LineOld(1), Column(4));
+    grid.resize(true, LineOld(1), Column(2));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -218,14 +250,14 @@ fn shrink_reflow_twice() {
 
 #[test]
 fn shrink_reflow_empty_cell_inside_line() {
-    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 3);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = Cell::default();
-    grid[Line(0)][Column(2)] = cell('3');
-    grid[Line(0)][Column(3)] = cell('4');
-    grid[Line(0)][Column(4)] = Cell::default();
+    let mut grid = Grid::<Cell>::new(LineOld(1), Column(5), 3);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = Cell::default();
+    grid[LineOld(0)][Column(2)] = cell('3');
+    grid[LineOld(0)][Column(3)] = cell('4');
+    grid[LineOld(0)][Column(4)] = Cell::default();
 
-    grid.resize(true, Line(1), Column(2));
+    grid.resize(true, LineOld(1), Column(2));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -237,7 +269,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     assert_eq!(grid[0][Column(0)], cell('3'));
     assert_eq!(grid[0][Column(1)], cell('4'));
 
-    grid.resize(true, Line(1), Column(1));
+    grid.resize(true, LineOld(1), Column(1));
 
     assert_eq!(grid.total_lines(), 4);
 
@@ -256,13 +288,13 @@ fn shrink_reflow_empty_cell_inside_line() {
 
 #[test]
 fn grow_reflow() {
-    let mut grid = Grid::<Cell>::new(Line(2), Column(2), 0);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = wrap_cell('2');
-    grid[Line(1)][Column(0)] = cell('3');
-    grid[Line(1)][Column(1)] = Cell::default();
+    let mut grid = Grid::<Cell>::new(LineOld(2), Column(2), 0);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = wrap_cell('2');
+    grid[LineOld(1)][Column(0)] = cell('3');
+    grid[LineOld(1)][Column(1)] = Cell::default();
 
-    grid.resize(true, Line(2), Column(3));
+    grid.resize(true, LineOld(2), Column(3));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -280,15 +312,15 @@ fn grow_reflow() {
 
 #[test]
 fn grow_reflow_multiline() {
-    let mut grid = Grid::<Cell>::new(Line(3), Column(2), 0);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = wrap_cell('2');
-    grid[Line(1)][Column(0)] = cell('3');
-    grid[Line(1)][Column(1)] = wrap_cell('4');
-    grid[Line(2)][Column(0)] = cell('5');
-    grid[Line(2)][Column(1)] = cell('6');
+    let mut grid = Grid::<Cell>::new(LineOld(3), Column(2), 0);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = wrap_cell('2');
+    grid[LineOld(1)][Column(0)] = cell('3');
+    grid[LineOld(1)][Column(1)] = wrap_cell('4');
+    grid[LineOld(2)][Column(0)] = cell('5');
+    grid[LineOld(2)][Column(1)] = cell('6');
 
-    grid.resize(true, Line(3), Column(6));
+    grid.resize(true, LineOld(3), Column(6));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -311,13 +343,13 @@ fn grow_reflow_multiline() {
 
 #[test]
 fn grow_reflow_disabled() {
-    let mut grid = Grid::<Cell>::new(Line(2), Column(2), 0);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = wrap_cell('2');
-    grid[Line(1)][Column(0)] = cell('3');
-    grid[Line(1)][Column(1)] = Cell::default();
+    let mut grid = Grid::<Cell>::new(LineOld(2), Column(2), 0);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = wrap_cell('2');
+    grid[LineOld(1)][Column(0)] = cell('3');
+    grid[LineOld(1)][Column(1)] = Cell::default();
 
-    grid.resize(false, Line(2), Column(3));
+    grid.resize(false, LineOld(2), Column(3));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -334,14 +366,14 @@ fn grow_reflow_disabled() {
 
 #[test]
 fn shrink_reflow_disabled() {
-    let mut grid = Grid::<Cell>::new(Line(1), Column(5), 2);
-    grid[Line(0)][Column(0)] = cell('1');
-    grid[Line(0)][Column(1)] = cell('2');
-    grid[Line(0)][Column(2)] = cell('3');
-    grid[Line(0)][Column(3)] = cell('4');
-    grid[Line(0)][Column(4)] = cell('5');
+    let mut grid = Grid::<Cell>::new(LineOld(1), Column(5), 2);
+    grid[LineOld(0)][Column(0)] = cell('1');
+    grid[LineOld(0)][Column(1)] = cell('2');
+    grid[LineOld(0)][Column(2)] = cell('3');
+    grid[LineOld(0)][Column(3)] = cell('4');
+    grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(false, Line(1), Column(2));
+    grid.resize(false, LineOld(1), Column(2));
 
     assert_eq!(grid.total_lines(), 1);
 

@@ -4,7 +4,7 @@ use alacritty_config_derive::ConfigDeserialize;
 
 use crate::event::EventListener;
 use crate::grid::{Dimensions, GridCell};
-use crate::index::{Boundary, Column, Direction, Line, Point, Side};
+use crate::index::{Boundary, Column, Direction, LineOld, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::Term;
 
@@ -184,7 +184,7 @@ impl ViModeCursor {
         let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().column;
 
         // Move cursor.
-        self.point = Point::new(Line(line as usize), col);
+        self.point = Point::new(LineOld(line as usize), col);
 
         self
     }
@@ -397,7 +397,7 @@ mod tests {
     use super::*;
 
     use crate::config::MockConfig;
-    use crate::index::{Column, Line};
+    use crate::index::{Column, Line, LineOld};
     use crate::term::{SizeInfo, Term};
 
     fn term() -> Term<()> {
@@ -409,125 +409,125 @@ mod tests {
     fn motion_simple() {
         let mut term = term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Right);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(1)));
 
         cursor = cursor.motion(&mut term, ViMotion::Left);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Down);
-        assert_eq!(cursor.point, Point::new(Line(1), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(1), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Up);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn simple_wide() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = 'a';
-        term.grid_mut()[Line(0)][Column(1)].c = '汉';
-        term.grid_mut()[Line(0)][Column(1)].flags.insert(Flags::WIDE_CHAR);
-        term.grid_mut()[Line(0)][Column(2)].c = ' ';
-        term.grid_mut()[Line(0)][Column(2)].flags.insert(Flags::WIDE_CHAR_SPACER);
-        term.grid_mut()[Line(0)][Column(3)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(0)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(1)].c = '汉';
+        term.grid_mut()[LineOld(0)][Column(1)].flags.insert(Flags::WIDE_CHAR);
+        term.grid_mut()[LineOld(0)][Column(2)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(2)].flags.insert(Flags::WIDE_CHAR_SPACER);
+        term.grid_mut()[LineOld(0)][Column(3)].c = 'a';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(1)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(1)));
         cursor = cursor.motion(&mut term, ViMotion::Right);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(3)));
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(2)));
         cursor = cursor.motion(&mut term, ViMotion::Left);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn motion_start_end() {
         let mut term = term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Last);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(19)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(19)));
 
         cursor = cursor.motion(&mut term, ViMotion::First);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn motion_first_occupied() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = ' ';
-        term.grid_mut()[Line(0)][Column(1)].c = 'x';
-        term.grid_mut()[Line(0)][Column(2)].c = ' ';
-        term.grid_mut()[Line(0)][Column(3)].c = 'y';
-        term.grid_mut()[Line(0)][Column(19)].flags.insert(Flags::WRAPLINE);
-        term.grid_mut()[Line(1)][Column(19)].flags.insert(Flags::WRAPLINE);
-        term.grid_mut()[Line(2)][Column(0)].c = 'z';
-        term.grid_mut()[Line(2)][Column(1)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(0)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(1)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(2)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(3)].c = 'y';
+        term.grid_mut()[LineOld(0)][Column(19)].flags.insert(Flags::WRAPLINE);
+        term.grid_mut()[LineOld(1)][Column(19)].flags.insert(Flags::WRAPLINE);
+        term.grid_mut()[LineOld(2)][Column(0)].c = 'z';
+        term.grid_mut()[LineOld(2)][Column(1)].c = ' ';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(2), Column(1)));
-
-        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied);
-        assert_eq!(cursor.point, Point::new(Line(2), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(2), Column(1)));
 
         cursor = cursor.motion(&mut term, ViMotion::FirstOccupied);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
+        assert_eq!(cursor.point, Point::new(LineOld(2), Column(0)));
+
+        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied);
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(1)));
     }
 
     #[test]
     fn motion_high_middle_low() {
         let mut term = term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::High);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Middle);
-        assert_eq!(cursor.point, Point::new(Line(9), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(9), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Low);
-        assert_eq!(cursor.point, Point::new(Line(19), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(19), Column(0)));
     }
 
     #[test]
     fn motion_bracket() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = '(';
-        term.grid_mut()[Line(0)][Column(1)].c = 'x';
-        term.grid_mut()[Line(0)][Column(2)].c = ')';
+        term.grid_mut()[LineOld(0)][Column(0)].c = '(';
+        term.grid_mut()[LineOld(0)][Column(1)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(2)].c = ')';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
-
-        cursor = cursor.motion(&mut term, ViMotion::Bracket);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::Bracket);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(2)));
+
+        cursor = cursor.motion(&mut term, ViMotion::Bracket);
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     fn motion_semantic_term() -> Term<()> {
         let mut term = term();
 
-        term.grid_mut()[Line(0)][Column(0)].c = 'x';
-        term.grid_mut()[Line(0)][Column(1)].c = ' ';
-        term.grid_mut()[Line(0)][Column(2)].c = 'x';
-        term.grid_mut()[Line(0)][Column(3)].c = 'x';
-        term.grid_mut()[Line(0)][Column(4)].c = ' ';
-        term.grid_mut()[Line(0)][Column(5)].c = ' ';
-        term.grid_mut()[Line(0)][Column(6)].c = ':';
-        term.grid_mut()[Line(0)][Column(7)].c = ' ';
-        term.grid_mut()[Line(0)][Column(8)].c = 'x';
-        term.grid_mut()[Line(0)][Column(9)].c = ':';
-        term.grid_mut()[Line(0)][Column(10)].c = 'x';
-        term.grid_mut()[Line(0)][Column(11)].c = ' ';
-        term.grid_mut()[Line(0)][Column(12)].c = ' ';
-        term.grid_mut()[Line(0)][Column(13)].c = ':';
-        term.grid_mut()[Line(0)][Column(14)].c = ' ';
-        term.grid_mut()[Line(0)][Column(15)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(0)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(1)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(2)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(3)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(4)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(5)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(6)].c = ':';
+        term.grid_mut()[LineOld(0)][Column(7)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(8)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(9)].c = ':';
+        term.grid_mut()[LineOld(0)][Column(10)].c = 'x';
+        term.grid_mut()[LineOld(0)][Column(11)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(12)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(13)].c = ':';
+        term.grid_mut()[LineOld(0)][Column(14)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(15)].c = 'x';
 
         term
     }
@@ -536,232 +536,232 @@ mod tests {
     fn motion_semantic_right_end() {
         let mut term = motion_semantic_term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(3)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(6)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(8)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(9)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(10)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(13)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(15)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(15)));
     }
 
     #[test]
     fn motion_semantic_left_start() {
         let mut term = motion_semantic_term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(15)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(15)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(13)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(10)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(9)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(8)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(6)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(2)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn motion_semantic_right_start() {
         let mut term = motion_semantic_term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(2)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(6)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(8)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(9)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(10)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(13)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(15)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(15)));
     }
 
     #[test]
     fn motion_semantic_left_end() {
         let mut term = motion_semantic_term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(15)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(15)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(13)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(10)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(9)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(8)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(6)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(3)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn scroll_semantic() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), 5);
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
+        assert_eq!(cursor.point, Point::new(LineOld(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
         cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
+        assert_eq!(cursor.point, Point::new(LineOld(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
     }
 
     #[test]
     fn semantic_wide() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = 'a';
-        term.grid_mut()[Line(0)][Column(1)].c = ' ';
-        term.grid_mut()[Line(0)][Column(2)].c = '汉';
-        term.grid_mut()[Line(0)][Column(2)].flags.insert(Flags::WIDE_CHAR);
-        term.grid_mut()[Line(0)][Column(3)].c = ' ';
-        term.grid_mut()[Line(0)][Column(3)].flags.insert(Flags::WIDE_CHAR_SPACER);
-        term.grid_mut()[Line(0)][Column(4)].c = ' ';
-        term.grid_mut()[Line(0)][Column(5)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(0)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(1)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(2)].c = '汉';
+        term.grid_mut()[LineOld(0)][Column(2)].flags.insert(Flags::WIDE_CHAR);
+        term.grid_mut()[LineOld(0)][Column(3)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(3)].flags.insert(Flags::WIDE_CHAR_SPACER);
+        term.grid_mut()[LineOld(0)][Column(4)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(5)].c = 'a';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(2)));
         cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(5)));
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(3)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(3)));
         cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 
     #[test]
     fn motion_word() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = 'a';
-        term.grid_mut()[Line(0)][Column(1)].c = ';';
-        term.grid_mut()[Line(0)][Column(2)].c = ' ';
-        term.grid_mut()[Line(0)][Column(3)].c = ' ';
-        term.grid_mut()[Line(0)][Column(4)].c = 'a';
-        term.grid_mut()[Line(0)][Column(5)].c = ';';
+        term.grid_mut()[LineOld(0)][Column(0)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(1)].c = ';';
+        term.grid_mut()[LineOld(0)][Column(2)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(3)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(4)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(5)].c = ';';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
-
-        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(1)));
+
+        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(5)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(4)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(4)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(1)));
     }
 
     #[test]
     fn scroll_word() {
         let mut term = term();
-        term.grid_mut().scroll_up(&(Line(0)..Line(20)), Line(5));
+        term.grid_mut().scroll_up(&(Line(0)..Line(20)), 5);
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(0)));
 
         cursor = cursor.motion(&mut term, ViMotion::WordLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
         cursor = cursor.motion(&mut term, ViMotion::WordRight);
-        assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
+        assert_eq!(cursor.point, Point::new(LineOld(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
 
         cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
         cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
-        assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
+        assert_eq!(cursor.point, Point::new(LineOld(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
     }
 
     #[test]
     fn word_wide() {
         let mut term = term();
-        term.grid_mut()[Line(0)][Column(0)].c = 'a';
-        term.grid_mut()[Line(0)][Column(1)].c = ' ';
-        term.grid_mut()[Line(0)][Column(2)].c = '汉';
-        term.grid_mut()[Line(0)][Column(2)].flags.insert(Flags::WIDE_CHAR);
-        term.grid_mut()[Line(0)][Column(3)].c = ' ';
-        term.grid_mut()[Line(0)][Column(3)].flags.insert(Flags::WIDE_CHAR_SPACER);
-        term.grid_mut()[Line(0)][Column(4)].c = ' ';
-        term.grid_mut()[Line(0)][Column(5)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(0)].c = 'a';
+        term.grid_mut()[LineOld(0)][Column(1)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(2)].c = '汉';
+        term.grid_mut()[LineOld(0)][Column(2)].flags.insert(Flags::WIDE_CHAR);
+        term.grid_mut()[LineOld(0)][Column(3)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(3)].flags.insert(Flags::WIDE_CHAR_SPACER);
+        term.grid_mut()[LineOld(0)][Column(4)].c = ' ';
+        term.grid_mut()[LineOld(0)][Column(5)].c = 'a';
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(2)));
         cursor = cursor.motion(&mut term, ViMotion::WordRight);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(5)));
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(3)));
+        let mut cursor = ViModeCursor::new(Point::new(LineOld(0), Column(3)));
         cursor = cursor.motion(&mut term, ViMotion::WordLeft);
-        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(cursor.point, Point::new(LineOld(0), Column(0)));
     }
 }
