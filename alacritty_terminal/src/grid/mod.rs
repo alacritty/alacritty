@@ -33,7 +33,7 @@ pub trait GridCell: Sized {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cursor<T> {
     /// The location of this cursor.
-    pub point: Point,
+    pub point: Point<Line>,
 
     /// Template cell when using this cursor.
     pub template: T,

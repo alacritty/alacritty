@@ -10,7 +10,7 @@ use vte::{Params, ParamsIter};
 
 use alacritty_config_derive::ConfigDeserialize;
 
-use crate::index::{Column, LineOld};
+use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 
 /// Maximum time before a synchronized update is aborted.
@@ -290,10 +290,10 @@ pub trait Handler {
     fn input(&mut self, _c: char) {}
 
     /// Set cursor to position.
-    fn goto(&mut self, _: LineOld, _: Column) {}
+    fn goto(&mut self, _: Line, _: Column) {}
 
     /// Set cursor to specific row.
-    fn goto_line(&mut self, _: LineOld) {}
+    fn goto_line(&mut self, _: Line) {}
 
     /// Set cursor to specific column.
     fn goto_col(&mut self, _: Column) {}
@@ -302,10 +302,10 @@ pub trait Handler {
     fn insert_blank(&mut self, _: Column) {}
 
     /// Move cursor up `rows`.
-    fn move_up(&mut self, _: LineOld) {}
+    fn move_up(&mut self, _: usize) {}
 
     /// Move cursor down `rows`.
-    fn move_down(&mut self, _: LineOld) {}
+    fn move_down(&mut self, _: usize) {}
 
     /// Identify the terminal (should write back to the pty stream).
     fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {}
@@ -320,10 +320,10 @@ pub trait Handler {
     fn move_backward(&mut self, _: Column) {}
 
     /// Move cursor down `rows` and set to column 1.
-    fn move_down_and_cr(&mut self, _: LineOld) {}
+    fn move_down_and_cr(&mut self, _: usize) {}
 
     /// Move cursor up `rows` and set to column 1.
-    fn move_up_and_cr(&mut self, _: LineOld) {}
+    fn move_up_and_cr(&mut self, _: usize) {}
 
     /// Put `count` tabs.
     fn put_tab(&mut self, _count: u16) {}
@@ -1124,9 +1124,9 @@ where
         match (action, intermediates) {
             ('@', []) => handler.insert_blank(Column(next_param_or(1) as usize)),
             ('A', []) => {
-                handler.move_up(LineOld(next_param_or(1) as usize));
+                handler.move_up(next_param_or(1) as usize);
             },
-            ('B', []) | ('e', []) => handler.move_down(LineOld(next_param_or(1) as usize)),
+            ('B', []) | ('e', []) => handler.move_down(next_param_or(1) as usize),
             ('b', []) => {
                 if let Some(c) = self.state.preceding_char {
                     for _ in 0..next_param_or(1) {
@@ -1141,9 +1141,9 @@ where
                 handler.identify_terminal(writer, intermediates.get(0).map(|&i| i as char))
             },
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
-            ('d', []) => handler.goto_line(LineOld(next_param_or(1) as usize - 1)),
-            ('E', []) => handler.move_down_and_cr(LineOld(next_param_or(1) as usize)),
-            ('F', []) => handler.move_up_and_cr(LineOld(next_param_or(1) as usize)),
+            ('d', []) => handler.goto_line(Line(next_param_or(1) as isize - 1)),
+            ('E', []) => handler.move_down_and_cr(next_param_or(1) as usize),
+            ('F', []) => handler.move_up_and_cr(next_param_or(1) as usize),
             ('G', []) | ('`', []) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
             ('g', []) => {
                 let mode = match next_param_or(0) {
@@ -1158,9 +1158,9 @@ where
                 handler.clear_tabs(mode);
             },
             ('H', []) | ('f', []) => {
-                let y = next_param_or(1) as usize;
+                let y = next_param_or(1) as isize;
                 let x = next_param_or(1) as usize;
-                handler.goto(LineOld(y - 1), Column(x - 1));
+                handler.goto(Line(y - 1), Column(x - 1));
             },
             ('h', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {

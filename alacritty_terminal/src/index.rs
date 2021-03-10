@@ -85,6 +85,31 @@ impl<L> Point<L> {
     }
 }
 
+impl Point<Line> {
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn sub_new(mut self, num_cols: Column, rhs: usize) -> Point<Line> {
+        let num_cols = num_cols.0;
+        let line_changes = (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
+        if self.line >= line_changes as isize {
+            self.line -= line_changes;
+            self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
+            self
+        } else {
+            Self::default()
+        }
+    }
+
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn add_new(mut self, num_cols: Column, rhs: usize) -> Point<Line> {
+        let num_cols = num_cols.0;
+        self.line += (rhs + self.column.0) / num_cols;
+        self.column = Column((self.column.0 + rhs) % num_cols);
+        self
+    }
+}
+
 impl Point<usize> {
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
@@ -393,17 +418,17 @@ macro_rules! ops {
             }
         }
 
-        impl PartialOrd<$ty> for $primitive {
-            #[inline]
-            fn partial_cmp(&self, other: &$ty) -> Option<Ordering> {
-                self.partial_cmp(&other.0)
-            }
-        }
-
         impl PartialEq<$primitive> for $ty {
             #[inline]
             fn eq(&self, other: &$primitive) -> bool {
                 self.0.eq(other)
+            }
+        }
+
+        impl PartialOrd<$ty> for $primitive {
+            #[inline]
+            fn partial_cmp(&self, other: &$ty) -> Option<Ordering> {
+                self.partial_cmp(&other.0)
             }
         }
 

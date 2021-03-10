@@ -658,7 +658,7 @@ impl Display {
                 // Compute IME position.
                 Point::new(size_info.screen_lines() + 1, Column(search_text.chars().count() - 1))
             },
-            None => cursor_point,
+            None => Point::new(LineOld(cursor_point.line.0 as usize), cursor_point.column),
         };
 
         // Update IME position.

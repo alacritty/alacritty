@@ -204,7 +204,7 @@ fn shrink_reflow() {
     grid[LineOld(0)][Column(3)] = cell('4');
     grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(true, LineOld(1), Column(2));
+    grid.resize(true, 1, Column(2));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -230,8 +230,8 @@ fn shrink_reflow_twice() {
     grid[LineOld(0)][Column(3)] = cell('4');
     grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(true, LineOld(1), Column(4));
-    grid.resize(true, LineOld(1), Column(2));
+    grid.resize(true, 1, Column(4));
+    grid.resize(true, 1, Column(2));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -257,7 +257,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     grid[LineOld(0)][Column(3)] = cell('4');
     grid[LineOld(0)][Column(4)] = Cell::default();
 
-    grid.resize(true, LineOld(1), Column(2));
+    grid.resize(true, 1, Column(2));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -269,7 +269,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     assert_eq!(grid[0][Column(0)], cell('3'));
     assert_eq!(grid[0][Column(1)], cell('4'));
 
-    grid.resize(true, LineOld(1), Column(1));
+    grid.resize(true, 1, Column(1));
 
     assert_eq!(grid.total_lines(), 4);
 
@@ -294,7 +294,7 @@ fn grow_reflow() {
     grid[LineOld(1)][Column(0)] = cell('3');
     grid[LineOld(1)][Column(1)] = Cell::default();
 
-    grid.resize(true, LineOld(2), Column(3));
+    grid.resize(true, 2, Column(3));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -320,7 +320,7 @@ fn grow_reflow_multiline() {
     grid[LineOld(2)][Column(0)] = cell('5');
     grid[LineOld(2)][Column(1)] = cell('6');
 
-    grid.resize(true, LineOld(3), Column(6));
+    grid.resize(true, 3, Column(6));
 
     assert_eq!(grid.total_lines(), 3);
 
@@ -349,7 +349,7 @@ fn grow_reflow_disabled() {
     grid[LineOld(1)][Column(0)] = cell('3');
     grid[LineOld(1)][Column(1)] = Cell::default();
 
-    grid.resize(false, LineOld(2), Column(3));
+    grid.resize(false, 2, Column(3));
 
     assert_eq!(grid.total_lines(), 2);
 
@@ -373,7 +373,7 @@ fn shrink_reflow_disabled() {
     grid[LineOld(0)][Column(3)] = cell('4');
     grid[LineOld(0)][Column(4)] = cell('5');
 
-    grid.resize(false, LineOld(1), Column(2));
+    grid.resize(false, 1, Column(2));
 
     assert_eq!(grid.total_lines(), 1);
 

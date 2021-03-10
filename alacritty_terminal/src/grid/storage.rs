@@ -74,29 +74,29 @@ impl<T> Storage<T> {
 
     /// Increase the number of lines in the buffer.
     #[inline]
-    pub fn grow_visible_lines(&mut self, next: LineOld)
+    pub fn grow_visible_lines(&mut self, next: usize)
     where
         T: Clone + Default,
     {
         // Number of lines the buffer needs to grow.
-        let growage = next - self.visible_lines;
+        let growage = next - self.visible_lines.0;
 
         let cols = self[0].len();
-        self.initialize(growage.0, Column(cols));
+        self.initialize(growage, Column(cols));
 
         // Update visible lines.
-        self.visible_lines = next;
+        self.visible_lines = LineOld(next);
     }
 
     /// Decrease the number of lines in the buffer.
     #[inline]
-    pub fn shrink_visible_lines(&mut self, next: LineOld) {
+    pub fn shrink_visible_lines(&mut self, next: usize) {
         // Shrink the size without removing any lines.
         let shrinkage = self.visible_lines - next;
         self.shrink_lines(shrinkage.0);
 
         // Update visible lines.
-        self.visible_lines = next;
+        self.visible_lines = LineOld(next);
     }
 
     /// Shrink the number of lines in the buffer.
@@ -414,7 +414,7 @@ mod tests {
         };
 
         // Grow buffer.
-        storage.grow_visible_lines(LineOld(4));
+        storage.grow_visible_lines(4);
 
         // Make sure the result is correct.
         let mut expected = Storage {
@@ -455,7 +455,7 @@ mod tests {
         };
 
         // Grow buffer.
-        storage.grow_visible_lines(LineOld(4));
+        storage.grow_visible_lines(4);
 
         // Make sure the result is correct.
         let mut expected = Storage {
@@ -493,7 +493,7 @@ mod tests {
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(LineOld(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {
@@ -529,7 +529,7 @@ mod tests {
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(LineOld(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {
@@ -578,7 +578,7 @@ mod tests {
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(LineOld(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {

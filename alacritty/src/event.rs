@@ -1410,7 +1410,7 @@ impl<N: Notify + OnResize> Processor<N> {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
         let vi_mode = terminal.mode().contains(TermMode::VI);
-        let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
+        let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines.0 as isize;
         let origin_at_bottom = if vi_mode {
             terminal.vi_mode_cursor.point.line == num_lines - 1
         } else {
