@@ -30,6 +30,7 @@ dependencies = [
  "glutin",
  "libc",
  "log",
+ "memoffset",
  "notify",
  "objc",
  "parking_lot",
@@ -982,6 +983,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b70ca2a6103ac8b665dc150b142ef0e4e89df640c9e6cf295d189c3caebe5a"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "memoffset"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "157b4208e3059a8f9e78d559edc658e13df41410cb3ae03979c83130067fdd87"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]

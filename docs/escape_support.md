@@ -102,3 +102,4 @@ brevity.
 | ESCAPE    | STATUS      | NOTE                                               |
 | --------- | ----------- | -------------------------------------------------- |
 | `DCS = s` | IMPLEMENTED |                                                    |
+| `DCS q`   | IMPLEMENTED |                                                    |

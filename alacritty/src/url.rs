@@ -202,6 +202,7 @@ mod tests {
             .map(|(i, character)| RenderableCell {
                 character,
                 zerowidth: None,
+                graphic: None,
                 point: Point::new(Line(0), Column(i)),
                 fg: Default::default(),
                 bg: Default::default(),
