@@ -32,7 +32,7 @@ use crossfont::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, LineOld, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -255,8 +255,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Move vi cursor and expand selection.
         if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
-            self.terminal.vi_mode_cursor.point =
-                Point::new(LineOld(point.line.0 as usize), point.column);
+            self.terminal.vi_mode_cursor.point = point;
             selection.include_all();
         }
 
@@ -748,8 +747,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let mut origin = self.search_state.origin;
         origin.line = min(origin.line, Line(self.terminal.screen_lines().0 as isize - 1));
         origin.column = min(origin.column, self.terminal.cols() - 1);
-        self.terminal.vi_mode_cursor.point =
-            Point::new(LineOld(origin.line.0 as usize), origin.column);
+        self.terminal.vi_mode_cursor.point = origin;
 
         *self.dirty = true;
     }
@@ -815,9 +813,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Move vi cursor down if resize will pull content from history.
         if self.terminal.history_size() != 0
             && self.terminal.grid().display_offset() == 0
-            && self.terminal.screen_lines() > self.terminal.vi_mode_cursor.point.line + 1
+            && self.terminal.screen_lines().0 as isize > self.terminal.vi_mode_cursor.point.line + 1isize
         {
-            self.terminal.vi_mode_cursor.point.line += 1;
+            self.terminal.vi_mode_cursor.point.line += 1isize;
         }
 
         self.display_update_pending.dirty = true;
@@ -1408,7 +1406,7 @@ impl<N: Notify + OnResize> Processor<N> {
         let vi_mode = terminal.mode().contains(TermMode::VI);
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines.0 as isize;
         let origin_at_bottom = if vi_mode {
-            terminal.vi_mode_cursor.point.line == num_lines - 1
+            terminal.vi_mode_cursor.point.line == num_lines.0 as isize - 1
         } else {
             self.search_state.direction == Direction::Left
         };
@@ -1440,7 +1438,7 @@ impl<N: Notify + OnResize> Processor<N> {
             && vi_mode
         {
             // Pull down the vi cursor if it was moved up when the search was started.
-            terminal.vi_mode_cursor.point.line += 1;
+            terminal.vi_mode_cursor.point.line += 1isize;
         }
     }
 

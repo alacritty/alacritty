@@ -577,8 +577,8 @@ impl Display {
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = size_info.screen_lines() + display_offset - vi_point.line - 1;
-            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line.0);
+            let line = size_info.screen_lines().0 + display_offset - vi_point.line.0 as usize - 1;
+            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
         } else if search_active {
             // Show current display offset in vi-less search to indicate match position.
             self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
@@ -762,7 +762,7 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         total_lines: usize,
-        vi_mode_point: Option<Point>,
+        vi_mode_point: Option<Point<Line>>,
         line: usize,
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);
@@ -772,7 +772,7 @@ impl Display {
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.column < column) {
+        if vi_mode_point.map_or(true, |point| point.line != 0isize || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);

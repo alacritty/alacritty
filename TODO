@@ -1,3 +1,4 @@
  - A lot of `+ 1isize` and shit, is there any way we can implement Eq/Ord/Add/Sub stuff without confusing the compiler here?
+    -> Implement i32?
  - Implement Eq/Ord with usize?
  - Create a Point::new(usize, _) -> Point<Line>?

@@ -22,7 +22,7 @@ use glutin::window::CursorIcon;
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, LineOld, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
@@ -180,7 +180,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
-                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
@@ -194,7 +194,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
-                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
@@ -208,7 +208,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchStart) => {
                 let terminal = ctx.terminal();
                 let origin = terminal
-                    .visible_to_buffer(terminal.vi_mode_cursor.point)
+                    .grid()
+                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
                     .sub_absolute(terminal, Boundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
@@ -219,7 +220,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchEnd) => {
                 let terminal = ctx.terminal();
                 let origin = terminal
-                    .visible_to_buffer(terminal.vi_mode_cursor.point)
+                    .grid()
+                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
                     .add_absolute(terminal, Boundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
@@ -308,9 +310,9 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move vi mode cursor.
                 let term = ctx.terminal();
                 if term.grid().display_offset() != term.history_size()
-                    && term.vi_mode_cursor.point.line + 1 != term.screen_lines()
+                    && term.vi_mode_cursor.point.line + 1isize != term.screen_lines().0 as isize
                 {
-                    ctx.terminal_mut().vi_mode_cursor.point.line += 1;
+                    ctx.terminal_mut().vi_mode_cursor.point.line += 1isize;
                 }
 
                 ctx.scroll(Scroll::Delta(1));
@@ -320,7 +322,7 @@ impl<T: EventListener> Execute<T> for Action {
                 if ctx.terminal().grid().display_offset() != 0
                     && ctx.terminal().vi_mode_cursor.point.line.0 != 0
                 {
-                    ctx.terminal_mut().vi_mode_cursor.point.line -= 1;
+                    ctx.terminal_mut().vi_mode_cursor.point.line -= 1isize;
                 }
 
                 ctx.scroll(Scroll::Delta(-1));
@@ -329,7 +331,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Top);
 
                 // Move vi mode cursor.
-                ctx.terminal_mut().vi_mode_cursor.point.line = LineOld(0);
+                ctx.terminal_mut().vi_mode_cursor.point.line = Line(0);
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
             },
@@ -338,7 +340,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                term.vi_mode_cursor.point.line = term.screen_lines() - 1;
+                term.vi_mode_cursor.point.line = Line(term.screen_lines().0 as isize - 1);
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
@@ -636,8 +638,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
-            let vi_point = Point::new(LineOld(point.line.0 as usize), point.column);
-            self.ctx.terminal_mut().vi_mode_cursor.point = vi_point;
+            self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
 
@@ -672,8 +673,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
-            let vi_point = Point::new(LineOld(point.line.0 as usize), point.column);
-            self.ctx.terminal_mut().vi_mode_cursor.point = vi_point;
+            self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
 
@@ -757,13 +757,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Store absolute position of vi mode cursor.
             let term = self.ctx.terminal();
-            let absolute = term.visible_to_buffer(term.vi_mode_cursor.point);
+            let absolute = term.grid().visible_to_buffer_new(term.vi_mode_cursor.point);
 
             self.ctx.scroll(Scroll::Delta(lines as isize));
 
             // Try to restore vi mode cursor position, to keep it above its previous content.
             let term = self.ctx.terminal_mut();
-            term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible(absolute);
+            term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible_new(absolute);
             term.vi_mode_cursor.point.column = absolute.column;
 
             // Update selection.

@@ -517,7 +517,7 @@ impl<T> Term<T> {
 
         // Clamp vi cursor to viewport.
         self.vi_mode_cursor.point.column = min(self.vi_mode_cursor.point.column, num_cols - 1);
-        self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, num_lines - 1);
+        self.vi_mode_cursor.point.line = min(self.vi_mode_cursor.point.line, Line(num_lines.0 as isize - 1));
 
         // Reset scrolling region.
         self.scroll_region = Line(0)..Line(self.screen_lines().0 as isize);
@@ -650,10 +650,8 @@ impl<T> Term<T> {
 
         if self.mode.contains(TermMode::VI) {
             // Reset vi mode cursor position to match primary cursor.
-            let cursor = self.grid.cursor.point;
-            let cursor_line = LineOld(cursor.line.0 as usize);
-            let line = min(cursor_line + self.grid.display_offset(), self.screen_lines() - 1);
-            self.vi_mode_cursor = ViModeCursor::new(Point::new(line, cursor.column));
+            // TODO: Add display offset?
+            self.vi_mode_cursor = ViModeCursor::new(self.grid.cursor.point);
         }
 
         // Update UI about cursor blinking state changes.
@@ -686,7 +684,7 @@ impl<T> Term<T> {
         self.scroll_to_point(point);
 
         // Move vi cursor to the point.
-        self.vi_mode_cursor.point = self.grid.clamp_buffer_to_visible(point);
+        self.vi_mode_cursor.point = self.grid.clamp_buffer_to_visible_new(point);
 
         self.vi_mode_recompute_selection();
     }
@@ -699,7 +697,7 @@ impl<T> Term<T> {
             return;
         }
 
-        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
+        let viewport_point = self.grid.visible_to_buffer_new(self.vi_mode_cursor.point);
 
         // Update only if non-empty selection is present.
         let selection = match &mut self.selection {
