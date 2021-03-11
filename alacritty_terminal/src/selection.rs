@@ -11,7 +11,7 @@ use std::ops::{Bound, Range, RangeBounds};
 
 use crate::ansi::CursorShape;
 use crate::grid::{Dimensions, GridCell, Indexed};
-use crate::index::{Column, LineOld, Point, Side};
+use crate::index::{Column, Line, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::{RenderableCursor, Term};
 
@@ -45,9 +45,9 @@ impl<L> SelectionRange<L> {
     }
 }
 
-impl SelectionRange<LineOld> {
+impl SelectionRange<Line> {
     /// Check if a point lies within the selection.
-    pub fn contains(&self, point: Point) -> bool {
+    pub fn contains(&self, point: Point<Line>) -> bool {
         self.start.line <= point.line
             && self.end.line >= point.line
             && (self.start.column <= point.column
@@ -56,11 +56,7 @@ impl SelectionRange<LineOld> {
     }
 
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell(
-        &self,
-        indexed: &Indexed<&Cell, LineOld>,
-        cursor: RenderableCursor,
-    ) -> bool {
+    pub fn contains_cell(&self, indexed: &Indexed<&Cell, Line>, cursor: RenderableCursor) -> bool {
         // Do not invert block cursor at selection boundaries.
         if cursor.shape == CursorShape::Block
             && cursor.point == indexed.point

@@ -14,7 +14,7 @@ use fnv::FnvHasher;
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::index::Point;
+use alacritty_terminal::index::{Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
@@ -830,7 +830,7 @@ impl<'a> RenderApi<'a> {
     pub fn render_string(
         &mut self,
         glyph_cache: &mut GlyphCache,
-        point: Point,
+        point: Point<Line>,
         fg: Rgb,
         bg: Rgb,
         string: &str,

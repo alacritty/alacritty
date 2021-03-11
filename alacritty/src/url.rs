@@ -5,7 +5,7 @@ use crossfont::Metrics;
 use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
-use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
@@ -37,20 +37,20 @@ impl Url {
             .collect()
     }
 
-    pub fn start(&self) -> Point {
+    pub fn start(&self) -> Point<Line> {
         self.lines[0].start
     }
 
-    pub fn end(&self) -> Point {
-        self.lines[self.lines.len() - 1].end.sub(self.num_cols, self.end_offset as usize)
+    pub fn end(&self) -> Point<Line> {
+        self.lines[self.lines.len() - 1].end.sub_new(self.num_cols, self.end_offset as usize)
     }
 }
 
 pub struct Urls {
     locator: UrlLocator,
     urls: Vec<Url>,
-    scheme_buffer: Vec<(Point, Rgb)>,
-    last_point: Option<Point>,
+    scheme_buffer: Vec<(Point<Line>, Rgb)>,
+    last_point: Option<Point<Line>>,
     state: UrlLocation,
 }
 
@@ -82,7 +82,7 @@ impl Urls {
         }
 
         // Reset URL when empty cells have been skipped.
-        if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
+        if point != Point::default() && Some(point.sub_new(num_cols, 1)) != self.last_point {
             self.reset();
         }
 
@@ -131,7 +131,7 @@ impl Urls {
     }
 
     /// Extend the last URL.
-    fn extend_url(&mut self, start: Point, end: Point, color: Rgb, end_offset: u16) {
+    fn extend_url(&mut self, start: Point<Line>, end: Point<Line>, color: Rgb, end_offset: u16) {
         let url = self.urls.last_mut().unwrap();
 
         // If color changed, we need to insert a new line.
@@ -174,7 +174,7 @@ impl Urls {
     }
 
     /// Find URL at location.
-    pub fn find_at(&self, point: Point) -> Option<Url> {
+    pub fn find_at(&self, point: Point<Line>) -> Option<Url> {
         for url in &self.urls {
             if (url.start()..=url.end()).contains(&point) {
                 return Some(url.clone());
@@ -194,7 +194,7 @@ impl Urls {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::index::{Column, LineOld};
+    use alacritty_terminal::index::{Column, Line};
 
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
         text.chars()
@@ -202,7 +202,7 @@ mod tests {
             .map(|(i, character)| RenderableCell {
                 character,
                 zerowidth: None,
-                point: Point::new(LineOld(0), Column(i)),
+                point: Point::new(Line(0), Column(i)),
                 fg: Default::default(),
                 bg: Default::default(),
                 bg_alpha: 0.,

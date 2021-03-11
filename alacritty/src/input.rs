@@ -22,7 +22,7 @@ use glutin::window::CursorIcon;
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, LineOld, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, LineOld, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
@@ -64,14 +64,13 @@ pub trait ActionContext<T: EventListener> {
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
-    fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
-    fn update_selection(&mut self, _point: Point, _side: Side) {}
+    fn start_selection(&mut self, _ty: SelectionType, _point: Point<Line>, _side: Side) {}
+    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point<Line>, _side: Side) {}
+    fn update_selection(&mut self, _point: Point<Line>, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
-    fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
@@ -121,8 +120,9 @@ impl Action {
         A: ActionContext<T>,
         T: EventListener,
     {
-        let cursor_point = ctx.terminal().vi_mode_cursor.point;
-        ctx.toggle_selection(ty, cursor_point, Side::Left);
+        let vi_point = ctx.terminal().vi_mode_cursor.point;
+        let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
+        ctx.toggle_selection(ty, point, Side::Left);
 
         // Make sure initial selection is not empty.
         if let Some(selection) = &mut ctx.terminal_mut().selection {
@@ -171,7 +171,9 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
-                if let Some(url) = ctx.urls().find_at(ctx.terminal().vi_mode_cursor.point) {
+                let vi_point = ctx.terminal().vi_mode_cursor.point;
+                let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
+                if let Some(url) = ctx.urls().find_at(point) {
                     ctx.launch_url(url);
                 }
             },
@@ -445,7 +447,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         {
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
-            && point.line < self.ctx.terminal().screen_lines()
+            && point.line < self.ctx.terminal().screen_lines().0 as isize
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -488,7 +490,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let max_point = if utf8 { 2015 } else { 223 };
 
-        if line >= LineOld(max_point) || column >= Column(max_point) {
+        if line >= max_point as isize || column >= Column(max_point) {
             return;
         }
 
@@ -507,8 +509,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             msg.push(32 + 1 + column.0 as u8);
         }
 
-        if utf8 && line >= LineOld(95) {
-            msg.append(&mut mouse_pos_encode(line.0));
+        if utf8 && line >= 95 {
+            msg.append(&mut mouse_pos_encode(line.0 as usize));
         } else {
             msg.push(32 + 1 + line.0 as u8);
         }
@@ -523,7 +525,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             ElementState::Released => 'm',
         };
 
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
+        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1isize, c);
         self.ctx.write_to_pty(msg.into_bytes());
     }
 
@@ -591,7 +593,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             // Load mouse point, treating message bar and padding as the closest cell.
             let mouse = self.ctx.mouse();
             let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
-            point.line = min(point.line, self.ctx.terminal().screen_lines() - 1);
+            point.line = min(point.line, Line(self.ctx.terminal().screen_lines().0 as isize - 1));
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -603,7 +605,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Handle selection expansion on right click.
-    fn on_right_click(&mut self, point: Point) {
+    fn on_right_click(&mut self, point: Point<Line>) {
         match self.ctx.mouse().click_state {
             ClickState::Click => {
                 let selection_type = if self.ctx.modifiers().ctrl() {
@@ -621,7 +623,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Expand existing selection.
-    fn expand_selection(&mut self, point: Point, selection_type: SelectionType) {
+    fn expand_selection(&mut self, point: Point<Line>, selection_type: SelectionType) {
         let cell_side = self.ctx.mouse().cell_side;
 
         let selection = match &mut self.ctx.terminal_mut().selection {
@@ -634,12 +636,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
-            self.ctx.terminal_mut().vi_mode_cursor.point = point;
+            let vi_point = Point::new(LineOld(point.line.0 as usize), point.column);
+            self.ctx.terminal_mut().vi_mode_cursor.point = vi_point;
         }
     }
 
     /// Handle left click selection and vi mode cursor movement.
-    fn on_left_click(&mut self, point: Point) {
+    fn on_left_click(&mut self, point: Point<Line>) {
         let side = self.ctx.mouse().cell_side;
 
         match self.ctx.mouse().click_state {
@@ -669,7 +672,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
-            self.ctx.terminal_mut().vi_mode_cursor.point = point;
+            let vi_point = Point::new(LineOld(point.line.0 as usize), point.column);
+            self.ctx.terminal_mut().vi_mode_cursor.point = vi_point;
         }
     }
 
@@ -764,8 +768,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Update selection.
             if term.mode().contains(TermMode::VI) {
-                let point = term.vi_mode_cursor.point;
+                let vi_point = term.vi_mode_cursor.point;
                 if !self.ctx.selection_is_empty() {
+                    let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
                     self.ctx.update_selection(point, Side::Right);
                 }
             }
@@ -1153,17 +1158,6 @@ mod tests {
 
         fn scroll(&mut self, scroll: Scroll) {
             self.terminal.scroll_display(scroll);
-        }
-
-        fn mouse_coords(&self) -> Option<Point> {
-            let x = self.mouse.x as usize;
-            let y = self.mouse.y as usize;
-
-            if self.size_info.contains_point(x, y) {
-                Some(self.size_info.pixels_to_coords(x, y))
-            } else {
-                None
-            }
         }
 
         fn mouse_mode(&self) -> bool {

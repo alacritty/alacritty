@@ -174,6 +174,20 @@ impl Ord for Point {
     }
 }
 
+impl PartialOrd for Point<Line> {
+    fn partial_cmp(&self, other: &Point<Line>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Point<Line> {
+    fn cmp(&self, other: &Point<Line>) -> Ordering {
+        match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
+            (Ordering::Equal, ord) | (ord, _) => ord,
+        }
+    }
+}
+
 impl PartialOrd for Point<usize> {
     fn partial_cmp(&self, other: &Point<usize>) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -199,6 +213,12 @@ impl From<Point<usize>> for Point<isize> {
 impl From<Point<usize>> for Point<LineOld> {
     fn from(point: Point<usize>) -> Self {
         Point::new(LineOld(point.line), point.column)
+    }
+}
+
+impl From<Point<usize>> for Point<Line> {
+    fn from(point: Point<usize>) -> Self {
+        Point::new(Line(point.line as isize), point.column)
     }
 }
 

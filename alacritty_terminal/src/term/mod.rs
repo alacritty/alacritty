@@ -157,13 +157,13 @@ impl SizeInfo {
     ///
     /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
     /// coordinates will be clamped to the closest grid coordinates.
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
-        let col = Column(x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize));
-        let line = LineOld(y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize));
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point<Line> {
+        let col = x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize);
+        let line = y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize);
 
         Point {
-            line: min(line, LineOld(self.screen_lines.saturating_sub(1))),
-            column: min(col, Column(self.cols.saturating_sub(1))),
+            line: min(Line(line as isize), Line(self.screen_lines.0 as isize - 1)),
+            column: min(Column(col), Column(self.cols.0 - 1)),
         }
     }
 
@@ -548,7 +548,7 @@ impl<T> Term<T> {
     }
 
     /// Get the selection within the viewport.
-    fn visible_selection(&self) -> Option<SelectionRange<LineOld>> {
+    fn visible_selection(&self) -> Option<SelectionRange<Line>> {
         let selection = self.selection.as_ref()?.to_range(self)?;
 
         // Set horizontal limits for block selection.
@@ -1818,7 +1818,7 @@ impl IndexMut<Column> for TabStops {
 #[derive(Copy, Clone)]
 pub struct RenderableCursor {
     pub shape: CursorShape,
-    pub point: Point,
+    pub point: Point<Line>,
 }
 
 impl RenderableCursor {
@@ -1826,17 +1826,19 @@ impl RenderableCursor {
         // Cursor position.
         let vi_mode = term.mode().contains(TermMode::VI);
         let mut point = if vi_mode {
-            term.vi_mode_cursor.point
+            let point = term.vi_mode_cursor.point;
+            Point::new(Line(point.line.0 as isize), point.column)
         } else {
             let point = term.grid.cursor.point;
-            Point::new(LineOld(point.line.0 as usize + term.grid.display_offset()), point.column)
+            Point::new(point.line + term.grid.display_offset(), point.column)
         };
 
         // Cursor shape.
         let shape = if !vi_mode
-            && (!term.mode().contains(TermMode::SHOW_CURSOR) || point.line >= term.screen_lines())
+            && (!term.mode().contains(TermMode::SHOW_CURSOR)
+                || point.line >= term.screen_lines().0 as isize)
         {
-            point.line = LineOld(0);
+            point.line = Line(0);
             CursorShape::Hidden
         } else {
             term.cursor_style().shape
@@ -1851,7 +1853,7 @@ impl RenderableCursor {
 /// This contains all content required to render the current terminal view.
 pub struct RenderableContent<'a> {
     pub display_iter: DisplayIter<'a, Cell>,
-    pub selection: Option<SelectionRange<LineOld>>,
+    pub selection: Option<SelectionRange<Line>>,
     pub cursor: RenderableCursor,
     pub display_offset: usize,
     pub colors: &'a color::Colors,

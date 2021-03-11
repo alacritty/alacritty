@@ -3,7 +3,7 @@ use std::mem;
 
 use crossfont::Metrics;
 
-use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
@@ -31,8 +31,8 @@ impl RenderRect {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RenderLine {
-    pub start: Point,
-    pub end: Point,
+    pub start: Point<Line>,
+    pub end: Point<Line>,
     pub color: Rgb,
 }
 
@@ -44,7 +44,7 @@ impl RenderLine {
         while start.line < self.end.line {
             let end = Point::new(start.line, size.cols() - 1);
             Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
-            start = Point::new(start.line + 1, Column(0));
+            start = Point::new(start.line + 1isize, Column(0));
         }
         Self::push_rects(&mut rects, metrics, size, flag, start, self.end, self.color);
 
@@ -57,8 +57,8 @@ impl RenderLine {
         metrics: &Metrics,
         size: &SizeInfo,
         flag: Flags,
-        start: Point,
-        end: Point,
+        start: Point<Line>,
+        end: Point<Line>,
         color: Rgb,
     ) {
         let (position, thickness) = match flag {
@@ -99,8 +99,8 @@ impl RenderLine {
     fn create_rect(
         size: &SizeInfo,
         descent: f32,
-        start: Point,
-        end: Point,
+        start: Point<Line>,
+        end: Point<Line>,
         position: f32,
         mut thickness: f32,
         color: Rgb,

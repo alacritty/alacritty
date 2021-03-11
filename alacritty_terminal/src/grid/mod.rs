@@ -385,6 +385,18 @@ impl<T> Grid<T> {
         }
     }
 
+    /// Clamp a buffer point to the visible region.
+    pub fn clamp_buffer_to_visible_new(&self, point: Point<usize>) -> Point<Line> {
+        if point.line < self.display_offset {
+            Point::new(Line(self.lines.0 as isize - 1), self.cols - 1)
+        } else if point.line >= self.display_offset + self.lines.0 {
+            Point::new(Line(0), Column(0))
+        } else {
+            // Since edgecases are handled, conversion is identical as visible to buffer.
+            self.visible_to_buffer(point.into()).into()
+        }
+    }
+
     // Clamp a buffer point based range to the viewport.
     //
     // This will make sure the content within the range is visible and return `None` whenever the
@@ -392,7 +404,7 @@ impl<T> Grid<T> {
     pub fn clamp_buffer_range_to_visible(
         &self,
         range: &RangeInclusive<Point<usize>>,
-    ) -> Option<RangeInclusive<Point>> {
+    ) -> Option<RangeInclusive<Point<Line>>> {
         let start = range.start();
         let end = range.end();
 
@@ -403,8 +415,8 @@ impl<T> Grid<T> {
             return None;
         }
 
-        let start = self.clamp_buffer_to_visible(*start);
-        let end = self.clamp_buffer_to_visible(*end);
+        let start = self.clamp_buffer_to_visible_new(*start);
+        let end = self.clamp_buffer_to_visible_new(*end);
 
         Some(start..=end)
     }
@@ -413,6 +425,15 @@ impl<T> Grid<T> {
     #[inline]
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, column: point.column }
+    }
+
+    /// Convert viewport relative point to global buffer indexing.
+    #[inline]
+    pub fn visible_to_buffer_new(&self, point: Point<Line>) -> Point<usize> {
+        Point {
+            line: self.lines.0 + self.display_offset - point.line.0 as usize - 1,
+            column: point.column,
+        }
     }
 
     #[inline]
@@ -459,7 +480,7 @@ impl<T> Grid<T> {
         let take_while: DisplayIterTakeFun<'_, T> =
             Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
         let map: DisplayIterMapFun<'_, T> = Box::new(move |indexed: Indexed<&T>| {
-            let line = LineOld(lines + display_offset - indexed.point.line - 1);
+            let line = Line((lines + display_offset - indexed.point.line - 1) as isize);
             Indexed { point: Point::new(line, indexed.point.column), cell: indexed.cell }
         });
         iter.take_while(take_while).map(map)
@@ -698,4 +719,4 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
 pub type DisplayIter<'a, T> =
     Map<TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>, DisplayIterMapFun<'a, T>>;
 type DisplayIterTakeFun<'a, T> = Box<dyn Fn(&Indexed<&'a T>) -> bool>;
-type DisplayIterMapFun<'a, T> = Box<dyn FnMut(Indexed<&'a T>) -> Indexed<&'a T, LineOld>>;
+type DisplayIterMapFun<'a, T> = Box<dyn FnMut(Indexed<&'a T>) -> Indexed<&'a T, Line>>;

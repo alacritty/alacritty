@@ -25,7 +25,7 @@ use crossfont::{self, Rasterize, Rasterizer};
 use alacritty_terminal::ansi::NamedColor;
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
-use alacritty_terminal::index::{Column, Direction, LineOld, Point};
+use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
 
@@ -570,14 +570,15 @@ impl Display {
 
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Highlight URLs at the vi mode cursor position.
-            let vi_mode_point = vi_mode_cursor.point;
-            if let Some(url) = self.urls.find_at(vi_mode_point) {
+            let vi_point = vi_mode_cursor.point;
+            let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
+            if let Some(url) = self.urls.find_at(point) {
                 rects.append(&mut url.rects(&metrics, &size_info));
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = size_info.screen_lines() + display_offset - vi_mode_point.line - 1;
-            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_mode_point), line.0);
+            let line = size_info.screen_lines() + display_offset - vi_point.line - 1;
+            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line.0);
         } else if search_active {
             // Show current display offset in vi-less search to indicate match position.
             self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
@@ -609,7 +610,7 @@ impl Display {
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
-            let start_line = size_info.screen_lines() + search_offset;
+            let start_line = Line(size_info.screen_lines().0 as isize + search_offset);
             let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
 
             let bg = match message.ty() {
@@ -656,9 +657,10 @@ impl Display {
                 self.draw_search(config, &size_info, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.screen_lines() + 1, Column(search_text.chars().count() - 1))
+                let line = Line(size_info.screen_lines().0 as isize + 1);
+                Point::new(line, Column(search_text.chars().count() - 1))
             },
-            None => Point::new(LineOld(cursor_point.line.0 as usize), cursor_point.column),
+            None => cursor_point,
         };
 
         // Update IME position.
@@ -727,7 +729,7 @@ impl Display {
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
 
-        let point = Point::new(size_info.screen_lines(), Column(0));
+        let point = Point::new(Line(size_info.screen_lines().0 as isize), Column(0));
         let fg = config.ui_config.colors.search_bar_foreground();
         let bg = config.ui_config.colors.search_bar_background();
 
@@ -745,7 +747,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(size_info.screen_lines() - 2, Column(0));
+        let point = Point::new(Line(size_info.screen_lines().0 as isize - 2), Column(0));
         let fg = config.ui_config.colors.primary.background;
         let bg = config.ui_config.colors.normal.red;
 
@@ -773,7 +775,7 @@ impl Display {
         if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(LineOld(0), column), fg, bg, &text);
+                api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);
             });
         }
     }
@@ -823,7 +825,7 @@ fn window_size(
     let padding = config.ui_config.window.padding(dpr);
 
     let grid_width = cell_width * dimensions.columns.0.max(MIN_COLS) as f32;
-    let grid_height = cell_height * dimensions.lines.0.max(MIN_SCREEN_LINES) as f32;
+    let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor();
     let height = (padding.1).mul_add(2., grid_height).floor();
