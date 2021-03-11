@@ -180,7 +180,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
-                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.grid().visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
@@ -194,7 +194,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
-                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.grid().visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, Boundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, Boundary::Wrap, 1),
@@ -209,7 +209,7 @@ impl<T: EventListener> Execute<T> for Action {
                 let terminal = ctx.terminal();
                 let origin = terminal
                     .grid()
-                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
+                    .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .sub_absolute(terminal, Boundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
@@ -221,7 +221,7 @@ impl<T: EventListener> Execute<T> for Action {
                 let terminal = ctx.terminal();
                 let origin = terminal
                     .grid()
-                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
+                    .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .add_absolute(terminal, Boundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
@@ -277,7 +277,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines().0 as isize;
+                let scroll_lines = term.screen_lines() as isize;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
@@ -285,7 +285,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines().0 as isize);
+                let scroll_lines = -(term.screen_lines() as isize);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
@@ -293,7 +293,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines().0 as isize / 2;
+                let scroll_lines = term.screen_lines() as isize / 2;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -301,7 +301,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines().0 as isize / 2);
+                let scroll_lines = -(term.screen_lines() as isize / 2);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -310,7 +310,7 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move vi mode cursor.
                 let term = ctx.terminal();
                 if term.grid().display_offset() != term.history_size()
-                    && term.vi_mode_cursor.point.line + 1isize != term.screen_lines().0 as isize
+                    && term.vi_mode_cursor.point.line + 1isize != term.screen_lines() as isize
                 {
                     ctx.terminal_mut().vi_mode_cursor.point.line += 1isize;
                 }
@@ -340,7 +340,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                term.vi_mode_cursor.point.line = Line(term.screen_lines().0 as isize - 1);
+                term.vi_mode_cursor.point.line = Line(term.screen_lines() as isize - 1);
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
@@ -449,7 +449,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         {
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
-            && point.line < self.ctx.terminal().screen_lines().0 as isize
+            && point.line < self.ctx.terminal().screen_lines() as isize
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -595,7 +595,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             // Load mouse point, treating message bar and padding as the closest cell.
             let mouse = self.ctx.mouse();
             let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
-            point.line = min(point.line, Line(self.ctx.terminal().screen_lines().0 as isize - 1));
+            point.line = min(point.line, Line(self.ctx.terminal().screen_lines() as isize - 1));
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -757,13 +757,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Store absolute position of vi mode cursor.
             let term = self.ctx.terminal();
-            let absolute = term.grid().visible_to_buffer_new(term.vi_mode_cursor.point);
+            let absolute = term.grid().visible_to_buffer(term.vi_mode_cursor.point);
 
             self.ctx.scroll(Scroll::Delta(lines as isize));
 
             // Try to restore vi mode cursor position, to keep it above its previous content.
             let term = self.ctx.terminal_mut();
-            term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible_new(absolute);
+            term.vi_mode_cursor.point = term.grid().clamp_buffer_to_visible(absolute);
             term.vi_mode_cursor.point.column = absolute.column;
 
             // Update selection.
@@ -982,7 +982,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // Calculate Y position of the end of the last terminal line.
         let size = self.ctx.size_info();
         let terminal_end = size.padding_y() as usize
-            + size.cell_height() as usize * (size.screen_lines().0 + search_height);
+            + size.cell_height() as usize * (size.screen_lines() + search_height);
 
         let mouse = self.ctx.mouse();
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
@@ -1060,7 +1060,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Compute the height of the scrolling areas.
         let end_top = max(min_height, size.padding_y() as i32);
-        let text_area_bottom = size.padding_y() + size.screen_lines().0 as f32 * size.cell_height();
+        let text_area_bottom = size.padding_y() + size.screen_lines() as f32 * size.cell_height();
         let start_bottom = min(size.height() as i32 - min_height, text_area_bottom as i32);
 
         // Get distance from closest window boundary.

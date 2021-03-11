@@ -424,7 +424,7 @@ impl RegexMatches {
     /// Find all visible matches.
     pub fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
         let viewport_end = term.grid().display_offset();
-        let viewport_start = viewport_end + term.screen_lines().0 - 1;
+        let viewport_start = viewport_end + term.screen_lines() - 1;
 
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));
@@ -449,8 +449,8 @@ impl RegexMatches {
             .skip_while(move |rm| rm.end().line > viewport_start)
             .take_while(move |rm| rm.start().line >= viewport_end)
             .map(|rm| {
-                let viewport_start = term.grid().clamp_buffer_to_visible_new(*rm.start());
-                let viewport_end = term.grid().clamp_buffer_to_visible_new(*rm.end());
+                let viewport_start = term.grid().clamp_buffer_to_visible(*rm.start());
+                let viewport_end = term.grid().clamp_buffer_to_visible(*rm.end());
                 viewport_start..=viewport_end
             });
 

@@ -533,7 +533,7 @@ mod tests {
     fn add_absolute() {
         let point = Point::new(0, Column(13));
 
-        let result = point.add_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(1, Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.column + 1));
     }
@@ -542,7 +542,7 @@ mod tests {
     fn add_absolute_wrapline() {
         let point = Point::new(1, Column(41));
 
-        let result = point.add_absolute(&(LineOld(2), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(2, Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, Column(0)));
     }
@@ -551,7 +551,7 @@ mod tests {
     fn add_absolute_multiline_wrapline() {
         let point = Point::new(2, Column(9));
 
-        let result = point.add_absolute(&(LineOld(3), Column(10)), Boundary::Clamp, 11);
+        let result = point.add_absolute(&(3, Column(10)), Boundary::Clamp, 11);
 
         assert_eq!(result, Point::new(0, Column(0)));
     }
@@ -560,7 +560,7 @@ mod tests {
     fn add_absolute_clamp() {
         let point = Point::new(0, Column(41));
 
-        let result = point.add_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.add_absolute(&(1, Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, point);
     }
@@ -569,7 +569,7 @@ mod tests {
     fn add_absolute_wrap() {
         let point = Point::new(0, Column(41));
 
-        let result = point.add_absolute(&(LineOld(3), Column(42)), Boundary::Wrap, 1);
+        let result = point.add_absolute(&(3, Column(42)), Boundary::Wrap, 1);
 
         assert_eq!(result, Point::new(2, Column(0)));
     }
@@ -578,7 +578,7 @@ mod tests {
     fn add_absolute_multiline_wrap() {
         let point = Point::new(0, Column(9));
 
-        let result = point.add_absolute(&(LineOld(3), Column(10)), Boundary::Wrap, 11);
+        let result = point.add_absolute(&(3, Column(10)), Boundary::Wrap, 11);
 
         assert_eq!(result, Point::new(1, Column(0)));
     }
@@ -587,7 +587,7 @@ mod tests {
     fn sub_absolute() {
         let point = Point::new(0, Column(13));
 
-        let result = point.sub_absolute(&(LineOld(1), Column(42)), Boundary::Clamp, 1);
+        let result = point.sub_absolute(&(1, Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(0, point.column - 1));
     }
@@ -596,7 +596,7 @@ mod tests {
     fn sub_absolute_wrapline() {
         let point = Point::new(0, Column(0));
 
-        let result = point.sub_absolute(&(LineOld(2), Column(42)), Boundary::Clamp, 1);
+        let result = point.sub_absolute(&(2, Column(42)), Boundary::Clamp, 1);
 
         assert_eq!(result, Point::new(1, Column(41)));
     }
@@ -605,7 +605,7 @@ mod tests {
     fn sub_absolute_multiline_wrapline() {
         let point = Point::new(0, Column(0));
 
-        let result = point.sub_absolute(&(LineOld(3), Column(10)), Boundary::Clamp, 11);
+        let result = point.sub_absolute(&(3, Column(10)), Boundary::Clamp, 11);
 
         assert_eq!(result, Point::new(2, Column(9)));
     }
@@ -614,7 +614,7 @@ mod tests {
     fn sub_absolute_wrap() {
         let point = Point::new(2, Column(0));
 
-        let result = point.sub_absolute(&(LineOld(3), Column(42)), Boundary::Wrap, 1);
+        let result = point.sub_absolute(&(3, Column(42)), Boundary::Wrap, 1);
 
         assert_eq!(result, Point::new(0, Column(41)));
     }
@@ -623,7 +623,7 @@ mod tests {
     fn sub_absolute_multiline_wrap() {
         let point = Point::new(2, Column(0));
 
-        let result = point.sub_absolute(&(LineOld(3), Column(10)), Boundary::Wrap, 11);
+        let result = point.sub_absolute(&(3, Column(10)), Boundary::Wrap, 11);
 
         assert_eq!(result, Point::new(1, Column(9)));
     }

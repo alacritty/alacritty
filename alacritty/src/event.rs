@@ -247,10 +247,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         // Treat motion over message bar like motion over the last line.
-        point.line = min(point.line, Line(self.terminal.screen_lines().0 as isize - 1));
+        point.line = min(point.line, Line(self.terminal.screen_lines() as isize - 1));
 
         // Update selection.
-        let absolute_point = self.terminal.grid().visible_to_buffer_new(point);
+        let absolute_point = self.terminal.grid().visible_to_buffer(point);
         selection.update(absolute_point, side);
 
         // Move vi cursor and expand selection.
@@ -264,7 +264,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
-        let point = self.terminal.grid().visible_to_buffer_new(point);
+        let point = self.terminal.grid().visible_to_buffer(point);
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
     }
@@ -385,8 +385,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
             let mut args = launcher.args().to_vec();
-            let start = self.terminal.grid().visible_to_buffer_new(url.start());
-            let end = self.terminal.grid().visible_to_buffer_new(url.end());
+            let start = self.terminal.grid().visible_to_buffer(url.start());
+            let end = self.terminal.grid().visible_to_buffer(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
             start_daemon(launcher.program(), &args);
@@ -444,7 +444,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 Direction::Right => self.search_state.origin = Point::new(Line(0), Column(0)),
                 Direction::Left => {
                     self.search_state.origin =
-                        Point::new(Line(num_lines.0 as isize - 2), num_cols - 1);
+                        Point::new(Line(num_lines as isize - 2), num_cols - 1);
                 },
             }
         }
@@ -476,8 +476,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         } else if let Some(focused_match) = &self.search_state.focused_match {
             // Create a selection for the focused match.
-            let start = self.terminal.grid().clamp_buffer_to_visible_new(*focused_match.start());
-            let end = self.terminal.grid().clamp_buffer_to_visible_new(*focused_match.end());
+            let start = self.terminal.grid().clamp_buffer_to_visible(*focused_match.start());
+            let end = self.terminal.grid().clamp_buffer_to_visible(*focused_match.end());
             self.start_selection(SelectionType::Simple, start, Side::Left);
             self.update_selection(end, Side::Right);
         }
@@ -568,7 +568,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
             self.terminal.scroll_to_point(new_origin);
 
-            let origin_relative = self.terminal.grid().clamp_buffer_to_visible_new(new_origin);
+            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
             self.search_state.origin = origin_relative;
             self.search_state.display_offset_delta = 0;
         }
@@ -599,7 +599,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.display_offset_delta = new_display_offset - old_display_offset;
 
         // Store origin and scroll back to the match.
-        let origin_relative = self.terminal.grid().clamp_buffer_to_visible_new(new_origin);
+        let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
         self.terminal.scroll_display(Scroll::Delta(-self.search_state.display_offset_delta));
         self.search_state.origin = origin_relative;
     }
@@ -745,7 +745,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         // Reset vi mode cursor.
         let mut origin = self.search_state.origin;
-        origin.line = min(origin.line, Line(self.terminal.screen_lines().0 as isize - 1));
+        origin.line = min(origin.line, Line(self.terminal.screen_lines() as isize - 1));
         origin.column = min(origin.column, self.terminal.cols() - 1);
         self.terminal.vi_mode_cursor.point = origin;
 
@@ -813,7 +813,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Move vi cursor down if resize will pull content from history.
         if self.terminal.history_size() != 0
             && self.terminal.grid().display_offset() == 0
-            && self.terminal.screen_lines().0 as isize > self.terminal.vi_mode_cursor.point.line + 1isize
+            && self.terminal.screen_lines() as isize
+                > self.terminal.vi_mode_cursor.point.line + 1isize
         {
             self.terminal.vi_mode_cursor.point.line += 1isize;
         }
@@ -834,9 +835,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn absolute_origin(&self) -> Point<usize> {
         let mut relative_origin = self.search_state.origin;
         relative_origin.line =
-            min(relative_origin.line, Line(self.terminal.screen_lines().0 as isize - 1));
+            min(relative_origin.line, Line(self.terminal.screen_lines() as isize - 1));
         relative_origin.column = min(relative_origin.column, self.terminal.cols() - 1);
-        let mut origin = self.terminal.grid().visible_to_buffer_new(relative_origin);
+        let mut origin = self.terminal.grid().visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
     }
@@ -1404,9 +1405,9 @@ impl<N: Notify + OnResize> Processor<N> {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
         let vi_mode = terminal.mode().contains(TermMode::VI);
-        let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines.0 as isize;
+        let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines as isize;
         let origin_at_bottom = if vi_mode {
-            terminal.vi_mode_cursor.point.line == num_lines.0 as isize - 1
+            terminal.vi_mode_cursor.point.line == num_lines as isize - 1
         } else {
             self.search_state.direction == Direction::Left
         };

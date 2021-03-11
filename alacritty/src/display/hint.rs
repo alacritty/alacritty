@@ -118,8 +118,8 @@ impl HintState {
         if label.len() == 1 {
             // Get text for the hint's regex match.
             let hint_match = &self.matches[index];
-            let start = term.grid().visible_to_buffer_new(*hint_match.start());
-            let end = term.grid().visible_to_buffer_new(*hint_match.end());
+            let start = term.grid().visible_to_buffer(*hint_match.start());
+            let end = term.grid().visible_to_buffer(*hint_match.end());
             let text = term.bounds_to_string(start, end);
 
             // Append text as last argument and launch command.

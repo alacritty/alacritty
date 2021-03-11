@@ -69,7 +69,7 @@ impl ViModeCursor {
         let lines = term.screen_lines();
         let cols = term.cols();
 
-        let mut buffer_point = term.grid().visible_to_buffer_new(self.point);
+        let mut buffer_point = term.grid().visible_to_buffer(self.point);
 
         match motion {
             ViMotion::Up => {
@@ -111,12 +111,12 @@ impl ViModeCursor {
             ViMotion::Last => buffer_point = last(term, buffer_point),
             ViMotion::FirstOccupied => buffer_point = first_occupied(term, buffer_point),
             ViMotion::High => {
-                let line = display_offset + lines.0 - 1;
+                let line = display_offset + lines - 1;
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 buffer_point = Point::new(line, col);
             },
             ViMotion::Middle => {
-                let line = display_offset + lines.0 / 2;
+                let line = display_offset + lines / 2;
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 buffer_point = Point::new(line, col);
             },
@@ -155,7 +155,7 @@ impl ViModeCursor {
         }
 
         term.scroll_to_point(buffer_point);
-        self.point = term.grid().clamp_buffer_to_visible_new(buffer_point);
+        self.point = term.grid().clamp_buffer_to_visible(buffer_point);
 
         self
     }
@@ -175,10 +175,10 @@ impl ViModeCursor {
         // Clamp movement to within visible region.
         let mut line = self.point.line.0 as isize;
         line -= overscroll;
-        line = max(0, min(term.screen_lines().0 as isize - 1, line));
+        line = max(0, min(term.screen_lines() as isize - 1, line));
 
         // Find the first occupied cell after scrolling has been performed.
-        let buffer_point = term.grid().visible_to_buffer_new(self.point);
+        let buffer_point = term.grid().visible_to_buffer(self.point);
         let mut target_line = buffer_point.line as isize + lines;
         target_line = max(0, min(term.total_lines() as isize - 1, target_line));
         let col = first_occupied_in_line(term, target_line as usize).unwrap_or_default().column;

@@ -7,7 +7,7 @@ use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeInclusive
 use serde::{Deserialize, Serialize};
 
 use crate::ansi::{CharsetIndex, StandardCharset};
-use crate::index::{Column, Line, LineOld, Point};
+use crate::index::{Column, Line, Point};
 use crate::term::cell::{Flags, ResetDiscriminant};
 
 pub mod resize;
@@ -123,7 +123,7 @@ pub struct Grid<T> {
     cols: Column,
 
     /// Number of visible lines.
-    lines: LineOld,
+    lines: usize,
 
     /// Offset of displayed area.
     ///
@@ -137,7 +137,7 @@ pub struct Grid<T> {
 }
 
 impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
-    pub fn new(lines: LineOld, cols: Column, max_scroll_limit: usize) -> Grid<T> {
+    pub fn new(lines: usize, cols: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
             raw: Storage::with_capacity(lines, cols),
             max_scroll_limit,
@@ -165,8 +165,8 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 max((self.display_offset as isize) + count, 0isize) as usize,
                 self.history_size(),
             ),
-            Scroll::PageUp => min(self.display_offset + self.lines.0, self.history_size()),
-            Scroll::PageDown => self.display_offset.saturating_sub(self.lines.0),
+            Scroll::PageUp => min(self.display_offset + self.lines, self.history_size()),
+            Scroll::PageDown => self.display_offset.saturating_sub(self.lines),
             Scroll::Top => self.history_size(),
             Scroll::Bottom => 0,
         };
@@ -215,7 +215,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             //
             // We need to start from the top, to make sure the fixed lines aren't swapped with each
             // other.
-            let screen_lines = self.screen_lines().0 as isize;
+            let screen_lines = self.screen_lines() as isize;
             for i in (region.end.0..screen_lines).into_iter().map(Line::from) {
                 self.raw.swap(i, i - positions as isize);
             }
@@ -287,7 +287,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.raw.rotate(-(positions as isize));
 
         // Ensure all new lines are fully cleared.
-        let screen_lines = self.screen_lines().0;
+        let screen_lines = self.screen_lines();
         for i in ((screen_lines - positions)..screen_lines).into_iter().map(Line::from) {
             self.raw[i].reset(&self.cursor.template);
         }
@@ -307,22 +307,22 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         let end = Point { line: 0, column: self.cols() };
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
-            if !cell.is_empty() || cell.point.line >= *self.lines {
+            if !cell.is_empty() || cell.point.line >= self.lines {
                 break;
             }
         }
-        debug_assert!(iter.point.line <= *self.lines);
+        debug_assert!(iter.point.line <= self.lines);
         let positions = self.lines - iter.point.line;
-        let region = Line(0)..Line(self.screen_lines().0 as isize);
+        let region = Line(0)..Line(self.lines as isize);
 
         // Reset display offset.
         self.display_offset = 0;
 
         // Clear the viewport.
-        self.scroll_up(&region, positions.0);
+        self.scroll_up(&region, positions);
 
         // Reset rotated lines.
-        for i in positions.0..self.lines.0 {
+        for i in positions..self.lines {
             self.raw[i].reset(&self.cursor.template);
         }
     }
@@ -348,48 +348,36 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
 impl<T> Grid<T> {
     /// Reset a visible region within the grid.
-    pub fn reset_region<D, R: RangeBounds<LineOld>>(&mut self, bounds: R)
+    pub fn reset_region<D, R: RangeBounds<Line>>(&mut self, bounds: R)
     where
         T: ResetDiscriminant<D> + GridCell + Clone + Default,
         D: PartialEq,
     {
         let start = match bounds.start_bound() {
             Bound::Included(line) => *line,
-            Bound::Excluded(line) => *line + 1,
-            Bound::Unbounded => LineOld(0),
+            Bound::Excluded(line) => *line + 1isize,
+            Bound::Unbounded => Line(0),
         };
 
         let end = match bounds.end_bound() {
-            Bound::Included(line) => *line + 1,
+            Bound::Included(line) => *line + 1isize,
             Bound::Excluded(line) => *line,
-            Bound::Unbounded => self.screen_lines(),
+            Bound::Unbounded => Line(self.screen_lines() as isize),
         };
 
-        debug_assert!(start < self.screen_lines());
-        debug_assert!(end <= self.screen_lines());
+        debug_assert!(start < self.screen_lines() as isize);
+        debug_assert!(end <= self.screen_lines() as isize);
 
-        for row in start.0..end.0 {
-            self.raw[LineOld(row)].reset(&self.cursor.template);
+        for line in (start.0..end.0).into_iter().map(Line::from) {
+            self.raw[line].reset(&self.cursor.template);
         }
     }
 
     /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
+    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point<Line> {
         if point.line < self.display_offset {
-            Point::new(self.lines - 1, self.cols - 1)
-        } else if point.line >= self.display_offset + self.lines.0 {
-            Point::new(LineOld(0), Column(0))
-        } else {
-            // Since edgecases are handled, conversion is identical as visible to buffer.
-            self.visible_to_buffer(point.into()).into()
-        }
-    }
-
-    /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_visible_new(&self, point: Point<usize>) -> Point<Line> {
-        if point.line < self.display_offset {
-            Point::new(Line(self.lines.0 as isize - 1), self.cols - 1)
-        } else if point.line >= self.display_offset + self.lines.0 {
+            Point::new(Line(self.lines as isize - 1), self.cols - 1)
+        } else if point.line >= self.display_offset + self.lines {
             Point::new(Line(0), Column(0))
         } else {
             // Since edgecases are handled, conversion is identical as visible to buffer.
@@ -410,28 +398,22 @@ impl<T> Grid<T> {
 
         // Check if the range is completely offscreen
         let viewport_end = self.display_offset;
-        let viewport_start = viewport_end + self.lines.0 - 1;
+        let viewport_start = viewport_end + self.lines - 1;
         if end.line > viewport_start || start.line < viewport_end {
             return None;
         }
 
-        let start = self.clamp_buffer_to_visible_new(*start);
-        let end = self.clamp_buffer_to_visible_new(*end);
+        let start = self.clamp_buffer_to_visible(*start);
+        let end = self.clamp_buffer_to_visible(*end);
 
         Some(start..=end)
     }
 
     /// Convert viewport relative point to global buffer indexing.
     #[inline]
-    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        Point { line: self.lines.0 + self.display_offset - point.line.0 - 1, column: point.column }
-    }
-
-    /// Convert viewport relative point to global buffer indexing.
-    #[inline]
-    pub fn visible_to_buffer_new(&self, point: Point<Line>) -> Point<usize> {
+    pub fn visible_to_buffer(&self, point: Point<Line>) -> Point<usize> {
         Point {
-            line: self.lines.0 + self.display_offset - point.line.0 as usize - 1,
+            line: self.lines + self.display_offset - point.line.0 as usize - 1,
             column: point.column,
         }
     }
@@ -469,13 +451,13 @@ impl<T> Grid<T> {
     /// Iterator over all visible cells.
     #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(self.display_offset + self.lines.0, self.cols() - 1);
+        let start = Point::new(self.display_offset + self.lines, self.cols() - 1);
         let end = Point::new(self.display_offset, self.cols());
 
         let iter = GridIterator { grid: self, point: start };
 
         let display_offset = self.display_offset;
-        let lines = self.lines.0;
+        let lines = self.lines;
 
         let take_while: DisplayIterTakeFun<'_, T> =
             Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
@@ -505,22 +487,6 @@ impl<T: PartialEq> PartialEq for Grid<T> {
             && self.cols.eq(&other.cols)
             && self.lines.eq(&other.lines)
             && self.display_offset.eq(&other.display_offset)
-    }
-}
-
-impl<T> Index<LineOld> for Grid<T> {
-    type Output = Row<T>;
-
-    #[inline]
-    fn index(&self, index: LineOld) -> &Row<T> {
-        &self.raw[index]
-    }
-}
-
-impl<T> IndexMut<LineOld> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: LineOld) -> &mut Row<T> {
-        &mut self.raw[index]
     }
 }
 
@@ -572,18 +538,18 @@ impl<T> IndexMut<Point<usize>> for Grid<T> {
     }
 }
 
-impl<T> Index<Point> for Grid<T> {
+impl<T> Index<Point<Line>> for Grid<T> {
     type Output = T;
 
     #[inline]
-    fn index(&self, point: Point) -> &T {
+    fn index(&self, point: Point<Line>) -> &T {
         &self[point.line][point.column]
     }
 }
 
-impl<T> IndexMut<Point> for Grid<T> {
+impl<T> IndexMut<Point<Line>> for Grid<T> {
     #[inline]
-    fn index_mut(&mut self, point: Point) -> &mut T {
+    fn index_mut(&mut self, point: Point<Line>) -> &mut T {
         &mut self[point.line][point.column]
     }
 }
@@ -594,7 +560,7 @@ pub trait Dimensions {
     fn total_lines(&self) -> usize;
 
     /// Height of the viewport in lines.
-    fn screen_lines(&self) -> LineOld;
+    fn screen_lines(&self) -> usize;
 
     /// Width of the terminal in columns.
     fn cols(&self) -> Column;
@@ -602,7 +568,7 @@ pub trait Dimensions {
     /// Number of invisible lines part of the scrollback history.
     #[inline]
     fn history_size(&self) -> usize {
-        self.total_lines() - self.screen_lines().0
+        self.total_lines() - self.screen_lines()
     }
 }
 
@@ -613,7 +579,7 @@ impl<G> Dimensions for Grid<G> {
     }
 
     #[inline]
-    fn screen_lines(&self) -> LineOld {
+    fn screen_lines(&self) -> usize {
         self.lines
     }
 
@@ -624,12 +590,12 @@ impl<G> Dimensions for Grid<G> {
 }
 
 #[cfg(test)]
-impl Dimensions for (LineOld, Column) {
+impl Dimensions for (usize, Column) {
     fn total_lines(&self) -> usize {
-        *self.0
+        self.0
     }
 
-    fn screen_lines(&self) -> LineOld {
+    fn screen_lines(&self) -> usize {
         self.0
     }
 
