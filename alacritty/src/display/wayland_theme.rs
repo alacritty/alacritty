@@ -8,8 +8,8 @@ const INACTIVE_OPACITY: u8 = 127;
 
 #[derive(Debug, Clone)]
 pub struct AlacrittyWaylandTheme {
-    pub background: ARGBColor,
     pub foreground: ARGBColor,
+    pub background: ARGBColor,
     pub dim_foreground: ARGBColor,
     pub hovered_close_icon: ARGBColor,
     pub hovered_maximize_icon: ARGBColor,
@@ -32,8 +32,8 @@ impl AlacrittyWaylandTheme {
             background,
             dim_foreground,
             hovered_close_icon,
-            hovered_minimize_icon,
             hovered_maximize_icon,
+            hovered_minimize_icon,
         }
     }
 }
