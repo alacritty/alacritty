@@ -168,12 +168,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
             if i == cursor_buffer_line && reflow {
                 // Resize cursor's line and reflow the cursor if necessary.
-                let mut target = self.cursor.point.sub_new(cols, num_wrapped);
+                let mut target = self.cursor.point.sub(cols, num_wrapped);
 
                 // Clamp to the last column, if no content was reflown with the cursor.
                 if target.column.0 == 0 && row.is_clear() {
                     self.cursor.input_needs_wrap = true;
-                    target = target.sub_new(cols, 1);
+                    target = target.sub(cols, 1);
                 }
                 self.cursor.point.column = target.column;
 
@@ -181,7 +181,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 // this will always be either `0` or `1`.
                 let line_delta = self.cursor.point.line - target.line;
 
-                if line_delta != 0 && row.is_clear() {
+                if line_delta != 0isize && row.is_clear() {
                     continue;
                 }
 
@@ -370,7 +370,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.cursor.input_needs_wrap = true;
             self.cursor.point.column -= 1;
         } else {
-            self.cursor.point = self.cursor.point.add_new(cols, 0);
+            self.cursor.point = self.cursor.point.add(cols, 0);
         }
 
         // Clamp the saved cursor to the grid.

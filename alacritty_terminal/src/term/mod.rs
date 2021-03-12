@@ -157,7 +157,7 @@ impl SizeInfo {
     ///
     /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
     /// coordinates will be clamped to the closest grid coordinates.
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point<Line> {
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
         let col = x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize);
         let line = y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize);
 
@@ -1385,7 +1385,7 @@ impl<T: EventListener> Handler for Term<T> {
                 let cursor = self.grid.cursor.point;
 
                 // If clearing more than one line.
-                if cursor.line > 1 {
+                if cursor.line > 1isize {
                     // Fully clear all lines before the current line.
                     self.grid.reset_region(..cursor.line);
                 }
@@ -1812,7 +1812,7 @@ impl IndexMut<Column> for TabStops {
 #[derive(Copy, Clone)]
 pub struct RenderableCursor {
     pub shape: CursorShape,
-    pub point: Point<Line>,
+    pub point: Point,
 }
 
 impl RenderableCursor {

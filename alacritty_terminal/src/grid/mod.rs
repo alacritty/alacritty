@@ -33,7 +33,7 @@ pub trait GridCell: Sized {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cursor<T> {
     /// The location of this cursor.
-    pub point: Point<Line>,
+    pub point: Point,
 
     /// Template cell when using this cursor.
     pub template: T,
@@ -255,7 +255,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // When rotating the entire region with fixed lines at the top, just reset everything.
-        if positions as isize >= region.end - region.start && region.start != 0 {
+        if positions as isize >= region.end - region.start && region.start != 0isize {
             for i in (region.start.0..region.end.0).into_iter().map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
@@ -374,7 +374,7 @@ impl<T> Grid<T> {
     }
 
     /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point<Line> {
+    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
         if point.line < self.display_offset {
             Point::new(Line(self.lines as isize - 1), self.cols - 1)
         } else if point.line >= self.display_offset + self.lines {
@@ -392,7 +392,7 @@ impl<T> Grid<T> {
     pub fn clamp_buffer_range_to_visible(
         &self,
         range: &RangeInclusive<Point<usize>>,
-    ) -> Option<RangeInclusive<Point<Line>>> {
+    ) -> Option<RangeInclusive<Point>> {
         let start = range.start();
         let end = range.end();
 
@@ -411,7 +411,7 @@ impl<T> Grid<T> {
 
     /// Convert viewport relative point to global buffer indexing.
     #[inline]
-    pub fn visible_to_buffer(&self, point: Point<Line>) -> Point<usize> {
+    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         Point {
             line: self.lines + self.display_offset - point.line.0 as usize - 1,
             column: point.column,
@@ -538,18 +538,18 @@ impl<T> IndexMut<Point<usize>> for Grid<T> {
     }
 }
 
-impl<T> Index<Point<Line>> for Grid<T> {
+impl<T> Index<Point> for Grid<T> {
     type Output = T;
 
     #[inline]
-    fn index(&self, point: Point<Line>) -> &T {
+    fn index(&self, point: Point) -> &T {
         &self[point.line][point.column]
     }
 }
 
-impl<T> IndexMut<Point<Line>> for Grid<T> {
+impl<T> IndexMut<Point> for Grid<T> {
     #[inline]
-    fn index_mut(&mut self, point: Point<Line>) -> &mut T {
+    fn index_mut(&mut self, point: Point) -> &mut T {
         &mut self[point.line][point.column]
     }
 }

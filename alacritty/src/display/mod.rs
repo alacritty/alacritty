@@ -762,7 +762,7 @@ impl Display {
         config: &Config,
         size_info: &SizeInfo,
         total_lines: usize,
-        vi_mode_point: Option<Point<Line>>,
+        vi_mode_point: Option<Point>,
         line: usize,
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);

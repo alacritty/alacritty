@@ -54,11 +54,11 @@ pub enum ViMotion {
 /// Cursor tracking vi mode position.
 #[derive(Default, Copy, Clone)]
 pub struct ViModeCursor {
-    pub point: Point<Line>,
+    pub point: Point,
 }
 
 impl ViModeCursor {
-    pub fn new(point: Point<Line>) -> Self {
+    pub fn new(point: Point) -> Self {
         Self { point }
     }
 

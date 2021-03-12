@@ -47,7 +47,7 @@ impl<L> SelectionRange<L> {
 
 impl SelectionRange<Line> {
     /// Check if a point lies within the selection.
-    pub fn contains(&self, point: Point<Line>) -> bool {
+    pub fn contains(&self, point: Point) -> bool {
         self.start.line <= point.line
             && self.end.line >= point.line
             && (self.start.column <= point.column

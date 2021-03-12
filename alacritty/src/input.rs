@@ -64,9 +64,9 @@ pub trait ActionContext<T: EventListener> {
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
-    fn start_selection(&mut self, _ty: SelectionType, _point: Point<Line>, _side: Side) {}
-    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point<Line>, _side: Side) {}
-    fn update_selection(&mut self, _point: Point<Line>, _side: Side) {}
+    fn start_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
+    fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
+    fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
@@ -511,7 +511,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             msg.push(32 + 1 + column.0 as u8);
         }
 
-        if utf8 && line >= 95 {
+        if utf8 && line >= 95isize {
             msg.append(&mut mouse_pos_encode(line.0 as usize));
         } else {
             msg.push(32 + 1 + line.0 as u8);
@@ -607,7 +607,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Handle selection expansion on right click.
-    fn on_right_click(&mut self, point: Point<Line>) {
+    fn on_right_click(&mut self, point: Point) {
         match self.ctx.mouse().click_state {
             ClickState::Click => {
                 let selection_type = if self.ctx.modifiers().ctrl() {
@@ -625,7 +625,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Expand existing selection.
-    fn expand_selection(&mut self, point: Point<Line>, selection_type: SelectionType) {
+    fn expand_selection(&mut self, point: Point, selection_type: SelectionType) {
         let cell_side = self.ctx.mouse().cell_side;
 
         let selection = match &mut self.ctx.terminal_mut().selection {
@@ -643,7 +643,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Handle left click selection and vi mode cursor movement.
-    fn on_left_click(&mut self, point: Point<Line>) {
+    fn on_left_click(&mut self, point: Point) {
         let side = self.ctx.mouse().cell_side;
 
         match self.ctx.mouse().click_state {

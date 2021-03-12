@@ -45,7 +45,7 @@ pub enum Boundary {
 
 /// Index in the grid using row, column notation.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
-pub struct Point<L = LineOld> {
+pub struct Point<L = Line> {
     pub line: L,
     pub column: Column,
 }
@@ -57,14 +57,14 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub(mut self, num_cols: Column, rhs: usize) -> Point<L>
+    pub fn sub(mut self, num_cols: Column, rhs: usize) -> Self
     where
-        L: Copy + Default + Into<LineOld> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: Default + PartialOrd<usize> + SubAssign<usize>,
     {
         let num_cols = num_cols.0;
         let line_changes = (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
-        if self.line.into() >= LineOld(line_changes) {
-            self.line = self.line - line_changes;
+        if self.line >= line_changes {
+            self.line -= line_changes;
             self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
             self
         } else {
@@ -74,35 +74,10 @@ impl<L> Point<L> {
 
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add(mut self, num_cols: Column, rhs: usize) -> Point<L>
+    pub fn add(mut self, num_cols: Column, rhs: usize) -> Self
     where
-        L: Copy + Default + Into<LineOld> + Add<usize, Output = L> + Sub<usize, Output = L>,
+        L: AddAssign<usize>
     {
-        let num_cols = num_cols.0;
-        self.line = self.line + (rhs + self.column.0) / num_cols;
-        self.column = Column((self.column.0 + rhs) % num_cols);
-        self
-    }
-}
-
-impl Point<Line> {
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub_new(mut self, num_cols: Column, rhs: usize) -> Point<Line> {
-        let num_cols = num_cols.0;
-        let line_changes = (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
-        if self.line >= line_changes as isize {
-            self.line -= line_changes;
-            self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
-            self
-        } else {
-            Self::default()
-        }
-    }
-
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add_new(mut self, num_cols: Column, rhs: usize) -> Point<Line> {
         let num_cols = num_cols.0;
         self.line += (rhs + self.column.0) / num_cols;
         self.column = Column((self.column.0 + rhs) % num_cols);
@@ -174,20 +149,6 @@ impl Ord for Point {
     }
 }
 
-impl PartialOrd for Point<Line> {
-    fn partial_cmp(&self, other: &Point<Line>) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Point<Line> {
-    fn cmp(&self, other: &Point<Line>) -> Ordering {
-        match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
-            (Ordering::Equal, ord) | (ord, _) => ord,
-        }
-    }
-}
-
 impl PartialOrd for Point<usize> {
     fn partial_cmp(&self, other: &Point<usize>) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -210,27 +171,9 @@ impl From<Point<usize>> for Point<isize> {
     }
 }
 
-impl From<Point<usize>> for Point<LineOld> {
-    fn from(point: Point<usize>) -> Self {
-        Point::new(LineOld(point.line), point.column)
-    }
-}
-
-impl From<Point<usize>> for Point<Line> {
+impl From<Point<usize>> for Point {
     fn from(point: Point<usize>) -> Self {
         Point::new(Line(point.line as isize), point.column)
-    }
-}
-
-impl From<Point<isize>> for Point<usize> {
-    fn from(point: Point<isize>) -> Self {
-        Point::new(point.line as usize, point.column)
-    }
-}
-
-impl From<Point> for Point<usize> {
-    fn from(point: Point) -> Self {
-        Point::new(point.line.0, point.column)
     }
 }
 
@@ -238,15 +181,7 @@ impl From<Point> for Point<usize> {
 ///
 /// Newtype to avoid passing values incorrectly.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
-pub struct LineOld(pub usize);
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Line(pub isize);
-
-impl fmt::Display for LineOld {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -289,6 +224,20 @@ impl SubAssign<usize> for Line {
     #[inline]
     fn sub_assign(&mut self, rhs: usize) {
         *self -= rhs as isize;
+    }
+}
+
+impl PartialOrd<usize> for Line {
+    #[inline]
+    fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
+        self.0.partial_cmp(&(*other as isize))
+    }
+}
+
+impl PartialEq<usize> for Line {
+    #[inline]
+    fn eq(&self, other: &usize) -> bool {
+        self.0.eq(&(*other as isize))
     }
 }
 
@@ -461,7 +410,6 @@ macro_rules! ops {
     }
 }
 
-ops!(LineOld, LineOld, usize);
 ops!(Column, Column, usize);
 ops!(Line, Line, isize);
 
@@ -471,12 +419,13 @@ mod tests {
 
     #[test]
     fn location_ordering() {
-        assert!(Point::new(LineOld(0), Column(0)) == Point::new(LineOld(0), Column(0)));
-        assert!(Point::new(LineOld(1), Column(0)) > Point::new(LineOld(0), Column(0)));
-        assert!(Point::new(LineOld(0), Column(1)) > Point::new(LineOld(0), Column(0)));
-        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(0), Column(0)));
-        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(0), Column(1)));
-        assert!(Point::new(LineOld(1), Column(1)) > Point::new(LineOld(1), Column(0)));
+        assert!(Point::new(Line(0), Column(0)) == Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(0)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(0), Column(1)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(1)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(1), Column(0)));
+        assert!(Point::new(Line(0), Column(0)) > Point::new(Line(-1), Column(0)));
     }
 
     #[test]

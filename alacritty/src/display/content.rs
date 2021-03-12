@@ -178,7 +178,7 @@ impl<'a> Iterator for RenderableContent<'a> {
 pub struct RenderableCell {
     pub character: char,
     pub zerowidth: Option<Vec<char>>,
-    pub point: Point<Line>,
+    pub point: Point,
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
@@ -349,7 +349,7 @@ pub struct RenderableCursor {
     cursor_color: Rgb,
     text_color: Rgb,
     is_wide: bool,
-    point: Point<Line>,
+    point: Point,
 }
 
 impl RenderableCursor {
@@ -365,7 +365,7 @@ impl RenderableCursor {
         self.is_wide
     }
 
-    pub fn point(&self) -> Point<Line> {
+    pub fn point(&self) -> Point {
         self.point
     }
 }
@@ -386,7 +386,7 @@ impl<'a> Hint<'a> {
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
-    fn advance(&mut self, point: Point<Line>) -> Option<(char, bool)> {
+    fn advance(&mut self, point: Point) -> Option<(char, bool)> {
         // Check if we're within a match at all.
         if !self.regex.advance(point) {
             return None;
@@ -418,7 +418,7 @@ impl<'a> From<&'a HintState> for Hint<'a> {
 
 /// Wrapper for finding visible regex matches.
 #[derive(Default, Clone)]
-pub struct RegexMatches(Vec<RangeInclusive<Point<Line>>>);
+pub struct RegexMatches(Vec<RangeInclusive<Point>>);
 
 impl RegexMatches {
     /// Find all visible matches.
@@ -459,7 +459,7 @@ impl RegexMatches {
 }
 
 impl Deref for RegexMatches {
-    type Target = Vec<RangeInclusive<Point<Line>>>;
+    type Target = Vec<RangeInclusive<Point>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -492,7 +492,7 @@ impl<'a> Regex<'a> {
     /// Advance the regex tracker to the next point.
     ///
     /// This will return `true` if the point passed is part of a regex match.
-    fn advance(&mut self, point: Point<Line>) -> bool {
+    fn advance(&mut self, point: Point) -> bool {
         while let Some(regex_match) = self.matches.get(self.index) {
             if regex_match.start() > &point {
                 break;
