@@ -138,7 +138,7 @@ impl Urls {
         if url.lines.last().map(|last| last.color) == Some(color) {
             url.lines.last_mut().unwrap().end = end;
         } else {
-            url.lines.push(RenderLine { color, start, end });
+            url.lines.push(RenderLine { start, end, color });
         }
 
         // Update excluded cells at the end of the URL.
