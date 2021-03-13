@@ -38,7 +38,10 @@ impl Default for Url {
             #[cfg(target_os = "macos")]
             launcher: Some(Program::Just(String::from("open"))),
             #[cfg(windows)]
-            launcher: Some(Program::Just(String::from("explorer"))),
+            launcher: Some(Program::WithArgs {
+                program: String::from("cmd"),
+                args: vec!["/c".to_string(), "start".to_string(), "".to_string()],
+            }),
             modifiers: Default::default(),
         }
     }
