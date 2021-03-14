@@ -5,7 +5,7 @@ use std::ops::RangeInclusive;
 use regex_automata::{dense, DenseDFA, Error as RegexError, DFA};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
-use crate::index::{Boundary, Column, Direction, Point, Side};
+use crate::index::{Column, Direction, OldBoundary, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
 
@@ -86,7 +86,7 @@ impl<T> Term<T> {
                 let line = (start.line + total_lines - max_lines) % total_lines;
                 Point::new(line, self.cols() - 1)
             },
-            _ => end.sub_absolute(self, Boundary::Wrap, 1),
+            _ => end.sub_absolute(self, OldBoundary::Wrap, 1),
         };
 
         let mut regex_iter = RegexIter::new(start, end, Direction::Right, &self, dfas).peekable();
@@ -122,7 +122,7 @@ impl<T> Term<T> {
         // Limit maximum number of lines searched.
         end = match max_lines {
             Some(max_lines) => Point::new((start.line + max_lines) % self.total_lines(), Column(0)),
-            _ => end.add_absolute(self, Boundary::Wrap, 1),
+            _ => end.add_absolute(self, OldBoundary::Wrap, 1),
         };
 
         let mut regex_iter = RegexIter::new(start, end, Direction::Left, &self, dfas).peekable();
@@ -299,7 +299,7 @@ impl<T> Term<T> {
                     *cell = new_cell;
                 }
 
-                let prev = iter.point().sub_absolute(self, Boundary::Clamp, 1);
+                let prev = iter.point().sub_absolute(self, OldBoundary::Clamp, 1);
                 if self.grid[prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     iter.prev();
                 }
@@ -452,8 +452,8 @@ impl<'a, T> RegexIter<'a, T> {
         self.point = self.term.expand_wide(self.point, self.direction);
 
         self.point = match self.direction {
-            Direction::Right => self.point.add_absolute(self.term, Boundary::Wrap, 1),
-            Direction::Left => self.point.sub_absolute(self.term, Boundary::Wrap, 1),
+            Direction::Right => self.point.add_absolute(self.term, OldBoundary::Wrap, 1),
+            Direction::Left => self.point.sub_absolute(self.term, OldBoundary::Wrap, 1),
         };
     }
 

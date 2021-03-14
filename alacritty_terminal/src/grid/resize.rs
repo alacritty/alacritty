@@ -3,7 +3,7 @@
 use std::cmp::{max, min, Ordering};
 use std::mem;
 
-use crate::index::{Column, Line};
+use crate::index::{Boundary, Column, Line};
 use crate::term::cell::{Flags, ResetDiscriminant};
 
 use crate::grid::row::Row;
@@ -168,12 +168,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
             if i == cursor_buffer_line && reflow {
                 // Resize cursor's line and reflow the cursor if necessary.
-                let mut target = self.cursor.point.sub(cols, num_wrapped);
+                let mut target = self.cursor.point.sub(self, Boundary::Cursor, num_wrapped);
 
                 // Clamp to the last column, if no content was reflown with the cursor.
                 if target.column.0 == 0 && row.is_clear() {
                     self.cursor.input_needs_wrap = true;
-                    target = target.sub(cols, 1);
+                    target = target.sub(self, Boundary::Cursor, 1);
                 }
                 self.cursor.point.column = target.column;
 
@@ -370,7 +370,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.cursor.input_needs_wrap = true;
             self.cursor.point.column -= 1;
         } else {
-            self.cursor.point = self.cursor.point.add(cols, 0);
+            self.cursor.point = self.cursor.point.add(self, Boundary::Cursor, 0);
         }
 
         // Clamp the saved cursor to the grid.

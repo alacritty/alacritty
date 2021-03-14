@@ -374,14 +374,13 @@ impl<T> Grid<T> {
     }
 
     /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_visible(&self, point: Point<usize>) -> Point {
+    pub fn clamp_buffer_to_viewport(&self, point: Point<usize>) -> Point {
         if point.line < self.display_offset {
             Point::new(Line(self.lines as isize - 1), self.cols - 1)
         } else if point.line >= self.display_offset + self.lines {
             Point::new(Line(0), Column(0))
         } else {
-            // Since edgecases are handled, conversion is identical as visible to buffer.
-            self.visible_to_buffer(point.into()).into()
+            self.visible_to_buffer_old(point.into()).into()
         }
     }
 
@@ -403,19 +402,28 @@ impl<T> Grid<T> {
             return None;
         }
 
-        let start = self.clamp_buffer_to_visible(*start);
-        let end = self.clamp_buffer_to_visible(*end);
+        let start = self.clamp_buffer_to_viewport(*start);
+        let end = self.clamp_buffer_to_viewport(*end);
 
         Some(start..=end)
     }
 
-    /// Convert viewport relative point to global buffer indexing.
     #[inline]
-    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+    pub fn visible_to_buffer_new(&self, point: Point) -> Point<usize> {
+        Point { line: (self.lines as isize - point.line.0 - 1) as usize, column: point.column }
+    }
+
+    #[inline]
+    pub fn visible_to_buffer_old(&self, point: Point) -> Point<usize> {
         Point {
             line: self.lines + self.display_offset - point.line.0 as usize - 1,
             column: point.column,
         }
+    }
+
+    #[inline]
+    pub fn buffer_to_visible(&self, point: Point<usize>) -> Point {
+        Point { line: Line(self.lines as isize - point.line as isize - 1), column: point.column }
     }
 
     #[inline]

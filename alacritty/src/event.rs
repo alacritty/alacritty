@@ -32,7 +32,7 @@ use crossfont::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
+use alacritty_terminal::index::{Column, Direction, Line, OldBoundary, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -250,7 +250,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         point.line = min(point.line, Line(self.terminal.screen_lines() as isize - 1));
 
         // Update selection.
-        let absolute_point = self.terminal.grid().visible_to_buffer(point);
+        let absolute_point = self.terminal.grid().visible_to_buffer_old(point);
         selection.update(absolute_point, side);
 
         // Move vi cursor and expand selection.
@@ -264,7 +264,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
-        let point = self.terminal.grid().visible_to_buffer(point);
+        let point = self.terminal.grid().visible_to_buffer_old(point);
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
     }
@@ -385,8 +385,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
             let mut args = launcher.args().to_vec();
-            let start = self.terminal.grid().visible_to_buffer(url.start());
-            let end = self.terminal.grid().visible_to_buffer(url.end());
+            let start = self.terminal.grid().visible_to_buffer_new(url.start());
+            let end = self.terminal.grid().visible_to_buffer_new(url.end());
             args.push(self.terminal.bounds_to_string(start, end));
 
             start_daemon(launcher.program(), &args);
@@ -476,8 +476,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         } else if let Some(focused_match) = &self.search_state.focused_match {
             // Create a selection for the focused match.
-            let start = self.terminal.grid().clamp_buffer_to_visible(*focused_match.start());
-            let end = self.terminal.grid().clamp_buffer_to_visible(*focused_match.end());
+            let start = self.terminal.grid().clamp_buffer_to_viewport(*focused_match.start());
+            let end = self.terminal.grid().clamp_buffer_to_viewport(*focused_match.end());
             self.start_selection(SelectionType::Simple, start, Side::Left);
             self.update_selection(end, Side::Right);
         }
@@ -559,16 +559,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if let Some(focused_match) = &self.search_state.focused_match {
             let new_origin = match direction {
                 Direction::Right => {
-                    focused_match.end().add_absolute(self.terminal, Boundary::Wrap, 1)
+                    focused_match.end().add_absolute(self.terminal, OldBoundary::Wrap, 1)
                 },
                 Direction::Left => {
-                    focused_match.start().sub_absolute(self.terminal, Boundary::Wrap, 1)
+                    focused_match.start().sub_absolute(self.terminal, OldBoundary::Wrap, 1)
                 },
             };
 
             self.terminal.scroll_to_point(new_origin);
 
-            let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
+            let origin_relative = self.terminal.grid().clamp_buffer_to_viewport(new_origin);
             self.search_state.origin = origin_relative;
             self.search_state.display_offset_delta = 0;
         }
@@ -599,7 +599,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.display_offset_delta = new_display_offset - old_display_offset;
 
         // Store origin and scroll back to the match.
-        let origin_relative = self.terminal.grid().clamp_buffer_to_visible(new_origin);
+        let origin_relative = self.terminal.grid().clamp_buffer_to_viewport(new_origin);
         self.terminal.scroll_display(Scroll::Delta(-self.search_state.display_offset_delta));
         self.search_state.origin = origin_relative;
     }
@@ -837,7 +837,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         relative_origin.line =
             min(relative_origin.line, Line(self.terminal.screen_lines() as isize - 1));
         relative_origin.column = min(relative_origin.column, self.terminal.cols() - 1);
-        let mut origin = self.terminal.grid().visible_to_buffer(relative_origin);
+        let mut origin = self.terminal.grid().visible_to_buffer_new(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
     }

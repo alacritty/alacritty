@@ -27,33 +27,33 @@ fn grid_clamp_buffer_point() {
     let mut grid = Grid::<usize>::new(10, Column(10), 1_000);
     grid.display_offset = 5;
 
-    let point = grid.clamp_buffer_to_visible(Point::new(10, Column(3)));
+    let point = grid.clamp_buffer_to_viewport(Point::new(10, Column(3)));
     assert_eq!(point, Point::new(Line(4), Column(3)));
 
-    let point = grid.clamp_buffer_to_visible(Point::new(15, Column(3)));
+    let point = grid.clamp_buffer_to_viewport(Point::new(15, Column(3)));
     assert_eq!(point, Point::new(Line(0), Column(0)));
 
-    let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
+    let point = grid.clamp_buffer_to_viewport(Point::new(4, Column(3)));
     assert_eq!(point, Point::new(Line(9), Column(9)));
 
     grid.display_offset = 0;
 
-    let point = grid.clamp_buffer_to_visible(Point::new(4, Column(3)));
+    let point = grid.clamp_buffer_to_viewport(Point::new(4, Column(3)));
     assert_eq!(point, Point::new(Line(5), Column(3)));
 }
 
 #[test]
 fn visible_to_buffer() {
-    let mut grid = Grid::<usize>::new(10, Column(10), 1_000);
-    grid.display_offset = 5;
+    let grid = Grid::<usize>::new(10, Column(10), 1_000);
 
-    let point = grid.visible_to_buffer(Point::new(Line(4), Column(3)));
+    let point = grid.visible_to_buffer_new(Point::new(Line(9), Column(3)));
+    assert_eq!(point, Point::new(0, Column(3)));
+
+    let point = grid.visible_to_buffer_new(Point::new(Line(0), Column(3)));
+    assert_eq!(point, Point::new(9, Column(3)));
+
+    let point = grid.visible_to_buffer_new(Point::new(Line(-1), Column(3)));
     assert_eq!(point, Point::new(10, Column(3)));
-
-    grid.display_offset = 0;
-
-    let point = grid.visible_to_buffer(Point::new(Line(5), Column(3)));
-    assert_eq!(point, Point::new(4, Column(3)));
 }
 
 // Scroll up moves lines upward.

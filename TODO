@@ -4,4 +4,4 @@
  - Create a Point::new(usize, _) -> Point<Line>?
  - Add a function for (screen_lines() - 1) to Dimensions trait? "bottom_line"?
  - Double-check all the "stuff(usize) as isize" things once we can just directly use usize for compare/math/ord
- - Redo all the vi mode math, we might be able to simplify it (no more absolute?)
+ - Replace all the min( , max( , point.line)) logic with point.line.sub(Dimensions, Clamp)?

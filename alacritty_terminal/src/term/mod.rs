@@ -16,7 +16,7 @@ use crate::ansi::{
 use crate::config::Config;
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
-use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
+use crate::index::{self, Boundary, Column, Direction, Line, OldBoundary, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::{Colors, Rgb};
@@ -214,6 +214,23 @@ impl SizeInfo {
     }
 }
 
+impl Dimensions for SizeInfo {
+    #[inline]
+    fn cols(&self) -> Column {
+        self.cols()
+    }
+
+    #[inline]
+    fn screen_lines(&self) -> usize {
+        self.screen_lines()
+    }
+
+    #[inline]
+    fn total_lines(&self) -> usize {
+        self.screen_lines()
+    }
+}
+
 pub struct Term<T> {
     /// Terminal focus controlling the cursor shape.
     pub is_focused: bool,
@@ -286,6 +303,13 @@ impl<T> Term<T> {
     {
         self.grid.scroll_display(scroll);
         self.event_proxy.send_event(Event::MouseCursorDirty);
+
+        // Clamp vi mode cursor to the viewport.
+        let viewport_start = -(self.grid.display_offset() as isize);
+        let viewport_end = viewport_start + self.screen_lines() as isize - 1;
+        let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
+        *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
+        self.vi_mode_recompute_selection();
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
@@ -646,7 +670,6 @@ impl<T> Term<T> {
 
         if self.mode.contains(TermMode::VI) {
             // Reset vi mode cursor position to match primary cursor.
-            // TODO: Add display offset?
             self.vi_mode_cursor = ViModeCursor::new(self.grid.cursor.point);
         }
 
@@ -680,7 +703,7 @@ impl<T> Term<T> {
         self.scroll_to_point(point);
 
         // Move vi cursor to the point.
-        self.vi_mode_cursor.point = self.grid.clamp_buffer_to_visible(point);
+        self.vi_mode_cursor.point = self.grid.clamp_buffer_to_viewport(point);
 
         self.vi_mode_recompute_selection();
     }
@@ -693,7 +716,7 @@ impl<T> Term<T> {
             return;
         }
 
-        let viewport_point = self.grid.visible_to_buffer(self.vi_mode_cursor.point);
+        let viewport_point = self.grid.visible_to_buffer_new(self.vi_mode_cursor.point);
 
         // Update only if non-empty selection is present.
         let selection = match &mut self.selection {
@@ -722,6 +745,23 @@ impl<T> Term<T> {
         }
     }
 
+    /// Scroll display to point if it is outside of viewport.
+    pub fn scroll_to_point_new(&mut self, point: Point)
+    where
+        T: EventListener,
+    {
+        let display_offset = self.grid.display_offset() as isize;
+        let screen_lines = self.grid.screen_lines() as isize;
+
+        if point.line < -display_offset {
+            let lines = point.line + display_offset;
+            self.scroll_display(Scroll::Delta(-lines.0));
+        } else if point.line >= (screen_lines - display_offset) {
+            let lines = point.line + display_offset - screen_lines + 1isize;
+            self.scroll_display(Scroll::Delta(-lines.0));
+        }
+    }
+
     /// Jump to the end of a wide cell.
     pub fn expand_wide(&self, mut point: Point<usize>, direction: Direction) -> Point<usize> {
         let flags = self.grid[point.line][point.column].flags;
@@ -737,7 +777,33 @@ impl<T> Term<T> {
                     point.column -= 1;
                 }
 
-                let prev = point.sub_absolute(self, Boundary::Clamp, 1);
+                let prev = point.sub_absolute(self, OldBoundary::Clamp, 1);
+                if self.grid[prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) {
+                    point = prev;
+                }
+            },
+            _ => (),
+        }
+
+        point
+    }
+
+    /// Jump to the end of a wide cell.
+    pub fn expand_wide_new(&self, mut point: Point, direction: Direction) -> Point {
+        let flags = self.grid[point.line][point.column].flags;
+
+        match direction {
+            Direction::Right if flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
+                point.column = Column(1);
+                point.line += 1isize;
+            },
+            Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.column += 1,
+            Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
+                if flags.contains(Flags::WIDE_CHAR_SPACER) {
+                    point.column -= 1;
+                }
+
+                let prev = point.sub(self, Boundary::Grid, 1);
                 if self.grid[prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     point = prev;
                 }
@@ -1819,20 +1885,10 @@ impl RenderableCursor {
     fn new<T>(term: &Term<T>) -> Self {
         // Cursor position.
         let vi_mode = term.mode().contains(TermMode::VI);
-        let mut point = if vi_mode {
-            let point = term.vi_mode_cursor.point;
-            Point::new(Line(point.line.0 as isize), point.column)
-        } else {
-            let point = term.grid.cursor.point;
-            Point::new(point.line + term.grid.display_offset(), point.column)
-        };
+        let point = if vi_mode { term.vi_mode_cursor.point } else { term.grid.cursor.point };
 
         // Cursor shape.
-        let shape = if !vi_mode
-            && (!term.mode().contains(TermMode::SHOW_CURSOR)
-                || point.line >= term.screen_lines() as isize)
-        {
-            point.line = Line(0);
+        let shape = if !vi_mode && !term.mode().contains(TermMode::SHOW_CURSOR) {
             CursorShape::Hidden
         } else {
             term.cursor_style().shape

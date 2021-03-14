@@ -537,7 +537,7 @@ impl Display {
                     }
 
                     // Update URL underlines.
-                    urls.update(size_info.cols(), &cell);
+                    urls.update(size_info, &cell);
 
                     // Update underline/strikeout.
                     lines.update(&cell);
@@ -577,7 +577,7 @@ impl Display {
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = size_info.screen_lines() + display_offset - vi_point.line.0 as usize - 1;
+            let line = (-vi_point.line.0 + size_info.screen_lines() as isize - 1) as usize;
             self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
         } else if search_active {
             // Show current display offset in vi-less search to indicate match position.
