@@ -456,7 +456,7 @@
     # Default:
     #   - (macOS) open
     #   - (Linux/BSD) xdg-open
-    #   - (Windows) explorer
+    #   - (Windows) cmd /c start ""
     #launcher:
     #  program: xdg-open
     #  args: []
