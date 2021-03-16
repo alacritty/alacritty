@@ -29,7 +29,7 @@ pub mod search;
 /// Minimum number of columns.
 ///
 /// A minimum of 2 is necessary to hold fullwidth unicode characters.
-pub const MIN_COLS: usize = 2;
+pub const MIN_COLUMNS: usize = 2;
 
 /// Minimum number of visible lines.
 pub const MIN_SCREEN_LINES: usize = 1;
@@ -100,7 +100,7 @@ pub struct SizeInfo {
     screen_lines: usize,
 
     /// Number of columns in the viewport.
-    cols: Column,
+    columns: Column,
 }
 
 impl SizeInfo {
@@ -122,8 +122,8 @@ impl SizeInfo {
         let lines = (height - 2. * padding_y) / cell_height;
         let screen_lines = max(lines as usize, MIN_SCREEN_LINES);
 
-        let cols = (width - 2. * padding_x) / cell_width;
-        let cols = Column(max(cols as usize, MIN_COLS));
+        let columns = (width - 2. * padding_x) / cell_width;
+        let columns = Column(max(columns as usize, MIN_COLUMNS));
 
         SizeInfo {
             width,
@@ -133,7 +133,7 @@ impl SizeInfo {
             padding_x: padding_x.floor(),
             padding_y: padding_y.floor(),
             screen_lines,
-            cols,
+            columns,
         }
     }
 
@@ -147,7 +147,7 @@ impl SizeInfo {
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.cols.0 as f32 * self.cell_width) as usize
+        x <= (self.padding_x + self.columns.0 as f32 * self.cell_width) as usize
             && x > self.padding_x as usize
             && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
@@ -183,16 +183,6 @@ impl SizeInfo {
         self.padding_y
     }
 
-    #[inline]
-    pub fn screen_lines(&self) -> usize {
-        self.screen_lines
-    }
-
-    #[inline]
-    pub fn cols(&self) -> Column {
-        self.cols
-    }
-
     /// Calculate padding to spread it evenly around the terminal content.
     #[inline]
     fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
@@ -202,13 +192,13 @@ impl SizeInfo {
 
 impl Dimensions for SizeInfo {
     #[inline]
-    fn cols(&self) -> Column {
-        self.cols()
+    fn columns(&self) -> Column {
+        self.columns
     }
 
     #[inline]
     fn screen_lines(&self) -> usize {
-        self.screen_lines()
+        self.screen_lines
     }
 
     #[inline]
@@ -299,14 +289,14 @@ impl<T> Term<T> {
     }
 
     pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
-        let num_cols = size.cols;
+        let num_cols = size.columns;
         let num_lines = size.screen_lines;
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size);
         let alt = Grid::new(num_lines, num_cols, 0);
 
-        let tabs = TabStops::new(grid.cols());
+        let tabs = TabStops::new(grid.columns());
 
         let scroll_region = Line(0)..Line(grid.screen_lines() as isize);
 
@@ -367,7 +357,7 @@ impl<T> Term<T> {
                 res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
 
                 // If the last column is included, newline is appended automatically.
-                if end.column != self.cols() - 1 {
+                if end.column != self.columns() - 1 {
                     res += "\n";
                 }
             }
@@ -385,7 +375,7 @@ impl<T> Term<T> {
 
         for line in (start.line.0..=end.line.0).into_iter().map(Line::from) {
             let start_col = if line == start.line { start.column } else { Column(0) };
-            let end_col = if line == end.line { end.column } else { self.cols() - 1 };
+            let end_col = if line == end.line { end.column } else { self.columns() - 1 };
 
             res += &self.line_to_string(line, start_col..end_col, line == end.line);
         }
@@ -438,7 +428,7 @@ impl<T> Term<T> {
             }
         }
 
-        if cols.end >= self.cols() - 1
+        if cols.end >= self.columns() - 1
             && (line_length.0 == 0
                 || !self.grid[line][line_length - 1].flags.contains(Flags::WRAPLINE))
         {
@@ -446,7 +436,7 @@ impl<T> Term<T> {
         }
 
         // If wide char is not part of the selection, but leading spacer is, include it.
-        if line_length == self.cols()
+        if line_length == self.columns()
             && line_length.0 >= 2
             && grid_line[line_length - 1].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
             && include_wrapped_wide
@@ -485,10 +475,10 @@ impl<T> Term<T> {
         self.cell_width = size.cell_width as usize;
         self.cell_height = size.cell_height as usize;
 
-        let old_cols = self.cols();
+        let old_cols = self.columns();
         let old_lines = self.screen_lines();
 
-        let num_cols = size.cols;
+        let num_cols = size.columns;
         let num_lines = size.screen_lines;
 
         if old_cols == num_cols && old_lines == num_lines {
@@ -844,8 +834,8 @@ impl<T> Term<T> {
 
 impl<T> Dimensions for Term<T> {
     #[inline]
-    fn cols(&self) -> Column {
-        self.grid.cols()
+    fn columns(&self) -> Column {
+        self.grid.columns()
     }
 
     #[inline]
@@ -892,7 +882,7 @@ impl<T: EventListener> Handler for Term<T> {
             self.wrapline();
         }
 
-        let num_cols = self.cols();
+        let num_cols = self.columns();
 
         // If in insert mode, first shift cells to the right.
         if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.column + width < num_cols
@@ -941,7 +931,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Decalnning");
 
         for line in 0..self.screen_lines() {
-            for column in 0..self.cols().0 {
+            for column in 0..self.columns().0 {
                 let cell = &mut self.grid[line][Column(column)];
                 *cell = Cell::default();
                 cell.c = 'E';
@@ -959,7 +949,7 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         self.grid.cursor.point.line = max(min(line + y_offset, max_y), Line(0));
-        self.grid.cursor.point.column = min(col, self.cols() - 1);
+        self.grid.cursor.point.column = min(col, self.columns() - 1);
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -981,11 +971,11 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = cursor.template.bg;
 
         // Ensure inserting within terminal bounds
-        let count = min(count, self.cols() - cursor.point.column);
+        let count = min(count, self.columns() - cursor.point.column);
 
         let source = cursor.point.column;
         let destination = cursor.point.column + count;
-        let num_cells = (self.cols() - destination).0;
+        let num_cells = (self.columns() - destination).0;
 
         let line = cursor.point.line;
         let row = &mut self.grid[line][..];
@@ -1016,7 +1006,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         trace!("Moving forward: {}", cols);
-        let num_cols = self.cols();
+        let num_cols = self.columns();
         self.grid.cursor.point.column = min(self.grid.cursor.point.column + cols, num_cols - 1);
         self.grid.cursor.input_needs_wrap = false;
     }
@@ -1082,7 +1072,7 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        while self.grid.cursor.point.column < self.cols() && count != 0 {
+        while self.grid.cursor.point.column < self.columns() && count != 0 {
             count -= 1;
 
             let c = self.grid.cursor.charsets[self.active_charset].map('\t');
@@ -1092,7 +1082,7 @@ impl<T: EventListener> Handler for Term<T> {
             }
 
             loop {
-                if (self.grid.cursor.point.column + 1) == self.cols() {
+                if (self.grid.cursor.point.column + 1) == self.columns() {
                     break;
                 }
 
@@ -1226,7 +1216,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Erasing chars: count={}, col={}", count, cursor.point.column);
 
         let start = cursor.point.column;
-        let end = min(start + count, self.cols());
+        let end = min(start + count, self.columns());
 
         // Cleared cells have current background color set.
         let bg = self.grid.cursor.template.bg;
@@ -1239,7 +1229,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn delete_chars(&mut self, count: Column) {
-        let cols = self.cols();
+        let cols = self.columns();
         let cursor = &self.grid.cursor;
         let bg = cursor.template.bg;
 
@@ -1421,7 +1411,7 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 // Clear up to the current column in the current line.
-                let end = min(cursor.column + 1, self.cols());
+                let end = min(cursor.column + 1, self.columns());
                 for cell in &mut self.grid[cursor.line][..end] {
                     *cell = bg.into();
                 }
@@ -1487,7 +1477,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.grid.reset();
         self.inactive_grid.reset();
         self.scroll_region = Line(0)..Line(self.screen_lines() as isize);
-        self.tabs = TabStops::new(self.cols());
+        self.tabs = TabStops::new(self.columns());
         self.title_stack = Vec::new();
         self.title = None;
         self.selection = None;
@@ -1756,14 +1746,14 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.cell_width * self.cols().0;
+        let width = self.cell_width * self.columns().0;
         let height = self.cell_height * self.screen_lines();
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
 
     #[inline]
     fn text_area_size_chars<W: io::Write>(&mut self, writer: &mut W) {
-        let _ = write!(writer, "\x1b[8;{};{}t", self.screen_lines(), self.cols());
+        let _ = write!(writer, "\x1b[8;{};{}t", self.screen_lines(), self.columns());
     }
 }
 

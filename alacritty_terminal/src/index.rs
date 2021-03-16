@@ -77,7 +77,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        let cols = dimensions.cols().0;
+        let cols = dimensions.columns().0;
         let line_changes = (rhs + cols - 1).saturating_sub(self.column.0) / cols;
         self.line -= line_changes;
         self.column = Column((cols + self.column.0 - rhs % cols) % cols);
@@ -90,7 +90,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        let cols = dimensions.cols().0;
+        let cols = dimensions.columns().0;
         self.line += (rhs + self.column.0) / cols;
         self.column = Column((self.column.0 + rhs) % cols);
         self.grid_clamp(dimensions, boundary)
@@ -103,7 +103,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        self.column = min(self.column, dimensions.cols() - 1);
+        self.column = min(self.column, dimensions.columns() - 1);
 
         let topmost_line = Line(-(dimensions.history_size() as isize));
         let bottommost_line = Line(dimensions.screen_lines() as isize - 1);
@@ -112,7 +112,7 @@ impl Point {
             Boundary::Cursor if self.line < 0isize => Point::new(Line(0), Column(0)),
             Boundary::Grid if self.line < topmost_line => Point::new(topmost_line, Column(0)),
             Boundary::Cursor | Boundary::Grid if self.line > bottommost_line => {
-                Point::new(bottommost_line, dimensions.cols() - 1)
+                Point::new(bottommost_line, dimensions.columns() - 1)
             },
             Boundary::None => {
                 self.line = self.line.grid_clamp(dimensions, boundary);
@@ -136,7 +136,7 @@ impl Point<usize> {
         D: Dimensions,
     {
         let total_lines = dimensions.total_lines();
-        let num_cols = dimensions.cols().0;
+        let num_cols = dimensions.columns().0;
 
         self.line += (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
         self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
@@ -162,7 +162,7 @@ impl Point<usize> {
     where
         D: Dimensions,
     {
-        let num_cols = dimensions.cols();
+        let num_cols = dimensions.columns();
 
         let line_delta = (rhs + self.column.0) / num_cols.0;
 

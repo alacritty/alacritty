@@ -304,7 +304,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // Determine how many lines to scroll up by.
-        let end = Point { line: 0, column: self.cols() };
+        let end = Point { line: 0, column: self.columns() };
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
             if !cell.is_empty() || cell.point.line >= self.lines {
@@ -445,8 +445,8 @@ impl<T> Grid<T> {
     /// Iterator over all visible cells.
     #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(self.display_offset + self.lines, self.cols() - 1);
-        let end = Point::new(self.display_offset, self.cols());
+        let start = Point::new(self.display_offset + self.lines, self.columns() - 1);
+        let end = Point::new(self.display_offset, self.columns());
 
         let iter = GridIterator { grid: self, point: start };
 
@@ -556,7 +556,7 @@ pub trait Dimensions {
     fn screen_lines(&self) -> usize;
 
     /// Width of the terminal in columns.
-    fn cols(&self) -> Column;
+    fn columns(&self) -> Column;
 
     /// Number of invisible lines part of the scrollback history.
     #[inline]
@@ -595,7 +595,7 @@ impl<G> Dimensions for Grid<G> {
     }
 
     #[inline]
-    fn cols(&self) -> Column {
+    fn columns(&self) -> Column {
         self.cols
     }
 }
@@ -610,7 +610,7 @@ impl Dimensions for (usize, Column) {
         self.0
     }
 
-    fn cols(&self) -> Column {
+    fn columns(&self) -> Column {
         self.1
     }
 }
@@ -655,7 +655,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = Indexed<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.cols() - 1;
+        let last_col = self.grid.columns() - 1;
         match self.point {
             Point { line, column: col } if line == 0 && col == last_col => return None,
             Point { column: col, .. } if (col == last_col) => {
@@ -676,7 +676,7 @@ pub trait BidirectionalIterator: Iterator {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.cols() - 1;
+        let last_col = self.grid.columns() - 1;
 
         match self.point {
             Point { line, column: Column(0) } if line == self.grid.total_lines() - 1 => {

@@ -84,7 +84,7 @@ impl<T> Term<T> {
         end = match max_lines {
             Some(max_lines) => {
                 let line = (start.line + total_lines - max_lines) % total_lines;
-                Point::new(line, self.cols() - 1)
+                Point::new(line, self.columns() - 1)
             },
             _ => end.sub_absolute(self, OldBoundary::Wrap, 1),
         };
@@ -195,7 +195,7 @@ impl<T> Term<T> {
         dfa: &impl DFA,
     ) -> Option<Point<usize>> {
         let last_line = self.total_lines() - 1;
-        let last_col = self.cols() - 1;
+        let last_col = self.columns() - 1;
 
         // Advance the iterator.
         let next = match direction {
@@ -358,7 +358,7 @@ impl<T> Term<T> {
         point.line = min(point.line, self.total_lines() - 1);
 
         let mut iter = self.grid.iter_from(point);
-        let last_col = self.cols() - Column(1);
+        let last_col = self.columns() - Column(1);
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         while let Some(cell) = iter.prev() {
@@ -382,7 +382,7 @@ impl<T> Term<T> {
         point.line = min(point.line, self.total_lines() - 1);
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
-        let last_col = self.cols() - 1;
+        let last_col = self.columns() - 1;
 
         for cell in self.grid.iter_from(point) {
             if !cell.flags.intersects(wide) && self.semantic_escape_chars.contains(cell.c) {
@@ -402,7 +402,7 @@ impl<T> Term<T> {
     /// Find the beginning of the current line across linewraps.
     pub fn line_search_left(&self, mut point: Point<usize>) -> Point<usize> {
         while point.line + 1 < self.total_lines()
-            && self.grid[point.line + 1][self.cols() - 1].flags.contains(Flags::WRAPLINE)
+            && self.grid[point.line + 1][self.columns() - 1].flags.contains(Flags::WRAPLINE)
         {
             point.line += 1;
         }
@@ -415,12 +415,12 @@ impl<T> Term<T> {
     /// Find the end of the current line across linewraps.
     pub fn line_search_right(&self, mut point: Point<usize>) -> Point<usize> {
         while point.line > 0
-            && self.grid[point.line][self.cols() - 1].flags.contains(Flags::WRAPLINE)
+            && self.grid[point.line][self.columns() - 1].flags.contains(Flags::WRAPLINE)
         {
             point.line -= 1;
         }
 
-        point.column = self.cols() - 1;
+        point.column = self.columns() - 1;
 
         point
     }

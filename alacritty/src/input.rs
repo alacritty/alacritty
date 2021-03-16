@@ -949,7 +949,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
             None
         } else if mouse.y <= terminal_end + size.cell_height() as usize
-            && mouse.point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+            && mouse.point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
         {
             Some(MouseState::MessageBarButton)
         } else {

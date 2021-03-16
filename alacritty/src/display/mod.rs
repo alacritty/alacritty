@@ -27,7 +27,7 @@ use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
-use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
@@ -705,7 +705,7 @@ impl Display {
         formatted_regex.push('_');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.columns().0;
         let label_len = search_label.chars().count();
         let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
@@ -724,7 +724,7 @@ impl Display {
     /// Draw current search regex.
     fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.columns().0;
 
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
@@ -766,7 +766,7 @@ impl Display {
         line: usize,
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(size_info.cols().0.saturating_sub(text.len()));
+        let column = Column(size_info.columns().0.saturating_sub(text.len()));
         let colors = &config.ui_config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
@@ -824,7 +824,7 @@ fn window_size(
 ) -> PhysicalSize<u32> {
     let padding = config.ui_config.window.padding(dpr);
 
-    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLS) as f32;
+    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLUMNS) as f32;
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor();

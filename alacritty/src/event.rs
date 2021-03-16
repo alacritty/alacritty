@@ -296,7 +296,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let size = self.size_info();
 
         let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let column = min(Column(column), size.cols() - 1);
+        let column = min(Column(column), size.columns() - 1);
 
         let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
         let mut line = Line(min(line, size.screen_lines() - 1) as isize);
@@ -437,7 +437,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn start_search(&mut self, direction: Direction) {
         let num_lines = self.terminal.screen_lines();
-        let num_cols = self.terminal.cols();
+        let num_cols = self.terminal.columns();
 
         // Only create new history entry if the previous regex wasn't empty.
         if self.search_state.history.get(0).map_or(true, |regex| !regex.is_empty()) {
@@ -854,7 +854,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let mut relative_origin = self.search_state.origin;
         relative_origin.line =
             min(relative_origin.line, Line(self.terminal.screen_lines() as isize - 1));
-        relative_origin.column = min(relative_origin.column, self.terminal.cols() - 1);
+        relative_origin.column = min(relative_origin.column, self.terminal.columns() - 1);
         let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin

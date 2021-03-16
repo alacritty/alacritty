@@ -3,6 +3,7 @@ use std::mem;
 
 use crossfont::Metrics;
 
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
@@ -42,7 +43,7 @@ impl RenderLine {
 
         let mut start = self.start;
         while start.line < self.end.line {
-            let end = Point::new(start.line, size.cols() - 1);
+            let end = Point::new(start.line, size.columns() - 1);
             Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
             start = Point::new(start.line + 1isize, Column(0));
         }

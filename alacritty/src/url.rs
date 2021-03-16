@@ -5,6 +5,7 @@ use crossfont::Metrics;
 use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Boundary, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
@@ -131,7 +132,7 @@ impl Urls {
         }
 
         // Reset at un-wrapped linebreak.
-        if cell.point.column + 1 == size.cols() && !cell.flags.contains(Flags::WRAPLINE) {
+        if cell.point.column + 1 == size.columns() && !cell.flags.contains(Flags::WRAPLINE) {
             self.reset();
         }
     }
