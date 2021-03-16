@@ -266,7 +266,7 @@ impl Selection {
     }
 
     /// Convert selection to grid coordinates.
-    pub fn to_range<T>(&self, term: &Term<T>) -> Option<SelectionRange> {
+    pub fn to_range<T>(&self, term: &Term<T>) -> Option<SelectionRange<Line>> {
         let grid = term.grid();
         let num_cols = grid.cols();
 
@@ -282,12 +282,18 @@ impl Selection {
         let is_block = self.ty == SelectionType::Block;
         let (start, end) = Self::grid_clamp(start, end, is_block, grid.total_lines()).ok()?;
 
-        match self.ty {
+        let selection = match self.ty {
             SelectionType::Simple => self.range_simple(start, end, num_cols),
             SelectionType::Block => self.range_block(start, end),
             SelectionType::Semantic => Some(Self::range_semantic(term, start.point, end.point)),
             SelectionType::Lines => Some(Self::range_lines(term, start.point, end.point)),
-        }
+        };
+
+        selection.map(|selection| {
+            let start = term.buffer_to_visible(selection.start);
+            let end = term.buffer_to_visible(selection.end);
+            SelectionRange::new(start, end, selection.is_block)
+        })
     }
 
     /// Bring start and end points in the correct order.
@@ -444,13 +450,13 @@ mod tests {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Point { line: 0, column: Column(0) };
+        let location = Point::new(0, Column(0));
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Left);
         selection.update(location, Side::Right);
 
         assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
-            start: location,
-            end: location,
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(0), Column(0)),
             is_block: false
         });
     }
@@ -462,13 +468,13 @@ mod tests {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Point { line: 0, column: Column(0) };
+        let location = Point::new(0, Column(0));
         let mut selection = Selection::new(SelectionType::Simple, location, Side::Right);
         selection.update(location, Side::Left);
 
         assert_eq!(selection.to_range(&term(1, 2)).unwrap(), SelectionRange {
-            start: location,
-            end: location,
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(0), Column(0)),
             is_block: false
         });
     }
@@ -516,8 +522,8 @@ mod tests {
         selection.update(Point::new(0, Column(1)), Side::Right);
 
         assert_eq!(selection.to_range(&term(2, 5)).unwrap(), SelectionRange {
-            start: Point::new(1, Column(2)),
-            end: Point::new(0, Column(1)),
+            start: Point::new(Line(0), Column(2)),
+            end: Point::new(Line(1), Column(1)),
             is_block: false,
         });
     }
@@ -540,8 +546,8 @@ mod tests {
         selection.update(Point::new(1, Column(0)), Side::Right);
 
         assert_eq!(selection.to_range(&term(2, 5)).unwrap(), SelectionRange {
-            start: Point::new(1, Column(1)),
-            end: Point::new(0, Column(1)),
+            start: Point::new(Line(0), Column(1)),
+            end: Point::new(Line(1), Column(1)),
             is_block: false,
         });
     }
@@ -555,8 +561,8 @@ mod tests {
         selection = selection.rotate(&size, &(0..size.0), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(9, Column(0)),
-            end: Point::new(7, Column(4)),
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(2), Column(4)),
             is_block: false,
         });
     }
@@ -570,8 +576,8 @@ mod tests {
         selection = selection.rotate(&size, &(0..size.0), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(9, Column(0)),
-            end: Point::new(7, Column(3)),
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(2), Column(3)),
             is_block: false,
         });
     }
@@ -585,8 +591,8 @@ mod tests {
         selection = selection.rotate(&size, &(0..size.0), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(9, Column(0)),
-            end: Point::new(7, Column(3)),
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(2), Column(3)),
             is_block: false,
         });
     }
@@ -600,8 +606,8 @@ mod tests {
         selection = selection.rotate(&size, &(0..size.0), 7).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(9, Column(2)),
-            end: Point::new(7, Column(3)),
+            start: Point::new(Line(0), Column(2)),
+            end: Point::new(Line(2), Column(3)),
             is_block: true
         });
     }
@@ -643,8 +649,8 @@ mod tests {
         selection = selection.rotate(&size, &(1..(size.0 - 1)), 4).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(8, Column(0)),
-            end: Point::new(6, Column(3)),
+            start: Point::new(Line(1), Column(0)),
+            end: Point::new(Line(3), Column(3)),
             is_block: false,
         });
     }
@@ -658,8 +664,8 @@ mod tests {
         selection = selection.rotate(&size, &(1..(size.0 - 1)), -5).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(3, Column(1)),
-            end: Point::new(1, size.1 - 1),
+            start: Point::new(Line(6), Column(1)),
+            end: Point::new(Line(8), size.1 - 1),
             is_block: false,
         });
     }
@@ -673,8 +679,8 @@ mod tests {
         selection = selection.rotate(&size, &(1..(size.0 - 1)), 4).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, *size.1)).unwrap(), SelectionRange {
-            start: Point::new(8, Column(2)),
-            end: Point::new(6, Column(3)),
+            start: Point::new(Line(1), Column(2)),
+            end: Point::new(Line(3), Column(3)),
             is_block: true,
         });
     }

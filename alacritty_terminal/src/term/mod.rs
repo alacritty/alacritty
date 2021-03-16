@@ -153,20 +153,6 @@ impl SizeInfo {
             && y > self.padding_y as usize
     }
 
-    /// Convert window space pixels to terminal grid coordinates.
-    ///
-    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
-    /// coordinates will be clamped to the closest grid coordinates.
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
-        let col = x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize);
-        let line = y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize);
-
-        Point {
-            line: min(Line(line as isize), Line(self.screen_lines as isize - 1)),
-            column: min(Column(col), Column(self.cols.0 - 1)),
-        }
-    }
-
     #[inline]
     pub fn width(&self) -> f32 {
         self.width
@@ -377,7 +363,7 @@ impl<T> Term<T> {
         let mut res = String::new();
 
         if is_block {
-            for line in (end.line + 1..=start.line).rev() {
+            for line in (start.line.0..end.line.0).into_iter().map(Line::from) {
                 res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
 
                 // If the last column is included, newline is appended automatically.
@@ -394,10 +380,10 @@ impl<T> Term<T> {
     }
 
     /// Convert range between two points to a String.
-    pub fn bounds_to_string(&self, start: Point<usize>, end: Point<usize>) -> String {
+    pub fn bounds_to_string(&self, start: Point, end: Point) -> String {
         let mut res = String::new();
 
-        for line in (end.line..=start.line).rev() {
+        for line in (start.line.0..=end.line.0).into_iter().map(Line::from) {
             let start_col = if line == start.line { start.column } else { Column(0) };
             let end_col = if line == end.line { end.column } else { self.cols() - 1 };
 
@@ -410,7 +396,7 @@ impl<T> Term<T> {
     /// Convert a single line in the grid to a String.
     fn line_to_string(
         &self,
-        line: usize,
+        line: Line,
         mut cols: Range<Column>,
         include_wrapped_wide: bool,
     ) -> String {
@@ -465,7 +451,7 @@ impl<T> Term<T> {
             && grid_line[line_length - 1].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
             && include_wrapped_wide
         {
-            text.push(self.grid[line - 1][Column(0)].c);
+            text.push(self.grid[line - 1isize][Column(0)].c);
         }
 
         text
@@ -565,28 +551,6 @@ impl<T> Term<T> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
-    }
-
-    /// Get the selection within the viewport.
-    fn visible_selection(&self) -> Option<SelectionRange<Line>> {
-        let selection = self.selection.as_ref()?.to_range(self)?;
-
-        // Set horizontal limits for block selection.
-        let (limit_start, limit_end) = if selection.is_block {
-            (selection.start.column, selection.end.column)
-        } else {
-            (Column(0), self.cols() - 1)
-        };
-
-        let range = self.grid.clamp_buffer_range_to_visible(&(selection.start..=selection.end))?;
-        let mut start = *range.start();
-        let mut end = *range.end();
-
-        // Trim start/end with partially visible block selection.
-        start.column = max(limit_start, start.column);
-        end.column = min(limit_end, end.column);
-
-        Some(SelectionRange::new(start, end, selection.is_block))
     }
 
     /// Scroll screen down.
@@ -716,7 +680,7 @@ impl<T> Term<T> {
             return;
         }
 
-        let viewport_point = self.grid.visible_to_buffer_new(self.vi_mode_cursor.point);
+        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
 
         // Update only if non-empty selection is present.
         let selection = match &mut self.selection {
@@ -1916,7 +1880,7 @@ impl<'a> RenderableContent<'a> {
             display_iter: term.grid().display_iter(),
             display_offset: term.grid().display_offset(),
             cursor: RenderableCursor::new(term),
-            selection: term.visible_selection(),
+            selection: term.selection.as_ref().and_then(|s| s.to_range(term)),
             colors: &term.colors,
             mode: *term.mode(),
         }

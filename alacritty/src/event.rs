@@ -32,7 +32,7 @@ use crossfont::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Column, Direction, Line, OldBoundary, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, OldBoundary, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -215,9 +215,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {
-            let point = self.size_info().pixels_to_coords(self.mouse().x, self.mouse().y);
-            let cell_side = self.mouse().cell_side;
-            self.update_selection(point, cell_side);
+            let point = self.coords_to_point(self.mouse().x, self.mouse().y);
+            self.update_selection(point, self.mouse().cell_side);
         }
 
         *self.dirty = true;
@@ -250,7 +249,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         point.line = min(point.line, Line(self.terminal.screen_lines() as isize - 1));
 
         // Update selection.
-        let absolute_point = self.terminal.grid().visible_to_buffer_old(point);
+        let absolute_point = self.terminal.grid().visible_to_buffer(point);
         selection.update(absolute_point, side);
 
         // Move vi cursor and expand selection.
@@ -264,7 +263,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
-        let point = self.terminal.grid().visible_to_buffer_old(point);
+        let point = self.terminal.grid().visible_to_buffer(point);
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
     }
@@ -286,6 +285,24 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn mouse_mode(&self) -> bool {
         self.terminal.mode().intersects(TermMode::MOUSE_MODE)
             && !self.terminal.mode().contains(TermMode::VI)
+    }
+
+    /// Convert window space pixels to terminal grid coordinates.
+    ///
+    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
+    /// coordinates will be clamped to the closest grid coordinates.
+    #[inline]
+    fn coords_to_point(&self, x: usize, y: usize) -> Point {
+        let size = self.size_info();
+
+        let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
+        let column = min(Column(column), size.cols() - 1);
+
+        let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
+        let mut line = Line(min(line, size.screen_lines() - 1) as isize);
+        line -= self.terminal.grid().display_offset();
+
+        Point::new(line, column)
     }
 
     #[inline]
@@ -385,9 +402,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
             let mut args = launcher.args().to_vec();
-            let start = self.terminal.grid().visible_to_buffer_new(url.start());
-            let end = self.terminal.grid().visible_to_buffer_new(url.end());
-            args.push(self.terminal.bounds_to_string(start, end));
+            args.push(self.terminal.bounds_to_string(url.start(), url.end()));
 
             start_daemon(launcher.program(), &args);
         }
@@ -437,8 +452,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Store original search position as origin and reset location.
         if self.terminal.mode().contains(TermMode::VI) {
             let vi_point = self.terminal.vi_mode_cursor.point;
-            self.search_state.origin = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
             self.search_state.display_offset_delta = 0;
+            self.search_state.origin = vi_point;
         } else {
             match direction {
                 Direction::Right => self.search_state.origin = Point::new(Line(0), Column(0)),
@@ -568,8 +583,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
             self.terminal.scroll_to_point(new_origin);
 
-            let origin_relative = self.terminal.grid().clamp_buffer_to_viewport(new_origin);
-            self.search_state.origin = origin_relative;
+            self.search_state.origin = self.terminal.buffer_to_visible(new_origin);
             self.search_state.display_offset_delta = 0;
         }
 
@@ -599,9 +613,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.display_offset_delta = new_display_offset - old_display_offset;
 
         // Store origin and scroll back to the match.
-        let origin_relative = self.terminal.grid().clamp_buffer_to_viewport(new_origin);
         self.terminal.scroll_display(Scroll::Delta(-self.search_state.display_offset_delta));
-        self.search_state.origin = origin_relative;
+        self.search_state.origin = self.terminal.buffer_to_visible(new_origin);
     }
 
     /// Find the next search match.
@@ -744,9 +757,14 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.search_state.display_offset_delta = 0;
 
         // Reset vi mode cursor.
+        //
+        // We add and later subtract the display offset to pretend the viewport is at the bottom
+        // and we're clamping to the terminal cursor's range of motion.
+        let display_offset = self.terminal.grid().display_offset() as isize;
         let mut origin = self.search_state.origin;
-        origin.line = min(origin.line, Line(self.terminal.screen_lines() as isize - 1));
-        origin.column = min(origin.column, self.terminal.cols() - 1);
+        origin.line += display_offset;
+        origin = origin.grid_clamp(self.terminal, Boundary::Cursor);
+        origin.line -= display_offset;
         self.terminal.vi_mode_cursor.point = origin;
 
         *self.dirty = true;
@@ -837,7 +855,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         relative_origin.line =
             min(relative_origin.line, Line(self.terminal.screen_lines() as isize - 1));
         relative_origin.column = min(relative_origin.column, self.terminal.cols() - 1);
-        let mut origin = self.terminal.grid().visible_to_buffer_new(relative_origin);
+        let mut origin = self.terminal.visible_to_buffer(relative_origin);
         origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
         origin
     }
@@ -881,8 +899,6 @@ pub enum ClickState {
 /// State of the mouse.
 #[derive(Debug)]
 pub struct Mouse {
-    pub x: usize,
-    pub y: usize,
     pub left_button_state: ElementState,
     pub middle_button_state: ElementState,
     pub right_button_state: ElementState,
@@ -890,32 +906,32 @@ pub struct Mouse {
     pub last_click_button: MouseButton,
     pub click_state: ClickState,
     pub scroll_px: f64,
-    pub line: Line,
-    pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub inside_text_area: bool,
+    pub point: Point,
+    pub x: usize,
+    pub y: usize,
 }
 
 impl Default for Mouse {
     fn default() -> Mouse {
         Mouse {
-            x: 0,
-            y: 0,
             last_click_timestamp: Instant::now(),
             last_click_button: MouseButton::Left,
             left_button_state: ElementState::Released,
             middle_button_state: ElementState::Released,
             right_button_state: ElementState::Released,
             click_state: ClickState::None,
-            scroll_px: 0.,
-            line: Line(0),
-            column: Column(0),
             cell_side: Side::Left,
-            lines_scrolled: 0.,
-            block_url_launcher: false,
-            inside_text_area: false,
+            block_url_launcher: Default::default(),
+            inside_text_area: Default::default(),
+            lines_scrolled: Default::default(),
+            scroll_px: Default::default(),
+            point: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
         }
     }
 }

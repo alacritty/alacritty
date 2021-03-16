@@ -69,6 +69,7 @@ pub trait ActionContext<T: EventListener> {
     fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
+    fn coords_to_point(&self, x: usize, y: usize) -> Point;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
     fn received_count(&mut self) -> &mut usize;
@@ -180,7 +181,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
-                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, OldBoundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, OldBoundary::Wrap, 1),
@@ -194,7 +195,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
-                let vi_point = terminal.grid().visible_to_buffer_new(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
                 let origin = match direction {
                     Direction::Right => vi_point.add_absolute(terminal, OldBoundary::Wrap, 1),
                     Direction::Left => vi_point.sub_absolute(terminal, OldBoundary::Wrap, 1),
@@ -208,8 +209,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchStart) => {
                 let terminal = ctx.terminal();
                 let origin = terminal
-                    .grid()
-                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
+                    .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .sub_absolute(terminal, OldBoundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
@@ -221,7 +221,7 @@ impl<T: EventListener> Execute<T> for Action {
                 let terminal = ctx.terminal();
                 let origin = terminal
                     .grid()
-                    .visible_to_buffer_new(terminal.vi_mode_cursor.point)
+                    .visible_to_buffer(terminal.vi_mode_cursor.point)
                     .add_absolute(terminal, OldBoundary::Wrap, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
@@ -400,11 +400,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         self.ctx.mouse_mut().y = y;
 
         let inside_text_area = size_info.contains_point(x, y);
-        let point = size_info.pixels_to_coords(x, y);
-        let cell_side = self.get_mouse_side();
+        let point = self.ctx.coords_to_point(x, y);
+        let cell_side = self.cell_side(x);
 
-        let cell_changed =
-            point.line != self.ctx.mouse().line || point.column != self.ctx.mouse().column;
+        let cell_changed = point != self.ctx.mouse().point;
 
         // Update mouse state and check for URL change.
         let mouse_state = self.mouse_state();
@@ -421,8 +420,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
-        self.ctx.mouse_mut().line = point.line;
-        self.ctx.mouse_mut().column = point.column;
+        self.ctx.mouse_mut().point = point;
 
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_url_launcher = true;
@@ -446,9 +444,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn get_mouse_side(&self) -> Side {
+    /// Check which side of a cell an X coordinate lies on.
+    fn cell_side(&self, x: usize) -> Side {
         let size_info = self.ctx.size_info();
-        let x = self.ctx.mouse().x;
 
         let cell_x =
             x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
@@ -469,7 +467,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn normal_mouse_report(&mut self, button: u8) {
-        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
+        let Point { line, column } = self.ctx.mouse().point;
         let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
         let max_point = if utf8 { 2015 } else { 223 };
@@ -503,7 +501,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
-        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
+        let Point { line, column } = self.ctx.mouse().point;
         let c = match state {
             ElementState::Pressed => 'M',
             ElementState::Released => 'm',
@@ -575,8 +573,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
 
             // Load mouse point, treating message bar and padding as the closest cell.
-            let mouse = self.ctx.mouse();
-            let mut point = self.ctx.size_info().pixels_to_coords(mouse.x, mouse.y);
+            let mut point = self.ctx.mouse().point;
             point.line = min(point.line, Line(self.ctx.terminal().screen_lines() as isize - 1));
 
             match button {
@@ -952,7 +949,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
             None
         } else if mouse.y <= terminal_end + size.cell_height() as usize
-            && mouse.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+            && mouse.point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
         {
             Some(MouseState::MessageBarButton)
         } else {
@@ -1191,6 +1188,10 @@ mod tests {
         }
 
         fn hint_state(&mut self) -> &mut HintState {
+            unimplemented!();
+        }
+
+        fn coords_to_point(&self, _x: usize, _y: usize) -> Point {
             unimplemented!();
         }
     }

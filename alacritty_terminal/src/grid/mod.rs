@@ -380,7 +380,11 @@ impl<T> Grid<T> {
         } else if point.line >= self.display_offset + self.lines {
             Point::new(Line(0), Column(0))
         } else {
-            self.visible_to_buffer_old(point.into()).into()
+            let point = Point {
+                line: self.lines + self.display_offset - point.line - 1,
+                column: point.column,
+            };
+            point.into()
         }
     }
 
@@ -406,24 +410,6 @@ impl<T> Grid<T> {
         let end = self.clamp_buffer_to_viewport(*end);
 
         Some(start..=end)
-    }
-
-    #[inline]
-    pub fn visible_to_buffer_new(&self, point: Point) -> Point<usize> {
-        Point { line: (self.lines as isize - point.line.0 - 1) as usize, column: point.column }
-    }
-
-    #[inline]
-    pub fn visible_to_buffer_old(&self, point: Point) -> Point<usize> {
-        Point {
-            line: self.lines + self.display_offset - point.line.0 as usize - 1,
-            column: point.column,
-        }
-    }
-
-    #[inline]
-    pub fn buffer_to_visible(&self, point: Point<usize>) -> Point {
-        Point { line: Line(self.lines as isize - point.line as isize - 1), column: point.column }
     }
 
     #[inline]
@@ -464,13 +450,12 @@ impl<T> Grid<T> {
 
         let iter = GridIterator { grid: self, point: start };
 
-        let display_offset = self.display_offset;
         let lines = self.lines;
 
         let take_while: DisplayIterTakeFun<'_, T> =
             Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
         let map: DisplayIterMapFun<'_, T> = Box::new(move |indexed: Indexed<&T>| {
-            let line = Line((lines + display_offset - indexed.point.line - 1) as isize);
+            let line = Line(lines as isize - indexed.point.line as isize - 1);
             Indexed { point: Point::new(line, indexed.point.column), cell: indexed.cell }
         });
         iter.take_while(take_while).map(map)
@@ -577,6 +562,24 @@ pub trait Dimensions {
     #[inline]
     fn history_size(&self) -> usize {
         self.total_lines() - self.screen_lines()
+    }
+
+    /// Convert indexing to zero at the topmost visible line without display offset.
+    #[inline]
+    fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        Point {
+            line: (self.screen_lines() as isize - point.line.0 - 1) as usize,
+            column: point.column,
+        }
+    }
+
+    /// Convert indexing to zero at the bottommost line.
+    #[inline]
+    fn buffer_to_visible(&self, point: Point<usize>) -> Point {
+        Point {
+            line: Line(self.screen_lines() as isize - point.line as isize - 1),
+            column: point.column,
+        }
     }
 }
 

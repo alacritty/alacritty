@@ -150,9 +150,9 @@ impl ViModeCursor {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
             ViMotion::Bracket => {
-                let mut point = term.grid().visible_to_buffer_new(self.point);
+                let mut point = term.visible_to_buffer(self.point);
                 point = term.bracket_search(point).unwrap_or(point);
-                self.point = term.grid().buffer_to_visible(point);
+                self.point = term.buffer_to_visible(point);
             },
         }
 
@@ -271,11 +271,11 @@ fn semantic<T: EventListener>(
         {
             point
         } else if direction == Direction::Left {
-            let point = term.grid().visible_to_buffer_new(point);
-            term.grid().buffer_to_visible(term.semantic_search_left(point))
+            let point = term.visible_to_buffer(point);
+            term.buffer_to_visible(term.semantic_search_left(point))
         } else {
-            let point = term.grid().visible_to_buffer_new(point);
-            term.grid().buffer_to_visible(term.semantic_search_right(point))
+            let point = term.visible_to_buffer(point);
+            term.buffer_to_visible(term.semantic_search_right(point))
         }
     };
 

@@ -103,6 +103,8 @@ impl Point {
     where
         D: Dimensions,
     {
+        self.column = min(self.column, dimensions.cols() - 1);
+
         let topmost_line = Line(-(dimensions.history_size() as isize));
         let bottommost_line = Line(dimensions.screen_lines() as isize - 1);
 

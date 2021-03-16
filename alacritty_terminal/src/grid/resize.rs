@@ -370,7 +370,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.cursor.input_needs_wrap = true;
             self.cursor.point.column -= 1;
         } else {
-            self.cursor.point = self.cursor.point.add(self, Boundary::Cursor, 0);
+            self.cursor.point = self.cursor.point.grid_clamp(self, Boundary::Cursor);
         }
 
         // Clamp the saved cursor to the grid.

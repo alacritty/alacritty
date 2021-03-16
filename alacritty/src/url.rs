@@ -176,7 +176,7 @@ impl Urls {
             return None;
         }
 
-        self.find_at(Point::new(mouse.line, mouse.column))
+        self.find_at(mouse.point)
     }
 
     /// Find URL at location.

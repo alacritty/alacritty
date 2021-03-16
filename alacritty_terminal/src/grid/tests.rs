@@ -46,13 +46,13 @@ fn grid_clamp_buffer_point() {
 fn visible_to_buffer() {
     let grid = Grid::<usize>::new(10, Column(10), 1_000);
 
-    let point = grid.visible_to_buffer_new(Point::new(Line(9), Column(3)));
+    let point = grid.visible_to_buffer(Point::new(Line(9), Column(3)));
     assert_eq!(point, Point::new(0, Column(3)));
 
-    let point = grid.visible_to_buffer_new(Point::new(Line(0), Column(3)));
+    let point = grid.visible_to_buffer(Point::new(Line(0), Column(3)));
     assert_eq!(point, Point::new(9, Column(3)));
 
-    let point = grid.visible_to_buffer_new(Point::new(Line(-1), Column(3)));
+    let point = grid.visible_to_buffer(Point::new(Line(-1), Column(3)));
     assert_eq!(point, Point::new(10, Column(3)));
 }
 

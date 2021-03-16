@@ -34,7 +34,6 @@ pub struct RenderableContent<'a> {
     terminal_content: TerminalContent<'a>,
     terminal_cursor: TerminalCursor,
     cursor: Option<RenderableCursor>,
-    cursor_point: Point,
     search: Regex<'a>,
     hint: Hint<'a>,
     config: &'a Config<UiConfig>,
@@ -63,24 +62,11 @@ impl<'a> RenderableContent<'a> {
             terminal_cursor.shape = CursorShape::HollowBlock;
         }
 
-        // Convert cursor point to viewport position.
-        let mut cursor_point = terminal_cursor.point;
-        cursor_point.line += terminal_content.display_offset as isize;
-
         display.hint_state.update_matches(term);
         let hint = Hint::from(&display.hint_state);
 
         let colors = &display.colors;
-        Self {
-            cursor: None,
-            terminal_content,
-            terminal_cursor,
-            cursor_point,
-            search,
-            config,
-            colors,
-            hint,
-        }
+        Self { cursor: None, terminal_content, terminal_cursor, search, config, colors, hint }
     }
 
     /// Viewport offset.
@@ -140,12 +126,16 @@ impl<'a> RenderableContent<'a> {
         let text_color = text_color.color(cell.fg, cell.bg);
         let cursor_color = cursor_color.color(cell.fg, cell.bg);
 
+        // Convert cursor point to viewport position.
+        let mut point = self.terminal_cursor.point;
+        point.line += self.terminal_content.display_offset as isize;
+
         Some(RenderableCursor {
             shape: self.terminal_cursor.shape,
-            point: self.cursor_point,
             cursor_color,
             text_color,
             is_wide,
+            point,
         })
     }
 }
@@ -161,9 +151,10 @@ impl<'a> Iterator for RenderableContent<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let cell = self.terminal_content.display_iter.next()?;
+            let cell_point = cell.point;
             let mut cell = RenderableCell::new(self, cell);
 
-            if self.cursor_point == cell.point {
+            if self.terminal_cursor.point == cell_point {
                 // Store the cursor which should be rendered.
                 self.cursor = self.renderable_cursor(&cell).map(|cursor| {
                     if cursor.shape == CursorShape::Block {
@@ -251,15 +242,19 @@ impl RenderableCell {
             is_match = true;
         }
 
+        // Convert cell point to viewport position.
+        let mut point = cell.point;
+        point.line += content.terminal_content.display_offset as isize;
+
         RenderableCell {
-            character,
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
-            point: cell.point,
+            flags: cell.flags,
             fg: fg_rgb,
             bg: bg_rgb,
+            character,
             bg_alpha,
-            flags: cell.flags,
             is_match,
+            point,
         }
     }
 
@@ -463,8 +458,8 @@ impl RegexMatches {
             .skip_while(move |rm| rm.end().line > viewport_start)
             .take_while(move |rm| rm.start().line >= viewport_end)
             .map(|rm| {
-                let viewport_start = term.grid().buffer_to_visible(*rm.start());
-                let viewport_end = term.grid().buffer_to_visible(*rm.end());
+                let viewport_start = term.buffer_to_visible(*rm.start());
+                let viewport_end = term.buffer_to_visible(*rm.end());
                 viewport_start..=viewport_end
             });
 
