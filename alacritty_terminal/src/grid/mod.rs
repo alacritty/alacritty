@@ -567,6 +567,8 @@ pub trait Dimensions {
     /// Convert indexing to zero at the topmost visible line without display offset.
     #[inline]
     fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        debug_assert!(self.screen_lines() as isize > point.line.0);
+
         Point {
             line: (self.screen_lines() as isize - point.line.0 - 1) as usize,
             column: point.column,

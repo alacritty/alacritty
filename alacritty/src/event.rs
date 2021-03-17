@@ -451,17 +451,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Store original search position as origin and reset location.
         if self.terminal.mode().contains(TermMode::VI) {
-            let vi_point = self.terminal.vi_mode_cursor.point;
+            self.search_state.origin = self.terminal.vi_mode_cursor.point;
             self.search_state.display_offset_delta = 0;
-            self.search_state.origin = vi_point;
         } else {
-            match direction {
-                Direction::Right => self.search_state.origin = Point::new(Line(0), Column(0)),
-                Direction::Left => {
-                    self.search_state.origin =
-                        Point::new(Line(num_lines as isize - 2), num_cols - 1);
-                },
-            }
+            self.search_state.origin = match direction {
+                Direction::Right => Point::new(Line(0), Column(0)),
+                Direction::Left => Point::new(Line(num_lines as isize - 2), num_cols - 1),
+            };
         }
 
         self.display_update_pending.dirty = true;
@@ -491,8 +487,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         } else if let Some(focused_match) = &self.search_state.focused_match {
             // Create a selection for the focused match.
-            let start = self.terminal.grid().clamp_buffer_to_viewport(*focused_match.start());
-            let end = self.terminal.grid().clamp_buffer_to_viewport(*focused_match.end());
+            let start = self.terminal.buffer_to_visible(*focused_match.start());
+            let end = self.terminal.buffer_to_visible(*focused_match.end());
             self.start_selection(SelectionType::Simple, start, Side::Left);
             self.update_selection(end, Side::Right);
         }
@@ -756,17 +752,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
 
-        // Reset vi mode cursor.
-        //
-        // We add and later subtract the display offset to pretend the viewport is at the bottom
-        // and we're clamping to the terminal cursor's range of motion.
-        let display_offset = self.terminal.grid().display_offset() as isize;
-        let mut origin = self.search_state.origin;
-        origin.line += display_offset;
-        origin = origin.grid_clamp(self.terminal, Boundary::Cursor);
-        origin.line -= display_offset;
-        self.terminal.vi_mode_cursor.point = origin;
-
         *self.dirty = true;
     }
 
@@ -782,8 +767,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         // Jump to the next match.
         let direction = self.search_state.direction;
-        let origin = self.absolute_origin();
-        match self.terminal.search_next(dfas, origin, direction, Side::Left, limit) {
+        let clamped_origin = self.search_state.origin.grid_clamp(self.terminal, Boundary::Grid);
+        let absolute_origin = self.terminal.visible_to_buffer(clamped_origin);
+        match self.terminal.search_next(dfas, absolute_origin, direction, Side::Left, limit) {
             Some(regex_match) => {
                 let old_offset = self.terminal.grid().display_offset() as isize;
 
@@ -828,36 +814,12 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Cleanup the search state.
     fn exit_search(&mut self) {
-        // Move vi cursor down if resize will pull content from history.
-        if self.terminal.history_size() != 0
-            && self.terminal.grid().display_offset() == 0
-            && self.terminal.screen_lines() as isize
-                > self.terminal.vi_mode_cursor.point.line + 1isize
-        {
-            self.terminal.vi_mode_cursor.point.line += 1isize;
-        }
-
         self.display_update_pending.dirty = true;
         self.search_state.history_index = None;
         *self.dirty = true;
 
         // Clear focused match.
         self.search_state.focused_match = None;
-    }
-
-    /// Get the absolute position of the search origin.
-    ///
-    /// This takes the relative motion of the viewport since the start of the search into account.
-    /// So while the absolute point of the origin might have changed since new content was printed,
-    /// this will still return the correct absolute position.
-    fn absolute_origin(&self) -> Point<usize> {
-        let mut relative_origin = self.search_state.origin;
-        relative_origin.line =
-            min(relative_origin.line, Line(self.terminal.screen_lines() as isize - 1));
-        relative_origin.column = min(relative_origin.column, self.terminal.columns() - 1);
-        let mut origin = self.terminal.visible_to_buffer(relative_origin);
-        origin.line = (origin.line as isize + self.search_state.display_offset_delta) as usize;
-        origin
     }
 
     /// Update the cursor blinking state.
@@ -1420,14 +1382,12 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
-        let vi_mode = terminal.mode().contains(TermMode::VI);
         let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines as isize;
-        let origin_at_bottom = if vi_mode {
+        let origin_at_bottom = if terminal.mode().contains(TermMode::VI) {
             terminal.vi_mode_cursor.point.line == num_lines as isize - 1
         } else {
             self.search_state.direction == Direction::Left
         };
-        let old_display_offset = terminal.grid().display_offset();
 
         self.display.handle_update(
             terminal,
@@ -1447,15 +1407,6 @@ impl<N: Notify + OnResize> Processor<N> {
             } else if display_offset != 0 && origin_at_bottom {
                 terminal.scroll_display(Scroll::Delta(-1));
             }
-        } else if old_is_searching
-            && !new_is_searching
-            && old_display_offset == 0
-            && cursor_at_bottom
-            && origin_at_bottom
-            && vi_mode
-        {
-            // Pull down the vi cursor if it was moved up when the search was started.
-            terminal.vi_mode_cursor.point.line += 1isize;
         }
     }
 

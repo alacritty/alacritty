@@ -489,6 +489,7 @@ impl<T> Term<T> {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Invalidate selection and tabs only when necessary.
+        let history_size = self.history_size();
         if old_cols != num_cols {
             self.selection = None;
 
@@ -497,7 +498,7 @@ impl<T> Term<T> {
         } else if let Some(selection) = self.selection.take() {
             // Move the selection if only number of lines changed.
             let delta = if num_lines > old_lines {
-                (num_lines - old_lines).saturating_sub(self.history_size()) as isize
+                (num_lines - old_lines).saturating_sub(history_size) as isize
             } else {
                 let cursor_line = self.grid.cursor.point.line;
                 -(min(old_lines - cursor_line.0 as usize - 1, old_lines - num_lines) as isize)
@@ -505,8 +506,13 @@ impl<T> Term<T> {
             self.selection = selection.rotate(self, &(0..num_lines), delta);
         }
 
-        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
+        // Move vi mode cursor with the content.
+        let mut delta = num_lines as isize - old_lines as isize;
+        let min_delta = min(0, num_lines as isize - self.grid.cursor.point.line.0 as isize - 1);
+        delta = min(max(delta, min_delta), history_size as isize);
+        self.vi_mode_cursor.point.line += delta;
 
+        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
         self.grid.resize(!is_alt, num_lines, num_cols);
         self.inactive_grid.resize(is_alt, num_lines, num_cols);
 
@@ -657,7 +663,7 @@ impl<T> Term<T> {
         self.scroll_to_point(point);
 
         // Move vi cursor to the point.
-        self.vi_mode_cursor.point = self.grid.clamp_buffer_to_viewport(point);
+        self.vi_mode_cursor.point = self.grid.buffer_to_visible(point);
 
         self.vi_mode_recompute_selection();
     }
