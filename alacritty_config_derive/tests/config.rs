@@ -27,7 +27,7 @@ struct Test {
     #[config(deprecated = "shouldn't be hit")]
     field2: String,
     field3: Option<u8>,
-    #[doc("aaa")]
+    #[doc(hidden)]
     nesting: Test2<usize>,
     #[config(flatten)]
     flatten: Test3,

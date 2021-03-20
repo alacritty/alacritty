@@ -249,8 +249,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         point.line = min(point.line, Line(self.terminal.screen_lines() as isize - 1));
 
         // Update selection.
-        let absolute_point = self.terminal.grid().visible_to_buffer(point);
-        selection.update(absolute_point, side);
+        selection.update(point, side);
 
         // Move vi cursor and expand selection.
         if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
@@ -263,7 +262,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
-        let point = self.terminal.grid().visible_to_buffer(point);
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
     }

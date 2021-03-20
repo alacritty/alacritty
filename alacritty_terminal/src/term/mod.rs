@@ -503,7 +503,8 @@ impl<T> Term<T> {
                 let cursor_line = self.grid.cursor.point.line;
                 -(min(old_lines - cursor_line.0 as usize - 1, old_lines - num_lines) as isize)
             };
-            self.selection = selection.rotate(self, &(0..num_lines), delta);
+            let range = Line(0)..Line(num_lines as isize);
+            self.selection = selection.rotate(self, &range, delta);
         }
 
         // Move vi mode cursor with the content.
@@ -557,19 +558,14 @@ impl<T> Term<T> {
     fn scroll_down_relative(&mut self, origin: Line, mut lines: usize) {
         trace!("Scrolling down relative: origin={}, lines={}", origin, lines);
 
-        let num_lines = Line(self.screen_lines() as isize);
-
         lines = min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
         lines = min(lines, (self.scroll_region.end - origin).0 as usize);
 
         let region = origin..self.scroll_region.end;
-        let absolute_start = (num_lines - region.end).0 as usize;
-        let absolute_end = (num_lines - region.start).0 as usize;
-        let absolute_region = absolute_start..absolute_end;
 
         // Scroll selection.
         self.selection =
-            self.selection.take().and_then(|s| s.rotate(self, &absolute_region, -(lines as isize)));
+            self.selection.take().and_then(|s| s.rotate(self, &region, -(lines as isize)));
 
         // Scroll between origin and bottom
         self.grid.scroll_down(&region, lines);
@@ -583,18 +579,13 @@ impl<T> Term<T> {
     fn scroll_up_relative(&mut self, origin: Line, mut lines: usize) {
         trace!("Scrolling up relative: origin={}, lines={}", origin, lines);
 
-        let num_lines = Line(self.screen_lines() as isize);
-
         lines = min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
 
         let region = origin..self.scroll_region.end;
-        let absolute_start = (num_lines - region.end).0 as usize;
-        let absolute_end = (num_lines - region.start).0 as usize;
-        let absolute_region = absolute_start..absolute_end;
 
         // Scroll selection.
         self.selection =
-            self.selection.take().and_then(|s| s.rotate(self, &absolute_region, lines as isize));
+            self.selection.take().and_then(|s| s.rotate(self, &region, lines as isize));
 
         // Scroll from origin to bottom less number of lines.
         self.grid.scroll_up(&region, lines);
@@ -676,15 +667,13 @@ impl<T> Term<T> {
             return;
         }
 
-        let viewport_point = self.visible_to_buffer(self.vi_mode_cursor.point);
-
         // Update only if non-empty selection is present.
         let selection = match &mut self.selection {
             Some(selection) if !selection.is_empty() => selection,
             _ => return,
         };
 
-        selection.update(viewport_point, Side::Left);
+        selection.update(self.vi_mode_cursor.point, Side::Left);
         selection.include_all();
     }
 
@@ -694,10 +683,10 @@ impl<T> Term<T> {
         T: EventListener,
     {
         let display_offset = self.grid.display_offset();
-        let num_lines = self.screen_lines();
+        let screen_lines = self.screen_lines();
 
-        if point.line >= display_offset + num_lines {
-            let lines = point.line.saturating_sub(display_offset + num_lines - 1);
+        if point.line >= display_offset + screen_lines {
+            let lines = point.line.saturating_sub(display_offset + screen_lines - 1);
             self.scroll_display(Scroll::Delta(lines as isize));
         } else if point.line < display_offset {
             let lines = display_offset.saturating_sub(point.line);
@@ -1324,11 +1313,8 @@ impl<T: EventListener> Handler for Term<T> {
             },
         }
 
-        let cursor_buffer_line = self.screen_lines() - self.grid.cursor.point.line.0 as usize - 1;
-        self.selection = self
-            .selection
-            .take()
-            .filter(|s| !s.intersects_range(cursor_buffer_line..=cursor_buffer_line));
+        let range = self.grid.cursor.point.line..=self.grid.cursor.point.line;
+        self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
     }
 
     /// Set the indexed color value.
@@ -1403,8 +1389,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing screen: {:?}", mode);
         let bg = self.grid.cursor.template.bg;
 
-        let num_lines = self.screen_lines();
-        let cursor_buffer_line = num_lines - self.grid.cursor.point.line.0 as usize - 1;
+        let screen_lines = self.screen_lines();
 
         match mode {
             ansi::ClearMode::Above => {
@@ -1422,10 +1407,8 @@ impl<T: EventListener> Handler for Term<T> {
                     *cell = bg.into();
                 }
 
-                self.selection = self
-                    .selection
-                    .take()
-                    .filter(|s| !s.intersects_range(cursor_buffer_line..num_lines));
+                let range = Line(0)..=cursor.line;
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
@@ -1433,12 +1416,12 @@ impl<T: EventListener> Handler for Term<T> {
                     *cell = bg.into();
                 }
 
-                if (cursor.line.0 as usize) < num_lines - 1 {
+                if (cursor.line.0 as usize) < screen_lines - 1 {
                     self.grid.reset_region((cursor.line + 1isize)..);
                 }
 
-                self.selection =
-                    self.selection.take().filter(|s| !s.intersects_range(..=cursor_buffer_line));
+                let range = cursor.line..Line(screen_lines as isize);
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
             },
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
@@ -1447,12 +1430,12 @@ impl<T: EventListener> Handler for Term<T> {
                     self.grid.clear_viewport();
                 }
 
-                self.selection = self.selection.take().filter(|s| !s.intersects_range(..num_lines));
+                self.selection = None;
             },
             ansi::ClearMode::Saved if self.history_size() > 0 => {
                 self.grid.clear_history();
 
-                self.selection = self.selection.take().filter(|s| !s.intersects_range(num_lines..));
+                self.selection = self.selection.take().filter(|s| !s.intersects_range(..Line(0)));
             },
             // We have no history to clear.
             ansi::ClearMode::Saved => (),
@@ -1863,7 +1846,7 @@ impl RenderableCursor {
 /// This contains all content required to render the current terminal view.
 pub struct RenderableContent<'a> {
     pub display_iter: DisplayIter<'a, Cell>,
-    pub selection: Option<SelectionRange<Line>>,
+    pub selection: Option<SelectionRange>,
     pub cursor: RenderableCursor,
     pub display_offset: usize,
     pub colors: &'a color::Colors,
@@ -1963,7 +1946,7 @@ mod tests {
 
     #[test]
     fn semantic_selection_works() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
+        let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(3, Column(5), 0);
         for i in 0..5 {
@@ -1984,7 +1967,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 2, column: Column(1) },
+                Point { line: Line(0), column: Column(1) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aa")));
@@ -1993,7 +1976,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 2, column: Column(4) },
+                Point { line: Line(0), column: Column(4) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
@@ -2002,7 +1985,7 @@ mod tests {
         {
             term.selection = Some(Selection::new(
                 SelectionType::Semantic,
-                Point { line: 1, column: Column(1) },
+                Point { line: Line(1), column: Column(1) },
                 Side::Left,
             ));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
@@ -2011,7 +1994,7 @@ mod tests {
 
     #[test]
     fn line_selection_works() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
+        let size = SizeInfo::new(5., 1., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(1, Column(5), 0);
         for i in 0..5 {
@@ -2024,7 +2007,7 @@ mod tests {
 
         term.selection = Some(Selection::new(
             SelectionType::Lines,
-            Point { line: 0, column: Column(3) },
+            Point { line: Line(0), column: Column(3) },
             Side::Left,
         ));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
@@ -2032,7 +2015,7 @@ mod tests {
 
     #[test]
     fn selecting_empty_line() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
+        let size = SizeInfo::new(3.0, 3.0, 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
         let mut grid: Grid<Cell> = Grid::new(3, Column(3), 0);
         for l in 0..3 {
@@ -2045,9 +2028,12 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let mut selection =
-            Selection::new(SelectionType::Simple, Point { line: 2, column: Column(0) }, Side::Left);
-        selection.update(Point { line: 0, column: Column(2) }, Side::Right);
+        let mut selection = Selection::new(
+            SelectionType::Simple,
+            Point { line: Line(0), column: Column(0) },
+            Side::Left,
+        );
+        selection.update(Point { line: Line(2), column: Column(2) }, Side::Right);
         term.selection = Some(selection);
         assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
