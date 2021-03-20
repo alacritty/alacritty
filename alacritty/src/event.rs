@@ -11,7 +11,6 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::mem;
-use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
@@ -32,7 +31,7 @@ use crossfont::{self, Size};
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, OldBoundary, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -96,10 +95,10 @@ pub struct SearchState {
     display_offset_delta: isize,
 
     /// Search origin in viewport coordinates relative to original display offset.
-    origin: Point<Line>,
+    origin: Point,
 
     /// Focused match during active search.
-    focused_match: Option<RangeInclusive<Point<usize>>>,
+    focused_match: Option<Match>,
 
     /// Search regex and history.
     ///
@@ -128,7 +127,7 @@ impl SearchState {
     }
 
     /// Focused match during vi-less search.
-    pub fn focused_match(&self) -> Option<&RangeInclusive<Point<usize>>> {
+    pub fn focused_match(&self) -> Option<&Match> {
         self.focused_match.as_ref()
     }
 
@@ -239,7 +238,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
-    fn update_selection(&mut self, mut point: Point<Line>, side: Side) {
+    fn update_selection(&mut self, mut point: Point, side: Side) {
         let mut selection = match self.terminal.selection.take() {
             Some(selection) => selection,
             None => return,
@@ -261,12 +260,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
-    fn start_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
+    fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
     }
 
-    fn toggle_selection(&mut self, ty: SelectionType, point: Point<Line>, side: Side) {
+    fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         match &mut self.terminal.selection {
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
@@ -485,8 +484,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_reset_state();
         } else if let Some(focused_match) = &self.search_state.focused_match {
             // Create a selection for the focused match.
-            let start = self.terminal.buffer_to_visible(*focused_match.start());
-            let end = self.terminal.buffer_to_visible(*focused_match.end());
+            let start = *focused_match.start();
+            let end = *focused_match.end();
             self.start_selection(SelectionType::Simple, start, Side::Left);
             self.update_selection(end, Side::Right);
         }
@@ -567,18 +566,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Use focused match as new search origin if available.
         if let Some(focused_match) = &self.search_state.focused_match {
             let new_origin = match direction {
-                Direction::Right => {
-                    focused_match.end().add_absolute(self.terminal, OldBoundary::Wrap, 1)
-                },
-                Direction::Left => {
-                    focused_match.start().sub_absolute(self.terminal, OldBoundary::Wrap, 1)
-                },
+                Direction::Right => focused_match.end().add(self.terminal, Boundary::None, 1),
+                Direction::Left => focused_match.start().sub(self.terminal, Boundary::None, 1),
             };
 
             self.terminal.scroll_to_point(new_origin);
 
-            self.search_state.origin = self.terminal.buffer_to_visible(new_origin);
             self.search_state.display_offset_delta = 0;
+            self.search_state.origin = new_origin;
         }
 
         // Search for the next match using the supplied direction.
@@ -608,13 +603,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Store origin and scroll back to the match.
         self.terminal.scroll_display(Scroll::Delta(-self.search_state.display_offset_delta));
-        self.search_state.origin = self.terminal.buffer_to_visible(new_origin);
+        self.search_state.origin = new_origin;
     }
 
     /// Find the next search match.
     fn search_next(
         &mut self,
-        origin: Point<usize>,
+        origin: Point,
         direction: Direction,
         side: Side,
     ) -> Option<Match> {
@@ -766,8 +761,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Jump to the next match.
         let direction = self.search_state.direction;
         let clamped_origin = self.search_state.origin.grid_clamp(self.terminal, Boundary::Grid);
-        let absolute_origin = self.terminal.visible_to_buffer(clamped_origin);
-        match self.terminal.search_next(dfas, absolute_origin, direction, Side::Left, limit) {
+        match self.terminal.search_next(dfas, clamped_origin, direction, Side::Left, limit) {
             Some(regex_match) => {
                 let old_offset = self.terminal.grid().display_offset() as isize;
 

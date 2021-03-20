@@ -477,12 +477,6 @@ impl Display {
         mods: ModifiersState,
         search_state: &SearchState,
     ) {
-        // Convert search match from viewport to absolute indexing.
-        let search_active = search_state.regex().is_some();
-        let viewport_match = search_state
-            .focused_match()
-            .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
-
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
         let mut grid_cells = Vec::new();
@@ -525,9 +519,8 @@ impl Display {
                 for mut cell in grid_cells {
                     // Invert the active match during search.
                     if cell.is_match
-                        && viewport_match
-                            .as_ref()
-                            .map_or(false, |viewport_match| viewport_match.contains(&cell.point))
+                        && search_state.focused_match().as_ref()
+                            .map_or(false, |focused_match| focused_match.contains(&cell.point))
                     {
                         let colors = config.ui_config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);
@@ -579,7 +572,7 @@ impl Display {
             // Indicate vi mode by showing the cursor's position in the top right corner.
             let line = (-vi_point.line.0 + size_info.screen_lines() as isize - 1) as usize;
             self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
-        } else if search_active {
+        } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
             self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
         }
@@ -606,7 +599,7 @@ impl Display {
         }
 
         if let Some(message) = message_buffer.message() {
-            let search_offset = if search_active { 1 } else { 0 };
+            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.

@@ -22,7 +22,7 @@ use glutin::window::CursorIcon;
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Column, Direction, Line, OldBoundary, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
@@ -100,12 +100,7 @@ pub trait ActionContext<T: EventListener> {
     fn search_pop_word(&mut self) {}
     fn search_history_previous(&mut self) {}
     fn search_history_next(&mut self) {}
-    fn search_next(
-        &mut self,
-        origin: Point<usize>,
-        direction: Direction,
-        side: Side,
-    ) -> Option<Match>;
+    fn search_next(&mut self, origin: Point, direction: Direction, side: Side) -> Option<Match>;
     fn advance_search_origin(&mut self, _direction: Direction) {}
     fn search_direction(&self) -> Direction;
     fn search_active(&self) -> bool;
@@ -181,10 +176,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
-                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.vi_mode_cursor.point;
                 let origin = match direction {
-                    Direction::Right => vi_point.add_absolute(terminal, OldBoundary::Wrap, 1),
-                    Direction::Left => vi_point.sub_absolute(terminal, OldBoundary::Wrap, 1),
+                    Direction::Right => vi_point.add(terminal, Boundary::None, 1),
+                    Direction::Left => vi_point.sub(terminal, Boundary::None, 1),
                 };
 
                 if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
@@ -195,10 +190,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
-                let vi_point = terminal.visible_to_buffer(terminal.vi_mode_cursor.point);
+                let vi_point = terminal.vi_mode_cursor.point;
                 let origin = match direction {
-                    Direction::Right => vi_point.add_absolute(terminal, OldBoundary::Wrap, 1),
-                    Direction::Left => vi_point.sub_absolute(terminal, OldBoundary::Wrap, 1),
+                    Direction::Right => vi_point.add(terminal, Boundary::None, 1),
+                    Direction::Left => vi_point.sub(terminal, Boundary::None, 1),
                 };
 
                 if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
@@ -208,9 +203,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViAction(ViAction::SearchStart) => {
                 let terminal = ctx.terminal();
-                let origin = terminal
-                    .visible_to_buffer(terminal.vi_mode_cursor.point)
-                    .sub_absolute(terminal, OldBoundary::Wrap, 1);
+                let origin = terminal.vi_mode_cursor.point.sub(terminal, Boundary::None, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
@@ -219,10 +212,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViAction(ViAction::SearchEnd) => {
                 let terminal = ctx.terminal();
-                let origin = terminal
-                    .grid()
-                    .visible_to_buffer(terminal.vi_mode_cursor.point)
-                    .add_absolute(terminal, OldBoundary::Wrap, 1);
+                let origin = terminal.vi_mode_cursor.point.add(terminal, Boundary::None, 1);
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
@@ -1086,7 +1076,7 @@ mod tests {
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
         fn search_next(
             &mut self,
-            _origin: Point<usize>,
+            _origin: Point,
             _direction: Direction,
             _side: Side,
         ) -> Option<Match> {

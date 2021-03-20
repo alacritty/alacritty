@@ -56,7 +56,7 @@ impl SelectionRange {
     }
 
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell(&self, indexed: &Indexed<&Cell, Line>, cursor: RenderableCursor) -> bool {
+    pub fn contains_cell(&self, indexed: &Indexed<&Cell>, cursor: RenderableCursor) -> bool {
         // Do not invert block cursor at selection boundaries.
         if cursor.shape == CursorShape::Block
             && cursor.point == indexed.point
@@ -286,8 +286,7 @@ impl Selection {
 
     fn range_semantic<T>(term: &Term<T>, mut start: Point, mut end: Point) -> SelectionRange {
         if start == end {
-            if let Some(absolute_matching) = term.bracket_search(term.visible_to_buffer(start)) {
-                let matching = term.buffer_to_visible(absolute_matching);
+            if let Some(matching) = term.bracket_search(start) {
                 if (matching.line == start.line && matching.column < start.column)
                     || (matching.line > start.line)
                 {
@@ -300,19 +299,15 @@ impl Selection {
             }
         }
 
-        let absolute_start = term.semantic_search_left(term.visible_to_buffer(start));
-        let absolute_end = term.semantic_search_right(term.visible_to_buffer(end));
-        let start = term.buffer_to_visible(absolute_start);
-        let end = term.buffer_to_visible(absolute_end);
+        let start = term.semantic_search_left(start);
+        let end = term.semantic_search_right(end);
 
         SelectionRange { start, end, is_block: false }
     }
 
     fn range_lines<T>(term: &Term<T>, start: Point, end: Point) -> SelectionRange {
-        let absolute_start = term.line_search_left(term.visible_to_buffer(start));
-        let absolute_end = term.line_search_right(term.visible_to_buffer(end));
-        let start = term.buffer_to_visible(absolute_start);
-        let end = term.buffer_to_visible(absolute_end);
+        let start = term.line_search_left(start);
+        let end = term.line_search_right(end);
 
         SelectionRange { start, end, is_block: false }
     }

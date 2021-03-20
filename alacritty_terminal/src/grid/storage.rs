@@ -81,7 +81,7 @@ impl<T> Storage<T> {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
 
-        let cols = self[0].len();
+        let cols = self[Line(0)].len();
         self.initialize(growage, Column(cols));
 
         // Update visible lines.
@@ -214,24 +214,6 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     #[inline]
-    fn compute_index_old(&self, requested: usize) -> usize {
-        debug_assert!(requested < self.len);
-
-        let zeroed = self.zero + requested;
-
-        // Use if/else instead of remainder here to improve performance.
-        //
-        // Requires `zeroed` to be smaller than `self.inner.len() * 2`,
-        // but both `self.zero` and `requested` are always smaller than `self.inner.len()`.
-        if zeroed >= self.inner.len() {
-            zeroed - self.inner.len()
-        } else {
-            zeroed
-        }
-    }
-
-    /// Compute actual index in underlying storage given the requested index.
-    #[inline]
     fn compute_index(&self, requested: Line) -> usize {
         debug_assert!(requested.0 < self.visible_lines as isize);
 
@@ -264,23 +246,6 @@ impl<T> Storage<T> {
     }
 }
 
-impl<T> Index<usize> for Storage<T> {
-    type Output = Row<T>;
-
-    #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.inner[self.compute_index_old(index)]
-    }
-}
-
-impl<T> IndexMut<usize> for Storage<T> {
-    #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        let index = self.compute_index_old(index); // borrowck
-        &mut self.inner[index]
-    }
-}
-
 impl<T> Index<Line> for Storage<T> {
     type Output = Row<T>;
 
@@ -304,7 +269,7 @@ mod tests {
     use crate::grid::row::Row;
     use crate::grid::storage::{Storage, MAX_CACHE_SIZE};
     use crate::grid::GridCell;
-    use crate::index::Column;
+    use crate::index::{Line, Column};
     use crate::term::cell::Flags;
 
     impl GridCell for char {
@@ -339,26 +304,22 @@ mod tests {
     fn indexing() {
         let mut storage = Storage::<char>::with_capacity(3, Column(1));
 
-        storage[0] = filled_row('0');
-        storage[1] = filled_row('1');
-        storage[2] = filled_row('2');
-
-        assert_eq!(storage[0], filled_row('0'));
-        assert_eq!(storage[1], filled_row('1'));
-        assert_eq!(storage[2], filled_row('2'));
+        storage[Line(0)] = filled_row('0');
+        storage[Line(1)] = filled_row('1');
+        storage[Line(2)] = filled_row('2');
 
         storage.zero += 1;
 
-        assert_eq!(storage[0], filled_row('1'));
-        assert_eq!(storage[1], filled_row('2'));
-        assert_eq!(storage[2], filled_row('0'));
+        assert_eq!(storage[Line(0)], filled_row('2'));
+        assert_eq!(storage[Line(1)], filled_row('0'));
+        assert_eq!(storage[Line(2)], filled_row('1'));
     }
 
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
         let storage = Storage::<char>::with_capacity(1, Column(1));
-        let _ = &storage[2];
+        let _ = &storage[Line(-1)];
     }
 
     #[test]

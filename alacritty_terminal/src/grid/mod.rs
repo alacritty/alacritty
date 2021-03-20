@@ -1,8 +1,8 @@
 //! A specialized 2D grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min};
-use std::iter::{Map, TakeWhile};
-use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeInclusive};
+use std::iter::TakeWhile;
+use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds};
 
 use serde::{Deserialize, Serialize};
 
@@ -103,7 +103,7 @@ pub enum Scroll {
 /// │                         │
 /// └─────────────────────────┘  <-- zero
 ///                           ^
-///                          cols
+///                        columns
 /// ```
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Grid<T> {
@@ -120,7 +120,7 @@ pub struct Grid<T> {
     raw: Storage<T>,
 
     /// Number of columns.
-    cols: Column,
+    columns: Column,
 
     /// Number of visible lines.
     lines: usize,
@@ -137,15 +137,15 @@ pub struct Grid<T> {
 }
 
 impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
-    pub fn new(lines: usize, cols: Column, max_scroll_limit: usize) -> Grid<T> {
+    pub fn new(lines: usize, columns: Column, max_scroll_limit: usize) -> Grid<T> {
         Grid {
-            raw: Storage::with_capacity(lines, cols),
+            raw: Storage::with_capacity(lines, columns),
             max_scroll_limit,
             display_offset: 0,
             saved_cursor: Cursor::default(),
             cursor: Cursor::default(),
             lines,
-            cols,
+            columns,
         }
     }
 
@@ -175,7 +175,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     fn increase_scroll_limit(&mut self, count: usize) {
         let count = min(count, self.max_scroll_limit - self.history_size());
         if count != 0 {
-            self.raw.initialize(count, self.cols);
+            self.raw.initialize(count, self.columns);
         }
     }
 
@@ -304,15 +304,15 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // Determine how many lines to scroll up by.
-        let end = Point { line: 0, column: self.columns() };
+        let end = Point { line: Line(self.lines as isize - 1), column: self.columns() };
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
-            if !cell.is_empty() || cell.point.line >= self.lines {
+            if !cell.is_empty() || cell.point.line < 0isize {
                 break;
             }
         }
-        debug_assert!(iter.point.line <= self.lines);
-        let positions = self.lines - iter.point.line;
+        debug_assert!(iter.point.line >= -1isize);
+        let positions = (iter.point.line.0 + 1) as usize;
         let region = Line(0)..Line(self.lines as isize);
 
         // Reset display offset.
@@ -322,8 +322,8 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.scroll_up(&region, positions);
 
         // Reset rotated lines.
-        for i in positions..self.lines {
-            self.raw[i].reset(&self.cursor.template);
+        for line in (0..(self.lines - positions)).into_iter().map(Line::from) {
+            self.raw[line].reset(&self.cursor.template);
         }
     }
 
@@ -340,8 +340,9 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.display_offset = 0;
 
         // Reset all visible lines.
-        for row in 0..self.raw.len() {
-            self.raw[row].reset(&self.cursor.template);
+        let range = -(self.history_size() as isize)..(self.screen_lines() as isize);
+        for line in range.into_iter().map(Line::from) {
+            self.raw[line].reset(&self.cursor.template);
         }
     }
 }
@@ -373,45 +374,6 @@ impl<T> Grid<T> {
         }
     }
 
-    /// Clamp a buffer point to the visible region.
-    pub fn clamp_buffer_to_viewport(&self, point: Point<usize>) -> Point {
-        if point.line < self.display_offset {
-            Point::new(Line(self.lines as isize - 1), self.cols - 1)
-        } else if point.line >= self.display_offset + self.lines {
-            Point::new(Line(0), Column(0))
-        } else {
-            let point = Point {
-                line: self.lines + self.display_offset - point.line - 1,
-                column: point.column,
-            };
-            point.into()
-        }
-    }
-
-    // Clamp a buffer point based range to the viewport.
-    //
-    // This will make sure the content within the range is visible and return `None` whenever the
-    // entire range is outside the visible region.
-    pub fn clamp_buffer_range_to_visible(
-        &self,
-        range: &RangeInclusive<Point<usize>>,
-    ) -> Option<RangeInclusive<Point>> {
-        let start = range.start();
-        let end = range.end();
-
-        // Check if the range is completely offscreen
-        let viewport_end = self.display_offset;
-        let viewport_start = viewport_end + self.lines - 1;
-        if end.line > viewport_start || start.line < viewport_end {
-            return None;
-        }
-
-        let start = self.clamp_buffer_to_viewport(*start);
-        let end = self.clamp_buffer_to_viewport(*end);
-
-        Some(start..=end)
-    }
-
     #[inline]
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history.
@@ -428,7 +390,7 @@ impl<T> Grid<T> {
         self.truncate();
 
         // Initialize everything with empty new lines.
-        self.raw.initialize(self.max_scroll_limit - self.history_size(), self.cols);
+        self.raw.initialize(self.max_scroll_limit - self.history_size(), self.columns);
     }
 
     /// This is used only for truncating before saving ref-tests.
@@ -438,27 +400,21 @@ impl<T> Grid<T> {
     }
 
     #[inline]
-    pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
+    pub fn iter_from(&self, point: Point) -> GridIterator<'_, T> {
         GridIterator { grid: self, point }
     }
 
     /// Iterator over all visible cells.
     #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(self.display_offset + self.lines, self.columns() - 1);
-        let end = Point::new(self.display_offset, self.columns());
+        let start = Point::new(Line(-(self.display_offset as isize) - 1), self.columns - 1);
+        let end = Point::new(start.line + self.lines, self.columns);
 
         let iter = GridIterator { grid: self, point: start };
 
-        let lines = self.lines;
-
         let take_while: DisplayIterTakeFun<'_, T> =
             Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
-        let map: DisplayIterMapFun<'_, T> = Box::new(move |indexed: Indexed<&T>| {
-            let line = Line(lines as isize - indexed.point.line as isize - 1);
-            Indexed { point: Point::new(line, indexed.point.column), cell: indexed.cell }
-        });
-        iter.take_while(take_while).map(map)
+        iter.take_while(take_while)
     }
 
     #[inline]
@@ -477,7 +433,7 @@ impl<T: PartialEq> PartialEq for Grid<T> {
     fn eq(&self, other: &Self) -> bool {
         // Compare struct fields and check result of grid comparison.
         self.raw.eq(&other.raw)
-            && self.cols.eq(&other.cols)
+            && self.columns.eq(&other.columns)
             && self.lines.eq(&other.lines)
             && self.display_offset.eq(&other.display_offset)
     }
@@ -496,38 +452,6 @@ impl<T> IndexMut<Line> for Grid<T> {
     #[inline]
     fn index_mut(&mut self, index: Line) -> &mut Row<T> {
         &mut self.raw[index]
-    }
-}
-
-impl<T> Index<usize> for Grid<T> {
-    type Output = Row<T>;
-
-    #[inline]
-    fn index(&self, index: usize) -> &Row<T> {
-        &self.raw[index]
-    }
-}
-
-impl<T> IndexMut<usize> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Row<T> {
-        &mut self.raw[index]
-    }
-}
-
-impl<T> Index<Point<usize>> for Grid<T> {
-    type Output = T;
-
-    #[inline]
-    fn index(&self, point: Point<usize>) -> &T {
-        &self[point.line][point.column]
-    }
-}
-
-impl<T> IndexMut<Point<usize>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, point: Point<usize>) -> &mut T {
-        &mut self[point.line][point.column]
     }
 }
 
@@ -563,26 +487,6 @@ pub trait Dimensions {
     fn history_size(&self) -> usize {
         self.total_lines() - self.screen_lines()
     }
-
-    /// Convert indexing to zero at the topmost visible line without display offset.
-    #[inline]
-    fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        debug_assert!(self.screen_lines() as isize > point.line.0);
-
-        Point {
-            line: (self.screen_lines() as isize - point.line.0 - 1) as usize,
-            column: point.column,
-        }
-    }
-
-    /// Convert indexing to zero at the bottommost line.
-    #[inline]
-    fn buffer_to_visible(&self, point: Point<usize>) -> Point {
-        Point {
-            line: Line(self.screen_lines() as isize - point.line as isize - 1),
-            column: point.column,
-        }
-    }
 }
 
 impl<G> Dimensions for Grid<G> {
@@ -598,7 +502,7 @@ impl<G> Dimensions for Grid<G> {
 
     #[inline]
     fn columns(&self) -> Column {
-        self.cols
+        self.columns
     }
 }
 
@@ -618,12 +522,12 @@ impl Dimensions for (usize, Column) {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Indexed<T, L = usize> {
-    pub point: Point<L>,
+pub struct Indexed<T> {
+    pub point: Point,
     pub cell: T,
 }
 
-impl<T, L> Deref for Indexed<T, L> {
+impl<T> Deref for Indexed<T> {
     type Target = T;
 
     #[inline]
@@ -638,12 +542,12 @@ pub struct GridIterator<'a, T> {
     grid: &'a Grid<T>,
 
     /// Current position of the iterator within the grid.
-    point: Point<usize>,
+    point: Point,
 }
 
 impl<'a, T> GridIterator<'a, T> {
     /// Current iteratior position.
-    pub fn point(&self) -> Point<usize> {
+    pub fn point(&self) -> Point {
         self.point
     }
 
@@ -657,12 +561,18 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = Indexed<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.columns() - 1;
+        let bottommost_line = Line(self.grid.screen_lines() as isize - 1);
+        let last_column = self.grid.columns() - 1;
+
+        // Stop once we've reached the end of the grid.
+        if self.point == Point::new(bottommost_line, last_column) {
+            return None;
+        }
+
         match self.point {
-            Point { line, column: col } if line == 0 && col == last_col => return None,
-            Point { column: col, .. } if (col == last_col) => {
-                self.point.line -= 1;
+            Point { column, .. } if column == last_column => {
                 self.point.column = Column(0);
+                self.point.line += 1isize;
             },
             _ => self.point.column += Column(1),
         }
@@ -678,15 +588,18 @@ pub trait BidirectionalIterator: Iterator {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.columns() - 1;
+        let topmost_line = Line(-(self.grid.history_size() as isize));
+        let last_column = self.grid.columns() - 1;
+
+        // Stop once we've reached the end of the grid.
+        if self.point == Point::new(topmost_line, Column(0)) {
+            return None;
+        }
 
         match self.point {
-            Point { line, column: Column(0) } if line == self.grid.total_lines() - 1 => {
-                return None
-            },
             Point { column: Column(0), .. } => {
-                self.point.line += 1;
-                self.point.column = last_col;
+                self.point.column = last_column;
+                self.point.line -= 1isize;
             },
             _ => self.point.column -= Column(1),
         }
@@ -696,6 +609,5 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
 }
 
 pub type DisplayIter<'a, T> =
-    Map<TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>, DisplayIterMapFun<'a, T>>;
+    TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>;
 type DisplayIterTakeFun<'a, T> = Box<dyn Fn(&Indexed<&'a T>) -> bool>;
-type DisplayIterMapFun<'a, T> = Box<dyn FnMut(Indexed<&'a T>) -> Indexed<&'a T, Line>>;

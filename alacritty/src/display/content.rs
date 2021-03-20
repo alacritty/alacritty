@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::mem;
 use std::ops::{Deref, DerefMut, RangeInclusive};
 
@@ -192,7 +192,7 @@ pub struct RenderableCell {
 }
 
 impl RenderableCell {
-    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell, Line>) -> Self {
+    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
         let mut fg_rgb = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(content, cell.bg);
@@ -432,8 +432,8 @@ pub struct RegexMatches(Vec<RangeInclusive<Point>>);
 impl RegexMatches {
     /// Find all visible matches.
     pub fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
-        let viewport_end = term.grid().display_offset();
-        let viewport_start = viewport_end + term.screen_lines() - 1;
+        let viewport_start = Line(-(term.grid().display_offset() as isize));
+        let viewport_end = viewport_start + term.screen_lines() - 1isize;
 
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));
@@ -442,26 +442,13 @@ impl RegexMatches {
         let mut end = term.line_search_right(end_point);
 
         // Set upper bound on search before/after the viewport to prevent excessive blocking.
-        if start.line > viewport_start + MAX_SEARCH_LINES {
-            if start.line == 0 {
-                // Do not highlight anything if this line is the last.
-                return Self::default();
-            } else {
-                // Start at next line if this one is too long.
-                start.line -= 1;
-            }
-        }
-        end.line = max(end.line, viewport_end.saturating_sub(MAX_SEARCH_LINES));
+        start.line = max(start.line, viewport_start - MAX_SEARCH_LINES);
+        end.line = min(end.line, viewport_end + MAX_SEARCH_LINES);
 
         // Create an iterater for the current regex search for all visible matches.
         let iter = RegexIter::new(start, end, Direction::Right, term, dfas)
             .skip_while(move |rm| rm.end().line > viewport_start)
-            .take_while(move |rm| rm.start().line >= viewport_end)
-            .map(|rm| {
-                let viewport_start = term.buffer_to_visible(*rm.start());
-                let viewport_end = term.buffer_to_visible(*rm.end());
-                viewport_start..=viewport_end
-            });
+            .take_while(move |rm| rm.start().line >= viewport_end);
 
         Self(iter.collect())
     }

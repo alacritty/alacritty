@@ -16,7 +16,7 @@ use crate::ansi::{
 use crate::config::Config;
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
-use crate::index::{self, Boundary, Column, Direction, Line, OldBoundary, Point, Side};
+use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::{Colors, Rgb};
@@ -646,7 +646,7 @@ impl<T> Term<T> {
 
     /// Move vi cursor to absolute point in grid.
     #[inline]
-    pub fn vi_goto_point(&mut self, point: Point<usize>)
+    pub fn vi_goto_point(&mut self, point: Point)
     where
         T: EventListener,
     {
@@ -654,7 +654,7 @@ impl<T> Term<T> {
         self.scroll_to_point(point);
 
         // Move vi cursor to the point.
-        self.vi_mode_cursor.point = self.grid.buffer_to_visible(point);
+        self.vi_mode_cursor.point = point;
 
         self.vi_mode_recompute_selection();
     }
@@ -678,24 +678,7 @@ impl<T> Term<T> {
     }
 
     /// Scroll display to point if it is outside of viewport.
-    pub fn scroll_to_point(&mut self, point: Point<usize>)
-    where
-        T: EventListener,
-    {
-        let display_offset = self.grid.display_offset();
-        let screen_lines = self.screen_lines();
-
-        if point.line >= display_offset + screen_lines {
-            let lines = point.line.saturating_sub(display_offset + screen_lines - 1);
-            self.scroll_display(Scroll::Delta(lines as isize));
-        } else if point.line < display_offset {
-            let lines = display_offset.saturating_sub(point.line);
-            self.scroll_display(Scroll::Delta(-(lines as isize)));
-        }
-    }
-
-    /// Scroll display to point if it is outside of viewport.
-    pub fn scroll_to_point_new(&mut self, point: Point)
+    pub fn scroll_to_point(&mut self, point: Point)
     where
         T: EventListener,
     {
@@ -712,33 +695,7 @@ impl<T> Term<T> {
     }
 
     /// Jump to the end of a wide cell.
-    pub fn expand_wide(&self, mut point: Point<usize>, direction: Direction) -> Point<usize> {
-        let flags = self.grid[point.line][point.column].flags;
-
-        match direction {
-            Direction::Right if flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
-                point.column = Column(1);
-                point.line -= 1;
-            },
-            Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.column += 1,
-            Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
-                if flags.contains(Flags::WIDE_CHAR_SPACER) {
-                    point.column -= 1;
-                }
-
-                let prev = point.sub_absolute(self, OldBoundary::Clamp, 1);
-                if self.grid[prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) {
-                    point = prev;
-                }
-            },
-            _ => (),
-        }
-
-        point
-    }
-
-    /// Jump to the end of a wide cell.
-    pub fn expand_wide_new(&self, mut point: Point, direction: Direction) -> Point {
+    pub fn expand_wide(&self, mut point: Point, direction: Direction) -> Point {
         let flags = self.grid[point.line][point.column].flags;
 
         match direction {
@@ -925,7 +882,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn decaln(&mut self) {
         trace!("Decalnning");
 
-        for line in 0..self.screen_lines() {
+        for line in (0..self.screen_lines()).into_iter().map(Line::from) {
             for column in 0..self.columns().0 {
                 let cell = &mut self.grid[line][Column(column)];
                 *cell = Cell::default();
@@ -1907,8 +1864,9 @@ pub mod test {
         let mut term = Term::new(&Config::<()>::default(), size, ());
 
         // Fill terminal with content.
-        for (line, text) in lines.iter().rev().enumerate() {
-            if !text.ends_with('\r') && line != 0 {
+        for (line, text) in lines.iter().enumerate() {
+            let line = Line(line as isize);
+            if !text.ends_with('\r') && line + 1isize != lines.len() {
                 term.grid[line][Column(num_cols - 1)].flags.insert(Flags::WRAPLINE);
             }
 

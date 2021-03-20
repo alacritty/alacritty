@@ -77,7 +77,7 @@ impl ViModeCursor {
                 }
             },
             ViMotion::Left => {
-                self.point = term.expand_wide_new(self.point, Direction::Left);
+                self.point = term.expand_wide(self.point, Direction::Left);
                 let wrap_point = Point::new(self.point.line - 1isize, term.columns() - 1);
                 if self.point.column.0 == 0
                     && self.point.line > -(term.history_size() as isize)
@@ -89,7 +89,7 @@ impl ViModeCursor {
                 }
             },
             ViMotion::Right => {
-                self.point = term.expand_wide_new(self.point, Direction::Right);
+                self.point = term.expand_wide(self.point, Direction::Right);
                 if is_wrap(term, self.point) {
                     self.point = Point::new(self.point.line + 1isize, Column(0));
                 } else {
@@ -97,7 +97,7 @@ impl ViModeCursor {
                 }
             },
             ViMotion::First => {
-                self.point = term.expand_wide_new(self.point, Direction::Left);
+                self.point = term.expand_wide(self.point, Direction::Left);
                 while self.point.column.0 == 0
                     && self.point.line > -(term.history_size() as isize)
                     && is_wrap(term, Point::new(self.point.line - 1isize, term.columns() - 1))
@@ -149,14 +149,10 @@ impl ViModeCursor {
             ViMotion::WordRightEnd => {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
-            ViMotion::Bracket => {
-                let mut point = term.visible_to_buffer(self.point);
-                point = term.bracket_search(point).unwrap_or(point);
-                self.point = term.buffer_to_visible(point);
-            },
+            ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
         }
 
-        term.scroll_to_point_new(self.point);
+        term.scroll_to_point(self.point);
 
         self
     }
@@ -190,7 +186,7 @@ impl ViModeCursor {
 /// Find next end of line to move to.
 fn last<T>(term: &Term<T>, mut point: Point) -> Point {
     // Expand across wide cells.
-    point = term.expand_wide_new(point, Direction::Right);
+    point = term.expand_wide(point, Direction::Right);
 
     // Find last non-empty cell in the current line.
     let occupied = last_occupied_in_line(term, point.line).unwrap_or_default();
@@ -216,7 +212,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
     let cols = term.columns();
 
     // Expand left across wide chars, since we're searching lines left to right.
-    point = term.expand_wide_new(point, Direction::Left);
+    point = term.expand_wide(point, Direction::Left);
 
     // Find first non-empty cell in current line.
     let occupied = first_occupied_in_line(term, point.line)
@@ -271,16 +267,14 @@ fn semantic<T: EventListener>(
         {
             point
         } else if direction == Direction::Left {
-            let point = term.visible_to_buffer(point);
-            term.buffer_to_visible(term.semantic_search_left(point))
+            term.semantic_search_left(point)
         } else {
-            let point = term.visible_to_buffer(point);
-            term.buffer_to_visible(term.semantic_search_right(point))
+            term.semantic_search_right(point)
         }
     };
 
     // Make sure we jump above wide chars.
-    point = term.expand_wide_new(point, direction);
+    point = term.expand_wide(point, direction);
 
     // Move to word boundary.
     if direction != side && !is_boundary(term, point, direction) {
@@ -315,7 +309,7 @@ fn word<T: EventListener>(
     side: Side,
 ) -> Point {
     // Make sure we jump above wide chars.
-    point = term.expand_wide_new(point, direction);
+    point = term.expand_wide(point, direction);
 
     if direction == side {
         // Skip whitespace until right before a word.

@@ -22,40 +22,6 @@ impl GridCell for usize {
     }
 }
 
-#[test]
-fn grid_clamp_buffer_point() {
-    let mut grid = Grid::<usize>::new(10, Column(10), 1_000);
-    grid.display_offset = 5;
-
-    let point = grid.clamp_buffer_to_viewport(Point::new(10, Column(3)));
-    assert_eq!(point, Point::new(Line(4), Column(3)));
-
-    let point = grid.clamp_buffer_to_viewport(Point::new(15, Column(3)));
-    assert_eq!(point, Point::new(Line(0), Column(0)));
-
-    let point = grid.clamp_buffer_to_viewport(Point::new(4, Column(3)));
-    assert_eq!(point, Point::new(Line(9), Column(9)));
-
-    grid.display_offset = 0;
-
-    let point = grid.clamp_buffer_to_viewport(Point::new(4, Column(3)));
-    assert_eq!(point, Point::new(Line(5), Column(3)));
-}
-
-#[test]
-fn visible_to_buffer() {
-    let grid = Grid::<usize>::new(10, Column(10), 1_000);
-
-    let point = grid.visible_to_buffer(Point::new(Line(9), Column(3)));
-    assert_eq!(point, Point::new(0, Column(3)));
-
-    let point = grid.visible_to_buffer(Point::new(Line(0), Column(3)));
-    assert_eq!(point, Point::new(9, Column(3)));
-
-    let point = grid.visible_to_buffer(Point::new(Line(-1), Column(3)));
-    assert_eq!(point, Point::new(10, Column(3)));
-}
-
 // Scroll up moves lines upward.
 #[test]
 fn scroll_up() {
@@ -166,12 +132,12 @@ fn test_iter() {
         }
     }
 
-    let mut iter = grid.iter_from(Point::new(4, Column(0)));
+    let mut iter = grid.iter_from(Point::new(0, Column(0)));
 
     assert_eq!(None, iter.prev());
     assert_indexed(1, iter.next());
     assert_eq!(Column(1), iter.point().column);
-    assert_eq!(4, iter.point().line);
+    assert_eq!(0, iter.point().line);
 
     assert_indexed(2, iter.next());
     assert_indexed(3, iter.next());
@@ -180,17 +146,17 @@ fn test_iter() {
     // Test line-wrapping.
     assert_indexed(5, iter.next());
     assert_eq!(Column(0), iter.point().column);
-    assert_eq!(3, iter.point().line);
+    assert_eq!(1, iter.point().line);
 
     assert_indexed(4, iter.prev());
     assert_eq!(Column(4), iter.point().column);
-    assert_eq!(4, iter.point().line);
+    assert_eq!(0, iter.point().line);
 
     // Make sure iter.cell() returns the current iterator position.
     assert_eq!(&4, iter.cell());
 
     // Test that iter ends at end of grid.
-    let mut final_iter = grid.iter_from(Point { line: 0, column: Column(4) });
+    let mut final_iter = grid.iter_from(Point { line: Line(4), column: Column(4) });
     assert_eq!(None, final_iter.next());
     assert_indexed(23, final_iter.prev());
 }
@@ -208,17 +174,17 @@ fn shrink_reflow() {
 
     assert_eq!(grid.total_lines(), 3);
 
-    assert_eq!(grid[2].len(), 2);
-    assert_eq!(grid[2][Column(0)], cell('1'));
-    assert_eq!(grid[2][Column(1)], wrap_cell('2'));
+    assert_eq!(grid[Line(-2)].len(), 2);
+    assert_eq!(grid[Line(-2)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(-2)][Column(1)], wrap_cell('2'));
 
-    assert_eq!(grid[1].len(), 2);
-    assert_eq!(grid[1][Column(0)], cell('3'));
-    assert_eq!(grid[1][Column(1)], wrap_cell('4'));
+    assert_eq!(grid[Line(-1)].len(), 2);
+    assert_eq!(grid[Line(-1)][Column(0)], cell('3'));
+    assert_eq!(grid[Line(-1)][Column(1)], wrap_cell('4'));
 
-    assert_eq!(grid[0].len(), 2);
-    assert_eq!(grid[0][Column(0)], cell('5'));
-    assert_eq!(grid[0][Column(1)], Cell::default());
+    assert_eq!(grid[Line(0)].len(), 2);
+    assert_eq!(grid[Line(0)][Column(0)], cell('5'));
+    assert_eq!(grid[Line(0)][Column(1)], Cell::default());
 }
 
 #[test]
@@ -235,17 +201,17 @@ fn shrink_reflow_twice() {
 
     assert_eq!(grid.total_lines(), 3);
 
-    assert_eq!(grid[2].len(), 2);
-    assert_eq!(grid[2][Column(0)], cell('1'));
-    assert_eq!(grid[2][Column(1)], wrap_cell('2'));
+    assert_eq!(grid[Line(-2)].len(), 2);
+    assert_eq!(grid[Line(-2)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(-2)][Column(1)], wrap_cell('2'));
 
-    assert_eq!(grid[1].len(), 2);
-    assert_eq!(grid[1][Column(0)], cell('3'));
-    assert_eq!(grid[1][Column(1)], wrap_cell('4'));
+    assert_eq!(grid[Line(-1)].len(), 2);
+    assert_eq!(grid[Line(-1)][Column(0)], cell('3'));
+    assert_eq!(grid[Line(-1)][Column(1)], wrap_cell('4'));
 
-    assert_eq!(grid[0].len(), 2);
-    assert_eq!(grid[0][Column(0)], cell('5'));
-    assert_eq!(grid[0][Column(1)], Cell::default());
+    assert_eq!(grid[Line(0)].len(), 2);
+    assert_eq!(grid[Line(0)][Column(0)], cell('5'));
+    assert_eq!(grid[Line(0)][Column(1)], Cell::default());
 }
 
 #[test]
@@ -261,29 +227,29 @@ fn shrink_reflow_empty_cell_inside_line() {
 
     assert_eq!(grid.total_lines(), 2);
 
-    assert_eq!(grid[1].len(), 2);
-    assert_eq!(grid[1][Column(0)], cell('1'));
-    assert_eq!(grid[1][Column(1)], wrap_cell(' '));
+    assert_eq!(grid[Line(-1)].len(), 2);
+    assert_eq!(grid[Line(-1)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(-1)][Column(1)], wrap_cell(' '));
 
-    assert_eq!(grid[0].len(), 2);
-    assert_eq!(grid[0][Column(0)], cell('3'));
-    assert_eq!(grid[0][Column(1)], cell('4'));
+    assert_eq!(grid[Line(0)].len(), 2);
+    assert_eq!(grid[Line(0)][Column(0)], cell('3'));
+    assert_eq!(grid[Line(0)][Column(1)], cell('4'));
 
     grid.resize(true, 1, Column(1));
 
     assert_eq!(grid.total_lines(), 4);
 
-    assert_eq!(grid[3].len(), 1);
-    assert_eq!(grid[3][Column(0)], wrap_cell('1'));
+    assert_eq!(grid[Line(-3)].len(), 1);
+    assert_eq!(grid[Line(-3)][Column(0)], wrap_cell('1'));
 
-    assert_eq!(grid[2].len(), 1);
-    assert_eq!(grid[2][Column(0)], wrap_cell(' '));
+    assert_eq!(grid[Line(-2)].len(), 1);
+    assert_eq!(grid[Line(-2)][Column(0)], wrap_cell(' '));
 
-    assert_eq!(grid[1].len(), 1);
-    assert_eq!(grid[1][Column(0)], wrap_cell('3'));
+    assert_eq!(grid[Line(-1)].len(), 1);
+    assert_eq!(grid[Line(-1)][Column(0)], wrap_cell('3'));
 
-    assert_eq!(grid[0].len(), 1);
-    assert_eq!(grid[0][Column(0)], cell('4'));
+    assert_eq!(grid[Line(0)].len(), 1);
+    assert_eq!(grid[Line(0)][Column(0)], cell('4'));
 }
 
 #[test]
@@ -298,16 +264,16 @@ fn grow_reflow() {
 
     assert_eq!(grid.total_lines(), 2);
 
-    assert_eq!(grid[1].len(), 3);
-    assert_eq!(grid[1][Column(0)], cell('1'));
-    assert_eq!(grid[1][Column(1)], cell('2'));
-    assert_eq!(grid[1][Column(2)], cell('3'));
+    assert_eq!(grid[Line(0)].len(), 3);
+    assert_eq!(grid[Line(0)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(0)][Column(1)], cell('2'));
+    assert_eq!(grid[Line(0)][Column(2)], cell('3'));
 
     // Make sure rest of grid is empty.
-    assert_eq!(grid[0].len(), 3);
-    assert_eq!(grid[0][Column(0)], Cell::default());
-    assert_eq!(grid[0][Column(1)], Cell::default());
-    assert_eq!(grid[0][Column(2)], Cell::default());
+    assert_eq!(grid[Line(1)].len(), 3);
+    assert_eq!(grid[Line(1)][Column(0)], Cell::default());
+    assert_eq!(grid[Line(1)][Column(1)], Cell::default());
+    assert_eq!(grid[Line(1)][Column(2)], Cell::default());
 }
 
 #[test]
@@ -324,16 +290,16 @@ fn grow_reflow_multiline() {
 
     assert_eq!(grid.total_lines(), 3);
 
-    assert_eq!(grid[2].len(), 6);
-    assert_eq!(grid[2][Column(0)], cell('1'));
-    assert_eq!(grid[2][Column(1)], cell('2'));
-    assert_eq!(grid[2][Column(2)], cell('3'));
-    assert_eq!(grid[2][Column(3)], cell('4'));
-    assert_eq!(grid[2][Column(4)], cell('5'));
-    assert_eq!(grid[2][Column(5)], cell('6'));
+    assert_eq!(grid[Line(0)].len(), 6);
+    assert_eq!(grid[Line(0)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(0)][Column(1)], cell('2'));
+    assert_eq!(grid[Line(0)][Column(2)], cell('3'));
+    assert_eq!(grid[Line(0)][Column(3)], cell('4'));
+    assert_eq!(grid[Line(0)][Column(4)], cell('5'));
+    assert_eq!(grid[Line(0)][Column(5)], cell('6'));
 
     // Make sure rest of grid is empty.
-    for r in 0..2 {
+    for r in (1..3).into_iter().map(Line::from) {
         assert_eq!(grid[r].len(), 6);
         for c in 0..6 {
             assert_eq!(grid[r][Column(c)], Cell::default());
@@ -353,15 +319,15 @@ fn grow_reflow_disabled() {
 
     assert_eq!(grid.total_lines(), 2);
 
-    assert_eq!(grid[1].len(), 3);
-    assert_eq!(grid[1][Column(0)], cell('1'));
-    assert_eq!(grid[1][Column(1)], wrap_cell('2'));
-    assert_eq!(grid[1][Column(2)], Cell::default());
+    assert_eq!(grid[Line(0)].len(), 3);
+    assert_eq!(grid[Line(0)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(0)][Column(1)], wrap_cell('2'));
+    assert_eq!(grid[Line(0)][Column(2)], Cell::default());
 
-    assert_eq!(grid[0].len(), 3);
-    assert_eq!(grid[0][Column(0)], cell('3'));
-    assert_eq!(grid[0][Column(1)], Cell::default());
-    assert_eq!(grid[0][Column(2)], Cell::default());
+    assert_eq!(grid[Line(1)].len(), 3);
+    assert_eq!(grid[Line(1)][Column(0)], cell('3'));
+    assert_eq!(grid[Line(1)][Column(1)], Cell::default());
+    assert_eq!(grid[Line(1)][Column(2)], Cell::default());
 }
 
 #[test]
@@ -377,9 +343,9 @@ fn shrink_reflow_disabled() {
 
     assert_eq!(grid.total_lines(), 1);
 
-    assert_eq!(grid[0].len(), 2);
-    assert_eq!(grid[0][Column(0)], cell('1'));
-    assert_eq!(grid[0][Column(1)], cell('2'));
+    assert_eq!(grid[Line(0)].len(), 2);
+    assert_eq!(grid[Line(0)][Column(0)], cell('1'));
+    assert_eq!(grid[Line(0)][Column(1)], cell('2'));
 }
 
 // https://github.com/rust-lang/rust-clippy/pull/6375

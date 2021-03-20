@@ -3,7 +3,7 @@
 /// Indexing types and implementations for Grid and Line.
 use std::cmp::{max, min, Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Add, AddAssign, Deref, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
@@ -42,31 +42,16 @@ pub enum Boundary {
     None,
 }
 
-/// Behavior for handling grid boundaries.
-pub enum OldBoundary {
-    /// Clamp to grid boundaries.
-    ///
-    /// When an operation exceeds the grid boundaries, the last point will be returned no matter
-    /// how far the boundaries were exceeded.
-    Clamp,
-
-    /// Wrap around grid bondaries.
-    ///
-    /// When an operation exceeds the grid boundaries, the point will wrap around the entire grid
-    /// history and continue at the other side.
-    Wrap,
-}
-
 /// Index in the grid using row, column notation.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
-pub struct Point<L = Line> {
-    pub line: L,
+pub struct Point {
+    pub line: Line,
     pub column: Column,
 }
 
-impl<L> Point<L> {
-    pub fn new(line: L, col: Column) -> Point<L> {
-        Point { line, column: col }
+impl Point {
+    pub fn new<L: Into<Line>, C: Into<Column>>(line: L, column: C) -> Point {
+        Point { line: line.into(), column: column.into() }
     }
 }
 
@@ -123,66 +108,6 @@ impl Point {
     }
 }
 
-impl Point<usize> {
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn sub_absolute<D>(
-        mut self,
-        dimensions: &D,
-        boundary: OldBoundary,
-        rhs: usize,
-    ) -> Point<usize>
-    where
-        D: Dimensions,
-    {
-        let total_lines = dimensions.total_lines();
-        let num_cols = dimensions.columns().0;
-
-        self.line += (rhs + num_cols - 1).saturating_sub(self.column.0) / num_cols;
-        self.column = Column((num_cols + self.column.0 - rhs % num_cols) % num_cols);
-
-        if self.line >= total_lines {
-            match boundary {
-                OldBoundary::Clamp => Point::new(total_lines - 1, Column(0)),
-                OldBoundary::Wrap => Point::new(self.line - total_lines, self.column),
-            }
-        } else {
-            self
-        }
-    }
-
-    #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn add_absolute<D>(
-        mut self,
-        dimensions: &D,
-        boundary: OldBoundary,
-        rhs: usize,
-    ) -> Point<usize>
-    where
-        D: Dimensions,
-    {
-        let num_cols = dimensions.columns();
-
-        let line_delta = (rhs + self.column.0) / num_cols.0;
-
-        if self.line >= line_delta {
-            self.line -= line_delta;
-            self.column = Column((self.column.0 + rhs) % num_cols.0);
-            self
-        } else {
-            match boundary {
-                OldBoundary::Clamp => Point::new(0, num_cols - 1),
-                OldBoundary::Wrap => {
-                    let col = Column((self.column.0 + rhs) % num_cols.0);
-                    let line = dimensions.total_lines() + self.line - line_delta;
-                    Point::new(line, col)
-                },
-            }
-        }
-    }
-}
-
 impl PartialOrd for Point {
     fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -194,34 +119,6 @@ impl Ord for Point {
         match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
             (Ordering::Equal, ord) | (ord, _) => ord,
         }
-    }
-}
-
-impl PartialOrd for Point<usize> {
-    fn partial_cmp(&self, other: &Point<usize>) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Point<usize> {
-    fn cmp(&self, other: &Point<usize>) -> Ordering {
-        match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
-            (Ordering::Equal, ord) => ord,
-            (Ordering::Less, _) => Ordering::Greater,
-            (Ordering::Greater, _) => Ordering::Less,
-        }
-    }
-}
-
-impl From<Point<usize>> for Point<isize> {
-    fn from(point: Point<usize>) -> Self {
-        Point::new(point.line as isize, point.column)
-    }
-}
-
-impl From<Point<usize>> for Point {
-    fn from(point: Point<usize>) -> Self {
-        Point::new(Line(point.line as isize), point.column)
     }
 }
 
@@ -267,13 +164,19 @@ impl fmt::Display for Line {
     }
 }
 
+impl From<i32> for Line {
+    fn from(source: i32) -> Self {
+        Self(source as isize)
+    }
+}
+
 impl From<usize> for Line {
     fn from(source: usize) -> Self {
         Self(source as isize)
     }
 }
 
-impl ops::Add<usize> for Line {
+impl Add<usize> for Line {
     type Output = Line;
 
     #[inline]
@@ -289,7 +192,7 @@ impl AddAssign<usize> for Line {
     }
 }
 
-impl ops::Sub<usize> for Line {
+impl Sub<usize> for Line {
     type Output = Line;
 
     #[inline]
@@ -331,53 +234,8 @@ impl fmt::Display for Column {
     }
 }
 
-// Copyright 2015 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-//
-// implements binary operators "&T op U", "T op &U", "&T op &U"
-// based on "T op U" where T and U are expected to be `Copy`able
-macro_rules! forward_ref_binop {
-    (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
-        impl<'a> $imp<$u> for &'a $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(*self, other)
-            }
-        }
-
-        impl<'a> $imp<&'a $u> for $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(self, *other)
-            }
-        }
-
-        impl<'a, 'b> $imp<&'a $u> for &'b $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(*self, *other)
-            }
-        }
-    };
-}
-
 macro_rules! ops {
     ($ty:ty, $construct:expr, $primitive:ty) => {
-        forward_ref_binop!(impl Add, add for $ty, $ty);
-
         impl Deref for $ty {
             type Target = $primitive;
 
@@ -394,7 +252,7 @@ macro_rules! ops {
             }
         }
 
-        impl ops::Add<$ty> for $ty {
+        impl Add<$ty> for $ty {
             type Output = $ty;
 
             #[inline]
@@ -426,7 +284,7 @@ macro_rules! ops {
             }
         }
 
-        impl ops::Sub<$ty> for $ty {
+        impl Sub<$ty> for $ty {
             type Output = $ty;
 
             #[inline]
