@@ -224,7 +224,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
 
         // Search for non-empty cell in previous lines.
         let topmost_line = -(term.history_size() as i32);
-        for line in (topmost_line..point.line.0).into_iter().rev().map(Line::from) {
+        for line in (topmost_line..point.line.0).rev().map(Line::from) {
             if !is_wrap(term, Point::new(line, cols - 1)) {
                 break;
             }

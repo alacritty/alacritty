@@ -353,7 +353,7 @@ impl<T> Term<T> {
         let mut res = String::new();
 
         if is_block {
-            for line in (start.line.0..end.line.0).into_iter().map(Line::from) {
+            for line in (start.line.0..end.line.0).map(Line::from) {
                 res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
 
                 // If the last column is included, newline is appended automatically.
@@ -373,7 +373,7 @@ impl<T> Term<T> {
     pub fn bounds_to_string(&self, start: Point, end: Point) -> String {
         let mut res = String::new();
 
-        for line in (start.line.0..=end.line.0).into_iter().map(Line::from) {
+        for line in (start.line.0..=end.line.0).map(Line::from) {
             let start_col = if line == start.line { start.column } else { Column(0) };
             let end_col = if line == end.line { end.column } else { self.columns() - 1 };
 
@@ -401,7 +401,7 @@ impl<T> Term<T> {
         }
 
         let mut tab_mode = false;
-        for column in (cols.start.0..line_length.0).into_iter().map(Column::from) {
+        for column in (cols.start.0..line_length.0).map(Column::from) {
             let cell = &grid_line[column];
 
             // Skip over cells until next tab-stop once a tab was found.
@@ -881,7 +881,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn decaln(&mut self) {
         trace!("Decalnning");
 
-        for line in (0..self.screen_lines()).into_iter().map(Line::from) {
+        for line in (0..self.screen_lines()).map(Line::from) {
             for column in 0..self.columns().0 {
                 let cell = &mut self.grid[line][Column(column)];
                 *cell = Cell::default();
@@ -1736,7 +1736,7 @@ struct TabStops {
 impl TabStops {
     #[inline]
     fn new(num_cols: Column) -> TabStops {
-        TabStops { tabs: (0..num_cols.0).into_iter().map(|i| i % INITIAL_TABSTOPS == 0).collect() }
+        TabStops { tabs: (0..num_cols.0).map(|i| i % INITIAL_TABSTOPS == 0).collect() }
     }
 
     /// Remove all tabstops.

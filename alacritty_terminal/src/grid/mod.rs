@@ -194,7 +194,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     {
         // When rotating the entire region, just reset everything.
         if region.end - region.start <= positions {
-            for i in (region.start.0..region.end.0).into_iter().map(Line::from) {
+            for i in (region.start.0..region.end.0).map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
 
@@ -215,7 +215,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             // We need to start from the top, to make sure the fixed lines aren't swapped with each
             // other.
             let screen_lines = self.screen_lines() as i32;
-            for i in (region.end.0..screen_lines).into_iter().map(Line::from) {
+            for i in (region.end.0..screen_lines).map(Line::from) {
                 self.raw.swap(i, i - positions as i32);
             }
 
@@ -223,12 +223,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.raw.rotate_down(positions);
 
             // Ensure all new lines are fully cleared.
-            for i in (0..positions).into_iter().map(Line::from) {
+            for i in (0..positions).map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
 
             // Swap the fixed lines at the top back into position.
-            for i in (0..region.start.0).into_iter().map(Line::from) {
+            for i in (0..region.start.0).map(Line::from) {
                 self.raw.swap(i, i + positions);
             }
         } else {
@@ -255,7 +255,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     {
         // When rotating the entire region with fixed lines at the top, just reset everything.
         if region.end - region.start <= positions && region.start != 0 {
-            for i in (region.start.0..region.end.0).into_iter().map(Line::from) {
+            for i in (region.start.0..region.end.0).map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
 
@@ -287,7 +287,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
         // Ensure all new lines are fully cleared.
         let screen_lines = self.screen_lines();
-        for i in ((screen_lines - positions)..screen_lines).into_iter().map(Line::from) {
+        for i in ((screen_lines - positions)..screen_lines).map(Line::from) {
             self.raw[i].reset(&self.cursor.template);
         }
 
@@ -321,7 +321,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.scroll_up(&region, positions);
 
         // Reset rotated lines.
-        for line in (0..(self.lines - positions)).into_iter().map(Line::from) {
+        for line in (0..(self.lines - positions)).map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
         }
     }
@@ -340,7 +340,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
         // Reset all visible lines.
         let range = -(self.history_size() as i32)..(self.screen_lines() as i32);
-        for line in range.into_iter().map(Line::from) {
+        for line in range.map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
         }
     }
@@ -368,7 +368,7 @@ impl<T> Grid<T> {
         debug_assert!(start < self.screen_lines() as i32);
         debug_assert!(end <= self.screen_lines() as i32);
 
-        for line in (start.0..end.0).into_iter().map(Line::from) {
+        for line in (start.0..end.0).map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
         }
     }

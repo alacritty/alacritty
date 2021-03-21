@@ -299,7 +299,7 @@ fn grow_reflow_multiline() {
     assert_eq!(grid[Line(0)][Column(5)], cell('6'));
 
     // Make sure rest of grid is empty.
-    for r in (1..3).into_iter().map(Line::from) {
+    for r in (1..3).map(Line::from) {
         assert_eq!(grid[r].len(), 6);
         for c in 0..6 {
             assert_eq!(grid[r][Column(c)], Cell::default());
