@@ -447,8 +447,8 @@ impl RegexMatches {
 
         // Create an iterater for the current regex search for all visible matches.
         let iter = RegexIter::new(start, end, Direction::Right, term, dfas)
-            .skip_while(move |rm| rm.end().line > viewport_start)
-            .take_while(move |rm| rm.start().line >= viewport_end);
+            .skip_while(move |rm| rm.end().line < viewport_start)
+            .take_while(move |rm| rm.start().line <= viewport_end);
 
         Self(iter.collect())
     }

@@ -1,0 +1,2 @@
+ - Change columns() to return usize?
+ - Vi cursor position doesn't reset after cancel
