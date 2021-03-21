@@ -67,20 +67,20 @@ impl ViModeCursor {
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion) -> Self {
         match motion {
             ViMotion::Up => {
-                if self.point.line > -(term.history_size() as isize) {
-                    self.point.line -= 1isize;
+                if self.point.line > -(term.history_size() as i32) {
+                    self.point.line -= 1;
                 }
             },
             ViMotion::Down => {
-                if self.point.line + 1isize < term.screen_lines() as isize {
-                    self.point.line += 1isize;
+                if self.point.line + 1 < term.screen_lines() as i32 {
+                    self.point.line += 1;
                 }
             },
             ViMotion::Left => {
                 self.point = term.expand_wide(self.point, Direction::Left);
-                let wrap_point = Point::new(self.point.line - 1isize, term.columns() - 1);
+                let wrap_point = Point::new(self.point.line - 1, term.columns() - 1);
                 if self.point.column.0 == 0
-                    && self.point.line > -(term.history_size() as isize)
+                    && self.point.line > -(term.history_size() as i32)
                     && is_wrap(term, wrap_point)
                 {
                     self.point = wrap_point;
@@ -91,7 +91,7 @@ impl ViModeCursor {
             ViMotion::Right => {
                 self.point = term.expand_wide(self.point, Direction::Right);
                 if is_wrap(term, self.point) {
-                    self.point = Point::new(self.point.line + 1isize, Column(0));
+                    self.point = Point::new(self.point.line + 1, Column(0));
                 } else {
                     self.point.column = min(self.point.column + 1, term.columns() - 1);
                 }
@@ -99,29 +99,29 @@ impl ViModeCursor {
             ViMotion::First => {
                 self.point = term.expand_wide(self.point, Direction::Left);
                 while self.point.column.0 == 0
-                    && self.point.line > -(term.history_size() as isize)
-                    && is_wrap(term, Point::new(self.point.line - 1isize, term.columns() - 1))
+                    && self.point.line > -(term.history_size() as i32)
+                    && is_wrap(term, Point::new(self.point.line - 1, term.columns() - 1))
                 {
-                    self.point.line -= 1isize;
+                    self.point.line -= 1;
                 }
                 self.point.column = Column(0);
             },
             ViMotion::Last => self.point = last(term, self.point),
             ViMotion::FirstOccupied => self.point = first_occupied(term, self.point),
             ViMotion::High => {
-                let line = Line(-(term.grid().display_offset() as isize));
+                let line = Line(-(term.grid().display_offset() as i32));
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
             ViMotion::Middle => {
-                let display_offset = term.grid().display_offset() as isize;
-                let line = Line(-display_offset + term.screen_lines() as isize / 2 - 1);
+                let display_offset = term.grid().display_offset() as i32;
+                let line = Line(-display_offset + term.screen_lines() as i32 / 2 - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
             ViMotion::Low => {
-                let display_offset = term.grid().display_offset() as isize;
-                let line = Line(-display_offset + term.screen_lines() as isize - 1);
+                let display_offset = term.grid().display_offset() as i32;
+                let line = Line(-display_offset + term.screen_lines() as i32 - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
@@ -159,14 +159,14 @@ impl ViModeCursor {
 
     /// Get target cursor point for vim-like page movement.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: isize) -> Self {
+    pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: i32) -> Self {
         // Check number of lines the cursor needs to be moved.
         let overscroll = if lines > 0 {
             let max_scroll = term.history_size() - term.grid().display_offset();
-            max(0, lines - max_scroll as isize)
+            max(0, lines - max_scroll as i32)
         } else {
             let max_scroll = term.grid().display_offset();
-            min(0, lines + max_scroll as isize)
+            min(0, lines + max_scroll as i32)
         };
 
         // Clamp movement to within visible region.
@@ -197,7 +197,7 @@ fn last<T>(term: &Term<T>, mut point: Point) -> Point {
     } else if is_wrap(term, point) {
         // Jump to last occupied cell across linewraps.
         while is_wrap(term, point) {
-            point.line += 1isize;
+            point.line += 1;
         }
 
         last_occupied_in_line(term, point.line).unwrap_or(point)
@@ -223,7 +223,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
         let mut occupied = None;
 
         // Search for non-empty cell in previous lines.
-        let topmost_line = -(term.history_size() as isize);
+        let topmost_line = -(term.history_size() as i32);
         for line in (topmost_line..point.line.0).into_iter().rev().map(Line::from) {
             if !is_wrap(term, Point::new(line, cols - 1)) {
                 break;
@@ -244,7 +244,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
                 break last_cell;
             }
 
-            line += 1isize;
+            line += 1;
         })
     } else {
         occupied
@@ -379,8 +379,8 @@ fn is_wrap<T>(term: &Term<T>, point: Point) -> bool {
 
 /// Check if point is at screen boundary.
 fn is_boundary<T>(term: &Term<T>, point: Point, direction: Direction) -> bool {
-    let topmost_line = Line(-(term.history_size() as isize));
-    let bottommost_line = Line(term.screen_lines() as isize - 1);
+    let topmost_line = Line(-(term.history_size() as i32));
+    let bottommost_line = Line(term.screen_lines() as i32 - 1);
     let num_cols = term.columns();
     (point.line <= topmost_line && point.column.0 == 0 && direction == Direction::Left)
         || (point.line == bottommost_line

@@ -5,7 +5,7 @@ use std::ops::RangeInclusive;
 use regex_automata::{dense, DenseDFA, Error as RegexError, DFA};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
-use crate::index::{Column, Direction, Boundary, Point, Side, Line};
+use crate::index::{Boundary, Column, Direction, Line, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
 
@@ -81,10 +81,8 @@ impl<T> Term<T> {
 
         // Limit maximum number of lines searched.
         end = match max_lines {
-            Some(max_lines) => {
-                Point::new(start.line + max_lines, self.columns() - 1)
-                    .grid_clamp(self, Boundary::Grid)
-            },
+            Some(max_lines) => Point::new(start.line + max_lines, self.columns() - 1)
+                .grid_clamp(self, Boundary::Grid),
             _ => end.sub(self, Boundary::None, 1),
         };
 
@@ -156,12 +154,7 @@ impl<T> Term<T> {
     /// Find the next regex match to the left of the origin point.
     ///
     /// The origin is always included in the regex.
-    pub fn regex_search_left(
-        &self,
-        dfas: &RegexSearch,
-        start: Point,
-        end: Point,
-    ) -> Option<Match> {
+    pub fn regex_search_left(&self, dfas: &RegexSearch, start: Point, end: Point) -> Option<Match> {
         // Find start and end of match.
         let match_start = self.regex_search(start, end, Direction::Left, &dfas.left_fdfa)?;
         let match_end = self.regex_search(match_start, start, Direction::Right, &dfas.left_rdfa)?;
@@ -195,8 +188,8 @@ impl<T> Term<T> {
         direction: Direction,
         dfa: &impl DFA,
     ) -> Option<Point> {
-        let topmost_line = Line(-(self.history_size() as isize));
-        let screen_lines = self.screen_lines() as isize;
+        let topmost_line = Line(-(self.history_size() as i32));
+        let screen_lines = self.screen_lines() as i32;
         let last_column = self.columns() - 1;
 
         // Advance the iterator.
@@ -252,7 +245,7 @@ impl<T> Term<T> {
                 Some(Indexed { cell, .. }) => cell,
                 None => {
                     // Wrap around to other end of the scrollback buffer.
-                    let line = topmost_line - point.line + screen_lines - 1isize;
+                    let line = topmost_line - point.line + screen_lines - 1;
                     let start = Point::new(line, last_column - point.column);
                     iter = self.grid.iter_from(start);
                     iter.cell()
@@ -358,7 +351,7 @@ impl<T> Term<T> {
     /// Find left end of semantic block.
     pub fn semantic_search_left(&self, mut point: Point) -> Point {
         // Limit the starting point to the last line in the history
-        point.line = max(point.line, Line(-(self.history_size() as isize)));
+        point.line = max(point.line, Line(-(self.history_size() as i32)));
 
         let mut iter = self.grid.iter_from(point);
         let last_col = self.columns() - Column(1);
@@ -382,7 +375,7 @@ impl<T> Term<T> {
     /// Find right end of semantic block.
     pub fn semantic_search_right(&self, mut point: Point) -> Point {
         // Limit the starting point to the last line in the history
-        point.line = max(point.line, Line(-(self.history_size() as isize)));
+        point.line = max(point.line, Line(-(self.history_size() as i32)));
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         let last_col = self.columns() - 1;
@@ -404,10 +397,10 @@ impl<T> Term<T> {
 
     /// Find the beginning of the current line across linewraps.
     pub fn line_search_left(&self, mut point: Point) -> Point {
-        while point.line > -(self.history_size() as isize)
-            && self.grid[point.line - 1isize][self.columns() - 1].flags.contains(Flags::WRAPLINE)
+        while point.line > -(self.history_size() as i32)
+            && self.grid[point.line - 1i32][self.columns() - 1].flags.contains(Flags::WRAPLINE)
         {
-            point.line -= 1isize;
+            point.line -= 1;
         }
 
         point.column = Column(0);
@@ -417,10 +410,10 @@ impl<T> Term<T> {
 
     /// Find the end of the current line across linewraps.
     pub fn line_search_right(&self, mut point: Point) -> Point {
-        while point.line + 1isize < self.screen_lines()
+        while point.line + 1 < self.screen_lines()
             && self.grid[point.line][self.columns() - 1].flags.contains(Flags::WRAPLINE)
         {
-            point.line += 1isize;
+            point.line += 1;
         }
 
         point.column = self.columns() - 1;

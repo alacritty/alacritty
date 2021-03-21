@@ -117,8 +117,7 @@ impl Action {
         T: EventListener,
     {
         let vi_point = ctx.terminal().vi_mode_cursor.point;
-        let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
-        ctx.toggle_selection(ty, point, Side::Left);
+        ctx.toggle_selection(ty, vi_point, Side::Left);
 
         // Make sure initial selection is not empty.
         if let Some(selection) = &mut ctx.terminal_mut().selection {
@@ -168,8 +167,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
                 let vi_point = ctx.terminal().vi_mode_cursor.point;
-                let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
-                if let Some(url) = ctx.urls().find_at(point) {
+                if let Some(url) = ctx.urls().find_at(vi_point) {
                     ctx.launch_url(url);
                 }
             },
@@ -267,7 +265,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines() as isize;
+                let scroll_lines = term.screen_lines() as i32;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
@@ -275,7 +273,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines() as isize);
+                let scroll_lines = -(term.screen_lines() as i32);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
@@ -283,7 +281,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines() as isize / 2;
+                let scroll_lines = term.screen_lines() as i32 / 2;
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -291,7 +289,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines() as isize / 2);
+                let scroll_lines = -(term.screen_lines() as i32 / 2);
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
@@ -302,7 +300,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Top);
 
                 // Move vi mode cursor.
-                let topmost_line = Line(-(ctx.terminal().history_size() as isize));
+                let topmost_line = Line(-(ctx.terminal().history_size() as i32));
                 ctx.terminal_mut().vi_mode_cursor.point.line = topmost_line;
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
@@ -312,7 +310,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                term.vi_mode_cursor.point.line = Line(term.screen_lines() as isize - 1);
+                term.vi_mode_cursor.point.line = Line(term.screen_lines() as i32 - 1);
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
@@ -419,7 +417,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         {
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
-            && point.line < self.ctx.terminal().screen_lines() as isize
+            && point.line < self.ctx.terminal().screen_lines()
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -462,7 +460,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let max_point = if utf8 { 2015 } else { 223 };
 
-        if line >= max_point as isize || column >= Column(max_point) {
+        if line >= max_point || column >= Column(max_point) {
             return;
         }
 
@@ -481,7 +479,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             msg.push(32 + 1 + column.0 as u8);
         }
 
-        if utf8 && line >= 95isize {
+        if utf8 && line >= 95 {
             msg.append(&mut mouse_pos_encode(line.0 as usize));
         } else {
             msg.push(32 + 1 + line.0 as u8);
@@ -497,7 +495,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             ElementState::Released => 'm',
         };
 
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1isize, c);
+        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
         self.ctx.write_to_pty(msg.into_bytes());
     }
 
@@ -564,7 +562,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Load mouse point, treating message bar and padding as the closest cell.
             let mut point = self.ctx.mouse().point;
-            point.line = min(point.line, Line(self.ctx.terminal().screen_lines() as isize - 1));
+            point.line = min(point.line, Line(self.ctx.terminal().screen_lines() as i32 - 1));
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -724,7 +722,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             let lines = self.ctx.mouse().scroll_px / height;
 
-            self.ctx.scroll(Scroll::Delta(lines as isize));
+            self.ctx.scroll(Scroll::Delta(lines as i32));
         }
 
         self.ctx.mouse_mut().scroll_px %= height;
@@ -1025,7 +1023,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         };
 
         // Scale number of lines scrolled based on distance to boundary.
-        let delta = delta as isize / step as isize;
+        let delta = delta as i32 / step as i32;
         let event = Event::Scroll(Scroll::Delta(delta));
 
         // Schedule event.

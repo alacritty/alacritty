@@ -71,7 +71,7 @@ impl IndexMut<CharsetIndex> for Charsets {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Scroll {
-    Delta(isize),
+    Delta(i32),
     PageUp,
     PageDown,
     Top,
@@ -161,10 +161,9 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
     pub fn scroll_display(&mut self, scroll: Scroll) {
         self.display_offset = match scroll {
-            Scroll::Delta(count) => min(
-                max((self.display_offset as isize) + count, 0isize) as usize,
-                self.history_size(),
-            ),
+            Scroll::Delta(count) => {
+                min(max((self.display_offset as i32) + count, 0) as usize, self.history_size())
+            },
             Scroll::PageUp => min(self.display_offset + self.lines, self.history_size()),
             Scroll::PageDown => self.display_offset.saturating_sub(self.lines),
             Scroll::Top => self.history_size(),
@@ -194,7 +193,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // When rotating the entire region, just reset everything.
-        if positions as isize >= region.end - region.start {
+        if region.end - region.start <= positions {
             for i in (region.start.0..region.end.0).into_iter().map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
@@ -215,9 +214,9 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             //
             // We need to start from the top, to make sure the fixed lines aren't swapped with each
             // other.
-            let screen_lines = self.screen_lines() as isize;
+            let screen_lines = self.screen_lines() as i32;
             for i in (region.end.0..screen_lines).into_iter().map(Line::from) {
-                self.raw.swap(i, i - positions as isize);
+                self.raw.swap(i, i - positions as i32);
             }
 
             // Rotate the entire line buffer downward.
@@ -255,7 +254,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // When rotating the entire region with fixed lines at the top, just reset everything.
-        if positions as isize >= region.end - region.start && region.start != 0isize {
+        if region.end - region.start <= positions && region.start != 0 {
             for i in (region.start.0..region.end.0).into_iter().map(Line::from) {
                 self.raw[i].reset(&self.cursor.template);
             }
@@ -293,7 +292,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         }
 
         // Swap the fixed lines at the bottom back into position.
-        for i in (region.end.0..(screen_lines as isize)).rev().map(Line::from) {
+        for i in (region.end.0..(screen_lines as i32)).rev().map(Line::from) {
             self.raw.swap(i, i - positions);
         }
     }
@@ -304,16 +303,16 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // Determine how many lines to scroll up by.
-        let end = Point { line: Line(self.lines as isize - 1), column: self.columns() };
+        let end = Point { line: Line(self.lines as i32 - 1), column: self.columns() };
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
-            if !cell.is_empty() || cell.point.line < 0isize {
+            if !cell.is_empty() || cell.point.line < 0 {
                 break;
             }
         }
-        debug_assert!(iter.point.line >= -1isize);
+        debug_assert!(iter.point.line >= -1);
         let positions = (iter.point.line.0 + 1) as usize;
-        let region = Line(0)..Line(self.lines as isize);
+        let region = Line(0)..Line(self.lines as i32);
 
         // Reset display offset.
         self.display_offset = 0;
@@ -340,7 +339,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.display_offset = 0;
 
         // Reset all visible lines.
-        let range = -(self.history_size() as isize)..(self.screen_lines() as isize);
+        let range = -(self.history_size() as i32)..(self.screen_lines() as i32);
         for line in range.into_iter().map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
         }
@@ -356,18 +355,18 @@ impl<T> Grid<T> {
     {
         let start = match bounds.start_bound() {
             Bound::Included(line) => *line,
-            Bound::Excluded(line) => *line + 1isize,
+            Bound::Excluded(line) => *line + 1,
             Bound::Unbounded => Line(0),
         };
 
         let end = match bounds.end_bound() {
-            Bound::Included(line) => *line + 1isize,
+            Bound::Included(line) => *line + 1,
             Bound::Excluded(line) => *line,
-            Bound::Unbounded => Line(self.screen_lines() as isize),
+            Bound::Unbounded => Line(self.screen_lines() as i32),
         };
 
-        debug_assert!(start < self.screen_lines() as isize);
-        debug_assert!(end <= self.screen_lines() as isize);
+        debug_assert!(start < self.screen_lines() as i32);
+        debug_assert!(end <= self.screen_lines() as i32);
 
         for line in (start.0..end.0).into_iter().map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
@@ -407,7 +406,7 @@ impl<T> Grid<T> {
     /// Iterator over all visible cells.
     #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(Line(-(self.display_offset as isize) - 1), self.columns - 1);
+        let start = Point::new(Line(-(self.display_offset as i32) - 1), self.columns - 1);
         let end = Point::new(start.line + self.lines, self.columns);
 
         let iter = GridIterator { grid: self, point: start };
@@ -561,7 +560,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = Indexed<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let bottommost_line = Line(self.grid.screen_lines() as isize - 1);
+        let bottommost_line = Line(self.grid.screen_lines() as i32 - 1);
         let last_column = self.grid.columns() - 1;
 
         // Stop once we've reached the end of the grid.
@@ -572,7 +571,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
         match self.point {
             Point { column, .. } if column == last_column => {
                 self.point.column = Column(0);
-                self.point.line += 1isize;
+                self.point.line += 1;
             },
             _ => self.point.column += Column(1),
         }
@@ -588,7 +587,7 @@ pub trait BidirectionalIterator: Iterator {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let topmost_line = Line(-(self.grid.history_size() as isize));
+        let topmost_line = Line(-(self.grid.history_size() as i32));
         let last_column = self.grid.columns() - 1;
 
         // Stop once we've reached the end of the grid.
@@ -599,7 +598,7 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         match self.point {
             Point { column: Column(0), .. } => {
                 self.point.column = last_column;
-                self.point.line -= 1isize;
+                self.point.line -= 1;
             },
             _ => self.point.column -= Column(1),
         }
@@ -608,6 +607,5 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     }
 }
 
-pub type DisplayIter<'a, T> =
-    TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>;
+pub type DisplayIter<'a, T> = TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>;
 type DisplayIterTakeFun<'a, T> = Box<dyn Fn(&Indexed<&'a T>) -> bool>;

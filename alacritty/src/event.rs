@@ -92,7 +92,7 @@ pub struct SearchState {
     direction: Direction,
 
     /// Change in display offset since the beginning of the search.
-    display_offset_delta: isize,
+    display_offset_delta: i32,
 
     /// Search origin in viewport coordinates relative to original display offset.
     origin: Point,
@@ -194,14 +194,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn scroll(&mut self, scroll: Scroll) {
-        let old_offset = self.terminal.grid().display_offset() as isize;
+        let old_offset = self.terminal.grid().display_offset() as i32;
 
         self.terminal.scroll_display(scroll);
 
         // Keep track of manual display offset changes during search.
         if self.search_active() {
             let display_offset = self.terminal.grid().display_offset();
-            self.search_state.display_offset_delta += old_offset - display_offset as isize;
+            self.search_state.display_offset_delta += old_offset - display_offset as i32;
         }
 
         // Update selection.
@@ -209,8 +209,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             let vi_point = self.terminal.vi_mode_cursor.point;
-            let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
-            self.update_selection(point, Side::Right);
+            self.update_selection(vi_point, Side::Right);
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {
@@ -245,7 +244,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         // Treat motion over message bar like motion over the last line.
-        point.line = min(point.line, Line(self.terminal.screen_lines() as isize - 1));
+        point.line = min(point.line, Line(self.terminal.screen_lines() as i32 - 1));
 
         // Update selection.
         selection.update(point, side);
@@ -296,7 +295,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let column = min(Column(column), size.columns() - 1);
 
         let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let mut line = Line(min(line, size.screen_lines() - 1) as isize);
+        let mut line = Line(min(line, size.screen_lines() - 1) as i32);
         line -= self.terminal.grid().display_offset();
 
         Point::new(line, column)
@@ -453,7 +452,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         } else {
             self.search_state.origin = match direction {
                 Direction::Right => Point::new(Line(0), Column(0)),
-                Direction::Left => Point::new(Line(num_lines as isize - 2), num_cols - 1),
+                Direction::Left => Point::new(Line(num_lines as i32 - 2), num_cols - 1),
             };
         }
 
@@ -596,9 +595,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         // Store the search origin with display offset by checking how far we need to scroll to it.
-        let old_display_offset = self.terminal.grid().display_offset() as isize;
+        let old_display_offset = self.terminal.grid().display_offset() as i32;
         self.terminal.scroll_to_point(new_origin);
-        let new_display_offset = self.terminal.grid().display_offset() as isize;
+        let new_display_offset = self.terminal.grid().display_offset() as i32;
         self.search_state.display_offset_delta = new_display_offset - old_display_offset;
 
         // Store origin and scroll back to the match.
@@ -607,12 +606,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     /// Find the next search match.
-    fn search_next(
-        &mut self,
-        origin: Point,
-        direction: Direction,
-        side: Side,
-    ) -> Option<Match> {
+    fn search_next(&mut self, origin: Point, direction: Direction, side: Side) -> Option<Match> {
         self.search_state
             .dfas
             .as_ref()
@@ -763,7 +757,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let clamped_origin = self.search_state.origin.grid_clamp(self.terminal, Boundary::Grid);
         match self.terminal.search_next(dfas, clamped_origin, direction, Side::Left, limit) {
             Some(regex_match) => {
-                let old_offset = self.terminal.grid().display_offset() as isize;
+                let old_offset = self.terminal.grid().display_offset() as i32;
 
                 if self.terminal.mode().contains(TermMode::VI) {
                     // Move vi cursor to the start of the match.
@@ -778,7 +772,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
                 // Store number of lines the viewport had to be moved.
                 let display_offset = self.terminal.grid().display_offset();
-                self.search_state.display_offset_delta += old_offset - display_offset as isize;
+                self.search_state.display_offset_delta = old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
                 self.scheduler.unschedule(TimerId::DelayedSearch);
@@ -1374,9 +1368,9 @@ impl<N: Notify + OnResize> Processor<N> {
     {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();
-        let cursor_at_bottom = terminal.grid().cursor.point.line + 1isize == num_lines as isize;
+        let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
         let origin_at_bottom = if terminal.mode().contains(TermMode::VI) {
-            terminal.vi_mode_cursor.point.line == num_lines as isize - 1
+            terminal.vi_mode_cursor.point.line == num_lines - 1
         } else {
             self.search_state.direction == Direction::Left
         };

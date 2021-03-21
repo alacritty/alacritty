@@ -57,7 +57,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Move existing lines up for every line that couldn't be pulled from history.
         if from_history != lines_added {
             let delta = lines_added - from_history;
-            self.scroll_up(&(Line(0)..Line(target as isize)), delta);
+            self.scroll_up(&(Line(0)..Line(target as i32)), delta);
         }
 
         // Move cursor down for every line pulled from history.
@@ -83,14 +83,14 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Scroll up to keep content inside the window.
         let required_scrolling = (self.cursor.point.line.0 as usize + 1).saturating_sub(target);
         if required_scrolling > 0 {
-            self.scroll_up(&(Line(0)..Line(self.lines as isize)), required_scrolling);
+            self.scroll_up(&(Line(0)..Line(self.lines as i32)), required_scrolling);
 
             // Clamp cursors to the new viewport size.
-            self.cursor.point.line = min(self.cursor.point.line, Line(target as isize - 1));
+            self.cursor.point.line = min(self.cursor.point.line, Line(target as i32 - 1));
         }
 
         // Clamp saved cursor, since only primary cursor is scrolled into viewport.
-        self.saved_cursor.point.line = min(self.saved_cursor.point.line, Line(target as isize - 1));
+        self.saved_cursor.point.line = min(self.saved_cursor.point.line, Line(target as i32 - 1));
 
         self.raw.rotate((self.lines - target) as isize);
         self.raw.shrink_visible_lines(target);
@@ -181,7 +181,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 // this will always be either `0` or `1`.
                 let line_delta = self.cursor.point.line - target.line;
 
-                if line_delta != 0isize && row.is_clear() {
+                if line_delta != 0 && row.is_clear() {
                     continue;
                 }
 
@@ -194,7 +194,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
                 // Rotate cursor down if content below them was pulled from history.
                 if i < cursor_buffer_line {
-                    self.cursor.point.line += 1isize;
+                    self.cursor.point.line += 1;
                 }
 
                 // Don't push line into the new buffer.
@@ -211,7 +211,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
         // Make sure we have at least the viewport filled.
         if reversed.len() < self.lines {
-            let delta = (self.lines - reversed.len()) as isize;
+            let delta = (self.lines - reversed.len()) as i32;
             self.cursor.point.line = max(self.cursor.point.line - delta, Line(0));
             reversed.resize_with(self.lines, || Row::new(columns));
         }
@@ -336,7 +336,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                     if (i == cursor_buffer_line && self.cursor.point.column < columns)
                         || i < cursor_buffer_line
                     {
-                        self.cursor.point.line = max(self.cursor.point.line - 1isize, Line(0));
+                        self.cursor.point.line = max(self.cursor.point.line - 1, Line(0));
                     }
 
                     // Reflow the cursor if it is on this line beyond the width.

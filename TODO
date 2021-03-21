@@ -1,6 +1,0 @@
- - A lot of `+ 1isize` and shit, is there any way we can implement Eq/Ord/Add/Sub stuff without confusing the compiler here?
-    -> Implement i32?
- - Implement Eq/Ord with usize?
- - Add a function for (screen_lines() - 1) to Dimensions trait? "bottom_line"?
- - Double-check all the "stuff(usize) as isize" things once we can just directly use usize for compare/math/ord
- - Replace all the min( , max( , point.line)) logic with point.line.sub(Dimensions, Clamp)?

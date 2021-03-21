@@ -27,7 +27,7 @@ impl GridCell for usize {
 fn scroll_up() {
     let mut grid = Grid::<usize>::new(10, Column(1), 0);
     for i in 0..10 {
-        grid[Line(i as isize)][Column(0)] = i;
+        grid[Line(i as i32)][Column(0)] = i;
     }
 
     grid.scroll_up::<usize>(&(Line(0)..Line(10)), 2);
@@ -59,7 +59,7 @@ fn scroll_up() {
 fn scroll_down() {
     let mut grid = Grid::<usize>::new(10, Column(1), 0);
     for i in 0..10 {
-        grid[Line(i as isize)][Column(0)] = i;
+        grid[Line(i as i32)][Column(0)] = i;
     }
 
     grid.scroll_down::<usize>(&(Line(0)..Line(10)), 2);
@@ -91,7 +91,7 @@ fn scroll_down_with_history() {
     let mut grid = Grid::<usize>::new(10, Column(1), 1);
     grid.increase_scroll_limit(1);
     for i in 0..10 {
-        grid[Line(i as isize)][Column(0)] = i;
+        grid[Line(i as i32)][Column(0)] = i;
     }
 
     grid.scroll_down::<usize>(&(Line(0)..Line(10)), 2);

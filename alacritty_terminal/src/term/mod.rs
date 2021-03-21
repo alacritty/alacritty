@@ -281,8 +281,8 @@ impl<T> Term<T> {
         self.event_proxy.send_event(Event::MouseCursorDirty);
 
         // Clamp vi mode cursor to the viewport.
-        let viewport_start = -(self.grid.display_offset() as isize);
-        let viewport_end = viewport_start + self.screen_lines() as isize - 1;
+        let viewport_start = -(self.grid.display_offset() as i32);
+        let viewport_end = viewport_start + self.screen_lines() as i32 - 1;
         let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
         *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
         self.vi_mode_recompute_selection();
@@ -298,7 +298,7 @@ impl<T> Term<T> {
 
         let tabs = TabStops::new(grid.columns());
 
-        let scroll_region = Line(0)..Line(grid.screen_lines() as isize);
+        let scroll_region = Line(0)..Line(grid.screen_lines() as i32);
 
         Term {
             grid,
@@ -441,7 +441,7 @@ impl<T> Term<T> {
             && grid_line[line_length - 1].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
             && include_wrapped_wide
         {
-            text.push(self.grid[line - 1isize][Column(0)].c);
+            text.push(self.grid[line - 1i32][Column(0)].c);
         }
 
         text
@@ -498,19 +498,19 @@ impl<T> Term<T> {
         } else if let Some(selection) = self.selection.take() {
             // Move the selection if only number of lines changed.
             let delta = if num_lines > old_lines {
-                (num_lines - old_lines).saturating_sub(history_size) as isize
+                (num_lines - old_lines).saturating_sub(history_size) as i32
             } else {
                 let cursor_line = self.grid.cursor.point.line;
-                -(min(old_lines - cursor_line.0 as usize - 1, old_lines - num_lines) as isize)
+                -(min(old_lines - cursor_line.0 as usize - 1, old_lines - num_lines) as i32)
             };
-            let range = Line(0)..Line(num_lines as isize);
+            let range = Line(0)..Line(num_lines as i32);
             self.selection = selection.rotate(self, &range, delta);
         }
 
         // Move vi mode cursor with the content.
-        let mut delta = num_lines as isize - old_lines as isize;
-        let min_delta = min(0, num_lines as isize - self.grid.cursor.point.line.0 as isize - 1);
-        delta = min(max(delta, min_delta), history_size as isize);
+        let mut delta = num_lines as i32 - old_lines as i32;
+        let min_delta = min(0, num_lines as i32 - self.grid.cursor.point.line.0 - 1);
+        delta = min(max(delta, min_delta), history_size as i32);
         self.vi_mode_cursor.point.line += delta;
 
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
@@ -520,10 +520,10 @@ impl<T> Term<T> {
         // Clamp vi cursor to viewport.
         let vi_point = self.vi_mode_cursor.point;
         self.vi_mode_cursor.point.column = min(vi_point.column, num_cols - 1);
-        self.vi_mode_cursor.point.line = min(vi_point.line, Line(num_lines as isize - 1));
+        self.vi_mode_cursor.point.line = min(vi_point.line, Line(num_lines as i32 - 1));
 
         // Reset scrolling region.
-        self.scroll_region = Line(0)..Line(self.screen_lines() as isize);
+        self.scroll_region = Line(0)..Line(self.screen_lines() as i32);
     }
 
     /// Active terminal modes.
@@ -565,7 +565,7 @@ impl<T> Term<T> {
 
         // Scroll selection.
         self.selection =
-            self.selection.take().and_then(|s| s.rotate(self, &region, -(lines as isize)));
+            self.selection.take().and_then(|s| s.rotate(self, &region, -(lines as i32)));
 
         // Scroll between origin and bottom
         self.grid.scroll_down(&region, lines);
@@ -584,8 +584,7 @@ impl<T> Term<T> {
         let region = origin..self.scroll_region.end;
 
         // Scroll selection.
-        self.selection =
-            self.selection.take().and_then(|s| s.rotate(self, &region, lines as isize));
+        self.selection = self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
 
         // Scroll from origin to bottom less number of lines.
         self.grid.scroll_up(&region, lines);
@@ -644,7 +643,7 @@ impl<T> Term<T> {
         self.vi_mode_recompute_selection();
     }
 
-    /// Move vi cursor to absolute point in grid.
+    /// Move vi cursor to a point in the grid.
     #[inline]
     pub fn vi_goto_point(&mut self, point: Point)
     where
@@ -682,14 +681,14 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
-        let display_offset = self.grid.display_offset() as isize;
-        let screen_lines = self.grid.screen_lines() as isize;
+        let display_offset = self.grid.display_offset() as i32;
+        let screen_lines = self.grid.screen_lines() as i32;
 
         if point.line < -display_offset {
             let lines = point.line + display_offset;
             self.scroll_display(Scroll::Delta(-lines.0));
         } else if point.line >= (screen_lines - display_offset) {
-            let lines = point.line + display_offset - screen_lines + 1isize;
+            let lines = point.line + display_offset - screen_lines + 1i32;
             self.scroll_display(Scroll::Delta(-lines.0));
         }
     }
@@ -701,7 +700,7 @@ impl<T> Term<T> {
         match direction {
             Direction::Right if flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 point.column = Column(1);
-                point.line += 1isize;
+                point.line += 1;
             },
             Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.column += 1,
             Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
@@ -753,10 +752,10 @@ impl<T> Term<T> {
 
         self.grid.cursor_cell().flags.insert(Flags::WRAPLINE);
 
-        if self.grid.cursor.point.line + 1isize >= self.scroll_region.end {
+        if self.grid.cursor.point.line + 1 >= self.scroll_region.end {
             self.linefeed();
         } else {
-            self.grid.cursor.point.line += 1isize;
+            self.grid.cursor.point.line += 1;
         }
 
         self.grid.cursor.point.column = Column(0);
@@ -895,9 +894,9 @@ impl<T: EventListener> Handler for Term<T> {
     fn goto(&mut self, line: Line, col: Column) {
         trace!("Going to: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
-            (self.scroll_region.start, self.scroll_region.end - 1isize)
+            (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
-            (Line(0), Line(self.screen_lines() as isize - 1))
+            (Line(0), Line(self.screen_lines() as i32 - 1))
         };
 
         self.grid.cursor.point.line = max(min(line + y_offset, max_y), Line(0));
@@ -996,7 +995,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
             6 => {
                 let pos = self.grid.cursor.point;
-                let response = format!("\x1b[{};{}R", pos.line + 1isize, pos.column + 1);
+                let response = format!("\x1b[{};{}R", pos.line + 1, pos.column + 1);
                 let _ = writer.write_all(response.as_bytes());
             },
             _ => debug!("unknown device status query: {}", arg),
@@ -1070,11 +1069,11 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn linefeed(&mut self) {
         trace!("Linefeed");
-        let next = self.grid.cursor.point.line + 1isize;
+        let next = self.grid.cursor.point.line + 1;
         if next == self.scroll_region.end {
             self.scroll_up(1);
-        } else if next < self.screen_lines() as isize {
-            self.grid.cursor.point.line += 1isize;
+        } else if next < self.screen_lines() {
+            self.grid.cursor.point.line += 1;
         }
     }
 
@@ -1143,7 +1142,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn insert_blank_lines(&mut self, lines: usize) {
         trace!("Inserting blank {} lines", lines);
 
-        let origin = Line(self.grid.cursor.point.line.0 as isize);
+        let origin = self.grid.cursor.point.line;
         if self.scroll_region.contains(&origin) {
             self.scroll_down_relative(origin, lines);
         }
@@ -1151,7 +1150,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn delete_lines(&mut self, lines: usize) {
-        let origin = Line(self.grid.cursor.point.line.0 as isize);
+        let origin = self.grid.cursor.point.line;
         let lines = min(self.screen_lines() - origin.0 as usize, lines);
 
         trace!("Deleting {} lines", lines);
@@ -1353,7 +1352,7 @@ impl<T: EventListener> Handler for Term<T> {
                 let cursor = self.grid.cursor.point;
 
                 // If clearing more than one line.
-                if cursor.line > 1isize {
+                if cursor.line > 1 {
                     // Fully clear all lines before the current line.
                     self.grid.reset_region(..cursor.line);
                 }
@@ -1374,10 +1373,10 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 if (cursor.line.0 as usize) < screen_lines - 1 {
-                    self.grid.reset_region((cursor.line + 1isize)..);
+                    self.grid.reset_region((cursor.line + 1)..);
                 }
 
-                let range = cursor.line..Line(screen_lines as isize);
+                let range = cursor.line..Line(screen_lines as i32);
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
             },
             ansi::ClearMode::All => {
@@ -1422,7 +1421,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.cursor_style = None;
         self.grid.reset();
         self.inactive_grid.reset();
-        self.scroll_region = Line(0)..Line(self.screen_lines() as isize);
+        self.scroll_region = Line(0)..Line(self.screen_lines() as i32);
         self.tabs = TabStops::new(self.columns());
         self.title_stack = Vec::new();
         self.title = None;
@@ -1443,7 +1442,7 @@ impl<T: EventListener> Handler for Term<T> {
         if self.grid.cursor.point.line == self.scroll_region.start {
             self.scroll_down(1);
         } else {
-            self.grid.cursor.point.line = max(self.grid.cursor.point.line - 1isize, Line(0));
+            self.grid.cursor.point.line = max(self.grid.cursor.point.line - 1, Line(0));
         }
     }
 
@@ -1598,12 +1597,12 @@ impl<T: EventListener> Handler for Term<T> {
         // usually included. One option would be to use an inclusive
         // range, but instead we just let the open range end be 1
         // higher.
-        let start = Line(top as isize - 1);
-        let end = Line(bottom as isize);
+        let start = Line(top as i32 - 1);
+        let end = Line(bottom as i32);
 
         trace!("Setting scrolling region: ({};{})", start, end);
 
-        let screen_lines = Line(self.screen_lines() as isize);
+        let screen_lines = Line(self.screen_lines() as i32);
         self.scroll_region.start = min(start, screen_lines);
         self.scroll_region.end = min(end, screen_lines);
         self.goto(Line(0), Column(0));
@@ -1865,8 +1864,8 @@ pub mod test {
 
         // Fill terminal with content.
         for (line, text) in lines.iter().enumerate() {
-            let line = Line(line as isize);
-            if !text.ends_with('\r') && line + 1isize != lines.len() {
+            let line = Line(line as i32);
+            if !text.ends_with('\r') && line + 1 != lines.len() {
                 term.grid[line][Column(num_cols - 1)].flags.insert(Flags::WRAPLINE);
             }
 

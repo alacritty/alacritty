@@ -1141,7 +1141,7 @@ where
                 handler.identify_terminal(writer, intermediates.get(0).map(|&i| i as char))
             },
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
-            ('d', []) => handler.goto_line(Line(next_param_or(1) as isize - 1)),
+            ('d', []) => handler.goto_line(Line(next_param_or(1) as i32 - 1)),
             ('E', []) => handler.move_down_and_cr(next_param_or(1) as usize),
             ('F', []) => handler.move_up_and_cr(next_param_or(1) as usize),
             ('G', []) | ('`', []) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
@@ -1158,7 +1158,7 @@ where
                 handler.clear_tabs(mode);
             },
             ('H', []) | ('f', []) => {
-                let y = next_param_or(1) as isize;
+                let y = next_param_or(1) as i32;
                 let x = next_param_or(1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
             },

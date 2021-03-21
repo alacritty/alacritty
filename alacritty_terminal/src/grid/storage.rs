@@ -215,7 +215,7 @@ impl<T> Storage<T> {
     /// Compute actual index in underlying storage given the requested index.
     #[inline]
     fn compute_index(&self, requested: Line) -> usize {
-        debug_assert!(requested.0 < self.visible_lines as isize);
+        debug_assert!(requested.0 < self.visible_lines as i32);
 
         let positive = -(requested - self.visible_lines).0 as usize - 1;
 
@@ -269,7 +269,7 @@ mod tests {
     use crate::grid::row::Row;
     use crate::grid::storage::{Storage, MAX_CACHE_SIZE};
     use crate::grid::GridCell;
-    use crate::index::{Line, Column};
+    use crate::index::{Column, Line};
     use crate::term::cell::Flags;
 
     impl GridCell for char {

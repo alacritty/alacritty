@@ -519,7 +519,9 @@ impl Display {
                 for mut cell in grid_cells {
                     // Invert the active match during search.
                     if cell.is_match
-                        && search_state.focused_match().as_ref()
+                        && search_state
+                            .focused_match()
+                            .as_ref()
                             .map_or(false, |focused_match| focused_match.contains(&cell.point))
                     {
                         let colors = config.ui_config.colors.search.focused_match;
@@ -564,13 +566,12 @@ impl Display {
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Highlight URLs at the vi mode cursor position.
             let vi_point = vi_mode_cursor.point;
-            let point = Point::new(Line(vi_point.line.0 as isize), vi_point.column);
-            if let Some(url) = self.urls.find_at(point) {
+            if let Some(url) = self.urls.find_at(vi_point) {
                 rects.append(&mut url.rects(&metrics, &size_info));
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = (-vi_point.line.0 + size_info.screen_lines() as isize - 1) as usize;
+            let line = (-vi_point.line.0 + size_info.screen_lines() as i32 - 1) as usize;
             self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
         } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
@@ -603,7 +604,7 @@ impl Display {
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
-            let start_line = Line(size_info.screen_lines() as isize + search_offset);
+            let start_line = Line(size_info.screen_lines() as i32 + search_offset);
             let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
 
             let bg = match message.ty() {
@@ -650,7 +651,7 @@ impl Display {
                 self.draw_search(config, &size_info, &search_text);
 
                 // Compute IME position.
-                let line = Line(size_info.screen_lines() as isize + 1);
+                let line = Line(size_info.screen_lines() as i32 + 1);
                 Point::new(line, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
@@ -722,7 +723,7 @@ impl Display {
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
 
-        let point = Point::new(Line(size_info.screen_lines() as isize), Column(0));
+        let point = Point::new(Line(size_info.screen_lines() as i32), Column(0));
         let fg = config.ui_config.colors.search_bar_foreground();
         let bg = config.ui_config.colors.search_bar_background();
 
@@ -740,7 +741,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(Line(size_info.screen_lines() as isize - 2), Column(0));
+        let point = Point::new(Line(size_info.screen_lines() as i32 - 2), Column(0));
         let fg = config.ui_config.colors.primary.background;
         let bg = config.ui_config.colors.normal.red;
 
@@ -765,7 +766,7 @@ impl Display {
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if vi_mode_point.map_or(true, |point| point.line != 0isize || point.column < column) {
+        if vi_mode_point.map_or(true, |point| point.line != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);

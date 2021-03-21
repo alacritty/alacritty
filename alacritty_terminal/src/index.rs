@@ -90,11 +90,11 @@ impl Point {
     {
         self.column = min(self.column, dimensions.columns() - 1);
 
-        let topmost_line = Line(-(dimensions.history_size() as isize));
-        let bottommost_line = Line(dimensions.screen_lines() as isize - 1);
+        let topmost_line = Line(-(dimensions.history_size() as i32));
+        let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
 
         match boundary {
-            Boundary::Cursor if self.line < 0isize => Point::new(Line(0), Column(0)),
+            Boundary::Cursor if self.line < 0 => Point::new(Line(0), Column(0)),
             Boundary::Grid if self.line < topmost_line => Point::new(topmost_line, Column(0)),
             Boundary::Cursor | Boundary::Grid if self.line > bottommost_line => {
                 Point::new(bottommost_line, dimensions.columns() - 1)
@@ -126,27 +126,27 @@ impl Ord for Point {
 ///
 /// Newtype to avoid passing values incorrectly.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
-pub struct Line(pub isize);
+pub struct Line(pub i32);
 
 impl Line {
     /// Clamp a line to a grid boundary.
     pub fn grid_clamp<D: Dimensions>(self, dimensions: &D, boundary: Boundary) -> Self {
         match boundary {
             Boundary::Cursor => {
-                let max_line = Line(dimensions.screen_lines() as isize - 1);
+                let max_line = Line(dimensions.screen_lines() as i32 - 1);
                 max(Line(0), min(max_line, self))
             },
             Boundary::Grid => {
-                let max_line = Line(dimensions.screen_lines() as isize - 1);
-                let min_line = Line(-(dimensions.history_size() as isize));
+                let max_line = Line(dimensions.screen_lines() as i32 - 1);
+                let min_line = Line(-(dimensions.history_size() as i32));
                 max(min_line, min(max_line, self))
             },
             Boundary::None => {
-                let screen_lines = dimensions.screen_lines() as isize;
-                let total_lines = dimensions.total_lines() as isize;
+                let screen_lines = dimensions.screen_lines() as i32;
+                let total_lines = dimensions.total_lines() as i32;
 
                 if self >= screen_lines {
-                    let history_size = dimensions.history_size() as isize;
+                    let history_size = dimensions.history_size() as i32;
                     let extra = (self.0 - screen_lines) % total_lines;
                     Line(-history_size + extra)
                 } else {
@@ -164,15 +164,9 @@ impl fmt::Display for Line {
     }
 }
 
-impl From<i32> for Line {
-    fn from(source: i32) -> Self {
-        Self(source as isize)
-    }
-}
-
 impl From<usize> for Line {
     fn from(source: usize) -> Self {
-        Self(source as isize)
+        Self(source as i32)
     }
 }
 
@@ -181,14 +175,14 @@ impl Add<usize> for Line {
 
     #[inline]
     fn add(self, rhs: usize) -> Line {
-        self + rhs as isize
+        self + rhs as i32
     }
 }
 
 impl AddAssign<usize> for Line {
     #[inline]
     fn add_assign(&mut self, rhs: usize) {
-        *self += rhs as isize;
+        *self += rhs as i32;
     }
 }
 
@@ -197,28 +191,28 @@ impl Sub<usize> for Line {
 
     #[inline]
     fn sub(self, rhs: usize) -> Line {
-        self - rhs as isize
+        self - rhs as i32
     }
 }
 
 impl SubAssign<usize> for Line {
     #[inline]
     fn sub_assign(&mut self, rhs: usize) {
-        *self -= rhs as isize;
+        *self -= rhs as i32;
     }
 }
 
 impl PartialOrd<usize> for Line {
     #[inline]
     fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
-        self.0.partial_cmp(&(*other as isize))
+        self.0.partial_cmp(&(*other as i32))
     }
 }
 
 impl PartialEq<usize> for Line {
     #[inline]
     fn eq(&self, other: &usize) -> bool {
-        self.0.eq(&(*other as isize))
+        self.0.eq(&(*other as i32))
     }
 }
 
@@ -343,11 +337,11 @@ macro_rules! ops {
                 self.0.partial_cmp(other)
             }
         }
-    }
+    };
 }
 
 ops!(Column, Column, usize);
-ops!(Line, Line, isize);
+ops!(Line, Line, i32);
 
 #[cfg(test)]
 mod tests {

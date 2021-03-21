@@ -45,7 +45,7 @@ impl RenderLine {
         while start.line < self.end.line {
             let end = Point::new(start.line, size.columns() - 1);
             Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
-            start = Point::new(start.line + 1isize, Column(0));
+            start = Point::new(start.line + 1, Column(0));
         }
         Self::push_rects(&mut rects, metrics, size, flag, start, self.end, self.color);
 
