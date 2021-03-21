@@ -19,10 +19,10 @@ use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::config::Config;
 use crate::event::OnResize;
+use crate::grid::Dimensions;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
-use crate::grid::Dimensions;
 
 /// RAII Pseudoconsole.
 pub struct Conpty {
