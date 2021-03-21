@@ -6,7 +6,7 @@ use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::index::{Boundary, Point};
+use alacritty_terminal::index::{Boundary, Point, Column, Line};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
@@ -87,7 +87,7 @@ impl Urls {
         }
 
         // Reset URL when empty cells have been skipped.
-        if point != Point::default()
+        if point != Point::new(Line(0), Column(0))
             && Some(point.sub(&size, Boundary::Cursor, 1)) != self.last_point
         {
             self.reset();

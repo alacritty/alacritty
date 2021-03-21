@@ -1123,9 +1123,7 @@ where
 
         match (action, intermediates) {
             ('@', []) => handler.insert_blank(Column(next_param_or(1) as usize)),
-            ('A', []) => {
-                handler.move_up(next_param_or(1) as usize);
-            },
+            ('A', []) => handler.move_up(next_param_or(1) as usize),
             ('B', []) | ('e', []) => handler.move_down(next_param_or(1) as usize),
             ('b', []) => {
                 if let Some(c) = self.state.preceding_char {
