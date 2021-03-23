@@ -667,13 +667,10 @@ impl<T> Term<T> {
         }
 
         // Update only if non-empty selection is present.
-        let selection = match &mut self.selection {
-            Some(selection) if !selection.is_empty() => selection,
-            _ => return,
-        };
-
-        selection.update(self.vi_mode_cursor.point, Side::Left);
-        selection.include_all();
+        if let Some(selection) = self.selection.as_mut().filter(|s| !s.is_empty()) {
+            selection.update(self.vi_mode_cursor.point, Side::Left);
+            selection.include_all();
+        }
     }
 
     /// Scroll display to point if it is outside of viewport.

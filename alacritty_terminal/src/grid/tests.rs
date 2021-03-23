@@ -132,7 +132,7 @@ fn test_iter() {
         }
     }
 
-    let mut iter = grid.iter_from(Point::new(0, Column(0)));
+    let mut iter = grid.iter_from(Point::new(Line(0), Column(0)));
 
     assert_eq!(None, iter.prev());
     assert_indexed(1, iter.next());

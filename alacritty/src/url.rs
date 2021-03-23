@@ -6,7 +6,7 @@ use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::index::{Boundary, Point, Column, Line};
+use alacritty_terminal::index::{Boundary, Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;

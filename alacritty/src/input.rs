@@ -116,8 +116,7 @@ impl Action {
         A: ActionContext<T>,
         T: EventListener,
     {
-        let vi_point = ctx.terminal().vi_mode_cursor.point;
-        ctx.toggle_selection(ty, vi_point, Side::Left);
+        ctx.toggle_selection(ty, ctx.terminal().vi_mode_cursor.point, Side::Left);
 
         // Make sure initial selection is not empty.
         if let Some(selection) = &mut ctx.terminal_mut().selection {

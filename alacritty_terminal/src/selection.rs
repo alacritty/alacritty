@@ -135,9 +135,8 @@ impl Selection {
         delta: i32,
     ) -> Option<Selection> {
         let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
-        let columns = dimensions.columns().0;
-        let range_top = range.start;
         let range_bottom = range.end;
+        let range_top = range.start;
 
         let (mut start, mut end) = (&mut self.region.start, &mut self.region.end);
         if start.point > end.point {
@@ -175,7 +174,7 @@ impl Selection {
             // Clamp selection to end of region.
             if end.point.line >= range_bottom {
                 if self.ty != SelectionType::Block {
-                    end.point.column = Column(columns - 1);
+                    end.point.column = dimensions.columns() - 1;
                     end.side = Side::Right;
                 }
                 end.point.line = range_bottom - 1;
@@ -324,7 +323,7 @@ impl Selection {
         // Remove last cell if selection ends to the left of a cell.
         if end.side == Side::Left && start.point != end.point {
             // Special case when selection ends to left of first cell.
-            if end.point.column == Column(0) {
+            if end.point.column == 0 {
                 end.point.column = num_cols - 1;
                 end.point.line -= 1;
             } else {

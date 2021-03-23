@@ -208,8 +208,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.terminal.mode().contains(TermMode::VI)
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
-            let vi_point = self.terminal.vi_mode_cursor.point;
-            self.update_selection(vi_point, Side::Right);
+            self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {

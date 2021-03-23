@@ -50,12 +50,13 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn new<L: Into<Line>, C: Into<Column>>(line: L, column: C) -> Point {
-        Point { line: line.into(), column: column.into() }
+    pub fn new(line: Line, column: Column) -> Point {
+        Point { line, column }
     }
 }
 
 impl Point {
+    /// Subtract a number of columns from a point.
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn sub<D>(mut self, dimensions: &D, boundary: Boundary, rhs: usize) -> Self
@@ -69,6 +70,7 @@ impl Point {
         self.grid_clamp(dimensions, boundary)
     }
 
+    /// Add a number of columns to a point.
     #[inline]
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn add<D>(mut self, dimensions: &D, boundary: Boundary, rhs: usize) -> Self
@@ -88,7 +90,8 @@ impl Point {
     where
         D: Dimensions,
     {
-        self.column = min(self.column, dimensions.columns() - 1);
+        let last_column = dimensions.columns() - 1;
+        self.column = min(self.column, last_column);
 
         let topmost_line = Line(-(dimensions.history_size() as i32));
         let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
@@ -97,7 +100,7 @@ impl Point {
             Boundary::Cursor if self.line < 0 => Point::new(Line(0), Column(0)),
             Boundary::Grid if self.line < topmost_line => Point::new(topmost_line, Column(0)),
             Boundary::Cursor | Boundary::Grid if self.line > bottommost_line => {
-                Point::new(bottommost_line, dimensions.columns() - 1)
+                Point::new(bottommost_line, last_column)
             },
             Boundary::None => {
                 self.line = self.line.grid_clamp(dimensions, boundary);
@@ -133,13 +136,13 @@ impl Line {
     pub fn grid_clamp<D: Dimensions>(self, dimensions: &D, boundary: Boundary) -> Self {
         match boundary {
             Boundary::Cursor => {
-                let max_line = Line(dimensions.screen_lines() as i32 - 1);
-                max(Line(0), min(max_line, self))
+                let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
+                max(Line(0), min(bottommost_line, self))
             },
             Boundary::Grid => {
-                let max_line = Line(dimensions.screen_lines() as i32 - 1);
-                let min_line = Line(-(dimensions.history_size() as i32));
-                max(min_line, min(max_line, self))
+                let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
+                let topmost_line = Line(-(dimensions.history_size() as i32));
+                max(topmost_line, min(bottommost_line, self))
             },
             Boundary::None => {
                 let screen_lines = dimensions.screen_lines() as i32;
