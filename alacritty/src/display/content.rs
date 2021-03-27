@@ -127,8 +127,9 @@ impl<'a> RenderableContent<'a> {
         let cursor_color = cursor_color.color(cell.fg, cell.bg);
 
         // Convert cursor point to viewport position.
-        let mut point = self.terminal_cursor.point;
-        point.line += self.terminal_content.display_offset as i32;
+        let cursor_point = self.terminal_cursor.point;
+        let line = (cursor_point.line + self.terminal_content.display_offset as i32).0 as usize;
+        let point = Point::new(line, cursor_point.column);
 
         Some(RenderableCursor {
             shape: self.terminal_cursor.shape,
@@ -183,12 +184,11 @@ impl<'a> Iterator for RenderableContent<'a> {
 pub struct RenderableCell {
     pub character: char,
     pub zerowidth: Option<Vec<char>>,
-    pub point: Point,
+    pub point: Point<usize>,
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
     pub flags: Flags,
-    pub is_match: bool,
 }
 
 impl RenderableCell {
@@ -208,7 +208,6 @@ impl RenderableCell {
             .terminal_content
             .selection
             .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
-        let mut is_match = false;
 
         let mut character = cell.c;
 
@@ -238,13 +237,12 @@ impl RenderableCell {
             let config_fg = colors.search.matches.foreground;
             let config_bg = colors.search.matches.background;
             Self::compute_cell_rgb(&mut fg_rgb, &mut bg_rgb, &mut bg_alpha, config_fg, config_bg);
-
-            is_match = true;
         }
 
         // Convert cell point to viewport position.
-        let mut point = cell.point;
-        point.line += content.terminal_content.display_offset as i32;
+        let cell_point = cell.point;
+        let line = (cell_point.line + content.terminal_content.display_offset as i32).0 as usize;
+        let point = Point::new(line, cell_point.column);
 
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
@@ -253,7 +251,6 @@ impl RenderableCell {
             bg: bg_rgb,
             character,
             bg_alpha,
-            is_match,
             point,
         }
     }
@@ -358,7 +355,7 @@ pub struct RenderableCursor {
     cursor_color: Rgb,
     text_color: Rgb,
     is_wide: bool,
-    point: Point,
+    point: Point<usize>,
 }
 
 impl RenderableCursor {
@@ -374,7 +371,7 @@ impl RenderableCursor {
         self.is_wide
     }
 
-    pub fn point(&self) -> Point {
+    pub fn point(&self) -> Point<usize> {
         self.point
     }
 }

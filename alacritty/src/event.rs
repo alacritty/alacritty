@@ -212,7 +212,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {
-            let point = self.coords_to_point(self.mouse().x, self.mouse().y);
+            let point = self.mouse().point;
+            let line = Line(point.line as i32) - self.terminal.grid().display_offset();
+            let point = Point::new(line, point.column);
             self.update_selection(point, self.mouse().cell_side);
         }
 
@@ -280,24 +282,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn mouse_mode(&self) -> bool {
         self.terminal.mode().intersects(TermMode::MOUSE_MODE)
             && !self.terminal.mode().contains(TermMode::VI)
-    }
-
-    /// Convert window space pixels to terminal grid coordinates.
-    ///
-    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
-    /// coordinates will be clamped to the closest grid coordinates.
-    #[inline]
-    fn coords_to_point(&self, x: usize, y: usize) -> Point {
-        let size = self.size_info();
-
-        let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let column = min(Column(column), size.columns() - 1);
-
-        let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let mut line = Line(min(line, size.screen_lines() - 1) as i32);
-        line -= self.terminal.grid().display_offset();
-
-        Point::new(line, column)
     }
 
     #[inline]
@@ -396,8 +380,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
+            let display_offset = self.terminal.grid().display_offset();
+            let start = url.start();
+            let start = Point::new(Line(start.line as i32 - display_offset as i32), start.column);
+            let end = url.end();
+            let end = Point::new(Line(end.line as i32 - display_offset as i32), end.column);
+
             let mut args = launcher.args().to_vec();
-            args.push(self.terminal.bounds_to_string(url.start(), url.end()));
+            args.push(self.terminal.bounds_to_string(start, end));
 
             start_daemon(launcher.program(), &args);
         }
@@ -857,7 +847,7 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub inside_text_area: bool,
-    pub point: Point,
+    pub point: Point<usize>,
     pub x: usize,
     pub y: usize,
 }

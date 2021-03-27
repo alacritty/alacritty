@@ -516,14 +516,15 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
+                let focused_match = search_state.focused_match();
                 for mut cell in grid_cells {
-                    // Invert the active match during search.
-                    if cell.is_match
-                        && search_state
-                            .focused_match()
-                            .as_ref()
-                            .map_or(false, |focused_match| focused_match.contains(&cell.point))
-                    {
+                    let focused = focused_match.as_ref().map_or(false, |focused_match| {
+                        let line = Line(cell.point.line as i32) - display_offset;
+                        focused_match.contains(&Point::new(line, cell.point.column))
+                    });
+
+                    // Invert the focused match during search.
+                    if focused {
                         let colors = config.ui_config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);
                         cell.bg = colors.background.color(cell.fg, cell.bg);
@@ -532,7 +533,7 @@ impl Display {
                     }
 
                     // Update URL underlines.
-                    urls.update(size_info, &cell);
+                    urls.update(&size_info, &cell);
 
                     // Update underline/strikeout.
                     lines.update(&cell);
@@ -566,7 +567,8 @@ impl Display {
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Highlight URLs at the vi mode cursor position.
             let vi_point = vi_mode_cursor.point;
-            if let Some(url) = self.urls.find_at(vi_point) {
+            let line = (vi_point.line + display_offset).0 as usize;
+            if let Some(url) = self.urls.find_at(Point::new(line, vi_point.column)) {
                 rects.append(&mut url.rects(&metrics, &size_info));
             }
 
@@ -604,8 +606,8 @@ impl Display {
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
-            let start_line = Line(size_info.screen_lines() as i32 + search_offset);
-            let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
+            let start_line = size_info.screen_lines() + search_offset;
+            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
 
             let bg = match message.ty() {
                 MessageType::Error => config.ui_config.colors.normal.red,
@@ -723,7 +725,7 @@ impl Display {
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
 
-        let point = Point::new(Line(size_info.screen_lines() as i32), Column(0));
+        let point = Point::new(size_info.screen_lines(), Column(0));
         let fg = config.ui_config.colors.search_bar_foreground();
         let bg = config.ui_config.colors.search_bar_background();
 
@@ -741,7 +743,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(Line(size_info.screen_lines() as i32 - 2), Column(0));
+        let point = Point::new(size_info.screen_lines().saturating_sub(2), Column(0));
         let fg = config.ui_config.colors.primary.background;
         let bg = config.ui_config.colors.normal.red;
 
@@ -769,7 +771,7 @@ impl Display {
         if vi_mode_point.map_or(true, |point| point.line != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);
+                api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
             });
         }
     }

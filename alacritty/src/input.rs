@@ -69,7 +69,6 @@ pub trait ActionContext<T: EventListener> {
     fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
-    fn coords_to_point(&self, x: usize, y: usize) -> Point;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
     fn received_count(&mut self) -> &mut usize;
@@ -166,7 +165,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViAction(ViAction::Open) => {
                 ctx.mouse_mut().block_url_launcher = false;
                 let vi_point = ctx.terminal().vi_mode_cursor.point;
-                if let Some(url) = ctx.urls().find_at(vi_point) {
+                let line = (vi_point.line + ctx.terminal().grid().display_offset()).0 as usize;
+                if let Some(url) = ctx.urls().find_at(Point::new(line, vi_point.column)) {
                     ctx.launch_url(url);
                 }
             },
@@ -387,7 +387,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         self.ctx.mouse_mut().y = y;
 
         let inside_text_area = size_info.contains_point(x, y);
-        let point = self.ctx.coords_to_point(x, y);
+        let point = self.coords_to_point(x, y);
         let cell_side = self.cell_side(x);
 
         let cell_changed = point != self.ctx.mouse().point;
@@ -414,6 +414,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         if (lmb_pressed || rmb_pressed) && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
+            let line = Line(point.line as i32) - self.ctx.terminal().grid().display_offset();
+            let point = Point::new(line, point.column);
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
             && point.line < self.ctx.terminal().screen_lines()
@@ -429,6 +431,23 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_report(35, ElementState::Pressed);
             }
         }
+    }
+
+    /// Convert window space pixels to terminal grid coordinates.
+    ///
+    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
+    /// coordinates will be clamped to the closest grid coordinates.
+    #[inline]
+    fn coords_to_point(&self, x: usize, y: usize) -> Point<usize> {
+        let size = self.ctx.size_info();
+
+        let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
+        let column = min(Column(column), size.columns() - 1);
+
+        let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
+        let line = min(line, size.screen_lines() - 1);
+
+        Point::new(line, column)
     }
 
     /// Check which side of a cell an X coordinate lies on.
@@ -479,9 +498,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         if utf8 && line >= 95 {
-            msg.append(&mut mouse_pos_encode(line.0 as usize));
+            msg.append(&mut mouse_pos_encode(line));
         } else {
-            msg.push(32 + 1 + line.0 as u8);
+            msg.push(32 + 1 + line as u8);
         }
 
         self.ctx.write_to_pty(msg);
@@ -560,8 +579,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
 
             // Load mouse point, treating message bar and padding as the closest cell.
-            let mut point = self.ctx.mouse().point;
-            point.line = min(point.line, Line(self.ctx.terminal().screen_lines() as i32 - 1));
+            let point = self.ctx.mouse().point;
+            let display_offset = self.ctx.terminal().grid().display_offset();
+            let absolute_line = Line(point.line as i32) - display_offset;
+            let point = Point::new(absolute_line, point.column);
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -1175,10 +1196,6 @@ mod tests {
         }
 
         fn hint_state(&mut self) -> &mut HintState {
-            unimplemented!();
-        }
-
-        fn coords_to_point(&self, _x: usize, _y: usize) -> Point {
             unimplemented!();
         }
     }

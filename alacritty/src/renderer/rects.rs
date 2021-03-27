@@ -32,8 +32,8 @@ impl RenderRect {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RenderLine {
-    pub start: Point,
-    pub end: Point,
+    pub start: Point<usize>,
+    pub end: Point<usize>,
     pub color: Rgb,
 }
 
@@ -58,8 +58,8 @@ impl RenderLine {
         metrics: &Metrics,
         size: &SizeInfo,
         flag: Flags,
-        start: Point,
-        end: Point,
+        start: Point<usize>,
+        end: Point<usize>,
         color: Rgb,
     ) {
         let (position, thickness) = match flag {
@@ -100,8 +100,8 @@ impl RenderLine {
     fn create_rect(
         size: &SizeInfo,
         descent: f32,
-        start: Point,
-        end: Point,
+        start: Point<usize>,
+        end: Point<usize>,
         position: f32,
         mut thickness: f32,
         color: Rgb,
@@ -113,7 +113,7 @@ impl RenderLine {
         // Make sure lines are always visible.
         thickness = thickness.max(1.);
 
-        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height();
+        let line_bottom = (start.line as f32 + 1.) * size.cell_height();
         let baseline = line_bottom + descent;
 
         let mut y = (baseline - position - thickness / 2.).ceil();

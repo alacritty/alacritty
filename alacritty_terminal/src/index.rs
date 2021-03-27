@@ -44,13 +44,13 @@ pub enum Boundary {
 
 /// Index in the grid using row, column notation.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
-pub struct Point {
-    pub line: Line,
-    pub column: Column,
+pub struct Point<L = Line, C = Column> {
+    pub line: L,
+    pub column: C,
 }
 
-impl Point {
-    pub fn new(line: Line, column: Column) -> Point {
+impl<L, C> Point<L, C> {
+    pub fn new(line: L, column: C) -> Point<L, C> {
         Point { line, column }
     }
 }
@@ -111,14 +111,14 @@ impl Point {
     }
 }
 
-impl PartialOrd for Point {
-    fn partial_cmp(&self, other: &Point) -> Option<Ordering> {
+impl<L: Ord, C: Ord> PartialOrd for Point<L, C> {
+    fn partial_cmp(&self, other: &Point<L, C>) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Point {
-    fn cmp(&self, other: &Point) -> Ordering {
+impl<L: Ord, C: Ord> Ord for Point<L, C> {
+    fn cmp(&self, other: &Point<L, C>) -> Ordering {
         match (self.line.cmp(&other.line), self.column.cmp(&other.column)) {
             (Ordering::Equal, ord) | (ord, _) => ord,
         }
