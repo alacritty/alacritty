@@ -1,6 +1,3 @@
- - Multiline URLs are broken
-
- - Vi cursor position doesn't reset after cancel
  - Vi-less search selection shifting after search is confirmed
  - Topmost/Bottommost line functions on Dimensions?
     -> Check how often (-history_size) and (screen_lines - 1) is used

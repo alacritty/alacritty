@@ -724,9 +724,10 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             return;
         }
 
-        // Reset display offset.
+        // Reset display offset and cursor position.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
+        self.terminal.vi_mode_cursor.point = self.search_state.origin;
 
         *self.dirty = true;
     }
