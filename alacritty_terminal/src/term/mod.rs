@@ -100,7 +100,7 @@ pub struct SizeInfo {
     screen_lines: usize,
 
     /// Number of columns in the viewport.
-    columns: Column,
+    columns: usize,
 }
 
 impl SizeInfo {
@@ -123,7 +123,7 @@ impl SizeInfo {
         let screen_lines = max(lines as usize, MIN_SCREEN_LINES);
 
         let columns = (width - 2. * padding_x) / cell_width;
-        let columns = Column(max(columns as usize, MIN_COLUMNS));
+        let columns = max(columns as usize, MIN_COLUMNS);
 
         SizeInfo {
             width,
@@ -147,7 +147,7 @@ impl SizeInfo {
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns.0 as f32 * self.cell_width) as usize
+        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
             && x > self.padding_x as usize
             && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
@@ -192,7 +192,7 @@ impl SizeInfo {
 
 impl Dimensions for SizeInfo {
     #[inline]
-    fn columns(&self) -> Column {
+    fn columns(&self) -> usize {
         self.columns
     }
 
@@ -375,7 +375,7 @@ impl<T> Term<T> {
 
         for line in (start.line.0..=end.line.0).map(Line::from) {
             let start_col = if line == start.line { start.column } else { Column(0) };
-            let end_col = if line == end.line { end.column } else { self.columns() - 1 };
+            let end_col = if line == end.line { end.column } else { self.last_column() };
 
             res += &self.line_to_string(line, start_col..end_col, line == end.line);
         }
@@ -512,7 +512,7 @@ impl<T> Term<T> {
 
         // Clamp vi cursor to viewport.
         let vi_point = self.vi_mode_cursor.point;
-        self.vi_mode_cursor.point.column = min(vi_point.column, num_cols - 1);
+        self.vi_mode_cursor.point.column = min(vi_point.column, Column(num_cols - 1));
         self.vi_mode_cursor.point.line = min(vi_point.line, Line(num_lines as i32 - 1));
 
         // Reset scrolling region.
@@ -775,7 +775,7 @@ impl<T> Term<T> {
 
 impl<T> Dimensions for Term<T> {
     #[inline]
-    fn columns(&self) -> Column {
+    fn columns(&self) -> usize {
         self.grid.columns()
     }
 
@@ -832,7 +832,7 @@ impl<T: EventListener> Handler for Term<T> {
             let col = self.grid.cursor.point.column;
             let row = &mut self.grid[line][..];
 
-            for col in (col.0..(num_cols - width).0).rev() {
+            for col in (col.0..(num_cols - width)).rev() {
                 row.swap(col + width, col);
             }
         }
@@ -872,7 +872,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Decalnning");
 
         for line in (0..self.screen_lines()).map(Line::from) {
-            for column in 0..self.columns().0 {
+            for column in 0..self.columns() {
                 let cell = &mut self.grid[line][Column(column)];
                 *cell = Cell::default();
                 cell.c = 'E';
@@ -890,7 +890,7 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         self.grid.cursor.point.line = max(min(line + y_offset, max_y), Line(0));
-        self.grid.cursor.point.column = min(col, self.columns() - 1);
+        self.grid.cursor.point.column = min(col, self.last_column());
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -907,27 +907,27 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn insert_blank(&mut self, count: Column) {
+    fn insert_blank(&mut self, count: usize) {
         let cursor = &self.grid.cursor;
         let bg = cursor.template.bg;
 
         // Ensure inserting within terminal bounds
-        let count = min(count, self.columns() - cursor.point.column);
+        let count = min(count, self.columns() - cursor.point.column.0);
 
         let source = cursor.point.column;
-        let destination = cursor.point.column + count;
-        let num_cells = (self.columns() - destination).0;
+        let destination = cursor.point.column.0 + count;
+        let num_cells = self.columns() - destination;
 
         let line = cursor.point.line;
         let row = &mut self.grid[line][..];
 
         for offset in (0..num_cells).rev() {
-            row.swap(destination.0 + offset, source.0 + offset);
+            row.swap(destination + offset, source.0 + offset);
         }
 
         // Cells were just moved out toward the end of the line;
         // fill in between source and dest with blanks.
-        for cell in &mut row[source.0..destination.0] {
+        for cell in &mut row[source.0..destination] {
             *cell = bg.into();
         }
     }
@@ -947,8 +947,8 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         trace!("Moving forward: {}", cols);
-        let num_cols = self.columns();
-        self.grid.cursor.point.column = min(self.grid.cursor.point.column + cols, num_cols - 1);
+        let last_column = self.last_column();
+        self.grid.cursor.point.column = min(self.grid.cursor.point.column + cols, last_column);
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -1157,7 +1157,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Erasing chars: count={}, col={}", count, cursor.point.column);
 
         let start = cursor.point.column;
-        let end = min(start + count, self.columns());
+        let end = min(start + count, Column(self.columns()));
 
         // Cleared cells have current background color set.
         let bg = self.grid.cursor.template.bg;
@@ -1169,28 +1169,28 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn delete_chars(&mut self, count: Column) {
-        let cols = self.columns();
+    fn delete_chars(&mut self, count: usize) {
+        let columns = self.columns();
         let cursor = &self.grid.cursor;
         let bg = cursor.template.bg;
 
         // Ensure deleting within terminal bounds.
-        let count = min(count, cols);
+        let count = min(count, columns);
 
-        let start = cursor.point.column;
-        let end = min(start + count, cols - 1);
-        let num_cells = (cols - end).0;
+        let start = cursor.point.column.0;
+        let end = min(start + count, columns - 1);
+        let num_cells = columns - end;
 
         let line = cursor.point.line;
         let row = &mut self.grid[line][..];
 
         for offset in 0..num_cells {
-            row.swap(start.0 + offset, end.0 + offset);
+            row.swap(start + offset, end + offset);
         }
 
         // Clear last `count` cells in the row. If deleting 1 char, need to delete
         // 1 cell.
-        let end = (cols - count).0;
+        let end = columns - count;
         for cell in &mut row[end..] {
             *cell = bg.into();
         }
@@ -1348,7 +1348,7 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 // Clear up to the current column in the current line.
-                let end = min(cursor.column + 1, self.columns());
+                let end = min(cursor.column + 1, Column(self.columns()));
                 for cell in &mut self.grid[cursor.line][..end] {
                     *cell = bg.into();
                 }
@@ -1681,7 +1681,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels<W: io::Write>(&mut self, writer: &mut W) {
-        let width = self.cell_width * self.columns().0;
+        let width = self.cell_width * self.columns();
         let height = self.cell_height * self.screen_lines();
         let _ = write!(writer, "\x1b[4;{};{}t", height, width);
     }
@@ -1725,8 +1725,8 @@ struct TabStops {
 
 impl TabStops {
     #[inline]
-    fn new(num_cols: Column) -> TabStops {
-        TabStops { tabs: (0..num_cols.0).map(|i| i % INITIAL_TABSTOPS == 0).collect() }
+    fn new(columns: usize) -> TabStops {
+        TabStops { tabs: (0..columns).map(|i| i % INITIAL_TABSTOPS == 0).collect() }
     }
 
     /// Remove all tabstops.
@@ -1739,9 +1739,9 @@ impl TabStops {
 
     /// Increase tabstop capacity.
     #[inline]
-    fn resize(&mut self, num_cols: Column) {
+    fn resize(&mut self, columns: usize) {
         let mut index = self.tabs.len();
-        self.tabs.resize_with(num_cols.0, || {
+        self.tabs.resize_with(columns, || {
             let is_tabstop = index % INITIAL_TABSTOPS == 0;
             index += 1;
             is_tabstop
@@ -1895,7 +1895,7 @@ mod tests {
     fn semantic_selection_works() {
         let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
-        let mut grid: Grid<Cell> = Grid::new(3, Column(5), 0);
+        let mut grid: Grid<Cell> = Grid::new(3, 5, 0);
         for i in 0..5 {
             for j in 0..2 {
                 grid[Line(j)][Column(i)].c = 'a';
@@ -1943,7 +1943,7 @@ mod tests {
     fn line_selection_works() {
         let size = SizeInfo::new(5., 1., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
-        let mut grid: Grid<Cell> = Grid::new(1, Column(5), 0);
+        let mut grid: Grid<Cell> = Grid::new(1, 5, 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
         }
@@ -1964,7 +1964,7 @@ mod tests {
     fn selecting_empty_line() {
         let size = SizeInfo::new(3.0, 3.0, 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
-        let mut grid: Grid<Cell> = Grid::new(3, Column(3), 0);
+        let mut grid: Grid<Cell> = Grid::new(3, 3, 0);
         for l in 0..3 {
             if l != 1 {
                 for c in 0..3 {
@@ -1991,7 +1991,7 @@ mod tests {
     /// test this property with a T=Cell.
     #[test]
     fn grid_serde() {
-        let grid: Grid<Cell> = Grid::new(24, Column(80), 0);
+        let grid: Grid<Cell> = Grid::new(24, 80, 0);
         let serialized = serde_json::to_string(&grid).expect("ser");
         let deserialized = serde_json::from_str::<Grid<Cell>>(&serialized).expect("de");
 

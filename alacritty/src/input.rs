@@ -442,7 +442,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let size = self.ctx.size_info();
 
         let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let column = min(Column(column), size.columns() - 1);
+        let column = min(Column(column), size.last_column());
 
         let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
         let line = min(line, size.screen_lines() - 1);

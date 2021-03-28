@@ -701,7 +701,7 @@ impl Display {
         formatted_regex.push('_');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.columns().0;
+        let num_cols = size_info.columns();
         let label_len = search_label.chars().count();
         let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
@@ -720,7 +720,7 @@ impl Display {
     /// Draw current search regex.
     fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.columns().0;
+        let num_cols = size_info.columns();
 
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
@@ -762,7 +762,7 @@ impl Display {
         line: usize,
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(size_info.columns().0.saturating_sub(text.len()));
+        let column = Column(size_info.columns().saturating_sub(text.len()));
         let colors = &config.ui_config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);

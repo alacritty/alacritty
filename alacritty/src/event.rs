@@ -421,9 +421,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn start_search(&mut self, direction: Direction) {
-        let num_lines = self.terminal.screen_lines();
-        let num_cols = self.terminal.columns();
-
         // Only create new history entry if the previous regex wasn't empty.
         if self.search_state.history.get(0).map_or(true, |regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
@@ -439,9 +436,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.origin = self.terminal.vi_mode_cursor.point;
             self.search_state.display_offset_delta = 0;
         } else {
+            let screen_lines = self.terminal.screen_lines();
+            let last_column = self.terminal.last_column();
             self.search_state.origin = match direction {
                 Direction::Right => Point::new(Line(0), Column(0)),
-                Direction::Left => Point::new(Line(num_lines as i32 - 2), num_cols - 1),
+                Direction::Left => Point::new(Line(screen_lines as i32 - 2), last_column),
             };
         }
 

@@ -120,7 +120,7 @@ pub struct Grid<T> {
     raw: Storage<T>,
 
     /// Number of columns.
-    columns: Column,
+    columns: usize,
 
     /// Number of visible lines.
     lines: usize,
@@ -137,7 +137,7 @@ pub struct Grid<T> {
 }
 
 impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
-    pub fn new(lines: usize, columns: Column, max_scroll_limit: usize) -> Grid<T> {
+    pub fn new(lines: usize, columns: usize, max_scroll_limit: usize) -> Grid<T> {
         Grid {
             raw: Storage::with_capacity(lines, columns),
             max_scroll_limit,
@@ -303,7 +303,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         D: PartialEq,
     {
         // Determine how many lines to scroll up by.
-        let end = Point { line: Line(self.lines as i32 - 1), column: self.columns() };
+        let end = Point::new(Line(self.lines as i32 - 1), Column(self.columns()));
         let mut iter = self.iter_from(end);
         while let Some(cell) = iter.prev() {
             if !cell.is_empty() || cell.point.line < 0 {
@@ -406,8 +406,8 @@ impl<T> Grid<T> {
     /// Iterator over all visible cells.
     #[inline]
     pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(Line(-(self.display_offset as i32) - 1), self.columns - 1);
-        let end = Point::new(start.line + self.lines, self.columns);
+        let start = Point::new(Line(-(self.display_offset as i32) - 1), self.last_column());
+        let end = Point::new(start.line + self.lines, Column(self.columns));
 
         let iter = GridIterator { grid: self, point: start };
 
@@ -479,7 +479,12 @@ pub trait Dimensions {
     fn screen_lines(&self) -> usize;
 
     /// Width of the terminal in columns.
-    fn columns(&self) -> Column;
+    fn columns(&self) -> usize;
+
+    // TODO
+    fn last_column(&self) -> Column {
+        Column(self.columns() - 1)
+    }
 
     /// Number of invisible lines part of the scrollback history.
     #[inline]
@@ -500,13 +505,13 @@ impl<G> Dimensions for Grid<G> {
     }
 
     #[inline]
-    fn columns(&self) -> Column {
+    fn columns(&self) -> usize {
         self.columns
     }
 }
 
 #[cfg(test)]
-impl Dimensions for (usize, Column) {
+impl Dimensions for (usize, usize) {
     fn total_lines(&self) -> usize {
         self.0
     }
@@ -515,7 +520,7 @@ impl Dimensions for (usize, Column) {
         self.0
     }
 
-    fn columns(&self) -> Column {
+    fn columns(&self) -> usize {
         self.1
     }
 }
@@ -561,7 +566,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let bottommost_line = Line(self.grid.screen_lines() as i32 - 1);
-        let last_column = self.grid.columns() - 1;
+        let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.
         if self.point == Point::new(bottommost_line, last_column) {
@@ -588,7 +593,7 @@ pub trait BidirectionalIterator: Iterator {
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
         let topmost_line = Line(-(self.grid.history_size() as i32));
-        let last_column = self.grid.columns() - 1;
+        let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.
         if self.point == Point::new(topmost_line, Column(0)) {

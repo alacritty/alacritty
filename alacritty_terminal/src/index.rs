@@ -63,7 +63,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        let cols = dimensions.columns().0;
+        let cols = dimensions.columns();
         let line_changes = (rhs + cols - 1).saturating_sub(self.column.0) / cols;
         self.line -= line_changes;
         self.column = Column((cols + self.column.0 - rhs % cols) % cols);
@@ -77,7 +77,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        let cols = dimensions.columns().0;
+        let cols = dimensions.columns();
         self.line += (rhs + self.column.0) / cols;
         self.column = Column((self.column.0 + rhs) % cols);
         self.grid_clamp(dimensions, boundary)
@@ -90,7 +90,7 @@ impl Point {
     where
         D: Dimensions,
     {
-        let last_column = dimensions.columns() - 1;
+        let last_column = dimensions.last_column();
         self.column = min(self.column, last_column);
 
         let topmost_line = Line(-(dimensions.history_size() as i32));
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn sub() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(0), Column(13));
 
         let result = point.sub(&size, Boundary::Cursor, 1);
@@ -373,17 +373,17 @@ mod tests {
 
     #[test]
     fn sub_wrap() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(1), Column(0));
 
         let result = point.sub(&size, Boundary::Cursor, 1);
 
-        assert_eq!(result, Point::new(Line(0), size.1 - 1));
+        assert_eq!(result, Point::new(Line(0), size.last_column()));
     }
 
     #[test]
     fn sub_clamp() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(0), Column(0));
 
         let result = point.sub(&size, Boundary::Cursor, 1);
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn sub_grid_clamp() {
-        let size = (0, Column(42));
+        let size = (0, 42);
         let point = Point::new(Line(0), Column(0));
 
         let result = point.sub(&size, Boundary::Grid, 1);
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn sub_none_clamp() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(0), Column(0));
 
         let result = point.sub(&size, Boundary::None, 1);
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn add() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(0), Column(13));
 
         let result = point.add(&size, Boundary::Cursor, 1);
@@ -423,8 +423,8 @@ mod tests {
 
     #[test]
     fn add_wrap() {
-        let size = (10, Column(42));
-        let point = Point::new(Line(0), size.1 - 1);
+        let size = (10, 42);
+        let point = Point::new(Line(0), size.last_column());
 
         let result = point.add(&size, Boundary::Cursor, 1);
 
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     fn add_clamp() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(9), Column(41));
 
         let result = point.add(&size, Boundary::Cursor, 1);
@@ -443,7 +443,7 @@ mod tests {
 
     #[test]
     fn add_grid_clamp() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(9), Column(41));
 
         let result = point.add(&size, Boundary::Grid, 1);
@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn add_none_clamp() {
-        let size = (10, Column(42));
+        let size = (10, 42);
         let point = Point::new(Line(9), Column(41));
 
         let result = point.add(&size, Boundary::None, 1);

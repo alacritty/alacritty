@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 use super::Row;
-use crate::index::{Column, Line};
+use crate::index::Line;
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
@@ -61,13 +61,13 @@ impl<T: PartialEq> PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(visible_lines: usize, cols: Column) -> Storage<T>
+    pub fn with_capacity(visible_lines: usize, columns: usize) -> Storage<T>
     where
         T: Clone + Default,
     {
         // Initialize visible lines; the scrollback buffer is initialized dynamically.
         let mut inner = Vec::with_capacity(visible_lines);
-        inner.resize_with(visible_lines, || Row::new(cols));
+        inner.resize_with(visible_lines, || Row::new(columns));
 
         Storage { inner, zero: 0, visible_lines, len: visible_lines }
     }
@@ -81,8 +81,8 @@ impl<T> Storage<T> {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
 
-        let cols = self[Line(0)].len();
-        self.initialize(growage, Column(cols));
+        let columns = self[Line(0)].len();
+        self.initialize(growage, columns);
 
         // Update visible lines.
         self.visible_lines = next;
@@ -120,7 +120,7 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize(&mut self, additional_rows: usize, cols: Column)
+    pub fn initialize(&mut self, additional_rows: usize, columns: usize)
     where
         T: Clone + Default,
     {
@@ -128,7 +128,7 @@ impl<T> Storage<T> {
             self.rezero();
 
             let realloc_size = self.inner.len() + max(additional_rows, MAX_CACHE_SIZE);
-            self.inner.resize_with(realloc_size, || Row::new(cols));
+            self.inner.resize_with(realloc_size, || Row::new(columns));
         }
 
         self.len += additional_rows;
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let storage = Storage::<char>::with_capacity(3, Column(1));
+        let storage = Storage::<char>::with_capacity(3, 1);
 
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.len, 3);
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn indexing() {
-        let mut storage = Storage::<char>::with_capacity(3, Column(1));
+        let mut storage = Storage::<char>::with_capacity(3, 1);
 
         storage[Line(0)] = filled_row('0');
         storage[Line(1)] = filled_row('1');
@@ -318,13 +318,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
-        let storage = Storage::<char>::with_capacity(1, Column(1));
+        let storage = Storage::<char>::with_capacity(1, 1);
         let _ = &storage[Line(-1)];
     }
 
     #[test]
     fn rotate() {
-        let mut storage = Storage::<char>::with_capacity(3, Column(1));
+        let mut storage = Storage::<char>::with_capacity(3, 1);
         storage.rotate(2);
         assert_eq!(storage.zero, 2);
         storage.shrink_lines(2);
@@ -686,7 +686,7 @@ mod tests {
         assert_eq!(storage.len, shrinking_expected.len);
 
         // Grow buffer.
-        storage.initialize(1, Column(1));
+        storage.initialize(1, 1);
 
         // Make sure the previously freed elements are reused.
         let growing_expected = Storage {
@@ -727,7 +727,7 @@ mod tests {
 
         // Initialize additional lines.
         let init_size = 3;
-        storage.initialize(init_size, Column(1));
+        storage.initialize(init_size, 1);
 
         // Generate expected grid.
         let mut expected_inner = vec![
@@ -762,7 +762,7 @@ mod tests {
     }
 
     fn filled_row(content: char) -> Row<char> {
-        let mut row = Row::new(Column(1));
+        let mut row = Row::new(1);
         row[Column(0)] = content;
         row
     }

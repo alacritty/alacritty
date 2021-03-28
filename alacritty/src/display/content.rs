@@ -435,7 +435,7 @@ impl RegexMatches {
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));
         let mut start = term.line_search_left(start_point);
-        let end_point = Point::new(viewport_end, term.columns() - 1);
+        let end_point = Point::new(viewport_end, term.last_column());
         let mut end = term.line_search_right(end_point);
 
         // Set upper bound on search before/after the viewport to prevent excessive blocking.

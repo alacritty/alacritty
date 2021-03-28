@@ -83,7 +83,7 @@ impl<T> Term<T> {
         end = match max_lines {
             Some(max_lines) => {
                 let line = (start.line + max_lines).grid_clamp(self, Boundary::Grid);
-                Point::new(line, self.columns() - 1)
+                Point::new(line, self.last_column())
             },
             _ => end.sub(self, Boundary::None, 1),
         };
@@ -193,7 +193,7 @@ impl<T> Term<T> {
     ) -> Option<Point> {
         let topmost_line = Line(-(self.history_size() as i32));
         let screen_lines = self.screen_lines() as i32;
-        let last_column = self.columns() - 1;
+        let last_column = self.last_column();
 
         // Advance the iterator.
         let next = match direction {
@@ -401,7 +401,7 @@ impl<T> Term<T> {
     /// Find the beginning of the current line across linewraps.
     pub fn line_search_left(&self, mut point: Point) -> Point {
         while point.line > -(self.history_size() as i32)
-            && self.grid[point.line - 1i32][self.columns() - 1].flags.contains(Flags::WRAPLINE)
+            && self.grid[point.line - 1i32][self.last_column()].flags.contains(Flags::WRAPLINE)
         {
             point.line -= 1;
         }
@@ -414,12 +414,12 @@ impl<T> Term<T> {
     /// Find the end of the current line across linewraps.
     pub fn line_search_right(&self, mut point: Point) -> Point {
         while point.line + 1 < self.screen_lines()
-            && self.grid[point.line][self.columns() - 1].flags.contains(Flags::WRAPLINE)
+            && self.grid[point.line][self.last_column()].flags.contains(Flags::WRAPLINE)
         {
             point.line += 1;
         }
 
-        point.column = self.columns() - 1;
+        point.column = self.last_column();
 
         point
     }

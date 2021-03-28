@@ -11,7 +11,7 @@ use crate::grid::{Dimensions, Grid, GridCell};
 
 impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     /// Resize the grid's width and/or height.
-    pub fn resize<D>(&mut self, reflow: bool, lines: usize, columns: Column)
+    pub fn resize<D>(&mut self, reflow: bool, lines: usize, columns: usize)
     where
         T: ResetDiscriminant<D>,
         D: PartialEq,
@@ -98,7 +98,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     }
 
     /// Grow number of columns in each row, reflowing if necessary.
-    fn grow_columns(&mut self, reflow: bool, columns: Column) {
+    fn grow_columns(&mut self, reflow: bool, columns: usize) {
         // Check if a row needs to be wrapped.
         let should_reflow = |row: &Row<T>| -> bool {
             let len = Column(row.len());
@@ -138,12 +138,12 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             if last_len >= 1
                 && last_row[Column(last_len - 1)].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER)
             {
-                last_row.shrink(Column(last_len - 1));
+                last_row.shrink(last_len - 1);
                 last_len -= 1;
             }
 
             // Don't try to pull more cells from the next line than available.
-            let mut num_wrapped = columns.0 - last_len;
+            let mut num_wrapped = columns - last_len;
             let len = min(row.len(), num_wrapped);
 
             // Insert leading spacer when there's not enough room for reflowing wide char.
@@ -229,7 +229,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         // Reverse iterator and fill all rows that are still too short.
         let mut new_raw = Vec::with_capacity(reversed.len());
         for mut row in reversed.drain(..).rev() {
-            if row.len() < columns.0 {
+            if row.len() < columns {
                 row.grow(columns);
             }
             new_raw.push(row);
@@ -242,7 +242,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
     }
 
     /// Shrink number of columns in each row, reflowing if necessary.
-    fn shrink_columns(&mut self, reflow: bool, columns: Column) {
+    fn shrink_columns(&mut self, reflow: bool, columns: usize) {
         self.columns = columns;
 
         // Remove the linewrap special case, by moving the cursor outside of the grid.
@@ -287,11 +287,13 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 };
 
                 // Insert spacer if a wide char would be wrapped into the last column.
-                if row.len() >= columns.0 && row[columns - 1].flags().contains(Flags::WIDE_CHAR) {
+                if row.len() >= columns
+                    && row[Column(columns - 1)].flags().contains(Flags::WIDE_CHAR)
+                {
                     let mut spacer = T::default();
                     spacer.flags_mut().insert(Flags::LEADING_WIDE_CHAR_SPACER);
 
-                    let wide_char = mem::replace(&mut row[columns - 1], spacer);
+                    let wide_char = mem::replace(&mut row[Column(columns - 1)], spacer);
                     wrapped.insert(0, wide_char);
                 }
 
@@ -299,7 +301,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 let len = wrapped.len();
                 if len > 0 && wrapped[len - 1].flags().contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     if len == 1 {
-                        row[columns - 1].flags_mut().insert(Flags::WRAPLINE);
+                        row[Column(columns - 1)].flags_mut().insert(Flags::WRAPLINE);
                         new_raw.push(row);
                         break;
                     } else {
@@ -320,7 +322,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                     .last()
                     .map(|c| c.flags().contains(Flags::WRAPLINE) && i >= 1)
                     .unwrap_or(false)
-                    && wrapped.len() < columns.0
+                    && wrapped.len() < columns
                 {
                     // Make sure previous wrap flag doesn't linger around.
                     if let Some(cell) = wrapped.last_mut() {
@@ -348,8 +350,8 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
                     // Make sure new row is at least as long as new width.
                     let occ = wrapped.len();
-                    if occ < columns.0 {
-                        wrapped.resize_with(columns.0, T::default);
+                    if occ < columns {
+                        wrapped.resize_with(columns, T::default);
                     }
                     row = Row::from_vec(wrapped, occ);
                 }
@@ -363,9 +365,9 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
         // Reflow the primary cursor, or clamp it if reflow is disabled.
         if !reflow {
-            self.cursor.point.column = min(self.cursor.point.column, columns - 1);
+            self.cursor.point.column = min(self.cursor.point.column, Column(columns - 1));
         } else if self.cursor.point.column == columns
-            && !self[self.cursor.point.line][columns - 1].flags().contains(Flags::WRAPLINE)
+            && !self[self.cursor.point.line][Column(columns - 1)].flags().contains(Flags::WRAPLINE)
         {
             self.cursor.input_needs_wrap = true;
             self.cursor.point.column -= 1;
@@ -374,6 +376,6 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         }
 
         // Clamp the saved cursor to the grid.
-        self.saved_cursor.point.column = min(self.saved_cursor.point.column, columns - 1);
+        self.saved_cursor.point.column = min(self.saved_cursor.point.column, Column(columns - 1));
     }
 }

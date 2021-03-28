@@ -299,7 +299,7 @@ pub trait Handler {
     fn goto_col(&mut self, _: Column) {}
 
     /// Insert blank characters in current line starting from cursor.
-    fn insert_blank(&mut self, _: Column) {}
+    fn insert_blank(&mut self, _: usize) {}
 
     /// Move cursor up `rows`.
     fn move_up(&mut self, _: usize) {}
@@ -373,7 +373,7 @@ pub trait Handler {
     ///
     /// Deleting a character is like the delete key on the keyboard - everything
     /// to the right of the deleted things is shifted left.
-    fn delete_chars(&mut self, _: Column) {}
+    fn delete_chars(&mut self, _: usize) {}
 
     /// Move backward `count` tabs.
     fn move_backward_tabs(&mut self, _count: u16) {}
@@ -1122,7 +1122,7 @@ where
         };
 
         match (action, intermediates) {
-            ('@', []) => handler.insert_blank(Column(next_param_or(1) as usize)),
+            ('@', []) => handler.insert_blank(next_param_or(1) as usize),
             ('A', []) => handler.move_up(next_param_or(1) as usize),
             ('B', []) | ('e', []) => handler.move_down(next_param_or(1) as usize),
             ('b', []) => {
@@ -1219,7 +1219,7 @@ where
                 }
             },
             ('n', []) => handler.device_status(writer, next_param_or(0) as usize),
-            ('P', []) => handler.delete_chars(Column(next_param_or(1) as usize)),
+            ('P', []) => handler.delete_chars(next_param_or(1) as usize),
             ('q', [b' ']) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
                 let cursor_style_id = next_param_or(0);

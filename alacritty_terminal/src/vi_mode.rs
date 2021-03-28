@@ -78,7 +78,7 @@ impl ViModeCursor {
             },
             ViMotion::Left => {
                 self.point = term.expand_wide(self.point, Direction::Left);
-                let wrap_point = Point::new(self.point.line - 1, term.columns() - 1);
+                let wrap_point = Point::new(self.point.line - 1, term.last_column());
                 if self.point.column == 0
                     && self.point.line > -(term.history_size() as i32)
                     && is_wrap(term, wrap_point)
@@ -93,14 +93,14 @@ impl ViModeCursor {
                 if is_wrap(term, self.point) {
                     self.point = Point::new(self.point.line + 1, Column(0));
                 } else {
-                    self.point.column = min(self.point.column + 1, term.columns() - 1);
+                    self.point.column = min(self.point.column + 1, term.last_column());
                 }
             },
             ViMotion::First => {
                 self.point = term.expand_wide(self.point, Direction::Left);
                 while self.point.column == 0
                     && self.point.line > -(term.history_size() as i32)
-                    && is_wrap(term, Point::new(self.point.line - 1, term.columns() - 1))
+                    && is_wrap(term, Point::new(self.point.line - 1, term.last_column()))
                 {
                     self.point.line -= 1;
                 }
@@ -203,20 +203,20 @@ fn last<T>(term: &Term<T>, mut point: Point) -> Point {
         last_occupied_in_line(term, point.line).unwrap_or(point)
     } else {
         // Jump to last column when beyond the last occupied cell.
-        Point::new(point.line, term.columns() - 1)
+        Point::new(point.line, term.last_column())
     }
 }
 
 /// Find next non-empty cell to move to.
 fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
-    let cols = term.columns();
+    let last_column = term.last_column();
 
     // Expand left across wide chars, since we're searching lines left to right.
     point = term.expand_wide(point, Direction::Left);
 
     // Find first non-empty cell in current line.
     let occupied = first_occupied_in_line(term, point.line)
-        .unwrap_or_else(|| Point::new(point.line, cols - 1));
+        .unwrap_or_else(|| Point::new(point.line, last_column));
 
     // Jump across wrapped lines if we're already at this line's first occupied cell.
     if point == occupied {
@@ -225,7 +225,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
         // Search for non-empty cell in previous lines.
         let topmost_line = -(term.history_size() as i32);
         for line in (topmost_line..point.line.0).rev().map(Line::from) {
-            if !is_wrap(term, Point::new(line, cols - 1)) {
+            if !is_wrap(term, Point::new(line, last_column)) {
                 break;
             }
 
@@ -239,7 +239,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
                 break occupied;
             }
 
-            let last_cell = Point::new(line, cols - 1);
+            let last_cell = Point::new(line, last_column);
             if !is_wrap(term, last_cell) {
                 break last_cell;
             }
@@ -344,14 +344,14 @@ fn word<T: EventListener>(
 
 /// Find first non-empty cell in line.
 fn first_occupied_in_line<T>(term: &Term<T>, line: Line) -> Option<Point> {
-    (0..term.columns().0)
+    (0..term.columns())
         .map(|col| Point::new(line, Column(col)))
         .find(|&point| !is_space(term, point))
 }
 
 /// Find last non-empty cell in line.
 fn last_occupied_in_line<T>(term: &Term<T>, line: Line) -> Option<Point> {
-    (0..term.columns().0)
+    (0..term.columns())
         .map(|col| Point::new(line, Column(col)))
         .rfind(|&point| !is_space(term, point))
 }
