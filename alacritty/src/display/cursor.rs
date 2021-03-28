@@ -22,11 +22,11 @@ impl IntoRects for RenderableCursor {
         let mut width = size_info.cell_width();
         let height = size_info.cell_height();
 
+        let thickness = (thickness * width as f32).round().max(1.);
+
         if self.is_wide() {
             width *= 2.;
         }
-
-        let thickness = (thickness * width as f32).round().max(1.);
 
         match self.shape() {
             CursorShape::Beam => beam(x, y, height, thickness, self.color()),
