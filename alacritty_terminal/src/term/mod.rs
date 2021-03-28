@@ -488,30 +488,23 @@ impl<T> Term<T> {
 
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
-        // Invalidate selection and tabs only when necessary.
+        // Move vi mode cursor with the content.
         let history_size = self.history_size();
+        let mut delta = num_lines as i32 - old_lines as i32;
+        let min_delta = min(0, num_lines as i32 - self.grid.cursor.point.line.0 - 1);
+        delta = min(max(delta, min_delta), history_size as i32);
+        self.vi_mode_cursor.point.line += delta;
+
+        // Invalidate selection and tabs only when necessary.
         if old_cols != num_cols {
             self.selection = None;
 
             // Recreate tabs list.
             self.tabs.resize(num_cols);
         } else if let Some(selection) = self.selection.take() {
-            // Move the selection if only number of lines changed.
-            let delta = if num_lines > old_lines {
-                (num_lines - old_lines).saturating_sub(history_size) as i32
-            } else {
-                let cursor_line = self.grid.cursor.point.line;
-                -(min(old_lines - cursor_line.0 as usize - 1, old_lines - num_lines) as i32)
-            };
             let range = Line(0)..Line(num_lines as i32);
-            self.selection = selection.rotate(self, &range, delta);
+            self.selection = selection.rotate(self, &range, -delta);
         }
-
-        // Move vi mode cursor with the content.
-        let mut delta = num_lines as i32 - old_lines as i32;
-        let min_delta = min(0, num_lines as i32 - self.grid.cursor.point.line.0 - 1);
-        delta = min(max(delta, min_delta), history_size as i32);
-        self.vi_mode_cursor.point.line += delta;
 
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
         self.grid.resize(!is_alt, num_lines, num_cols);
