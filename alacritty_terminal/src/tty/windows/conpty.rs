@@ -186,11 +186,11 @@ impl OnResize for Conpty {
 
 /// Helper to build a COORD from a SizeInfo, returning None in overflow cases.
 fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
-    let cols = size.columns().0;
     let lines = size.screen_lines();
+    let columns = size.columns();
 
-    if cols <= i16::MAX as usize && lines <= i16::MAX as usize {
-        Some(COORD { X: cols as i16, Y: lines as i16 })
+    if columns <= i16::MAX as usize && lines <= i16::MAX as usize {
+        Some(COORD { X: columns as i16, Y: lines as i16 })
     } else {
         None
     }
