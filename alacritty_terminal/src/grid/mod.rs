@@ -339,7 +339,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.display_offset = 0;
 
         // Reset all visible lines.
-        let range = -(self.history_size() as i32)..(self.screen_lines() as i32);
+        let range = self.topmost_line().0..(self.screen_lines() as i32);
         for line in range.map(Line::from) {
             self.raw[line].reset(&self.cursor.template);
         }
@@ -481,9 +481,22 @@ pub trait Dimensions {
     /// Width of the terminal in columns.
     fn columns(&self) -> usize;
 
-    // TODO
+    /// Index for the last column.
+    #[inline]
     fn last_column(&self) -> Column {
         Column(self.columns() - 1)
+    }
+
+    /// Line farthest up in the grid history.
+    #[inline]
+    fn topmost_line(&self) -> Line {
+        Line(-(self.history_size() as i32))
+    }
+
+    /// Line farthest down in the grid history.
+    #[inline]
+    fn bottommost_line(&self) -> Line {
+        Line(self.screen_lines() as i32 - 1)
     }
 
     /// Number of invisible lines part of the scrollback history.
@@ -565,11 +578,10 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = Indexed<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let bottommost_line = Line(self.grid.screen_lines() as i32 - 1);
         let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.
-        if self.point == Point::new(bottommost_line, last_column) {
+        if self.point == Point::new(self.grid.bottommost_line(), last_column) {
             return None;
         }
 
@@ -592,7 +604,7 @@ pub trait BidirectionalIterator: Iterator {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let topmost_line = Line(-(self.grid.history_size() as i32));
+        let topmost_line = self.grid.topmost_line();
         let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.

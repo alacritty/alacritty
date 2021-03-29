@@ -282,7 +282,7 @@ impl<T> Term<T> {
 
         // Clamp vi mode cursor to the viewport.
         let viewport_start = -(self.grid.display_offset() as i32);
-        let viewport_end = viewport_start + self.screen_lines() as i32 - 1;
+        let viewport_end = viewport_start + self.bottommost_line().0;
         let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
         *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
         self.vi_mode_recompute_selection();
@@ -886,7 +886,7 @@ impl<T: EventListener> Handler for Term<T> {
         let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
             (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
-            (Line(0), Line(self.screen_lines() as i32 - 1))
+            (Line(0), self.bottommost_line())
         };
 
         self.grid.cursor.point.line = max(min(line + y_offset, max_y), Line(0));

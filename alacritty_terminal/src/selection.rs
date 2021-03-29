@@ -134,7 +134,7 @@ impl Selection {
         range: &Range<Line>,
         delta: i32,
     ) -> Option<Selection> {
-        let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
+        let bottommost_line = dimensions.bottommost_line();
         let range_bottom = range.end;
         let range_top = range.start;
 

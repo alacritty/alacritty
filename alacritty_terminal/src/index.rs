@@ -93,8 +93,8 @@ impl Point {
         let last_column = dimensions.last_column();
         self.column = min(self.column, last_column);
 
-        let topmost_line = Line(-(dimensions.history_size() as i32));
-        let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
+        let topmost_line = dimensions.topmost_line();
+        let bottommost_line = dimensions.bottommost_line();
 
         match boundary {
             Boundary::Cursor if self.line < 0 => Point::new(Line(0), Column(0)),
@@ -135,13 +135,10 @@ impl Line {
     /// Clamp a line to a grid boundary.
     pub fn grid_clamp<D: Dimensions>(self, dimensions: &D, boundary: Boundary) -> Self {
         match boundary {
-            Boundary::Cursor => {
-                let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
-                max(Line(0), min(bottommost_line, self))
-            },
+            Boundary::Cursor => max(Line(0), min(dimensions.bottommost_line(), self)),
             Boundary::Grid => {
-                let bottommost_line = Line(dimensions.screen_lines() as i32 - 1);
-                let topmost_line = Line(-(dimensions.history_size() as i32));
+                let bottommost_line = dimensions.bottommost_line();
+                let topmost_line = dimensions.topmost_line();
                 max(topmost_line, min(bottommost_line, self))
             },
             Boundary::None => {
@@ -149,12 +146,13 @@ impl Line {
                 let total_lines = dimensions.total_lines() as i32;
 
                 if self >= screen_lines {
-                    let history_size = dimensions.history_size() as i32;
+                    let topmost_line = dimensions.topmost_line();
                     let extra = (self.0 - screen_lines) % total_lines;
-                    Line(-history_size + extra)
+                    topmost_line + extra
                 } else {
+                    let bottommost_line = dimensions.bottommost_line();
                     let extra = (self.0 - screen_lines + 1) % total_lines;
-                    Line(extra + screen_lines - 1)
+                    bottommost_line + extra
                 }
             },
         }

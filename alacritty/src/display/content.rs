@@ -430,7 +430,7 @@ impl RegexMatches {
     /// Find all visible matches.
     pub fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
         let viewport_start = Line(-(term.grid().display_offset() as i32));
-        let viewport_end = viewport_start + term.screen_lines() - 1;
+        let viewport_end = viewport_start + term.bottommost_line();
 
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));

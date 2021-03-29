@@ -5,7 +5,7 @@ use std::ops::RangeInclusive;
 use regex_automata::{dense, DenseDFA, Error as RegexError, DFA};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
-use crate::index::{Boundary, Column, Direction, Line, Point, Side};
+use crate::index::{Boundary, Column, Direction, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
 
@@ -191,7 +191,7 @@ impl<T> Term<T> {
         direction: Direction,
         dfa: &impl DFA,
     ) -> Option<Point> {
-        let topmost_line = Line(-(self.history_size() as i32));
+        let topmost_line = self.topmost_line();
         let screen_lines = self.screen_lines() as i32;
         let last_column = self.last_column();
 
@@ -354,7 +354,7 @@ impl<T> Term<T> {
     /// Find left end of semantic block.
     pub fn semantic_search_left(&self, mut point: Point) -> Point {
         // Limit the starting point to the last line in the history
-        point.line = max(point.line, Line(-(self.history_size() as i32)));
+        point.line = max(point.line, self.topmost_line());
 
         let mut iter = self.grid.iter_from(point);
         let last_column = self.columns() - 1;
@@ -378,7 +378,7 @@ impl<T> Term<T> {
     /// Find right end of semantic block.
     pub fn semantic_search_right(&self, mut point: Point) -> Point {
         // Limit the starting point to the last line in the history
-        point.line = max(point.line, Line(-(self.history_size() as i32)));
+        point.line = max(point.line, self.topmost_line());
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         let last_column = self.columns() - 1;
@@ -400,7 +400,7 @@ impl<T> Term<T> {
 
     /// Find the beginning of the current line across linewraps.
     pub fn line_search_left(&self, mut point: Point) -> Point {
-        while point.line > -(self.history_size() as i32)
+        while point.line > self.topmost_line()
             && self.grid[point.line - 1i32][self.last_column()].flags.contains(Flags::WRAPLINE)
         {
             point.line -= 1;
@@ -497,7 +497,7 @@ impl<'a, T> Iterator for RegexIter<'a, T> {
 mod tests {
     use super::*;
 
-    use crate::index::Column;
+    use crate::index::{Column, Line};
     use crate::term::test::mock_term;
 
     #[test]

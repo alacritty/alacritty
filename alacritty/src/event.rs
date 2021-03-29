@@ -245,7 +245,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         };
 
         // Treat motion over message bar like motion over the last line.
-        point.line = min(point.line, Line(self.terminal.screen_lines() as i32 - 1));
+        point.line = min(point.line, self.terminal.bottommost_line());
 
         // Update selection.
         selection.update(point, side);

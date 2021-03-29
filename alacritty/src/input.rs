@@ -299,7 +299,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Top);
 
                 // Move vi mode cursor.
-                let topmost_line = Line(-(ctx.terminal().history_size() as i32));
+                let topmost_line = ctx.terminal().topmost_line();
                 ctx.terminal_mut().vi_mode_cursor.point.line = topmost_line;
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
@@ -309,7 +309,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                term.vi_mode_cursor.point.line = Line(term.screen_lines() as i32 - 1);
+                term.vi_mode_cursor.point.line = term.bottommost_line();
 
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
@@ -445,7 +445,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let column = min(Column(column), size.last_column());
 
         let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let line = min(line, size.screen_lines() - 1);
+        let line = min(line, size.bottommost_line().0 as usize);
 
         Point::new(line, column)
     }

@@ -573,7 +573,7 @@ impl Display {
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = (-vi_point.line.0 + size_info.screen_lines() as i32 - 1) as usize;
+            let line = (-vi_point.line.0 + size_info.bottommost_line().0) as usize;
             self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
         } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.

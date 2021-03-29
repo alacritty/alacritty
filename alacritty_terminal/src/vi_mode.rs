@@ -67,7 +67,7 @@ impl ViModeCursor {
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion) -> Self {
         match motion {
             ViMotion::Up => {
-                if self.point.line > -(term.history_size() as i32) {
+                if self.point.line > term.topmost_line() {
                     self.point.line -= 1;
                 }
             },
@@ -80,7 +80,7 @@ impl ViModeCursor {
                 self.point = term.expand_wide(self.point, Direction::Left);
                 let wrap_point = Point::new(self.point.line - 1, term.last_column());
                 if self.point.column == 0
-                    && self.point.line > -(term.history_size() as i32)
+                    && self.point.line > term.topmost_line()
                     && is_wrap(term, wrap_point)
                 {
                     self.point = wrap_point;
@@ -99,7 +99,7 @@ impl ViModeCursor {
             ViMotion::First => {
                 self.point = term.expand_wide(self.point, Direction::Left);
                 while self.point.column == 0
-                    && self.point.line > -(term.history_size() as i32)
+                    && self.point.line > term.topmost_line()
                     && is_wrap(term, Point::new(self.point.line - 1, term.last_column()))
                 {
                     self.point.line -= 1;
@@ -223,8 +223,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
         let mut occupied = None;
 
         // Search for non-empty cell in previous lines.
-        let topmost_line = -(term.history_size() as i32);
-        for line in (topmost_line..point.line.0).rev().map(Line::from) {
+        for line in (term.topmost_line().0..point.line.0).rev().map(Line::from) {
             if !is_wrap(term, Point::new(line, last_column)) {
                 break;
             }
@@ -379,12 +378,9 @@ fn is_wrap<T>(term: &Term<T>, point: Point) -> bool {
 
 /// Check if point is at screen boundary.
 fn is_boundary<T>(term: &Term<T>, point: Point, direction: Direction) -> bool {
-    let topmost_line = Line(-(term.history_size() as i32));
-    let bottommost_line = Line(term.screen_lines() as i32 - 1);
-    let num_cols = term.columns();
-    (point.line <= topmost_line && point.column == 0 && direction == Direction::Left)
-        || (point.line == bottommost_line
-            && point.column + 1 >= num_cols
+    (point.line <= term.topmost_line() && point.column == 0 && direction == Direction::Left)
+        || (point.line == term.bottommost_line()
+            && point.column + 1 >= term.columns()
             && direction == Direction::Right)
 }
 
