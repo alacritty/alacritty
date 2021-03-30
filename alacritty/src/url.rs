@@ -5,7 +5,8 @@ use crossfont::Metrics;
 use glutin::event::{ElementState, ModifiersState};
 use urlocator::{UrlLocation, UrlLocator};
 
-use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::index::{Boundary, Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
@@ -15,14 +16,15 @@ use crate::display::content::RenderableCell;
 use crate::event::Mouse;
 use crate::renderer::rects::{RenderLine, RenderRect};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Url {
     lines: Vec<RenderLine>,
     end_offset: u16,
-    num_cols: Column,
+    size: SizeInfo,
 }
 
 impl Url {
+    /// Rectangles required for underlining the URL.
     pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         let end = self.end();
         self.lines
@@ -37,20 +39,28 @@ impl Url {
             .collect()
     }
 
-    pub fn start(&self) -> Point {
+    /// Viewport start point of the URL.
+    pub fn start(&self) -> Point<usize> {
         self.lines[0].start
     }
 
-    pub fn end(&self) -> Point {
-        self.lines[self.lines.len() - 1].end.sub(self.num_cols, self.end_offset as usize)
+    /// Viewport end point of the URL.
+    pub fn end(&self) -> Point<usize> {
+        let end = self.lines[self.lines.len() - 1].end;
+
+        // Convert to Point<Line> to make use of the grid clamping logic.
+        let mut end = Point::new(Line(end.line as i32), end.column);
+        end = end.sub(&self.size, Boundary::Cursor, self.end_offset as usize);
+
+        Point::new(end.line.0 as usize, end.column)
     }
 }
 
 pub struct Urls {
     locator: UrlLocator,
     urls: Vec<Url>,
-    scheme_buffer: Vec<(Point, Rgb)>,
-    last_point: Option<Point>,
+    scheme_buffer: Vec<(Point<usize>, Rgb)>,
+    next_point: Point<usize>,
     state: UrlLocation,
 }
 
@@ -61,7 +71,7 @@ impl Default for Urls {
             scheme_buffer: Vec::new(),
             urls: Vec::new(),
             state: UrlLocation::Reset,
-            last_point: None,
+            next_point: Point::new(0, Column(0)),
         }
     }
 }
@@ -72,7 +82,7 @@ impl Urls {
     }
 
     // Update tracked URLs.
-    pub fn update(&mut self, num_cols: Column, cell: &RenderableCell) {
+    pub fn update(&mut self, size: &SizeInfo, cell: &RenderableCell) {
         let point = cell.point;
         let mut end = point;
 
@@ -82,11 +92,15 @@ impl Urls {
         }
 
         // Reset URL when empty cells have been skipped.
-        if point != Point::default() && Some(point.sub(num_cols, 1)) != self.last_point {
+        if point != Point::new(0, Column(0)) && point != self.next_point {
             self.reset();
         }
 
-        self.last_point = Some(end);
+        self.next_point = if end.column.0 + 1 == size.columns() {
+            Point::new(end.line + 1, Column(0))
+        } else {
+            Point::new(end.line, end.column + 1)
+        };
 
         // Extend current state if a leading wide char spacer is encountered.
         if cell.flags.intersects(Flags::LEADING_WIDE_CHAR_SPACER) {
@@ -106,7 +120,7 @@ impl Urls {
         match (self.state, last_state) {
             (UrlLocation::Url(_length, end_offset), UrlLocation::Scheme) => {
                 // Create empty URL.
-                self.urls.push(Url { lines: Vec::new(), end_offset, num_cols });
+                self.urls.push(Url { lines: Vec::new(), end_offset, size: *size });
 
                 // Push schemes into URL.
                 for (scheme_point, scheme_fg) in self.scheme_buffer.split_off(0) {
@@ -125,13 +139,13 @@ impl Urls {
         }
 
         // Reset at un-wrapped linebreak.
-        if cell.point.column + 1 == num_cols && !cell.flags.contains(Flags::WRAPLINE) {
+        if cell.point.column.0 + 1 == size.columns() && !cell.flags.contains(Flags::WRAPLINE) {
             self.reset();
         }
     }
 
     /// Extend the last URL.
-    fn extend_url(&mut self, start: Point, end: Point, color: Rgb, end_offset: u16) {
+    fn extend_url(&mut self, start: Point<usize>, end: Point<usize>, color: Rgb, end_offset: u16) {
         let url = self.urls.last_mut().unwrap();
 
         // If color changed, we need to insert a new line.
@@ -170,11 +184,11 @@ impl Urls {
             return None;
         }
 
-        self.find_at(Point::new(mouse.line, mouse.column))
+        self.find_at(mouse.point)
     }
 
     /// Find URL at location.
-    pub fn find_at(&self, point: Point) -> Option<Url> {
+    pub fn find_at(&self, point: Point<usize>) -> Option<Url> {
         for url in &self.urls {
             if (url.start()..=url.end()).contains(&point) {
                 return Some(url.clone());
@@ -194,7 +208,7 @@ impl Urls {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::index::Column;
 
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
         text.chars()
@@ -202,12 +216,11 @@ mod tests {
             .map(|(i, character)| RenderableCell {
                 character,
                 zerowidth: None,
-                point: Point::new(Line(0), Column(i)),
+                point: Point::new(0, Column(i)),
                 fg: Default::default(),
                 bg: Default::default(),
                 bg_alpha: 0.,
                 flags: Flags::empty(),
-                is_match: false,
             })
             .collect()
     }
@@ -215,14 +228,14 @@ mod tests {
     #[test]
     fn multi_color_url() {
         let mut input = text_to_cells("test https://example.org ing");
-        let num_cols = input.len();
+        let size = SizeInfo::new(input.len() as f32, 1., 1.0, 1.0, 0.0, 0.0, false);
 
         input[10].fg = Rgb { r: 0xff, g: 0x00, b: 0xff };
 
         let mut urls = Urls::new();
 
         for cell in input {
-            urls.update(Column(num_cols), &cell);
+            urls.update(&size, &cell);
         }
 
         let url = urls.urls.first().unwrap();
@@ -233,12 +246,12 @@ mod tests {
     #[test]
     fn multiple_urls() {
         let input = text_to_cells("test git:a git:b git:c ing");
-        let num_cols = input.len();
+        let size = SizeInfo::new(input.len() as f32, 1., 1.0, 1.0, 0.0, 0.0, false);
 
         let mut urls = Urls::new();
 
         for cell in input {
-            urls.update(Column(num_cols), &cell);
+            urls.update(&size, &cell);
         }
 
         assert_eq!(urls.urls.len(), 3);
@@ -256,12 +269,12 @@ mod tests {
     #[test]
     fn wide_urls() {
         let input = text_to_cells("test https://こんにちは (http:여보세요) ing");
-        let num_cols = input.len() + 9;
+        let size = SizeInfo::new(input.len() as f32 + 9., 1., 1.0, 1.0, 0.0, 0.0, false);
 
         let mut urls = Urls::new();
 
         for cell in input {
-            urls.update(Column(num_cols), &cell);
+            urls.update(&size, &cell);
         }
 
         assert_eq!(urls.urls.len(), 2);

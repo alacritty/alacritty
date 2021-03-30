@@ -27,7 +27,7 @@ use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
-use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLS, MIN_SCREEN_LINES};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
@@ -477,12 +477,6 @@ impl Display {
         mods: ModifiersState,
         search_state: &SearchState,
     ) {
-        // Convert search match from viewport to absolute indexing.
-        let search_active = search_state.regex().is_some();
-        let viewport_match = search_state
-            .focused_match()
-            .and_then(|focused_match| terminal.grid().clamp_buffer_range_to_visible(focused_match));
-
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
         let mut grid_cells = Vec::new();
@@ -522,13 +516,15 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
+                let focused_match = search_state.focused_match();
                 for mut cell in grid_cells {
-                    // Invert the active match during search.
-                    if cell.is_match
-                        && viewport_match
-                            .as_ref()
-                            .map_or(false, |viewport_match| viewport_match.contains(&cell.point))
-                    {
+                    let focused = focused_match.as_ref().map_or(false, |focused_match| {
+                        let line = Line(cell.point.line as i32) - display_offset;
+                        focused_match.contains(&Point::new(line, cell.point.column))
+                    });
+
+                    // Invert the focused match during search.
+                    if focused {
                         let colors = config.ui_config.colors.search.focused_match;
                         let match_fg = colors.foreground.color(cell.fg, cell.bg);
                         cell.bg = colors.background.color(cell.fg, cell.bg);
@@ -537,7 +533,7 @@ impl Display {
                     }
 
                     // Update URL underlines.
-                    urls.update(size_info.cols(), &cell);
+                    urls.update(&size_info, &cell);
 
                     // Update underline/strikeout.
                     lines.update(&cell);
@@ -570,15 +566,16 @@ impl Display {
 
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Highlight URLs at the vi mode cursor position.
-            let vi_mode_point = vi_mode_cursor.point;
-            if let Some(url) = self.urls.find_at(vi_mode_point) {
+            let vi_point = vi_mode_cursor.point;
+            let line = (vi_point.line + display_offset).0 as usize;
+            if let Some(url) = self.urls.find_at(Point::new(line, vi_point.column)) {
                 rects.append(&mut url.rects(&metrics, &size_info));
             }
 
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let line = size_info.screen_lines() + display_offset - vi_mode_point.line - 1;
-            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_mode_point), line.0);
-        } else if search_active {
+            let line = (-vi_point.line.0 + size_info.bottommost_line().0) as usize;
+            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
+        } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
             self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
         }
@@ -605,12 +602,12 @@ impl Display {
         }
 
         if let Some(message) = message_buffer.message() {
-            let search_offset = if search_active { 1 } else { 0 };
+            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
             let start_line = size_info.screen_lines() + search_offset;
-            let y = size_info.cell_height().mul_add(start_line.0 as f32, size_info.padding_y());
+            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
 
             let bg = match message.ty() {
                 MessageType::Error => config.ui_config.colors.normal.red,
@@ -656,7 +653,8 @@ impl Display {
                 self.draw_search(config, &size_info, &search_text);
 
                 // Compute IME position.
-                Point::new(size_info.screen_lines() + 1, Column(search_text.chars().count() - 1))
+                let line = Line(size_info.screen_lines() as i32 + 1);
+                Point::new(line, Column(search_text.chars().count() - 1))
             },
             None => cursor_point,
         };
@@ -703,7 +701,7 @@ impl Display {
         formatted_regex.push('_');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.columns();
         let label_len = search_label.chars().count();
         let regex_len = formatted_regex.chars().count();
         let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
@@ -722,7 +720,7 @@ impl Display {
     /// Draw current search regex.
     fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.columns();
 
         // Assure text length is at least num_cols.
         let text = format!("{:<1$}", text, num_cols);
@@ -745,7 +743,7 @@ impl Display {
         let glyph_cache = &mut self.glyph_cache;
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(size_info.screen_lines() - 2, Column(0));
+        let point = Point::new(size_info.screen_lines().saturating_sub(2), Column(0));
         let fg = config.ui_config.colors.primary.background;
         let bg = config.ui_config.colors.normal.red;
 
@@ -764,16 +762,16 @@ impl Display {
         line: usize,
     ) {
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(size_info.cols().0.saturating_sub(text.len()));
+        let column = Column(size_info.columns().saturating_sub(text.len()));
         let colors = &config.ui_config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if vi_mode_point.map_or(true, |point| point.line.0 != 0 || point.column < column) {
+        if vi_mode_point.map_or(true, |point| point.line != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(Line(0), column), fg, bg, &text);
+                api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
             });
         }
     }
@@ -822,8 +820,8 @@ fn window_size(
 ) -> PhysicalSize<u32> {
     let padding = config.ui_config.window.padding(dpr);
 
-    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLS) as f32;
-    let grid_height = cell_height * dimensions.lines.0.max(MIN_SCREEN_LINES) as f32;
+    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLUMNS) as f32;
+    let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor();
     let height = (padding.1).mul_add(2., grid_height).floor();

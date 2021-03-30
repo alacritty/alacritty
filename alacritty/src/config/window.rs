@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer};
 
 use alacritty_config_derive::ConfigDeserialize;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::index::Column;
 
 use crate::config::ui_config::Delta;
 
@@ -74,7 +74,7 @@ impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
         if self.dimensions.columns.0 != 0
-            && self.dimensions.lines.0 != 0
+            && self.dimensions.lines != 0
             && self.startup_mode != StartupMode::Maximized
         {
             Some(self.dimensions)
@@ -145,7 +145,7 @@ pub struct Dimensions {
     pub columns: Column,
 
     /// Window Height in character lines.
-    pub lines: Line,
+    pub lines: usize,
 }
 
 /// Window class hint.

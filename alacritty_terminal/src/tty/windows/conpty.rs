@@ -19,6 +19,7 @@ use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::config::Config;
 use crate::event::OnResize;
+use crate::grid::Dimensions;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
@@ -185,11 +186,11 @@ impl OnResize for Conpty {
 
 /// Helper to build a COORD from a SizeInfo, returning None in overflow cases.
 fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
-    let cols = size.cols().0;
-    let lines = size.screen_lines().0;
+    let lines = size.screen_lines();
+    let columns = size.columns();
 
-    if cols <= i16::MAX as usize && lines <= i16::MAX as usize {
-        Some(COORD { X: cols as i16, Y: lines as i16 })
+    if columns <= i16::MAX as usize && lines <= i16::MAX as usize {
+        Some(COORD { X: columns as i16, Y: lines as i16 })
     } else {
         None
     }
