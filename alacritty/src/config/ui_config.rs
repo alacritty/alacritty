@@ -252,6 +252,8 @@ pub enum HintInternalAction {
     Copy,
     /// Write the text to the PTY.
     Paste,
+    /// Select the text matching the hint.
+    Select,
 }
 
 /// Actions for hint bindings.

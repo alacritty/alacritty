@@ -222,12 +222,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
+    // Copy text selection.
     fn copy_selection(&mut self, ty: ClipboardType) {
-        if let Some(selected) = self.terminal.selection_to_string() {
-            if !selected.is_empty() {
-                self.clipboard.store(ty, selected);
-            }
+        let text = match self.terminal.selection_to_string().filter(|s| !s.is_empty()) {
+            Some(text) => text,
+            None => return,
+        };
+
+        if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
+            self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
+        self.clipboard.store(ty, text);
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -259,11 +264,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.selection = Some(selection);
         *self.dirty = true;
+
+        self.copy_selection(ClipboardType::Selection);
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
+
+        self.copy_selection(ClipboardType::Selection);
     }
 
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -274,6 +283,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
                 *self.dirty = true;
+
+                self.copy_selection(ClipboardType::Selection);
             },
             _ => self.start_selection(ty, point, side),
         }
@@ -643,7 +654,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let action = self.display.hint_state.keyboard_input(self.terminal, c);
         *self.dirty = true;
 
-        let HintMatch { text, action } = match action {
+        let HintMatch { action, bounds } = match action {
             Some(action) => action,
             None => return,
         };
@@ -651,16 +662,26 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         match action {
             // Launch an external program.
             HintAction::Command(command) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
                 let mut args = command.args().to_vec();
                 args.push(text);
                 start_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY.
-            HintAction::Action(HintInternalAction::Paste) => self.paste(&text),
+            HintAction::Action(HintInternalAction::Paste) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                self.paste(&text);
+            },
+            // Select the text.
+            HintAction::Action(HintInternalAction::Select) => {
+                self.start_selection(SelectionType::Simple, *bounds.start(), Side::Left);
+                self.update_selection(*bounds.end(), Side::Right);
+            },
         }
     }
 

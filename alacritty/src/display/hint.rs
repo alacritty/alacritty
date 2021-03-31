@@ -1,3 +1,4 @@
+use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::Term;
 
 use crate::config::ui_config::{Hint, HintAction};
@@ -109,15 +110,12 @@ impl HintState {
 
         // Check if the selected label is fully matched.
         if label.len() == 1 {
-            // Get text for the hint's regex match.
-            let hint_match = &self.matches[index];
-            let text = term.bounds_to_string(*hint_match.start(), *hint_match.end());
-
+            let bounds = self.matches[index].clone();
             let action = hint.action.clone();
 
             self.stop();
 
-            Some(HintMatch { text, action })
+            Some(HintMatch { action, bounds })
         } else {
             // Store character to preserve the selection.
             self.keys.push(c);
@@ -150,8 +148,8 @@ pub struct HintMatch {
     /// Action for handling the text.
     pub action: HintAction,
 
-    /// Hint match text.
-    pub text: String,
+    /// Terminal range matching the hint.
+    pub bounds: Match,
 }
 
 /// Generator for creating new hint labels.

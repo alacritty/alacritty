@@ -661,7 +661,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
-        self.copy_selection();
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -944,14 +943,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else {
             Some(MouseState::MessageBar)
         }
-    }
-
-    /// Copy text selection.
-    fn copy_selection(&mut self) {
-        if self.ctx.config().selection.save_to_clipboard {
-            self.ctx.copy_selection(ClipboardType::Clipboard);
-        }
-        self.ctx.copy_selection(ClipboardType::Selection);
     }
 
     /// Trigger redraw when URL highlight changed.
