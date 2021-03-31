@@ -502,7 +502,7 @@ pub trait Dimensions {
     /// Number of invisible lines part of the scrollback history.
     #[inline]
     fn history_size(&self) -> usize {
-        self.total_lines() - self.screen_lines()
+        self.total_lines().saturating_sub(self.screen_lines())
     }
 }
 
