@@ -660,7 +660,28 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY.
-            HintAction::Action(HintInternalAction::Paste) => self.write_to_pty(text.into_bytes()),
+            HintAction::Action(HintInternalAction::Paste) => self.paste(&text),
+        }
+    }
+
+    /// Paste a text into the terminal.
+    fn paste(&mut self, text: &str) {
+        if self.search_active() {
+            for c in text.chars() {
+                self.search_input(c);
+            }
+        } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+            self.write_to_pty(&b"\x1b[200~"[..]);
+            self.write_to_pty(text.replace("\x1b", "").into_bytes());
+            self.write_to_pty(&b"\x1b[201~"[..]);
+        } else {
+            // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
+            // pasted data from keystrokes.
+            // In theory, we should construct the keystrokes needed to produce the data we are
+            // pasting... since that's neither practical nor sensible (and probably an impossible
+            // task to solve in a general way), we'll just replace line breaks (windows and unix
+            // style) with a single carriage return (\r, which is what the Enter key produces).
+            self.write_to_pty(text.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
         }
     }
 

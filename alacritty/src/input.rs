@@ -107,6 +107,7 @@ pub trait ActionContext<T: EventListener> {
     fn toggle_vi_mode(&mut self) {}
     fn hint_state(&mut self) -> &mut HintState;
     fn hint_input(&mut self, _character: char) {}
+    fn paste(&mut self, _text: &str) {}
 }
 
 impl Action {
@@ -243,11 +244,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearSelection => ctx.clear_selection(),
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                paste(ctx, &text);
+                ctx.paste(&text);
             },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                paste(ctx, &text);
+                ctx.paste(&text);
             },
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
@@ -321,26 +322,6 @@ impl<T: EventListener> Execute<T> for Action {
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             Action::ReceiveChar | Action::None => (),
         }
-    }
-}
-
-fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {
-    if ctx.search_active() {
-        for c in contents.chars() {
-            ctx.search_input(c);
-        }
-    } else if ctx.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
-        ctx.write_to_pty(&b"\x1b[200~"[..]);
-        ctx.write_to_pty(contents.replace("\x1b", "").into_bytes());
-        ctx.write_to_pty(&b"\x1b[201~"[..]);
-    } else {
-        // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
-        // pasted data from keystrokes.
-        // In theory, we should construct the keystrokes needed to produce the data we are
-        // pasting... since that's neither practical nor sensible (and probably an impossible
-        // task to solve in a general way), we'll just replace line breaks (windows and unix
-        // style) with a single carriage return (\r, which is what the Enter key produces).
-        ctx.write_to_pty(contents.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
     }
 }
 
