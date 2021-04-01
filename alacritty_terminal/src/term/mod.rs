@@ -983,7 +983,7 @@ impl<T: EventListener> Handler for Term<T> {
         match intermediate {
             None => {
                 trace!("Reporting primary device attributes");
-                let _ = writer.write_all(b"\x1b[?4;6c");
+                let _ = writer.write_all(b"\x1b[?6c");
             },
             Some('>') => {
                 trace!("Reporting secondary device attributes");
@@ -1716,6 +1716,37 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn text_area_size_chars<W: io::Write>(&mut self, writer: &mut W) {
         let _ = write!(writer, "\x1b[8;{};{}t", self.screen_lines(), self.columns());
+    }
+
+    #[inline]
+    fn graphics_attribute<W: io::Write>(&mut self, writer: &mut W, pi: u16, pa: u16) {
+        // From Xterm documentation:
+        //
+        //   Pi = 1  -> item is number of color registers.
+        //   Pi = 2  -> item is Sixel graphics geometry (in pixels).
+        //
+        //   Pa = 1  -> read attribute.
+        //   Pa = 4  -> read the maximum allowed value.
+        //
+        // Any other request reports an error.
+
+        let (ps, pv) = if pa == 1 || pa == 4 {
+            match pi {
+                1 => (0, &[sixel::MAX_COLOR_REGISTERS][..]),
+                2 => (0, &[MAX_GRAPHIC_DIMENSIONS.0, MAX_GRAPHIC_DIMENSIONS.1][..]),
+                _ => (1, &[][..]), // Report error in Pi
+            }
+        } else {
+            (2, &[][..]) // Report error in Pa
+        };
+
+        let _ = write!(writer, "\x1b[?{};{}", pi, ps);
+
+        for item in pv {
+            let _ = write!(writer, ";{}", item);
+        }
+
+        let _ = write!(writer, "S");
     }
 
     fn start_sixel_graphic(&mut self, params: &Params) -> Option<Box<sixel::Parser>> {

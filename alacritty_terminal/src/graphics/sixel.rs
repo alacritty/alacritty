@@ -33,7 +33,7 @@ use vte::Params;
 struct ColorRegister(u16);
 
 /// Number of color registers.
-const MAX_COLOR_REGISTERS: usize = 1024;
+pub const MAX_COLOR_REGISTERS: usize = 1024;
 
 /// Color register for transparent pixels.
 const REG_TRANSPARENT: ColorRegister = ColorRegister(u16::MAX);

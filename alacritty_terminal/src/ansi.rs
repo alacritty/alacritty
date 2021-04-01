@@ -471,6 +471,9 @@ pub trait Handler {
     /// Report text area size in characters.
     fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
 
+    /// Report a graphics attribute.
+    fn graphics_attribute<W: io::Write>(&mut self, _: &mut W, _: u16, _: u16) {}
+
     /// Create a parser for Sixel data.
     fn start_sixel_graphic(&mut self, _params: &Params) -> Option<Box<sixel::Parser>> {
         None
@@ -1282,6 +1285,7 @@ where
                 handler.set_scrolling_region(top, bottom);
             },
             ('S', []) => handler.scroll_up(next_param_or(1) as usize),
+            ('S', [b'?']) => handler.graphics_attribute(writer, next_param_or(0), next_param_or(0)),
             ('s', []) => handler.save_cursor_position(),
             ('T', []) => handler.scroll_down(next_param_or(1) as usize),
             ('t', []) => match next_param_or(1) as usize {
