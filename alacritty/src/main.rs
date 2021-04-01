@@ -25,6 +25,7 @@ use log::{error, info};
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
@@ -139,7 +140,7 @@ fn run(
     info!(
         "PTY dimensions: {:?} x {:?}",
         display.size_info.screen_lines(),
-        display.size_info.cols()
+        display.size_info.columns()
     );
 
     // Create the terminal.

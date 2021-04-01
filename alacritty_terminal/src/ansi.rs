@@ -304,13 +304,13 @@ pub trait Handler {
     fn goto_col(&mut self, _: Column) {}
 
     /// Insert blank characters in current line starting from cursor.
-    fn insert_blank(&mut self, _: Column) {}
+    fn insert_blank(&mut self, _: usize) {}
 
     /// Move cursor up `rows`.
-    fn move_up(&mut self, _: Line) {}
+    fn move_up(&mut self, _: usize) {}
 
     /// Move cursor down `rows`.
-    fn move_down(&mut self, _: Line) {}
+    fn move_down(&mut self, _: usize) {}
 
     /// Identify the terminal (should write back to the pty stream).
     fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {}
@@ -325,10 +325,10 @@ pub trait Handler {
     fn move_backward(&mut self, _: Column) {}
 
     /// Move cursor down `rows` and set to column 1.
-    fn move_down_and_cr(&mut self, _: Line) {}
+    fn move_down_and_cr(&mut self, _: usize) {}
 
     /// Move cursor up `rows` and set to column 1.
-    fn move_up_and_cr(&mut self, _: Line) {}
+    fn move_up_and_cr(&mut self, _: usize) {}
 
     /// Put `count` tabs.
     fn put_tab(&mut self, _count: u16) {}
@@ -357,16 +357,16 @@ pub trait Handler {
     fn set_horizontal_tabstop(&mut self) {}
 
     /// Scroll up `rows` rows.
-    fn scroll_up(&mut self, _: Line) {}
+    fn scroll_up(&mut self, _: usize) {}
 
     /// Scroll down `rows` rows.
-    fn scroll_down(&mut self, _: Line) {}
+    fn scroll_down(&mut self, _: usize) {}
 
     /// Insert `count` blank lines.
-    fn insert_blank_lines(&mut self, _: Line) {}
+    fn insert_blank_lines(&mut self, _: usize) {}
 
     /// Delete `count` lines.
-    fn delete_lines(&mut self, _: Line) {}
+    fn delete_lines(&mut self, _: usize) {}
 
     /// Erase `count` chars in current line following cursor.
     ///
@@ -378,7 +378,7 @@ pub trait Handler {
     ///
     /// Deleting a character is like the delete key on the keyboard - everything
     /// to the right of the deleted things is shifted left.
-    fn delete_chars(&mut self, _: Column) {}
+    fn delete_chars(&mut self, _: usize) {}
 
     /// Move backward `count` tabs.
     fn move_backward_tabs(&mut self, _count: u16) {}
@@ -1158,11 +1158,9 @@ where
         };
 
         match (action, intermediates) {
-            ('@', []) => handler.insert_blank(Column(next_param_or(1) as usize)),
-            ('A', []) => {
-                handler.move_up(Line(next_param_or(1) as usize));
-            },
-            ('B', []) | ('e', []) => handler.move_down(Line(next_param_or(1) as usize)),
+            ('@', []) => handler.insert_blank(next_param_or(1) as usize),
+            ('A', []) => handler.move_up(next_param_or(1) as usize),
+            ('B', []) | ('e', []) => handler.move_down(next_param_or(1) as usize),
             ('b', []) => {
                 if let Some(c) = self.state.preceding_char {
                     for _ in 0..next_param_or(1) {
@@ -1177,9 +1175,9 @@ where
                 handler.identify_terminal(writer, intermediates.get(0).map(|&i| i as char))
             },
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
-            ('d', []) => handler.goto_line(Line(next_param_or(1) as usize - 1)),
-            ('E', []) => handler.move_down_and_cr(Line(next_param_or(1) as usize)),
-            ('F', []) => handler.move_up_and_cr(Line(next_param_or(1) as usize)),
+            ('d', []) => handler.goto_line(Line(next_param_or(1) as i32 - 1)),
+            ('E', []) => handler.move_down_and_cr(next_param_or(1) as usize),
+            ('F', []) => handler.move_up_and_cr(next_param_or(1) as usize),
             ('G', []) | ('`', []) => handler.goto_col(Column(next_param_or(1) as usize - 1)),
             ('g', []) => {
                 let mode = match next_param_or(0) {
@@ -1194,7 +1192,7 @@ where
                 handler.clear_tabs(mode);
             },
             ('H', []) | ('f', []) => {
-                let y = next_param_or(1) as usize;
+                let y = next_param_or(1) as i32;
                 let x = next_param_or(1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
             },
@@ -1234,7 +1232,7 @@ where
 
                 handler.clear_line(mode);
             },
-            ('L', []) => handler.insert_blank_lines(Line(next_param_or(1) as usize)),
+            ('L', []) => handler.insert_blank_lines(next_param_or(1) as usize),
             ('l', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
                     match Mode::from_primitive(intermediates.get(0), param) {
@@ -1243,7 +1241,7 @@ where
                     }
                 }
             },
-            ('M', []) => handler.delete_lines(Line(next_param_or(1) as usize)),
+            ('M', []) => handler.delete_lines(next_param_or(1) as usize),
             ('m', []) => {
                 if params.is_empty() {
                     handler.terminal_attribute(Attr::Reset);
@@ -1257,7 +1255,7 @@ where
                 }
             },
             ('n', []) => handler.device_status(writer, next_param_or(0) as usize),
-            ('P', []) => handler.delete_chars(Column(next_param_or(1) as usize)),
+            ('P', []) => handler.delete_chars(next_param_or(1) as usize),
             ('q', [b' ']) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
                 let cursor_style_id = next_param_or(0);
@@ -1283,9 +1281,9 @@ where
 
                 handler.set_scrolling_region(top, bottom);
             },
-            ('S', []) => handler.scroll_up(Line(next_param_or(1) as usize)),
+            ('S', []) => handler.scroll_up(next_param_or(1) as usize),
             ('s', []) => handler.save_cursor_position(),
-            ('T', []) => handler.scroll_down(Line(next_param_or(1) as usize)),
+            ('T', []) => handler.scroll_down(next_param_or(1) as usize),
             ('t', []) => match next_param_or(1) as usize {
                 14 => handler.text_area_size_pixels(writer),
                 18 => handler.text_area_size_chars(writer),

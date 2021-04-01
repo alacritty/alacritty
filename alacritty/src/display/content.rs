@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::mem;
 use std::ops::{Deref, DerefMut, RangeInclusive};
 
@@ -127,12 +127,17 @@ impl<'a> RenderableContent<'a> {
         let text_color = text_color.color(cell.fg, cell.bg);
         let cursor_color = cursor_color.color(cell.fg, cell.bg);
 
+        // Convert cursor point to viewport position.
+        let cursor_point = self.terminal_cursor.point;
+        let line = (cursor_point.line + self.terminal_content.display_offset as i32).0 as usize;
+        let point = Point::new(line, cursor_point.column);
+
         Some(RenderableCursor {
-            point: self.terminal_cursor.point,
             shape: self.terminal_cursor.shape,
             cursor_color,
             text_color,
             is_wide,
+            point,
         })
     }
 }
@@ -148,9 +153,10 @@ impl<'a> Iterator for RenderableContent<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let cell = self.terminal_content.display_iter.next()?;
+            let cell_point = cell.point;
             let mut cell = RenderableCell::new(self, cell);
 
-            if self.terminal_cursor.point == cell.point {
+            if self.terminal_cursor.point == cell_point {
                 // Store the cursor which should be rendered.
                 self.cursor = self.renderable_cursor(&cell).map(|cursor| {
                     if cursor.shape == CursorShape::Block {
@@ -180,16 +186,15 @@ pub struct RenderableCell {
     pub character: char,
     pub zerowidth: Option<Vec<char>>,
     pub graphic: Option<GraphicCell>,
-    pub point: Point,
+    pub point: Point<usize>,
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
     pub flags: Flags,
-    pub is_match: bool,
 }
 
 impl RenderableCell {
-    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell, Line>) -> Self {
+    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
         let mut fg_rgb = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(content, cell.bg);
@@ -205,7 +210,6 @@ impl RenderableCell {
             .terminal_content
             .selection
             .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
-        let mut is_match = false;
 
         let mut character = cell.c;
 
@@ -235,20 +239,22 @@ impl RenderableCell {
             let config_fg = colors.search.matches.foreground;
             let config_bg = colors.search.matches.background;
             Self::compute_cell_rgb(&mut fg_rgb, &mut bg_rgb, &mut bg_alpha, config_fg, config_bg);
-
-            is_match = true;
         }
 
+        // Convert cell point to viewport position.
+        let cell_point = cell.point;
+        let line = (cell_point.line + content.terminal_content.display_offset as i32).0 as usize;
+        let point = Point::new(line, cell_point.column);
+
         RenderableCell {
-            character,
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
             graphic: cell.graphic().cloned(),
-            point: cell.point,
+            flags: cell.flags,
             fg: fg_rgb,
             bg: bg_rgb,
+            character,
             bg_alpha,
-            flags: cell.flags,
-            is_match,
+            point,
         }
     }
 
@@ -352,7 +358,7 @@ pub struct RenderableCursor {
     cursor_color: Rgb,
     text_color: Rgb,
     is_wide: bool,
-    point: Point,
+    point: Point<usize>,
 }
 
 impl RenderableCursor {
@@ -368,7 +374,7 @@ impl RenderableCursor {
         self.is_wide
     }
 
-    pub fn point(&self) -> Point {
+    pub fn point(&self) -> Point<usize> {
         self.point
     }
 }
@@ -426,36 +432,23 @@ pub struct RegexMatches(Vec<RangeInclusive<Point>>);
 impl RegexMatches {
     /// Find all visible matches.
     pub fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
-        let viewport_end = term.grid().display_offset();
-        let viewport_start = viewport_end + term.screen_lines().0 - 1;
+        let viewport_start = Line(-(term.grid().display_offset() as i32));
+        let viewport_end = viewport_start + term.bottommost_line();
 
         // Compute start of the first and end of the last line.
         let start_point = Point::new(viewport_start, Column(0));
         let mut start = term.line_search_left(start_point);
-        let end_point = Point::new(viewport_end, term.cols() - 1);
+        let end_point = Point::new(viewport_end, term.last_column());
         let mut end = term.line_search_right(end_point);
 
         // Set upper bound on search before/after the viewport to prevent excessive blocking.
-        if start.line > viewport_start + MAX_SEARCH_LINES {
-            if start.line == 0 {
-                // Do not highlight anything if this line is the last.
-                return Self::default();
-            } else {
-                // Start at next line if this one is too long.
-                start.line -= 1;
-            }
-        }
-        end.line = max(end.line, viewport_end.saturating_sub(MAX_SEARCH_LINES));
+        start.line = max(start.line, viewport_start - MAX_SEARCH_LINES);
+        end.line = min(end.line, viewport_end + MAX_SEARCH_LINES);
 
         // Create an iterater for the current regex search for all visible matches.
         let iter = RegexIter::new(start, end, Direction::Right, term, dfas)
-            .skip_while(move |rm| rm.end().line > viewport_start)
-            .take_while(move |rm| rm.start().line >= viewport_end)
-            .map(|rm| {
-                let viewport_start = term.grid().clamp_buffer_to_visible(*rm.start());
-                let viewport_end = term.grid().clamp_buffer_to_visible(*rm.end());
-                viewport_start..=viewport_end
-            });
+            .skip_while(move |rm| rm.end().line < viewport_start)
+            .take_while(move |rm| rm.start().line <= viewport_end);
 
         Self(iter.collect())
     }

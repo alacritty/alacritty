@@ -13,7 +13,7 @@ use crate::gl::{self, types::*};
 use crate::renderer::graphics::{shader, GraphicsRenderer};
 
 use alacritty_terminal::graphics::GraphicId;
-use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::index::Column;
 use alacritty_terminal::term::SizeInfo;
 
 use log::trace;
@@ -21,7 +21,7 @@ use log::trace;
 /// Position to render each texture in the grid.
 struct RenderPosition {
     column: Column,
-    line: Line,
+    line: usize,
     offset_x: u16,
     offset_y: u16,
 }
@@ -79,7 +79,7 @@ impl RenderList {
                 texture_id: graphic_texture.texture.0,
                 sides: TopLeft,
                 column: render_item.column.0 as GLuint,
-                line: render_item.line.0 as GLuint,
+                line: render_item.line as GLuint,
                 height: graphic_texture.height,
                 width: graphic_texture.width,
                 offset_x: render_item.offset_x,

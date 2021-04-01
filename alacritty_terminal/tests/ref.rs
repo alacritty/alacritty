@@ -9,7 +9,7 @@ use alacritty_terminal::ansi;
 use alacritty_terminal::config::MockConfig;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Grid};
-use alacritty_terminal::index::Column;
+use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
 
@@ -118,9 +118,9 @@ fn ref_test(dir: &Path) {
 
     if grid != term_grid {
         for i in 0..grid.total_lines() {
-            for j in 0..grid.cols().0 {
-                let cell = &term_grid[i][Column(j)];
-                let original_cell = &grid[i][Column(j)];
+            for j in 0..grid.columns() {
+                let cell = &term_grid[Line(i as i32)][Column(j)];
+                let original_cell = &grid[Line(i as i32)][Column(j)];
                 if original_cell != cell {
                     println!(
                         "[{i}][{j}] {original:?} => {now:?}",

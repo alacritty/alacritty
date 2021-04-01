@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 use super::Row;
-use crate::index::{Column, Line};
+use crate::index::Line;
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
@@ -38,7 +38,7 @@ pub struct Storage<T> {
     zero: usize,
 
     /// Number of visible lines.
-    visible_lines: Line,
+    visible_lines: usize,
 
     /// Total number of lines currently active in the terminal (scrollback + visible)
     ///
@@ -61,28 +61,28 @@ impl<T: PartialEq> PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(visible_lines: Line, cols: Column) -> Storage<T>
+    pub fn with_capacity(visible_lines: usize, columns: usize) -> Storage<T>
     where
         T: Clone + Default,
     {
         // Initialize visible lines; the scrollback buffer is initialized dynamically.
-        let mut inner = Vec::with_capacity(visible_lines.0);
-        inner.resize_with(visible_lines.0, || Row::new(cols));
+        let mut inner = Vec::with_capacity(visible_lines);
+        inner.resize_with(visible_lines, || Row::new(columns));
 
-        Storage { inner, zero: 0, visible_lines, len: visible_lines.0 }
+        Storage { inner, zero: 0, visible_lines, len: visible_lines }
     }
 
     /// Increase the number of lines in the buffer.
     #[inline]
-    pub fn grow_visible_lines(&mut self, next: Line)
+    pub fn grow_visible_lines(&mut self, next: usize)
     where
         T: Clone + Default,
     {
         // Number of lines the buffer needs to grow.
         let growage = next - self.visible_lines;
 
-        let cols = self[0].len();
-        self.initialize(growage.0, Column(cols));
+        let columns = self[Line(0)].len();
+        self.initialize(growage, columns);
 
         // Update visible lines.
         self.visible_lines = next;
@@ -90,10 +90,10 @@ impl<T> Storage<T> {
 
     /// Decrease the number of lines in the buffer.
     #[inline]
-    pub fn shrink_visible_lines(&mut self, next: Line) {
+    pub fn shrink_visible_lines(&mut self, next: usize) {
         // Shrink the size without removing any lines.
         let shrinkage = self.visible_lines - next;
-        self.shrink_lines(shrinkage.0);
+        self.shrink_lines(shrinkage);
 
         // Update visible lines.
         self.visible_lines = next;
@@ -120,7 +120,7 @@ impl<T> Storage<T> {
 
     /// Dynamically grow the storage buffer at runtime.
     #[inline]
-    pub fn initialize(&mut self, additional_rows: usize, cols: Column)
+    pub fn initialize(&mut self, additional_rows: usize, columns: usize)
     where
         T: Clone + Default,
     {
@@ -128,7 +128,7 @@ impl<T> Storage<T> {
             self.rezero();
 
             let realloc_size = self.inner.len() + max(additional_rows, MAX_CACHE_SIZE);
-            self.inner.resize_with(realloc_size, || Row::new(cols));
+            self.inner.resize_with(realloc_size, || Row::new(columns));
         }
 
         self.len += additional_rows;
@@ -139,14 +139,6 @@ impl<T> Storage<T> {
         self.len
     }
 
-    #[inline]
-    pub fn swap_lines(&mut self, a: Line, b: Line) {
-        let offset = self.inner.len() + self.zero + *self.visible_lines - 1;
-        let a = (offset - *a) % self.inner.len();
-        let b = (offset - *b) % self.inner.len();
-        self.inner.swap(a, b);
-    }
-
     /// Swap implementation for Row<T>.
     ///
     /// Exploits the known size of Row<T> to produce a slightly more efficient
@@ -155,7 +147,7 @@ impl<T> Storage<T> {
     /// The default implementation from swap generates 8 movups and 4 movaps
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
-    pub fn swap(&mut self, a: usize, b: usize) {
+    pub fn swap(&mut self, a: Line, b: Line) {
         debug_assert_eq!(mem::size_of::<Row<T>>(), mem::size_of::<usize>() * 4);
 
         let a = self.compute_index(a);
@@ -222,10 +214,14 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     #[inline]
-    fn compute_index(&self, requested: usize) -> usize {
-        debug_assert!(requested < self.len);
+    fn compute_index(&self, requested: Line) -> usize {
+        debug_assert!(requested.0 < self.visible_lines as i32);
 
-        let zeroed = self.zero + requested;
+        let positive = -(requested - self.visible_lines).0 as usize - 1;
+
+        debug_assert!(positive < self.len);
+
+        let zeroed = self.zero + positive;
 
         // Use if/else instead of remainder here to improve performance.
         //
@@ -250,38 +246,21 @@ impl<T> Storage<T> {
     }
 }
 
-impl<T> Index<usize> for Storage<T> {
-    type Output = Row<T>;
-
-    #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.inner[self.compute_index(index)]
-    }
-}
-
-impl<T> IndexMut<usize> for Storage<T> {
-    #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        let index = self.compute_index(index); // borrowck
-        &mut self.inner[index]
-    }
-}
-
 impl<T> Index<Line> for Storage<T> {
     type Output = Row<T>;
 
     #[inline]
     fn index(&self, index: Line) -> &Self::Output {
-        let index = self.visible_lines - 1 - index;
-        &self[*index]
+        let index = self.compute_index(index);
+        &self.inner[index]
     }
 }
 
 impl<T> IndexMut<Line> for Storage<T> {
     #[inline]
     fn index_mut(&mut self, index: Line) -> &mut Self::Output {
-        let index = self.visible_lines - 1 - index;
-        &mut self[*index]
+        let index = self.compute_index(index);
+        &mut self.inner[index]
     }
 }
 
@@ -313,43 +292,39 @@ mod tests {
 
     #[test]
     fn with_capacity() {
-        let storage = Storage::<char>::with_capacity(Line(3), Column(1));
+        let storage = Storage::<char>::with_capacity(3, 1);
 
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.len, 3);
         assert_eq!(storage.zero, 0);
-        assert_eq!(storage.visible_lines, Line(3));
+        assert_eq!(storage.visible_lines, 3);
     }
 
     #[test]
     fn indexing() {
-        let mut storage = Storage::<char>::with_capacity(Line(3), Column(1));
+        let mut storage = Storage::<char>::with_capacity(3, 1);
 
-        storage[0] = filled_row('0');
-        storage[1] = filled_row('1');
-        storage[2] = filled_row('2');
-
-        assert_eq!(storage[0], filled_row('0'));
-        assert_eq!(storage[1], filled_row('1'));
-        assert_eq!(storage[2], filled_row('2'));
+        storage[Line(0)] = filled_row('0');
+        storage[Line(1)] = filled_row('1');
+        storage[Line(2)] = filled_row('2');
 
         storage.zero += 1;
 
-        assert_eq!(storage[0], filled_row('1'));
-        assert_eq!(storage[1], filled_row('2'));
-        assert_eq!(storage[2], filled_row('0'));
+        assert_eq!(storage[Line(0)], filled_row('2'));
+        assert_eq!(storage[Line(1)], filled_row('0'));
+        assert_eq!(storage[Line(2)], filled_row('1'));
     }
 
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
-        let storage = Storage::<char>::with_capacity(Line(1), Column(1));
-        let _ = &storage[2];
+        let storage = Storage::<char>::with_capacity(1, 1);
+        let _ = &storage[Line(-1)];
     }
 
     #[test]
     fn rotate() {
-        let mut storage = Storage::<char>::with_capacity(Line(3), Column(1));
+        let mut storage = Storage::<char>::with_capacity(3, 1);
         storage.rotate(2);
         assert_eq!(storage.zero, 2);
         storage.shrink_lines(2);
@@ -377,18 +352,18 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
-            visible_lines: Line(3),
+            visible_lines: 3,
             len: 3,
         };
 
         // Grow buffer.
-        storage.grow_visible_lines(Line(4));
+        storage.grow_visible_lines(4);
 
         // Make sure the result is correct.
         let mut expected = Storage {
             inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
-            visible_lines: Line(4),
+            visible_lines: 4,
             len: 4,
         };
         expected.inner.append(&mut vec![filled_row('\0'); MAX_CACHE_SIZE]);
@@ -418,18 +393,18 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('-'), filled_row('0'), filled_row('1')],
             zero: 1,
-            visible_lines: Line(3),
+            visible_lines: 3,
             len: 3,
         };
 
         // Grow buffer.
-        storage.grow_visible_lines(Line(4));
+        storage.grow_visible_lines(4);
 
         // Make sure the result is correct.
         let mut expected = Storage {
             inner: vec![filled_row('0'), filled_row('1'), filled_row('-')],
             zero: 0,
-            visible_lines: Line(4),
+            visible_lines: 4,
             len: 4,
         };
         expected.inner.append(&mut vec![filled_row('\0'); MAX_CACHE_SIZE]);
@@ -456,18 +431,18 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('2'), filled_row('0'), filled_row('1')],
             zero: 1,
-            visible_lines: Line(3),
+            visible_lines: 3,
             len: 3,
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(Line(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {
             inner: vec![filled_row('2'), filled_row('0'), filled_row('1')],
             zero: 1,
-            visible_lines: Line(2),
+            visible_lines: 2,
             len: 2,
         };
         assert_eq!(storage.visible_lines, expected.visible_lines);
@@ -492,18 +467,18 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('0'), filled_row('1'), filled_row('2')],
             zero: 0,
-            visible_lines: Line(3),
+            visible_lines: 3,
             len: 3,
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(Line(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {
             inner: vec![filled_row('0'), filled_row('1'), filled_row('2')],
             zero: 0,
-            visible_lines: Line(2),
+            visible_lines: 2,
             len: 2,
         };
         assert_eq!(storage.visible_lines, expected.visible_lines);
@@ -541,12 +516,12 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(6),
+            visible_lines: 6,
             len: 6,
         };
 
         // Shrink buffer.
-        storage.shrink_visible_lines(Line(2));
+        storage.shrink_visible_lines(2);
 
         // Make sure the result is correct.
         let expected = Storage {
@@ -559,7 +534,7 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(2),
+            visible_lines: 2,
             len: 2,
         };
         assert_eq!(storage.visible_lines, expected.visible_lines);
@@ -593,7 +568,7 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(1),
+            visible_lines: 1,
             len: 2,
         };
 
@@ -604,7 +579,7 @@ mod tests {
         let expected = Storage {
             inner: vec![filled_row('0'), filled_row('1')],
             zero: 0,
-            visible_lines: Line(1),
+            visible_lines: 1,
             len: 2,
         };
         assert_eq!(storage.visible_lines, expected.visible_lines);
@@ -628,7 +603,7 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('1'), filled_row('2'), filled_row('0')],
             zero: 2,
-            visible_lines: Line(1),
+            visible_lines: 1,
             len: 2,
         };
 
@@ -639,7 +614,7 @@ mod tests {
         let expected = Storage {
             inner: vec![filled_row('0'), filled_row('1')],
             zero: 0,
-            visible_lines: Line(1),
+            visible_lines: 1,
             len: 2,
         };
         assert_eq!(storage.visible_lines, expected.visible_lines);
@@ -685,7 +660,7 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: 0,
             len: 6,
         };
 
@@ -703,7 +678,7 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: 0,
             len: 3,
         };
         assert_eq!(storage.inner, shrinking_expected.inner);
@@ -711,7 +686,7 @@ mod tests {
         assert_eq!(storage.len, shrinking_expected.len);
 
         // Grow buffer.
-        storage.initialize(1, Column(1));
+        storage.initialize(1, 1);
 
         // Make sure the previously freed elements are reused.
         let growing_expected = Storage {
@@ -724,7 +699,7 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: 0,
             len: 4,
         };
 
@@ -746,13 +721,13 @@ mod tests {
                 filled_row('3'),
             ],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: 0,
             len: 6,
         };
 
         // Initialize additional lines.
         let init_size = 3;
-        storage.initialize(init_size, Column(1));
+        storage.initialize(init_size, 1);
 
         // Generate expected grid.
         let mut expected_inner = vec![
@@ -765,8 +740,7 @@ mod tests {
         ];
         let expected_init_size = std::cmp::max(init_size, MAX_CACHE_SIZE);
         expected_inner.append(&mut vec![filled_row('\0'); expected_init_size]);
-        let expected_storage =
-            Storage { inner: expected_inner, zero: 0, visible_lines: Line(0), len: 9 };
+        let expected_storage = Storage { inner: expected_inner, zero: 0, visible_lines: 0, len: 9 };
 
         assert_eq!(storage.len, expected_storage.len);
         assert_eq!(storage.zero, expected_storage.zero);
@@ -778,7 +752,7 @@ mod tests {
         let mut storage: Storage<char> = Storage {
             inner: vec![filled_row('-'), filled_row('-'), filled_row('-')],
             zero: 2,
-            visible_lines: Line(0),
+            visible_lines: 0,
             len: 3,
         };
 
@@ -788,7 +762,7 @@ mod tests {
     }
 
     fn filled_row(content: char) -> Row<char> {
-        let mut row = Row::new(Column(1));
+        let mut row = Row::new(1);
         row[Column(0)] = content;
         row
     }

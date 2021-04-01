@@ -34,22 +34,22 @@ impl<T: Clone + Default> Row<T> {
     /// Create a new terminal row.
     ///
     /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.
-    pub fn new(columns: Column) -> Row<T> {
-        debug_assert!(columns.0 >= 1);
+    pub fn new(columns: usize) -> Row<T> {
+        debug_assert!(columns >= 1);
 
-        let mut inner: Vec<T> = Vec::with_capacity(columns.0);
+        let mut inner: Vec<T> = Vec::with_capacity(columns);
 
         // This is a slightly optimized version of `std::vec::Vec::resize`.
         unsafe {
             let mut ptr = inner.as_mut_ptr();
 
-            for _ in 1..columns.0 {
+            for _ in 1..columns {
                 ptr::write(ptr, T::default());
                 ptr = ptr.offset(1);
             }
             ptr::write(ptr, T::default());
 
-            inner.set_len(columns.0);
+            inner.set_len(columns);
         }
 
         Row { inner, occ: 0 }
@@ -57,31 +57,31 @@ impl<T: Clone + Default> Row<T> {
 
     /// Increase the number of columns in the row.
     #[inline]
-    pub fn grow(&mut self, cols: Column) {
-        if self.inner.len() >= cols.0 {
+    pub fn grow(&mut self, columns: usize) {
+        if self.inner.len() >= columns {
             return;
         }
 
-        self.inner.resize_with(cols.0, T::default);
+        self.inner.resize_with(columns, T::default);
     }
 
     /// Reduce the number of columns in the row.
     ///
     /// This will return all non-empty cells that were removed.
-    pub fn shrink(&mut self, cols: Column) -> Option<Vec<T>>
+    pub fn shrink(&mut self, columns: usize) -> Option<Vec<T>>
     where
         T: GridCell,
     {
-        if self.inner.len() <= cols.0 {
+        if self.inner.len() <= columns {
             return None;
         }
 
         // Split off cells for a new row.
-        let mut new_row = self.inner.split_off(cols.0);
+        let mut new_row = self.inner.split_off(columns);
         let index = new_row.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
         new_row.truncate(index);
 
-        self.occ = min(self.occ, cols.0);
+        self.occ = min(self.occ, columns);
 
         if new_row.is_empty() {
             None

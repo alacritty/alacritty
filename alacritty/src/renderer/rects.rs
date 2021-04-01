@@ -3,6 +3,7 @@ use std::mem;
 
 use crossfont::Metrics;
 
+use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
@@ -31,8 +32,8 @@ impl RenderRect {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RenderLine {
-    pub start: Point,
-    pub end: Point,
+    pub start: Point<usize>,
+    pub end: Point<usize>,
     pub color: Rgb,
 }
 
@@ -42,7 +43,7 @@ impl RenderLine {
 
         let mut start = self.start;
         while start.line < self.end.line {
-            let end = Point::new(start.line, size.cols() - 1);
+            let end = Point::new(start.line, size.last_column());
             Self::push_rects(&mut rects, metrics, size, flag, start, end, self.color);
             start = Point::new(start.line + 1, Column(0));
         }
@@ -57,8 +58,8 @@ impl RenderLine {
         metrics: &Metrics,
         size: &SizeInfo,
         flag: Flags,
-        start: Point,
-        end: Point,
+        start: Point<usize>,
+        end: Point<usize>,
         color: Rgb,
     ) {
         let (position, thickness) = match flag {
@@ -99,8 +100,8 @@ impl RenderLine {
     fn create_rect(
         size: &SizeInfo,
         descent: f32,
-        start: Point,
-        end: Point,
+        start: Point<usize>,
+        end: Point<usize>,
         position: f32,
         mut thickness: f32,
         color: Rgb,
@@ -112,7 +113,7 @@ impl RenderLine {
         // Make sure lines are always visible.
         thickness = thickness.max(1.);
 
-        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height();
+        let line_bottom = (start.line as f32 + 1.) * size.cell_height();
         let baseline = line_bottom + descent;
 
         let mut y = (baseline - position - thickness / 2.).ceil();

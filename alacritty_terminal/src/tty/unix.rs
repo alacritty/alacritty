@@ -25,6 +25,7 @@ use signal_hook::{self as sighook, iterator::Signals};
 
 use crate::config::{Config, Program};
 use crate::event::OnResize;
+use crate::grid::Dimensions;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
@@ -357,8 +358,8 @@ pub trait ToWinsize {
 impl<'a> ToWinsize for &'a SizeInfo {
     fn to_winsize(&self) -> winsize {
         winsize {
-            ws_row: self.screen_lines().0 as libc::c_ushort,
-            ws_col: self.cols().0 as libc::c_ushort,
+            ws_row: self.screen_lines() as libc::c_ushort,
+            ws_col: self.columns() as libc::c_ushort,
             ws_xpixel: self.width() as libc::c_ushort,
             ws_ypixel: self.height() as libc::c_ushort,
         }

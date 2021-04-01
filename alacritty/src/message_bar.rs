@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
-use alacritty_terminal::term::SizeInfo;
 use unicode_width::UnicodeWidthChar;
+
+use alacritty_terminal::grid::Dimensions;
+use alacritty_terminal::term::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -34,7 +36,7 @@ impl Message {
 
     /// Formatted message text lines.
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
-        let num_cols = size_info.cols().0;
+        let num_cols = size_info.columns();
         let total_lines =
             (size_info.height() - 2. * size_info.padding_y()) / size_info.cell_height();
         let max_lines = (total_lines as usize).saturating_sub(MIN_FREE_LINES);

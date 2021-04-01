@@ -485,7 +485,7 @@ impl Batch {
 
         self.instances.push(InstanceData {
             col: cell.point.column.0 as u16,
-            row: cell.point.line.0 as u16,
+            row: cell.point.line as u16,
 
             top: glyph.top,
             left: glyph.left,
@@ -848,7 +848,7 @@ impl<'a> RenderApi<'a> {
     pub fn render_string(
         &mut self,
         glyph_cache: &mut GlyphCache,
-        point: Point,
+        point: Point<usize>,
         fg: Rgb,
         bg: Rgb,
         string: &str,
@@ -865,7 +865,6 @@ impl<'a> RenderApi<'a> {
                 bg_alpha: 1.0,
                 fg,
                 bg,
-                is_match: false,
             })
             .collect::<Vec<_>>();
 
