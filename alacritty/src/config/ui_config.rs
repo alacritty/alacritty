@@ -250,7 +250,7 @@ impl<'de> Deserialize<'de> for HintsAlphabet {
 pub enum HintInternalAction {
     /// Copy the text to the clipboard.
     Copy,
-    /// Write the text to the PTY.
+    /// Write the text to the PTY/search.
     Paste,
     /// Select the text matching the hint.
     Select,
@@ -271,7 +271,7 @@ pub enum HintAction {
 /// Hint configuration.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
-    /// Action when this hint is triggered.
+    /// Action executed when this hint is triggered.
     #[serde(flatten)]
     pub action: HintAction,
 

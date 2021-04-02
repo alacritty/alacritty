@@ -672,7 +672,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
-            // Write the text to the PTY.
+            // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => {
                 let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
                 self.paste(&text);
