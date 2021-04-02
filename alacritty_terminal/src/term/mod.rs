@@ -1794,6 +1794,9 @@ impl<T: EventListener> Handler for Term<T> {
 
         let left = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
 
+        let graphic_columns = (graphic.width + self.cell_width - 1) / self.cell_width;
+        let right = min(self.columns(), left + graphic_columns);
+
         let texture = Arc::new(TextureRef {
             id: graphic_id,
             remove_queue: Arc::downgrade(&self.graphics.remove_queue),
@@ -1817,7 +1820,7 @@ impl<T: EventListener> Handler for Term<T> {
             cell.set_graphic(graphic_cell);
             self.grid[line][Column(left)] = cell;
 
-            for col in left + 1..self.columns() {
+            for col in left + 1..right {
                 self.grid[line][Column(col)] = Cell::default();
             }
 
