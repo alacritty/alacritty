@@ -516,22 +516,7 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
-                let focused_match = search_state.focused_match();
-                for mut cell in grid_cells {
-                    let focused = focused_match.as_ref().map_or(false, |focused_match| {
-                        let line = Line(cell.point.line as i32) - display_offset;
-                        focused_match.contains(&Point::new(line, cell.point.column))
-                    });
-
-                    // Invert the focused match during search.
-                    if focused {
-                        let colors = config.ui_config.colors.search.focused_match;
-                        let match_fg = colors.foreground.color(cell.fg, cell.bg);
-                        cell.bg = colors.background.color(cell.fg, cell.bg);
-                        cell.fg = match_fg;
-                        cell.bg_alpha = 1.0;
-                    }
-
+                for cell in grid_cells {
                     // Update URL underlines.
                     urls.update(&size_info, &cell);
 
