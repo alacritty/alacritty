@@ -11,7 +11,7 @@ use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
-use alacritty_terminal::term::search::{RegexIter, RegexSearch};
+use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{
     RenderableContent as TerminalContent, RenderableCursor as TerminalCursor, Term, TermMode,
 };
@@ -39,6 +39,7 @@ pub struct RenderableContent<'a> {
     hint: Hint<'a>,
     config: &'a Config<UiConfig>,
     colors: &'a List,
+    focused_match: Option<&'a Match>,
 }
 
 impl<'a> RenderableContent<'a> {
@@ -46,9 +47,10 @@ impl<'a> RenderableContent<'a> {
         config: &'a Config<UiConfig>,
         display: &'a mut Display,
         term: &'a Term<T>,
-        search_state: &SearchState,
+        search_state: &'a SearchState,
     ) -> Self {
         let search = search_state.dfas().map(|dfas| Regex::new(&term, dfas)).unwrap_or_default();
+        let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
         // Copy the cursor and override its shape if necessary.
@@ -66,8 +68,16 @@ impl<'a> RenderableContent<'a> {
         display.hint_state.update_matches(term);
         let hint = Hint::from(&display.hint_state);
 
-        let colors = &display.colors;
-        Self { cursor: None, terminal_content, terminal_cursor, search, config, colors, hint }
+        Self {
+            colors: &display.colors,
+            cursor: None,
+            terminal_content,
+            terminal_cursor,
+            focused_match,
+            search,
+            config,
+            hint,
+        }
     }
 
     /// Viewport offset.
@@ -196,11 +206,11 @@ pub struct RenderableCell {
 impl RenderableCell {
     fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
-        let mut fg_rgb = Self::compute_fg_rgb(content, cell.fg, cell.flags);
-        let mut bg_rgb = Self::compute_bg_rgb(content, cell.bg);
+        let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
+        let mut bg = Self::compute_bg_rgb(content, cell.bg);
 
         let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
-            mem::swap(&mut fg_rgb, &mut bg_rgb);
+            mem::swap(&mut fg, &mut bg);
             1.0
         } else {
             Self::compute_bg_alpha(cell.bg)
@@ -220,25 +230,32 @@ impl RenderableCell {
             } else {
                 (colors.hints.end.foreground, colors.hints.end.background)
             };
-            Self::compute_cell_rgb(&mut fg_rgb, &mut bg_rgb, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
 
             character = c;
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
-            Self::compute_cell_rgb(&mut fg_rgb, &mut bg_rgb, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
 
-            if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
+            if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
-                fg_rgb = content.color(NamedColor::Background as usize);
-                bg_rgb = content.color(NamedColor::Foreground as usize);
+                fg = content.color(NamedColor::Background as usize);
+                bg = content.color(NamedColor::Foreground as usize);
                 bg_alpha = 1.0;
             }
         } else if content.search.advance(cell.point) {
             // Highlight the cell if it is part of a search match.
             let config_fg = colors.search.matches.foreground;
             let config_bg = colors.search.matches.background;
-            Self::compute_cell_rgb(&mut fg_rgb, &mut bg_rgb, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+
+            // Apply the focused match colors, using the normal match colors as base reference.
+            if content.focused_match.map_or(false, |fm| fm.contains(&cell.point)) {
+                let config_fg = colors.search.focused_match.foreground;
+                let config_bg = colors.search.focused_match.background;
+                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            }
         }
 
         // Convert cell point to viewport position.
@@ -250,11 +267,11 @@ impl RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
             graphic: cell.graphic().cloned(),
             flags: cell.flags,
-            fg: fg_rgb,
-            bg: bg_rgb,
             character,
             bg_alpha,
             point,
+            fg,
+            bg,
         }
     }
 
