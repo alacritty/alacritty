@@ -41,9 +41,10 @@ use alacritty_terminal::tty;
 
 use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
+use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
 use crate::daemon::start_daemon;
-use crate::display::hint::HintState;
+use crate::display::hint::{HintMatch, HintState};
 use crate::display::window::Window;
 use crate::display::{Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
@@ -178,7 +179,7 @@ pub struct ActionContext<'a, N, T> {
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
     #[inline]
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&self, val: B) {
         self.notifier.notify(val);
     }
 
@@ -221,12 +222,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
+    // Copy text selection.
     fn copy_selection(&mut self, ty: ClipboardType) {
-        if let Some(selected) = self.terminal.selection_to_string() {
-            if !selected.is_empty() {
-                self.clipboard.store(ty, selected);
-            }
+        let text = match self.terminal.selection_to_string().filter(|s| !s.is_empty()) {
+            Some(text) => text,
+            None => return,
+        };
+
+        if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
+            self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
+        self.clipboard.store(ty, text);
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -258,11 +264,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.selection = Some(selection);
         *self.dirty = true;
+
+        self.copy_selection(ClipboardType::Selection);
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         self.terminal.selection = Some(Selection::new(ty, point, side));
         *self.dirty = true;
+
+        self.copy_selection(ClipboardType::Selection);
     }
 
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -273,6 +283,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
                 *self.dirty = true;
+
+                self.copy_selection(ClipboardType::Selection);
             },
             _ => self.start_selection(ty, point, side),
         }
@@ -639,8 +651,59 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     /// Process a new character for keyboard hints.
     fn hint_input(&mut self, c: char) {
-        self.display.hint_state.keyboard_input(self.terminal, c);
+        let action = self.display.hint_state.keyboard_input(self.terminal, c);
         *self.dirty = true;
+
+        let HintMatch { action, bounds } = match action {
+            Some(action) => action,
+            None => return,
+        };
+
+        match action {
+            // Launch an external program.
+            HintAction::Command(command) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                let mut args = command.args().to_vec();
+                args.push(text);
+                start_daemon(command.program(), &args);
+            },
+            // Copy the text to the clipboard.
+            HintAction::Action(HintInternalAction::Copy) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                self.clipboard.store(ClipboardType::Clipboard, text);
+            },
+            // Write the text to the PTY/search.
+            HintAction::Action(HintInternalAction::Paste) => {
+                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                self.paste(&text);
+            },
+            // Select the text.
+            HintAction::Action(HintInternalAction::Select) => {
+                self.start_selection(SelectionType::Simple, *bounds.start(), Side::Left);
+                self.update_selection(*bounds.end(), Side::Right);
+            },
+        }
+    }
+
+    /// Paste a text into the terminal.
+    fn paste(&mut self, text: &str) {
+        if self.search_active() {
+            for c in text.chars() {
+                self.search_input(c);
+            }
+        } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+            self.write_to_pty(&b"\x1b[200~"[..]);
+            self.write_to_pty(text.replace("\x1b", "").into_bytes());
+            self.write_to_pty(&b"\x1b[201~"[..]);
+        } else {
+            // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
+            // pasted data from keystrokes.
+            // In theory, we should construct the keystrokes needed to produce the data we are
+            // pasting... since that's neither practical nor sensible (and probably an impossible
+            // task to solve in a general way), we'll just replace line breaks (windows and unix
+            // style) with a single carriage return (\r, which is what the Enter key produces).
+            self.write_to_pty(text.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
+        }
     }
 
     /// Toggle the vi mode status.

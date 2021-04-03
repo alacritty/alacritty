@@ -70,7 +70,7 @@ pub trait Notify {
     /// Notify that an escape sequence should be written to the PTY.
     ///
     /// TODO this needs to be able to error somehow.
-    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
+    fn notify<B: Into<Cow<'static, [u8]>>>(&self, _: B);
 }
 
 /// Types that are interested in when the display is resized.
