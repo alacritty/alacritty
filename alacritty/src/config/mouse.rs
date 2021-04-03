@@ -41,6 +41,7 @@ impl Default for Url {
             launcher: Some(Program::WithArgs {
                 program: String::from("cmd"),
                 args: vec!["/c".to_string(), "start".to_string(), "".to_string()],
+                input: None,
             }),
             modifiers: Default::default(),
         }

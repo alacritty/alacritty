@@ -75,6 +75,7 @@ dependencies = [
  "miow 0.3.6",
  "nix 0.19.1",
  "parking_lot",
+ "quote",
  "regex-automata",
  "serde",
  "serde_json",

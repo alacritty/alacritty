@@ -354,44 +354,44 @@ impl<T> Term<T> {
 
         if is_block {
             for line in (start.line.0..end.line.0).map(Line::from) {
-                res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
+                self.write_line_to_string(
+                    &mut res,
+                    line,
+                    start.column..end.column,
+                    start.column.0 != 0,
+                );
 
                 // If the last column is included, newline is appended automatically.
                 if end.column != self.columns() - 1 {
                     res += "\n";
                 }
             }
-            res += &self.line_to_string(end.line, start.column..end.column, true);
+            self.write_line_to_string(&mut res, end.line, start.column..end.column, true);
         } else {
-            res = self.bounds_to_string(start, end);
+            self.write_bounds_to_string(&mut res, start, end);
         }
 
         Some(res)
     }
 
-    /// Convert range between two points to a String.
-    pub fn bounds_to_string(&self, start: Point, end: Point) -> String {
-        let mut res = String::new();
-
+    /// Write the range between two points to a String.
+    pub fn write_bounds_to_string(&self, buf: &mut String, start: Point, end: Point) {
         for line in (start.line.0..=end.line.0).map(Line::from) {
             let start_col = if line == start.line { start.column } else { Column(0) };
             let end_col = if line == end.line { end.column } else { self.last_column() };
 
-            res += &self.line_to_string(line, start_col..end_col, line == end.line);
+            self.write_line_to_string(buf, line, start_col..end_col, line == end.line);
         }
-
-        res
     }
 
-    /// Convert a single line in the grid to a String.
-    fn line_to_string(
+    /// Write a single line in the grid to a String.
+    fn write_line_to_string(
         &self,
+        buf: &mut String,
         line: Line,
         mut cols: Range<Column>,
         include_wrapped_wide: bool,
-    ) -> String {
-        let mut text = String::new();
-
+    ) {
         let grid_line = &self.grid[line];
         let line_length = min(grid_line.line_length(), cols.end + 1);
 
@@ -419,11 +419,11 @@ impl<T> Term<T> {
 
             if !cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
                 // Push cells primary character.
-                text.push(cell.c);
+                buf.push(cell.c);
 
                 // Push zero-width characters.
                 for c in cell.zerowidth().into_iter().flatten() {
-                    text.push(*c);
+                    buf.push(*c);
                 }
             }
         }
@@ -432,7 +432,7 @@ impl<T> Term<T> {
             && (line_length.0 == 0
                 || !self.grid[line][line_length - 1].flags.contains(Flags::WRAPLINE))
         {
-            text.push('\n');
+            buf.push('\n');
         }
 
         // If wide char is not part of the selection, but leading spacer is, include it.
@@ -441,10 +441,8 @@ impl<T> Term<T> {
             && grid_line[line_length - 1].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER)
             && include_wrapped_wide
         {
-            text.push(self.grid[line - 1i32][Column(0)].c);
+            buf.push(self.grid[line - 1i32][Column(0)].c);
         }
-
-        text
     }
 
     /// Terminal content required for rendering.

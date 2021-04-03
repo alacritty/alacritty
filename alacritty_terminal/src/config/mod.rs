@@ -174,6 +174,12 @@ impl From<CursorBlinking> for bool {
     }
 }
 
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CommandInput {
+    VisibleText,
+    AllText,
+}
+
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Program {
@@ -182,6 +188,8 @@ pub enum Program {
         program: String,
         #[serde(default)]
         args: Vec<String>,
+        #[serde(default)]
+        input: Option<CommandInput>,
     },
 }
 
@@ -197,6 +205,13 @@ impl Program {
         match self {
             Program::Just(_) => &[],
             Program::WithArgs { args, .. } => args,
+        }
+    }
+
+    pub fn input(&self) -> Option<CommandInput> {
+        match self {
+            Program::Just(_) => None,
+            Program::WithArgs { input, .. } => *input,
         }
     }
 }

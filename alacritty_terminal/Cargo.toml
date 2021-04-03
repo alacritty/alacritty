@@ -41,3 +41,6 @@ mio-anonymous-pipes = "0.1"
 
 [dev-dependencies]
 serde_json = "1.0.0"
+
+[build-dependencies]
+quote = "1.0.7"

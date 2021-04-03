@@ -63,6 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - History for search mode, bound to ^P/^N/Up/Down by default
 - Default binding to cancel search on Ctrl+C
 - History position indicator for search and vi mode
+- Option for commands to receive text from the terminal on their stdin
 
 ### Changed
 

@@ -8,6 +8,8 @@
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
 use std::marker::PhantomData;
+use std::mem;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use glutin::dpi::PhysicalPosition;
@@ -20,12 +22,15 @@ use glutin::platform::macos::EventLoopWindowTargetExtMacOS;
 use glutin::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
+use alacritty_terminal::config::CommandInput;
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::SelectionType;
+use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
+use alacritty_terminal::thread;
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
@@ -78,6 +83,7 @@ pub trait ActionContext<T: EventListener> {
     fn window(&self) -> &Window;
     fn window_mut(&mut self) -> &mut Window;
     fn terminal(&self) -> &Term<T>;
+    fn terminal_ptr(&self) -> &Arc<FairMutex<Term<T>>>;
     fn terminal_mut(&mut self) -> &mut Term<T>;
     fn spawn_new_instance(&mut self) {}
     fn change_font_size(&mut self, _delta: f32) {}
@@ -139,7 +145,61 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
-            Action::Command(program) => start_daemon(program.program(), program.args()),
+            Action::Command(ref cmd) => {
+                let args = cmd.args().to_owned();
+                let input = cmd.input();
+                let program = cmd.program().to_string();
+
+                let ptr = ctx.terminal_ptr().clone();
+                thread::spawn_named("command", move || {
+                    let input = input.map(|i| {
+                        let term = ptr.lock();
+                        let cols = term.columns();
+                        let screen_lines = term.screen_lines();
+                        let bottommost_line = term.bottommost_line();
+
+                        match i {
+                            CommandInput::VisibleText => {
+                                let viewport_start = Line(-(term.grid().display_offset() as i32));
+                                let viewport_end = viewport_start + bottommost_line;
+
+                                let mut s = String::with_capacity(screen_lines * cols);
+                                term.write_bounds_to_string(
+                                    &mut s,
+                                    Point::new(viewport_start, Column(0)),
+                                    Point::new(viewport_end, term.last_column()),
+                                );
+                                s
+                            },
+                            CommandInput::AllText => {
+                                let mut s = String::with_capacity(term.total_lines() * cols);
+                                let mut y = term.topmost_line();
+
+                                mem::drop(term);
+
+                                while y <= bottommost_line {
+                                    let term = ptr.lock();
+
+                                    term.write_bounds_to_string(
+                                        &mut s,
+                                        Point::new(y, Column(0)),
+                                        Point::new(
+                                            min(y + screen_lines - 1, bottommost_line),
+                                            term.last_column(),
+                                        ),
+                                    );
+                                    y += screen_lines;
+
+                                    mem::drop(term);
+                                }
+                                s
+                            },
+                        }
+                    });
+
+                    start_daemon(&program, &args, input.as_deref());
+                });
+            },
             Action::Hint(hint) => {
                 ctx.hint_state().start(hint.clone());
                 ctx.mark_dirty();
@@ -1111,6 +1171,10 @@ mod tests {
 
         fn terminal(&self) -> &Term<T> {
             &self.terminal
+        }
+
+        fn terminal_ptr(&self) -> &Arc<FairMutex<Term<T>>> {
+            unimplemented!();
         }
 
         fn terminal_mut(&mut self) -> &mut Term<T> {

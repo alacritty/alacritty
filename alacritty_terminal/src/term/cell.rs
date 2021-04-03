@@ -157,9 +157,7 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' '
-                || cell.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) == Some(false)
-            {
+            if !cell.is_empty() {
                 length = Column(self.len() - index);
                 break;
             }

@@ -183,7 +183,7 @@ impl Options {
             // `Arg::min_values(1)` is set.
             let program = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
-            options.command = Some(Program::WithArgs { program, args });
+            options.command = Some(Program::WithArgs { program, args, input: None });
         }
 
         if matches.is_present("hold") {

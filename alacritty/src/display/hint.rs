@@ -118,13 +118,14 @@ impl HintState {
         if label.len() == 1 {
             // Get text for the hint's regex match.
             let hint_match = &self.matches[index];
-            let text = term.bounds_to_string(*hint_match.start(), *hint_match.end());
+            let mut text = String::new();
+            term.write_bounds_to_string(&mut text, *hint_match.start(), *hint_match.end());
 
             // Append text as last argument and launch command.
             let program = hint.command.program();
             let mut args = hint.command.args().to_vec();
             args.push(text);
-            start_daemon(program, &args);
+            start_daemon(program, &args, None);
 
             self.stop();
         } else {
