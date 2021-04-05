@@ -187,7 +187,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
 
                 cursor_line_delta += line_delta.0 as usize;
             } else if row.is_clear() {
-                if i <= self.display_offset {
+                if i < self.display_offset {
                     // Since we removed a line, rotate down the viewport.
                     self.display_offset = self.display_offset.saturating_sub(1);
                 }
@@ -355,7 +355,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                     }
                     row = Row::from_vec(wrapped, occ);
 
-                    if i <= self.display_offset {
+                    if i < self.display_offset {
                         // Since we added a new line, rotate up the viewport.
                         self.display_offset += 1;
                     }
