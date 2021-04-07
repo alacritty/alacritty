@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use log::error;
 use serde::de::Error as SerdeError;
-use serde::{Deserialize, Deserializer};
+use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_config_derive::ConfigDeserialize;
@@ -245,11 +245,35 @@ impl<'de> Deserialize<'de> for HintsAlphabet {
     }
 }
 
+/// Built-in actions for hint mode.
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+pub enum HintInternalAction {
+    /// Copy the text to the clipboard.
+    Copy,
+    /// Write the text to the PTY/search.
+    Paste,
+    /// Select the text matching the hint.
+    Select,
+}
+
+/// Actions for hint bindings.
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum HintAction {
+    /// Built-in hint action.
+    #[serde(rename = "action")]
+    Action(HintInternalAction),
+
+    /// Command the text will be piped to.
+    #[serde(rename = "command")]
+    Command(Program),
+}
+
 /// Hint configuration.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
-    /// Command the text will be piped to.
-    pub command: Program,
+    /// Action executed when this hint is triggered.
+    #[serde(flatten)]
+    pub action: HintAction,
 
     /// Regex for finding matches.
     pub regex: LazyRegex,

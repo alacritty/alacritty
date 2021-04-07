@@ -478,8 +478,18 @@
 
   # List with all available hints
   #
+  # Each hint takes a `regex`, `binding` and either a `command` or an `action`.
+  #
   # The fields `command`, `binding.key` and `binding.mods` accept the same
   # values as they do in the `key_bindings` section.
+  #
+  # Values for `action`:
+  #   - Copy
+  #       Copy the hint's text to the clipboard.
+  #   - Paste
+  #       Paste the hint's text to the terminal or search.
+  #   - Select
+  #       Select the hint's text.
   #
   # Example
   #
