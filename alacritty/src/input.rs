@@ -255,6 +255,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::Hide => ctx.event_loop().hide_application(),
+            #[cfg(target_os = "macos")]
+            Action::HideOtherApplications => ctx.event_loop().hide_other_applications(),
             #[cfg(not(target_os = "macos"))]
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
