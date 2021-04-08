@@ -161,6 +161,9 @@ pub enum Action {
     /// Hide the Alacritty window.
     Hide,
 
+    /// Hide all windows except Alacritty.
+    HideOtherApplications,
+
     /// Minimize the Alacritty window.
     Minimize,
 
@@ -685,6 +688,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         C, ModifiersState::LOGO; Action::Copy;
         C, ModifiersState::LOGO, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         H, ModifiersState::LOGO; Action::Hide;
+        H, ModifiersState::LOGO | ModifiersState::ALT; Action::HideOtherApplications;
         M, ModifiersState::LOGO; Action::Minimize;
         Q, ModifiersState::LOGO; Action::Quit;
         W, ModifiersState::LOGO; Action::Quit;
