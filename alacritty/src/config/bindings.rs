@@ -161,7 +161,8 @@ pub enum Action {
     /// Hide the Alacritty window.
     Hide,
 
-    /// Hide all windows except Alacritty.
+    /// Hide all windows except Alacritty on macOS.
+    #[cfg(target_os = "macos")]
     HideOtherApplications,
 
     /// Minimize the Alacritty window.
