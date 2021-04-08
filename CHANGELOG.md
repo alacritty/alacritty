@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME composition preview not appearing on Windows
 - Synchronized terminal updates using `DCS = 1 s ST`/`DCS = 2 s ST`
 - Regex terminal hints ([see features.md](./docs/features.md#hints))
+- macOS keybinding (cmd+alt+H) hiding all windows other than Alacritty
 
 ### Fixed
 
@@ -25,7 +26,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Clicking on URLs on Windows incorrectly opens File Explorer
 - Incorrect underline cursor thickness on wide cell
 - Viewport moving around when resizing while scrolled into history
-- macOS keybinding (cmd+alt+H) hiding all windows except Alacritty
 
 ### Removed
 
