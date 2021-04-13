@@ -2,6 +2,7 @@
 //! GPU drawing.
 
 use std::cmp::min;
+use std::convert::TryFrom;
 use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -27,6 +28,7 @@ use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
@@ -38,14 +40,13 @@ use crate::display::bell::VisualBell;
 use crate::display::color::List;
 use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
-use crate::display::hint::HintState;
+use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
-use crate::url::{Url, Urls};
 
 pub mod content;
 pub mod cursor;
@@ -58,7 +59,13 @@ mod meter;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
 
+/// Maximum number of linewraps followed outside of the viewport during search highlighting.
+pub const MAX_SEARCH_LINES: usize = 100;
+
+/// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
+
+/// Label for the backward terminal search bar.
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
 
 #[derive(Debug)]
@@ -164,10 +171,12 @@ impl DisplayUpdate {
 pub struct Display {
     pub size_info: SizeInfo,
     pub window: Window,
-    pub urls: Urls,
 
-    /// Currently highlighted URL.
-    pub highlighted_url: Option<Url>,
+    /// Hint highlighted by the mouse.
+    pub highlighted_hint: Option<HintMatch>,
+
+    /// Hint highlighted by the vi mode cursor.
+    pub vi_highlighted_hint: Option<HintMatch>,
 
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub wayland_event_queue: Option<EventQueue>,
@@ -331,8 +340,8 @@ impl Display {
             hint_state,
             meter: Meter::new(),
             size_info,
-            urls: Urls::new(),
-            highlighted_url: None,
+            highlighted_hint: None,
+            vi_highlighted_hint: None,
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -473,8 +482,6 @@ impl Display {
         terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
         config: &Config,
-        mouse: &Mouse,
-        mods: ModifiersState,
         search_state: &SearchState,
     ) {
         // Collect renderable content before the terminal is dropped.
@@ -492,10 +499,6 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
         let size_info = self.size_info;
 
-        let selection = !terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE)
-            && !terminal.mode().contains(TermMode::VI);
-
         let vi_mode = terminal.mode().contains(TermMode::VI);
         let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
 
@@ -507,18 +510,24 @@ impl Display {
         });
 
         let mut lines = RenderLines::new();
-        let mut urls = Urls::new();
 
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
 
             let glyph_cache = &mut self.glyph_cache;
+            let highlighted_hint = &self.highlighted_hint;
+            let vi_highlighted_hint = &self.vi_highlighted_hint;
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
-                for cell in grid_cells {
-                    // Update URL underlines.
-                    urls.update(&size_info, &cell);
+                for mut cell in grid_cells {
+                    // Underline hints hovered by mouse or vi mode cursor.
+                    let point = viewport_to_point(display_offset, cell.point);
+                    if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
+                        || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
+                    {
+                        cell.flags.insert(Flags::UNDERLINE);
+                    }
 
                     // Update underline/strikeout.
                     lines.update(&cell);
@@ -531,33 +540,9 @@ impl Display {
 
         let mut rects = lines.rects(&metrics, &size_info);
 
-        // Update visible URLs.
-        self.urls = urls;
-        if let Some(url) = self.urls.highlighted(config, mouse, mods, mouse_mode, selection) {
-            rects.append(&mut url.rects(&metrics, &size_info));
-
-            self.window.set_mouse_cursor(CursorIcon::Hand);
-
-            self.highlighted_url = Some(url);
-        } else if self.highlighted_url.is_some() {
-            self.highlighted_url = None;
-
-            if mouse_mode {
-                self.window.set_mouse_cursor(CursorIcon::Default);
-            } else {
-                self.window.set_mouse_cursor(CursorIcon::Text);
-            }
-        }
-
         if let Some(vi_mode_cursor) = vi_mode_cursor {
-            // Highlight URLs at the vi mode cursor position.
-            let vi_point = vi_mode_cursor.point;
-            let line = (vi_point.line + display_offset).0 as usize;
-            if let Some(url) = self.urls.find_at(Point::new(line, vi_point.column)) {
-                rects.append(&mut url.rects(&metrics, &size_info));
-            }
-
             // Indicate vi mode by showing the cursor's position in the top right corner.
+            let vi_point = vi_mode_cursor.point;
             let line = (-vi_point.line.0 + size_info.bottommost_line().0) as usize;
             self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
         } else if search_state.regex().is_some() {
@@ -671,6 +656,47 @@ impl Display {
         self.colors = List::from(&config.ui_config.colors);
     }
 
+    /// Update the mouse/vi mode cursor hint highlighting.
+    pub fn update_highlighted_hints<T>(
+        &mut self,
+        term: &Term<T>,
+        config: &Config,
+        mouse: &Mouse,
+        modifiers: ModifiersState,
+    ) {
+        // Update vi mode cursor hint.
+        if term.mode().contains(TermMode::VI) {
+            let mods = ModifiersState::all();
+            let point = term.vi_mode_cursor.point;
+            self.vi_highlighted_hint = hint::highlighted_at(&term, config, point, mods);
+        } else {
+            self.vi_highlighted_hint = None;
+        }
+
+        // Abort if mouse highlighting conditions are not met.
+        if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
+            self.highlighted_hint = None;
+            return;
+        }
+
+        // Find highlighted hint at mouse position.
+        let point = viewport_to_point(term.grid().display_offset(), mouse.point);
+        let highlighted_hint = hint::highlighted_at(&term, config, point, modifiers);
+
+        // Update cursor shape.
+        if highlighted_hint.is_some() {
+            self.window.set_mouse_cursor(CursorIcon::Hand);
+        } else if self.highlighted_hint.is_some() {
+            if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {
+                self.window.set_mouse_cursor(CursorIcon::Default);
+            } else {
+                self.window.set_mouse_cursor(CursorIcon::Text);
+            }
+        }
+
+        self.highlighted_hint = highlighted_hint;
+    }
+
     /// Format search regex to account for the cursor and fullwidth characters.
     fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
         // Add spacers for wide chars.
@@ -780,6 +806,18 @@ impl Display {
             should_draw.store(true, Ordering::Relaxed);
         });
     }
+}
+
+/// Convert a terminal point to a viewport relative point.
+pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
+    let viewport_line = point.line.0 + display_offset as i32;
+    usize::try_from(viewport_line).ok().map(|line| Point::new(line, point.column))
+}
+
+/// Convert a viewport relative point to a terminal point.
+pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
+    let line = Line(point.line as i32) - display_offset;
+    Point::new(line, point.column)
 }
 
 /// Calculate the cell dimensions based on font metrics.

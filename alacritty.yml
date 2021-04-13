@@ -445,29 +445,6 @@
   # If this is `true`, the cursor is temporarily hidden when typing.
   #hide_when_typing: false
 
-  #url:
-    # URL launcher
-    #
-    # This program is executed when clicking on a text which is recognized as a
-    # URL. The URL is always added to the command as the last parameter.
-    #
-    # When set to `launcher: None`, URL launching will be disabled completely.
-    #
-    # Default:
-    #   - (macOS) open
-    #   - (Linux/BSD) xdg-open
-    #   - (Windows) cmd /c start ""
-    #launcher:
-    #  program: xdg-open
-    #  args: []
-
-    # URL modifiers
-    #
-    # These are the modifiers that need to be held down for opening URLs when
-    # clicking on them. The available modifiers are documented in the key
-    # binding section.
-    #modifiers: None
-
 # Regex hints
 #
 # Terminal hints can be used to find text in the visible part of the terminal
@@ -478,10 +455,18 @@
 
   # List with all available hints
   #
-  # Each hint takes a `regex`, `binding` and either a `command` or an `action`.
+  # Each hint must have a `regex` and either an `action` or a `command` field.
+  # The fields `mouse`, `binding` and `post_processing` are optional.
   #
-  # The fields `command`, `binding.key` and `binding.mods` accept the same
-  # values as they do in the `key_bindings` section.
+  # The fields `command`, `binding.key`, `binding.mods` and `mouse.mods` accept
+  # the same values as they do in the `key_bindings` section.
+  #
+  # The `mouse.enabled` field controls if the hint should be underlined while
+  # the mouse with all `mouse.mods` keys held or the vi mode cursor is above it.
+  #
+  # If the `post_processing` field is set to `true`, heuristics will be used to
+  # shorten the match if there are characters likely not to be part of the hint
+  # (e.g. a trailing `.`). This is most useful for URIs.
   #
   # Values for `action`:
   #   - Copy
@@ -490,16 +475,17 @@
   #       Paste the hint's text to the terminal or search.
   #   - Select
   #       Select the hint's text.
-  #
-  # Example
-  #
-  # enabled:
-  #   - regex: "alacritty/alacritty#\\d*"
-  #     command: firefox
-  #     binding:
-  #       key: G
-  #       mods: Control|Shift
-  #enabled: []
+  #enabled:
+  # - regex: "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+  #           [^\u0000-\u001F\u007F-\u009F<>\" {-}\\^⟨⟩`]+"
+  #   command: xdg-open
+  #   post_processing: true
+  #   mouse:
+  #     enabled: true
+  #     mods: None
+  #   binding:
+  #     key: U
+  #     mods: Control|Shift
 
 # Mouse bindings
 #

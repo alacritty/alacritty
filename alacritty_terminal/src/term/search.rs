@@ -82,7 +82,7 @@ impl<T> Term<T> {
         // Limit maximum number of lines searched.
         end = match max_lines {
             Some(max_lines) => {
-                let line = (start.line + max_lines).grid_clamp(self, Boundary::Grid);
+                let line = (start.line + max_lines).grid_clamp(self, Boundary::None);
                 Point::new(line, self.last_column())
             },
             _ => end.sub(self, Boundary::None, 1),
@@ -121,7 +121,7 @@ impl<T> Term<T> {
         // Limit maximum number of lines searched.
         end = match max_lines {
             Some(max_lines) => {
-                let line = (start.line - max_lines).grid_clamp(self, Boundary::Grid);
+                let line = (start.line - max_lines).grid_clamp(self, Boundary::None);
                 Point::new(line, Column(0))
             },
             _ => end.add(self, Boundary::None, 1),

@@ -1,8 +1,16 @@
-use alacritty_terminal::term::search::Match;
+use std::cmp::{max, min};
+
+use glutin::event::ModifiersState;
+
+use alacritty_terminal::grid::BidirectionalIterator;
+use alacritty_terminal::index::{Boundary, Point};
+use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::Term;
 
 use crate::config::ui_config::{Hint, HintAction};
+use crate::config::Config;
 use crate::display::content::RegexMatches;
+use crate::display::MAX_SEARCH_LINES;
 
 /// Percentage of characters in the hints alphabet used for the last character.
 const HINT_SPLIT_PERCENTAGE: f32 = 0.5;
@@ -63,7 +71,20 @@ impl HintState {
         };
 
         // Find visible matches.
-        self.matches = hint.regex.with_compiled(|regex| RegexMatches::new(term, regex));
+        self.matches.0 = hint.regex.with_compiled(|regex| {
+            let mut matches = RegexMatches::new(term, regex);
+
+            // Apply post-processing and search for sub-matches if necessary.
+            if hint.post_processing {
+                matches
+                    .drain(..)
+                    .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
+                    .flatten()
+                    .collect()
+            } else {
+                matches.0
+            }
+        });
 
         // Cancel highlight with no visible matches.
         if self.matches.is_empty() {
@@ -144,6 +165,7 @@ impl HintState {
 }
 
 /// Hint match which was selected by the user.
+#[derive(Clone)]
 pub struct HintMatch {
     /// Action for handling the text.
     pub action: HintAction,
@@ -214,6 +236,159 @@ impl HintLabels {
 
         // Extend the sequence with another character when nothing could be incremented.
         self.indices.push(self.split_point + 1);
+    }
+}
+
+/// Check if there is a hint highlighted at the specified point.
+pub fn highlighted_at<T>(
+    term: &Term<T>,
+    config: &Config,
+    point: Point,
+    mouse_mods: ModifiersState,
+) -> Option<HintMatch> {
+    config.ui_config.hints.enabled.iter().find_map(|hint| {
+        // Check if all required modifiers are pressed.
+        if hint.mouse.map_or(true, |mouse| !mouse.enabled || !mouse_mods.contains(mouse.mods.0)) {
+            return None;
+        }
+
+        hint.regex.with_compiled(|regex| {
+            // Setup search boundaries.
+            let mut start = term.line_search_left(point);
+            start.line = max(start.line, point.line - MAX_SEARCH_LINES);
+            let mut end = term.line_search_right(point);
+            end.line = min(end.line, point.line + MAX_SEARCH_LINES);
+
+            // Function to verify if the specified point is inside the match.
+            let at_point = |rm: &Match| *rm.start() <= point && *rm.end() >= point;
+
+            // Check if there's any match at the specified point.
+            let regex_match = term.regex_search_right(regex, start, end).filter(at_point)?;
+
+            // Apply post-processing and search for sub-matches if necessary.
+            let regex_match = if hint.post_processing {
+                HintPostProcessor::new(term, regex, regex_match).find(at_point)
+            } else {
+                Some(regex_match)
+            };
+
+            regex_match.map(|bounds| HintMatch { action: hint.action.clone(), bounds })
+        })
+    })
+}
+
+/// Iterator over all post-processed matches inside an existing hint match.
+struct HintPostProcessor<'a, T> {
+    /// Regex search DFAs.
+    regex: &'a RegexSearch,
+
+    /// Terminal reference.
+    term: &'a Term<T>,
+
+    /// Next hint match in the iterator.
+    next_match: Option<Match>,
+
+    /// Start point for the next search.
+    start: Point,
+
+    /// End point for the hint match iterator.
+    end: Point,
+}
+
+impl<'a, T> HintPostProcessor<'a, T> {
+    /// Create a new iterator for an unprocessed match.
+    fn new(term: &'a Term<T>, regex: &'a RegexSearch, regex_match: Match) -> Self {
+        let end = *regex_match.end();
+        let mut post_processor = Self { next_match: None, start: end, end, term, regex };
+
+        // Post-process the first hint match.
+        let next_match = post_processor.hint_post_processing(&regex_match);
+        post_processor.start = next_match.end().add(term, Boundary::Grid, 1);
+        post_processor.next_match = Some(next_match);
+
+        post_processor
+    }
+
+    /// Apply some hint post processing heuristics.
+    ///
+    /// This will check the end of the hint and make it shorter if certain characters are determined
+    /// to be unlikely to be intentionally part of the hint.
+    ///
+    /// This is most useful for identifying URLs appropriately.
+    fn hint_post_processing(&self, regex_match: &Match) -> Match {
+        let mut iter = self.term.grid().iter_from(*regex_match.start());
+
+        let mut c = iter.cell().c;
+
+        // Truncate uneven number of brackets.
+        let end = *regex_match.end();
+        let mut open_parents = 0;
+        let mut open_brackets = 0;
+        loop {
+            match c {
+                '(' => open_parents += 1,
+                '[' => open_brackets += 1,
+                ')' => {
+                    if open_parents == 0 {
+                        iter.prev();
+                        break;
+                    } else {
+                        open_parents -= 1;
+                    }
+                },
+                ']' => {
+                    if open_brackets == 0 {
+                        iter.prev();
+                        break;
+                    } else {
+                        open_brackets -= 1;
+                    }
+                },
+                _ => (),
+            }
+
+            if iter.point() == end {
+                break;
+            }
+
+            match iter.next() {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        // Truncate trailing characters which are likely to be delimiters.
+        let start = *regex_match.start();
+        while iter.point() != start {
+            if !matches!(c, '.' | ',' | ':' | ';' | '?' | '!' | '(' | '[' | '\'') {
+                break;
+            }
+
+            match iter.prev() {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        start..=iter.point()
+    }
+}
+
+impl<'a, T> Iterator for HintPostProcessor<'a, T> {
+    type Item = Match;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_match = self.next_match.take()?;
+
+        if self.start <= self.end {
+            if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
+                let regex_match = self.hint_post_processing(&rm);
+                self.start = regex_match.end().add(self.term, Boundary::Grid, 1);
+                self.next_match = Some(regex_match);
+            }
+        }
+
+        Some(next_match)
     }
 }
 

@@ -21,6 +21,11 @@ use crate::config::font::Font;
 use crate::config::mouse::Mouse;
 use crate::config::window::WindowConfig;
 
+/// Regex used for the default URL hint.
+#[rustfmt::skip]
+const URL_REGEX: &str = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\" {-}\\^⟨⟩`]+";
+
 #[derive(ConfigDeserialize, Debug, PartialEq)]
 pub struct UiConfig {
     /// Font configuration.
@@ -90,13 +95,18 @@ impl Default for UiConfig {
 impl UiConfig {
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
-        for hint in self.hints.enabled.drain(..) {
+        for hint in &self.hints.enabled {
+            let binding = match hint.binding {
+                Some(binding) => binding,
+                None => continue,
+            };
+
             let binding = KeyBinding {
-                trigger: hint.binding.key,
-                mods: hint.binding.mods.0,
+                trigger: binding.key,
+                mods: binding.mods.0,
                 mode: BindingMode::empty(),
                 notmode: BindingMode::empty(),
-                action: Action::Hint(hint),
+                action: Action::Hint(hint.clone()),
             };
 
             self.key_bindings.0.push(binding);
@@ -197,13 +207,42 @@ pub struct Delta<T: Default> {
 }
 
 /// Regex terminal hints.
-#[derive(ConfigDeserialize, Default, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, PartialEq, Eq)]
 pub struct Hints {
     /// Characters for the hint labels.
     alphabet: HintsAlphabet,
 
     /// All configured terminal hints.
-    enabled: Vec<Hint>,
+    pub enabled: Vec<Hint>,
+}
+
+impl Default for Hints {
+    fn default() -> Self {
+        // Add URL hint by default when no other hint is present.
+        let pattern = LazyRegexVariant::Pattern(String::from(URL_REGEX));
+        let regex = LazyRegex(Rc::new(RefCell::new(pattern)));
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let action = HintAction::Command(Program::Just(String::from("xdg-open")));
+        #[cfg(target_os = "macos")]
+        let action = HintAction::Command(Program::Just(String::from("open")));
+        #[cfg(windows)]
+        let action = HintAction::Command(Program::WithArgs {
+            program: String::from("cmd"),
+            args: vec!["/c".to_string(), "start".to_string(), "".to_string()],
+        });
+
+        Self {
+            enabled: vec![Hint {
+                regex,
+                action,
+                post_processing: true,
+                mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
+                binding: Default::default(),
+            }],
+            alphabet: Default::default(),
+        }
+    }
 }
 
 impl Hints {
@@ -271,33 +310,51 @@ pub enum HintAction {
 /// Hint configuration.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
+    /// Regex for finding matches.
+    pub regex: LazyRegex,
+
     /// Action executed when this hint is triggered.
     #[serde(flatten)]
     pub action: HintAction,
 
-    /// Regex for finding matches.
-    pub regex: LazyRegex,
+    /// Hint text post processing.
+    #[serde(default)]
+    pub post_processing: bool,
+
+    /// Hint mouse highlighting.
+    pub mouse: Option<HintMouse>,
 
     /// Binding required to search for this hint.
-    binding: HintBinding,
+    binding: Option<HintBinding>,
 }
 
 /// Binding for triggering a keyboard hint.
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintBinding {
     pub key: Key,
+    #[serde(default)]
+    pub mods: ModsWrapper,
+}
+
+/// Hint mouse highlighting.
+#[derive(ConfigDeserialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintMouse {
+    /// Hint mouse highlighting availability.
+    pub enabled: bool,
+
+    /// Required mouse modifiers for hint highlighting.
     pub mods: ModsWrapper,
 }
 
 /// Lazy regex with interior mutability.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LazyRegex(Rc<RefCell<LazyRegexVariant>>);
 
 impl LazyRegex {
     /// Execute a function with the compiled regex DFAs as parameter.
-    pub fn with_compiled<T, F>(&self, f: F) -> T
+    pub fn with_compiled<T, F>(&self, mut f: F) -> T
     where
-        F: Fn(&RegexSearch) -> T,
+        F: FnMut(&RegexSearch) -> T,
     {
         f(self.0.borrow_mut().compiled())
     }
@@ -312,14 +369,6 @@ impl<'de> Deserialize<'de> for LazyRegex {
         Ok(Self(Rc::new(RefCell::new(regex))))
     }
 }
-
-/// Implement placeholder to allow derive upstream, since we never need it for this struct itself.
-impl PartialEq for LazyRegex {
-    fn eq(&self, _other: &Self) -> bool {
-        false
-    }
-}
-impl Eq for LazyRegex {}
 
 /// Regex which is compiled on demand, to avoid expensive computations at startup.
 #[derive(Clone, Debug)]
@@ -357,3 +406,13 @@ impl LazyRegexVariant {
         }
     }
 }
+
+impl PartialEq for LazyRegexVariant {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Pattern(regex), Self::Pattern(other_regex)) => regex == other_regex,
+            _ => false,
+        }
+    }
+}
+impl Eq for LazyRegexVariant {}

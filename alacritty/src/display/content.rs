@@ -18,14 +18,11 @@ use alacritty_terminal::term::{
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
-use crate::display::Display;
+use crate::display::{self, Display, MAX_SEARCH_LINES};
 use crate::event::SearchState;
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
-
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-const MAX_SEARCH_LINES: usize = 100;
 
 /// Renderable terminal content.
 ///
@@ -138,8 +135,8 @@ impl<'a> RenderableContent<'a> {
 
         // Convert cursor point to viewport position.
         let cursor_point = self.terminal_cursor.point;
-        let line = (cursor_point.line + self.terminal_content.display_offset as i32).0 as usize;
-        let point = Point::new(line, cursor_point.column);
+        let display_offset = self.terminal_content.display_offset;
+        let point = display::point_to_viewport(display_offset, cursor_point).unwrap();
 
         Some(RenderableCursor {
             shape: self.terminal_cursor.shape,
@@ -258,8 +255,8 @@ impl RenderableCell {
 
         // Convert cell point to viewport position.
         let cell_point = cell.point;
-        let line = (cell_point.line + content.terminal_content.display_offset as i32).0 as usize;
-        let point = Point::new(line, cell_point.column);
+        let display_offset = content.terminal_content.display_offset;
+        let point = display::point_to_viewport(display_offset, cell_point).unwrap();
 
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
@@ -441,7 +438,7 @@ impl<'a> From<&'a HintState> for Hint<'a> {
 
 /// Wrapper for finding visible regex matches.
 #[derive(Default, Clone)]
-pub struct RegexMatches(Vec<RangeInclusive<Point>>);
+pub struct RegexMatches(pub Vec<RangeInclusive<Point>>);
 
 impl RegexMatches {
     /// Find all visible matches.
