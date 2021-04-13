@@ -44,15 +44,14 @@ use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
 use crate::daemon::start_daemon;
-use crate::display::hint::{HintMatch, HintState};
+use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{Display, DisplayUpdate};
+use crate::display::{self, Display, DisplayUpdate};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(target_os = "macos")]
 use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId};
-use crate::url::{Url, Urls};
 
 /// Duration after the last user input until an unlimited search is performed.
 pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
@@ -213,9 +212,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         } else if self.mouse().left_button_state == ElementState::Pressed
             || self.mouse().right_button_state == ElementState::Pressed
         {
-            let point = self.mouse().point;
-            let line = Line(point.line as i32) - self.terminal.grid().display_offset();
-            let point = Point::new(line, point.column);
+            let display_offset = self.terminal.grid().display_offset();
+            let point = display::viewport_to_point(display_offset, self.mouse().point);
             self.update_selection(point, self.mouse().cell_side);
         }
 
@@ -322,13 +320,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
-    fn window(&self) -> &Window {
-        &self.display.window
+    fn window(&mut self) -> &mut Window {
+        &mut self.display.window
     }
 
     #[inline]
-    fn window_mut(&mut self) -> &mut Window {
-        &mut self.display.window
+    fn display(&mut self) -> &mut Display {
+        &mut self.display
     }
 
     #[inline]
@@ -383,30 +381,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         start_daemon(&alacritty, &args);
-    }
-
-    /// Spawn URL launcher when clicking on URLs.
-    fn launch_url(&self, url: Url) {
-        if self.mouse.block_url_launcher {
-            return;
-        }
-
-        if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
-            let display_offset = self.terminal.grid().display_offset();
-            let start = url.start();
-            let start = Point::new(Line(start.line as i32 - display_offset as i32), start.column);
-            let end = url.end();
-            let end = Point::new(Line(end.line as i32 - display_offset as i32), end.column);
-
-            let mut args = launcher.args().to_vec();
-            args.push(self.terminal.bounds_to_string(start, end));
-
-            start_daemon(launcher.program(), &args);
-        }
-    }
-
-    fn highlighted_url(&self) -> Option<&Url> {
-        self.display.highlighted_url.as_ref()
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -645,42 +619,43 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    fn hint_state(&mut self) -> &mut HintState {
-        &mut self.display.hint_state
-    }
-
     /// Process a new character for keyboard hints.
     fn hint_input(&mut self, c: char) {
-        let action = self.display.hint_state.keyboard_input(self.terminal, c);
+        if let Some(hint) = self.display.hint_state.keyboard_input(self.terminal, c) {
+            self.mouse.block_hint_launcher = false;
+            self.trigger_hint(&hint);
+        }
         *self.dirty = true;
+    }
 
-        let HintMatch { action, bounds } = match action {
-            Some(action) => action,
-            None => return,
-        };
+    /// Trigger a hint action.
+    fn trigger_hint(&mut self, hint: &HintMatch) {
+        if self.mouse.block_hint_launcher {
+            return;
+        }
 
-        match action {
+        match &hint.action {
             // Launch an external program.
             HintAction::Command(command) => {
-                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
                 args.push(text);
                 start_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
-                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => {
-                let text = self.terminal.bounds_to_string(*bounds.start(), *bounds.end());
+                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.paste(&text);
             },
             // Select the text.
             HintAction::Action(HintInternalAction::Select) => {
-                self.start_selection(SelectionType::Simple, *bounds.start(), Side::Left);
-                self.update_selection(*bounds.end(), Side::Right);
+                self.start_selection(SelectionType::Simple, *hint.bounds.start(), Side::Left);
+                self.update_selection(*hint.bounds.end(), Side::Right);
             },
         }
     }
@@ -729,10 +704,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
         self.event_loop
-    }
-
-    fn urls(&self) -> &Urls {
-        &self.display.urls
     }
 
     fn clipboard_mut(&mut self) -> &mut Clipboard {
@@ -908,7 +879,8 @@ pub struct Mouse {
     pub scroll_px: f64,
     pub cell_side: Side,
     pub lines_scrolled: f32,
-    pub block_url_launcher: bool,
+    pub block_hint_launcher: bool,
+    pub hint_highlight_dirty: bool,
     pub inside_text_area: bool,
     pub point: Point<usize>,
     pub x: usize,
@@ -925,7 +897,8 @@ impl Default for Mouse {
             right_button_state: ElementState::Released,
             click_state: ClickState::None,
             cell_side: Side::Left,
-            block_url_launcher: Default::default(),
+            hint_highlight_dirty: Default::default(),
+            block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
             lines_scrolled: Default::default(),
             scroll_px: Default::default(),
@@ -1115,6 +1088,17 @@ impl<N: Notify + OnResize> Processor<N> {
                 return;
             }
 
+            if self.dirty || self.mouse.hint_highlight_dirty {
+                self.display.update_highlighted_hints(
+                    &terminal,
+                    &self.config,
+                    &self.mouse,
+                    self.modifiers,
+                );
+                self.mouse.hint_highlight_dirty = false;
+                self.dirty = true;
+            }
+
             if self.dirty {
                 self.dirty = false;
 
@@ -1127,14 +1111,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 }
 
                 // Redraw screen.
-                self.display.draw(
-                    terminal,
-                    &self.message_buffer,
-                    &self.config,
-                    &self.mouse,
-                    self.modifiers,
-                    &self.search_state,
-                );
+                self.display.draw(terminal, &self.message_buffer, &self.config, &self.search_state);
             }
         });
 
@@ -1165,7 +1142,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.window_mut().dpr = scale_factor;
+                    processor.ctx.window().dpr = scale_factor;
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
@@ -1184,7 +1161,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
-                            processor.ctx.window_mut().set_title(&title);
+                            processor.ctx.window().set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
@@ -1198,7 +1175,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         // Set window urgency.
                         if processor.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
                             let focused = processor.ctx.terminal.is_focused;
-                            processor.ctx.window_mut().set_urgent(!focused);
+                            processor.ctx.window().set_urgent(!focused);
                         }
 
                         // Ring visual bell.
@@ -1251,16 +1228,16 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {
-                        processor.ctx.window_mut().set_mouse_visible(true);
+                        processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_input(state, button);
                         *processor.ctx.dirty = true;
                     },
                     WindowEvent::CursorMoved { position, .. } => {
-                        processor.ctx.window_mut().set_mouse_visible(true);
+                        processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_moved(position);
                     },
                     WindowEvent::MouseWheel { delta, phase, .. } => {
-                        processor.ctx.window_mut().set_mouse_visible(true);
+                        processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
                     WindowEvent::Focused(is_focused) => {
@@ -1269,9 +1246,9 @@ impl<N: Notify + OnResize> Processor<N> {
                             *processor.ctx.dirty = true;
 
                             if is_focused {
-                                processor.ctx.window_mut().set_urgent(false);
+                                processor.ctx.window().set_urgent(false);
                             } else {
-                                processor.ctx.window_mut().set_mouse_visible(true);
+                                processor.ctx.window().set_mouse_visible(true);
                             }
 
                             processor.ctx.update_cursor_blinking();
@@ -1285,7 +1262,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_text_area = false;
 
-                        if processor.ctx.highlighted_url().is_some() {
+                        if processor.ctx.display().highlighted_hint.is_some() {
                             *processor.ctx.dirty = true;
                         }
                     },
@@ -1382,12 +1359,12 @@ impl<N: Notify + OnResize> Processor<N> {
         if !config.ui_config.window.dynamic_title
             || processor.ctx.config.ui_config.window.title != config.ui_config.window.title
         {
-            processor.ctx.window_mut().set_title(&config.ui_config.window.title);
+            processor.ctx.window().set_title(&config.ui_config.window.title);
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         if processor.ctx.event_loop.is_wayland() {
-            processor.ctx.window_mut().set_wayland_theme(&config.ui_config.colors);
+            processor.ctx.window().set_wayland_theme(&config.ui_config.colors);
         }
 
         // Set subpixel anti-aliasing.
@@ -1396,7 +1373,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        processor.ctx.window_mut().set_has_shadow(config.ui_config.background_opacity() >= 1.0);
+        processor.ctx.window().set_has_shadow(config.ui_config.background_opacity() >= 1.0);
 
         // Update hint keys.
         processor.ctx.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());

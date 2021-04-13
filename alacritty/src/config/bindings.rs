@@ -1162,7 +1162,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
             type Value = ModsWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a subset of Shift|Control|Super|Command|Alt|Option")
+                f.write_str("None or a subset of Shift|Control|Super|Command|Alt|Option")
             }
 
             fn visit_str<E>(self, value: &str) -> Result<ModsWrapper, E>

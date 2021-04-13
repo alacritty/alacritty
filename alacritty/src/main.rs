@@ -45,7 +45,6 @@ mod message_bar;
 mod panic;
 mod renderer;
 mod scheduler;
-mod url;
 
 mod gl {
     #![allow(clippy::all)]
