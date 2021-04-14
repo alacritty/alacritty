@@ -250,11 +250,12 @@ pub fn highlighted_at<T>(
 
     config.ui_config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
-        if hint.mouse.map_or(true, |mouse| {
-            !mouse.enabled
-                || !mouse_mods.contains(mouse.mods.0)
-                || (mouse_mode && !mouse_mods.contains(ModifiersState::SHIFT))
-        }) {
+        let highlight = hint.mouse.map_or(false, |mouse| {
+            mouse.enabled
+                && mouse_mods.contains(mouse.mods.0)
+                && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
+        });
+        if !highlight {
             return None;
         }
 
