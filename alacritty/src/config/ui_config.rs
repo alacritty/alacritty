@@ -293,6 +293,8 @@ pub enum HintInternalAction {
     Paste,
     /// Select the text matching the hint.
     Select,
+    /// Move the vi mode cursor to the beginning of the hint.
+    MoveViModeCursor,
 }
 
 /// Actions for hint bindings.
