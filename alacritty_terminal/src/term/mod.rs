@@ -612,8 +612,15 @@ impl<T> Term<T> {
         self.mode ^= TermMode::VI;
 
         if self.mode.contains(TermMode::VI) {
-            // Reset vi mode cursor position to match primary cursor.
-            self.vi_mode_cursor = ViModeCursor::new(self.grid.cursor.point);
+            let display_offset = self.grid.display_offset() as i32;
+            if self.grid.cursor.point.line > self.bottommost_line() - display_offset {
+                // Move cursor to top-left if terminal cursor is not visible.
+                let point = Point::new(Line(-display_offset), Column(0));
+                self.vi_mode_cursor = ViModeCursor::new(point);
+            } else {
+                // Reset vi mode cursor position to match primary cursor.
+                self.vi_mode_cursor = ViModeCursor::new(self.grid.cursor.point);
+            }
         }
 
         // Update UI about cursor blinking state changes.
