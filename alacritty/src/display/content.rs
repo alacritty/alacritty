@@ -216,10 +216,12 @@ impl RenderableCell {
             .selection
             .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
 
+        let display_offset = content.terminal_content.display_offset;
+        let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
+        let colors = &content.config.ui_config.colors;
         let mut character = cell.c;
 
-        let colors = &content.config.ui_config.colors;
-        if let Some((c, is_first)) = content.hint.advance(cell.point) {
+        if let Some((c, is_first)) = content.hint.advance(viewport_start, cell.point) {
             let (config_fg, config_bg) = if is_first {
                 (colors.hints.start.foreground, colors.hints.start.background)
             } else {
@@ -255,7 +257,6 @@ impl RenderableCell {
 
         // Convert cell point to viewport position.
         let cell_point = cell.point;
-        let display_offset = content.terminal_content.display_offset;
         let point = display::point_to_viewport(display_offset, cell_point).unwrap();
 
         RenderableCell {
@@ -406,7 +407,7 @@ impl<'a> Hint<'a> {
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
-    fn advance(&mut self, point: Point) -> Option<(char, bool)> {
+    fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
         // Check if we're within a match at all.
         if !self.regex.advance(point) {
             return None;
@@ -417,7 +418,7 @@ impl<'a> Hint<'a> {
             .regex
             .matches
             .get(self.regex.index)
-            .map(|regex_match| regex_match.start())
+            .map(|regex_match| max(*regex_match.start(), viewport_start))
             .filter(|start| start.line == point.line)?;
 
         // Position within the hint label.
