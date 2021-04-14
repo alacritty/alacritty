@@ -5,7 +5,7 @@ use glutin::event::ModifiersState;
 use alacritty_terminal::grid::BidirectionalIterator;
 use alacritty_terminal::index::{Boundary, Point};
 use alacritty_terminal::term::search::{Match, RegexSearch};
-use alacritty_terminal::term::Term;
+use alacritty_terminal::term::{Term, TermMode};
 
 use crate::config::ui_config::{Hint, HintAction};
 use crate::config::Config;
@@ -246,9 +246,16 @@ pub fn highlighted_at<T>(
     point: Point,
     mouse_mods: ModifiersState,
 ) -> Option<HintMatch> {
+    let mouse_mode = term.mode().intersects(TermMode::MOUSE_MODE);
+
     config.ui_config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
-        if hint.mouse.map_or(true, |mouse| !mouse.enabled || !mouse_mods.contains(mouse.mods.0)) {
+        let highlight = hint.mouse.map_or(false, |mouse| {
+            mouse.enabled
+                && mouse_mods.contains(mouse.mods.0)
+                && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
+        });
+        if !highlight {
             return None;
         }
 
