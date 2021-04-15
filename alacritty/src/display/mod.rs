@@ -680,7 +680,7 @@ impl Display {
         }
 
         // Find highlighted hint at mouse position.
-        let point = viewport_to_point(term.grid().display_offset(), mouse.point);
+        let point = mouse.point(&self.size_info, term.grid().display_offset());
         let highlighted_hint = hint::highlighted_at(&term, config, point, modifiers);
 
         // Update cursor shape.
