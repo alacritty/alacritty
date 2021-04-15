@@ -209,12 +209,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
-        } else if self.mouse().left_button_state == ElementState::Pressed
-            || self.mouse().right_button_state == ElementState::Pressed
+        } else if self.mouse.left_button_state == ElementState::Pressed
+            || self.mouse.right_button_state == ElementState::Pressed
         {
             let display_offset = self.terminal.grid().display_offset();
-            let point = display::viewport_to_point(display_offset, self.mouse().point);
-            self.update_selection(point, self.mouse().cell_side);
+            let point = self.mouse.point(&self.size_info(), display_offset);
+            self.update_selection(point, self.mouse.cell_side);
         }
 
         *self.dirty = true;
@@ -891,7 +891,6 @@ pub struct Mouse {
     pub block_hint_launcher: bool,
     pub hint_highlight_dirty: bool,
     pub inside_text_area: bool,
-    pub point: Point<usize>,
     pub x: usize,
     pub y: usize,
 }
@@ -911,10 +910,26 @@ impl Default for Mouse {
             inside_text_area: Default::default(),
             lines_scrolled: Default::default(),
             scroll_px: Default::default(),
-            point: Default::default(),
             x: Default::default(),
             y: Default::default(),
         }
+    }
+}
+
+impl Mouse {
+    /// Convert mouse pixel coordinates to viewport point.
+    ///
+    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
+    /// coordinates will be clamped to the closest grid coordinates.
+    #[inline]
+    pub fn point(&self, size: &SizeInfo, display_offset: usize) -> Point {
+        let col = self.x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
+        let col = min(Column(col), size.last_column());
+
+        let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
+        let line = min(line, size.bottommost_line().0 as usize);
+
+        display::viewport_to_point(display_offset, Point::new(line, col))
     }
 }
 

@@ -33,7 +33,7 @@ use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{self, Display};
+use crate::display::Display;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
@@ -341,17 +341,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.update_selection_scrolling(y);
         }
 
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let old_point = self.ctx.mouse().point(&size_info, display_offset);
+
         let x = min(max(x, 0), size_info.width() as i32 - 1) as usize;
         let y = min(max(y, 0), size_info.height() as i32 - 1) as usize;
-
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
         let inside_text_area = size_info.contains_point(x, y);
-        let point = self.coords_to_point(x, y);
         let cell_side = self.cell_side(x);
 
-        let cell_changed = point != self.ctx.mouse().point;
+        let point = self.ctx.mouse().point(&size_info, display_offset);
+        let cell_changed = old_point != point;
 
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
@@ -363,7 +365,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
-        self.ctx.mouse_mut().point = point;
 
         // Update mouse state and check for URL change.
         let mouse_state = self.cursor_state();
@@ -377,11 +378,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         if (lmb_pressed || rmb_pressed) && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
-            let display_offset = self.ctx.terminal().grid().display_offset();
-            let point = display::viewport_to_point(display_offset, point);
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
-            && point.line < self.ctx.terminal().screen_lines()
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -394,23 +392,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_report(35, ElementState::Pressed);
             }
         }
-    }
-
-    /// Convert window space pixels to terminal grid coordinates.
-    ///
-    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
-    /// coordinates will be clamped to the closest grid coordinates.
-    #[inline]
-    fn coords_to_point(&self, x: usize, y: usize) -> Point<usize> {
-        let size = self.ctx.size_info();
-
-        let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let column = min(Column(column), size.last_column());
-
-        let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let line = min(line, size.bottommost_line().0 as usize);
-
-        Point::new(line, column)
     }
 
     /// Check which side of a cell an X coordinate lies on.
@@ -435,13 +416,45 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn normal_mouse_report(&mut self, button: u8) {
-        let Point { line, column } = self.ctx.mouse().point;
+    fn mouse_report(&mut self, button: u8, state: ElementState) {
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+
+        // Assure the mouse point is not in the scrollback.
+        if point.line >= 0 {
+            return;
+        }
+
+        // Calculate modifiers value.
+        let mut mods = 0;
+        let modifiers = self.ctx.modifiers();
+        if modifiers.shift() {
+            mods += 4;
+        }
+        if modifiers.alt() {
+            mods += 8;
+        }
+        if modifiers.ctrl() {
+            mods += 16;
+        }
+
+        // Report mouse events.
+        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
+            self.sgr_mouse_report(point, button + mods, state);
+        } else if let ElementState::Released = state {
+            self.normal_mouse_report(point, 3 + mods);
+        } else {
+            self.normal_mouse_report(point, button + mods);
+        }
+    }
+
+    fn normal_mouse_report(&mut self, point: Point, button: u8) {
+        let Point { line, column } = point;
         let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
         let max_point = if utf8 { 2015 } else { 223 };
 
-        if line >= max_point || column >= Column(max_point) {
+        if line >= max_point || column >= max_point {
             return;
         }
 
@@ -461,47 +474,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         if utf8 && line >= 95 {
-            msg.append(&mut mouse_pos_encode(line));
+            msg.append(&mut mouse_pos_encode(line.0 as usize));
         } else {
-            msg.push(32 + 1 + line as u8);
+            msg.push(32 + 1 + line.0 as u8);
         }
 
         self.ctx.write_to_pty(msg);
     }
 
-    fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
-        let Point { line, column } = self.ctx.mouse().point;
+    fn sgr_mouse_report(&mut self, point: Point, button: u8, state: ElementState) {
         let c = match state {
             ElementState::Pressed => 'M',
             ElementState::Released => 'm',
         };
 
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
+        let msg = format!("\x1b[<{};{};{}{}", button, point.column + 1, point.line + 1, c);
         self.ctx.write_to_pty(msg.into_bytes());
-    }
-
-    fn mouse_report(&mut self, button: u8, state: ElementState) {
-        // Calculate modifiers value.
-        let mut mods = 0;
-        let modifiers = self.ctx.modifiers();
-        if modifiers.shift() {
-            mods += 4;
-        }
-        if modifiers.alt() {
-            mods += 8;
-        }
-        if modifiers.ctrl() {
-            mods += 16;
-        }
-
-        // Report mouse events.
-        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
-            self.sgr_mouse_report(button + mods, state);
-        } else if let ElementState::Released = state {
-            self.normal_mouse_report(3 + mods);
-        } else {
-            self.normal_mouse_report(button + mods);
-        }
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
@@ -543,7 +531,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Load mouse point, treating message bar and padding as the closest cell.
             let display_offset = self.ctx.terminal().grid().display_offset();
-            let point = display::viewport_to_point(display_offset, self.ctx.mouse().point);
+            let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -921,10 +909,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             + size.cell_height() as usize * (size.screen_lines() + search_height);
 
         let mouse = self.ctx.mouse();
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
             None
         } else if mouse.y <= terminal_end + size.cell_height() as usize
-            && mouse.point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
+            && point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
         {
             Some(CursorIcon::Hand)
         } else {
@@ -934,13 +925,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Icon state of the cursor.
     fn cursor_state(&mut self) -> CursorIcon {
-        // Define function to check if mouse is on top of a hint.
         let display_offset = self.ctx.terminal().grid().display_offset();
-        let mouse_point = self.ctx.mouse().point;
-        let hint_highlighted = |hint: &HintMatch| {
-            let point = display::viewport_to_point(display_offset, mouse_point);
-            hint.bounds.contains(&point)
-        };
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+
+        // Function to check if mouse is on top of a hint.
+        let hint_highlighted = |hint: &HintMatch| hint.bounds.contains(&point);
 
         if let Some(mouse_state) = self.message_bar_cursor_state() {
             mouse_state
