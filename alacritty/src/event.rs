@@ -657,6 +657,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 self.start_selection(SelectionType::Simple, *hint.bounds.start(), Side::Left);
                 self.update_selection(*hint.bounds.end(), Side::Right);
             },
+            // Move the vi mode cursor.
+            HintAction::Action(HintInternalAction::MoveViModeCursor) => {
+                // Enter vi mode if we're not in it already.
+                if !self.terminal.mode().contains(TermMode::VI) {
+                    self.terminal.toggle_vi_mode();
+                }
+
+                self.terminal.vi_goto_point(*hint.bounds.start());
+            },
         }
     }
 
