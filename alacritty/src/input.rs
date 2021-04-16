@@ -634,6 +634,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         self.ctx.display().highlighted_hint = hint;
 
         self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
+
+        // Copy selection on release, to prevent flooding the display server.
+        self.ctx.copy_selection(ClipboardType::Selection);
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
