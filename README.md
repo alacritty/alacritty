@@ -47,6 +47,14 @@ Prebuilt binaries for macOS and Windows can also be downloaded from the
 For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
 
+### MacOS
+
+The Alacritty binary is not signed. To run it on MacOS you'll need disable [this security check](https://support.apple.com/en-us/HT202491) on the binary. You can do this using HomeBrew:
+
+```
+brew upgrade --cask --no-quarantine alacritty
+```
+
 ### Requirements
 
 - OpenGL 3.3 or higher
