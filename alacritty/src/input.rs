@@ -421,7 +421,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
 
         // Assure the mouse point is not in the scrollback.
-        if point.line >= 0 {
+        if point.line < 0 {
             return;
         }
 
