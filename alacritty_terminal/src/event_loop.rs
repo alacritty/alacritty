@@ -240,7 +240,7 @@ where
 
                     // Run the parser.
                     for byte in &buf[..got] {
-                        state.parser.advance(&mut **terminal, *byte, &mut self.pty.writer());
+                        state.parser.advance(&mut **terminal, *byte);
                     }
 
                     // Exit if we've processed enough bytes.
@@ -334,7 +334,7 @@ where
 
                 // Handle synchronized update timeout.
                 if events.is_empty() {
-                    state.parser.stop_sync(&mut *self.terminal.lock(), &mut self.pty.writer());
+                    state.parser.stop_sync(&mut *self.terminal.lock());
                     self.event_proxy.send_event(Event::Wakeup);
                     continue;
                 }

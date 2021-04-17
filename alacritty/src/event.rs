@@ -1222,6 +1222,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         let text = format(processor.ctx.display.colors[index]);
                         processor.ctx.write_to_pty(text.into_bytes());
                     },
+                    TerminalEvent::PtyWrite(text) => processor.ctx.write_to_pty(text.into_bytes()),
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange(_) => {
