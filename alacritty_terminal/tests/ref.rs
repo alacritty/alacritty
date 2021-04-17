@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json as json;
 
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::Read;
 use std::path::Path;
 
 use alacritty_terminal::ansi;
@@ -108,7 +108,7 @@ fn ref_test(dir: &Path) {
     let mut parser = ansi::Processor::new();
 
     for byte in recording {
-        parser.advance(&mut terminal, byte, &mut io::sink());
+        parser.advance(&mut terminal, byte);
     }
 
     // Truncate invisible lines from the grid.
