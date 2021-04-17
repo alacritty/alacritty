@@ -206,7 +206,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Update selection.
         if self.terminal.mode().contains(TermMode::VI)
-            && self.terminal.selection.as_ref().map(|s| s.is_empty()) != Some(true)
+            && self.terminal.selection.as_ref().map_or(true, |s| !s.is_empty())
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
@@ -216,6 +216,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let point = self.mouse.point(&self.size_info(), display_offset);
             self.update_selection(point, self.mouse.cell_side);
         }
+        self.copy_selection(ClipboardType::Selection);
 
         *self.dirty = true;
     }
@@ -262,8 +263,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.selection = Some(selection);
         *self.dirty = true;
-
-        self.copy_selection(ClipboardType::Selection);
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -461,6 +460,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             let end = *focused_match.end();
             self.start_selection(SelectionType::Simple, start, Side::Left);
             self.update_selection(end, Side::Right);
+            self.copy_selection(ClipboardType::Selection);
         }
 
         self.search_state.dfas = None;
@@ -656,6 +656,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             HintAction::Action(HintInternalAction::Select) => {
                 self.start_selection(SelectionType::Simple, *hint.bounds.start(), Side::Left);
                 self.update_selection(*hint.bounds.end(), Side::Right);
+                self.copy_selection(ClipboardType::Selection);
             },
             // Move the vi mode cursor.
             HintAction::Action(HintInternalAction::MoveViModeCursor) => {
