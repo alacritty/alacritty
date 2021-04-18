@@ -28,7 +28,7 @@ regex-automata = "0.1.9"
 dirs = "3.0.1"
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.19.0"
+nix = "0.20.0"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(windows)'.dependencies]

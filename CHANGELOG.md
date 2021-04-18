@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Synchronized terminal updates using `DCS = 1 s ST`/`DCS = 2 s ST`
 - Regex terminal hints ([see features.md](./docs/features.md#hints))
 - Support for Sixel protocol
+- macOS keybinding (cmd+alt+H) hiding all windows other than Alacritty
+
+### Changed
+
+- The vi mode cursor is now created in the top-left if the terminal cursor is invisible
 
 ### Fixed
 

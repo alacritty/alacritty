@@ -2,7 +2,7 @@
 
 use std::convert::TryFrom;
 use std::time::{Duration, Instant};
-use std::{io, iter, str};
+use std::{iter, str};
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -157,29 +157,27 @@ impl Processor {
 
     /// Process a new byte from the PTY.
     #[inline]
-    pub fn advance<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    pub fn advance<H>(&mut self, handler: &mut H, byte: u8)
     where
         H: Handler,
-        W: io::Write,
     {
         if self.state.sync_state.timeout.is_none() {
-            let mut performer = Performer::new(&mut self.state, handler, writer);
+            let mut performer = Performer::new(&mut self.state, handler);
             self.parser.advance(&mut performer, byte);
         } else {
-            self.advance_sync(handler, byte, writer);
+            self.advance_sync(handler, byte);
         }
     }
 
     /// End a synchronized update.
-    pub fn stop_sync<H, W>(&mut self, handler: &mut H, writer: &mut W)
+    pub fn stop_sync<H>(&mut self, handler: &mut H)
     where
         H: Handler,
-        W: io::Write,
     {
         // Process all synchronized bytes.
         for i in 0..self.state.sync_state.buffer.len() {
             let byte = self.state.sync_state.buffer[i];
-            let mut performer = Performer::new(&mut self.state, handler, writer);
+            let mut performer = Performer::new(&mut self.state, handler);
             self.parser.advance(&mut performer, byte);
         }
 
@@ -202,16 +200,15 @@ impl Processor {
 
     /// Process a new byte during a synchronized update.
     #[cold]
-    fn advance_sync<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    fn advance_sync<H>(&mut self, handler: &mut H, byte: u8)
     where
         H: Handler,
-        W: io::Write,
     {
         self.state.sync_state.buffer.push(byte);
 
         // Handle sync DCS escape sequences.
         match self.state.sync_state.pending_dcs {
-            Some(_) => self.advance_sync_dcs_end(handler, byte, writer),
+            Some(_) => self.advance_sync_dcs_end(handler, byte),
             None => self.advance_sync_dcs_start(),
         }
     }
@@ -232,10 +229,9 @@ impl Processor {
     }
 
     /// Parse the DCS termination sequence for synchronized updates.
-    fn advance_sync_dcs_end<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    fn advance_sync_dcs_end<H>(&mut self, handler: &mut H, byte: u8)
     where
         H: Handler,
-        W: io::Write,
     {
         match byte {
             // Ignore DCS passthrough characters.
@@ -247,7 +243,7 @@ impl Processor {
                 Some(Dcs::SyncStart) => {
                     self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
                 },
-                Some(Dcs::SyncEnd) => self.stop_sync(handler, writer),
+                Some(Dcs::SyncEnd) => self.stop_sync(handler),
                 Some(Dcs::SixelData(_)) => (),
                 None => (),
             },
@@ -259,21 +255,16 @@ impl Processor {
 ///
 /// Processor creates a Performer when running advance and passes the Performer
 /// to `vte::Parser`.
-struct Performer<'a, H: Handler, W: io::Write> {
+struct Performer<'a, H: Handler> {
     state: &'a mut ProcessorState,
     handler: &'a mut H,
-    writer: &'a mut W,
 }
 
-impl<'a, H: Handler + 'a, W: io::Write> Performer<'a, H, W> {
+impl<'a, H: Handler + 'a> Performer<'a, H> {
     /// Create a performer.
     #[inline]
-    pub fn new<'b>(
-        state: &'b mut ProcessorState,
-        handler: &'b mut H,
-        writer: &'b mut W,
-    ) -> Performer<'b, H, W> {
-        Performer { state, handler, writer }
+    pub fn new<'b>(state: &'b mut ProcessorState, handler: &'b mut H) -> Performer<'b, H> {
+        Performer { state, handler }
     }
 }
 
@@ -313,10 +304,10 @@ pub trait Handler {
     fn move_down(&mut self, _: usize) {}
 
     /// Identify the terminal (should write back to the pty stream).
-    fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {}
+    fn identify_terminal(&mut self, _intermediate: Option<char>) {}
 
     /// Report device status.
-    fn device_status<W: io::Write>(&mut self, _: &mut W, _: usize) {}
+    fn device_status(&mut self, _: usize) {}
 
     /// Move cursor forward `cols`.
     fn move_forward(&mut self, _: Column) {}
@@ -466,13 +457,13 @@ pub trait Handler {
     fn pop_title(&mut self) {}
 
     /// Report text area size in pixels.
-    fn text_area_size_pixels<W: io::Write>(&mut self, _: &mut W) {}
+    fn text_area_size_pixels(&mut self) {}
 
     /// Report text area size in characters.
-    fn text_area_size_chars<W: io::Write>(&mut self, _: &mut W) {}
+    fn text_area_size_chars(&mut self) {}
 
     /// Report a graphics attribute.
-    fn graphics_attribute<W: io::Write>(&mut self, _: &mut W, _: u16, _: u16) {}
+    fn graphics_attribute(&mut self, _: u16, _: u16) {}
 
     /// Create a parser for Sixel data.
     fn start_sixel_graphic(&mut self, _params: &Params) -> Option<Box<sixel::Parser>> {
@@ -905,10 +896,9 @@ impl StandardCharset {
     }
 }
 
-impl<'a, H, W> vte::Perform for Performer<'a, H, W>
+impl<'a, H> vte::Perform for Performer<'a, H>
 where
     H: Handler + 'a,
-    W: io::Write + 'a,
 {
     #[inline]
     fn print(&mut self, c: char) {
@@ -1154,7 +1144,6 @@ where
 
         let mut params_iter = params.iter();
         let handler = &mut self.handler;
-        let writer = &mut self.writer;
 
         let mut next_param_or = |default: u16| {
             params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
@@ -1175,7 +1164,7 @@ where
             },
             ('C', []) | ('a', []) => handler.move_forward(Column(next_param_or(1) as usize)),
             ('c', intermediates) if next_param_or(0) == 0 => {
-                handler.identify_terminal(writer, intermediates.get(0).map(|&i| i as char))
+                handler.identify_terminal(intermediates.get(0).map(|&i| i as char))
             },
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
             ('d', []) => handler.goto_line(Line(next_param_or(1) as i32 - 1)),
@@ -1257,7 +1246,7 @@ where
                     }
                 }
             },
-            ('n', []) => handler.device_status(writer, next_param_or(0) as usize),
+            ('n', []) => handler.device_status(next_param_or(0) as usize),
             ('P', []) => handler.delete_chars(next_param_or(1) as usize),
             ('q', [b' ']) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
@@ -1285,12 +1274,12 @@ where
                 handler.set_scrolling_region(top, bottom);
             },
             ('S', []) => handler.scroll_up(next_param_or(1) as usize),
-            ('S', [b'?']) => handler.graphics_attribute(writer, next_param_or(0), next_param_or(0)),
+            ('S', [b'?']) => handler.graphics_attribute(next_param_or(0), next_param_or(0)),
             ('s', []) => handler.save_cursor_position(),
             ('T', []) => handler.scroll_down(next_param_or(1) as usize),
             ('t', []) => match next_param_or(1) as usize {
-                14 => handler.text_area_size_pixels(writer),
-                18 => handler.text_area_size_chars(writer),
+                14 => handler.text_area_size_pixels(),
+                18 => handler.text_area_size_chars(),
                 22 => handler.push_title(),
                 23 => handler.pop_title(),
                 _ => unhandled!(),
@@ -1338,7 +1327,7 @@ where
             },
             (b'H', []) => self.handler.set_horizontal_tabstop(),
             (b'M', []) => self.handler.reverse_index(),
-            (b'Z', []) => self.handler.identify_terminal(self.writer, None),
+            (b'Z', []) => self.handler.identify_terminal(None),
             (b'c', []) => self.handler.reset_state(),
             (b'0', intermediates) => {
                 configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing, intermediates)
@@ -1534,11 +1523,9 @@ pub mod C0 {
 // Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
 mod tests {
-    use super::{
-        parse_number, xparse_color, Attr, CharsetIndex, Color, Handler, Processor, StandardCharset,
-    };
+    use super::*;
+
     use crate::term::color::Rgb;
-    use std::io;
 
     struct MockHandler {
         index: CharsetIndex,
@@ -1561,7 +1548,7 @@ mod tests {
             self.index = index;
         }
 
-        fn identify_terminal<W: io::Write>(&mut self, _: &mut W, _intermediate: Option<char>) {
+        fn identify_terminal(&mut self, _intermediate: Option<char>) {
             self.identity_reported = true;
         }
 
@@ -1589,7 +1576,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in BYTES {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert_eq!(handler.attr, Some(Attr::Bold));
@@ -1603,7 +1590,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in bytes {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert!(!handler.identity_reported);
@@ -1612,7 +1599,7 @@ mod tests {
         let bytes: &[u8] = &[0x1b, b'[', b'c'];
 
         for byte in bytes {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert!(handler.identity_reported);
@@ -1621,7 +1608,7 @@ mod tests {
         let bytes: &[u8] = &[0x1b, b'[', b'0', b'c'];
 
         for byte in bytes {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert!(handler.identity_reported);
@@ -1635,7 +1622,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in bytes {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert!(handler.identity_reported);
@@ -1647,7 +1634,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in bytes {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert!(!handler.identity_reported);
@@ -1665,7 +1652,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in BYTES {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         let spec = Rgb { r: 128, g: 66, b: 255 };
@@ -1696,7 +1683,7 @@ mod tests {
         let mut parser = Processor::new();
 
         for byte in BYTES {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
     }
 
@@ -1707,7 +1694,7 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in BYTES {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert_eq!(handler.index, CharsetIndex::G0);
@@ -1721,14 +1708,14 @@ mod tests {
         let mut handler = MockHandler::default();
 
         for byte in &BYTES[..3] {
-            parser.advance(&mut handler, *byte, &mut io::sink());
+            parser.advance(&mut handler, *byte);
         }
 
         assert_eq!(handler.index, CharsetIndex::G1);
         assert_eq!(handler.charset, StandardCharset::SpecialCharacterAndLineDrawing);
 
         let mut handler = MockHandler::default();
-        parser.advance(&mut handler, BYTES[3], &mut io::sink());
+        parser.advance(&mut handler, BYTES[3]);
 
         assert_eq!(handler.index, CharsetIndex::G1);
     }

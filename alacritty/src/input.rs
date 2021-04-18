@@ -22,7 +22,7 @@ use glutin::window::CursorIcon;
 use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
+use alacritty_terminal::index::{Boundary, Column, Direction, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
@@ -31,12 +31,12 @@ use alacritty_terminal::vi_mode::ViMotion;
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
 use crate::daemon::start_daemon;
-use crate::display::hint::HintState;
+use crate::display::hint::HintMatch;
 use crate::display::window::Window;
+use crate::display::Display;
 use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
-use crate::url::{Url, Urls};
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -75,8 +75,8 @@ pub trait ActionContext<T: EventListener> {
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
     fn scroll(&mut self, _scroll: Scroll) {}
-    fn window(&self) -> &Window;
-    fn window_mut(&mut self) -> &mut Window;
+    fn window(&mut self) -> &mut Window;
+    fn display(&mut self) -> &mut Display;
     fn terminal(&self) -> &Term<T>;
     fn terminal_mut(&mut self) -> &mut Term<T>;
     fn spawn_new_instance(&mut self) {}
@@ -86,9 +86,6 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
-    fn urls(&self) -> &Urls;
-    fn launch_url(&self, _url: Url) {}
-    fn highlighted_url(&self) -> Option<&Url>;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
@@ -105,8 +102,8 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
-    fn hint_state(&mut self) -> &mut HintState;
     fn hint_input(&mut self, _character: char) {}
+    fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn paste(&mut self, _text: &str) {}
 }
 
@@ -142,7 +139,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Command(program) => start_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
-                ctx.hint_state().start(hint.clone());
+                ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();
             },
             Action::ToggleViMode => ctx.toggle_vi_mode(),
@@ -164,12 +161,12 @@ impl<T: EventListener> Execute<T> for Action {
                 Self::toggle_selection(ctx, SelectionType::Semantic);
             },
             Action::ViAction(ViAction::Open) => {
-                ctx.mouse_mut().block_url_launcher = false;
-                let vi_point = ctx.terminal().vi_mode_cursor.point;
-                let line = (vi_point.line + ctx.terminal().grid().display_offset()).0 as usize;
-                if let Some(url) = ctx.urls().find_at(Point::new(line, vi_point.column)) {
-                    ctx.launch_url(url);
+                let hint = ctx.display().vi_highlighted_hint.take();
+                if let Some(hint) = &hint {
+                    ctx.mouse_mut().block_hint_launcher = false;
+                    ctx.trigger_hint(hint);
                 }
+                ctx.display().vi_highlighted_hint = hint;
             },
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
@@ -250,11 +247,13 @@ impl<T: EventListener> Execute<T> for Action {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 ctx.paste(&text);
             },
-            Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
+            Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
-            Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
+            Action::ToggleSimpleFullscreen => ctx.window().toggle_simple_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::Hide => ctx.event_loop().hide_application(),
+            #[cfg(target_os = "macos")]
+            Action::HideOtherApplications => ctx.event_loop().hide_other_applications(),
             #[cfg(not(target_os = "macos"))]
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
@@ -325,25 +324,6 @@ impl<T: EventListener> Execute<T> for Action {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum MouseState {
-    Url(Url),
-    MessageBar,
-    MessageBarButton,
-    Mouse,
-    Text,
-}
-
-impl From<MouseState> for CursorIcon {
-    fn from(mouse_state: MouseState) -> CursorIcon {
-        match mouse_state {
-            MouseState::Url(_) | MouseState::MessageBarButton => CursorIcon::Hand,
-            MouseState::Text => CursorIcon::Text,
-            _ => CursorIcon::Default,
-        }
-    }
-}
-
 impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     pub fn new(ctx: A) -> Self {
         Self { ctx, _phantom: Default::default() }
@@ -361,22 +341,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.update_selection_scrolling(y);
         }
 
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let old_point = self.ctx.mouse().point(&size_info, display_offset);
+
         let x = min(max(x, 0), size_info.width() as i32 - 1) as usize;
         let y = min(max(y, 0), size_info.height() as i32 - 1) as usize;
-
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
         let inside_text_area = size_info.contains_point(x, y);
-        let point = self.coords_to_point(x, y);
         let cell_side = self.cell_side(x);
 
-        let cell_changed = point != self.ctx.mouse().point;
-
-        // Update mouse state and check for URL change.
-        let mouse_state = self.mouse_state();
-        self.update_url_state(&mouse_state);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+        let point = self.ctx.mouse().point(&size_info, display_offset);
+        let cell_changed = old_point != point;
 
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
@@ -388,18 +365,21 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
-        self.ctx.mouse_mut().point = point;
+
+        // Update mouse state and check for URL change.
+        let mouse_state = self.cursor_state();
+        self.ctx.window().set_mouse_cursor(mouse_state);
+
+        // Prompt hint highlight update.
+        self.ctx.mouse_mut().hint_highlight_dirty = true;
 
         // Don't launch URLs if mouse has moved.
-        self.ctx.mouse_mut().block_url_launcher = true;
+        self.ctx.mouse_mut().block_hint_launcher = true;
 
         if (lmb_pressed || rmb_pressed) && (self.ctx.modifiers().shift() || !self.ctx.mouse_mode())
         {
-            let line = Line(point.line as i32) - self.ctx.terminal().grid().display_offset();
-            let point = Point::new(line, point.column);
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
-            && point.line < self.ctx.terminal().screen_lines()
             && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG)
         {
             if lmb_pressed {
@@ -412,23 +392,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_report(35, ElementState::Pressed);
             }
         }
-    }
-
-    /// Convert window space pixels to terminal grid coordinates.
-    ///
-    /// If the coordinates are outside of the terminal grid, like positions inside the padding, the
-    /// coordinates will be clamped to the closest grid coordinates.
-    #[inline]
-    fn coords_to_point(&self, x: usize, y: usize) -> Point<usize> {
-        let size = self.ctx.size_info();
-
-        let column = x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let column = min(Column(column), size.last_column());
-
-        let line = y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let line = min(line, size.bottommost_line().0 as usize);
-
-        Point::new(line, column)
     }
 
     /// Check which side of a cell an X coordinate lies on.
@@ -453,13 +416,45 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn normal_mouse_report(&mut self, button: u8) {
-        let Point { line, column } = self.ctx.mouse().point;
+    fn mouse_report(&mut self, button: u8, state: ElementState) {
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+
+        // Assure the mouse point is not in the scrollback.
+        if point.line < 0 {
+            return;
+        }
+
+        // Calculate modifiers value.
+        let mut mods = 0;
+        let modifiers = self.ctx.modifiers();
+        if modifiers.shift() {
+            mods += 4;
+        }
+        if modifiers.alt() {
+            mods += 8;
+        }
+        if modifiers.ctrl() {
+            mods += 16;
+        }
+
+        // Report mouse events.
+        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
+            self.sgr_mouse_report(point, button + mods, state);
+        } else if let ElementState::Released = state {
+            self.normal_mouse_report(point, 3 + mods);
+        } else {
+            self.normal_mouse_report(point, button + mods);
+        }
+    }
+
+    fn normal_mouse_report(&mut self, point: Point, button: u8) {
+        let Point { line, column } = point;
         let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
         let max_point = if utf8 { 2015 } else { 223 };
 
-        if line >= max_point || column >= Column(max_point) {
+        if line >= max_point || column >= max_point {
             return;
         }
 
@@ -479,47 +474,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         if utf8 && line >= 95 {
-            msg.append(&mut mouse_pos_encode(line));
+            msg.append(&mut mouse_pos_encode(line.0 as usize));
         } else {
-            msg.push(32 + 1 + line as u8);
+            msg.push(32 + 1 + line.0 as u8);
         }
 
         self.ctx.write_to_pty(msg);
     }
 
-    fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
-        let Point { line, column } = self.ctx.mouse().point;
+    fn sgr_mouse_report(&mut self, point: Point, button: u8, state: ElementState) {
         let c = match state {
             ElementState::Pressed => 'M',
             ElementState::Released => 'm',
         };
 
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
+        let msg = format!("\x1b[<{};{};{}{}", button, point.column + 1, point.line + 1, c);
         self.ctx.write_to_pty(msg.into_bytes());
-    }
-
-    fn mouse_report(&mut self, button: u8, state: ElementState) {
-        // Calculate modifiers value.
-        let mut mods = 0;
-        let modifiers = self.ctx.modifiers();
-        if modifiers.shift() {
-            mods += 4;
-        }
-        if modifiers.alt() {
-            mods += 8;
-        }
-        if modifiers.ctrl() {
-            mods += 16;
-        }
-
-        // Report mouse events.
-        if self.ctx.terminal().mode().contains(TermMode::SGR_MOUSE) {
-            self.sgr_mouse_report(button + mods, state);
-        } else if let ElementState::Released = state {
-            self.normal_mouse_report(3 + mods);
-        } else {
-            self.normal_mouse_report(button + mods);
-        }
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
@@ -560,10 +530,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
 
             // Load mouse point, treating message bar and padding as the closest cell.
-            let point = self.ctx.mouse().point;
             let display_offset = self.ctx.terminal().grid().display_offset();
-            let absolute_line = Line(point.line as i32) - display_offset;
-            let point = Point::new(absolute_line, point.column);
+            let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
 
             match button {
                 MouseButton::Left => self.on_left_click(point),
@@ -617,7 +585,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         match self.ctx.mouse().click_state {
             ClickState::Click => {
                 // Don't launch URLs if this click cleared the selection.
-                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+                self.ctx.mouse_mut().block_hint_launcher = !self.ctx.selection_is_empty();
 
                 self.ctx.clear_selection();
 
@@ -629,11 +597,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 }
             },
             ClickState::DoubleClick => {
-                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.mouse_mut().block_hint_launcher = true;
                 self.ctx.start_selection(SelectionType::Semantic, point, side);
             },
             ClickState::TripleClick => {
-                self.ctx.mouse_mut().block_url_launcher = true;
+                self.ctx.mouse_mut().block_hint_launcher = true;
                 self.ctx.start_selection(SelectionType::Lines, point, side);
             },
             ClickState::None => (),
@@ -656,11 +624,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             };
             self.mouse_report(code, ElementState::Released);
             return;
-        } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
-            self.ctx.launch_url(url);
         }
 
+        // Trigger hints highlighted by the mouse.
+        let hint = self.ctx.display().highlighted_hint.take();
+        if let Some(hint) = hint.as_ref().filter(|_| button == MouseButton::Left) {
+            self.ctx.trigger_hint(hint);
+        }
+        self.ctx.display().highlighted_hint = hint;
+
         self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
+
+        // Copy selection on release, to prevent flooding the display server.
+        self.ctx.copy_selection(ClipboardType::Selection);
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -746,7 +722,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         // Skip normal mouse events if the message bar has been clicked.
-        if self.message_bar_mouse_state() == Some(MouseState::MessageBarButton)
+        if self.message_bar_cursor_state() == Some(CursorIcon::Hand)
             && state == ElementState::Pressed
         {
             let size = self.ctx.size_info();
@@ -771,7 +747,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 },
             };
 
-            self.ctx.window_mut().set_mouse_cursor(new_icon);
+            self.ctx.window().set_mouse_cursor(new_icon);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -786,7 +762,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process key input.
     pub fn key_input(&mut self, input: KeyboardInput) {
         // All key bindings are disabled while a hint is being selected.
-        if self.ctx.hint_state().active() {
+        if self.ctx.display().hint_state.active() {
             *self.ctx.suppress_chars() = false;
             return;
         }
@@ -811,17 +787,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     pub fn modifiers_input(&mut self, modifiers: ModifiersState) {
         *self.ctx.modifiers() = modifiers;
 
+        // Prompt hint highlight update.
+        self.ctx.mouse_mut().hint_highlight_dirty = true;
+
         // Update mouse state and check for URL change.
-        let mouse_state = self.mouse_state();
-        self.update_url_state(&mouse_state);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+        let mouse_state = self.cursor_state();
+        self.ctx.window().set_mouse_cursor(mouse_state);
     }
 
     /// Reset mouse cursor based on modifier and terminal state.
     #[inline]
     pub fn reset_mouse_cursor(&mut self) {
-        let mouse_state = self.mouse_state();
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+        let mouse_state = self.cursor_state();
+        self.ctx.window().set_mouse_cursor(mouse_state);
     }
 
     /// Process a received character.
@@ -829,7 +807,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let suppress_chars = *self.ctx.suppress_chars();
 
         // Handle hint selection over anything else.
-        if self.ctx.hint_state().active() && !suppress_chars {
+        if self.ctx.display().hint_state.active() && !suppress_chars {
             self.ctx.hint_input(c);
             return;
         }
@@ -923,8 +901,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    /// Check mouse state in relation to the message bar.
-    fn message_bar_mouse_state(&self) -> Option<MouseState> {
+    /// Check mouse icon state in relation to the message bar.
+    fn message_bar_cursor_state(&self) -> Option<CursorIcon> {
         // Since search is above the message bar, the button is offset by search's height.
         let search_height = if self.ctx.search_active() { 1 } else { 0 };
 
@@ -934,58 +912,36 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             + size.cell_height() as usize * (size.screen_lines() + search_height);
 
         let mouse = self.ctx.mouse();
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+
         if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
             None
         } else if mouse.y <= terminal_end + size.cell_height() as usize
-            && mouse.point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
+            && point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
         {
-            Some(MouseState::MessageBarButton)
+            Some(CursorIcon::Hand)
         } else {
-            Some(MouseState::MessageBar)
+            Some(CursorIcon::Default)
         }
     }
 
-    /// Trigger redraw when URL highlight changed.
-    #[inline]
-    fn update_url_state(&mut self, mouse_state: &MouseState) {
-        let highlighted_url = self.ctx.highlighted_url();
-        if let MouseState::Url(url) = mouse_state {
-            if Some(url) != highlighted_url {
-                self.ctx.mark_dirty();
-            }
-        } else if highlighted_url.is_some() {
-            self.ctx.mark_dirty();
-        }
-    }
+    /// Icon state of the cursor.
+    fn cursor_state(&mut self) -> CursorIcon {
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
 
-    /// Location of the mouse cursor.
-    fn mouse_state(&mut self) -> MouseState {
-        // Check message bar before URL to ignore URLs in the message bar.
-        if let Some(mouse_state) = self.message_bar_mouse_state() {
-            return mouse_state;
-        }
+        // Function to check if mouse is on top of a hint.
+        let hint_highlighted = |hint: &HintMatch| hint.bounds.contains(&point);
 
-        let mouse_mode = self.ctx.mouse_mode();
-
-        // Check for URL at mouse cursor.
-        let mods = *self.ctx.modifiers();
-        let highlighted_url = self.ctx.urls().highlighted(
-            self.ctx.config(),
-            self.ctx.mouse(),
-            mods,
-            mouse_mode,
-            !self.ctx.selection_is_empty(),
-        );
-
-        if let Some(url) = highlighted_url {
-            return MouseState::Url(url);
-        }
-
-        // Check mouse mode if location is not special.
-        if !self.ctx.modifiers().shift() && mouse_mode {
-            MouseState::Mouse
+        if let Some(mouse_state) = self.message_bar_cursor_state() {
+            mouse_state
+        } else if self.ctx.display().highlighted_hint.as_ref().map_or(false, hint_highlighted) {
+            CursorIcon::Hand
+        } else if !self.ctx.modifiers().shift() && self.ctx.mouse_mode() {
+            CursorIcon::Default
         } else {
-            MouseState::Text
+            CursorIcon::Text
         }
     }
 
@@ -1127,11 +1083,11 @@ mod tests {
             &mut self.modifiers
         }
 
-        fn window(&self) -> &Window {
+        fn window(&mut self) -> &mut Window {
             unimplemented!();
         }
 
-        fn window_mut(&mut self) -> &mut Window {
+        fn display(&mut self) -> &mut Display {
             unimplemented!();
         }
 
@@ -1155,19 +1111,7 @@ mod tests {
             unimplemented!();
         }
 
-        fn urls(&self) -> &Urls {
-            unimplemented!();
-        }
-
-        fn highlighted_url(&self) -> Option<&Url> {
-            unimplemented!();
-        }
-
         fn scheduler_mut(&mut self) -> &mut Scheduler {
-            unimplemented!();
-        }
-
-        fn hint_state(&mut self) -> &mut HintState {
             unimplemented!();
         }
     }

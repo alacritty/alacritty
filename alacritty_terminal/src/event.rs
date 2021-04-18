@@ -35,6 +35,9 @@ pub enum Event {
     /// expected escape sequence format.
     ColorRequest(usize, Arc<dyn Fn(Rgb) -> String + Sync + Send + 'static>),
 
+    /// Write some text to the PTY.
+    PtyWrite(String),
+
     /// Cursor blinking state has changed.
     CursorBlinkingChange(bool),
 
@@ -57,6 +60,7 @@ impl Debug for Event {
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
             Event::ColorRequest(index, _) => write!(f, "ColorRequest({})", index),
+            Event::PtyWrite(text) => write!(f, "PtyWrite({})", text),
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),

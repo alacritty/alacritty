@@ -19,14 +19,11 @@ use alacritty_terminal::term::{
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
-use crate::display::Display;
+use crate::display::{self, Display, MAX_SEARCH_LINES};
 use crate::event::SearchState;
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
-
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-const MAX_SEARCH_LINES: usize = 100;
 
 /// Renderable terminal content.
 ///
@@ -139,8 +136,8 @@ impl<'a> RenderableContent<'a> {
 
         // Convert cursor point to viewport position.
         let cursor_point = self.terminal_cursor.point;
-        let line = (cursor_point.line + self.terminal_content.display_offset as i32).0 as usize;
-        let point = Point::new(line, cursor_point.column);
+        let display_offset = self.terminal_content.display_offset;
+        let point = display::point_to_viewport(display_offset, cursor_point).unwrap();
 
         Some(RenderableCursor {
             shape: self.terminal_cursor.shape,
@@ -221,10 +218,12 @@ impl RenderableCell {
             .selection
             .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
 
+        let display_offset = content.terminal_content.display_offset;
+        let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
+        let colors = &content.config.ui_config.colors;
         let mut character = cell.c;
 
-        let colors = &content.config.ui_config.colors;
-        if let Some((c, is_first)) = content.hint.advance(cell.point) {
+        if let Some((c, is_first)) = content.hint.advance(viewport_start, cell.point) {
             let (config_fg, config_bg) = if is_first {
                 (colors.hints.start.foreground, colors.hints.start.background)
             } else {
@@ -260,8 +259,7 @@ impl RenderableCell {
 
         // Convert cell point to viewport position.
         let cell_point = cell.point;
-        let line = (cell_point.line + content.terminal_content.display_offset as i32).0 as usize;
-        let point = Point::new(line, cell_point.column);
+        let point = display::point_to_viewport(display_offset, cell_point).unwrap();
 
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
@@ -412,7 +410,7 @@ impl<'a> Hint<'a> {
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
-    fn advance(&mut self, point: Point) -> Option<(char, bool)> {
+    fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
         // Check if we're within a match at all.
         if !self.regex.advance(point) {
             return None;
@@ -423,7 +421,7 @@ impl<'a> Hint<'a> {
             .regex
             .matches
             .get(self.regex.index)
-            .map(|regex_match| regex_match.start())
+            .map(|regex_match| max(*regex_match.start(), viewport_start))
             .filter(|start| start.line == point.line)?;
 
         // Position within the hint label.
@@ -444,7 +442,7 @@ impl<'a> From<&'a HintState> for Hint<'a> {
 
 /// Wrapper for finding visible regex matches.
 #[derive(Default, Clone)]
-pub struct RegexMatches(Vec<RangeInclusive<Point>>);
+pub struct RegexMatches(pub Vec<RangeInclusive<Point>>);
 
 impl RegexMatches {
     /// Find all visible matches.

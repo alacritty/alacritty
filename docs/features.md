@@ -27,13 +27,6 @@ line (<kbd>Shift</kbd> <kbd>v</kbd>) and block selection (<kbd>Ctrl</kbd>
 <kbd>v</kbd>). You can also toggle between them while the selection is still
 active.
 
-### Opening URLs
-
-While in vi mode you can open URLs using the <kbd>Enter</kbd> key. If some text
-is recognized as a URL, it will be underlined once you move the vi cursor above
-it. The program used to open these URLs can be changed in the [configuration
-file].
-
 ## Search
 
 Search allows you to find anything in Alacritty's scrollback buffer. You can
@@ -60,6 +53,11 @@ Terminal hints allow easily interacting with visible text without having to
 start vi mode. They consist of a regex that detects these text elements and then
 either feeds them to an external application or triggers one of Alacritty's
 built-in actions.
+
+Hints can also be triggered using the mouse or vi mode cursor. If a hint is
+enabled for mouse interaction and recognized as such, it will be underlined when
+the mouse or vi mode cursor is on top of it. Using the left mouse button or
+<kbd>Enter</kbd> key in vi mode will then trigger the hint.
 
 Hints can be configured in the `hints` and `colors.hints` sections in the
 Alacritty configuration file.
