@@ -102,14 +102,6 @@ impl<'a> RenderableContent<'a> {
             return None;
         }
 
-        // Expand across wide cell when inside wide char or spacer.
-        let is_wide = if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-            self.terminal_cursor.point.column -= 1;
-            true
-        } else {
-            cell.flags.contains(Flags::WIDE_CHAR)
-        };
-
         // Cursor colors.
         let color = if self.terminal_content.mode.contains(TermMode::VI) {
             self.config.ui_config.colors.vi_mode_cursor
@@ -139,10 +131,10 @@ impl<'a> RenderableContent<'a> {
         let point = display::point_to_viewport(display_offset, cursor_point).unwrap();
 
         Some(RenderableCursor {
+            is_wide: cell.flags.contains(Flags::WIDE_CHAR),
             shape: self.terminal_cursor.shape,
             cursor_color,
             text_color,
-            is_wide,
             point,
         })
     }
