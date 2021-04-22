@@ -1786,7 +1786,10 @@ impl RenderableCursor {
     fn new<T>(term: &Term<T>) -> Self {
         // Cursor position.
         let vi_mode = term.mode().contains(TermMode::VI);
-        let point = if vi_mode { term.vi_mode_cursor.point } else { term.grid.cursor.point };
+        let mut point = if vi_mode { term.vi_mode_cursor.point } else { term.grid.cursor.point };
+        if term.grid[point].flags.contains(Flags::WIDE_CHAR_SPACER) {
+            point.column -= 1;
+        }
 
         // Cursor shape.
         let shape = if !vi_mode && !term.mode().contains(TermMode::SHOW_CURSOR) {
