@@ -761,13 +761,35 @@ impl<T> Term<T> {
 
     /// Write `c` to the cell at the cursor position.
     #[inline(always)]
-    fn write_at_cursor(&mut self, c: char) -> &mut Cell {
+    fn write_at_cursor(&mut self, c: char) {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
         let flags = self.grid.cursor.template.flags;
 
-        let cursor_cell = self.grid.cursor_cell();
+        let mut cursor_cell = self.grid.cursor_cell();
+
+        // Clear all related cells when overwriting a fullwidth cell.
+        if cursor_cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) {
+            // Remove wide char and spacer.
+            let wide = cursor_cell.flags.contains(Flags::WIDE_CHAR);
+            let point = self.grid.cursor.point;
+            if wide {
+                self.grid[point.line][point.column + 1].flags.remove(Flags::WIDE_CHAR_SPACER);
+            } else {
+                let cell = &mut self.grid[point.line][point.column - 1];
+                cell.flags.remove(Flags::WIDE_CHAR);
+                cell.c = ' ';
+            }
+
+            // Remove leading spacers.
+            if point.column <= 1 && point.line != self.topmost_line() {
+                let column = self.last_column();
+                self.grid[point.line - 1i32][column].flags.remove(Flags::LEADING_WIDE_CHAR_SPACER);
+            }
+
+            cursor_cell = self.grid.cursor_cell();
+        }
 
         cursor_cell.drop_extra();
 
@@ -775,8 +797,6 @@ impl<T> Term<T> {
         cursor_cell.fg = fg;
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
-
-        cursor_cell
     }
 }
 
@@ -850,7 +870,9 @@ impl<T: EventListener> Handler for Term<T> {
             if self.grid.cursor.point.column + 1 >= num_cols {
                 if self.mode.contains(TermMode::LINE_WRAP) {
                     // Insert placeholder before wide char if glyph does not fit in this row.
-                    self.write_at_cursor(' ').flags.insert(Flags::LEADING_WIDE_CHAR_SPACER);
+                    self.grid.cursor.template.flags.insert(Flags::LEADING_WIDE_CHAR_SPACER);
+                    self.write_at_cursor(' ');
+                    self.grid.cursor.template.flags.remove(Flags::LEADING_WIDE_CHAR_SPACER);
                     self.wrapline();
                 } else {
                     // Prevent out of bounds crash when linewrapping is disabled.
@@ -860,11 +882,15 @@ impl<T: EventListener> Handler for Term<T> {
             }
 
             // Write full width glyph to current cursor cell.
-            self.write_at_cursor(c).flags.insert(Flags::WIDE_CHAR);
+            self.grid.cursor.template.flags.insert(Flags::WIDE_CHAR);
+            self.write_at_cursor(c);
+            self.grid.cursor.template.flags.remove(Flags::WIDE_CHAR);
 
             // Write spacer to cell following the wide glyph.
             self.grid.cursor.point.column += 1;
-            self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
+            self.grid.cursor.template.flags.insert(Flags::WIDE_CHAR_SPACER);
+            self.write_at_cursor(' ');
+            self.grid.cursor.template.flags.remove(Flags::WIDE_CHAR_SPACER);
         }
 
         if self.grid.cursor.point.column + 1 < num_cols {

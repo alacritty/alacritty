@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Incorrect underline cursor thickness on wide cell
 - Viewport moving around when resizing while scrolled into history
 - Block cursor not expanding across fullwidth characters when on the right side of it
+- Overwriting fullwidth characters only clearing one of the involved cells
 
 ### Removed
 
