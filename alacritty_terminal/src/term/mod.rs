@@ -798,6 +798,14 @@ impl<T> Term<T> {
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
     }
+
+    /// Write `c` at the cell with a temporary flag set for the template cell.
+    #[inline(always)]
+    fn write_at_cursor_with_flag(&mut self, c: char, flag: Flags) {
+        self.grid.cursor.template.flags.insert(flag);
+        self.write_at_cursor(c);
+        self.grid.cursor.template.flags.remove(flag);
+    }
 }
 
 impl<T> Dimensions for Term<T> {
@@ -830,18 +838,18 @@ impl<T: EventListener> Handler for Term<T> {
         // Handle zero-width characters.
         if width == 0 {
             // Get previous column.
-            let mut col = self.grid.cursor.point.column.0;
+            let mut column = self.grid.cursor.point.column;
             if !self.grid.cursor.input_needs_wrap {
-                col = col.saturating_sub(1);
+                column.0 = column.saturating_sub(1);
             }
 
             // Put zerowidth characters over first fullwidth character cell.
             let line = self.grid.cursor.point.line;
-            if self.grid[line][Column(col)].flags.contains(Flags::WIDE_CHAR_SPACER) {
-                col = col.saturating_sub(1);
+            if self.grid[line][column].flags.contains(Flags::WIDE_CHAR_SPACER) {
+                column.0 = column.saturating_sub(1);
             }
 
-            self.grid[line][Column(col)].push_zerowidth(c);
+            self.grid[line][column].push_zerowidth(c);
             return;
         }
 
@@ -850,16 +858,14 @@ impl<T: EventListener> Handler for Term<T> {
             self.wrapline();
         }
 
-        let num_cols = self.columns();
-
         // If in insert mode, first shift cells to the right.
-        if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.column + width < num_cols
-        {
+        let columns = self.columns();
+        if self.mode.contains(TermMode::INSERT) && self.grid.cursor.point.column + width < columns {
             let line = self.grid.cursor.point.line;
             let col = self.grid.cursor.point.column;
             let row = &mut self.grid[line][..];
 
-            for col in (col.0..(num_cols - width)).rev() {
+            for col in (col.0..(columns - width)).rev() {
                 row.swap(col + width, col);
             }
         }
@@ -867,12 +873,10 @@ impl<T: EventListener> Handler for Term<T> {
         if width == 1 {
             self.write_at_cursor(c);
         } else {
-            if self.grid.cursor.point.column + 1 >= num_cols {
+            if self.grid.cursor.point.column + 1 >= columns {
                 if self.mode.contains(TermMode::LINE_WRAP) {
                     // Insert placeholder before wide char if glyph does not fit in this row.
-                    self.grid.cursor.template.flags.insert(Flags::LEADING_WIDE_CHAR_SPACER);
-                    self.write_at_cursor(' ');
-                    self.grid.cursor.template.flags.remove(Flags::LEADING_WIDE_CHAR_SPACER);
+                    self.write_at_cursor_with_flag(' ', Flags::LEADING_WIDE_CHAR_SPACER);
                     self.wrapline();
                 } else {
                     // Prevent out of bounds crash when linewrapping is disabled.
@@ -882,18 +886,14 @@ impl<T: EventListener> Handler for Term<T> {
             }
 
             // Write full width glyph to current cursor cell.
-            self.grid.cursor.template.flags.insert(Flags::WIDE_CHAR);
-            self.write_at_cursor(c);
-            self.grid.cursor.template.flags.remove(Flags::WIDE_CHAR);
+            self.write_at_cursor_with_flag(c, Flags::WIDE_CHAR);
 
             // Write spacer to cell following the wide glyph.
             self.grid.cursor.point.column += 1;
-            self.grid.cursor.template.flags.insert(Flags::WIDE_CHAR_SPACER);
-            self.write_at_cursor(' ');
-            self.grid.cursor.template.flags.remove(Flags::WIDE_CHAR_SPACER);
+            self.write_at_cursor_with_flag(' ', Flags::WIDE_CHAR_SPACER);
         }
 
-        if self.grid.cursor.point.column + 1 < num_cols {
+        if self.grid.cursor.point.column + 1 < columns {
             self.grid.cursor.point.column += 1;
         } else {
             self.grid.cursor.input_needs_wrap = true;
