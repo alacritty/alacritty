@@ -777,9 +777,7 @@ impl<T> Term<T> {
             if wide {
                 self.grid[point.line][point.column + 1].flags.remove(Flags::WIDE_CHAR_SPACER);
             } else {
-                let cell = &mut self.grid[point.line][point.column - 1];
-                cell.flags.remove(Flags::WIDE_CHAR);
-                cell.c = ' ';
+                self.grid[point.line][point.column - 1].clear_wide();
             }
 
             // Remove leading spacers.
