@@ -228,7 +228,7 @@
     #  background: '#c5c8c6'
     #  foreground: '#1d1f21'
 
-  # Keyboard hints
+  # Keyboard regex hints
   #hints:
     # Fist character in the hint label
     #
@@ -592,8 +592,8 @@
 # - Vi mode exclusive actions:
 #
 #   - Open
-#       Open URLs at the cursor location with the launcher configured in
-#       `url.launcher`.
+#       Perform the action of the first matching hint under the vi mode cursor
+#       with `mouse.enabled` set to `true`.
 #   - ToggleNormalSelection
 #   - ToggleLineSelection
 #   - ToggleBlockSelection
