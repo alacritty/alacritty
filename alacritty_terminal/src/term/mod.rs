@@ -1068,7 +1068,7 @@ impl<T: EventListener> Handler for Term<T> {
         }
     }
 
-    /// Backspace `count` characters.
+    /// Backspace.
     #[inline]
     fn backspace(&mut self) {
         trace!("Backspace");
