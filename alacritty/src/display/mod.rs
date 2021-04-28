@@ -187,6 +187,9 @@ pub struct Display {
     /// UI cursor visibility for blinking.
     pub cursor_hidden: bool,
 
+    /// Window dimension popup shown when resizing.
+    pub show_resize_popup: bool,
+
     pub visual_bell: VisualBell,
 
     /// Mapped RGB values for each terminal color.
@@ -347,6 +350,7 @@ impl Display {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
             cursor_hidden: false,
+            show_resize_popup: false,
             visual_bell: VisualBell::from(&config.ui_config.bell),
             colors: List::from(&config.ui_config.colors),
         })
@@ -609,6 +613,10 @@ impl Display {
 
         self.draw_render_timer(config, &size_info);
 
+        if self.show_resize_popup {
+            self.draw_resize_popup(config, &size_info);
+        }
+
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
             Some(regex) => {
@@ -760,6 +768,23 @@ impl Display {
 
         self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &timing);
+        });
+    }
+
+    // Draw window size popup.
+    fn draw_resize_popup(&mut self, config: &Config, size_info: &SizeInfo) {
+        let glyph_cache = &mut self.glyph_cache;
+
+        let text = format!("{} x {}", size_info.columns(), size_info.screen_lines());
+        let point = Point::new(
+            size_info.screen_lines() / 2,
+            Column((size_info.columns() - text.len()) / 2), // Center popup text horizontally.
+        );
+        let fg = config.ui_config.colors.primary.background;
+        let bg = config.ui_config.colors.primary.foreground;
+
+        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
+            api.render_string(glyph_cache, point, fg, bg, &text);
         });
     }
 

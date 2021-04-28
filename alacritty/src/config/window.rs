@@ -1,4 +1,5 @@
 use std::fmt::{self, Formatter};
+use std::time::Duration;
 use std::os::raw::c_ulong;
 
 use glutin::window::Fullscreen;
@@ -14,6 +15,9 @@ use crate::config::ui_config::Delta;
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
+
+/// Default window resize popup duration (in milliseconds).
+const DEFAULT_RESIZE_POPUP_DURATION: i32 = 500;
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
 pub struct WindowConfig {
@@ -50,6 +54,9 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// Window resize popup duration.
+    resize_popup_duration: i32,
 }
 
 impl Default for WindowConfig {
@@ -66,6 +73,7 @@ impl Default for WindowConfig {
             class: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            resize_popup_duration: DEFAULT_RESIZE_POPUP_DURATION,
         }
     }
 }
@@ -102,6 +110,15 @@ impl WindowConfig {
     #[inline]
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
+    }
+
+    #[inline]
+    pub fn resize_popup_duration(&self) -> Option<Duration> {
+        if self.resize_popup_duration != 0 {
+            Some(Duration::from_millis(self.resize_popup_duration as u64))
+        } else {
+            None
+        }
     }
 }
 

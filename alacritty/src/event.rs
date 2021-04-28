@@ -72,6 +72,7 @@ pub enum Event {
     Message(Message),
     BlinkCursor,
     SearchNext,
+    ResizePopup(bool),
 }
 
 impl From<Event> for GlutinEvent<'_, Event> {
@@ -867,6 +868,25 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             *self.dirty = true;
         }
     }
+
+    /// Show the window size popup for a duration.
+    fn show_resize_popup(&mut self) {
+        let duration = self.config.ui_config.window.resize_popup_duration();
+        if duration.is_none() {
+            return;
+        }
+        let duration = duration.unwrap();
+
+        self.display.show_resize_popup = true;
+
+        self.scheduler.unschedule(TimerId::ResizePopup);
+        self.scheduler.schedule(
+            GlutinEvent::UserEvent(Event::ResizePopup(false)),
+            duration,
+            false,
+            TimerId::ResizePopup,
+        )
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1182,6 +1202,10 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.display.cursor_hidden ^= true;
                     *processor.ctx.dirty = true;
                 },
+                Event::ResizePopup(show) => {
+                    processor.ctx.display.show_resize_popup = show;
+                    *processor.ctx.dirty = true;
+                },
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
@@ -1244,6 +1268,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         }
 
                         processor.ctx.display_update_pending.set_dimensions(size);
+                        processor.ctx.show_resize_popup();
                         *processor.ctx.dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {

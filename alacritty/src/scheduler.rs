@@ -15,6 +15,7 @@ pub enum TimerId {
     SelectionScrolling,
     DelayedSearch,
     BlinkCursor,
+    ResizePopup,
 }
 
 /// Event scheduled to be emitted at a specific time.
