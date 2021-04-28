@@ -241,7 +241,7 @@ fn log_config_path(config: &Config) {
 
     let mut msg = String::from("Configuration files loaded from:");
     for path in &config.ui_config.config_paths {
-        msg.push_str(&format!("\n- {}", path.display()));
+        msg.push_str(&format!("\n- {:?}", path.display()));
     }
 
     info!("{}", msg);
