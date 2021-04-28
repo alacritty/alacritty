@@ -80,6 +80,10 @@
   # Allow terminal applications to change Alacritty's window title.
   #dynamic_title: true
 
+  # Duration of window resize popup in milliseconds.
+  # Specifying '0' will disable the popup.
+  #resize_popup_duration: 500
+
   # Window class (Linux/BSD only):
   #class:
     # Application instance name
