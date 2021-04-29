@@ -99,6 +99,14 @@ impl Cell {
             self.extra = None;
         }
     }
+
+    /// Remove all wide char data from a cell.
+    #[inline(never)]
+    pub fn clear_wide(&mut self) {
+        self.flags.remove(Flags::WIDE_CHAR);
+        self.drop_extra();
+        self.c = ' ';
+    }
 }
 
 impl GridCell for Cell {
