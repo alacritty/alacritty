@@ -23,7 +23,7 @@ use crate::config::window::WindowConfig;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
-const URL_REGEX: &str = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+const URL_REGEX: &str = "(magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\" {-}\\^⟨⟩`]+";
 
 #[derive(ConfigDeserialize, Debug, PartialEq)]
