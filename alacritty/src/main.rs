@@ -236,7 +236,7 @@ fn run(
 
 fn log_config_path(config: &Config) {
     if config.ui_config.config_paths.is_empty() {
-        return
+        return;
     }
 
     let mut msg = String::from("Configuration files loaded from:");
