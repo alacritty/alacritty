@@ -234,17 +234,13 @@ impl RenderableCell {
                 bg_alpha = 1.0;
             }
         } else if content.search.advance(cell.point) {
-            // Highlight the cell if it is part of a search match.
-            let config_fg = colors.search.matches.foreground;
-            let config_bg = colors.search.matches.background;
+            let focused = content.focused_match.map_or(false, |fm| fm.contains(&cell.point));
+            let (config_fg, config_bg) = if focused {
+                (colors.search.focused_match.foreground, colors.search.focused_match.background)
+            } else {
+                (colors.search.matches.foreground, colors.search.matches.background)
+            };
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
-
-            // Apply the focused match colors, using the normal match colors as base reference.
-            if content.focused_match.map_or(false, |fm| fm.contains(&cell.point)) {
-                let config_fg = colors.search.focused_match.foreground;
-                let config_bg = colors.search.focused_match.background;
-                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
-            }
         }
 
         // Convert cell point to viewport position.

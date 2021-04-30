@@ -122,9 +122,24 @@ impl Default for InvertedCellColors {
 
 #[derive(ConfigDeserialize, Debug, Copy, Clone, Default, PartialEq, Eq)]
 pub struct SearchColors {
-    pub focused_match: InvertedCellColors,
+    pub focused_match: FocusedMatchColors,
     pub matches: MatchColors,
     bar: BarColors,
+}
+
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct FocusedMatchColors {
+    pub foreground: CellRgb,
+    pub background: CellRgb,
+}
+
+impl Default for FocusedMatchColors {
+    fn default() -> Self {
+        Self {
+            background: CellRgb::Rgb(Rgb { r: 0x00, g: 0x00, b: 0x00 }),
+            foreground: CellRgb::Rgb(Rgb { r: 0xff, g: 0xff, b: 0xff }),
+        }
+    }
 }
 
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
