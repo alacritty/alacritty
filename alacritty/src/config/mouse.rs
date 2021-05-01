@@ -7,6 +7,8 @@ pub struct Mouse {
     pub double_click: ClickHandler,
     pub triple_click: ClickHandler,
     pub hide_when_typing: bool,
+    #[config(deprecated = "use `hints` section instead")]
+    pub url: Option<serde_yaml::Value>,
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
