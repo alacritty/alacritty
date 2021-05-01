@@ -1336,11 +1336,11 @@ impl Atlas {
 
             // Load data into OpenGL.
             let (format, buffer) = match &glyph.buffer {
-                BitmapBuffer::RGB(buffer) => {
+                BitmapBuffer::Rgb(buffer) => {
                     multicolor = false;
                     (gl::RGB, buffer)
                 },
-                BitmapBuffer::RGBA(buffer) => {
+                BitmapBuffer::Rgba(buffer) => {
                     multicolor = true;
                     (gl::RGBA, buffer)
                 },
