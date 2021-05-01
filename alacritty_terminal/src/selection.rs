@@ -248,7 +248,7 @@ impl Selection {
         let (start_side, end_side) = match self.ty {
             SelectionType::Block
                 if start.column > end.column
-                    || (start.column == end.column && start.line < end.line) =>
+                    || (start.column == end.column && start.line > end.line) =>
             {
                 (Side::Right, Side::Left)
             },
