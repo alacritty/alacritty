@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The vi mode cursor is now created in the top-left if the terminal cursor is invisible
 - Focused search match will use cell instead of match colors for CellForeground/CellBackground
+- URL highlighting has moved from `mouse.url` to the `hints` config section
 
 ### Fixed
 
