@@ -117,6 +117,8 @@ impl HintState {
             },
             // Cancel hint highlighting on ESC.
             '\x1b' => self.stop(),
+            // Do the same but with Ctrl+c
+            '\x3' => self.stop(),
             _ => (),
         }
 
