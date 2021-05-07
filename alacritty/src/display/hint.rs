@@ -116,9 +116,7 @@ impl HintState {
                 self.keys.pop();
             },
             // Cancel hint highlighting on ESC/Ctrl+c.
-            '\x1b' | '\x03' => {
-                self.stop();
-            },
+            '\x1b' | '\x03' => self.stop(),
             _ => (),
         }
 
