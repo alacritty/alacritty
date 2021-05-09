@@ -1,4 +1,6 @@
-#version 330 core
+#version 120
+#extension GL_ARB_explicit_attrib_location : require
+#extension GL_EXT_gpu_shader4 : require
 in vec2 TexCoords;
 flat in vec4 fg;
 flat in vec4 bg;
@@ -21,7 +23,7 @@ void main() {
         color = vec4(bg.rgb, 1.0);
     } else if ((int(fg.a) & COLORED) != 0) {
         // Color glyphs, like emojis.
-        vec4 glyphColor = texture(mask, TexCoords);
+        vec4 glyphColor = texture2D(mask, TexCoords);
         alphaMask = vec4(glyphColor.a);
 
         // Revert alpha premultiplication.
@@ -32,7 +34,7 @@ void main() {
         color = vec4(glyphColor.rgb, 1.0);
     } else {
         // Regular text glyphs.
-        vec3 textColor = texture(mask, TexCoords).rgb;
+        vec3 textColor = texture2D(mask, TexCoords).rgb;
         alphaMask = vec4(textColor, textColor.r);
         color = vec4(fg.rgb, 1.0);
     }
