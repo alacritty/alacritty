@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use glutin::event::{ModifiersState, VirtualKeyCode};
 use log::error;
 use serde::de::Error as SerdeError;
 use serde::{self, Deserialize, Deserializer};
@@ -238,7 +239,10 @@ impl Default for Hints {
                 action,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
-                binding: Default::default(),
+                binding: Some(HintBinding {
+                    key: Key::Keycode(VirtualKeyCode::U),
+                    mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CTRL),
+                }),
             }],
             alphabet: Default::default(),
         }
