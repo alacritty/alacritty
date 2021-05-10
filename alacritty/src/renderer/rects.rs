@@ -198,6 +198,10 @@ impl RenderLines {
     }
 }
 
+/// Shader sources for rect rendering program.
+static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
+static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
@@ -359,27 +363,8 @@ pub struct RectShaderProgram {
 
 impl RectShaderProgram {
     pub fn new() -> Result<Self, renderer::ShaderCreationError> {
-	use std::ffi::CStr;
-	
-	// Shader source
-	let rect_shader_f : &str;
-	let rect_shader_v : &str;
-
-	// Get GLSL version of the current GL context
-	let shd_version_cstring: &CStr = unsafe {CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *const i8)};
-	let shd_version_string: &str = shd_version_cstring.to_str().unwrap();
-
-	// If GLSL version is 1.20, use alternate shader files, which work with OpenGL 2.1
-	if shd_version_string == "1.20" {
-	    rect_shader_f = include_str!("../../res/rect.f.glsl120");
-	    rect_shader_v = include_str!("../../res/rect.v.glsl120");
-	} else {
-	    rect_shader_f = include_str!("../../res/rect.f.glsl");
-	    rect_shader_v = include_str!("../../res/rect.v.glsl");
-	}
-	
-        let vertex_shader = renderer::create_shader(gl::VERTEX_SHADER, rect_shader_v)?;
-        let fragment_shader = renderer::create_shader(gl::FRAGMENT_SHADER, rect_shader_f)?;
+        let vertex_shader = renderer::create_shader(gl::VERTEX_SHADER, RECT_SHADER_V)?;
+        let fragment_shader = renderer::create_shader(gl::FRAGMENT_SHADER, RECT_SHADER_F)?;
         let program = renderer::create_program(vertex_shader, fragment_shader)?;
 
         unsafe {

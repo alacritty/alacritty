@@ -28,6 +28,10 @@ use crate::renderer::rects::{RectRenderer, RenderRect};
 
 pub mod rects;
 
+// Shader source.
+static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
+static TEXT_SHADER_V: &str = include_str!("../../res/text.v.glsl");
+
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory.
 pub trait LoadGlyph {
     /// Load the rasterized glyph into GPU memory.
@@ -974,27 +978,8 @@ impl<'a> Drop for RenderApi<'a> {
 
 impl TextShaderProgram {
     pub fn new() -> Result<TextShaderProgram, ShaderCreationError> {
-	use std::ffi::CStr;
-	
-	// Shader source
-	let text_shader_f : &str;
-	let text_shader_v : &str;
-
-	// Get GLSL version of the current GL context
-	let shd_version_cstring: &CStr = unsafe {CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *const i8)};
-	let shd_version_string: &str = shd_version_cstring.to_str().unwrap();
-
-	// If GLSL version is 1.20, use alternate shader files, which work with OpenGL 2.1
-	if shd_version_string == "1.20" {
-	    text_shader_f = include_str!("../../res/text.f.glsl120");
-	    text_shader_v = include_str!("../../res/text.v.glsl120");
-	} else {
-	    text_shader_f = include_str!("../../res/text.f.glsl");
-	    text_shader_v = include_str!("../../res/text.v.glsl");
-	}
-
-        let vertex_shader = create_shader(gl::VERTEX_SHADER, text_shader_v)?;
-        let fragment_shader = create_shader(gl::FRAGMENT_SHADER, text_shader_f)?;
+        let vertex_shader = create_shader(gl::VERTEX_SHADER, TEXT_SHADER_V)?;
+        let fragment_shader = create_shader(gl::FRAGMENT_SHADER, TEXT_SHADER_F)?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
         unsafe {
@@ -1105,11 +1090,29 @@ pub fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, Shader
 }
 
 pub fn create_shader(kind: GLenum, source: &'static str) -> Result<GLuint, ShaderCreationError> {
-    let len: [GLint; 1] = [source.len() as GLint];
+    use std::ffi::CStr;
 
+    // Create String form &str to allow editing in case of GLSL 120
+    let mut glsl_edit : String = source.to_string();
+
+    // Get GLSL version of the current GL context
+    let shd_version_cstring: &CStr = unsafe {CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *const i8)};
+    let shd_version_string: &str = shd_version_cstring.to_str().unwrap();
+
+    // If GLSL Version is 1.20, patch the shaderfile to be compatible
+    if shd_version_string == "1.20" {
+	let offset : usize = glsl_edit.find("\n").unwrap();
+	glsl_edit = glsl_edit.split_off(offset);
+	glsl_edit.insert_str(0, "#version 120\n\
+				 #extension GL_ARB_explicit_attrib_location : require\n\
+				 #extension GL_EXT_gpu_shader4 : require\n");
+	glsl_edit = glsl_edit.replace("texture(", "texture2D(");
+    }
+    let len: [GLint; 1] = [glsl_edit.len() as GLint];
+    
     let shader = unsafe {
         let shader = gl::CreateShader(kind);
-        gl::ShaderSource(shader, 1, &(source.as_ptr() as *const _), len.as_ptr());
+        gl::ShaderSource(shader, 1, &(glsl_edit.as_ptr() as *const _), len.as_ptr());
         gl::CompileShader(shader);
         shader
     };
