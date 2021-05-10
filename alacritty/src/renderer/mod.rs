@@ -28,10 +28,6 @@ use crate::renderer::rects::{RectRenderer, RenderRect};
 
 pub mod rects;
 
-// Shader source.
-static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
-static TEXT_SHADER_V: &str = include_str!("../../res/text.v.glsl");
-
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory.
 pub trait LoadGlyph {
     /// Load the rasterized glyph into GPU memory.
@@ -978,8 +974,27 @@ impl<'a> Drop for RenderApi<'a> {
 
 impl TextShaderProgram {
     pub fn new() -> Result<TextShaderProgram, ShaderCreationError> {
-        let vertex_shader = create_shader(gl::VERTEX_SHADER, TEXT_SHADER_V)?;
-        let fragment_shader = create_shader(gl::FRAGMENT_SHADER, TEXT_SHADER_F)?;
+	use std::ffi::CStr;
+	
+	// Shader source
+	let text_shader_f : &str;
+	let text_shader_v : &str;
+
+	// Get GLSL version of the current GL context
+	let shd_version_cstring: &CStr = unsafe {CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *const i8)};
+	let shd_version_string: &str = shd_version_cstring.to_str().unwrap();
+
+	// If GLSL version is 1.20, use alternate shader files, which work with OpenGL 2.1
+	if shd_version_string == "1.20" {
+	    text_shader_f = include_str!("../../res/text.f.glsl120");
+	    text_shader_v = include_str!("../../res/text.v.glsl120");
+	} else {
+	    text_shader_f = include_str!("../../res/text.f.glsl");
+	    text_shader_v = include_str!("../../res/text.v.glsl");
+	}
+
+        let vertex_shader = create_shader(gl::VERTEX_SHADER, text_shader_v)?;
+        let fragment_shader = create_shader(gl::FRAGMENT_SHADER, text_shader_f)?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
         unsafe {

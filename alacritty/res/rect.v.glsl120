@@ -1,4 +1,6 @@
-#version 330 core
+#version 120
+#extension GL_ARB_explicit_attrib_location : require
+#extension GL_EXT_gpu_shader4 : require
 layout (location = 0) in vec2 aPos;
 layout (location = 1) in vec4 aColor;
 
