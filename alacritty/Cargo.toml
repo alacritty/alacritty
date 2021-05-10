@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.8.0-rc5"
+version = "0.8.0-rc6"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
