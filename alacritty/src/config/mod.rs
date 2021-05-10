@@ -118,8 +118,7 @@ pub fn load(options: &Options) -> Config {
             config
         });
 
-    // Override config with CLI options.
-    options.override_config(&mut config);
+    after_loading(&mut config, options);
 
     config
 }
@@ -130,10 +129,18 @@ pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
     let config_options = options.config_options().clone();
     let mut config = load_from(config_path, config_options)?;
 
-    // Override config with CLI options.
-    options.override_config(&mut config);
+    after_loading(&mut config, options);
 
     Ok(config)
+}
+
+/// Modifications after the `Config` object is created.
+fn after_loading(config: &mut Config, options: &Options) {
+    // Override config with CLI options.
+    options.override_config(config);
+
+    // Create key bindings for regex hints.
+    config.ui_config.generate_hint_bindings();
 }
 
 /// Load configuration file and log errors.
@@ -158,9 +165,6 @@ fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     // Deserialize to concrete type.
     let mut config = Config::deserialize(config_value)?;
     config.ui_config.config_paths = config_paths;
-
-    // Create key bindings for regex hints.
-    config.ui_config.generate_hint_bindings();
 
     Ok(config)
 }
