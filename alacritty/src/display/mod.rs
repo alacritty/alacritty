@@ -657,26 +657,31 @@ impl Display {
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
+    ///
+    /// This will return whether the highlighted hints changed.
     pub fn update_highlighted_hints<T>(
         &mut self,
         term: &Term<T>,
         config: &Config,
         mouse: &Mouse,
         modifiers: ModifiersState,
-    ) {
+    ) -> bool {
         // Update vi mode cursor hint.
-        if term.mode().contains(TermMode::VI) {
+        let vi_highlighted_hint = if term.mode().contains(TermMode::VI) {
             let mods = ModifiersState::all();
             let point = term.vi_mode_cursor.point;
-            self.vi_highlighted_hint = hint::highlighted_at(&term, config, point, mods);
+            hint::highlighted_at(&term, config, point, mods)
         } else {
-            self.vi_highlighted_hint = None;
-        }
+            None
+        };
+        let mut dirty = vi_highlighted_hint != self.vi_highlighted_hint;
+        self.vi_highlighted_hint = vi_highlighted_hint;
 
         // Abort if mouse highlighting conditions are not met.
         if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
+            dirty |= self.highlighted_hint.is_some();
             self.highlighted_hint = None;
-            return;
+            return dirty;
         }
 
         // Find highlighted hint at mouse position.
@@ -694,7 +699,10 @@ impl Display {
             }
         }
 
+        dirty |= self.highlighted_hint != highlighted_hint;
         self.highlighted_hint = highlighted_hint;
+
+        dirty
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
