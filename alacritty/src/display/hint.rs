@@ -165,7 +165,7 @@ impl HintState {
 }
 
 /// Hint match which was selected by the user.
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct HintMatch {
     /// Action for handling the text.
     pub action: HintAction,
