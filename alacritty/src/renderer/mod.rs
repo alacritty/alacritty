@@ -1090,9 +1090,10 @@ pub fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, Shader
 }
 
 pub fn create_shader(kind: GLenum, source: &'static str) -> Result<GLuint, ShaderCreationError> {
+    // CStr crate required to process the c-string from the GLSL version
     use std::ffi::CStr;
 
-    // Create String form &str to allow editing in case of GLSL 120
+    // Create String form &str to allow editing in case of GLSL 1.20
     let mut glsl_edit : String = source.to_string();
 
     // Get GLSL version of the current GL context
@@ -1101,12 +1102,58 @@ pub fn create_shader(kind: GLenum, source: &'static str) -> Result<GLuint, Shade
 
     // If GLSL Version is 1.20, patch the shaderfile to be compatible
     if shd_version_string == "1.20" {
-	let offset : usize = glsl_edit.find("\n").unwrap();
-	glsl_edit = glsl_edit.split_off(offset);
+	let mut split_1st_part : String;
+	let mut split_2nd_part : String = glsl_edit;
+	// As long as comments are in front of the #verison directive, consider shader "dirty"
+	let mut shader_dirty : bool = true;
+
+	// Split String at #version and go check, if we got the real directive, or one hidden in comments	
+	while shader_dirty {
+	    split_1st_part = split_2nd_part;
+	    split_2nd_part = split_1st_part.split_off(split_1st_part.find("#version").unwrap());
+	    shader_dirty = false;
+
+	    // Check if either C-Style or CPP-Style comments happen to have #version before the real #version directive
+	    while split_1st_part.find("*/").is_some()
+	    {
+		split_1st_part = split_1st_part.split_off(split_1st_part.find("*/").unwrap() + 2);
+	    }
+
+	    // If we have an uneven number of comment tags, we split one comment down the middle, more iterations needed
+	    if split_1st_part.find("/*").is_some()
+	    {
+		shader_dirty = true;
+		split_2nd_part = split_2nd_part.split_off(split_2nd_part.find("\n").unwrap());
+	    }
+
+	    // Check if we had a stray #version directive in a CPP style comment
+	    while split_1st_part.find("//").is_some() && !shader_dirty
+	    {
+		split_1st_part = split_1st_part.split_off(split_1st_part.find("//").unwrap());
+
+		// In case we removed the double slash, but there was no newline left,
+		// then we cut a comment in half, more iterations needed
+		if split_1st_part.find("\n").is_none() {
+		    shader_dirty = true;
+		    split_2nd_part = split_2nd_part.split_off(split_2nd_part.find("\n").unwrap());		    
+		} else {
+		    split_1st_part = split_1st_part.split_off(split_1st_part.find("\n").unwrap());
+		}
+
+	    }
+	}
+	
+	// No comments exist before the real #version directive and
+	// #version directive is now the first line, remove the first line
+	split_2nd_part = split_2nd_part.split_off(split_2nd_part.find("\n").unwrap());
+
+	// Assign the clean shader back to the shader source variable
+	glsl_edit = split_2nd_part;
+	// Insert GLSL 1.20 patch
 	glsl_edit.insert_str(0, "#version 120\n\
 				 #extension GL_ARB_explicit_attrib_location : require\n\
-				 #extension GL_EXT_gpu_shader4 : require\n");
-	glsl_edit = glsl_edit.replace("texture(", "texture2D(");
+				 #extension GL_EXT_gpu_shader4 : require\n\
+				 #define texture(a, b) texture2D(a, b)");
     }
     let len: [GLint; 1] = [glsl_edit.len() as GLint];
     
