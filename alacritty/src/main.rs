@@ -152,7 +152,7 @@ fn run(
 
     // Create the PTY.
     //
-    // The PTY forks a process to run the shell on the slave side of the
+    // The PTY forks a process to run the shell on the follower side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
     let pty = tty::new(&config, &display.size_info, display.window.x11_window_id());

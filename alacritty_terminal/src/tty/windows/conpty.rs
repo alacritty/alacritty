@@ -100,7 +100,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo) -> Option<Pty> {
     // Set startup info's attribute list & initialize it
     //
     // Lint failure is spurious; it's because winapi's definition of PROC_THREAD_ATTRIBUTE_LIST
-    // implies it is one pointer in size (32 or 64 bits) but really this is just a dummy value.
+    // implies it is one pointer in size (32 or 64 bits) but really this is just a placeholder value.
     // Casting a *mut u8 (pointer to 8 bit type) might therefore not be aligned correctly in
     // the compiler's eyes.
     #[allow(clippy::cast_ptr_alignment)]

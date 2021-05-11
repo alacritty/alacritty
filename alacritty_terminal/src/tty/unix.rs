@@ -52,7 +52,7 @@ pub fn master_fd() -> RawFd {
     FD.load(Ordering::Relaxed) as RawFd
 }
 
-/// Get raw fds for master/slave ends of a new PTY.
+/// Get raw fds for master/follower ends of a new PTY.
 fn make_pty(size: winsize) -> (RawFd, RawFd) {
     let mut win_size = size;
     win_size.ws_xpixel = 0;
@@ -60,7 +60,7 @@ fn make_pty(size: winsize) -> (RawFd, RawFd) {
 
     let ends = openpty(Some(&win_size), None).expect("openpty failed");
 
-    (ends.master, ends.slave)
+    (ends.master, ends.follower)
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
@@ -116,7 +116,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
         die!("pw not found");
     }
 
-    // Sanity check.
+    // confidence check.
     assert_eq!(entry.pw_uid, uid);
 
     // Build a borrowed Passwd struct.
@@ -154,7 +154,7 @@ fn default_shell(pw: &Passwd<'_>) -> Program {
 
 /// Create a new TTY and return a handle to interact with it.
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
-    let (master, slave) = make_pty(size.to_winsize());
+    let (master, follower) = make_pty(size.to_winsize());
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(mut termios) = termios::tcgetattr(master) {
@@ -176,13 +176,13 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
         builder.arg(arg);
     }
 
-    // Setup child stdin/stdout/stderr as slave fd of PTY.
+    // Setup child stdin/stdout/stderr as follower fd of PTY.
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
     // error on libc::close.).
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
+    builder.stdin(unsafe { Stdio::from_raw_fd(follower) });
+    builder.stderr(unsafe { Stdio::from_raw_fd(follower) });
+    builder.stdout(unsafe { Stdio::from_raw_fd(follower) });
 
     // Setup shell environment.
     builder.env("LOGNAME", pw.name);
@@ -205,10 +205,10 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
                 die!("Failed to set session id: {}", io::Error::last_os_error());
             }
 
-            set_controlling_terminal(slave);
+            set_controlling_terminal(follower);
 
-            // No longer need slave/master fds.
-            libc::close(slave);
+            // No longer need follower/master fds.
+            libc::close(follower);
             libc::close(master);
 
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
