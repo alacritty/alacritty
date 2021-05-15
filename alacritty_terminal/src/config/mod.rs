@@ -139,7 +139,7 @@ impl From<ConfigCursorStyle> for CursorStyle {
             ConfigCursorStyle::Shape(shape) => Self { shape, blinking: false },
             ConfigCursorStyle::WithBlinking { shape, blinking } => {
                 Self { shape, blinking: blinking.into() }
-            },
+            }
         }
     }
 }

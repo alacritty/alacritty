@@ -298,17 +298,17 @@ impl RenderableCell {
                             && ui_config.colors.primary.bright_foreground.is_none() =>
                     {
                         content.color(NamedColor::DimForeground as usize)
-                    },
+                    }
                     // Draw bold text in bright colors *and* contains bold flag.
                     (true, Flags::BOLD) => content.color(ansi.to_bright() as usize),
                     // Cell is marked as dim and not bold.
                     (_, Flags::DIM) | (false, Flags::DIM_BOLD) => {
                         content.color(ansi.to_dim() as usize)
-                    },
+                    }
                     // None of the above, keep original color..
                     _ => content.color(ansi as usize),
                 }
-            },
+            }
             Color::Indexed(idx) => {
                 let idx = match (
                     ui_config.draw_bold_text_with_bright_colors,
@@ -322,7 +322,7 @@ impl RenderableCell {
                 };
 
                 content.color(idx)
-            },
+            }
         }
     }
 

@@ -163,7 +163,7 @@ impl FromStr for Rgb {
                 color >>= 8;
                 let r = color as u8;
                 Ok(Rgb { r, g, b })
-            },
+            }
             Err(_) => Err(()),
         }
     }

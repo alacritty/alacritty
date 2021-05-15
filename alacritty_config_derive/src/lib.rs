@@ -14,7 +14,7 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
     match input.data {
         Data::Struct(DataStruct { fields: Fields::Named(fields), .. }) => {
             de_struct::derive_deserialize(input.ident, input.generics, fields.named)
-        },
+        }
         Data::Enum(data_enum) => de_enum::derive_deserialize(input.ident, data_enum),
         _ => Error::new(input.ident.span(), UNSUPPORTED_ERROR).to_compile_error().into(),
     }

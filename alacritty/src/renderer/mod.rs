@@ -61,7 +61,7 @@ impl Display for Error {
         match self {
             Error::ShaderCreation(err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            },
+            }
         }
     }
 }
@@ -235,7 +235,7 @@ impl GlyphCache {
                 let fallback_desc =
                     Self::make_desc(&Font::default().normal(), Slant::Normal, Weight::Normal);
                 rasterizer.load_font(&fallback_desc, size)
-            },
+            }
         }
     }
 
@@ -282,7 +282,7 @@ impl GlyphCache {
 
                     glyph
                 }
-            },
+            }
             Err(_) => self.load_glyph(loader, Default::default()),
         };
 
@@ -924,7 +924,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        },
+        }
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             multicolor: false,
@@ -1192,7 +1192,7 @@ impl Display for ShaderCreationError {
             ShaderCreationError::Io(err) => write!(f, "Unable to read shader: {}", err),
             ShaderCreationError::Compile(log) => {
                 write!(f, "Failed compiling shader: {}", log)
-            },
+            }
             ShaderCreationError::Link(log) => write!(f, "Failed linking shader: {}", log),
         }
     }
@@ -1339,11 +1339,11 @@ impl Atlas {
                 BitmapBuffer::Rgb(buffer) => {
                     multicolor = false;
                     (gl::RGB, buffer)
-                },
+                }
                 BitmapBuffer::Rgba(buffer) => {
                     multicolor = true;
                     (gl::RGBA, buffer)
-                },
+                }
             };
 
             gl::TexSubImage2D(

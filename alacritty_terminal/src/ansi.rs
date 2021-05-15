@@ -238,7 +238,7 @@ impl Processor {
             0x1b => match self.state.sync_state.pending_dcs.take() {
                 Some(Dcs::SyncStart) => {
                     self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
-                },
+                }
                 Some(Dcs::SyncEnd) => self.stop_sync(handler),
                 None => (),
             },
@@ -581,7 +581,7 @@ impl Mode {
                 _ => {
                     trace!("[unimplemented] primitive mode: {}", num);
                     return None;
-                },
+                }
             })
         } else {
             Some(match num {
@@ -907,7 +907,7 @@ where
                 if params.iter().next().map_or(false, |param| param[0] == 1) {
                     self.state.dcs = Some(Dcs::SyncStart);
                 }
-            },
+            }
             _ => debug!(
                 "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
                 params, intermediates, ignore, action
@@ -925,7 +925,7 @@ where
         match self.state.dcs {
             Some(Dcs::SyncStart) => {
                 self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
-            },
+            }
             Some(Dcs::SyncEnd) => (),
             _ => debug!("[unhandled unhook]"),
         }
@@ -966,7 +966,7 @@ where
                     return;
                 }
                 unhandled(params);
-            },
+            }
 
             // Set color index.
             b"4" => {
@@ -981,7 +981,7 @@ where
                     }
                 }
                 unhandled(params);
-            },
+            }
 
             // Get/set Foreground, Background, Cursor colors.
             b"10" | b"11" | b"12" => {
@@ -1015,7 +1015,7 @@ where
                     }
                 }
                 unhandled(params);
-            },
+            }
 
             // Set cursor style.
             b"50" => {
@@ -1033,7 +1033,7 @@ where
                     return;
                 }
                 unhandled(params);
-            },
+            }
 
             // Set clipboard.
             b"52" => {
@@ -1046,7 +1046,7 @@ where
                     b"?" => self.handler.clipboard_load(*clipboard, terminator),
                     base64 => self.handler.clipboard_store(*clipboard, base64),
                 }
-            },
+            }
 
             // Reset color index.
             b"104" => {
@@ -1065,7 +1065,7 @@ where
                         None => unhandled(params),
                     }
                 }
-            },
+            }
 
             // Reset foreground color.
             b"110" => self.handler.reset_color(NamedColor::Foreground as usize),
@@ -1122,11 +1122,11 @@ where
                 } else {
                     debug!("tried to repeat with no preceding char");
                 }
-            },
+            }
             ('C', []) | ('a', []) => handler.move_forward(Column(next_param_or(1) as usize)),
             ('c', intermediates) if next_param_or(0) == 0 => {
                 handler.identify_terminal(intermediates.get(0).map(|&i| i as char))
-            },
+            }
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
             ('d', []) => handler.goto_line(Line(next_param_or(1) as i32 - 1)),
             ('E', []) => handler.move_down_and_cr(next_param_or(1) as usize),
@@ -1139,16 +1139,16 @@ where
                     _ => {
                         unhandled!();
                         return;
-                    },
+                    }
                 };
 
                 handler.clear_tabs(mode);
-            },
+            }
             ('H', []) | ('f', []) => {
                 let y = next_param_or(1) as i32;
                 let x = next_param_or(1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
-            },
+            }
             ('h', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
                     match Mode::from_primitive(intermediates.get(0), param) {
@@ -1156,7 +1156,7 @@ where
                         None => unhandled!(),
                     }
                 }
-            },
+            }
             ('I', []) => handler.move_forward_tabs(next_param_or(1)),
             ('J', []) => {
                 let mode = match next_param_or(0) {
@@ -1167,11 +1167,11 @@ where
                     _ => {
                         unhandled!();
                         return;
-                    },
+                    }
                 };
 
                 handler.clear_screen(mode);
-            },
+            }
             ('K', []) => {
                 let mode = match next_param_or(0) {
                     0 => LineClearMode::Right,
@@ -1180,11 +1180,11 @@ where
                     _ => {
                         unhandled!();
                         return;
-                    },
+                    }
                 };
 
                 handler.clear_line(mode);
-            },
+            }
             ('L', []) => handler.insert_blank_lines(next_param_or(1) as usize),
             ('l', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
@@ -1193,7 +1193,7 @@ where
                         None => unhandled!(),
                     }
                 }
-            },
+            }
             ('M', []) => handler.delete_lines(next_param_or(1) as usize),
             ('m', []) => {
                 if params.is_empty() {
@@ -1206,7 +1206,7 @@ where
                         }
                     }
                 }
-            },
+            }
             ('n', []) => handler.device_status(next_param_or(0) as usize),
             ('P', []) => handler.delete_chars(next_param_or(1) as usize),
             ('q', [b' ']) => {
@@ -1220,20 +1220,20 @@ where
                     _ => {
                         unhandled!();
                         return;
-                    },
+                    }
                 };
                 let cursor_style =
                     shape.map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
 
                 handler.set_cursor_style(cursor_style);
-            },
+            }
             ('r', []) => {
                 let top = next_param_or(1) as usize;
                 let bottom =
                     params_iter.next().map(|param| param[0] as usize).filter(|&param| param != 0);
 
                 handler.set_scrolling_region(top, bottom);
-            },
+            }
             ('S', []) => handler.scroll_up(next_param_or(1) as usize),
             ('s', []) => handler.save_cursor_position(),
             ('T', []) => handler.scroll_down(next_param_or(1) as usize),
@@ -1272,7 +1272,7 @@ where
                     _ => {
                         unhandled!();
                         return;
-                    },
+                    }
                 };
                 self.handler.configure_charset(index, $charset)
             }};
@@ -1284,14 +1284,14 @@ where
             (b'E', []) => {
                 self.handler.linefeed();
                 self.handler.carriage_return();
-            },
+            }
             (b'H', []) => self.handler.set_horizontal_tabstop(),
             (b'M', []) => self.handler.reverse_index(),
             (b'Z', []) => self.handler.identify_terminal(None),
             (b'c', []) => self.handler.reset_state(),
             (b'0', intermediates) => {
                 configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing, intermediates)
-            },
+            }
             (b'7', []) => self.handler.save_cursor_position(),
             (b'8', [b'#']) => self.handler.decaln(),
             (b'8', []) => self.handler.restore_cursor_position(),
@@ -1341,14 +1341,14 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
             [38] => {
                 let mut iter = params.map(|param| param[0]);
                 parse_sgr_color(&mut iter).map(Attr::Foreground)
-            },
+            }
             [38, params @ ..] => {
                 let rgb_start = if params.len() > 4 { 2 } else { 1 };
                 let rgb_iter = params[rgb_start..].iter().copied();
                 let mut iter = iter::once(params[0]).chain(rgb_iter);
 
                 parse_sgr_color(&mut iter).map(Attr::Foreground)
-            },
+            }
             [39] => Some(Attr::Foreground(Color::Named(NamedColor::Foreground))),
             [40] => Some(Attr::Background(Color::Named(NamedColor::Black))),
             [41] => Some(Attr::Background(Color::Named(NamedColor::Red))),
@@ -1361,14 +1361,14 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
             [48] => {
                 let mut iter = params.map(|param| param[0]);
                 parse_sgr_color(&mut iter).map(Attr::Background)
-            },
+            }
             [48, params @ ..] => {
                 let rgb_start = if params.len() > 4 { 2 } else { 1 };
                 let rgb_iter = params[rgb_start..].iter().copied();
                 let mut iter = iter::once(params[0]).chain(rgb_iter);
 
                 parse_sgr_color(&mut iter).map(Attr::Background)
-            },
+            }
             [49] => Some(Attr::Background(Color::Named(NamedColor::Background))),
             [90] => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlack))),
             [91] => Some(Attr::Foreground(Color::Named(NamedColor::BrightRed))),

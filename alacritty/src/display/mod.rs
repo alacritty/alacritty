@@ -625,7 +625,7 @@ impl Display {
                 // Compute IME position.
                 let line = Line(size_info.screen_lines() as i32 + 1);
                 Point::new(line, Column(search_text.chars().count() - 1))
-            },
+            }
             None => cursor_point,
         };
 

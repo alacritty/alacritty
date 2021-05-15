@@ -184,7 +184,7 @@ where
             Ok(binding) => bindings.push(binding),
             Err(err) => {
                 error!(target: LOG_TARGET_CONFIG, "Config error: {}; ignoring binding", err);
-            },
+            }
         }
     }
 
@@ -401,7 +401,7 @@ impl LazyRegexVariant {
             Err(error) => {
                 error!("hint regex is invalid: {}", error);
                 RegexSearch::new("").unwrap()
-            },
+            }
         };
         *self = Self::Compiled(Box::new(regex_search));
 

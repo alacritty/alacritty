@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::env;
 use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
@@ -114,6 +115,7 @@ impl Options {
             .arg(
                 Arg::with_name("working-directory")
                     .long("working-directory")
+                    .short("wd")
                     .takes_value(true)
                     .help("Start the shell in the specified working directory"),
             )
@@ -137,6 +139,11 @@ impl Options {
                     .multiple(true)
                     .takes_value(true)
                     .help("Override configuration file options [example: cursor.style=Beam]"),
+            )
+            .arg(
+                Arg::with_name("here")
+                    .long("here")
+                    .help("Open alacritty in the current working directory"),
             )
             .get_matches();
 
@@ -169,6 +176,10 @@ impl Options {
             _ => options.log_level = LevelFilter::Trace,
         }
 
+        if matches.value_of("here").is_some() {
+            options.working_directory = Some(env::current_dir().unwrap())
+        }
+
         if let Some(dir) = matches.value_of("working-directory") {
             options.working_directory = Some(PathBuf::from(dir.to_string()));
         }
@@ -195,7 +206,7 @@ impl Options {
                 match option_as_value(option) {
                     Ok(value) => {
                         options.config_options = serde_utils::merge(options.config_options, value);
-                    },
+                    }
                     Err(_) => eprintln!("Invalid CLI config option: {:?}", option),
                 }
             }
@@ -264,11 +275,11 @@ fn option_as_value(option: &str) -> Result<Value, serde_yaml::Error> {
                 yaml_text.push_str(": ");
                 yaml_text.push_str(&option[i + 1..]);
                 break;
-            },
+            }
             '.' => {
                 yaml_text.push_str(": {");
                 closing_brackets.push('}');
-            },
+            }
             _ => yaml_text.push(c),
         }
     }

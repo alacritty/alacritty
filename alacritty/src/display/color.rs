@@ -68,7 +68,7 @@ impl List {
                 self[NamedColor::DimMagenta] = dim.magenta;
                 self[NamedColor::DimCyan] = dim.cyan;
                 self[NamedColor::DimWhite] = dim.white;
-            },
+            }
             None => {
                 trace!("Deriving dim colors from normal colors");
                 self[NamedColor::DimBlack] = colors.normal.black * DIM_FACTOR;
@@ -79,7 +79,7 @@ impl List {
                 self[NamedColor::DimMagenta] = colors.normal.magenta * DIM_FACTOR;
                 self[NamedColor::DimCyan] = colors.normal.cyan * DIM_FACTOR;
                 self[NamedColor::DimWhite] = colors.normal.white * DIM_FACTOR;
-            },
+            }
         }
     }
 

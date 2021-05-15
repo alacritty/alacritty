@@ -276,13 +276,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         match &mut self.terminal.selection {
             Some(selection) if selection.ty == ty && !selection.is_empty() => {
                 self.clear_selection();
-            },
+            }
             Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
                 *self.dirty = true;
 
                 self.copy_selection(ClipboardType::Selection);
-            },
+            }
             _ => self.start_selection(ty, point, side),
         }
     }
@@ -476,7 +476,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Some(index) => {
                 self.search_state.history[0] = self.search_state.history[index].clone();
                 self.search_state.history_index = Some(0);
-            },
+            }
             None => return,
         }
         let regex = &mut self.search_state.history[0];
@@ -485,7 +485,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             // Handle backspace/ctrl+h.
             '\x08' | '\x7f' => {
                 let _ = regex.pop();
-            },
+            }
             // Add ascii and unicode text.
             ' '..='~' | '\u{a0}'..='\u{10ffff}' => regex.push(c),
             // Ignore non-printable characters.
@@ -641,23 +641,23 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 let mut args = command.args().to_vec();
                 args.push(text);
                 start_daemon(command.program(), &args);
-            },
+            }
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.clipboard.store(ClipboardType::Clipboard, text);
-            },
+            }
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.paste(&text);
-            },
+            }
             // Select the text.
             HintAction::Action(HintInternalAction::Select) => {
                 self.start_selection(SelectionType::Simple, *hint.bounds.start(), Side::Left);
                 self.update_selection(*hint.bounds.end(), Side::Right);
                 self.copy_selection(ClipboardType::Selection);
-            },
+            }
             // Move the vi mode cursor.
             HintAction::Action(HintInternalAction::MoveViModeCursor) => {
                 // Enter vi mode if we're not in it already.
@@ -666,7 +666,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 }
 
                 self.terminal.vi_goto_point(*hint.bounds.start());
-            },
+            }
         }
     }
 
@@ -809,7 +809,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
                 // Since we found a result, we require no delayed re-search.
                 self.scheduler.unschedule(TimerId::DelayedSearch);
-            },
+            }
             // Reset viewport only when we know there is no match, to prevent unnecessary jumping.
             None if limit.is_none() => self.search_reset_state(),
             None => {
@@ -825,7 +825,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
                 // Clear focused match.
                 self.search_state.focused_match = None;
-            },
+            }
         }
 
         *self.dirty = true;
@@ -1041,7 +1041,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 GlutinEvent::UserEvent(Event::TerminalEvent(TerminalEvent::Exit)) => {
                     *control_flow = ControlFlow::Exit;
                     return;
-                },
+                }
                 // Process events.
                 GlutinEvent::RedrawEventsCleared => {
                     *control_flow = match scheduler.update(&mut self.event_queue) {
@@ -1052,7 +1052,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     if self.event_queue_empty() {
                         return;
                     }
-                },
+                }
                 // Remap DPR change event to remove lifetime.
                 GlutinEvent::WindowEvent {
                     event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
@@ -1062,7 +1062,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     let size = (new_inner_size.width, new_inner_size.height);
                     self.event_queue.push(Event::DprChanged(scale_factor, size).into());
                     return;
-                },
+                }
                 // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
                 // Since we remap that event to remove the lifetime, this is safe.
                 event => unsafe {
@@ -1168,32 +1168,32 @@ impl<N: Notify + OnResize> Processor<N> {
 
                     processor.ctx.window().dpr = scale_factor;
                     *processor.ctx.dirty = true;
-                },
+                }
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
                     processor.ctx.display_update_pending.dirty = true;
                     *processor.ctx.dirty = true;
-                },
+                }
                 Event::SearchNext => processor.ctx.goto_match(None),
                 Event::ConfigReload(path) => Self::reload_config(&path, processor),
                 Event::Scroll(scroll) => processor.ctx.scroll(scroll),
                 Event::BlinkCursor => {
                     processor.ctx.display.cursor_hidden ^= true;
                     *processor.ctx.dirty = true;
-                },
+                }
                 Event::TerminalEvent(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
                             processor.ctx.window().set_title(&title);
                         }
-                    },
+                    }
                     TerminalEvent::ResetTitle => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
                             processor.ctx.display.window.set_title(&ui_config.window.title);
                         }
-                    },
+                    }
                     TerminalEvent::Wakeup => *processor.ctx.dirty = true,
                     TerminalEvent::Bell => {
                         // Set window urgency.
@@ -1209,24 +1209,24 @@ impl<N: Notify + OnResize> Processor<N> {
                         if let Some(bell_command) = &processor.ctx.config.ui_config.bell.command {
                             start_daemon(bell_command.program(), bell_command.args());
                         }
-                    },
+                    }
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
                         processor.ctx.clipboard.store(clipboard_type, content);
-                    },
+                    }
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
                         let text = format(processor.ctx.clipboard.load(clipboard_type).as_str());
                         processor.ctx.write_to_pty(text.into_bytes());
-                    },
+                    }
                     TerminalEvent::ColorRequest(index, format) => {
                         let text = format(processor.ctx.display.colors[index]);
                         processor.ctx.write_to_pty(text.into_bytes());
-                    },
+                    }
                     TerminalEvent::PtyWrite(text) => processor.ctx.write_to_pty(text.into_bytes()),
                     TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange(_) => {
                         processor.ctx.update_cursor_blinking();
-                    },
+                    }
                 },
             },
             GlutinEvent::RedrawRequested(_) => *processor.ctx.dirty = true,
@@ -1244,27 +1244,27 @@ impl<N: Notify + OnResize> Processor<N> {
 
                         processor.ctx.display_update_pending.set_dimensions(size);
                         *processor.ctx.dirty = true;
-                    },
+                    }
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         processor.key_input(input);
-                    },
+                    }
                     WindowEvent::ModifiersChanged(modifiers) => {
                         processor.modifiers_input(modifiers)
-                    },
+                    }
                     WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {
                         processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_input(state, button);
                         *processor.ctx.dirty = true;
-                    },
+                    }
                     WindowEvent::CursorMoved { position, .. } => {
                         processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_moved(position);
-                    },
+                    }
                     WindowEvent::MouseWheel { delta, phase, .. } => {
                         processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
-                    },
+                    }
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window().window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
@@ -1279,18 +1279,18 @@ impl<N: Notify + OnResize> Processor<N> {
                             processor.ctx.update_cursor_blinking();
                             processor.on_focus_change(is_focused);
                         }
-                    },
+                    }
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty((path + " ").into_bytes());
-                    },
+                    }
                     WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_text_area = false;
 
                         if processor.ctx.display().highlighted_hint.is_some() {
                             *processor.ctx.dirty = true;
                         }
-                    },
+                    }
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::ScaleFactorChanged { .. }
@@ -1303,7 +1303,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_) => (),
                 }
-            },
+            }
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::DeviceEvent { .. }

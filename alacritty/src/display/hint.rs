@@ -114,7 +114,7 @@ impl HintState {
             // Use backspace to remove the last character pressed.
             '\x08' | '\x1f' => {
                 self.keys.pop();
-            },
+            }
             // Cancel hint highlighting on ESC/Ctrl+c.
             '\x1b' | '\x03' => self.stop(),
             _ => (),
@@ -343,7 +343,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
                     } else {
                         open_parents -= 1;
                     }
-                },
+                }
                 ']' => {
                     if open_brackets == 0 {
                         iter.prev();
@@ -351,7 +351,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
                     } else {
                         open_brackets -= 1;
                     }
-                },
+                }
                 _ => (),
             }
 

@@ -134,7 +134,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
                     let unused = serde_yaml::Value::Mapping(unused);
                     config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
                 });
-            },
+            }
             "deprecated" => {
                 // Construct deprecation message and append optional attribute override.
                 let mut message = format!("Config warning: {} is deprecated", literal);
@@ -146,13 +146,13 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
                 match_assignment_stream.extend(quote! {
                     log::warn!(target: #LOG_TARGET, #message);
                 });
-            },
+            }
             // Add aliases to match pattern.
             "alias" => {
                 if let Some(alias) = parsed.param {
                     literals.push(alias.value());
                 }
-            },
+            }
             _ => (),
         }
     }

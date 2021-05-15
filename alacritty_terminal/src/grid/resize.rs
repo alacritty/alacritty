@@ -125,7 +125,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 _ => {
                     reversed.push(row);
                     continue;
-                },
+                }
             };
 
             // Remove wrap flag before appending additional cells.
@@ -283,7 +283,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                             new_raw.push(row);
                             break;
                         }
-                    },
+                    }
                 };
 
                 // Insert spacer if a wide char would be wrapped into the last column.
