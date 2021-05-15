@@ -115,7 +115,7 @@ impl Options {
             .arg(
                 Arg::with_name("working-directory")
                     .long("working-directory")
-                    .short("wd")
+                    .short("w")
                     .takes_value(true)
                     .help("Start the shell in the specified working directory"),
             )
