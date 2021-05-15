@@ -33,7 +33,7 @@ impl Clipboard {
                 let (selection, clipboard) =
                     wayland_clipboard::create_clipboards_from_external(display);
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
-            }
+            },
             None => Self::default(),
         }
     }
@@ -85,7 +85,7 @@ impl Clipboard {
             Err(err) => {
                 debug!("Unable to load text from clipboard: {}", err);
                 String::new()
-            }
+            },
             Ok(text) => text,
         }
     }

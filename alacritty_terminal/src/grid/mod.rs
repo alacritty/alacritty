@@ -163,7 +163,7 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         self.display_offset = match scroll {
             Scroll::Delta(count) => {
                 min(max((self.display_offset as i32) + count, 0) as usize, self.history_size())
-            }
+            },
             Scroll::PageUp => min(self.display_offset + self.lines, self.history_size()),
             Scroll::PageDown => self.display_offset.saturating_sub(self.lines),
             Scroll::Top => self.history_size(),
@@ -589,7 +589,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
             Point { column, .. } if column == last_column => {
                 self.point.column = Column(0);
                 self.point.line += 1;
-            }
+            },
             _ => self.point.column += Column(1),
         }
 
@@ -616,7 +616,7 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
             Point { column: Column(0), .. } => {
                 self.point.column = last_column;
                 self.point.line -= 1;
-            }
+            },
             _ => self.point.column -= Column(1),
         }
 

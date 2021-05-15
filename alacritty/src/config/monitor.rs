@@ -24,7 +24,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
             Err(err) => {
                 error!("Unable to canonicalize config path {:?}: {}", path, err);
                 None
-            }
+            },
         })
         .collect();
 
@@ -40,7 +40,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
         Err(err) => {
             error!("Unable to watch config file: {}", err);
             return;
-        }
+        },
     };
 
     thread::spawn_named("config watcher", move || {
@@ -69,7 +69,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
                 Err(err) => {
                     debug!("Config watcher channel dropped unexpectedly: {}", err);
                     break;
-                }
+                },
             };
 
             match event {
@@ -83,8 +83,8 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
 
                     // Always reload the primary configuration file.
                     event_proxy.send_event(Event::ConfigReload(paths[0].clone()));
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
     });

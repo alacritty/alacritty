@@ -136,30 +136,30 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
-            }
+            },
             Action::Command(program) => start_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();
-            }
+            },
             Action::ToggleViMode => ctx.toggle_vi_mode(),
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(*motion);
                 ctx.mark_dirty();
-            }
+            },
             Action::ViAction(ViAction::ToggleNormalSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Simple);
-            }
+            },
             Action::ViAction(ViAction::ToggleLineSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Lines);
-            }
+            },
             Action::ViAction(ViAction::ToggleBlockSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Block);
-            }
+            },
             Action::ViAction(ViAction::ToggleSemanticSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Semantic);
-            }
+            },
             Action::ViAction(ViAction::Open) => {
                 let hint = ctx.display().vi_highlighted_hint.take();
                 if let Some(hint) = &hint {
@@ -167,7 +167,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.trigger_hint(hint);
                 }
                 ctx.display().vi_highlighted_hint = hint;
-            }
+            },
             Action::ViAction(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
@@ -181,7 +181,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
                     ctx.mark_dirty();
                 }
-            }
+            },
             Action::ViAction(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
@@ -195,7 +195,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
                     ctx.mark_dirty();
                 }
-            }
+            },
             Action::ViAction(ViAction::SearchStart) => {
                 let terminal = ctx.terminal();
                 let origin = terminal.vi_mode_cursor.point.sub(terminal, Boundary::None, 1);
@@ -204,7 +204,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
                     ctx.mark_dirty();
                 }
-            }
+            },
             Action::ViAction(ViAction::SearchEnd) => {
                 let terminal = ctx.terminal();
                 let origin = terminal.vi_mode_cursor.point.add(terminal, Boundary::None, 1);
@@ -213,25 +213,25 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
                     ctx.mark_dirty();
                 }
-            }
+            },
             Action::SearchAction(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
-            }
+            },
             Action::SearchAction(SearchAction::SearchFocusPrevious) => {
                 let direction = ctx.search_direction().opposite();
                 ctx.advance_search_origin(direction);
-            }
+            },
             Action::SearchAction(SearchAction::SearchConfirm) => ctx.confirm_search(),
             Action::SearchAction(SearchAction::SearchCancel) => ctx.cancel_search(),
             Action::SearchAction(SearchAction::SearchClear) => {
                 let direction = ctx.search_direction();
                 ctx.cancel_search();
                 ctx.start_search(direction);
-            }
+            },
             Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
             Action::SearchAction(SearchAction::SearchHistoryPrevious) => {
                 ctx.search_history_previous()
-            }
+            },
             Action::SearchAction(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
@@ -242,11 +242,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
                 ctx.paste(&text);
-            }
+            },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 ctx.paste(&text);
-            }
+            },
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window().toggle_simple_fullscreen(),
@@ -268,7 +268,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageUp);
-            }
+            },
             Action::ScrollPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
@@ -276,7 +276,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::PageDown);
-            }
+            },
             Action::ScrollHalfPageUp => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
@@ -284,7 +284,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
-            }
+            },
             Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
@@ -292,7 +292,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
-            }
+            },
             Action::ScrollLineUp => ctx.scroll(Scroll::Delta(1)),
             Action::ScrollLineDown => ctx.scroll(Scroll::Delta(-1)),
             Action::ScrollToTop => {
@@ -303,7 +303,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.terminal_mut().vi_mode_cursor.point.line = topmost_line;
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
-            }
+            },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
 
@@ -315,7 +315,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_motion(ViMotion::FirstOccupied);
                 term.vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
-            }
+            },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
@@ -519,13 +519,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 _ if button != self.ctx.mouse().last_click_button => {
                     self.ctx.mouse_mut().last_click_button = button;
                     ClickState::Click
-                }
+                },
                 ClickState::Click if elapsed < mouse_config.double_click.threshold() => {
                     ClickState::DoubleClick
-                }
+                },
                 ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold() => {
                     ClickState::TripleClick
-                }
+                },
                 _ => ClickState::Click,
             };
 
@@ -553,7 +553,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 };
 
                 self.expand_selection(point, selection_type);
-            }
+            },
             ClickState::DoubleClick => self.expand_selection(point, SelectionType::Semantic),
             ClickState::TripleClick => self.expand_selection(point, SelectionType::Lines),
             ClickState::None => (),
@@ -595,15 +595,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 } else {
                     self.ctx.start_selection(SelectionType::Simple, point, side);
                 }
-            }
+            },
             ClickState::DoubleClick => {
                 self.ctx.mouse_mut().block_hint_launcher = true;
                 self.ctx.start_selection(SelectionType::Semantic, point, side);
-            }
+            },
             ClickState::TripleClick => {
                 self.ctx.mouse_mut().block_hint_launcher = true;
                 self.ctx.start_selection(SelectionType::Lines, point, side);
-            }
+            },
             ClickState::None => (),
         };
 
@@ -644,19 +644,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height();
                 self.scroll_terminal(f64::from(new_scroll_px));
-            }
+            },
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero.
                         self.ctx.mouse_mut().scroll_px = 0.;
-                    }
+                    },
                     TouchPhase::Moved => {
                         self.scroll_terminal(lpos.y);
-                    }
+                    },
                     _ => (),
                 }
-            }
+            },
         }
     }
 
@@ -744,7 +744,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     } else {
                         CursorIcon::Text
                     }
-                }
+                },
             };
 
             self.ctx.window().set_mouse_cursor(new_icon);
@@ -753,7 +753,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 ElementState::Pressed => {
                     self.process_mouse_bindings(button);
                     self.on_mouse_press(button);
-                }
+                },
                 ElementState::Released => self.on_mouse_release(button),
             }
         }
@@ -778,7 +778,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             ElementState::Pressed => {
                 *self.ctx.received_count() = 0;
                 self.process_key_bindings(input);
-            }
+            },
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
@@ -984,7 +984,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     true,
                     TimerId::SelectionScrolling,
                 );
-            }
+            },
         }
     }
 }

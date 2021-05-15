@@ -79,7 +79,7 @@ impl RenderLine {
                 ));
 
                 (bottom_pos, metrics.underline_thickness)
-            }
+            },
             Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
             Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
             _ => unimplemented!("Invalid flag for cell line drawing specified"),
@@ -193,7 +193,7 @@ impl RenderLines {
             Some(lines) => lines.push(line),
             None => {
                 self.inner.insert(flag, vec![line]);
-            }
+            },
         }
     }
 }

@@ -247,11 +247,11 @@ where
                     if processed > MAX_READ {
                         break;
                     }
-                }
+                },
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
                         break;
-                    }
+                    },
                     _ => return Err(err),
                 },
             }
@@ -275,21 +275,21 @@ where
                     Ok(0) => {
                         state.set_current(Some(current));
                         break 'write_many;
-                    }
+                    },
                     Ok(n) => {
                         current.advance(n);
                         if current.finished() {
                             state.goto_next();
                             break 'write_one;
                         }
-                    }
+                    },
                     Err(err) => {
                         state.set_current(Some(current));
                         match err.kind() {
                             ErrorKind::Interrupted | ErrorKind::WouldBlock => break 'write_many,
                             _ => return Err(err),
                         }
-                    }
+                    },
                 }
             }
         }
@@ -345,7 +345,7 @@ where
                             if !self.channel_event(channel_token, &mut state) {
                                 break 'event_loop;
                             }
-                        }
+                        },
 
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
@@ -360,7 +360,7 @@ where
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }
-                        }
+                        },
 
                         token
                             if token == self.pty.read_token()

@@ -35,7 +35,7 @@ impl VisualBell {
                     self.start_time = None;
                 }
                 false
-            }
+            },
             None => true,
         }
     }
@@ -80,7 +80,7 @@ impl VisualBell {
                 let inverse_intensity = match self.animation {
                     BellAnimation::Ease | BellAnimation::EaseOut => {
                         cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
-                    }
+                    },
                     BellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
                     BellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
                     BellAnimation::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
@@ -94,7 +94,7 @@ impl VisualBell {
                 // Since we want the `intensity` of the VisualBell to decay over
                 // `time`, we subtract the `inverse_intensity` from 1.0.
                 1.0 - inverse_intensity
-            }
+            },
         }
     }
 

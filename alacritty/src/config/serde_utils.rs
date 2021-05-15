@@ -12,10 +12,10 @@ pub fn merge(base: Value, replacement: Value) -> Value {
         (Value::Sequence(mut base), Value::Sequence(mut replacement)) => {
             base.append(&mut replacement);
             Value::Sequence(base)
-        }
+        },
         (Value::Mapping(base), Value::Mapping(replacement)) => {
             Value::Mapping(merge_mapping(base, replacement))
-        }
+        },
         (value, Value::Null) => value,
         (_, value) => value,
     }

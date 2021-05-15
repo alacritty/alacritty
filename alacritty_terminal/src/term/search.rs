@@ -84,7 +84,7 @@ impl<T> Term<T> {
             Some(max_lines) => {
                 let line = (start.line + max_lines).grid_clamp(self, Boundary::None);
                 Point::new(line, self.last_column())
-            }
+            },
             _ => end.sub(self, Boundary::None, 1),
         };
 
@@ -123,7 +123,7 @@ impl<T> Term<T> {
             Some(max_lines) => {
                 let line = (start.line - max_lines).grid_clamp(self, Boundary::None);
                 Point::new(line, Column(0))
-            }
+            },
             _ => end.add(self, Boundary::None, 1),
         };
 
@@ -252,7 +252,7 @@ impl<T> Term<T> {
                     let start = Point::new(line, last_column - point.column);
                     iter = self.grid.iter_from(start);
                     iter.cell()
-                }
+                },
             };
             self.skip_fullwidth(&mut iter, &mut cell, direction);
             let wrapped = cell.flags.contains(Flags::WRAPLINE);
@@ -286,13 +286,13 @@ impl<T> Term<T> {
         match direction {
             Direction::Right if cell.flags.contains(Flags::WIDE_CHAR) => {
                 iter.next();
-            }
+            },
             Direction::Right if cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 if let Some(Indexed { cell: new_cell, .. }) = iter.next() {
                     *cell = new_cell;
                 }
                 iter.next();
-            }
+            },
             Direction::Left if cell.flags.contains(Flags::WIDE_CHAR_SPACER) => {
                 if let Some(Indexed { cell: new_cell, .. }) = iter.prev() {
                     *cell = new_cell;
@@ -302,7 +302,7 @@ impl<T> Term<T> {
                 if self.grid[prev].flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) {
                     iter.prev();
                 }
-            }
+            },
             _ => (),
         }
     }

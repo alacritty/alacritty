@@ -196,7 +196,7 @@ impl<'de> Deserialize<'de> for Class {
                                     target: LOG_TARGET_CONFIG,
                                     "Config error: class.instance: {}", err
                                 );
-                            }
+                            },
                         },
                         "general" => match String::deserialize(value) {
                             Ok(general) => class.general = general,
@@ -205,7 +205,7 @@ impl<'de> Deserialize<'de> for Class {
                                     target: LOG_TARGET_CONFIG,
                                     "Config error: class.instance: {}", err
                                 );
-                            }
+                            },
                         },
                         _ => (),
                     }

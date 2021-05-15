@@ -34,7 +34,7 @@ impl Display for Error {
             Error::Io(err) => write!(f, "Error getting current working directory: {}", err),
             Error::IntoString(err) => {
                 write!(f, "Error when parsing current working directory: {}", err)
-            }
+            },
         }
     }
 }

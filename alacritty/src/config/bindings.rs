@@ -721,7 +721,7 @@ impl<'a> Deserialize<'a> for Key {
             Err(_) => {
                 let keycode = VirtualKeyCode::deserialize(value).map_err(D::Error::custom)?;
                 Ok(Key::Keycode(keycode))
-            }
+            },
         }
     }
 }
@@ -987,14 +987,14 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 let k = Key::deserialize(val).map_err(V::Error::custom)?;
                                 key = Some(k);
                             }
-                        }
+                        },
                         Field::Mods => {
                             if mods.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mods"));
                             }
 
                             mods = Some(map.next_value::<ModsWrapper>()?.into_inner());
-                        }
+                        },
                         Field::Mode => {
                             if mode.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mode"));
@@ -1003,7 +1003,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             let mode_deserializer = map.next_value::<ModeWrapper>()?;
                             mode = Some(mode_deserializer.mode);
                             not_mode = Some(mode_deserializer.not_mode);
-                        }
+                        },
                         Field::Action => {
                             if action.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("action"));
@@ -1033,38 +1033,38 @@ impl<'a> Deserialize<'a> for RawBinding {
                                                     )) => string,
                                                     _ => return Err(err),
                                                 }
-                                            }
+                                            },
                                             _ => return Err(err),
                                         };
                                         return Err(V::Error::custom(format!(
                                             "unknown keyboard action `{}`",
                                             value
                                         )));
-                                    }
+                                    },
                                 }
                             };
-                        }
+                        },
                         Field::Chars => {
                             if chars.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("chars"));
                             }
 
                             chars = Some(map.next_value()?);
-                        }
+                        },
                         Field::Mouse => {
                             if chars.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mouse"));
                             }
 
                             mouse = Some(map.next_value::<MouseButtonWrapper>()?.into_inner());
-                        }
+                        },
                         Field::Command => {
                             if command.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("command"));
                             }
 
                             command = Some(map.next_value::<Program>()?);
-                        }
+                        },
                     }
                 }
 
@@ -1083,7 +1083,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             )));
                         }
                         action
-                    }
+                    },
                     (Some(action @ Action::SearchAction(_)), None, None) => {
                         if !mode.intersects(BindingMode::SEARCH) {
                             return Err(V::Error::custom(format!(
@@ -1093,7 +1093,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             )));
                         }
                         action
-                    }
+                    },
                     (Some(action), None, None) => action,
                     (None, Some(chars), None) => Action::Esc(chars),
                     (None, None, Some(cmd)) => Action::Command(cmd),
@@ -1101,7 +1101,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",
                         ))
-                    }
+                    },
                 };
 
                 if mouse.is_none() && key.is_none() {

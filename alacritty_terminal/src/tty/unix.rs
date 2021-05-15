@@ -251,7 +251,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
             };
             pty.on_resize(size);
             pty
-        }
+        },
         Err(err) => die!("Failed to spawn command '{}': {}", shell.program(), err),
     }
 }
@@ -336,7 +336,7 @@ impl EventedPty for Pty {
                 Err(e) => {
                     error!("Error checking child process termination: {}", e);
                     None
-                }
+                },
                 Ok(None) => None,
                 Ok(_) => Some(ChildEvent::Exited),
             }
