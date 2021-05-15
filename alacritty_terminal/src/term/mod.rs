@@ -400,17 +400,37 @@ impl<T> Term<T> {
             cols.start -= 1;
         }
 
+        let mut tab_mode: Option<String> = None;
         for column in (cols.start.0..line_length.0).map(Column::from) {
             let cell = &grid_line[column];
 
-            if !cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
-                if cell.c == '\t' {
-                    // Replace tabs with spaces.
-                    text.push(' ');
+            // Skip over cells until next tab-stop once a tab was found.
+            if let Some(ref mut tab_text) = tab_mode {
+                if self.tabs[column] {
+                    if tab_text.trim().is_empty() {
+                        // Just a regular tab.
+                        text.push('\t');
+                    } else {
+                        // If there is text between the tab and the next tab-stop, replace the tab
+                        // with a space, so the text won't be skipped.
+                        text.push(' ');
+                        text.push_str(tab_text.as_str());
+                    }
+                    tab_mode = None;
                 } else {
-                    // Push cells primary character.
-                    text.push(cell.c);
+                    tab_text.push(cell.c);
+                    continue;
                 }
+            }
+
+            if cell.c == '\t' {
+                tab_mode = Some(String::new());
+                continue;
+            }
+
+            if !cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER) {
+                // Push cells primary character.
+                text.push(cell.c);
 
                 // Push zero-width characters.
                 for c in cell.zerowidth().into_iter().flatten() {
