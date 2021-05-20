@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Regex terminal hints ([see features.md](./docs/features.md#hints))
 - macOS keybinding (cmd+alt+H) hiding all windows other than Alacritty
 - Support for `magnet` URLs
+- Support for `ipfs`/`ipns` URLs
 
 ### Changed
 
