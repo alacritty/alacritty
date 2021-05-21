@@ -5,7 +5,13 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.8.0-dev
+## 0.9.0-dev
+
+### Added
+
+- Support for `ipfs`/`ipns` URLs
+
+## 0.8.0
 
 ### Packaging
 
