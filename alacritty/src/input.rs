@@ -1008,7 +1008,6 @@ mod tests {
 
     struct ActionContext<'a, T> {
         pub terminal: &'a mut Term<T>,
-        pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub clipboard: &'a mut Clipboard,
@@ -1145,13 +1144,10 @@ mod tests {
                     ..Mouse::default()
                 };
 
-                let mut selection = None;
-
                 let mut message_buffer = MessageBuffer::new();
 
                 let context = ActionContext {
                     terminal: &mut terminal,
-                    selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
                     clipboard: &mut clipboard,
