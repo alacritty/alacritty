@@ -11,9 +11,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
-use alacritty_terminal::term::{
-    RenderableContent as TerminalContent, RenderableCursor as TerminalCursor, Term, TermMode,
-};
+use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
 
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
@@ -29,10 +27,11 @@ pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 /// This provides the terminal cursor and an iterator over all non-empty cells.
 pub struct RenderableContent<'a> {
     terminal_content: TerminalContent<'a>,
-    terminal_cursor: TerminalCursor,
     cursor: Option<RenderableCursor>,
-    search: Regex<'a>,
-    hint: Hint<'a>,
+    cursor_shape: CursorShape,
+    cursor_point: Point<usize>,
+    search: Option<Regex<'a>>,
+    hint: Option<Hint<'a>>,
     config: &'a Config<UiConfig>,
     colors: &'a List,
     focused_match: Option<&'a Match>,
@@ -45,31 +44,41 @@ impl<'a> RenderableContent<'a> {
         term: &'a Term<T>,
         search_state: &'a SearchState,
     ) -> Self {
-        let search = search_state.dfas().map(|dfas| Regex::new(&term, dfas)).unwrap_or_default();
+        let search = search_state.dfas().map(|dfas| Regex::new(&term, dfas));
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
-        // Copy the cursor and override its shape if necessary.
-        let mut terminal_cursor = terminal_content.cursor;
-
-        if terminal_cursor.shape == CursorShape::Hidden
+        // Find terminal cursor shape.
+        let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
             || search_state.regex().is_some()
         {
-            terminal_cursor.shape = CursorShape::Hidden;
+            CursorShape::Hidden
         } else if !term.is_focused && config.cursor.unfocused_hollow {
-            terminal_cursor.shape = CursorShape::HollowBlock;
-        }
+            CursorShape::HollowBlock
+        } else {
+            terminal_content.cursor.shape
+        };
 
-        display.hint_state.update_matches(term);
-        let hint = Hint::from(&display.hint_state);
+        // Convert terminal cursor point to viewport position.
+        let cursor_point = terminal_content.cursor.point;
+        let display_offset = terminal_content.display_offset;
+        let cursor_point = display::point_to_viewport(display_offset, cursor_point).unwrap();
+
+        let hint = if display.hint_state.active() {
+            display.hint_state.update_matches(term);
+            Some(Hint::from(&display.hint_state))
+        } else {
+            None
+        };
 
         Self {
             colors: &display.colors,
             cursor: None,
             terminal_content,
-            terminal_cursor,
             focused_match,
+            cursor_shape,
+            cursor_point,
             search,
             config,
             hint,
@@ -83,8 +92,8 @@ impl<'a> RenderableContent<'a> {
 
     /// Get the terminal cursor.
     pub fn cursor(mut self) -> Option<RenderableCursor> {
-        // Drain the iterator to make sure the cursor is created.
-        while self.next().is_some() && self.cursor.is_none() {}
+        // Assure this function is only called after the iterator has been drained.
+        debug_assert!(self.next().is_none());
 
         self.cursor
     }
@@ -98,7 +107,7 @@ impl<'a> RenderableContent<'a> {
     ///
     /// This will return `None` when there is no cursor visible.
     fn renderable_cursor(&mut self, cell: &RenderableCell) -> Option<RenderableCursor> {
-        if self.terminal_cursor.shape == CursorShape::Hidden {
+        if self.cursor_shape == CursorShape::Hidden {
             return None;
         }
 
@@ -125,17 +134,12 @@ impl<'a> RenderableContent<'a> {
         let text_color = text_color.color(cell.fg, cell.bg);
         let cursor_color = cursor_color.color(cell.fg, cell.bg);
 
-        // Convert cursor point to viewport position.
-        let cursor_point = self.terminal_cursor.point;
-        let display_offset = self.terminal_content.display_offset;
-        let point = display::point_to_viewport(display_offset, cursor_point).unwrap();
-
         Some(RenderableCursor {
             is_wide: cell.flags.contains(Flags::WIDE_CHAR),
-            shape: self.terminal_cursor.shape,
+            shape: self.cursor_shape,
+            point: self.cursor_point,
             cursor_color,
             text_color,
-            point,
         })
     }
 }
@@ -151,10 +155,9 @@ impl<'a> Iterator for RenderableContent<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let cell = self.terminal_content.display_iter.next()?;
-            let cell_point = cell.point;
             let mut cell = RenderableCell::new(self, cell);
 
-            if self.terminal_cursor.point == cell_point {
+            if self.cursor_point == cell.point {
                 // Store the cursor which should be rendered.
                 self.cursor = self.renderable_cursor(&cell).map(|cursor| {
                     if cursor.shape == CursorShape::Block {
@@ -203,17 +206,22 @@ impl RenderableCell {
             Self::compute_bg_alpha(cell.bg)
         };
 
-        let is_selected = content
-            .terminal_content
-            .selection
-            .map_or(false, |selection| selection.contains_cell(&cell, content.terminal_cursor));
+        let is_selected = content.terminal_content.selection.map_or(false, |selection| {
+            selection.contains_cell(
+                &cell,
+                content.terminal_content.cursor.point,
+                content.cursor_shape,
+            )
+        });
 
         let display_offset = content.terminal_content.display_offset;
         let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
         let colors = &content.config.ui_config.colors;
         let mut character = cell.c;
 
-        if let Some((c, is_first)) = content.hint.advance(viewport_start, cell.point) {
+        if let Some((c, is_first)) =
+            content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
+        {
             let (config_fg, config_bg) = if is_first {
                 (colors.hints.start.foreground, colors.hints.start.background)
             } else {
@@ -233,7 +241,7 @@ impl RenderableCell {
                 bg = content.color(NamedColor::Foreground as usize);
                 bg_alpha = 1.0;
             }
-        } else if content.search.advance(cell.point) {
+        } else if content.search.as_mut().map_or(false, |search| search.advance(cell.point)) {
             let focused = content.focused_match.map_or(false, |fm| fm.contains(&cell.point));
             let (config_fg, config_bg) = if focused {
                 (colors.search.focused_match.foreground, colors.search.focused_match.background)
@@ -261,9 +269,9 @@ impl RenderableCell {
     /// Check if cell contains any renderable content.
     fn is_empty(&self) -> bool {
         self.bg_alpha == 0.
-            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
             && self.character == ' '
             && self.zerowidth.is_none()
+            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
     }
 
     /// Apply [`CellRgb`] colors to the cell's colors.

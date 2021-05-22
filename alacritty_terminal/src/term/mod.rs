@@ -15,7 +15,7 @@ use crate::ansi::{
 };
 use crate::config::Config;
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, DisplayIter, Grid, Scroll};
+use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
@@ -1828,7 +1828,7 @@ impl RenderableCursor {
 ///
 /// This contains all content required to render the current terminal view.
 pub struct RenderableContent<'a> {
-    pub display_iter: DisplayIter<'a, Cell>,
+    pub display_iter: GridIterator<'a, Cell>,
     pub selection: Option<SelectionRange>,
     pub cursor: RenderableCursor,
     pub display_offset: usize,

@@ -13,7 +13,7 @@ use crate::ansi::CursorShape;
 use crate::grid::{Dimensions, GridCell, Indexed};
 use crate::index::{Boundary, Column, Line, Point, Side};
 use crate::term::cell::{Cell, Flags};
-use crate::term::{RenderableCursor, Term};
+use crate::term::Term;
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -56,10 +56,15 @@ impl SelectionRange {
     }
 
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell(&self, indexed: &Indexed<&Cell>, cursor: RenderableCursor) -> bool {
+    pub fn contains_cell(
+        &self,
+        indexed: &Indexed<&Cell>,
+        point: Point,
+        shape: CursorShape,
+    ) -> bool {
         // Do not invert block cursor at selection boundaries.
-        if cursor.shape == CursorShape::Block
-            && cursor.point == indexed.point
+        if shape == CursorShape::Block
+            && point == indexed.point
             && (self.start == indexed.point
                 || self.end == indexed.point
                 || (self.is_block
