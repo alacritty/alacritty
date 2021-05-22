@@ -996,7 +996,6 @@ mod tests {
     use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
 
     use alacritty_terminal::event::Event as TerminalEvent;
-    use alacritty_terminal::selection::Selection;
 
     use crate::config::Binding;
     use crate::message_bar::MessageBuffer;

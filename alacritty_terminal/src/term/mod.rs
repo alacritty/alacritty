@@ -15,7 +15,7 @@ use crate::ansi::{
 };
 use crate::config::Config;
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, Grid, Scroll, GridIterator};
+use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
