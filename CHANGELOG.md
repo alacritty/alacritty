@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Regression in rendering performance with dense grids since 0.6.0
+- Crash/Freezes with partially visible fullwidth characters due to alt screen resize
 
 ## 0.8.0
 
