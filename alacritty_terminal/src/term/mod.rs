@@ -699,7 +699,9 @@ impl<T> Term<T> {
                 point.column = Column(1);
                 point.line += 1;
             },
-            Direction::Right if flags.contains(Flags::WIDE_CHAR) => point.column += 1,
+            Direction::Right if flags.contains(Flags::WIDE_CHAR) => {
+                point.column = min(point.column + 1, self.last_column());
+            },
             Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
                 if flags.contains(Flags::WIDE_CHAR_SPACER) {
                     point.column -= 1;
@@ -774,7 +776,7 @@ impl<T> Term<T> {
             // Remove wide char and spacer.
             let wide = cursor_cell.flags.contains(Flags::WIDE_CHAR);
             let point = self.grid.cursor.point;
-            if wide {
+            if wide && point.column + 1 < self.columns() {
                 self.grid[point.line][point.column + 1].flags.remove(Flags::WIDE_CHAR_SPACER);
             } else {
                 self.grid[point.line][point.column - 1].clear_wide();

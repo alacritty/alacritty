@@ -239,7 +239,12 @@ impl<T> Term<T> {
             }
 
             // Stop once we've reached the target point.
-            if point == end {
+            //
+            // We check beyond the point itself to account for skipped characters after wide chars
+            // without spacer.
+            if (direction == Direction::Right && point >= end)
+                || (direction == Direction::Left && point <= end)
+            {
                 break;
             }
 
@@ -497,8 +502,10 @@ impl<'a, T> Iterator for RegexIter<'a, T> {
 mod tests {
     use super::*;
 
+    use crate::config::Config;
     use crate::index::{Column, Line};
     use crate::term::test::mock_term;
+    use crate::term::SizeInfo;
 
     #[test]
     fn regex_right() {
@@ -571,8 +578,8 @@ mod tests {
         ");
 
         let dfas = RegexSearch::new("nothing").unwrap();
-        let start = Point::new(Line(2), Column(0));
-        let end = Point::new(Line(0), Column(4));
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(2), Column(4));
         assert_eq!(term.regex_search_right(&dfas, start, end), None);
     }
 
@@ -586,8 +593,8 @@ mod tests {
         ");
 
         let dfas = RegexSearch::new("nothing").unwrap();
-        let start = Point::new(Line(0), Column(4));
-        let end = Point::new(Line(2), Column(0));
+        let start = Point::new(Line(2), Column(4));
+        let end = Point::new(Line(0), Column(0));
         assert_eq!(term.regex_search_left(&dfas, start, end), None);
     }
 
@@ -723,15 +730,15 @@ mod tests {
         ");
 
         let dfas = RegexSearch::new("🦇x").unwrap();
-        let start = Point::new(Line(1), Column(0));
-        let end = Point::new(Line(0), Column(3));
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(1), Column(3));
         let match_start = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
         assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
 
         let dfas = RegexSearch::new("x🦇").unwrap();
-        let start = Point::new(Line(0), Column(2));
-        let end = Point::new(Line(1), Column(0));
+        let start = Point::new(Line(1), Column(2));
+        let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(1), Column(1));
         let match_end = Point::new(Line(1), Column(3));
         assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
@@ -773,5 +780,22 @@ mod tests {
         let match_start = Point::new(Line(0), Column(2));
         let match_end = Point::new(Line(1), Column(1));
         assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
+    fn wide_without_spacer() {
+        let size = SizeInfo::new(2., 2., 1., 1., 0., 0., false);
+        let mut term = Term::new(&Config::<()>::default(), size, ());
+        term.grid[Line(0)][Column(0)].c = 'x';
+        term.grid[Line(0)][Column(1)].c = '字';
+        term.grid[Line(0)][Column(1)].flags = Flags::WIDE_CHAR;
+
+        let dfas = RegexSearch::new("test").unwrap();
+
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(1));
+
+        let mut iter = RegexIter::new(start, end, Direction::Right, &term, &dfas);
+        assert_eq!(iter.next(), None);
     }
 }
