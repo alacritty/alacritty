@@ -221,16 +221,16 @@
     #  foreground: '#000000'
     #  background: '#ffffff'
     #focused_match:
-    #  foreground: CellBackground
-    #  background: CellForeground
+    #  foreground: '#ffffff'
+    #  background: '#000000'
 
     #bar:
     #  background: '#c5c8c6'
     #  foreground: '#1d1f21'
 
-  # Keyboard hints
+  # Keyboard regex hints
   #hints:
-    # Fist character in the hint label
+    # First character in the hint label
     #
     # Allowed values are CellForeground/CellBackground, which reference the
     # affected cell, or hexadecimal colors like #ff00ff.
@@ -478,8 +478,8 @@
   #   - MoveViModeCursor
   #       Move the vi mode cursor to the beginning of the hint.
   #enabled:
-  # - regex: "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
-  #           [^\u0000-\u001F\u007F-\u009F<>\" {-}\\^⟨⟩`]+"
+  # - regex: "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+  #           [^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩`]+"
   #   command: xdg-open
   #   post_processing: true
   #   mouse:
@@ -592,8 +592,8 @@
 # - Vi mode exclusive actions:
 #
 #   - Open
-#       Open URLs at the cursor location with the launcher configured in
-#       `url.launcher`.
+#       Perform the action of the first matching hint under the vi mode cursor
+#       with `mouse.enabled` set to `true`.
 #   - ToggleNormalSelection
 #   - ToggleLineSelection
 #   - ToggleBlockSelection

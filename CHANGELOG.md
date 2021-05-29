@@ -5,7 +5,18 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.8.0-dev
+## 0.9.0-dev
+
+### Added
+
+- Support for `ipfs`/`ipns` URLs
+
+### Fixed
+
+- Regression in rendering performance with dense grids since 0.6.0
+- Crash/Freezes with partially visible fullwidth characters due to alt screen resize
+
+## 0.8.0
 
 ### Packaging
 
@@ -18,10 +29,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Regex terminal hints ([see features.md](./docs/features.md#hints))
 - Support for Sixel protocol
 - macOS keybinding (cmd+alt+H) hiding all windows other than Alacritty
+- Support for `magnet` URLs
 
 ### Changed
 
 - The vi mode cursor is now created in the top-left if the terminal cursor is invisible
+- Focused search match will use cell instead of match colors for CellForeground/CellBackground
+- URL highlighting has moved from `mouse.url` to the `hints` config section
 
 ### Fixed
 
@@ -31,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Clicking on URLs on Windows incorrectly opens File Explorer
 - Incorrect underline cursor thickness on wide cell
 - Viewport moving around when resizing while scrolled into history
+- Block cursor not expanding across fullwidth characters when on the right side of it
+- Overwriting fullwidth characters only clearing one of the involved cells
 
 ### Removed
 

@@ -317,6 +317,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[cfg(debug_assertions)]
     fn indexing_above_inner_len() {
         let storage = Storage::<char>::with_capacity(1, 1);
         let _ = &storage[Line(-1)];

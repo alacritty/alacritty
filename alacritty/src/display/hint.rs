@@ -3,8 +3,8 @@ use std::cmp::{max, min};
 use glutin::event::ModifiersState;
 
 use alacritty_terminal::grid::BidirectionalIterator;
-use alacritty_terminal::index::{Boundary, Point};
-use alacritty_terminal::term::search::{Match, RegexSearch};
+use alacritty_terminal::index::{Boundary, Direction, Point};
+use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
 use crate::config::ui_config::{Hint, HintAction};
@@ -115,8 +115,8 @@ impl HintState {
             '\x08' | '\x1f' => {
                 self.keys.pop();
             },
-            // Cancel hint highlighting on ESC.
-            '\x1b' => self.stop(),
+            // Cancel hint highlighting on ESC/Ctrl+c.
+            '\x1b' | '\x03' => self.stop(),
             _ => (),
         }
 
@@ -165,7 +165,7 @@ impl HintState {
 }
 
 /// Hint match which was selected by the user.
-#[derive(Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct HintMatch {
     /// Action for handling the text.
     pub action: HintAction,
@@ -266,11 +266,12 @@ pub fn highlighted_at<T>(
             let mut end = term.line_search_right(point);
             end.line = min(end.line, point.line + MAX_SEARCH_LINES);
 
-            // Function to verify if the specified point is inside the match.
-            let at_point = |rm: &Match| *rm.start() <= point && *rm.end() >= point;
+            // Function to verify that the specified point is inside the match.
+            let at_point = |rm: &Match| *rm.end() >= point && *rm.start() <= point;
 
             // Check if there's any match at the specified point.
-            let regex_match = term.regex_search_right(regex, start, end).filter(at_point)?;
+            let mut iter = RegexIter::new(start, end, Direction::Right, term, regex);
+            let regex_match = iter.find(at_point)?;
 
             // Apply post-processing and search for sub-matches if necessary.
             let regex_match = if hint.post_processing {

@@ -11,9 +11,9 @@ use std::ops::{Bound, Range, RangeBounds};
 
 use crate::ansi::CursorShape;
 use crate::grid::{Dimensions, GridCell, Indexed};
-use crate::index::{Column, Line, Point, Side};
+use crate::index::{Boundary, Column, Line, Point, Side};
 use crate::term::cell::{Cell, Flags};
-use crate::term::{RenderableCursor, Term};
+use crate::term::Term;
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -56,10 +56,15 @@ impl SelectionRange {
     }
 
     /// Check if the cell at a point is part of the selection.
-    pub fn contains_cell(&self, indexed: &Indexed<&Cell>, cursor: RenderableCursor) -> bool {
+    pub fn contains_cell(
+        &self,
+        indexed: &Indexed<&Cell>,
+        point: Point,
+        shape: CursorShape,
+    ) -> bool {
         // Do not invert block cursor at selection boundaries.
-        if cursor.shape == CursorShape::Block
-            && cursor.point == indexed.point
+        if shape == CursorShape::Block
+            && point == indexed.point
             && (self.start == indexed.point
                 || self.end == indexed.point
                 || (self.is_block
@@ -248,7 +253,7 @@ impl Selection {
         let (start_side, end_side) = match self.ty {
             SelectionType::Block
                 if start.column > end.column
-                    || (start.column == end.column && start.line < end.line) =>
+                    || (start.column == end.column && start.line > end.line) =>
             {
                 (Side::Right, Side::Left)
             },
@@ -273,6 +278,12 @@ impl Selection {
         if start.point > end.point {
             mem::swap(&mut start, &mut end);
         }
+
+        // Clamp selection to within grid boundaries.
+        if end.point.line < term.topmost_line() {
+            return None;
+        }
+        start.point = start.point.grid_clamp(term, Boundary::Grid);
 
         match self.ty {
             SelectionType::Simple => self.range_simple(start, end, columns),
@@ -507,11 +518,11 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Lines, Point::new(Line(9), Column(1)), Side::Left);
         selection.update(Point::new(Line(4), Column(1)), Side::Right);
-        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 7).unwrap();
+        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 4).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, size.1)).unwrap(), SelectionRange {
-            start: Point::new(Line(-3), Column(0)),
-            end: Point::new(Line(2), Column(4)),
+            start: Point::new(Line(0), Column(0)),
+            end: Point::new(Line(5), Column(4)),
             is_block: false,
         });
     }
@@ -537,11 +548,11 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Simple, Point::new(Line(9), Column(3)), Side::Right);
         selection.update(Point::new(Line(4), Column(1)), Side::Right);
-        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 7).unwrap();
+        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 4).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, size.1)).unwrap(), SelectionRange {
-            start: Point::new(Line(-3), Column(2)),
-            end: Point::new(Line(2), Column(3)),
+            start: Point::new(Line(0), Column(2)),
+            end: Point::new(Line(5), Column(3)),
             is_block: false,
         });
     }
@@ -552,11 +563,11 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Block, Point::new(Line(9), Column(3)), Side::Right);
         selection.update(Point::new(Line(4), Column(1)), Side::Right);
-        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 7).unwrap();
+        selection = selection.rotate(&size, &(Line(0)..Line(size.0 as i32)), 4).unwrap();
 
         assert_eq!(selection.to_range(&term(size.0, size.1)).unwrap(), SelectionRange {
-            start: Point::new(Line(-3), Column(2)),
-            end: Point::new(Line(2), Column(3)),
+            start: Point::new(Line(0), Column(2)),
+            end: Point::new(Line(5), Column(3)),
             is_block: true
         });
     }

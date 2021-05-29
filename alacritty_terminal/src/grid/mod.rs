@@ -1,7 +1,6 @@
 //! A specialized 2D grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min};
-use std::iter::TakeWhile;
 use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds};
 
 use serde::{Deserialize, Serialize};
@@ -398,22 +397,25 @@ impl<T> Grid<T> {
         self.raw.truncate();
     }
 
+    /// Iterate over all cells in the grid starting at a specific point.
     #[inline]
     pub fn iter_from(&self, point: Point) -> GridIterator<'_, T> {
-        GridIterator { grid: self, point }
+        let end = Point::new(self.bottommost_line(), self.last_column());
+        GridIterator { grid: self, point, end }
     }
 
-    /// Iterator over all visible cells.
+    /// Iterate over all visible cells.
+    ///
+    /// This is slightly more optimized than calling `Grid::iter_from` in combination with
+    /// `Iterator::take_while`.
     #[inline]
-    pub fn display_iter(&self) -> DisplayIter<'_, T> {
-        let start = Point::new(Line(-(self.display_offset as i32) - 1), self.last_column());
-        let end = Point::new(start.line + self.lines, Column(self.columns));
+    pub fn display_iter(&self) -> GridIterator<'_, T> {
+        let last_column = self.last_column();
+        let start = Point::new(Line(-(self.display_offset() as i32) - 1), last_column);
+        let end_line = min(start.line + self.screen_lines(), self.bottommost_line());
+        let end = Point::new(end_line, last_column);
 
-        let iter = GridIterator { grid: self, point: start };
-
-        let take_while: DisplayIterTakeFun<'_, T> =
-            Box::new(move |indexed: &Indexed<&T>| indexed.point <= end);
-        iter.take_while(take_while)
+        GridIterator { grid: self, point: start, end }
     }
 
     #[inline]
@@ -560,6 +562,9 @@ pub struct GridIterator<'a, T> {
 
     /// Current position of the iterator within the grid.
     point: Point,
+
+    /// Last cell included in the iterator.
+    end: Point,
 }
 
 impl<'a, T> GridIterator<'a, T> {
@@ -578,15 +583,13 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = Indexed<&'a T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_column = self.grid.last_column();
-
         // Stop once we've reached the end of the grid.
-        if self.point == Point::new(self.grid.bottommost_line(), last_column) {
+        if self.point >= self.end {
             return None;
         }
 
         match self.point {
-            Point { column, .. } if column == last_column => {
+            Point { column, .. } if column == self.grid.last_column() => {
                 self.point.column = Column(0);
                 self.point.line += 1;
             },
@@ -623,6 +626,3 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         Some(Indexed { cell: &self.grid[self.point], point: self.point })
     }
 }
-
-pub type DisplayIter<'a, T> = TakeWhile<GridIterator<'a, T>, DisplayIterTakeFun<'a, T>>;
-type DisplayIterTakeFun<'a, T> = Box<dyn Fn(&Indexed<&'a T>) -> bool>;
