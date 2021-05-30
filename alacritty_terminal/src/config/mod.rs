@@ -50,6 +50,7 @@ pub struct Config<T> {
 pub struct Selection {
     pub semantic_escape_chars: String,
     pub save_to_clipboard: bool,
+    pub right_click_expand: bool,
 }
 
 impl Default for Selection {
@@ -57,6 +58,7 @@ impl Default for Selection {
         Self {
             semantic_escape_chars: String::from(",│`|:\"' ()[]{}<>\t"),
             save_to_clipboard: Default::default(),
+            right_click_expand: true,
         }
     }
 }
