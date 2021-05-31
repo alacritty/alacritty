@@ -391,7 +391,7 @@ impl Parser {
             return Ok(());
         }
 
-        if width > MAX_GRAPHIC_DIMENSIONS.0 || height > MAX_GRAPHIC_DIMENSIONS.1 {
+        if width > MAX_GRAPHIC_DIMENSIONS[0] || height > MAX_GRAPHIC_DIMENSIONS[1] {
             return Err(Error::TooBigImage { width, height });
         }
 

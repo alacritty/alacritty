@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::term::color::Rgb;
 
 /// Max allowed dimensions (width, height) for the graphic, in pixels.
-pub const MAX_GRAPHIC_DIMENSIONS: (usize, usize) = (4096, 4096);
+pub const MAX_GRAPHIC_DIMENSIONS: [usize; 2] = [4096, 4096];
 
 /// Unique identifier for every graphic added to a grid.
 #[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug, Copy, Hash, PartialOrd, Ord)]
