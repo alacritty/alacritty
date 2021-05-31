@@ -1827,13 +1827,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Fill the cells under the graphic.
         //
-        // The cell in the first column contains a reference to the graphic,
-        // with the offset from the start. Rest of the cells are empty.
+        // The cell in the first column contains a reference to the
+        // graphic, with the offset from the start. The rest of the
+        // cells are not overwritten, allowing any text behind
+        // transparent portions of the image to be visible.
 
         let left = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
-
-        let graphic_columns = (graphic.width + self.cell_width - 1) / self.cell_width;
-        let right = min(self.columns(), left + graphic_columns);
 
         let texture = Arc::new(TextureRef {
             id: graphic_id,
@@ -1854,13 +1853,9 @@ impl<T: EventListener> Handler for Term<T> {
 
             // Store a reference to the graphic in the first column.
             let graphic_cell = GraphicCell { texture: texture.clone(), offset_x: 0, offset_y };
-            let mut cell = Cell::default();
+            let mut cell = self.grid[line][Column(left)].clone();
             cell.set_graphic(graphic_cell);
             self.grid[line][Column(left)] = cell;
-
-            for col in left + 1..right {
-                self.grid[line][Column(col)] = Cell::default();
-            }
 
             if scrolling {
                 self.linefeed();
