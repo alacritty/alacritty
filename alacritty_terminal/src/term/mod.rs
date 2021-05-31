@@ -1853,9 +1853,7 @@ impl<T: EventListener> Handler for Term<T> {
 
             // Store a reference to the graphic in the first column.
             let graphic_cell = GraphicCell { texture: texture.clone(), offset_x: 0, offset_y };
-            let mut cell = self.grid[line][Column(left)].clone();
-            cell.set_graphic(graphic_cell);
-            self.grid[line][Column(left)] = cell;
+            self.grid[line][Column(left)].set_graphic(graphic_cell);
 
             if scrolling {
                 self.linefeed();
