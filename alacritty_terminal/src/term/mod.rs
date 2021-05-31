@@ -1810,8 +1810,6 @@ impl<T: EventListener> Handler for Term<T> {
 
         let left = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
 
-        let graphic_columns = (graphic.width + self.cell_width - 1) / self.cell_width;
-
         let texture = Arc::new(TextureRef {
             id: graphic_id,
             remove_queue: Arc::downgrade(&self.graphics.remove_queue),
