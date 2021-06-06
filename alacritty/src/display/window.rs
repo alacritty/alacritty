@@ -185,10 +185,12 @@ impl Window {
         #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let is_wayland = false;
 
+        let enable_vsync = window_config.vsync.unwrap_or(!is_wayland);
+
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, !is_wayland, size)
+            create_gl_window(window_builder.clone(), &event_loop, false, enable_vsync, size)
                 .or_else(|_| {
-                    create_gl_window(window_builder, &event_loop, true, !is_wayland, size)
+                    create_gl_window(window_builder, &event_loop, true, enable_vsync, size)
                 })?;
 
         // Text cursor.
