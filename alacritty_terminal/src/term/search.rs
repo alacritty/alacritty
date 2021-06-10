@@ -203,7 +203,7 @@ impl<T> Term<T> {
 
         let mut iter = self.grid.iter_from(start);
         let mut state = dfa.start_state();
-        let mut last_wrapped = false;
+        let mut last_line_wrapped = false;
         let mut regex_match = None;
         // Need to wrap around to opposite side of scroll buffer if 'end' point has already been
         // same at 'start' point or been beyond one.
@@ -270,14 +270,14 @@ impl<T> Term<T> {
                 },
             };
             self.skip_fullwidth(&mut iter, &mut cell, direction);
-            let wrapped = cell.flags.contains(Flags::WRAPLINE);
+            let line_wrapped = cell.flags.contains(Flags::WRAPLINE);
             c = cell.c;
 
             let last_point = mem::replace(&mut point, iter.point());
 
             // Handle linebreaks.
-            if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
-                || (last_point.column == Column(0) && point.column == last_column && !wrapped)
+            if (last_point.column == last_column && point.column == Column(0) && !last_line_wrapped)
+                || (last_point.column == Column(0) && point.column == last_column && !line_wrapped)
             {
                 match regex_match {
                     Some(_) => break,
@@ -285,7 +285,7 @@ impl<T> Term<T> {
                 }
             }
 
-            last_wrapped = wrapped;
+            last_line_wrapped = line_wrapped;
         }
 
         regex_match
@@ -711,7 +711,7 @@ mod tests {
     }
 
     #[test]
-    fn wrapping() {
+    fn line_wrapping() {
         #[rustfmt::skip]
         let term = mock_term("\
             xxx\r\n\
