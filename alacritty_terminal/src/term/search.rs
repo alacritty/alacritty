@@ -205,6 +205,12 @@ impl<T> Term<T> {
         let mut state = dfa.start_state();
         let mut last_wrapped = false;
         let mut regex_match = None;
+        // Need to wrap around to opposite side of scroll buffer if 'end' point has already been
+        // same at 'start' point or been beyond one.
+        let mut need_wrap_buffer = match direction {
+            Direction::Right => start >= end,
+            Direction::Left => start <= end,
+        };
 
         let mut cell = iter.cell();
         self.skip_fullwidth(&mut iter, &mut cell, direction);
@@ -238,12 +244,13 @@ impl<T> Term<T> {
                 }
             }
 
-            // Stop once we've reached the target point.
+            // Stop once we've reached the target point only if no need to wrap around.
             //
             // We check beyond the point itself to account for skipped characters after wide chars
             // without spacer.
-            if (direction == Direction::Right && point >= end)
-                || (direction == Direction::Left && point <= end)
+            if !need_wrap_buffer
+                && ((direction == Direction::Right && point >= end)
+                    || (direction == Direction::Left && point <= end))
             {
                 break;
             }
@@ -252,6 +259,9 @@ impl<T> Term<T> {
             let mut cell = match next(&mut iter) {
                 Some(Indexed { cell, .. }) => cell,
                 None => {
+                    // Enough to wrap around just once.
+                    need_wrap_buffer = false;
+
                     // Wrap around to other end of the scrollback buffer.
                     let line = topmost_line - point.line + screen_lines - 1;
                     let start = Point::new(line, last_column - point.column);
@@ -719,6 +729,21 @@ mod tests {
         let end = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
         assert_eq!(term.regex_search_left(&dfas, start, end), Some(end..=match_end));
+    }
+
+    #[test]
+    fn buffer_wrapping() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            xxx\r\n\
+            xxx\
+        ");
+
+        let dfas = RegexSearch::new("xxx").unwrap();
+        let start = Point::new(Line(1), Column(1));
+        let end = Point::new(Line(0), Column(2));
+        let match_start = Point::new(Line(0), Column(0));
+        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=end));
     }
 
     #[test]
