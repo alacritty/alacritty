@@ -57,7 +57,7 @@ brevity.
 | `CSI ? h`  | PARTIAL     | Supported modes:                                  |
 |            |             |   `1`, `3`, `6`, `7`, `12`, `25`, `1000`, `1002`  |
 |            |             |   `1004`, `1005`, `1006`, `1007`, `1042`, `1049`  |
-|            |             |   `2004`                                          |
+|            |             |   `2004`, `8452`                                  |
 | `CSI I`    | IMPLEMENTED |                                                   |
 | `CSI J`    | IMPLEMENTED |                                                   |
 | `CSI K`    | IMPLEMENTED |                                                   |

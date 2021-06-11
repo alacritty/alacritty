@@ -46,7 +46,7 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 const INITIAL_TABSTOPS: usize = 8;
 
 bitflags! {
-    pub struct TermMode: u32 {
+    pub struct TermMode: u64 {
         const NONE                = 0;
         const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
         const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
@@ -69,7 +69,8 @@ bitflags! {
         const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
         const SIXEL_SCROLLING     = 0b0100_0000_0000_0000_0000;
         const SIXEL_PRIV_PALETTE  = 0b1000_0000_0000_0000_0000;
-        const ANY                 = std::u32::MAX;
+        const SIXEL_CURSOR_TO_THE_RIGHT  = 0b0001_0000_0000_0000_0000_0000;
+        const ANY                 = std::u64::MAX;
     }
 }
 
@@ -1585,6 +1586,9 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SixelPrivateColorRegisters => {
                 self.mode.insert(TermMode::SIXEL_PRIV_PALETTE)
             },
+            ansi::Mode::SixelCursorToTheRight => {
+                self.mode.insert(TermMode::SIXEL_CURSOR_TO_THE_RIGHT);
+            },
         }
     }
 
@@ -1631,6 +1635,9 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::SixelPrivateColorRegisters => {
                 self.graphics.sixel_shared_palette = None;
                 self.mode.remove(TermMode::SIXEL_PRIV_PALETTE);
+            },
+            ansi::Mode::SixelCursorToTheRight => {
+                self.mode.remove(TermMode::SIXEL_CURSOR_TO_THE_RIGHT)
             },
         }
     }
@@ -1855,12 +1862,17 @@ impl<T: EventListener> Handler for Term<T> {
             let graphic_cell = GraphicCell { texture: texture.clone(), offset_x: 0, offset_y };
             self.grid[line][Column(left)].set_graphic(graphic_cell);
 
-            if scrolling {
+            if scrolling && offset_y < height - self.cell_height as u16 {
                 self.linefeed();
             }
         }
 
-        if scrolling {
+        if self.mode.contains(TermMode::SIXEL_CURSOR_TO_THE_RIGHT) {
+            let graphic_columns = (graphic.width + self.cell_width - 1) / self.cell_width;
+            let right = min(self.columns(), left + graphic_columns);
+            self.move_forward(Column(right));
+        } else if scrolling {
+            self.linefeed();
             self.carriage_return();
         }
     }
