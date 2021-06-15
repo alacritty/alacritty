@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::min;
 
 use alacritty_config_derive::ConfigDeserialize;
 
@@ -160,21 +160,11 @@ impl ViModeCursor {
     /// Get target cursor point for vim-like page movement.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn scroll<T: EventListener>(mut self, term: &Term<T>, lines: i32) -> Self {
-        // Check number of lines the cursor needs to be moved.
-        let overscroll = if lines > 0 {
-            let max_scroll = term.history_size() - term.grid().display_offset();
-            max(0, lines - max_scroll as i32)
-        } else {
-            let max_scroll = term.grid().display_offset();
-            min(0, lines + max_scroll as i32)
-        };
-
         // Clamp movement to within visible region.
-        let line = (self.point.line - overscroll).grid_clamp(term, Boundary::Grid);
+        let line = (self.point.line - lines).grid_clamp(term, Boundary::Grid);
 
         // Find the first occupied cell after scrolling has been performed.
-        let target_line = (self.point.line - lines).grid_clamp(term, Boundary::Grid);
-        let column = first_occupied_in_line(term, target_line).unwrap_or_default().column;
+        let column = first_occupied_in_line(term, line).unwrap_or_default().column;
 
         // Move cursor.
         self.point = Point::new(line, column);
@@ -755,5 +745,46 @@ mod tests {
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(3)));
         cursor = cursor.motion(&mut term, ViMotion::WordLeft);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+    }
+
+    fn history_term() -> Term<()> {
+        let mut term = term();
+
+        for i in 0..(term.screen_lines() as i32) {
+            term.grid_mut()[Line(i)][Column(0)].c = 'c';
+        }
+        term.grid_mut().clear_viewport();
+
+        term
+    }
+
+    #[test]
+    fn scroll_simple() {
+        let term = history_term();
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+
+        cursor = cursor.scroll(&term, -1);
+        assert_eq!(cursor.point, Point::new(Line(1), Column(0)));
+
+        cursor = cursor.scroll(&term, 1);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+
+        cursor = cursor.scroll(&term, 1);
+        assert_eq!(cursor.point, Point::new(Line(-1), Column(0)));
+    }
+
+    #[test]
+    fn scroll_over() {
+        let term = history_term();
+        let overlines = (term.total_lines() * 2) as i32;
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+
+        cursor = cursor.scroll(&term, -overlines);
+        assert_eq!(cursor.point, Point::new(Line(term.screen_lines() as i32 - 1), Column(0)));
+
+        cursor = cursor.scroll(&term, overlines);
+        assert_eq!(cursor.point, Point::new(Line(-(term.history_size() as i32)), Column(0)));
     }
 }

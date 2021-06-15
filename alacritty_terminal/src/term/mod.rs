@@ -280,11 +280,6 @@ impl<T> Term<T> {
         self.grid.scroll_display(scroll);
         self.event_proxy.send_event(Event::MouseCursorDirty);
 
-        // Clamp vi mode cursor to the viewport.
-        let viewport_start = -(self.grid.display_offset() as i32);
-        let viewport_end = viewport_start + self.bottommost_line().0;
-        let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
-        *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
         self.vi_mode_recompute_selection();
     }
 
