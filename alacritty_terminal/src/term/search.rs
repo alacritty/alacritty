@@ -800,4 +800,29 @@ mod tests {
         let mut iter = RegexIter::new(start, end, Direction::Right, &term, &dfas);
         assert_eq!(iter.next(), None);
     }
+
+    #[test]
+    fn wrap_around_to_another_end() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            abc\r\n\
+            def\
+        ");
+
+        // bottom to top
+        let dfas = RegexSearch::new("abc").unwrap();
+        let start = Point::new(Line(1), Column(0));
+        let end = Point::new(Line(0), Column(2));
+        let match_start = Point::new(Line(0), Column(0));
+        let match_end = Point::new(Line(0), Column(2));
+        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+
+        // top to bottom
+        let dfas = RegexSearch::new("def").unwrap();
+        let start = Point::new(Line(0), Column(2));
+        let end = Point::new(Line(1), Column(0));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(1), Column(2));
+        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+    }
 }
