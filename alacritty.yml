@@ -367,6 +367,9 @@
   # When set to `true`, selected text will be copied to the primary clipboard.
   #save_to_clipboard: false
 
+  # When set to `false`, the selection will not be expanded with the right mouse button
+  #right_click_expand: true
+
 #cursor:
   # Cursor style
   #style:

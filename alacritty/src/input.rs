@@ -544,6 +544,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle selection expansion on right click.
     fn on_right_click(&mut self, point: Point) {
+        if !self.ctx.config().selection.right_click_expand {
+            return;
+        }
+
         match self.ctx.mouse().click_state {
             ClickState::Click => {
                 let selection_type = if self.ctx.modifiers().ctrl() {
