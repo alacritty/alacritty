@@ -239,12 +239,7 @@ impl<T> Term<T> {
             }
 
             // Stop once we've reached the target point.
-            //
-            // We check beyond the point itself to account for skipped characters after wide chars
-            // without spacer.
-            if (direction == Direction::Right && point >= end)
-                || (direction == Direction::Left && point <= end)
-            {
+            if point == end {
                 break;
             }
 
@@ -291,6 +286,13 @@ impl<T> Term<T> {
         match direction {
             Direction::Right if cell.flags.contains(Flags::WIDE_CHAR) => {
                 iter.next();
+
+                // If iterates `iter` when finds a wide character without wide character spacer,
+                // one character is skipped unintentionally. So returns `iter` to one previous
+                // position.
+                if !iter.cell().flags.contains(Flags::WIDE_CHAR_SPACER) {
+                    iter.prev();
+                }
             },
             Direction::Right if cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 if let Some(Indexed { cell: new_cell, .. }) = iter.next() {
