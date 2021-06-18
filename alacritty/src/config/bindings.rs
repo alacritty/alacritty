@@ -726,7 +726,8 @@ impl<'a> Deserialize<'a> for Key {
     }
 }
 
-struct ModeWrapper {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct ModeWrapper {
     pub mode: BindingMode,
     pub not_mode: BindingMode,
 }
@@ -751,6 +752,12 @@ impl BindingMode {
         binding_mode.set(BindingMode::VI, mode.contains(TermMode::VI));
         binding_mode.set(BindingMode::SEARCH, search);
         binding_mode
+    }
+}
+
+impl Default for ModeWrapper {
+    fn default() -> Self {
+        Self { mode: BindingMode::empty(), not_mode: BindingMode::empty() }
     }
 }
 
