@@ -809,7 +809,7 @@ mod tests {
             def\
         ");
 
-        // bottom to top
+        // Bottom to top.
         let dfas = RegexSearch::new("abc").unwrap();
         let start = Point::new(Line(1), Column(0));
         let end = Point::new(Line(0), Column(2));
@@ -817,7 +817,7 @@ mod tests {
         let match_end = Point::new(Line(0), Column(2));
         assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
 
-        // top to bottom
+        // Top to bottom.
         let dfas = RegexSearch::new("def").unwrap();
         let start = Point::new(Line(0), Column(2));
         let end = Point::new(Line(1), Column(0));
