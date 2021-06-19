@@ -284,16 +284,14 @@ impl<T> Term<T> {
         direction: Direction,
     ) {
         match direction {
-            Direction::Right if cell.flags.contains(Flags::WIDE_CHAR) => {
+            // In the alternate screen buffer there might not be a wide char spacer after a wide
+            // char, so we only advance the iterator when the wide char is not in the last column.
+            Direction::Right
+                if cell.flags.contains(Flags::WIDE_CHAR)
+                    && iter.point().column < self.last_column() =>
+            {
                 iter.next();
-
-                // If iterates `iter` when finds a wide character without wide character spacer,
-                // one character is skipped unintentionally. So returns `iter` to one previous
-                // position.
-                if !iter.cell().flags.contains(Flags::WIDE_CHAR_SPACER) {
-                    iter.prev();
-                }
-            },
+            }
             Direction::Right if cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 if let Some(Indexed { cell: new_cell, .. }) = iter.next() {
                     *cell = new_cell;
