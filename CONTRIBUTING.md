@@ -161,4 +161,4 @@ If there are any outstanding questions about contributing to Alacritty, they can
 [Alacritty issue tracker](https://github.com/alacritty/alacritty/issues).
 
 As a more immediate and direct form of communication, the Alacritty IRC channel (`#alacritty` on
-Freenode) can be used to contact many of the Alacritty contributors.
+Libera.Chat) can be used to contact many of the Alacritty contributors.

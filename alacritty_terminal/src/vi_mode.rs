@@ -170,7 +170,7 @@ impl ViModeCursor {
         };
 
         // Clamp movement to within visible region.
-        let line = (self.point.line - overscroll).grid_clamp(term, Boundary::Cursor);
+        let line = (self.point.line - overscroll).grid_clamp(term, Boundary::Grid);
 
         // Find the first occupied cell after scrolling has been performed.
         let target_line = (self.point.line - lines).grid_clamp(term, Boundary::Grid);

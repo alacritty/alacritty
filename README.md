@@ -104,7 +104,7 @@ niceties like a GUI config editor.
 
 ## IRC
 
-Alacritty discussions can be found in `#alacritty` on freenode.
+Alacritty discussions can be found in `#alacritty` on Libera.Chat.
 
 ## License
 

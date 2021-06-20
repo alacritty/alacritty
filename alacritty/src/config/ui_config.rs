@@ -14,7 +14,7 @@ use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
-    self, Action, Binding, BindingMode, Key, KeyBinding, ModsWrapper, MouseBinding,
+    self, Action, Binding, Key, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
 };
 use crate::config::color::Colors;
 use crate::config::debug::Debug;
@@ -105,8 +105,8 @@ impl UiConfig {
             let binding = KeyBinding {
                 trigger: binding.key,
                 mods: binding.mods.0,
-                mode: BindingMode::empty(),
-                notmode: BindingMode::empty(),
+                mode: binding.mode.mode,
+                notmode: binding.mode.not_mode,
                 action: Action::Hint(hint.clone()),
             };
 
@@ -242,6 +242,7 @@ impl Default for Hints {
                 binding: Some(HintBinding {
                     key: Key::Keycode(VirtualKeyCode::U),
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CTRL),
+                    mode: Default::default(),
                 }),
             }],
             alphabet: Default::default(),
@@ -340,6 +341,8 @@ pub struct HintBinding {
     pub key: Key,
     #[serde(default)]
     pub mods: ModsWrapper,
+    #[serde(default)]
+    pub mode: ModeWrapper,
 }
 
 /// Hint mouse highlighting.
