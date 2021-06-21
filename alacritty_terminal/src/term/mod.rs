@@ -46,7 +46,7 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 const INITIAL_TABSTOPS: usize = 8;
 
 bitflags! {
-    pub struct TermMode: u64 {
+    pub struct TermMode: u32 {
         const NONE                = 0;
         const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
         const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
@@ -70,7 +70,7 @@ bitflags! {
         const SIXEL_SCROLLING     = 0b0100_0000_0000_0000_0000;
         const SIXEL_PRIV_PALETTE  = 0b1000_0000_0000_0000_0000;
         const SIXEL_CURSOR_TO_THE_RIGHT  = 0b0001_0000_0000_0000_0000_0000;
-        const ANY                 = std::u64::MAX;
+        const ANY                 = std::u32::MAX;
     }
 }
 
