@@ -1869,8 +1869,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         if self.mode.contains(TermMode::SIXEL_CURSOR_TO_THE_RIGHT) {
             let graphic_columns = (graphic.width + self.cell_width - 1) / self.cell_width;
-            let right = min(self.columns(), left + graphic_columns);
-            self.move_forward(Column(right));
+            self.move_forward(Column(graphic_columns));
         } else if scrolling {
             self.linefeed();
             self.carriage_return();
