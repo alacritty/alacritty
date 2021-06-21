@@ -16,9 +16,13 @@ pub struct VisualBell {
 impl VisualBell {
     /// Ring the visual bell, and return its intensity.
     pub fn ring(&mut self) -> f64 {
-        let now = Instant::now();
-        self.start_time = Some(now);
-        self.intensity_at_instant(now)
+        if self.completed() {
+            let now = Instant::now();
+            self.start_time = Some(now);
+            self.intensity_at_instant(now)
+        } else {
+            self.intensity()
+        }
     }
 
     /// Get the currently intensity of the visual bell. The bell's intensity
