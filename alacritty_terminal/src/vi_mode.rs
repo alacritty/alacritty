@@ -749,12 +749,7 @@ mod tests {
 
     fn history_term() -> Term<()> {
         let mut term = term();
-
-        for i in 0..(term.screen_lines() as i32) {
-            term.grid_mut()[Line(i)][Column(0)].c = 'c';
-        }
         term.grid_mut().clear_viewport();
-
         term
     }
 
