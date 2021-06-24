@@ -301,6 +301,9 @@ pub trait Handler {
     /// Identify the terminal (should write back to the pty stream).
     fn identify_terminal(&mut self, _intermediate: Option<char>) {}
 
+    /// Send an XTVERSION response (should write back to the pty stream).
+    fn xtversion(&mut self) {}
+
     /// Report device status.
     fn device_status(&mut self, _: usize) {}
 
@@ -1209,23 +1212,34 @@ where
             },
             ('n', []) => handler.device_status(next_param_or(0) as usize),
             ('P', []) => handler.delete_chars(next_param_or(1) as usize),
-            ('q', [b' ']) => {
-                // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
-                let cursor_style_id = next_param_or(0);
-                let shape = match cursor_style_id {
-                    0 => None,
-                    1 | 2 => Some(CursorShape::Block),
-                    3 | 4 => Some(CursorShape::Underline),
-                    5 | 6 => Some(CursorShape::Beam),
-                    _ => {
+            ('q', intermediates) => match intermediates {
+                [b' '] => {
+                    // DECSCUSR (CSI Ps SP q) -- Set Cursor Style.
+                    let cursor_style_id = next_param_or(0);
+                    let shape = match cursor_style_id {
+                        0 => None,
+                        1 | 2 => Some(CursorShape::Block),
+                        3 | 4 => Some(CursorShape::Underline),
+                        5 | 6 => Some(CursorShape::Beam),
+                        _ => {
+                            unhandled!();
+                            return;
+                        },
+                    };
+                    let cursor_style = shape
+                        .map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
+
+                    handler.set_cursor_style(cursor_style);
+                },
+                [b'>'] => {
+                    let xt = next_param_or(0);
+                    if xt != 0 {
                         unhandled!();
                         return;
-                    },
-                };
-                let cursor_style =
-                    shape.map(|shape| CursorStyle { shape, blinking: cursor_style_id % 2 == 1 });
-
-                handler.set_cursor_style(cursor_style);
+                    }
+                    handler.xtversion();
+                },
+                _ => unhandled!(),
             },
             ('r', []) => {
                 let top = next_param_or(1) as usize;

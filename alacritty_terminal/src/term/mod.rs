@@ -1010,6 +1010,13 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
+    fn xtversion(&mut self) {
+        trace!("Reporting XTVERSION");
+        let text = format!("\x1b[>Alacritty({})\x1b\\", env!("CARGO_PKG_VERSION"));
+        self.event_proxy.send_event(Event::PtyWrite(text));
+    }
+
+    #[inline]
     fn device_status(&mut self, arg: usize) {
         trace!("Reporting device status: {}", arg);
         match arg {
