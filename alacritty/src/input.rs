@@ -325,6 +325,94 @@ impl<T: EventListener> Execute<T> for Action {
 }
 
 impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
+    fn xterm_modifiers(&mut self) -> u8 {
+        let mods = self.ctx.modifiers();
+        let mut n = 0;
+
+        if mods.shift() {
+            n |= 1;
+        }
+
+        if mods.alt() {
+            n |= 2;
+        }
+
+        if mods.ctrl() {
+            n |= 4;
+        }
+
+        n + 1
+    }
+
+    fn process_received_char(&mut self, c: char) {
+        let len = c.len_utf8();
+
+        if len == 1
+            && !self.ctx.modifiers().is_empty()
+            && self.ctx.terminal().mode().contains(TermMode::MODIFY_OTHER_KEYS1)
+        {
+            // xterm's definition of `other` in `modifyOtherKeys` is somewhat
+            // vague, mostly stemming out of xterm's inner design:
+            //
+            // https://github.com/ThomasDickey/xterm-snapshots/blob/f8a406455c18ec6f3de1cf2c642f7b7f0312d362/input.c#L547
+            //
+            // That's why our implementation in here is a mere approximation -
+            // it was done by analyzing "what xterm does" and trying to shoehorn
+            // it in here.
+            //
+            // To avoid duplicating comments, the implementation below follows
+            // as pure code, with comments extracted into tests at th bottom of
+            // this file.
+
+            let key = c as u8;
+            let xmods = self.xterm_modifiers();
+            let mods = self.ctx.modifiers();
+
+            let mut allowed = c == '-' || c == '=' || c == ',' || c == '.' || c.is_ascii_digit();
+
+            if key == 9 || key == 13 {
+                allowed |= !mods.alt();
+            }
+
+            if key == 32 {
+                allowed |= mods.ctrl() && mods.alt();
+            }
+
+            if key > 32 && key < 46 {
+                allowed |= mods.ctrl() || mods.alt();
+            }
+
+            // TODO check: ['!', '#', '$', '%', '&', '*', '(', ')', '_', '+', ':', '"', '<', '>',
+            // '?']
+
+            if allowed {
+                self.ctx.write_to_pty(format!("\x1b[27;{};{}~", xmods, key).into_bytes());
+                return;
+            }
+        }
+
+        let mut bytes = {
+            let mut bytes = Vec::with_capacity(len);
+            unsafe {
+                bytes.set_len(len);
+                c.encode_utf8(&mut bytes[..]);
+            }
+            bytes
+        };
+
+        if len == 1
+            && self.ctx.config().ui_config.alt_send_esc
+            && *self.ctx.received_count() == 0
+            && self.ctx.modifiers().alt()
+        {
+            bytes.insert(0, b'\x1b');
+        }
+
+        self.ctx.write_to_pty(bytes);
+    }
+}
+
+impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     pub fn new(ctx: A) -> Self {
         Self { ctx, _phantom: Default::default() }
     }
@@ -823,26 +911,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
 
         self.ctx.on_typing_start();
-
         self.ctx.scroll(Scroll::Bottom);
         self.ctx.clear_selection();
 
-        let utf8_len = c.len_utf8();
-        let mut bytes = Vec::with_capacity(utf8_len);
-        unsafe {
-            bytes.set_len(utf8_len);
-            c.encode_utf8(&mut bytes[..]);
-        }
-
-        if self.ctx.config().ui_config.alt_send_esc
-            && *self.ctx.received_count() == 0
-            && self.ctx.modifiers().alt()
-            && utf8_len == 1
-        {
-            bytes.insert(0, b'\x1b');
-        }
-
-        self.ctx.write_to_pty(bytes);
+        self.process_received_char(c);
 
         *self.ctx.received_count() += 1;
     }
@@ -992,81 +1064,91 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
-
-    use alacritty_terminal::event::Event as TerminalEvent;
-
     use crate::config::Binding;
     use crate::message_bar::MessageBuffer;
+    use alacritty_terminal::event::Event as TerminalEvent;
+    use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
+    use parking_lot::RwLock;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
-    struct MockEventProxy;
-    impl EventListener for MockEventProxy {}
+    struct FakeEventListener;
 
-    struct ActionContext<'a, T> {
-        pub terminal: &'a mut Term<T>,
-        pub size_info: &'a SizeInfo,
-        pub mouse: &'a mut Mouse,
-        pub clipboard: &'a mut Clipboard,
-        pub message_buffer: &'a mut MessageBuffer,
-        pub received_count: usize,
-        pub suppress_chars: bool,
-        pub modifiers: ModifiersState,
-        config: &'a Config,
+    impl EventListener for FakeEventListener {}
+
+    struct FakeActionContext<T> {
+        terminal: Term<T>,
+        size_info: SizeInfo,
+        mouse: Mouse,
+        clipboard: Clipboard,
+        message_buffer: MessageBuffer,
+        received_count: usize,
+        suppress_chars: bool,
+        modifiers: ModifiersState,
+        config: Config,
+        pty: RwLock<Vec<u8>>,
     }
 
-    impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
-        fn search_next(
-            &mut self,
-            _origin: Point,
-            _direction: Direction,
-            _side: Side,
-        ) -> Option<Match> {
-            None
+    impl FakeActionContext<FakeEventListener> {
+        fn new() -> Self {
+            let config = Config::default();
+            let size_info = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
+
+            Self {
+                terminal: Term::new(&config, size_info, FakeEventListener),
+                size_info,
+                mouse: Default::default(),
+                clipboard: Clipboard::new_nop(),
+                message_buffer: Default::default(),
+                received_count: 0,
+                suppress_chars: false,
+                modifiers: Default::default(),
+                config,
+                pty: RwLock::new(Default::default()),
+            }
         }
 
-        fn search_direction(&self) -> Direction {
-            Direction::Right
-        }
+        #[track_caller]
+        fn assert_pty(&self, test: &str, expected: &[u8]) {
+            let to_string = |str: &[u8]| {
+                str.iter()
+                    .flat_map(|&c| std::ascii::escape_default(c))
+                    .map(|c| c as char)
+                    .collect::<String>()
+            };
 
-        fn search_active(&self) -> bool {
-            false
-        }
+            let actual = self.pty.read();
 
-        fn terminal(&self) -> &Term<T> {
-            &self.terminal
+            assert_eq!(
+                expected,
+                *actual,
+                "\n\n  left (~): {}\n right (~): {}\n\ntest: {}\n",
+                to_string(expected),
+                to_string(&*actual),
+                test,
+            );
         }
+    }
 
-        fn terminal_mut(&mut self) -> &mut Term<T> {
-            &mut self.terminal
+    impl<T: EventListener> super::ActionContext<T> for FakeActionContext<T> {
+        fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&self, data: B) {
+            self.pty.write().extend(data.into().to_vec());
         }
 
         fn size_info(&self) -> SizeInfo {
-            *self.size_info
+            self.size_info
         }
 
         fn selection_is_empty(&self) -> bool {
             true
         }
 
-        fn scroll(&mut self, scroll: Scroll) {
-            self.terminal.scroll_display(scroll);
-        }
-
-        fn mouse_mode(&self) -> bool {
-            false
-        }
-
-        #[inline]
         fn mouse_mut(&mut self) -> &mut Mouse {
-            self.mouse
+            &mut self.mouse
         }
 
-        #[inline]
         fn mouse(&self) -> &Mouse {
-            self.mouse
+            &self.mouse
         }
 
         fn received_count(&mut self) -> &mut usize {
@@ -1081,12 +1163,24 @@ mod tests {
             &mut self.modifiers
         }
 
+        fn scroll(&mut self, scroll: Scroll) {
+            self.terminal.scroll_display(scroll);
+        }
+
         fn window(&mut self) -> &mut Window {
             unimplemented!();
         }
 
         fn display(&mut self) -> &mut Display {
-            unimplemented!();
+            unimplemented!()
+        }
+
+        fn terminal(&self) -> &Term<T> {
+            &self.terminal
+        }
+
+        fn terminal_mut(&mut self) -> &mut Term<T> {
+            &mut self.terminal
         }
 
         fn pop_message(&mut self) {
@@ -1098,19 +1192,35 @@ mod tests {
         }
 
         fn config(&self) -> &Config {
-            self.config
-        }
-
-        fn clipboard_mut(&mut self) -> &mut Clipboard {
-            self.clipboard
+            &self.config
         }
 
         fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
             unimplemented!();
         }
 
+        fn mouse_mode(&self) -> bool {
+            false
+        }
+
+        fn clipboard_mut(&mut self) -> &mut Clipboard {
+            &mut self.clipboard
+        }
+
         fn scheduler_mut(&mut self) -> &mut Scheduler {
             unimplemented!();
+        }
+
+        fn search_next(&mut self, _: Point, _: Direction, _: Side) -> Option<Match> {
+            None
+        }
+
+        fn search_direction(&self) -> Direction {
+            Direction::Right
+        }
+
+        fn search_active(&self) -> bool {
+            false
         }
     }
 
@@ -1124,42 +1234,12 @@ mod tests {
         } => {
             #[test]
             fn $name() {
-                let mut clipboard = Clipboard::new_nop();
-                let cfg = Config::default();
-                let size = SizeInfo::new(
-                    21.0,
-                    51.0,
-                    3.0,
-                    3.0,
-                    0.,
-                    0.,
-                    false,
-                );
+                let mut processor = Processor::new(FakeActionContext::new());
 
-                let mut terminal = Term::new(&cfg, size, MockEventProxy);
-
-                let mut mouse = Mouse {
-                    click_state: $initial_state,
-                    ..Mouse::default()
-                };
-
-                let mut message_buffer = MessageBuffer::new();
-
-                let context = ActionContext {
-                    terminal: &mut terminal,
-                    mouse: &mut mouse,
-                    size_info: &size,
-                    clipboard: &mut clipboard,
-                    received_count: 0,
-                    suppress_chars: false,
-                    modifiers: Default::default(),
-                    message_buffer: &mut message_buffer,
-                    config: &cfg,
-                };
-
-                let mut processor = Processor::new(context);
+                processor.ctx.mouse.click_state = $initial_state;
 
                 let event: GlutinEvent::<'_, TerminalEvent> = $input;
+
                 if let GlutinEvent::WindowEvent {
                     event: WindowEvent::MouseInput {
                         state,
@@ -1170,7 +1250,7 @@ mod tests {
                 } = event
                 {
                     processor.mouse_input(state, button);
-                };
+                }
 
                 assert_eq!(processor.ctx.mouse.click_state, $end_state);
             }
@@ -1194,6 +1274,49 @@ mod tests {
                 }
             }
         }
+    }
+
+    macro_rules! test_process_received_char {
+        (
+            $(
+                $group:ident {
+                    $( $char:literal $(+ $mod:ident)* => $out:expr, )+
+                };
+            )+
+        ) => {
+            #[test]
+            fn process_received_char() {
+                $($(
+                    let test = stringify!($char $(+ $mod)*);
+
+                    // Given
+                    let mut processor = Processor::new(FakeActionContext::new());
+
+                    // When
+                    $( test_process_received_char!(@apply-modifier processor $mod); )*
+                    processor.process_received_char($char);
+
+                    // Then
+                    processor.ctx.assert_pty(test, $out);
+                )+)+
+            }
+        };
+
+        (@apply-modifier $processor:ident MOK1) => {
+            $processor.ctx.terminal.set_modify_other_keys1();
+        };
+
+        (@apply-modifier $processor:ident Shift) => {
+            $processor.ctx.modifiers().insert(ModifiersState::SHIFT);
+        };
+
+        (@apply-modifier $processor:ident Ctrl) => {
+            $processor.ctx.modifiers().insert(ModifiersState::CTRL);
+        };
+
+        (@apply-modifier $processor:ident Alt) => {
+            $processor.ctx.modifiers().insert(ModifiersState::ALT);
+        };
     }
 
     test_clickstate! {
@@ -1354,5 +1477,48 @@ mod tests {
         triggers: false,
         mode: BindingMode::empty(),
         mods: ModifiersState::ALT | ModifiersState::LOGO,
+    }
+
+    test_process_received_char! {
+        Tab {
+            '\t' => b"\t",
+            '\t' + MOK1 => b"\t",
+
+            '\t' + Shift => b"\t",
+            '\t' + Shift + MOK1 => b"\x1b[27;2;9~",
+
+            '\t' + Ctrl => b"\t",
+            '\t' + Ctrl + MOK1 => b"\x1b[27;5;9~",
+
+            '\t' + Alt => b"\x1b\t",
+            '\t' + Alt + MOK1 => b"\x1b\t",
+            // ^ Alt+Tab has a special meaning in xterm, so it's not covered by
+            // | modifyOtherKeys=1; Emacs also seems not to understand it
+
+            '\t' + Shift + Ctrl => b"\t",
+            '\t' + Shift + Ctrl + MOK1 => b"\x1b[27;6;9~",
+
+            '\t' + Shift + Alt => b"\x1b\t",
+            '\t' + Shift + Alt + MOK1 => b"\x1b\t", // follows xterm behavior
+
+            '\t' + Ctrl + Alt => b"\x1b\t",
+            '\t' + Ctrl + Alt + MOK1 => b"\x1b\t", // follows xterm behavior
+
+            '\t' + Shift + Ctrl + Alt => b"\x1b\t",
+            '\t' + Shift + Ctrl + Alt + MOK1 => b"\x1b\t", // follows xterm behavior
+        };
+
+        Space {
+            ' ' => b" ",
+            ' ' + MOK1 => b" ",
+
+            ' ' + Ctrl => b" ",
+            ' ' + Ctrl + MOK1 => b" ",
+            // ^ This combination already has its own ANSI code, so it's ignored
+            // | by modifyOtherKeys=1
+
+            ' ' + Ctrl + Alt => b"\x1b ",
+            ' ' + Ctrl + Alt + MOK1 => b"\x1b[27;7;32~",
+        };
     }
 }

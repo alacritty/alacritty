@@ -62,6 +62,7 @@ bitflags! {
         const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
         const VI                  = 0b0001_0000_0000_0000_0000;
         const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
+        const MODIFY_OTHER_KEYS1  = 0b0100_0000_0000_0000_0000;
         const ANY                 = std::u32::MAX;
     }
 }
@@ -1605,6 +1606,16 @@ impl<T: EventListener> Handler for Term<T> {
                 self.event_proxy.send_event(Event::CursorBlinkingChange(false));
             },
         }
+    }
+
+    fn set_modify_other_keys1(&mut self) {
+        trace!("Enabling xterm's modifyOtherKeys=1");
+        self.mode.insert(TermMode::MODIFY_OTHER_KEYS1);
+    }
+
+    fn unset_modify_other_keys1(&mut self) {
+        trace!("Disabling xterm's modifyOtherKeys=1");
+        self.mode.remove(TermMode::MODIFY_OTHER_KEYS1);
     }
 
     #[inline]

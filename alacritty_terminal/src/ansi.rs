@@ -406,6 +406,12 @@ pub trait Handler {
     /// Unset mode.
     fn unset_mode(&mut self, _: Mode) {}
 
+    /// Enables xterm's `modifyOtherKeys=1` mode.
+    fn set_modify_other_keys1(&mut self) {}
+
+    /// Disables xterm's `modifyOtherKeys=1` mode.
+    fn unset_modify_other_keys1(&mut self) {}
+
     /// DECSTBM - Set the terminal scrolling region.
     fn set_scrolling_region(&mut self, _top: usize, _bottom: Option<usize>) {}
 
@@ -1206,6 +1212,11 @@ where
                         }
                     }
                 }
+            },
+            ('m', [b'>']) => {
+                // https://github.com/ThomasDickey/xterm-snapshots/blob/2f9db53ba911e7bcd7eeb10b37e40b7b7347fda6/ctlseqs.txt#L1115
+                // TODO(pwy) missing feature: unset
+                handler.set_modify_other_keys1();
             },
             ('n', []) => handler.device_status(next_param_or(0) as usize),
             ('P', []) => handler.delete_chars(next_param_or(1) as usize),

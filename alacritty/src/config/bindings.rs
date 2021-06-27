@@ -773,7 +773,8 @@ impl<'a> Deserialize<'a> for ModeWrapper {
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
-                    "a combination of AppCursor | AppKeypad | Alt | Vi, possibly with negation (~)",
+                    "a combination of appcursor | appkeypad | alt | vi | search, possibly with \
+                     negation (~)",
                 )
             }
 
