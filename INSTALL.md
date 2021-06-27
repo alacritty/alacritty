@@ -176,10 +176,13 @@ eopkg install fontconfig-devel
 #### NixOS/Nixpkgs
 
 The following command can be used to get a shell with all development
-dependencies on [NixOS](https://nixos.org).
+dependencies using [Nix](https://nixos.org).
 
 ```sh
 nix-shell -A alacritty '<nixpkgs>'
+
+# or, if you're using Nix Flakes:
+nix develop nixpkgs#alacritty
 ```
 
 #### Gentoo
