@@ -290,6 +290,22 @@ If you are having problems with Alacritty's logo, you can replace it with
 prerendered PNGs and simplified SVGs available in the `extra/logo/compat`
 directory.
 
+### Default Terminal
+
+Some distributions support changing the default terminal emulator
+using `update-alternatives`:
+
+First, register Alacritty terminal:
+```
+sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator \
+/usr/local/bin/alacritty 50 # or wherever in $PATH Alacritty resides
+```
+
+Select your terminal interactively:
+```
+sudo update-alternatives --config x-terminal-emulator
+```
+
 ### Manual Page
 
 Installing the manual page requires the additional dependency `gzip`.
