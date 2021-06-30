@@ -280,6 +280,11 @@ impl<T> Term<T> {
         self.grid.scroll_display(scroll);
         self.event_proxy.send_event(Event::MouseCursorDirty);
 
+        // Clamp vi mode cursor to the viewport.
+        let viewport_start = -(self.grid.display_offset() as i32);
+        let viewport_end = viewport_start + self.bottommost_line().0;
+        let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
+        *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
         self.vi_mode_recompute_selection();
     }
 
@@ -1926,6 +1931,83 @@ mod tests {
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
+
+    #[test]
+    fn scroll_display_page_up() {
+        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        // Create 20 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-1), Column(0)));
+        assert_eq!(term.grid.display_offset(), 10);
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-11), Column(0)));
+        assert_eq!(term.grid.display_offset(), 20);
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-11), Column(0)));
+        assert_eq!(term.grid.display_offset(), 20);
+    }
+
+    #[test]
+    fn scroll_display_page_down() {
+        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        // Create 20 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Change display_offset to topmost.
+        term.grid_mut().scroll_display(Scroll::Top);
+        term.vi_mode_cursor = ViModeCursor::new(Point::new(Line(-20), Column(0)));
+
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-10), Column(0)));
+        assert_eq!(term.grid.display_offset(), 10);
+
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(term.grid.display_offset(), 0);
+
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(term.grid.display_offset(), 0);
+    }
+
+    #[test]
+    fn selection_with_scroll() {
+        let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        for _ in 0..2 {
+            term.grid_mut()[Line(2)][Column(0)].c = 'a';
+            term.grid_mut()[Line(2)][Column(1)].c = 'b';
+            term.grid_mut()[Line(2)][Column(2)].c = 'c';
+            term.clear_screen(ansi::ClearMode::All);
+        }
+        term.grid_mut()[Line(0)][Column(0)].c = 'd';
+
+        term.toggle_vi_mode();
+        term.selection =
+            Some(Selection::new(SelectionType::Lines, Point::new(Line(0), Column(0)), Side::Left));
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.selection_to_string(), Some(String::from("abc\nd\n")));
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.selection_to_string(), Some(String::from("abc\n\n\nabc\nd\n")));
+
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.selection_to_string(), Some(String::from("abc\n\n\nabc\nd\n")));
+    }
 
     #[test]
     fn semantic_selection_works() {
