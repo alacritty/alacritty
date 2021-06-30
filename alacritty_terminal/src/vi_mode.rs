@@ -378,6 +378,7 @@ fn is_boundary<T>(term: &Term<T>, point: Point, direction: Direction) -> bool {
 mod tests {
     use super::*;
 
+    use crate::ansi::Handler;
     use crate::config::MockConfig;
     use crate::index::{Column, Line};
     use crate::term::{SizeInfo, Term};
@@ -747,15 +748,14 @@ mod tests {
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
-    fn history_term() -> Term<()> {
-        let mut term = term();
-        term.grid_mut().clear_viewport();
-        term
-    }
-
     #[test]
     fn scroll_simple() {
-        let term = history_term();
+        let mut term = term();
+
+        // Create 1 lines of scrollback.
+        for _ in 0..20 {
+            term.newline();
+        }
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
@@ -770,16 +770,50 @@ mod tests {
     }
 
     #[test]
-    fn scroll_over() {
-        let term = history_term();
-        let overlines = (term.total_lines() * 2) as i32;
+    fn scroll_over_top() {
+        let mut term = term();
 
-        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        // Create 40 lines of scrollback.
+        for _ in 0..59 {
+            term.newline();
+        }
 
-        cursor = cursor.scroll(&term, -overlines);
-        assert_eq!(cursor.point, Point::new(Line(term.screen_lines() as i32 - 1), Column(0)));
+        let mut cursor = ViModeCursor::new(Point::new(Line(19), Column(0)));
 
-        cursor = cursor.scroll(&term, overlines);
-        assert_eq!(cursor.point, Point::new(Line(-(term.history_size() as i32)), Column(0)));
+        cursor = cursor.scroll(&term, 20);
+        assert_eq!(cursor.point, Point::new(Line(-1), Column(0)));
+
+        cursor = cursor.scroll(&term, 20);
+        assert_eq!(cursor.point, Point::new(Line(-21), Column(0)));
+
+        cursor = cursor.scroll(&term, 20);
+        assert_eq!(cursor.point, Point::new(Line(-40), Column(0)));
+
+        cursor = cursor.scroll(&term, 20);
+        assert_eq!(cursor.point, Point::new(Line(-40), Column(0)));
+    }
+
+    #[test]
+    fn scroll_over_bottom() {
+        let mut term = term();
+
+        // Create 40 lines of scrollback.
+        for _ in 0..59 {
+            term.newline();
+        }
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(-40), Column(0)));
+
+        cursor = cursor.scroll(&term, -20);
+        assert_eq!(cursor.point, Point::new(Line(-20), Column(0)));
+
+        cursor = cursor.scroll(&term, -20);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
+
+        cursor = cursor.scroll(&term, -20);
+        assert_eq!(cursor.point, Point::new(Line(19), Column(0)));
+
+        cursor = cursor.scroll(&term, -20);
+        assert_eq!(cursor.point, Point::new(Line(19), Column(0)));
     }
 }
