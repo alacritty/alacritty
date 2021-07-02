@@ -22,8 +22,11 @@ use crate::term::{SizeInfo, Term};
 use crate::thread;
 use crate::tty;
 
-/// Max bytes to read from the PTY.
-const MAX_READ: usize = u16::max_value() as usize;
+/// Max bytes to read from the PTY before forced terminal synchronization.
+const READ_BUFFER_SIZE: usize = 0x10_0000;
+
+/// Max bytes to read from the PTY while the terminal is locked.
+const MAX_LOCKED_READ: usize = u16::max_value() as usize;
 
 /// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]
@@ -213,47 +216,51 @@ where
     where
         X: Write,
     {
+        let mut unprocessed = 0;
         let mut processed = 0;
-        let mut terminal = None;
+
+        // Reserve the next terminal lock for PTY reading.
+        let _terminal_lease = Some(self.terminal.lease());
 
         loop {
-            match self.pty.reader().read(buf) {
-                Ok(0) => break,
-                Ok(got) => {
-                    // Record bytes read; used to limit time spent in pty_read.
-                    processed += got;
-
-                    // Send a copy of bytes read to a subscriber. Used for
-                    // example with ref test recording.
-                    writer = writer.map(|w| {
-                        w.write_all(&buf[..got]).unwrap();
-                        w
-                    });
-
-                    // Get reference to terminal. Lock is acquired on initial
-                    // iteration and held until there's no bytes left to parse
-                    // or we've reached `MAX_READ`.
-                    if terminal.is_none() {
-                        terminal = Some(self.terminal.lock());
-                    }
-                    let terminal = terminal.as_mut().unwrap();
-
-                    // Run the parser.
-                    for byte in &buf[..got] {
-                        state.parser.advance(&mut **terminal, *byte);
-                    }
-
-                    // Exit if we've processed enough bytes.
-                    if processed > MAX_READ {
-                        break;
-                    }
-                },
+            // Read from the PTY.
+            match self.pty.reader().read(&mut buf[unprocessed..]) {
+                Ok(got) => unprocessed += got,
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
-                        break;
+                        // Go back to mio if we're caught up on parsing and the PTY would block.
+                        if unprocessed == 0 {
+                            break;
+                        }
                     },
                     _ => return Err(err),
                 },
+            }
+
+            // Attempt to lock the terminal.
+            let mut terminal = match self.terminal.try_lock_unfair() {
+                // Force block if we are at the buffer size limit.
+                None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
+                None => continue,
+                Some(terminal) => terminal,
+            };
+
+            // Write a copy of the bytes to the ref test file.
+            if let Some(writer) = &mut writer {
+                writer.write_all(&buf[..unprocessed]).unwrap();
+            }
+
+            // Parse the incoming bytes.
+            for byte in &buf[..unprocessed] {
+                state.parser.advance(&mut *terminal, *byte);
+            }
+
+            processed += unprocessed;
+            unprocessed = 0;
+
+            // Assure we're not blocking the terminal too long unnecessarily.
+            if processed >= MAX_LOCKED_READ {
+                break;
             }
         }
 
@@ -300,7 +307,7 @@ where
     pub fn spawn(mut self) -> JoinHandle<(Self, State)> {
         thread::spawn_named("PTY reader", move || {
             let mut state = State::default();
-            let mut buf = [0u8; MAX_READ];
+            let mut buf = [0u8; READ_BUFFER_SIZE];
 
             let mut tokens = (0..).map(Into::into);
 
