@@ -312,6 +312,13 @@
   #
   #indexed_colors: []
 
+  # Opaque backgrounds with transparency enabled
+  #
+  # Whether or not `background_opacity` applies to all backgrounds or only to the
+  # default background. When set to `false` all cells will be transparent
+  # regardless of their background color.
+  #opaque_background_colors: true
+
 # Bell
 #
 # The bell is rung every time the BEL control character is received.
