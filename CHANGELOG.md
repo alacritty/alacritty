@@ -42,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash with non-utf8 font paths on Linux
 - Newly installed fonts not rendering until Alacritty restart
 
+### Removed
+
+- Config option `background_opacity`, you should use `window.background_opacity` instead
+
 ## 0.8.0
 
 ### Packaging
