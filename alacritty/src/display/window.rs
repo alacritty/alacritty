@@ -177,7 +177,7 @@ impl Window {
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let window_config = &config.ui_config.window;
-        let window_builder = Window::get_platform_window(&window_config.title, &window_config);
+        let window_builder = Window::get_platform_window(&window_config.title, window_config);
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -186,9 +186,9 @@ impl Window {
         let is_wayland = false;
 
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, !is_wayland, size)
+            create_gl_window(window_builder.clone(), event_loop, false, !is_wayland, size)
                 .or_else(|_| {
-                    create_gl_window(window_builder, &event_loop, true, !is_wayland, size)
+                    create_gl_window(window_builder, event_loop, true, !is_wayland, size)
                 })?;
 
         // Text cursor.

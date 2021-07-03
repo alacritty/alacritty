@@ -157,7 +157,7 @@ fn load_from(path: &Path, cli_config: Value) -> Result<Config> {
 /// Deserialize configuration file from path.
 fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     let mut config_paths = Vec::new();
-    let mut config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
+    let mut config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
     // Override config with CLI options.
     config_value = serde_utils::merge(config_value, cli_config);

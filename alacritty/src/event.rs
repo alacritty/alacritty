@@ -65,7 +65,7 @@ const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
 pub enum Event {
-    TerminalEvent(TerminalEvent),
+    Terminal(TerminalEvent),
     DprChanged(f64, (u32, u32)),
     Scroll(Scroll),
     ConfigReload(PathBuf),
@@ -82,7 +82,7 @@ impl From<Event> for GlutinEvent<'_, Event> {
 
 impl From<TerminalEvent> for Event {
     fn from(event: TerminalEvent) -> Self {
-        Event::TerminalEvent(event)
+        Event::Terminal(event)
     }
 }
 
@@ -743,7 +743,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             self.search_state.dfas = None;
         } else {
             // Create search dfas for the new regex string.
-            self.search_state.dfas = RegexSearch::new(&regex).ok();
+            self.search_state.dfas = RegexSearch::new(regex).ok();
 
             // Update search highlighting.
             self.goto_match(MAX_SEARCH_WHILE_TYPING);
@@ -1038,7 +1038,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
             match event {
                 // Check for shutdown.
-                GlutinEvent::UserEvent(Event::TerminalEvent(TerminalEvent::Exit)) => {
+                GlutinEvent::UserEvent(Event::Terminal(TerminalEvent::Exit)) => {
                     *control_flow = ControlFlow::Exit;
                     return;
                 },
@@ -1181,7 +1181,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.display.cursor_hidden ^= true;
                     *processor.ctx.dirty = true;
                 },
-                Event::TerminalEvent(event) => match event {
+                Event::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
@@ -1347,7 +1347,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.dirty = true;
         }
 
-        let config = match config::reload(&path, &processor.ctx.cli_options) {
+        let config = match config::reload(path, processor.ctx.cli_options) {
             Ok(config) => config,
             Err(_) => return,
         };
@@ -1493,6 +1493,6 @@ impl EventProxy {
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.0.send_event(Event::TerminalEvent(event));
+        let _ = self.0.send_event(Event::Terminal(event));
     }
 }

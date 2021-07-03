@@ -103,11 +103,11 @@ pub enum Action {
 
     /// Perform vi mode action.
     #[config(skip)]
-    ViAction(ViAction),
+    Vi(ViAction),
 
     /// Perform search mode action.
     #[config(skip)]
-    SearchAction(SearchAction),
+    Search(SearchAction),
 
     /// Paste contents of system clipboard.
     Paste,
@@ -211,7 +211,7 @@ impl From<&'static str> for Action {
 
 impl From<ViAction> for Action {
     fn from(action: ViAction) -> Self {
-        Self::ViAction(action)
+        Self::Vi(action)
     }
 }
 
@@ -223,7 +223,7 @@ impl From<ViMotion> for Action {
 
 impl From<SearchAction> for Action {
     fn from(action: SearchAction) -> Self {
-        Self::SearchAction(action)
+        Self::Search(action)
     }
 }
 
@@ -232,7 +232,7 @@ impl Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Action::ViMotion(motion) => motion.fmt(f),
-            Action::ViAction(action) => action.fmt(f),
+            Action::Vi(action) => action.fmt(f),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -262,6 +262,7 @@ pub enum ViAction {
 }
 
 /// Search mode specific actions.
+#[allow(clippy::enum_variant_names)]
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SearchAction {
     /// Move the focus to the next search match.
@@ -1081,7 +1082,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)
-                    | (Some(action @ Action::ViAction(_)), None, None) => {
+                    | (Some(action @ Action::Vi(_)), None, None) => {
                         if !mode.intersects(BindingMode::VI) || not_mode.intersects(BindingMode::VI)
                         {
                             return Err(V::Error::custom(format!(
@@ -1091,7 +1092,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                         }
                         action
                     },
-                    (Some(action @ Action::SearchAction(_)), None, None) => {
+                    (Some(action @ Action::Search(_)), None, None) => {
                         if !mode.intersects(BindingMode::SEARCH) {
                             return Err(V::Error::custom(format!(
                                 "action `{}` is only available in search mode, try adding `mode: \
