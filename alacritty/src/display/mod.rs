@@ -80,7 +80,7 @@ pub enum Error {
     Render(renderer::Error),
 
     /// Error during buffer swap.
-    ContextError(glutin::ContextError),
+    Context(glutin::ContextError),
 }
 
 impl std::error::Error for Error {
@@ -89,7 +89,7 @@ impl std::error::Error for Error {
             Error::Window(err) => err.source(),
             Error::Font(err) => err.source(),
             Error::Render(err) => err.source(),
-            Error::ContextError(err) => err.source(),
+            Error::Context(err) => err.source(),
         }
     }
 }
@@ -100,7 +100,7 @@ impl fmt::Display for Error {
             Error::Window(err) => err.fmt(f),
             Error::Font(err) => err.fmt(f),
             Error::Render(err) => err.fmt(f),
-            Error::ContextError(err) => err.fmt(f),
+            Error::Context(err) => err.fmt(f),
         }
     }
 }
@@ -125,7 +125,7 @@ impl From<renderer::Error> for Error {
 
 impl From<glutin::ContextError> for Error {
     fn from(val: glutin::ContextError) -> Self {
-        Error::ContextError(val)
+        Error::Context(val)
     }
 }
 
@@ -242,7 +242,7 @@ impl Display {
         // Spawn the Alacritty window.
         let mut window = Window::new(
             event_loop,
-            &config,
+            config,
             estimated_size,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue.as_ref(),
@@ -487,7 +487,7 @@ impl Display {
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
         let mut grid_cells = Vec::new();
-        while let Some(cell) = content.next() {
+        for cell in &mut content {
             grid_cells.push(cell);
         }
         let background_color = content.color(NamedColor::Background as usize);
@@ -599,7 +599,7 @@ impl Display {
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
                 self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                    api.render_string(glyph_cache, point, fg, bg, &message_text);
+                    api.render_string(glyph_cache, point, fg, bg, message_text);
                 });
             }
         } else {
@@ -670,7 +670,7 @@ impl Display {
         let vi_highlighted_hint = if term.mode().contains(TermMode::VI) {
             let mods = ModifiersState::all();
             let point = term.vi_mode_cursor.point;
-            hint::highlighted_at(&term, config, point, mods)
+            hint::highlighted_at(term, config, point, mods)
         } else {
             None
         };
@@ -686,7 +686,7 @@ impl Display {
 
         // Find highlighted hint at mouse position.
         let point = mouse.point(&self.size_info, term.grid().display_offset());
-        let highlighted_hint = hint::highlighted_at(&term, config, point, modifiers);
+        let highlighted_hint = hint::highlighted_at(term, config, point, modifiers);
 
         // Update cursor shape.
         if highlighted_hint.is_some() {
@@ -748,7 +748,7 @@ impl Display {
         let fg = config.ui_config.colors.search_bar_foreground();
         let bg = config.ui_config.colors.search_bar_background();
 
-        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &text);
         });
     }
@@ -766,7 +766,7 @@ impl Display {
         let fg = config.ui_config.colors.primary.background;
         let bg = config.ui_config.colors.normal.red;
 
-        self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
+        self.renderer.with_api(&config.ui_config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &timing);
         });
     }
@@ -789,7 +789,7 @@ impl Display {
         // Do not render anything if it would obscure the vi mode cursor.
         if vi_mode_point.map_or(true, |point| point.line != 0 || point.column < column) {
             let glyph_cache = &mut self.glyph_cache;
-            self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
+            self.renderer.with_api(&config.ui_config, size_info, |mut api| {
                 api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
             });
         }

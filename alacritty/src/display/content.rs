@@ -44,7 +44,7 @@ impl<'a> RenderableContent<'a> {
         term: &'a Term<T>,
         search_state: &'a SearchState,
     ) -> Self {
-        let search = search_state.dfas().map(|dfas| Regex::new(&term, dfas));
+        let search = search_state.dfas().map(|dfas| Regex::new(term, dfas));
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 

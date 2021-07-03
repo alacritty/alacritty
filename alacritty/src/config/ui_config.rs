@@ -121,7 +121,7 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        &self.key_bindings.0.as_slice()
+        self.key_bindings.0.as_slice()
     }
 
     #[inline]
@@ -399,7 +399,7 @@ impl LazyRegexVariant {
         };
 
         // Compile the regex.
-        let regex_search = match RegexSearch::new(&regex) {
+        let regex_search = match RegexSearch::new(regex) {
             Ok(regex_search) => regex_search,
             Err(error) => {
                 error!("hint regex is invalid: {}", error);
