@@ -512,8 +512,10 @@ impl<T> Term<T> {
 
         // Clamp vi cursor to viewport.
         let vi_point = self.vi_mode_cursor.point;
-        self.vi_mode_cursor.point.column = min(vi_point.column, Column(num_cols - 1));
-        self.vi_mode_cursor.point.line = min(vi_point.line, Line(num_lines as i32 - 1));
+        let viewport_bottom = Line(-(self.grid.display_offset() as i32));
+        let viewport_top = viewport_bottom + self.bottommost_line();
+        self.vi_mode_cursor.point.line = max(min(vi_point.line, viewport_top), viewport_bottom);
+        self.vi_mode_cursor.point.column = min(vi_point.column, self.last_column());
 
         // Reset scrolling region.
         self.scroll_region = Line(0)..Line(self.screen_lines() as i32);
