@@ -1933,6 +1933,62 @@ mod tests {
     use crate::term::cell::{Cell, Flags};
 
     #[test]
+    fn scroll_display_page_up() {
+        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        // Create 11 lines of scrollback.
+        for _ in 0..20 {
+            term.newline();
+        }
+
+        // Scrollable amount to top is 11.
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-1), Column(0)));
+        assert_eq!(term.grid.display_offset(), 10);
+
+        // Scrollable amount to top is 1.
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-2), Column(0)));
+        assert_eq!(term.grid.display_offset(), 11);
+
+        // Scrollable amount to top is 0.
+        term.scroll_display(Scroll::PageUp);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-2), Column(0)));
+        assert_eq!(term.grid.display_offset(), 11);
+    }
+
+    #[test]
+    fn scroll_display_page_down() {
+        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        // Create 11 lines of scrollback.
+        for _ in 0..20 {
+            term.newline();
+        }
+
+        // Change display_offset to topmost.
+        term.grid_mut().scroll_display(Scroll::Top);
+        term.vi_mode_cursor = ViModeCursor::new(Point::new(Line(-11), Column(0)));
+
+        // Scrollable amount to bottom is 11.
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-1), Column(0)));
+        assert_eq!(term.grid.display_offset(), 1);
+
+        // Scrollable amount to bottom is 1.
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(term.grid.display_offset(), 0);
+
+        // Scrollable amount to bottom is 0.
+        term.scroll_display(Scroll::PageDown);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(0), Column(0)));
+        assert_eq!(term.grid.display_offset(), 0);
+    }
+
+    #[test]
     fn semantic_selection_works() {
         let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
