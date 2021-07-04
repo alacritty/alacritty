@@ -752,7 +752,7 @@ mod tests {
     fn scroll_simple() {
         let mut term = term();
 
-        // Create 1 lines of scrollback.
+        // Create 1 line of scrollback.
         for _ in 0..20 {
             term.newline();
         }
