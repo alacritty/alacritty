@@ -1989,33 +1989,6 @@ mod tests {
     }
 
     #[test]
-    fn selection_with_scroll() {
-        let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&MockConfig::default(), size, ());
-
-        for _ in 0..2 {
-            term.grid_mut()[Line(2)][Column(0)].c = 'a';
-            term.grid_mut()[Line(2)][Column(1)].c = 'b';
-            term.grid_mut()[Line(2)][Column(2)].c = 'c';
-            term.clear_screen(ansi::ClearMode::All);
-        }
-        term.grid_mut()[Line(0)][Column(0)].c = 'd';
-
-        term.toggle_vi_mode();
-        term.selection =
-            Some(Selection::new(SelectionType::Lines, Point::new(Line(0), Column(0)), Side::Left));
-
-        term.scroll_display(Scroll::PageUp);
-        assert_eq!(term.selection_to_string(), Some(String::from("abc\nd\n")));
-
-        term.scroll_display(Scroll::PageUp);
-        assert_eq!(term.selection_to_string(), Some(String::from("abc\n\n\nabc\nd\n")));
-
-        term.scroll_display(Scroll::PageUp);
-        assert_eq!(term.selection_to_string(), Some(String::from("abc\n\n\nabc\nd\n")));
-    }
-
-    #[test]
     fn semantic_selection_works() {
         let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&MockConfig::default(), size, ());
