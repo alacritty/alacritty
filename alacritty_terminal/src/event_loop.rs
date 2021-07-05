@@ -221,10 +221,13 @@ where
 
         // Reserve the next terminal lock for PTY reading.
         let _terminal_lease = Some(self.terminal.lease());
+        let mut terminal = None;
 
         loop {
             // Read from the PTY.
             match self.pty.reader().read(&mut buf[unprocessed..]) {
+                // This is received on Windows when no more data is readable from the PTY.
+                Ok(0) if unprocessed == 0 => break,
                 Ok(got) => unprocessed += got,
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
@@ -238,11 +241,14 @@ where
             }
 
             // Attempt to lock the terminal.
-            let mut terminal = match self.terminal.try_lock_unfair() {
-                // Force block if we are at the buffer size limit.
-                None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
-                None => continue,
+            let terminal = match &mut terminal {
                 Some(terminal) => terminal,
+                None => terminal.insert(match self.terminal.try_lock_unfair() {
+                    // Force block if we are at the buffer size limit.
+                    None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
+                    None => continue,
+                    Some(terminal) => terminal,
+                }),
             };
 
             // Write a copy of the bytes to the ref test file.
@@ -252,7 +258,7 @@ where
 
             // Parse the incoming bytes.
             for byte in &buf[..unprocessed] {
-                state.parser.advance(&mut *terminal, *byte);
+                state.parser.advance(&mut **terminal, *byte);
             }
 
             processed += unprocessed;
