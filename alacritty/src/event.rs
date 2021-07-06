@@ -694,10 +694,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
-        if !self.terminal.mode().contains(TermMode::VI) {
-            self.clear_selection();
-        }
-
+        self.clear_selection();
         self.cancel_search();
         self.terminal.toggle_vi_mode();
 
