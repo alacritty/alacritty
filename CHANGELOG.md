@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Incorrect vi cursor position after invoking `ScrollPage*` action
 - Slow PTY read performance with extremely dense grids
 - Crash when resizing during vi mode
+- Unintentional text selection range change after leaving vi mode
 
 ## 0.8.0
 
