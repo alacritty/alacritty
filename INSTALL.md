@@ -131,7 +131,7 @@ Compiles out of the box for 14.2
 
 #### Void Linux
 
-On [Void Linux](https://voidlinux.eu), install following packages before
+On [Void Linux](https://voidlinux.org), install following packages before
 compiling Alacritty:
 
 ```sh
