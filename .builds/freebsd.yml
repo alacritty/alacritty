@@ -8,6 +8,7 @@ packages:
   - x11-fonts/fontconfig
   - x11-fonts/dejavu
   - x11/libxcb
+  - x11/libxkbcommon
 
 sources:
   - https://github.com/alacritty/alacritty
