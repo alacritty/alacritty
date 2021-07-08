@@ -221,10 +221,13 @@ where
 
         // Reserve the next terminal lock for PTY reading.
         let _terminal_lease = Some(self.terminal.lease());
+        let mut terminal = None;
 
         loop {
             // Read from the PTY.
             match self.pty.reader().read(&mut buf[unprocessed..]) {
+                // This is received on Windows/macOS when no more data is readable from the PTY.
+                Ok(0) if unprocessed == 0 => break,
                 Ok(got) => unprocessed += got,
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
@@ -238,11 +241,14 @@ where
             }
 
             // Attempt to lock the terminal.
-            let mut terminal = match self.terminal.try_lock_unfair() {
-                // Force block if we are at the buffer size limit.
-                None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
-                None => continue,
+            let terminal = match &mut terminal {
                 Some(terminal) => terminal,
+                None => terminal.insert(match self.terminal.try_lock_unfair() {
+                    // Force block if we are at the buffer size limit.
+                    None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
+                    None => continue,
+                    Some(terminal) => terminal,
+                }),
             };
 
             // Write a copy of the bytes to the ref test file.
@@ -252,7 +258,7 @@ where
 
             // Parse the incoming bytes.
             for byte in &buf[..unprocessed] {
-                state.parser.advance(&mut *terminal, *byte);
+                state.parser.advance(&mut **terminal, *byte);
             }
 
             processed += unprocessed;
@@ -423,5 +429,34 @@ where
 
             (self, state)
         })
+    }
+}
+
+trait OptionInsert {
+    type T;
+    fn insert(&mut self, value: Self::T) -> &mut Self::T;
+}
+
+// TODO: Remove when MSRV is >= 1.53.0.
+//
+/// Trait implementation to support Rust version < 1.53.0.
+///
+/// This is taken [from STD], further license information can be found in the [rust-lang/rust
+/// repository].
+///
+///
+/// [from STD]: https://github.com/rust-lang/rust/blob/6e0b554619a3bb7e75b3334e97f191af20ef5d76/library/core/src/option.rs#L829-L858
+/// [rust-lang/rust repository]: https://github.com/rust-lang/rust/blob/master/LICENSE-MIT
+impl<T> OptionInsert for Option<T> {
+    type T = T;
+
+    fn insert(&mut self, value: T) -> &mut T {
+        *self = Some(value);
+
+        match self {
+            Some(v) => v,
+            // SAFETY: the code above just filled the option
+            None => unsafe { std::hint::unreachable_unchecked() },
+        }
     }
 }
