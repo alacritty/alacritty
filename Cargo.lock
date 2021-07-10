@@ -966,12 +966,13 @@ dependencies = [
 
 [[package]]
 name = "mio-anonymous-pipes"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c274c3c52dcd1d78c5d7ed841eca1e9ea2db8353f3b8ec25789cc62c471aaf"
+checksum = "6bc513025fe5005a3aa561b50fdb2cda5a150b84800ae02acd8aa9ed62ca1a6b"
 dependencies = [
  "mio",
  "miow 0.3.7",
+ "parking_lot",
  "spsc-buffer",
  "winapi 0.3.9",
 ]

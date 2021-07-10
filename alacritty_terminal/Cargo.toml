@@ -37,7 +37,7 @@ winapi = { version = "0.3.7", features = [
     "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
     "wincon", "wincontypes", "winerror", "winnt", "winuser",
 ]}
-mio-anonymous-pipes = "0.1"
+mio-anonymous-pipes = "0.2"
 
 [dev-dependencies]
 serde_json = "1.0.0"
