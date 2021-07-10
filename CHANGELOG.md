@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Slow PTY read performance with extremely dense grids
 - Crash when resizing during vi mode
 - Unintentional text selection range change after leaving vi mode
+- Deadlock on Windows during high frequency output
 
 ## 0.8.0
 
