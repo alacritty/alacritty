@@ -91,7 +91,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig pkg-config make libxcb
+pacman -S cmake freetype2 fontconfig pkg-config make libxcb libxkbcommon
 ```
 
 #### Fedora
@@ -101,7 +101,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-dnf install cmake freetype-devel fontconfig-devel libxcb-devel g++
+dnf install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel g++
 ```
 
 #### CentOS/RHEL 7
@@ -111,7 +111,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-yum install cmake freetype-devel fontconfig-devel libxcb-devel xcb-util-devel
+yum install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel xcb-util-devel
 yum group install "Development Tools"
 ```
 
