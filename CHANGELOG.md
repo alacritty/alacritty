@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Support for `ipfs`/`ipns` URLs
 - Mode field for regex hint bindings
+- Option `colors.opaque_background_colors` to allow applying opacity to all background colors
 
 ### Fixed
 
@@ -24,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Search without vi mode not starting at the correct location when scrolled into history
 - Crash when starting a vi mode search from the bottommost line
 - Original scroll position not restored after canceling search
+
+### Removed
+
+- Config option `background_opacity`, you should use `window.background_opacity` instead
 
 ## 0.8.0
 
