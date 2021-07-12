@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash when resizing during vi mode
 - Unintentional text selection range change after leaving vi mode
 - Deadlock on Windows during high frequency output
+- Search without vi mode not starting at the correct location when scrolled into history
+- Crash when starting a vi mode search from the bottommost line
+- Original scroll position not restored after canceling search
 
 ## 0.8.0
 

@@ -421,11 +421,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.origin = self.terminal.vi_mode_cursor.point;
             self.search_state.display_offset_delta = 0;
         } else {
-            let screen_lines = self.terminal.screen_lines();
+            let viewport_top = Line(-(self.terminal.grid().display_offset() as i32)) - 1;
+            let viewport_bottom = viewport_top + self.terminal.bottommost_line();
             let last_column = self.terminal.last_column();
             self.search_state.origin = match direction {
-                Direction::Right => Point::new(Line(0), Column(0)),
-                Direction::Left => Point::new(Line(screen_lines as i32 - 2), last_column),
+                Direction::Right => Point::new(viewport_top, Column(0)),
+                Direction::Left => Point::new(viewport_bottom, last_column),
             };
         }
 
@@ -770,7 +771,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Reset display offset and cursor position.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
-        self.terminal.vi_mode_cursor.point = self.search_state.origin;
+        self.terminal.vi_mode_cursor.point =
+            self.search_state.origin.grid_clamp(self.terminal, Boundary::Grid);
 
         *self.dirty = true;
     }
@@ -805,7 +807,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
                 // Store number of lines the viewport had to be moved.
                 let display_offset = self.terminal.grid().display_offset();
-                self.search_state.display_offset_delta = old_offset - display_offset as i32;
+                self.search_state.display_offset_delta += old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
                 self.scheduler.unschedule(TimerId::DelayedSearch);
