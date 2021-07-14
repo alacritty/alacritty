@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.9.0-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.46.0
+
 ### Added
 
 - Support for `ipfs`/`ipns` URLs
