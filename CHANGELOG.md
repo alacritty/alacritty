@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Search without vi mode not starting at the correct location when scrolled into history
 - Crash when starting a vi mode search from the bottommost line
 - Original scroll position not restored after canceling search
+- Clipboard copy skipping non-empty cells when encountering an interrupted tab character
 
 ## 0.8.0
 

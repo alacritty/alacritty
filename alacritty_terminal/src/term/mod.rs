@@ -406,7 +406,7 @@ impl<T> Term<T> {
 
             // Skip over cells until next tab-stop once a tab was found.
             if tab_mode {
-                if self.tabs[column] {
+                if self.tabs[column] || cell.c != ' ' {
                     tab_mode = false;
                 } else {
                     continue;
