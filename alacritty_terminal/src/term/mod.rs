@@ -562,6 +562,12 @@ impl<T> Term<T> {
         self.selection =
             self.selection.take().and_then(|s| s.rotate(self, &region, -(lines as i32)));
 
+        // Scroll vi mode cursor.
+        let line = &mut self.vi_mode_cursor.point.line;
+        if region.start <= *line && region.end > *line {
+            *line = min(*line + lines, region.end - 1);
+        }
+
         // Scroll between origin and bottom
         self.grid.scroll_down(&region, lines);
     }
@@ -580,6 +586,14 @@ impl<T> Term<T> {
 
         // Scroll selection.
         self.selection = self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
+
+        // Scroll vi mode cursor.
+        let viewport_top = Line(-(self.grid.display_offset() as i32));
+        let top = if region.start == 0 { viewport_top } else { region.start };
+        let line = &mut self.vi_mode_cursor.point.line;
+        if (top <= *line) && region.end > *line {
+            *line = max(*line - lines, top);
+        }
 
         // Scroll from origin to bottom less number of lines.
         self.grid.scroll_up(&region, lines);
