@@ -1,4 +1,4 @@
-.TH ALACRITTY "1" "August 2018" "alacritty 0.8.0-dev" "User Commands"
+.TH ALACRITTY "1" "August 2018" "alacritty 0.10.0-dev" "User Commands"
 .SH NAME
 Alacritty \- A fast, cross-platform, OpenGL terminal emulator
 .SH "SYNOPSIS"
