@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
-            libxcb-xfixes0-dev python3
+            libxcb-xfixes0-dev libxkbcommon-dev python3
       - name: Test
         run: cargo test --release
       - name: Gzip manpage
