@@ -531,6 +531,18 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             SearchAction::SearchFocusPrevious;
     );
 
+    bindings.extend(vt_function_key_bindings());
+    bindings.extend(platform_key_bindings());
+
+    let csiu_bindings = csiu_key_bindings(&bindings);
+    bindings.extend(csiu_bindings);
+
+    bindings
+}
+
+fn vt_function_key_bindings() -> Vec<KeyBinding> {
+    let mut bindings = vec![];
+
     //   Code     Modifiers
     // ---------+---------------------------
     //    2     | Shift
@@ -627,9 +639,98 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         }
     }
 
-    bindings.extend(platform_key_bindings());
-
     bindings
+}
+
+/// Returns a list of bindings compatible with the `CSI u` approach:
+///
+/// http://www.leonerd.org.uk/hacks/fixterms/
+///
+/// We don't overwrite currently existing common bindings such as Ctrl+Shift+C,
+/// so this function returns only non-overlapping bindings.
+fn csiu_key_bindings(bindings: &[KeyBinding]) -> Vec<KeyBinding> {
+    let digit_to_kc = |key| {
+        if key == Key0 {
+            48
+        } else {
+            ((key as u32) - (Key1 as u32)) + 49
+        }
+    };
+
+    let letter_to_kc = |key| (key as u32) - (A as u32) + 65;
+
+    let next_bindings = {
+        let mut next_bindings = vec![];
+
+        for key in [Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9] {
+            next_bindings.push((
+                key,
+                ModifiersState::CTRL,
+                format!("\x1b[{};5u", digit_to_kc(key)),
+            ));
+        }
+
+        // TODO(pwy) those codes seem to be ignored - not sure why
+        for key in [Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9] {
+            next_bindings.push((
+                key,
+                ModifiersState::SHIFT | ModifiersState::CTRL,
+                format!("\x1b[{};6u", digit_to_kc(key)),
+            ));
+        }
+
+        for key in [A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z] {
+            next_bindings.push((
+                key,
+                ModifiersState::SHIFT | ModifiersState::CTRL,
+                format!("\x1b[{};6u", letter_to_kc(key)),
+            ));
+        }
+
+        next_bindings.push((Return, ModifiersState::CTRL, "\x1b[13;5u".into()));
+        next_bindings.push((
+            Return,
+            ModifiersState::SHIFT | ModifiersState::CTRL,
+            "\x1b[13;6u".into(),
+        ));
+        next_bindings.push((Slash, ModifiersState::CTRL, "\x1b[47;5u".into()));
+
+        // TODO(pwy) this code seems to be ignored - not sure why
+        next_bindings.push((
+            Comma,
+            ModifiersState::SHIFT | ModifiersState::CTRL,
+            "\x1b[60;5u".into(),
+        ));
+
+        // TODO(pwy) this code seems to be ignored - not sure why
+        next_bindings.push((
+            Period,
+            ModifiersState::SHIFT | ModifiersState::CTRL,
+            "\x1b[62;5u".into(),
+        ));
+
+        next_bindings
+    };
+
+    next_bindings
+        .into_iter()
+        .filter(|(key, mods, _)| {
+            let duplicated = bindings.iter().any(|binding| {
+                binding.is_triggered_by(BindingMode::empty(), *mods, &Key::Keycode(*key))
+            });
+
+            !duplicated
+        })
+        .flat_map(|(key, mods, escape)| {
+            bindings!(
+                KeyBinding;
+                key,
+                mods,
+                ~BindingMode::VI, ~BindingMode::SEARCH;
+                Action::Esc(escape)
+            )
+        })
+        .collect()
 }
 
 #[cfg(not(any(target_os = "macos", test)))]
