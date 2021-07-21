@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.10.0-dev
 
+### Changed
+
+- `ExpandSelection` is now a configurable mouse binding action
+
 ## 0.9.0
 
 ### Packaging
@@ -17,10 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Support for `ipfs`/`ipns` URLs
 - Mode field for regex hint bindings
-
-### Changed
-
-- `ExpandSelection` is now a configurable mouse binding action
 
 ### Fixed
 
