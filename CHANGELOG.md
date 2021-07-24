@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Original scroll position not restored after canceling search
 - Clipboard copy skipping non-empty cells when encountering an interrupted tab character
 - Vi mode cursor moving downward when scrolled in history with active output
+- Crash when moving fullwidth characters off the side of the terminal in insert mode
 
 ## 0.8.0
 
