@@ -42,7 +42,7 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.43.0. All patches are expected
+Please note that the minimum supported version of Alacritty is Rust 1.46.0. All patches are expected
 to work with the minimum supported version.
 
 Since `alacritty_terminal`'s version always tracks the next release, make sure that the version is
@@ -161,4 +161,4 @@ If there are any outstanding questions about contributing to Alacritty, they can
 [Alacritty issue tracker](https://github.com/alacritty/alacritty/issues).
 
 As a more immediate and direct form of communication, the Alacritty IRC channel (`#alacritty` on
-Freenode) can be used to contact many of the Alacritty contributors.
+Libera.Chat) can be used to contact many of the Alacritty contributors.

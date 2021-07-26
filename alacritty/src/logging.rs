@@ -108,7 +108,7 @@ impl log::Log for Logger {
         }
 
         // Create log message for the given `record` and `target`.
-        let message = create_log_message(record, &target);
+        let message = create_log_message(record, target);
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.

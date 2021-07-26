@@ -8,6 +8,7 @@ packages:
   - x11-fonts/fontconfig
   - x11-fonts/dejavu
   - x11/libxcb
+  - x11/libxkbcommon
 
 sources:
   - https://github.com/alacritty/alacritty
@@ -23,8 +24,8 @@ tasks:
       cargo test
   - oldstable: |
       cd alacritty
-      rustup toolchain install --profile minimal 1.45.2
-      rustup default 1.45.2
+      rustup toolchain install --profile minimal 1.46.0
+      rustup default 1.46.0
       cargo test
   - clippy: |
       cd alacritty

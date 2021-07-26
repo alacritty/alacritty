@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.9.0-dev"
+version = "0.10.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.13.1-dev"
+version = "0.15.1-dev"
 default-features = false
 
 [dependencies.alacritty_config_derive]
@@ -25,7 +25,7 @@ fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.26.0", default-features = false, features = ["serde"] }
+glutin = { version = "0.27.0", default-features = false, features = ["serde"] }
 notify = "4"
 parking_lot = "0.11.0"
 crossfont = { version = "0.3.0", features = ["force_system_fontconfig"] }

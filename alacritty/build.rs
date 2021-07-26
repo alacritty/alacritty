@@ -16,7 +16,7 @@ fn main() {
         .unwrap();
 
     #[cfg(windows)]
-    embed_resource::compile("../extra/windows/windows.rc");
+    embed_resource::compile("./windows/windows.rc");
 }
 
 fn commit_hash() -> String {

@@ -5,15 +5,34 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.9.0-dev
+## 0.10.0-dev
+
+## 0.9.0
+
+### Packaging
+
+- Minimum Rust version has been bumped to 1.46.0
 
 ### Added
 
 - Support for `ipfs`/`ipns` URLs
+- Mode field for regex hint bindings
 
 ### Fixed
 
 - Regression in rendering performance with dense grids since 0.6.0
+- Crash/Freezes with partially visible fullwidth characters due to alt screen resize
+- Incorrect vi cursor position after invoking `ScrollPage*` action
+- Slow PTY read performance with extremely dense grids
+- Crash when resizing during vi mode
+- Unintentional text selection range change after leaving vi mode
+- Deadlock on Windows during high frequency output
+- Search without vi mode not starting at the correct location when scrolled into history
+- Crash when starting a vi mode search from the bottommost line
+- Original scroll position not restored after canceling search
+- Clipboard copy skipping non-empty cells when encountering an interrupted tab character
+- Vi mode cursor moving downward when scrolled in history with active output
+- Crash when moving fullwidth characters off the side of the terminal in insert mode
 
 ## 0.8.0
 
