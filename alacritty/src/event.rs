@@ -43,7 +43,7 @@ use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
-use crate::daemon::{start_daemon,capture_output};
+use crate::daemon::{capture_output, start_daemon};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display, DisplayUpdate};

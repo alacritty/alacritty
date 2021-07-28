@@ -85,7 +85,8 @@ where
         .args(args)
         .stdin(Stdio::null())
         .stderr(Stdio::null())
-        .output().ok()?;
+        .output()
+        .ok()?;
 
     if output.status.success() {
         Some(output.stdout)

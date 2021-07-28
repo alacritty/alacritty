@@ -30,7 +30,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
-use crate::daemon::{start_daemon,capture_output};
+use crate::daemon::{capture_output, start_daemon};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
