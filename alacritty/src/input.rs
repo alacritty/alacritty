@@ -30,7 +30,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
-use crate::daemon::start_daemon;
+use crate::daemon::{start_daemon,capture_output};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
@@ -137,7 +137,16 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
-            Action::Command(program) => start_daemon(program.program(), program.args()),
+            Action::Command(program) => {
+                if program.feedoutput() {
+                    match capture_output(program.program(), program.args()) {
+                        Some(output) => ctx.write_to_pty(output),
+                        _ => (),
+                    }
+                } else {
+                    start_daemon(program.program(), program.args())
+                }
+            },
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();

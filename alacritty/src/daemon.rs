@@ -74,3 +74,22 @@ where
             .map(|_| ())
     }
 }
+
+#[cfg(not(windows))]
+pub fn capture_output<I, S>(program: &str, args: I) -> Option<Vec<u8>>
+where
+    I: IntoIterator<Item = S> + Copy,
+    S: AsRef<OsStr>,
+{
+    let output = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output().ok()?;
+
+    if output.status.success() {
+        Some(output.stdout)
+    } else {
+        None
+    }
+}

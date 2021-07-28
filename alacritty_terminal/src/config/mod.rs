@@ -182,6 +182,8 @@ pub enum Program {
         program: String,
         #[serde(default)]
         args: Vec<String>,
+        #[serde(default)]
+        feedoutput: bool,
     },
 }
 
@@ -197,6 +199,13 @@ impl Program {
         match self {
             Program::Just(_) => &[],
             Program::WithArgs { args, .. } => args,
+        }
+    }
+
+    pub fn feedoutput(&self) -> bool {
+        match self {
+            Program::Just(_) => false,
+            Program::WithArgs { feedoutput, .. } => *feedoutput,
         }
     }
 }
