@@ -43,7 +43,7 @@ use crate::cli::Options as CLIOptions;
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
-use crate::daemon::start_daemon;
+use crate::daemon::{start_daemon,capture_output};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display, DisplayUpdate};
@@ -641,7 +641,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
                 args.push(text);
-                start_daemon(command.program(), &args);
+                if command.feedoutput() {
+                    match capture_output(command.program(), &args) {
+                        Some(output) => self.write_to_pty(output),
+                        _ => (),
+                    }
+                } else {
+                    start_daemon(command.program(), &args);
+                }
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
