@@ -102,7 +102,7 @@ impl log::Log for Logger {
         let index = record.target().find(':').unwrap_or_else(|| record.target().len());
         let target = &record.target()[..index];
 
-        // Only log our own crates.
+        // Only log our own crates (except when logging at Level::Trace).
         if !self.enabled(record.metadata()) || !is_allowed_target(record.level(), target) {
             return;
         }
@@ -149,12 +149,10 @@ fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
     message
 }
 
+/// Check if log messages from a crate should be logged.
 fn is_allowed_target(level: Level, target: &str) -> bool {
-    use Level::{Error, Warn};
-    use LevelFilter::Trace;
-
     match (level, log::max_level()) {
-        (Error, Trace) | (Warn, Trace) => true,
+        (Level::Error, LevelFilter::Trace) | (Level::Warn, LevelFilter::Trace) => true,
         _ => ALLOWED_TARGETS.contains(&target),
     }
 }
