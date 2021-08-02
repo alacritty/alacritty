@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use glutin::event_loop::EventLoopProxy;
-use log::{self, Level};
+use log::{self, Level, LevelFilter};
 
 use crate::cli::Options;
 use crate::event::Event;
@@ -103,7 +103,7 @@ impl log::Log for Logger {
         let target = &record.target()[..index];
 
         // Only log our own crates.
-        if !self.enabled(record.metadata()) || !ALLOWED_TARGETS.contains(&target) {
+        if !self.enabled(record.metadata()) || !is_allowed_target(record.level(), target) {
             return;
         }
 
@@ -147,6 +147,16 @@ fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
     // Drop extra trailing alignment.
     message.truncate(message.len() - alignment);
     message
+}
+
+fn is_allowed_target(level: Level, target: &str) -> bool {
+    use Level::{Error, Warn};
+    use LevelFilter::Trace;
+
+    match (level, log::max_level()) {
+        (Error, Trace) | (Warn, Trace) => true,
+        _ => ALLOWED_TARGETS.contains(&target),
+    }
 }
 
 struct OnDemandLogFile {
