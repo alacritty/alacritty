@@ -767,7 +767,7 @@ impl Drop for QuadRenderer {
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         unsafe {
-            let alpha = self.config.background_opacity();
+            let alpha = self.config.window_opacity();
             gl::ClearColor(
                 (f32::from(color.r) / 255.0).min(1.0) * alpha,
                 (f32::from(color.g) / 255.0).min(1.0) * alpha,

@@ -7,9 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.10.0-dev
 
+### Added
+
+- Option `colors.transparent_background_colors` to allow applying opacity to all background colors
+
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
+
+### Removed
+
+- Config option `background_opacity`, you should use `window.opacity` instead
 
 ## 0.9.0
 
@@ -21,7 +29,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Support for `ipfs`/`ipns` URLs
 - Mode field for regex hint bindings
-- Option `colors.opaque_background_colors` to allow applying opacity to all background colors
 
 ### Fixed
 
@@ -41,10 +48,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Broken bitmap font rendering with FreeType 2.11+
 - Crash with non-utf8 font paths on Linux
 - Newly installed fonts not rendering until Alacritty restart
-
-### Removed
-
-- Config option `background_opacity`, you should use `window.background_opacity` instead
 
 ## 0.8.0
 

@@ -299,7 +299,7 @@ impl Display {
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        window.set_has_shadow(config.ui_config.background_opacity() >= 1.0);
+        window.set_has_shadow(config.ui_config.window_opacity() >= 1.0);
 
         // On Wayland we can safely ignore this call, since the window isn't visible until you
         // actually draw something into it and commit those changes.

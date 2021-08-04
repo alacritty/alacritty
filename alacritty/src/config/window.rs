@@ -46,7 +46,7 @@ pub struct WindowConfig {
     pub class: Class,
 
     /// Background opacity from 0.0 to 1.0.
-    pub background_opacity: Percentage,
+    pub opacity: Percentage,
 
     /// Pixel padding.
     padding: Delta<u8>,
@@ -67,7 +67,7 @@ impl Default for WindowConfig {
             gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
             class: Default::default(),
-            background_opacity: Default::default(),
+            opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
         }
