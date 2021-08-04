@@ -152,7 +152,7 @@ fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
 /// Check if log messages from a crate should be logged.
 fn is_allowed_target(level: Level, target: &str) -> bool {
     match (level, log::max_level()) {
-        (Level::Error | Level::Warn, LevelFilter::Trace) => true,
+        (Level::Error, LevelFilter::Trace) | (Level::Warn, LevelFilter::Trace) => true,
         _ => ALLOWED_TARGETS.contains(&target),
     }
 }
