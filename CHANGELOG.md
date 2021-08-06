@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
+- `font.glyph_offset` is now applied to underline/strikeout
 
 ## 0.9.0
 

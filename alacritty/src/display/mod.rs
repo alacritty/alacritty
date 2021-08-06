@@ -538,7 +538,7 @@ impl Display {
             });
         }
 
-        let mut rects = lines.rects(&metrics, &size_info);
+        let mut rects = lines.rects(&metrics, &size_info, &config.ui_config.font.glyph_offset);
 
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Indicate vi mode by showing the cursor's position in the top right corner.
