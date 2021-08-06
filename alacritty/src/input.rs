@@ -34,7 +34,7 @@ use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 
@@ -911,6 +911,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
         let dpr = self.ctx.window().dpr;
         let size = self.ctx.size_info();
+        let window_id = self.ctx.window().id();
         let scheduler = self.ctx.scheduler_mut();
 
         // Scale constants by DPI.
@@ -934,14 +935,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Scale number of lines scrolled based on distance to boundary.
         let delta = delta as i32 / step as i32;
-        let event = Event::Scroll(Scroll::Delta(delta));
+        let event = Event::new(EventType::Scroll(Scroll::Delta(delta)), Some(window_id));
 
         // Schedule event.
         match scheduler.get_mut(TimerId::SelectionScrolling) {
-            Some(timer) => timer.event = event.into(),
+            Some(timer) => timer.event = event,
             None => {
                 scheduler.schedule(
-                    event.into(),
+                    event,
                     SELECTION_SCROLLING_INTERVAL,
                     true,
                     TimerId::SelectionScrolling,
@@ -1106,7 +1107,7 @@ mod tests {
                     ..Mouse::default()
                 };
 
-                let mut message_buffer = MessageBuffer::new();
+                let mut message_buffer = MessageBuffer::default();
 
                 let context = ActionContext {
                     terminal: &mut terminal,

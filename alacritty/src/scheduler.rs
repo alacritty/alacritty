@@ -3,11 +3,9 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use glutin::event::Event as GlutinEvent;
+use glutin::event_loop::EventLoopProxy;
 
-use crate::event::Event as AlacrittyEvent;
-
-type Event = GlutinEvent<'static, AlacrittyEvent>;
+use crate::event::Event;
 
 /// ID uniquely identifying a timer.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -29,24 +27,19 @@ pub struct Timer {
 /// Scheduler tracking all pending timers.
 pub struct Scheduler {
     timers: VecDeque<Timer>,
-}
-
-impl Default for Scheduler {
-    fn default() -> Self {
-        Self { timers: VecDeque::new() }
-    }
+    event_proxy: EventLoopProxy<Event>,
 }
 
 impl Scheduler {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(event_proxy: EventLoopProxy<Event>) -> Self {
+        Self { timers: VecDeque::new(), event_proxy }
     }
 
     /// Process all pending timers.
     ///
     /// If there are still timers pending after all ready events have been processed, the closest
     /// pending deadline will be returned.
-    pub fn update(&mut self, event_queue: &mut Vec<Event>) -> Option<Instant> {
+    pub fn update(&mut self) -> Option<Instant> {
         let now = Instant::now();
         while !self.timers.is_empty() && self.timers[0].deadline <= now {
             if let Some(timer) = self.timers.pop_front() {
@@ -55,7 +48,7 @@ impl Scheduler {
                     self.schedule(timer.event.clone(), interval, true, timer.id);
                 }
 
-                event_queue.push(timer.event);
+                let _ = self.event_proxy.send_event(timer.event);
             }
         }
 

@@ -39,7 +39,7 @@ pub enum Event {
     PtyWrite(String),
 
     /// Cursor blinking state has changed.
-    CursorBlinkingChange(bool),
+    CursorBlinkingChange,
 
     /// New terminal content available.
     Wakeup,
@@ -54,17 +54,17 @@ pub enum Event {
 impl Debug for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
-            Event::Title(title) => write!(f, "Title({})", title),
-            Event::ResetTitle => write!(f, "ResetTitle"),
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
             Event::ColorRequest(index, _) => write!(f, "ColorRequest({})", index),
             Event::PtyWrite(text) => write!(f, "PtyWrite({})", text),
+            Event::Title(title) => write!(f, "Title({})", title),
+            Event::CursorBlinkingChange => write!(f, "CursorBlinkingChange"),
+            Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
+            Event::ResetTitle => write!(f, "ResetTitle"),
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::CursorBlinkingChange(blinking) => write!(f, "CursorBlinking({})", blinking),
         }
     }
 }

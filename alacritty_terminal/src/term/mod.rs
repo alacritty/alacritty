@@ -640,7 +640,7 @@ impl<T> Term<T> {
         }
 
         // Update UI about cursor blinking state changes.
-        self.event_proxy.send_event(Event::CursorBlinkingChange(self.cursor_style().blinking));
+        self.event_proxy.send_event(Event::CursorBlinkingChange);
     }
 
     /// Move vi mode cursor.
@@ -1471,8 +1471,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode &= TermMode::VI;
         self.mode.insert(TermMode::default());
 
-        let blinking = self.cursor_style().blinking;
-        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
+        self.event_proxy.send_event(Event::CursorBlinkingChange);
     }
 
     #[inline]
@@ -1576,7 +1575,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = true;
-                self.event_proxy.send_event(Event::CursorBlinkingChange(true));
+                self.event_proxy.send_event(Event::CursorBlinkingChange);
             },
         }
     }
@@ -1618,7 +1617,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = false;
-                self.event_proxy.send_event(Event::CursorBlinkingChange(false));
+                self.event_proxy.send_event(Event::CursorBlinkingChange);
             },
         }
     }
@@ -1678,8 +1677,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.cursor_style = style;
 
         // Notify UI about blinking changes.
-        let blinking = style.unwrap_or(self.default_cursor_style).blinking;
-        self.event_proxy.send_event(Event::CursorBlinkingChange(blinking));
+        self.event_proxy.send_event(Event::CursorBlinkingChange);
     }
 
     #[inline]

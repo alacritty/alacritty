@@ -12,22 +12,19 @@
 #[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
+use std::collections::HashMap;
 #[cfg(target_os = "macos")]
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
-use std::sync::Arc;
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_terminal::event_loop::{self, EventLoop, Msg};
-use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::Term;
+use alacritty_terminal::event_loop::Msg;
 use alacritty_terminal::tty;
 
 mod cli;
@@ -45,6 +42,7 @@ mod message_bar;
 mod panic;
 mod renderer;
 mod scheduler;
+mod window_context;
 
 mod gl {
     #![allow(clippy::all)]
@@ -53,11 +51,10 @@ mod gl {
 
 use crate::cli::Options;
 use crate::config::{monitor, Config};
-use crate::display::Display;
-use crate::event::{Event, EventProxy, Processor};
+use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
-use crate::message_bar::MessageBuffer;
+use crate::window_context::WindowContext;
 
 fn main() {
     #[cfg(windows)]
@@ -128,96 +125,49 @@ fn run(
     // Set environment variables.
     tty::setup_env(&config);
 
-    let event_proxy = EventProxy::new(window_event_loop.create_proxy());
-
-    // Create a display.
-    //
-    // The display manages a window and can draw the terminal.
-    let display = Display::new(&config, &window_event_loop)?;
-
-    info!(
-        "PTY dimensions: {:?} x {:?}",
-        display.size_info.screen_lines(),
-        display.size_info.columns()
-    );
-
-    // Create the terminal.
-    //
-    // This object contains all of the state about what's being displayed. It's
-    // wrapped in a clonable mutex since both the I/O loop and display need to
-    // access it.
-    let terminal = Term::new(&config, display.size_info, event_proxy.clone());
-    let terminal = Arc::new(FairMutex::new(terminal));
-
-    // Create the PTY.
-    //
-    // The PTY forks a process to run the shell on the slave side of the
-    // pseudoterminal. A file descriptor for the master side is retained for
-    // reading/writing to the shell.
-    let pty = tty::new(&config, &display.size_info, display.window.x11_window_id());
-
-    // Create the pseudoterminal I/O loop.
-    //
-    // PTY I/O is ran on another thread as to not occupy cycles used by the
-    // renderer and input processing. Note that access to the terminal state is
-    // synchronized since the I/O loop updates the state, and the display
-    // consumes it periodically.
-    let event_loop = EventLoop::new(
-        Arc::clone(&terminal),
-        event_proxy.clone(),
-        pty,
-        config.hold,
-        config.ui_config.debug.ref_test,
-    );
-
-    // The event loop channel allows write requests from the event processor
-    // to be sent to the pty loop and ultimately written to the pty.
-    let loop_tx = event_loop.channel();
-
     // Create a config monitor when config was loaded from path.
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
     if config.ui_config.live_config_reload {
-        monitor::watch(config.ui_config.config_paths.clone(), event_proxy);
+        monitor::watch(config.ui_config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
-    // Setup storage for message UI.
-    let message_buffer = MessageBuffer::new();
+    // Create context for each Alacritty window.
+    let mut windows = HashMap::new();
+    let window_context =
+        WindowContext::new(&config, &window_event_loop, window_event_loop.create_proxy())?;
+    windows.insert(window_context.display.window.id(), window_context);
 
     // Event processor.
-    let mut processor = Processor::new(
-        event_loop::Notifier(loop_tx.clone()),
-        message_buffer,
-        config,
-        display,
-        options,
-    );
-
-    // Kick off the I/O thread.
-    let io_thread = event_loop.spawn();
+    let mut processor = Processor::new(config, options);
 
     info!("Initialisation complete");
 
     // Start event loop and block until shutdown.
-    processor.run(terminal, window_event_loop);
+    processor.run(window_event_loop, &mut windows);
 
     // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
-    //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped.
-    //   - The conout pipe is dropped when the io_thread is joined below (io_thread owns PTY).
-    //   - ConPTY is dropped when the last of processor and io_thread are dropped, because both of
-    //     them own an Arc<ConPTY>.
+    //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped
+    //   - ConPTY is dropped when the last of processor and window context are dropped, because both
+    //     of them own an Arc<ConPTY>
     //
-    // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. PTY)
-    // is dropped, it can ensure ConPTY is dropped before the conout pipe in the PTY drop order.
+    // The fix is to ensure that processor is dropped first. That way, when window context (i.e.
+    // PTY) is dropped, it can ensure ConPTY is dropped before the conout pipe in the PTY drop
+    // order.
     //
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
 
     // Shutdown PTY parser event loop.
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to PTY event loop");
-    io_thread.join().expect("join io thread");
+    for (_, window_context) in windows {
+        window_context
+            .notifier
+            .0
+            .send(Msg::Shutdown)
+            .expect("Error sending shutdown to PTY event loop");
+    }
 
     // FIXME patch notify library to have a shutdown method.
     // config_reloader.join().ok();

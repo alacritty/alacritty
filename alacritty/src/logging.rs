@@ -15,7 +15,7 @@ use glutin::event_loop::EventLoopProxy;
 use log::{self, Level, LevelFilter};
 
 use crate::cli::Options;
-use crate::event::Event;
+use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 
 /// Name for the environment variable containing the log file's path.
@@ -61,6 +61,12 @@ impl Logger {
 
     /// Log a record to the message bar.
     fn message_bar_log(&self, record: &log::Record<'_>, logfile_path: &str) {
+        let message_type = match record.level() {
+            Level::Error => MessageType::Error,
+            Level::Warn => MessageType::Warning,
+            _ => return,
+        };
+
         let event_proxy = match self.event_proxy.lock() {
             Ok(event_proxy) => event_proxy,
             Err(_) => return,
@@ -78,16 +84,11 @@ impl Logger {
             env_var,
             record.args(),
         );
-        let message_type = match record.level() {
-            Level::Error => MessageType::Error,
-            Level::Warn => MessageType::Warning,
-            _ => unreachable!(),
-        };
 
         let mut message = Message::new(message, message_type);
         message.set_target(record.target().to_owned());
 
-        let _ = event_proxy.send_event(Event::Message(message));
+        let _ = event_proxy.send_event(Event::new(EventType::Message(message), None));
     }
 }
 
@@ -113,10 +114,8 @@ impl log::Log for Logger {
             // Write to logfile.
             let _ = logfile.write_all(message.as_ref());
 
-            // Write to message bar.
-            if record.level() <= Level::Warn {
-                self.message_bar_log(record, &logfile.path.to_string_lossy());
-            }
+            // Log relevant entries to message bar.
+            self.message_bar_log(record, &logfile.path.to_string_lossy());
         }
 
         // Write to stdout.

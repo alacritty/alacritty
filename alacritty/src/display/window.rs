@@ -29,11 +29,13 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
+use std::mem::{self, MaybeUninit};
+use std::ptr;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glutin::event_loop::EventLoop;
+use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
@@ -124,7 +126,7 @@ impl From<crossfont::Error> for Error {
 
 fn create_gl_window<E>(
     mut window: WindowBuilder,
-    event_loop: &EventLoop<E>,
+    event_loop: &EventLoopWindowTarget<E>,
     srgb: bool,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
@@ -160,9 +162,18 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
-    windowed_context: WindowedContext<PossiblyCurrent>,
+    windowed_context: MaybeUninit<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+}
+
+/// Ensure the OpenGL context is dropped.
+impl Drop for Window {
+    fn drop(&mut self) {
+        unsafe {
+            mem::replace(&mut self.windowed_context, MaybeUninit::uninit()).assume_init();
+        }
+    }
 }
 
 impl Window {
@@ -170,7 +181,7 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new<E>(
-        event_loop: &EventLoop<E>,
+        event_loop: &EventLoopWindowTarget<E>,
         config: &Config,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -232,7 +243,7 @@ impl Window {
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
-            windowed_context,
+            windowed_context: MaybeUninit::new(windowed_context),
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -241,10 +252,12 @@ impl Window {
         })
     }
 
+    #[inline]
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
         self.window().set_inner_size(size);
     }
 
+    #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window().inner_size()
     }
@@ -258,6 +271,11 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window().set_title(title);
+    }
+
+    #[inline]
+    pub fn request_redraw(&self) {
+        self.window().request_redraw();
     }
 
     #[inline]
@@ -374,7 +392,7 @@ impl Window {
         None
     }
 
-    pub fn window_id(&self) -> WindowId {
+    pub fn id(&self) -> WindowId {
         self.window().id()
     }
 
@@ -429,11 +447,21 @@ impl Window {
     }
 
     pub fn swap_buffers(&self) {
-        self.windowed_context.swap_buffers().expect("swap buffers");
+        self.windowed_context().swap_buffers().expect("swap buffers");
     }
 
     pub fn resize(&self, size: PhysicalSize<u32>) {
-        self.windowed_context.resize(size);
+        self.windowed_context().resize(size);
+    }
+
+    pub fn make_current(&mut self) {
+        if !self.windowed_context().is_current() {
+            unsafe {
+                let context = mem::replace(&mut self.windowed_context, MaybeUninit::uninit());
+                let current_context = context.assume_init().make_current().expect("context swap");
+                ptr::write(&mut self.windowed_context, MaybeUninit::new(current_context));
+            }
+        }
     }
 
     /// Disable macOS window shadows.
@@ -453,7 +481,11 @@ impl Window {
     }
 
     fn window(&self) -> &GlutinWindow {
-        self.windowed_context.window()
+        self.windowed_context().window()
+    }
+
+    fn windowed_context(&self) -> &WindowedContext<PossiblyCurrent> {
+        unsafe { &*self.windowed_context.as_ptr() }
     }
 }
 
