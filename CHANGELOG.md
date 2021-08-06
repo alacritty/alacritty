@@ -14,9 +14,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
-
-### Removed
-
 - Config option `background_opacity`, you should use `window.opacity` instead
 
 ## 0.9.0
