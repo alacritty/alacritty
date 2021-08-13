@@ -1303,6 +1303,9 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
+                    WindowEvent::Touch(touch) => {
+                        processor.touch_input(touch)
+                    },
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window().window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
@@ -1338,7 +1341,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1364,7 +1366,6 @@ impl<N: Notify + OnResize> Processor<N> {
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_)
             ),
             GlutinEvent::Suspended { .. }

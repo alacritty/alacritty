@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
-    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, Touch, TouchPhase,
 };
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
@@ -618,6 +618,20 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     _ => (),
                 }
             },
+        }
+    }
+
+    pub fn touch_input(&mut self, touch: Touch) {
+        match touch.phase {
+            TouchPhase::Started => {}
+            TouchPhase::Moved => {}
+            TouchPhase::Ended => {
+                self.mouse_moved(PhysicalPosition::new(touch.location.x, touch.location.y));
+                self.on_mouse_press(MouseButton::Left);
+                self.process_mouse_bindings(MouseButton::Left);
+                self.on_mouse_release(MouseButton::Left);
+            }
+            TouchPhase::Cancelled => {}
         }
     }
 

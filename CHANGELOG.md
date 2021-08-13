@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.10.0-dev
 
+### Added
+
+- Touchscreen support for clicking
+
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
