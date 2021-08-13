@@ -34,7 +34,7 @@ use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{ClickState, Event, Mouse, TouchState, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId};
 
@@ -71,6 +71,8 @@ pub trait ActionContext<T: EventListener> {
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
+    fn touch_mut(&mut self) -> &mut TouchState;
+    fn touch(&self) -> &TouchState;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
@@ -623,15 +625,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     pub fn touch_input(&mut self, touch: Touch) {
         match touch.phase {
-            TouchPhase::Started => {}
-            TouchPhase::Moved => {}
+            TouchPhase::Started | TouchPhase::Moved => {
+                self.ctx.touch_mut().x = touch.location.x;
+                self.ctx.touch_mut().y = touch.location.y;
+            },
             TouchPhase::Ended => {
-                self.mouse_moved(PhysicalPosition::new(touch.location.x, touch.location.y));
+                self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
                 self.on_mouse_press(MouseButton::Left);
                 self.process_mouse_bindings(MouseButton::Left);
                 self.on_mouse_release(MouseButton::Left);
-            }
-            TouchPhase::Cancelled => {}
+            },
+            TouchPhase::Cancelled => {},
         }
     }
 
@@ -985,6 +989,7 @@ mod tests {
         pub terminal: &'a mut Term<T>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
+        pub touch: &'a mut TouchState,
         pub clipboard: &'a mut Clipboard,
         pub message_buffer: &'a mut MessageBuffer,
         pub received_count: usize,
@@ -1043,6 +1048,16 @@ mod tests {
         #[inline]
         fn mouse(&self) -> &Mouse {
             self.mouse
+        }
+
+        #[inline]
+        fn touch_mut(&mut self) -> &mut TouchState {
+            self.touch
+        }
+
+        #[inline]
+        fn touch(&self) -> &TouchState {
+            self.touch
         }
 
         fn received_count(&mut self) -> &mut usize {
@@ -1120,11 +1135,14 @@ mod tests {
                     ..Mouse::default()
                 };
 
+                let mut touch = Default::default();
+
                 let mut message_buffer = MessageBuffer::new();
 
                 let context = ActionContext {
                     terminal: &mut terminal,
                     mouse: &mut mouse,
+                    touch: &mut touch,
                     size_info: &size,
                     clipboard: &mut clipboard,
                     received_count: 0,

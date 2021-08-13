@@ -161,6 +161,7 @@ pub struct ActionContext<'a, N, T> {
     pub terminal: &'a mut Term<T>,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
+    pub touch: &'a mut TouchState,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub modifiers: &'a mut ModifiersState,
@@ -301,6 +302,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn mouse(&self) -> &Mouse {
         self.mouse
+    }
+
+    #[inline]
+    fn touch_mut(&mut self) -> &mut TouchState {
+        self.touch
+    }
+
+    #[inline]
+    fn touch(&self) -> &TouchState {
+        self.touch
     }
 
     #[inline]
@@ -972,6 +983,19 @@ impl Mouse {
     }
 }
 
+/// State of touch.
+#[derive(Debug)]
+pub struct TouchState {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Default for TouchState {
+    fn default() -> TouchState {
+        TouchState { x: Default::default(), y: Default::default() }
+    }
+}
+
 /// The event processor.
 ///
 /// Stores some state from received events and dispatches actions when they are
@@ -979,6 +1003,7 @@ impl Mouse {
 pub struct Processor<N> {
     notifier: N,
     mouse: Mouse,
+    touch: TouchState,
     received_count: usize,
     suppress_chars: bool,
     modifiers: ModifiersState,
@@ -1016,6 +1041,7 @@ impl<N: Notify + OnResize> Processor<N> {
             event_queue: Default::default(),
             modifiers: Default::default(),
             mouse: Default::default(),
+            touch: Default::default(),
             dirty: Default::default(),
         }
     }
@@ -1119,6 +1145,7 @@ impl<N: Notify + OnResize> Processor<N> {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
+                touch: &mut self.touch,
                 clipboard: &mut clipboard,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
@@ -1303,9 +1330,7 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.window().set_mouse_visible(true);
                         processor.mouse_wheel_input(delta, phase);
                     },
-                    WindowEvent::Touch(touch) => {
-                        processor.touch_input(touch)
-                    },
+                    WindowEvent::Touch(touch) => processor.touch_input(touch),
                     WindowEvent::Focused(is_focused) => {
                         if window_id == processor.ctx.window().window_id() {
                             processor.ctx.terminal.is_focused = is_focused;
