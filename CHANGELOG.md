@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `ExpandSelection` is now a configurable mouse binding action
 - Config option `background_opacity`, you should use `window.opacity` instead
 - The config watcher now watches the base config paths in addition to symbolic link targets
+- Reload configuration files when their symbolic link is replaced
 
 ## 0.9.0
 

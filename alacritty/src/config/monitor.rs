@@ -96,7 +96,7 @@ pub fn watch(paths: Vec<PathBuf>, event_proxy: EventProxy) {
                 {
                     // Always reload the primary configuration file.
                     event_proxy.send_event(Event::ConfigReload(paths[0].clone()));
-                }
+                },
                 _ => {},
             }
         }
