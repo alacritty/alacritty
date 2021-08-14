@@ -986,13 +986,27 @@ impl Mouse {
 /// State of touch.
 #[derive(Debug)]
 pub struct TouchState {
+    pub start_x: f64,
+    pub start_y: f64,
     pub x: f64,
     pub y: f64,
 }
 
 impl Default for TouchState {
     fn default() -> TouchState {
-        TouchState { x: Default::default(), y: Default::default() }
+        TouchState {
+            start_x: Default::default(),
+            start_y: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
+        }
+    }
+}
+
+impl TouchState {
+    /// Returns square of the distance travelled since the touch began.
+    pub fn dist2(&self) -> f64 {
+        (self.start_x - self.x).powi(2) + (self.start_y - self.y).powi(2)
     }
 }
 

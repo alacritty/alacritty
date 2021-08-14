@@ -50,6 +50,10 @@ const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
 /// Number of pixels for increasing the selection scrolling speed factor by one.
 const SELECTION_SCROLLING_STEP: f64 = 20.;
 
+/// Minimum squared distance a touch must travel to be interpreted as a drag. Touches that travel
+/// less than this distance are interpreted as taps.
+const DRAG_MINIMUM_DISTANCE2: f64 = 100.;
+
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -625,15 +629,23 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     pub fn touch_input(&mut self, touch: Touch) {
         match touch.phase {
-            TouchPhase::Started | TouchPhase::Moved => {
+            TouchPhase::Started => {
+                self.ctx.touch_mut().start_x = touch.location.x;
+                self.ctx.touch_mut().start_y = touch.location.y;
+                self.ctx.touch_mut().x = touch.location.x;
+                self.ctx.touch_mut().y = touch.location.y;
+            },
+            TouchPhase::Moved => {
                 self.ctx.touch_mut().x = touch.location.x;
                 self.ctx.touch_mut().y = touch.location.y;
             },
             TouchPhase::Ended => {
                 self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
-                self.on_mouse_press(MouseButton::Left);
-                self.process_mouse_bindings(MouseButton::Left);
-                self.on_mouse_release(MouseButton::Left);
+                if self.ctx.touch().dist2() < DRAG_MINIMUM_DISTANCE2 {
+                    self.on_mouse_press(MouseButton::Left);
+                    self.process_mouse_bindings(MouseButton::Left);
+                    self.on_mouse_release(MouseButton::Left);
+                }
             },
             TouchPhase::Cancelled => {},
         }
