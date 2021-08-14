@@ -10,7 +10,7 @@ use alacritty_terminal::config::Program;
 use crate::config::window::{Class, DEFAULT_NAME};
 use crate::config::{serde_utils, Config};
 
-/// Options specified on the command line.
+/// CLI options for the main Alacritty executable.
 #[derive(StructOpt, Debug)]
 #[structopt(author, about, version = env!("VERSION"))]
 pub struct Options {
@@ -76,6 +76,11 @@ pub struct Options {
     /// Override configuration file options [example: cursor.style=Beam].
     #[structopt(short = "o", long)]
     option: Vec<String>,
+
+    /// Subcommand passed to the CLI.
+    #[cfg(unix)]
+    #[structopt(subcommand)]
+    pub subcommands: Option<Subcommands>,
 }
 
 impl Options {
@@ -197,6 +202,20 @@ fn parse_class(input: &str) -> Result<Class, String> {
         },
         None => Ok(Class { instance: input.into(), general: DEFAULT_NAME.into() }),
     }
+}
+
+/// Available CLI subcommands.
+#[derive(StructOpt, Debug)]
+pub enum Subcommands {
+    Msg(MessageOptions),
+}
+
+/// Send a message to the Alacritty socket.
+#[derive(StructOpt, Debug)]
+pub struct MessageOptions {
+    /// Create a new window in the same Alacritty process.
+    #[structopt(long)] // TODO: required!
+    create_window: bool,
 }
 
 #[cfg(test)]

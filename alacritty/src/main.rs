@@ -18,6 +18,8 @@ use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
+#[cfg(unix)]
+use std::process;
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::{error, info};
@@ -34,6 +36,8 @@ mod daemon;
 mod display;
 mod event;
 mod input;
+#[cfg(unix)]
+mod ipc;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -49,9 +53,11 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use crate::cli::Options;
+use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, Config};
 use crate::event::{Event, Processor};
+#[cfg(unix)]
+use crate::ipc::SOCKET_MESSAGE_CREATE_WINDOW;
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 use crate::window_context::WindowContext;
@@ -70,6 +76,16 @@ fn main() {
 
     // Load command line options.
     let options = Options::new();
+    match options.subcommands {
+        Some(Subcommands::Msg(_)) => match ipc::send_message(&SOCKET_MESSAGE_CREATE_WINDOW) {
+            Ok(()) => process::exit(0),
+            Err(err) => {
+                eprintln!("Error: {}", err);
+                process::exit(1);
+            },
+        },
+        None => (),
+    }
 
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
@@ -133,6 +149,10 @@ fn run(
         monitor::watch(config.ui_config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
+    // Create the IPC socket listener.
+    #[cfg(unix)]
+    let socket_path = ipc::spawn_ipc_socket(window_event_loop.create_proxy());
+
     // Create context for each Alacritty window.
     let mut windows = HashMap::new();
     let window_context =
@@ -176,6 +196,12 @@ fn run(
     #[cfg(windows)]
     unsafe {
         FreeConsole();
+    }
+
+    // Clean up the IPC socket file.
+    #[cfg(unix)]
+    if let Some(socket_path) = socket_path {
+        let _ = fs::remove_file(socket_path);
     }
 
     info!("Goodbye");

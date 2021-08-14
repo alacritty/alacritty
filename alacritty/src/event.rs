@@ -89,6 +89,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
+    CreateWindow,
     BlinkCursor,
     SearchNext,
 }
@@ -1061,7 +1062,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
-                EventType::ConfigReload(_) => (),
+                EventType::ConfigReload(_) | EventType::CreateWindow => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, .. } => {
@@ -1169,7 +1170,7 @@ impl Processor {
         windows: &mut HashMap<WindowId, WindowContext>,
     ) {
         let proxy = event_loop.create_proxy();
-        let mut scheduler = Scheduler::new(proxy);
+        let mut scheduler = Scheduler::new(proxy.clone());
 
         // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1247,6 +1248,13 @@ impl Processor {
                         for window_context in windows.values_mut() {
                             window_context.update_config(&old_config, &self.config);
                         }
+                    }
+                },
+                // Create a new terminal window.
+                GlutinEvent::UserEvent(Event { event: EventType::CreateWindow, .. }) => {
+                    let window = WindowContext::new(&self.config, event_loop, proxy.clone());
+                    if let Ok(window) = window {
+                        windows.insert(window.display.window.id(), window);
                     }
                 },
                 // Process events affecting all windows.
