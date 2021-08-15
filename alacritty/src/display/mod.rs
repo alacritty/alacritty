@@ -490,7 +490,6 @@ impl Display {
         for cell in &mut content {
             grid_cells.push(cell);
         }
-
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();

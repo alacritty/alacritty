@@ -319,10 +319,10 @@
   #
   #indexed_colors: []
 
-  # Transparent backgrounds with transparency enabled
+  # Transparent cell backgrounds
   #
-  # Whether or not `window.opacity` applies to all backgrounds or only to the
-  # default background. When set to `false` all cells will be transparent
+  # Whether or not `window.opacity` applies to all cell backgrounds or only to
+  # the default background. When set to `true` all cells will be transparent
   # regardless of their background color.
   #transparent_background_colors: false
 
