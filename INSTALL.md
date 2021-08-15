@@ -148,7 +148,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-pkg install cmake freetype2 fontconfig pkgconf
+pkg install cmake freetype2 fontconfig pkgconf python3
 ```
 
 #### OpenBSD
