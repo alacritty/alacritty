@@ -642,9 +642,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             TouchPhase::Ended => {
                 self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
                 if self.ctx.touch().dist2() < DRAG_MINIMUM_DISTANCE2 {
-                    self.on_mouse_press(MouseButton::Left);
-                    self.process_mouse_bindings(MouseButton::Left);
-                    self.on_mouse_release(MouseButton::Left);
+                    if self.message_bar_cursor_state() == Some(CursorIcon::Hand) {
+                        self.on_message_bar_click();
+                    } else {
+                        self.on_mouse_press(MouseButton::Left);
+                        self.process_mouse_bindings(MouseButton::Left);
+                        self.on_mouse_release(MouseButton::Left);
+                    }
                 }
             },
             TouchPhase::Cancelled => {},
@@ -704,6 +708,32 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
+    fn on_message_bar_click(&mut self) {
+        let size = self.ctx.size_info();
+
+        let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+
+        self.ctx.clear_selection();
+        self.ctx.pop_message();
+
+        // Reset cursor when message bar height changed or all messages are gone.
+        let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+
+        let new_icon = match current_lines.cmp(&new_lines) {
+            Ordering::Less => CursorIcon::Default,
+            Ordering::Equal => CursorIcon::Hand,
+            Ordering::Greater => {
+                if self.ctx.mouse_mode() {
+                    CursorIcon::Default
+                } else {
+                    CursorIcon::Text
+                }
+            },
+        };
+
+        self.ctx.window().set_mouse_cursor(new_icon);
+    }
+
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
@@ -716,29 +746,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.message_bar_cursor_state() == Some(CursorIcon::Hand)
             && state == ElementState::Pressed
         {
-            let size = self.ctx.size_info();
-
-            let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
-
-            self.ctx.clear_selection();
-            self.ctx.pop_message();
-
-            // Reset cursor when message bar height changed or all messages are gone.
-            let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
-
-            let new_icon = match current_lines.cmp(&new_lines) {
-                Ordering::Less => CursorIcon::Default,
-                Ordering::Equal => CursorIcon::Hand,
-                Ordering::Greater => {
-                    if self.ctx.mouse_mode() {
-                        CursorIcon::Default
-                    } else {
-                        CursorIcon::Text
-                    }
-                },
-            };
-
-            self.ctx.window().set_mouse_cursor(new_icon);
+            self.on_message_bar_click();
         } else {
             match state {
                 ElementState::Pressed => {
