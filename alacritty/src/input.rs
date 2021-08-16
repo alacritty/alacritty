@@ -643,7 +643,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
                 if self.ctx.touch().dist2() < DRAG_MINIMUM_DISTANCE2 {
                     if self.message_bar_cursor_state() == Some(CursorIcon::Hand) {
-                        self.on_message_bar_click();
+                        self.on_message_bar_button_click();
                     } else {
                         self.on_mouse_press(MouseButton::Left);
                         self.process_mouse_bindings(MouseButton::Left);
@@ -708,7 +708,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn on_message_bar_click(&mut self) {
+    fn on_message_bar_button_click(&mut self) {
         let size = self.ctx.size_info();
 
         let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
@@ -746,7 +746,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.message_bar_cursor_state() == Some(CursorIcon::Hand)
             && state == ElementState::Pressed
         {
-            self.on_message_bar_click();
+            self.on_message_bar_button_click();
         } else {
             match state {
                 ElementState::Pressed => {
