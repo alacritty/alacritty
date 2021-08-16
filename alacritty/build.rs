@@ -15,6 +15,17 @@ fn main() {
         .write_bindings(GlobalGenerator, &mut file)
         .unwrap();
 
+    let target_os = env::var("CARGO_CFG_TARGET_OS");
+    match target_os.as_ref().map(|x| &**x) {
+        Ok("linux") | Ok("freebsd") => {},
+        Ok("openbsd") => {
+            println!(r"cargo:rustc-link-search=/usr/local/lib")
+        },
+        Ok("windows") => {},
+        _ => {}
+    }
+
+
     #[cfg(windows)]
     embed_resource::compile("./windows/windows.rc");
 }
