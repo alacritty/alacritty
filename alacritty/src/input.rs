@@ -640,8 +640,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.ctx.touch_mut().y = touch.location.y;
             },
             TouchPhase::Ended => {
-                self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
                 if self.ctx.touch().dist2() < DRAG_MINIMUM_DISTANCE2 {
+                    self.mouse_moved(PhysicalPosition::new(self.ctx.touch().x, self.ctx.touch().y));
                     if self.message_bar_cursor_state() == Some(CursorIcon::Hand) {
                         self.on_message_bar_button_click();
                     } else {
