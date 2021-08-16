@@ -7,9 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.10.0-dev
 
+### Added
+
+- Option `colors.transparent_background_colors` to allow applying opacity to all background colors
+
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
+- Config option `background_opacity`, you should use `window.opacity` instead
 
 ## 0.9.0
 
