@@ -6,7 +6,11 @@ use std::process::Command;
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 
 fn main() {
-    println!("cargo:rustc-env=GIT_HASH={}", commit_hash());
+    let mut version = String::from(env!("CARGO_PKG_VERSION"));
+    if let Some(commit_hash) = commit_hash() {
+        version = format!("{} ({})", version, commit_hash);
+    }
+    println!("cargo:rustc-env=VERSION={}", version);
 
     let dest = env::var("OUT_DIR").unwrap();
     let mut file = File::create(&Path::new(&dest).join("gl_bindings.rs")).unwrap();
@@ -19,11 +23,11 @@ fn main() {
     embed_resource::compile("./windows/windows.rc");
 }
 
-fn commit_hash() -> String {
+fn commit_hash() -> Option<String> {
     Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
-        .unwrap_or_default()
+        .map(|hash| hash.trim().into())
 }
