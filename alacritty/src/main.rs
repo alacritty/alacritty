@@ -26,7 +26,6 @@ use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_terminal::event_loop::Msg;
 use alacritty_terminal::tty;
 
 mod cli;
@@ -179,15 +178,6 @@ fn run(
     //
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
-
-    // Shutdown PTY parser event loop.
-    for (_, window_context) in windows {
-        window_context
-            .notifier
-            .0
-            .send(Msg::Shutdown)
-            .expect("Error sending shutdown to PTY event loop");
-    }
 
     // FIXME patch notify library to have a shutdown method.
     // config_reloader.join().ok();

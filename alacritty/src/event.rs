@@ -26,7 +26,7 @@ use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
-use alacritty_terminal::event_loop::Notifier;
+use alacritty_terminal::event_loop::{Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
@@ -1199,6 +1199,13 @@ impl Processor {
                         Some(window_context) => window_context,
                         None => return,
                     };
+
+                    // Shutdown PTY parser event loop.
+                    window_context
+                        .notifier
+                        .0
+                        .send(Msg::Shutdown)
+                        .expect("Error sending shutdown to PTY event loop");
 
                     // Shutdown if no more terminals are open.
                     if windows.is_empty() {

@@ -182,8 +182,8 @@ where
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Input(input) => state.write_list.push_back(input),
-                Msg::Shutdown => return false,
                 Msg::Resize(size) => self.pty.on_resize(&size),
+                Msg::Shutdown => return false,
             }
         }
 
