@@ -19,9 +19,7 @@ pub fn watch(paths: Vec<PathBuf>, event_proxy: EventProxy) {
         let mut paths_tmp = Vec::new();
         for path in paths {
             match path.symlink_metadata() {
-                Ok(metadata) if metadata.file_type().is_symlink() => {
-                    paths_tmp.push(path.clone())
-                },
+                Ok(metadata) if metadata.file_type().is_symlink() => paths_tmp.push(path.clone()),
                 Ok(_) => {},
                 Err(err) => {
                     error!("Unable to get metadata for config path {:?}: {}", path, err)
@@ -29,9 +27,7 @@ pub fn watch(paths: Vec<PathBuf>, event_proxy: EventProxy) {
             }
 
             match path.canonicalize() {
-                Ok(canonical_path) => {
-                    paths_tmp.push(canonical_path)
-                },
+                Ok(canonical_path) => paths_tmp.push(canonical_path),
                 Err(err) => {
                     error!("Unable to canonicalize config path {:?}: {}", path, err)
                 },
@@ -93,7 +89,7 @@ pub fn watch(paths: Vec<PathBuf>, event_proxy: EventProxy) {
                 {
                     // Always reload the primary configuration file.
                     event_proxy.send_event(Event::ConfigReload(paths[0].clone()));
-                },
+                }
                 _ => {},
             }
         }
