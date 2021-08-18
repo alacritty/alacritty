@@ -212,10 +212,9 @@ pub enum Subcommands {
 
 /// Send a message to the Alacritty socket.
 #[derive(StructOpt, Debug)]
-pub struct MessageOptions {
+pub enum MessageOptions {
     /// Create a new window in the same Alacritty process.
-    #[structopt(long)] // TODO: required!
-    create_window: bool,
+    CreateWindow,
 }
 
 #[cfg(test)]
