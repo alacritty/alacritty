@@ -101,8 +101,8 @@ impl From<serde_yaml::Error> for Error {
 
 /// Load the configuration file.
 pub fn load(options: &Options) -> Config {
-    let config_options = options.config_options().clone();
-    let config_path = options.config_path().or_else(installed_config);
+    let config_options = options.config_options.clone();
+    let config_path = options.config_file.clone().or_else(installed_config);
 
     // Load the config using the following fallback behavior:
     //  - Config path + CLI overrides
@@ -128,7 +128,7 @@ pub fn load(options: &Options) -> Config {
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
     // Load config, propagating errors.
-    let config_options = options.config_options().clone();
+    let config_options = options.config_options.clone();
     let mut config = load_from(config_path, config_options)?;
 
     after_loading(&mut config, options);
