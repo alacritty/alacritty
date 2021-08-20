@@ -180,6 +180,9 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Spawn a new Alacritty window.
+    SpawnNewWindow,
+
     /// Toggle fullscreen.
     ToggleFullscreen,
 

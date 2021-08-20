@@ -182,6 +182,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a mut Config,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
+    pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub font_size: &'a mut Size,
@@ -392,6 +393,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         start_daemon(&alacritty, &args);
+    }
+
+    fn spawn_new_window(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow, None));
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -1231,6 +1236,7 @@ impl Processor {
                     for window_context in windows.values_mut() {
                         window_context.handle_event(
                             event_loop,
+                            &proxy,
                             &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
@@ -1269,6 +1275,7 @@ impl Processor {
                     for window_context in windows.values_mut() {
                         window_context.handle_event(
                             event_loop,
+                            &proxy,
                             &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
@@ -1283,6 +1290,7 @@ impl Processor {
                     if let Some(window_context) = windows.get_mut(&window_id) {
                         window_context.handle_event(
                             event_loop,
+                            &proxy,
                             &mut self.config,
                             &mut clipboard,
                             &mut scheduler,

@@ -181,6 +181,7 @@ impl WindowContext {
     pub fn handle_event(
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
+        event_proxy: &EventLoopProxy<Event>,
         config: &mut Config,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
@@ -226,6 +227,7 @@ impl WindowContext {
             mouse: &mut self.mouse,
             dirty: &mut self.dirty,
             terminal: &mut terminal,
+            event_proxy,
             event_loop,
             clipboard,
             scheduler,
