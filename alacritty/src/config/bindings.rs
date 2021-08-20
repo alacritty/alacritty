@@ -1102,7 +1102,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                 let mode = mode.unwrap_or_else(BindingMode::empty);
                 let not_mode = not_mode.unwrap_or_else(BindingMode::empty);
-                let mods = mods.unwrap_or_else(ModifiersState::default);
+                let mods = mods.unwrap_or_default();
 
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)

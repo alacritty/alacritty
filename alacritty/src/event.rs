@@ -19,7 +19,7 @@ use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::WindowId;
-use log::info;
+use log::{error, info};
 use serde_json as json;
 
 use crossfont::{self, Size};
@@ -1265,9 +1265,11 @@ impl Processor {
                 },
                 // Create a new terminal window.
                 GlutinEvent::UserEvent(Event { event: EventType::CreateWindow, .. }) => {
-                    let window = WindowContext::new(&self.config, event_loop, proxy.clone());
-                    if let Ok(window) = window {
-                        windows.insert(window.display.window.id(), window);
+                    match WindowContext::new(&self.config, event_loop, proxy.clone()) {
+                        Ok(window_context) => {
+                            windows.insert(window_context.display.window.id(), window_context);
+                        },
+                        Err(err) => error!("Could not open window: {:?}", err),
                     }
                 },
                 // Process events affecting all windows.

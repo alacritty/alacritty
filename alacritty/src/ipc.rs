@@ -41,13 +41,8 @@ pub fn spawn_ipc_socket(event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
         // This ensures forward-compatibility.
         let mut buf = [0; 2];
 
-        loop {
-            let received = match socket.recv(&mut buf) {
-                Ok(received) => received,
-                Err(_) => break,
-            };
-
-            if &buf[..received] == SOCKET_MESSAGE_CREATE_WINDOW {
+        while let Ok(received) = socket.recv(&mut buf) {
+            if buf[..received] == SOCKET_MESSAGE_CREATE_WINDOW {
                 let _ = event_proxy.send_event(Event::new(EventType::CreateWindow, None));
             }
         }

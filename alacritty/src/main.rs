@@ -15,7 +15,6 @@ compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#
 use std::collections::HashMap;
 #[cfg(target_os = "macos")]
 use std::env;
-use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
 #[cfg(unix)]
@@ -76,16 +75,27 @@ fn main() {
     // Load command line options.
     let options = Options::new();
     match options.subcommands {
-        Some(Subcommands::Msg(_)) => match ipc::send_message(&SOCKET_MESSAGE_CREATE_WINDOW) {
-            Ok(()) => process::exit(0),
-            Err(err) => {
-                eprintln!("Error: {}", err);
-                process::exit(1);
-            },
-        },
-        None => (),
+        Some(Subcommands::Msg(_)) => msg(),
+        None => alacritty(options),
     }
+}
 
+/// msg subcommand entrypoint.
+fn msg() {
+    match ipc::send_message(&SOCKET_MESSAGE_CREATE_WINDOW) {
+        Ok(()) => process::exit(0),
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            process::exit(1);
+        },
+    }
+}
+
+/// Run main Alacritty entrypoint.
+///
+/// Creates a window, the terminal state, PTY, I/O event loop, input processor,
+/// config change monitor, and runs the main display loop.
+fn alacritty(options: Options) {
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
 
@@ -109,29 +119,6 @@ fn main() {
     // Store if log file should be deleted before moving config.
     let persistent_logging = config.ui_config.debug.persistent_logging;
 
-    // Run Alacritty.
-    if let Err(err) = run(window_event_loop, config, options) {
-        error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
-        std::process::exit(1);
-    }
-
-    // Clean up logfile.
-    if let Some(log_file) = log_file {
-        if !persistent_logging && fs::remove_file(&log_file).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
-        }
-    }
-}
-
-/// Run Alacritty.
-///
-/// Creates a window, the terminal state, PTY, I/O event loop, input processor,
-/// config change monitor, and runs the main display loop.
-fn run(
-    window_event_loop: GlutinEventLoop<Event>,
-    config: Config,
-    options: Options,
-) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
 
     // Log the configuration paths.
@@ -154,9 +141,15 @@ fn run(
 
     // Create context for each Alacritty window.
     let mut windows = HashMap::new();
-    let window_context =
-        WindowContext::new(&config, &window_event_loop, window_event_loop.create_proxy())?;
-    windows.insert(window_context.display.window.id(), window_context);
+    match WindowContext::new(&config, &window_event_loop, window_event_loop.create_proxy()) {
+        Ok(window_context) => {
+            windows.insert(window_context.display.window.id(), window_context);
+        },
+        Err(err) => {
+            error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
+            std::process::exit(1);
+        },
+    }
 
     // Event processor.
     let mut processor = Processor::new(config, options);
@@ -196,7 +189,12 @@ fn run(
 
     info!("Goodbye");
 
-    Ok(())
+    // Clean up logfile.
+    if let Some(log_file) = log_file {
+        if !persistent_logging && fs::remove_file(&log_file).is_ok() {
+            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
+        }
+    }
 }
 
 fn log_config_path(config: &Config) {
