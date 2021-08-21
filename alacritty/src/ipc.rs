@@ -100,14 +100,12 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
         // Attempt to connect to the socket.
         match socket.connect(&path) {
             Ok(_) => return Ok(socket),
-            Err(error) => match error.kind() {
-                // Delete orphan sockets.
-                ErrorKind::ConnectionRefused => {
-                    let _ = fs::remove_file(&path);
-                },
-                // Ignore other errors like permission issues.
-                _ => (),
+            // Delete orphan sockets.
+            Err(error) if error.kind() == ErrorKind::ConnectionRefused => {
+                let _ = fs::remove_file(&path);
             },
+            // Ignore other errors like permission issues.
+            Err(_) => (),
         }
     }
 

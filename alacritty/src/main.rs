@@ -140,7 +140,11 @@ fn alacritty(options: Options) {
 
     // Create the IPC socket listener.
     #[cfg(unix)]
-    let socket_path = ipc::spawn_ipc_socket(window_event_loop.create_proxy());
+    let socket_path = if config.ui_config.ipc_socket {
+        ipc::spawn_ipc_socket(window_event_loop.create_proxy())
+    } else {
+        None
+    };
 
     // Create context for each Alacritty window.
     let mut windows = HashMap::new();
