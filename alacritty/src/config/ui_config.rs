@@ -82,6 +82,7 @@ impl Default for UiConfig {
         Self {
             live_config_reload: true,
             alt_send_esc: true,
+            #[cfg(unix)]
             ipc_socket: true,
             font: Default::default(),
             window: Default::default(),

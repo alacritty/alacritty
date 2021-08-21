@@ -52,8 +52,7 @@ mod gl {
 }
 
 #[cfg(unix)]
-use crate::cli::MessageOptions;
-use crate::cli::{Options, Subcommands};
+use crate::cli::{MessageOptions, Options, Subcommands};
 use crate::config::{monitor, Config};
 use crate::event::{Event, Processor};
 #[cfg(unix)]
@@ -76,14 +75,19 @@ fn main() {
 
     // Load command line options.
     let options = Options::new();
+
+    #[cfg(unix)]
     match options.subcommands {
-        #[cfg(unix)]
         Some(Subcommands::Msg(options)) => msg(options),
         None => alacritty(options),
     }
+
+    #[cfg(not(unix))]
+    alacritty(options);
 }
 
-/// msg subcommand entrypoint.
+/// `msg` subcommand entrypoint.
+#[cfg(unix)]
 fn msg(options: MessageOptions) {
     match ipc::send_message(options.socket, &SOCKET_MESSAGE_CREATE_WINDOW) {
         Ok(()) => process::exit(0),
