@@ -205,14 +205,29 @@ fn parse_class(input: &str) -> Result<Class, String> {
 }
 
 /// Available CLI subcommands.
+#[cfg(unix)]
 #[derive(StructOpt, Debug)]
 pub enum Subcommands {
     Msg(MessageOptions),
 }
 
 /// Send a message to the Alacritty socket.
+#[cfg(unix)]
 #[derive(StructOpt, Debug)]
-pub enum MessageOptions {
+pub struct MessageOptions {
+    /// Socket path override.
+    #[structopt(long, short)]
+    pub socket: Option<PathBuf>,
+
+    /// Message which should be sent.
+    #[structopt(subcommand)]
+    pub message: SocketMessage,
+}
+
+/// Available socket messages.
+#[cfg(unix)]
+#[derive(StructOpt, Debug)]
+pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
     CreateWindow,
 }

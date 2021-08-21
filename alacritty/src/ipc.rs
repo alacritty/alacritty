@@ -1,9 +1,10 @@
 //! Alacritty socket IPC.
 
 use std::ffi::OsStr;
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
-use std::{env, fs, io, process};
+use std::{env, fs, process};
 
 use glutin::event_loop::EventLoopProxy;
 
@@ -52,36 +53,63 @@ pub fn spawn_ipc_socket(event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
 }
 
 /// Send a message to the active Alacritty socket.
-pub fn send_message(message: &[u8]) -> io::Result<()> {
-    let socket_path = find_socket_path()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no socket found"))?;
-
-    let socket = UnixDatagram::unbound()?;
-    socket.connect(&socket_path)?;
+pub fn send_message(socket: Option<PathBuf>, message: &[u8]) -> IoResult<()> {
+    let socket = find_socket(socket)?;
     socket.send(message)?;
-
     Ok(())
 }
 
 /// Find the IPC socket path.
-fn find_socket_path() -> Option<PathBuf> {
-    // Try the environment variable.
+fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
+    let socket = UnixDatagram::unbound()?;
+
+    // Handle --socket CLI override.
+    if let Some(socket_path) = socket_path {
+        match socket.connect(&socket_path) {
+            Ok(_) => return Ok(socket),
+            // Ensure we inform the user about an invalid path.
+            Err(err) => {
+                let message = format!("invalid socket path {:?}", socket_path);
+                return Err(IoError::new(err.kind(), message));
+            },
+        }
+    }
+
+    // Handle environment variable.
     if let Ok(path) = env::var(ALACRITTY_SOCKET_ENV) {
         let socket_path = PathBuf::from(path);
-        if socket_path.exists() {
-            return Some(socket_path);
+        if socket.connect(&socket_path).is_ok() {
+            return Ok(socket);
         }
     }
 
     // Search for sockets in /tmp.
-    for entry in fs::read_dir(env::temp_dir()).ok()? {
-        let path = entry.ok()?.path();
-        if let Some(file) = path.file_name().and_then(OsStr::to_str) {
-            if file.starts_with("Alacritty-") && file.ends_with(".sock") {
-                return Some(path);
-            }
+    for entry in fs::read_dir(env::temp_dir())?.filter_map(|entry| entry.ok()) {
+        let path = entry.path();
+
+        // Skip files that aren't Alacritty sockets.
+        if path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .filter(|file| file.starts_with("Alacritty-") && file.ends_with(".sock"))
+            .is_none()
+        {
+            continue;
+        }
+
+        // Attempt to connect to the socket.
+        match socket.connect(&path) {
+            Ok(_) => return Ok(socket),
+            Err(error) => match error.kind() {
+                // Delete orphan sockets.
+                ErrorKind::ConnectionRefused => {
+                    let _ = fs::remove_file(&path);
+                },
+                // Ignore other errors like permission issues.
+                _ => (),
+            },
         }
     }
 
-    None
+    Err(IoError::new(ErrorKind::NotFound, "no socket found"))
 }

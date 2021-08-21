@@ -1206,11 +1206,7 @@ impl Processor {
                     };
 
                     // Shutdown PTY parser event loop.
-                    window_context
-                        .notifier
-                        .0
-                        .send(Msg::Shutdown)
-                        .expect("Error sending shutdown to PTY event loop");
+                    let _ = window_context.notifier.0.send(Msg::Shutdown);
 
                     // Shutdown if no more terminals are open.
                     if windows.is_empty() {

@@ -51,6 +51,8 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+#[cfg(unix)]
+use crate::cli::MessageOptions;
 use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, Config};
 use crate::event::{Event, Processor};
@@ -75,14 +77,15 @@ fn main() {
     // Load command line options.
     let options = Options::new();
     match options.subcommands {
-        Some(Subcommands::Msg(_)) => msg(),
+        #[cfg(unix)]
+        Some(Subcommands::Msg(options)) => msg(options),
         None => alacritty(options),
     }
 }
 
 /// msg subcommand entrypoint.
-fn msg() {
-    match ipc::send_message(&SOCKET_MESSAGE_CREATE_WINDOW) {
+fn msg(options: MessageOptions) {
+    match ipc::send_message(options.socket, &SOCKET_MESSAGE_CREATE_WINDOW) {
         Ok(()) => process::exit(0),
         Err(err) => {
             eprintln!("Error: {}", err);
