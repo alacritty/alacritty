@@ -830,6 +830,14 @@ impl Display {
     }
 }
 
+impl Drop for Display {
+    fn drop(&mut self) {
+        // Switch OpenGL context before dropping, otherwise objects (like programs) from other
+        // contexts might be deleted.
+        self.window.make_current()
+    }
+}
+
 /// Convert a terminal point to a viewport relative point.
 pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
     let viewport_line = point.line.0 + display_offset as i32;
