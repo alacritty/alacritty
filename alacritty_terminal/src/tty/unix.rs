@@ -252,7 +252,7 @@ impl Drop for Pty {
         unsafe {
             libc::kill(self.child.id() as i32, libc::SIGHUP);
         }
-        let _ = self.child.try_wait();
+        let _ = self.child.wait();
     }
 }
 
