@@ -1,6 +1,8 @@
 //! Terminal window context.
 
 use std::error::Error;
+use std::fs::File;
+use std::io::Write;
 use std::mem;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
@@ -9,12 +11,14 @@ use std::sync::Arc;
 use crossfont::Size;
 use glutin::event::{Event as GlutinEvent, ModifiersState, WindowEvent};
 use glutin::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+use glutin::window::WindowId;
 use log::info;
+use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
 use alacritty_terminal::event::Event as TerminalEvent;
-use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Notifier};
+use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::Direction;
 use alacritty_terminal::sync::FairMutex;
@@ -31,18 +35,18 @@ use crate::scheduler::Scheduler;
 
 /// Event context for one individual Alacritty window.
 pub struct WindowContext {
-    pub event_queue: Vec<GlutinEvent<'static, Event>>,
-    pub terminal: Arc<FairMutex<Term<EventProxy>>>,
     pub message_buffer: MessageBuffer,
-    pub modifiers: ModifiersState,
-    pub search_state: SearchState,
-    pub received_count: usize,
-    pub suppress_chars: bool,
     pub display: Display,
-    pub font_size: Size,
-    pub mouse: Mouse,
-    pub notifier: Notifier,
-    pub dirty: bool,
+    event_queue: Vec<GlutinEvent<'static, Event>>,
+    terminal: Arc<FairMutex<Term<EventProxy>>>,
+    modifiers: ModifiersState,
+    search_state: SearchState,
+    received_count: usize,
+    suppress_chars: bool,
+    notifier: Notifier,
+    font_size: Size,
+    mouse: Mouse,
+    dirty: bool,
 }
 
 impl WindowContext {
@@ -289,6 +293,42 @@ impl WindowContext {
             // Redraw screen.
             self.display.draw(terminal, &self.message_buffer, config, &self.search_state);
         }
+    }
+
+    /// Shutdown the terminal's PTY.
+    pub fn shutdown(self) {
+        let _ = self.notifier.0.send(Msg::Shutdown);
+    }
+
+    /// ID of this terminal context.
+    pub fn id(&self) -> WindowId {
+        self.display.window.id()
+    }
+
+    /// Write the ref test results to the disk.
+    pub fn write_ref_test_results(&self) {
+        // Dump grid state.
+        let mut grid = self.terminal.lock().grid().clone();
+        grid.initialize_all();
+        grid.truncate();
+
+        let serialized_grid = json::to_string(&grid).expect("serialize grid");
+
+        let serialized_size = json::to_string(&self.display.size_info).expect("serialize size");
+
+        let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
+
+        File::create("./grid.json")
+            .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
+            .expect("write grid.json");
+
+        File::create("./size.json")
+            .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
+            .expect("write size.json");
+
+        File::create("./config.json")
+            .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
+            .expect("write config.json");
     }
 
     /// Submit the pending changes to the `Display`.

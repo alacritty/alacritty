@@ -7,8 +7,6 @@ use std::error::Error;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
@@ -21,7 +19,6 @@ use glutin::platform::run_return::EventLoopExtRunReturn;
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::WindowId;
 use log::{error, info};
-use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
@@ -29,7 +26,7 @@ use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
-use alacritty_terminal::event_loop::{Msg, Notifier};
+use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
@@ -1204,7 +1201,7 @@ impl Processor {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             self.wayland_event_queue.as_ref(),
         )?;
-        self.windows.insert(window_context.display.window.id(), window_context);
+        self.windows.insert(window_context.id(), window_context);
         Ok(())
     }
 
@@ -1241,21 +1238,18 @@ impl Processor {
                         None => return,
                     };
 
-                    // Shutdown PTY parser event loop.
-                    let _ = window_context.notifier.0.send(Msg::Shutdown);
-
                     // Shutdown if no more terminals are open.
                     if self.windows.is_empty() {
                         // Write ref tests of last window to disk.
                         if self.config.ui_config.debug.ref_test {
-                            self.write_ref_test_results(
-                                &window_context.terminal.lock(),
-                                &window_context.display,
-                            );
+                            window_context.write_ref_test_results();
                         }
 
                         *control_flow = ControlFlow::Exit;
                     }
+
+                    // Shutdown PTY parser event loop.
+                    window_context.shutdown();
                 },
                 // Process all pending events.
                 GlutinEvent::RedrawEventsCleared => {
@@ -1363,32 +1357,6 @@ impl Processor {
             | GlutinEvent::LoopDestroyed => true,
             _ => false,
         }
-    }
-
-    /// Write the ref test results to the disk.
-    fn write_ref_test_results<T>(&self, terminal: &Term<T>, display: &Display) {
-        // Dump grid state.
-        let mut grid = terminal.grid().clone();
-        grid.initialize_all();
-        grid.truncate();
-
-        let serialized_grid = json::to_string(&grid).expect("serialize grid");
-
-        let serialized_size = json::to_string(&display.size_info).expect("serialize size");
-
-        let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
-
-        File::create("./grid.json")
-            .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
-            .expect("write grid.json");
-
-        File::create("./size.json")
-            .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
-            .expect("write size.json");
-
-        File::create("./config.json")
-            .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
-            .expect("write config.json");
     }
 }
 
