@@ -197,7 +197,11 @@ impl WindowContext {
         event: GlutinEvent<'_, Event>,
     ) {
         match event {
-            GlutinEvent::RedrawEventsCleared if self.event_queue.is_empty() => return,
+            // Skip further event handling with no staged updates.
+            GlutinEvent::RedrawEventsCleared if self.event_queue.is_empty() && !self.dirty => {
+                return;
+            },
+            // Continue to process all pending events.
             GlutinEvent::RedrawEventsCleared => (),
             // Remap DPR change event to remove the lifetime.
             GlutinEvent::WindowEvent {

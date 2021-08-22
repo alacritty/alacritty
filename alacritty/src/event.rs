@@ -1267,16 +1267,9 @@ impl Processor {
                     // Check for pending frame callbacks on Wayland.
                     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
                     if let Some(wayland_event_queue) = self.wayland_event_queue.as_mut() {
-                        let events_dispatched = wayland_event_queue
+                        wayland_event_queue
                             .dispatch_pending(&mut (), |_, _, _| {})
-                            .expect("failed to dispatch event queue");
-
-                        if events_dispatched > 0 {
-                            for window_context in self.windows.values_mut() {
-                                let id = window_context.display.window.id();
-                                window_context.event_queue.push(GlutinEvent::RedrawRequested(id));
-                            }
-                        }
+                            .expect("failed to dispatch wayland event queue");
                     }
 
                     // Dispatch event to all windows.
