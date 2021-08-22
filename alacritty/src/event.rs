@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
+use std::error::Error;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
@@ -21,6 +22,8 @@ use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::WindowId;
 use log::{error, info};
 use serde_json as json;
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use crossfont::{self, Size};
 
@@ -1156,6 +1159,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor {
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+    wayland_event_queue: Option<EventQueue>,
+    windows: HashMap<WindowId, WindowContext>,
     cli_options: CliOptions,
     config: Config,
 }
@@ -1164,16 +1170,40 @@ impl Processor {
     /// Create a new event processor.
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a PTY.
-    pub fn new(config: Config, cli_options: CliOptions) -> Processor {
-        Processor { cli_options, config }
+    pub fn new(
+        config: Config,
+        cli_options: CliOptions,
+        event_loop: &EventLoop<Event>,
+    ) -> Processor {
+        // Initialize Wayland event queue, to handle Wayland callbacks.
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let wayland_event_queue = event_loop.wayland_display().map(|display| {
+            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
+            display.create_event_queue()
+        });
+
+        Processor { windows: HashMap::new(), wayland_event_queue, cli_options, config }
+    }
+
+    /// Create a new terminal window.
+    pub fn create_window(
+        &mut self,
+        event_loop: &EventLoopWindowTarget<Event>,
+        proxy: EventLoopProxy<Event>,
+    ) -> Result<(), Box<dyn Error>> {
+        let window_context = WindowContext::new(
+            &self.config,
+            event_loop,
+            proxy,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            self.wayland_event_queue.as_ref(),
+        )?;
+        self.windows.insert(window_context.display.window.id(), window_context);
+        Ok(())
     }
 
     /// Run the event loop.
-    pub fn run(
-        &mut self,
-        mut event_loop: EventLoop<Event>,
-        windows: &mut HashMap<WindowId, WindowContext>,
-    ) {
+    pub fn run(&mut self, mut event_loop: EventLoop<Event>) {
         let proxy = event_loop.create_proxy();
         let mut scheduler = Scheduler::new(proxy.clone());
 
@@ -1200,7 +1230,7 @@ impl Processor {
                     event: EventType::Terminal(TerminalEvent::Exit),
                 }) => {
                     // Remove the closed terminal.
-                    let window_context = match windows.remove(&window_id) {
+                    let window_context = match self.windows.remove(&window_id) {
                         Some(window_context) => window_context,
                         None => return,
                     };
@@ -1209,7 +1239,7 @@ impl Processor {
                     let _ = window_context.notifier.0.send(Msg::Shutdown);
 
                     // Shutdown if no more terminals are open.
-                    if windows.is_empty() {
+                    if self.windows.is_empty() {
                         // Write ref tests of last window to disk.
                         if self.config.ui_config.debug.ref_test {
                             self.write_ref_test_results(
@@ -1228,8 +1258,23 @@ impl Processor {
                         None => ControlFlow::Wait,
                     };
 
+                    // Check for pending frame callbacks on Wayland.
+                    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                    if let Some(wayland_event_queue) = self.wayland_event_queue.as_mut() {
+                        let events_dispatched = wayland_event_queue
+                            .dispatch_pending(&mut (), |_, _, _| {})
+                            .expect("failed to dispatch event queue");
+
+                        if events_dispatched > 0 {
+                            for window_context in self.windows.values_mut() {
+                                let id = window_context.display.window.id();
+                                window_context.event_queue.push(GlutinEvent::RedrawRequested(id));
+                            }
+                        }
+                    }
+
                     // Dispatch event to all windows.
-                    for window_context in windows.values_mut() {
+                    for window_context in self.windows.values_mut() {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
@@ -1243,7 +1288,7 @@ impl Processor {
                 // Process config update.
                 GlutinEvent::UserEvent(Event { event: EventType::ConfigReload(path), .. }) => {
                     // Clear config logs from message bar for all terminals.
-                    for window_context in windows.values_mut() {
+                    for window_context in self.windows.values_mut() {
                         if !window_context.message_buffer.is_empty() {
                             window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
                             window_context.display.pending_update.dirty = true;
@@ -1254,23 +1299,20 @@ impl Processor {
                     if let Ok(config) = config::reload(&path, &self.cli_options) {
                         let old_config = mem::replace(&mut self.config, config);
 
-                        for window_context in windows.values_mut() {
+                        for window_context in self.windows.values_mut() {
                             window_context.update_config(&old_config, &self.config);
                         }
                     }
                 },
                 // Create a new terminal window.
                 GlutinEvent::UserEvent(Event { event: EventType::CreateWindow, .. }) => {
-                    match WindowContext::new(&self.config, event_loop, proxy.clone()) {
-                        Ok(window_context) => {
-                            windows.insert(window_context.display.window.id(), window_context);
-                        },
-                        Err(err) => error!("Could not open window: {:?}", err),
+                    if let Err(err) = self.create_window(event_loop, proxy.clone()) {
+                        error!("Could not open window: {:?}", err);
                     }
                 },
                 // Process events affecting all windows.
                 GlutinEvent::UserEvent(event @ Event { window_id: None, .. }) => {
-                    for window_context in windows.values_mut() {
+                    for window_context in self.windows.values_mut() {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
@@ -1285,7 +1327,7 @@ impl Processor {
                 GlutinEvent::WindowEvent { window_id, .. }
                 | GlutinEvent::UserEvent(Event { window_id: Some(window_id), .. })
                 | GlutinEvent::RedrawRequested(window_id) => {
-                    if let Some(window_context) = windows.get_mut(&window_id) {
+                    if let Some(window_context) = self.windows.get_mut(&window_id) {
                         window_context.handle_event(
                             event_loop,
                             &proxy,

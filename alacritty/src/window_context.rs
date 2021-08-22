@@ -10,6 +10,8 @@ use crossfont::Size;
 use glutin::event::{Event as GlutinEvent, ModifiersState, WindowEvent};
 use glutin::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 use log::info;
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use wayland_client::EventQueue;
 
 use alacritty_terminal::event::Event as TerminalEvent;
 use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Notifier};
@@ -49,11 +51,18 @@ impl WindowContext {
         config: &Config,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Self, Box<dyn Error>> {
         // Create a display.
         //
         // The display manages a window and can draw the terminal.
-        let display = Display::new(config, window_event_loop)?;
+        let display = Display::new(
+            config,
+            window_event_loop,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            wayland_event_queue,
+        )?;
 
         info!(
             "PTY dimensions: {:?} x {:?}",
@@ -188,6 +197,7 @@ impl WindowContext {
         event: GlutinEvent<'_, Event>,
     ) {
         match event {
+            GlutinEvent::RedrawEventsCleared if self.event_queue.is_empty() => return,
             GlutinEvent::RedrawEventsCleared => (),
             // Remap DPR change event to remove the lifetime.
             GlutinEvent::WindowEvent {
@@ -205,10 +215,6 @@ impl WindowContext {
                 self.event_queue.push(mem::transmute(event));
                 return;
             },
-        }
-
-        if self.event_queue_empty() {
-            return;
         }
 
         let mut terminal = self.terminal.lock();
@@ -318,30 +324,5 @@ impl WindowContext {
                 terminal.scroll_display(Scroll::Delta(-1));
             }
         }
-    }
-
-    /// Return `true` if `event_queue` is empty, `false` otherwise.
-    #[inline]
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    fn event_queue_empty(&mut self) -> bool {
-        let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
-            Some(wayland_event_queue) => wayland_event_queue,
-            // Since frame callbacks do not exist on X11, just check for event queue.
-            None => return self.event_queue.is_empty(),
-        };
-
-        // Check for pending frame callbacks on Wayland.
-        let events_dispatched = wayland_event_queue
-            .dispatch_pending(&mut (), |_, _, _| {})
-            .expect("failed to dispatch event queue");
-
-        self.event_queue.is_empty() && events_dispatched == 0
-    }
-
-    /// Return `true` if `event_queue` is empty, `false` otherwise.
-    #[inline]
-    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-    fn event_queue_empty(&mut self) -> bool {
-        self.event_queue.is_empty()
     }
 }

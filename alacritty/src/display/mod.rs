@@ -19,7 +19,7 @@ use log::{debug, info};
 use parking_lot::MutexGuard;
 use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use wayland_client::{Display as WaylandDisplay, EventQueue};
+use wayland_client::EventQueue;
 
 use crossfont::{self, Rasterize, Rasterizer};
 
@@ -178,9 +178,6 @@ pub struct Display {
     /// Hint highlighted by the vi mode cursor.
     pub vi_highlighted_hint: Option<HintMatch>,
 
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub wayland_event_queue: Option<EventQueue>,
-
     #[cfg(not(any(target_os = "macos", windows)))]
     pub is_x11: bool,
 
@@ -207,6 +204,8 @@ impl Display {
     pub fn new<E>(
         config: &Config,
         event_loop: &EventLoopWindowTarget<E>,
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Display, Error> {
         #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
         let is_x11 = false;
@@ -235,23 +234,13 @@ impl Display {
         debug!("Estimated window size: {:?}", estimated_size);
         debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_event_queue = None;
-
-        // Initialize Wayland event queue, to handle Wayland callbacks.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if let Some(display) = event_loop.wayland_display() {
-            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
-            wayland_event_queue = Some(display.create_event_queue());
-        }
-
         // Spawn the Alacritty window.
         let mut window = Window::new(
             event_loop,
             config,
             estimated_size,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue.as_ref(),
+            wayland_event_queue,
         )?;
 
         info!("Device pixel ratio: {}", window.dpr);
@@ -350,8 +339,6 @@ impl Display {
             vi_highlighted_hint: None,
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
             cursor_hidden: false,
             visual_bell: VisualBell::from(&config.ui_config.bell),
             colors: List::from(&config.ui_config.colors),

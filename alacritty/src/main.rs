@@ -12,7 +12,6 @@
 #[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
-use std::collections::HashMap;
 #[cfg(target_os = "macos")]
 use std::env;
 use std::fs;
@@ -59,7 +58,6 @@ use crate::event::{Event, Processor};
 use crate::ipc::SOCKET_MESSAGE_CREATE_WINDOW;
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
-use crate::window_context::WindowContext;
 
 fn main() {
     #[cfg(windows)]
@@ -150,25 +148,20 @@ fn alacritty(options: Options) {
         None
     };
 
-    // Create context for each Alacritty window.
-    let mut windows = HashMap::new();
-    match WindowContext::new(&config, &window_event_loop, window_event_loop.create_proxy()) {
-        Ok(window_context) => {
-            windows.insert(window_context.display.window.id(), window_context);
-        },
-        Err(err) => {
-            error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
-            std::process::exit(1);
-        },
-    }
-
     // Event processor.
-    let mut processor = Processor::new(config, options);
+    let mut processor = Processor::new(config, options, &window_event_loop);
+
+    // Create the first Alacritty window.
+    let proxy = window_event_loop.create_proxy();
+    if let Err(error) = processor.create_window(&window_event_loop, proxy) {
+        error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", error);
+        std::process::exit(1);
+    }
 
     info!("Initialisation complete");
 
     // Start event loop and block until shutdown.
-    processor.run(window_event_loop, &mut windows);
+    processor.run(window_event_loop);
 
     // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
