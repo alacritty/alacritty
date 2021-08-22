@@ -1173,16 +1173,22 @@ impl Processor {
     pub fn new(
         config: Config,
         cli_options: CliOptions,
-        event_loop: &EventLoop<Event>,
+        _event_loop: &EventLoop<Event>,
     ) -> Processor {
         // Initialize Wayland event queue, to handle Wayland callbacks.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let wayland_event_queue = event_loop.wayland_display().map(|display| {
+        let wayland_event_queue = _event_loop.wayland_display().map(|display| {
             let display = unsafe { WaylandDisplay::from_external_display(display as _) };
             display.create_event_queue()
         });
 
-        Processor { windows: HashMap::new(), wayland_event_queue, cli_options, config }
+        Processor {
+            windows: HashMap::new(),
+            cli_options,
+            config,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            wayland_event_queue,
+        }
     }
 
     /// Create a new terminal window.
