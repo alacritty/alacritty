@@ -29,8 +29,7 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
-use std::mem::{self, MaybeUninit};
-use std::ptr;
+use std::ops::{Deref, DerefMut};
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
@@ -162,18 +161,9 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
-    windowed_context: MaybeUninit<WindowedContext<PossiblyCurrent>>,
+    windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
-}
-
-/// Ensure the OpenGL context is dropped.
-impl Drop for Window {
-    fn drop(&mut self) {
-        unsafe {
-            mem::replace(&mut self.windowed_context, MaybeUninit::uninit()).assume_init();
-        }
-    }
 }
 
 impl Window {
@@ -243,7 +233,7 @@ impl Window {
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
-            windowed_context: MaybeUninit::new(windowed_context),
+            windowed_context: Replaceable::new(windowed_context),
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -447,20 +437,17 @@ impl Window {
     }
 
     pub fn swap_buffers(&self) {
-        self.windowed_context().swap_buffers().expect("swap buffers");
+        self.windowed_context.swap_buffers().expect("swap buffers");
     }
 
     pub fn resize(&self, size: PhysicalSize<u32>) {
-        self.windowed_context().resize(size);
+        self.windowed_context.resize(size);
     }
 
     pub fn make_current(&mut self) {
-        if !self.windowed_context().is_current() {
-            unsafe {
-                let context = mem::replace(&mut self.windowed_context, MaybeUninit::uninit());
-                let current_context = context.assume_init().make_current().expect("context swap");
-                ptr::write(&mut self.windowed_context, MaybeUninit::new(current_context));
-            }
+        if !self.windowed_context.is_current() {
+            self.windowed_context
+                .replace_with(|context| unsafe { context.make_current().expect("context swap") });
         }
     }
 
@@ -481,11 +468,7 @@ impl Window {
     }
 
     fn window(&self) -> &GlutinWindow {
-        self.windowed_context().window()
-    }
-
-    fn windowed_context(&self) -> &WindowedContext<PossiblyCurrent> {
-        unsafe { &*self.windowed_context.as_ptr() }
+        self.windowed_context.window()
     }
 }
 
@@ -527,4 +510,45 @@ fn x_embed_window(window: &GlutinWindow, parent_id: std::os::raw::c_ulong) {
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
     log::error!("Could not embed into specified window.");
     std::process::exit(1);
+}
+
+/// Struct for safe in-place replacement.
+///
+/// This struct allows easily replacing struct fields that provide `self -> Self` methods in-place,
+/// without having to deal with constantly unwrapping the underlying [`Option`].
+struct Replaceable<T>(Option<T>);
+
+impl<T> Replaceable<T> {
+    pub fn new(inner: T) -> Self {
+        Self(Some(inner))
+    }
+
+    /// Replace the contents of the container.
+    pub fn replace_with<F: FnMut(T) -> T>(&mut self, f: F) {
+        self.0 = self.0.take().map(f);
+    }
+
+    /// Get immutable access to the wrapped value.
+    pub fn get(&self) -> &T {
+        self.0.as_ref().unwrap()
+    }
+
+    /// Get mutable access to the wrapped value.
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.as_mut().unwrap()
+    }
+}
+
+impl<T> Deref for Replaceable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<T> DerefMut for Replaceable<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.get_mut()
+    }
 }
