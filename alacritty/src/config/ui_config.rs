@@ -70,7 +70,7 @@ pub struct UiConfig {
 
     /// Background opacity from 0.0 to 1.0.
     #[config(deprecated = "use window.opacity instead")]
-    window_opacity: Option<Percentage>,
+    background_opacity: Option<Percentage>,
 }
 
 impl Default for UiConfig {
@@ -85,7 +85,7 @@ impl Default for UiConfig {
             config_paths: Default::default(),
             key_bindings: Default::default(),
             mouse_bindings: Default::default(),
-            window_opacity: Default::default(),
+            background_opacity: Default::default(),
             bell: Default::default(),
             colors: Default::default(),
             draw_bold_text_with_bright_colors: Default::default(),
@@ -117,7 +117,7 @@ impl UiConfig {
 
     #[inline]
     pub fn window_opacity(&self) -> f32 {
-        self.window_opacity.unwrap_or(self.window.opacity).as_f32()
+        self.background_opacity.unwrap_or(self.window.opacity).as_f32()
     }
 
     #[inline]
