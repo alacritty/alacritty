@@ -4,15 +4,16 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use glutin::event_loop::EventLoopProxy;
+use glutin::window::WindowId;
 
 use crate::event::Event;
 
 /// ID uniquely identifying a timer.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TimerId {
-    SelectionScrolling,
-    DelayedSearch,
-    BlinkCursor,
+    SelectionScrolling(WindowId),
+    DelayedSearch(WindowId),
+    BlinkCursor(WindowId),
 }
 
 /// Event scheduled to be emitted at a specific time.

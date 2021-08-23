@@ -596,7 +596,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
         self.ctx.display().highlighted_hint = hint;
 
-        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
+        let window_id = self.ctx.window().id();
+        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling(window_id));
 
         // Copy selection on release, to prevent flooding the display server.
         self.ctx.copy_selection(ClipboardType::Selection);
@@ -733,7 +734,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
-            if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::DelayedSearch) {
+            let timer_id = TimerId::DelayedSearch(self.ctx.window().id());
+            if let Some(timer) = self.ctx.scheduler_mut().get_mut(timer_id) {
                 timer.deadline = Instant::now() + TYPING_SEARCH_DELAY;
             }
         }
@@ -931,7 +933,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else if mouse_y >= start_bottom {
             start_bottom - mouse_y - step
         } else {
-            scheduler.unschedule(TimerId::SelectionScrolling);
+            scheduler.unschedule(TimerId::SelectionScrolling(window_id));
             return;
         };
 
@@ -940,14 +942,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let event = Event::new(EventType::Scroll(Scroll::Delta(delta)), Some(window_id));
 
         // Schedule event.
-        match scheduler.get_mut(TimerId::SelectionScrolling) {
+        match scheduler.get_mut(TimerId::SelectionScrolling(window_id)) {
             Some(timer) => timer.event = event,
             None => {
                 scheduler.schedule(
                     event,
                     SELECTION_SCROLLING_INTERVAL,
                     true,
-                    TimerId::SelectionScrolling,
+                    TimerId::SelectionScrolling(window_id),
                 );
             },
         }

@@ -465,7 +465,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Force unlimited search if the previous one was interrupted.
-        if self.scheduler.scheduled(TimerId::DelayedSearch) {
+        let window_id = self.display.window.id();
+        if self.scheduler.scheduled(TimerId::DelayedSearch(window_id)) {
             self.goto_match(None);
         }
 
@@ -629,8 +630,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
+        let window_id = self.display.window.id();
         let blink_interval = self.config.cursor.blink_interval();
-        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
+        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor(window_id)) {
             timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
             self.display.cursor_hidden = false;
             *self.dirty = true;
@@ -814,7 +816,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
         // Unschedule pending timers.
-        self.scheduler.unschedule(TimerId::DelayedSearch);
+        let window_id = self.display.window.id();
+        self.scheduler.unschedule(TimerId::DelayedSearch(window_id));
 
         // Clear focused match.
         self.search_state.focused_match = None;
@@ -868,18 +871,20 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.display_offset_delta += old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
-                self.scheduler.unschedule(TimerId::DelayedSearch);
+                let window_id = self.display.window.id();
+                self.scheduler.unschedule(TimerId::DelayedSearch(window_id));
             },
             // Reset viewport only when we know there is no match, to prevent unnecessary jumping.
             None if limit.is_none() => self.search_reset_state(),
             None => {
                 // Schedule delayed search if we ran into our search limit.
-                if !self.scheduler.scheduled(TimerId::DelayedSearch) {
+                let window_id = self.display.window.id();
+                if !self.scheduler.scheduled(TimerId::DelayedSearch(window_id)) {
                     self.scheduler.schedule(
                         Event::new(EventType::SearchNext, Some(self.display.window.id())),
                         TYPING_SEARCH_DELAY,
                         false,
-                        TimerId::DelayedSearch,
+                        TimerId::DelayedSearch(window_id),
                     );
                 }
 
@@ -914,11 +919,12 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
 
         // Update cursor blinking state.
-        self.scheduler.unschedule(TimerId::BlinkCursor);
+        let window_id = self.display.window.id();
+        self.scheduler.unschedule(TimerId::BlinkCursor(window_id));
         if blinking && self.terminal.is_focused {
             let event = Event::new(EventType::BlinkCursor, Some(self.display.window.id()));
             let interval = Duration::from_millis(self.config.cursor.blink_interval());
-            self.scheduler.schedule(event, interval, true, TimerId::BlinkCursor)
+            self.scheduler.schedule(event, interval, true, TimerId::BlinkCursor(window_id));
         } else {
             self.display.cursor_hidden = false;
             *self.dirty = true;
