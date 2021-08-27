@@ -14,31 +14,20 @@ const DEBOUNCE_DELAY: Duration = Duration::from_millis(10);
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(1000);
 
-pub fn watch(paths: Vec<PathBuf>, event_proxy: EventProxy) {
-    let paths = {
-        let mut paths_tmp = Vec::new();
-        for path in paths {
-            match path.symlink_metadata() {
-                Ok(metadata) if metadata.file_type().is_symlink() => paths_tmp.push(path.clone()),
-                Ok(_) => {},
-                Err(err) => {
-                    error!("Unable to get metadata for config path {:?}: {}", path, err)
-                },
-            }
-
-            match path.canonicalize() {
-                Ok(canonical_path) => paths_tmp.push(canonical_path),
-                Err(err) => {
-                    error!("Unable to canonicalize config path {:?}: {}", path, err)
-                },
-            }
-        }
-        paths_tmp
-    };
-
+pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
     // Don't monitor config if there is no path to watch.
     if paths.is_empty() {
         return;
+    }
+
+    // Canonicalize paths, keeping the base paths for symlinks
+    for i in 0..paths.len() {
+        if let Ok(canonical_path) = paths[i].canonicalize() {
+            match paths[i].symlink_metadata() {
+                Ok(metadata) if metadata.file_type().is_symlink() => paths.push(canonical_path),
+                _ => paths[i] = canonical_path,
+            }
+        }
     }
 
     // The Duration argument is a debouncing period.
