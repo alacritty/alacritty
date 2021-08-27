@@ -20,7 +20,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
         return;
     }
 
-    // Canonicalize paths, keeping the base paths for symlinks
+    // Canonicalize paths, keeping the base paths for symlinks.
     for i in 0..paths.len() {
         if let Ok(canonical_path) = paths[i].canonicalize() {
             match paths[i].symlink_metadata() {
