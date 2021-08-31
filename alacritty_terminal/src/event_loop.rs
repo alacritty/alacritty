@@ -394,7 +394,9 @@ where
                                     // This sucks, but checking the process is either racy or
                                     // blocking.
                                     #[cfg(target_os = "linux")]
-                                    if err.kind() == ErrorKind::Other {
+                                    if err.kind() == ErrorKind::Other
+                                        || err.kind() == ErrorKind::Uncategorized
+                                    {
                                         continue;
                                     }
 
