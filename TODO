@@ -1,4 +1,2 @@
- - Subcommand should only be in --help on Unix
-    -> Structopt would probably clean things up a lot
  - CLI changes need to be added to manpage
  - Changelog/Features doc

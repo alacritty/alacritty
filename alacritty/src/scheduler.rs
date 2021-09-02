@@ -10,19 +10,32 @@ use crate::event::Event;
 
 /// ID uniquely identifying a timer.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TimerId {
-    SelectionScrolling(WindowId),
-    DelayedSearch(WindowId),
-    BlinkCursor(WindowId),
+pub struct TimerId {
+    topic: Topic,
+    window_id: WindowId,
+}
+
+impl TimerId {
+    pub fn new(topic: Topic, window_id: WindowId) -> Self {
+        Self { topic, window_id }
+    }
+}
+
+/// Available timer topics.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Topic {
+    SelectionScrolling,
+    DelayedSearch,
+    BlinkCursor,
 }
 
 /// Event scheduled to be emitted at a specific time.
 pub struct Timer {
     pub deadline: Instant,
     pub event: Event,
+    pub id: TimerId,
 
     interval: Option<Duration>,
-    id: TimerId,
 }
 
 /// Scheduler tracking all pending timers.
@@ -42,6 +55,7 @@ impl Scheduler {
     /// pending deadline will be returned.
     pub fn update(&mut self) -> Option<Instant> {
         let now = Instant::now();
+
         while !self.timers.is_empty() && self.timers[0].deadline <= now {
             if let Some(timer) = self.timers.pop_front() {
                 // Automatically repeat the event.
@@ -61,17 +75,11 @@ impl Scheduler {
         let deadline = Instant::now() + interval;
 
         // Get insert position in the schedule.
-        let mut index = self.timers.len();
-        loop {
-            if index == 0 {
-                break;
-            }
-            index -= 1;
-
-            if self.timers[index].deadline < deadline {
-                break;
-            }
-        }
+        let index = self
+            .timers
+            .iter()
+            .position(|timer| timer.deadline > deadline)
+            .unwrap_or(self.timers.len());
 
         // Set the automatic event repeat rate.
         let interval = if repeat { Some(interval) } else { None };
@@ -80,9 +88,9 @@ impl Scheduler {
     }
 
     /// Cancel a scheduled event.
-    pub fn unschedule(&mut self, id: TimerId) -> Option<Event> {
+    pub fn unschedule(&mut self, id: TimerId) -> Option<Timer> {
         let index = self.timers.iter().position(|timer| timer.id == id)?;
-        self.timers.remove(index).map(|timer| timer.event)
+        self.timers.remove(index)
     }
 
     /// Check if a timer is already scheduled.
@@ -90,8 +98,11 @@ impl Scheduler {
         self.timers.iter().any(|timer| timer.id == id)
     }
 
-    /// Access a staged event by ID.
-    pub fn get_mut(&mut self, id: TimerId) -> Option<&mut Timer> {
-        self.timers.iter_mut().find(|timer| timer.id == id)
+    /// Remove all timers scheduled for a window.
+    ///
+    /// This must be called when a window is removed to ensure that timers on intervals do not
+    /// stick around forever and cause a memory leak.
+    pub fn unschedule_window(&mut self, window_id: WindowId) {
+        self.timers.retain(|timer| timer.id.window_id != window_id);
     }
 }

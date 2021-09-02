@@ -47,7 +47,7 @@ use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(target_os = "macos")]
 use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
-use crate::scheduler::{Scheduler, TimerId};
+use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
 
 /// Duration after the last user input until an unlimited search is performed.
@@ -70,8 +70,8 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new(event: EventType, window_id: Option<WindowId>) -> Self {
-        Self { window_id, event }
+    pub fn new<I: Into<Option<WindowId>>>(event: EventType, window_id: I) -> Self {
+        Self { window_id: window_id.into(), event }
     }
 }
 
@@ -465,8 +465,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Force unlimited search if the previous one was interrupted.
-        let window_id = self.display.window.id();
-        if self.scheduler.scheduled(TimerId::DelayedSearch(window_id)) {
+        let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+        if self.scheduler.scheduled(timer_id) {
             self.goto_match(None);
         }
 
@@ -630,10 +630,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
-        let window_id = self.display.window.id();
-        let blink_interval = self.config.cursor.blink_interval();
-        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor(window_id)) {
-            timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
+        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
+        if let Some(timer) = self.scheduler.unschedule(timer_id) {
+            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            self.scheduler.schedule(timer.event, interval, true, timer.id);
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
@@ -816,8 +816,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
         // Unschedule pending timers.
-        let window_id = self.display.window.id();
-        self.scheduler.unschedule(TimerId::DelayedSearch(window_id));
+        let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+        self.scheduler.unschedule(timer_id);
 
         // Clear focused match.
         self.search_state.focused_match = None;
@@ -871,21 +871,17 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.display_offset_delta += old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
-                let window_id = self.display.window.id();
-                self.scheduler.unschedule(TimerId::DelayedSearch(window_id));
+                let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+                self.scheduler.unschedule(timer_id);
             },
             // Reset viewport only when we know there is no match, to prevent unnecessary jumping.
             None if limit.is_none() => self.search_reset_state(),
             None => {
                 // Schedule delayed search if we ran into our search limit.
-                let window_id = self.display.window.id();
-                if !self.scheduler.scheduled(TimerId::DelayedSearch(window_id)) {
-                    self.scheduler.schedule(
-                        Event::new(EventType::SearchNext, Some(self.display.window.id())),
-                        TYPING_SEARCH_DELAY,
-                        false,
-                        TimerId::DelayedSearch(window_id),
-                    );
+                let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+                if !self.scheduler.scheduled(timer_id) {
+                    let event = Event::new(EventType::SearchNext, self.display.window.id());
+                    self.scheduler.schedule(event, TYPING_SEARCH_DELAY, false, timer_id);
                 }
 
                 // Clear focused match.
@@ -919,12 +915,12 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
 
         // Update cursor blinking state.
-        let window_id = self.display.window.id();
-        self.scheduler.unschedule(TimerId::BlinkCursor(window_id));
+        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
+        self.scheduler.unschedule(timer_id);
         if blinking && self.terminal.is_focused {
-            let event = Event::new(EventType::BlinkCursor, Some(self.display.window.id()));
+            let event = Event::new(EventType::BlinkCursor, self.display.window.id());
             let interval = Duration::from_millis(self.config.cursor.blink_interval());
-            self.scheduler.schedule(event, interval, true, TimerId::BlinkCursor(window_id));
+            self.scheduler.schedule(event, interval, true, timer_id);
         } else {
             self.display.cursor_hidden = false;
             *self.dirty = true;
@@ -1244,6 +1240,9 @@ impl Processor {
                         None => return,
                     };
 
+                    // Unschedule pending events.
+                    scheduler.unschedule_window(window_context.id());
+
                     // Shutdown if no more terminals are open.
                     if self.windows.is_empty() {
                         // Write ref tests of last window to disk.
@@ -1253,9 +1252,6 @@ impl Processor {
 
                         *control_flow = ControlFlow::Exit;
                     }
-
-                    // Shutdown PTY parser event loop.
-                    window_context.shutdown();
                 },
                 // Process all pending events.
                 GlutinEvent::RedrawEventsCleared => {
@@ -1379,12 +1375,12 @@ impl EventProxy {
 
     /// Send an event to the event loop.
     pub fn send_event(&self, event: EventType) {
-        let _ = self.proxy.send_event(Event::new(event, Some(self.window_id)));
+        let _ = self.proxy.send_event(Event::new(event, self.window_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.proxy.send_event(Event::new(event.into(), Some(self.window_id)));
+        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
 }

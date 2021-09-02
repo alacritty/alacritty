@@ -36,7 +36,7 @@ use crate::display::window::Window;
 use crate::display::Display;
 use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
-use crate::scheduler::{Scheduler, TimerId};
+use crate::scheduler::{Scheduler, TimerId, Topic};
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -596,8 +596,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
         self.ctx.display().highlighted_hint = hint;
 
-        let window_id = self.ctx.window().id();
-        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling(window_id));
+        let timer_id = TimerId::new(Topic::SelectionScrolling, self.ctx.window().id());
+        self.ctx.scheduler_mut().unschedule(timer_id);
 
         // Copy selection on release, to prevent flooding the display server.
         self.ctx.copy_selection(ClipboardType::Selection);
@@ -734,9 +734,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
-            let timer_id = TimerId::DelayedSearch(self.ctx.window().id());
-            if let Some(timer) = self.ctx.scheduler_mut().get_mut(timer_id) {
-                timer.deadline = Instant::now() + TYPING_SEARCH_DELAY;
+            let timer_id = TimerId::new(Topic::DelayedSearch, self.ctx.window().id());
+            let scheduler = self.ctx.scheduler_mut();
+            if let Some(timer) = scheduler.unschedule(timer_id) {
+                scheduler.schedule(timer.event, TYPING_SEARCH_DELAY, false, timer.id);
             }
         }
 
@@ -933,7 +934,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else if mouse_y >= start_bottom {
             start_bottom - mouse_y - step
         } else {
-            scheduler.unschedule(TimerId::SelectionScrolling(window_id));
+            scheduler.unschedule(TimerId::new(Topic::SelectionScrolling, window_id));
             return;
         };
 
@@ -942,17 +943,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let event = Event::new(EventType::Scroll(Scroll::Delta(delta)), Some(window_id));
 
         // Schedule event.
-        match scheduler.get_mut(TimerId::SelectionScrolling(window_id)) {
-            Some(timer) => timer.event = event,
-            None => {
-                scheduler.schedule(
-                    event,
-                    SELECTION_SCROLLING_INTERVAL,
-                    true,
-                    TimerId::SelectionScrolling(window_id),
-                );
-            },
-        }
+        let timer_id = TimerId::new(Topic::SelectionScrolling, window_id);
+        scheduler.unschedule(timer_id);
+        scheduler.schedule(event, SELECTION_SCROLLING_INTERVAL, true, timer_id);
     }
 }
 

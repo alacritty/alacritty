@@ -213,7 +213,7 @@ impl WindowContext {
                 window_id,
             } => {
                 let size = (new_inner_size.width, new_inner_size.height);
-                let event = Event::new(EventType::DprChanged(scale_factor, size), Some(window_id));
+                let event = Event::new(EventType::DprChanged(scale_factor, size), window_id);
                 self.event_queue.push(event.into());
                 return;
             },
@@ -295,11 +295,6 @@ impl WindowContext {
         }
     }
 
-    /// Shutdown the terminal's PTY.
-    pub fn shutdown(self) {
-        let _ = self.notifier.0.send(Msg::Shutdown);
-    }
-
     /// ID of this terminal context.
     pub fn id(&self) -> WindowId {
         self.display.window.id()
@@ -368,5 +363,12 @@ impl WindowContext {
                 terminal.scroll_display(Scroll::Delta(-1));
             }
         }
+    }
+}
+
+impl Drop for WindowContext {
+    fn drop(&mut self) {
+        // Shutdown the terminal's PTY.
+        let _ = self.notifier.0.send(Msg::Shutdown);
     }
 }
