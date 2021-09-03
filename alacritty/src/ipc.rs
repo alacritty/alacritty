@@ -7,9 +7,11 @@ use std::path::PathBuf;
 use std::{env, fs, process};
 
 use glutin::event_loop::EventLoopProxy;
+use log::warn;
 
 use alacritty_terminal::thread;
 
+use crate::cli::Options;
 use crate::event::{Event, EventType};
 
 /// IPC socket message for creating a new window.
@@ -19,21 +21,21 @@ pub const SOCKET_MESSAGE_CREATE_WINDOW: [u8; 1] = [1];
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
 /// Create an IPC socket.
-pub fn spawn_ipc_socket(event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
+pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
     // Create the IPC socket and export its path as env variable if necessary.
-    let socket_path = match env::var(ALACRITTY_SOCKET_ENV) {
-        Ok(path) => PathBuf::from(path),
-        Err(_) => {
-            let mut path = env::temp_dir();
-            path.push(format!("Alacritty-{}.sock", process::id()));
-            env::set_var(ALACRITTY_SOCKET_ENV, path.as_os_str());
-            path
-        },
-    };
+    let socket_path = options.socket.clone().unwrap_or_else(|| {
+        let mut path = env::temp_dir();
+        path.push(format!("Alacritty-{}.sock", process::id()));
+        path
+    });
+    env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
 
     let socket = match UnixDatagram::bind(&socket_path) {
         Ok(socket) => socket,
-        Err(_) => return None,
+        Err(err) => {
+            warn!("Unable to create socket: {:?}", err);
+            return None;
+        },
     };
 
     // Spawn a thread to listen on the IPC socket.

@@ -57,9 +57,10 @@ pub struct Options {
     #[structopt(long)]
     pub hold: bool,
 
-    /// CLI options for config overrides.
-    #[structopt(skip)]
-    pub config_options: Value,
+    /// Path for IPC socket creation.
+    #[cfg(unix)]
+    #[structopt(long)]
+    pub socket: Option<PathBuf>,
 
     /// Reduces the level of verbosity (the min level is -qq).
     #[structopt(short, conflicts_with("verbose"), parse(from_occurrences))]
@@ -76,6 +77,10 @@ pub struct Options {
     /// Override configuration file options [example: cursor.style=Beam].
     #[structopt(short = "o", long)]
     option: Vec<String>,
+
+    /// CLI options for config overrides.
+    #[structopt(skip)]
+    pub config_options: Value,
 
     /// Subcommand passed to the CLI.
     #[cfg(unix)]
@@ -127,6 +132,7 @@ impl Options {
         config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
         config.ui_config.debug.print_events |= self.print_events;
         config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level());
+        config.ui_config.ipc_socket |= self.socket.is_some();
         config.ui_config.debug.ref_test |= self.ref_test;
 
         if config.ui_config.debug.print_events {
@@ -215,7 +221,7 @@ pub enum Subcommands {
 #[cfg(unix)]
 #[derive(StructOpt, Debug)]
 pub struct MessageOptions {
-    /// Socket path override.
+    /// IPC socket connection path override.
     #[structopt(long, short)]
     pub socket: Option<PathBuf>,
 
