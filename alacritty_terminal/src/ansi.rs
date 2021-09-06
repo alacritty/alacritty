@@ -456,6 +456,12 @@ pub trait Handler {
 
     /// Report text area size in characters.
     fn text_area_size_chars(&mut self) {}
+
+    /// Start a hyperlink.
+    fn start_hyperlink(&mut self, _id: Option<&str>, _uri: &str) {}
+
+    /// End a hyperlink.
+    fn end_hyperlink(&mut self) {}
 }
 
 /// Terminal cursor configuration.
@@ -983,6 +989,31 @@ where
                 unhandled(params);
             },
 
+            // Hyperlink.
+            b"8" => {
+                if params.len() < 3 {
+                    return unhandled(params);
+                }
+
+                let (link_params, uri) = (params[1], params[2]);
+
+                // Treat invalid string as empty (end of hyperlink), which has no effect if there
+                // is no hyperlink started.
+                let uri = str::from_utf8(uri).unwrap_or("");
+                if uri.is_empty() {
+                    return self.handler.end_hyperlink();
+                }
+
+                // Link parameters are in format of `key1=value1:key2=value2`.
+                // Currently only key `id` is defined.
+                let id = link_params
+                    .split(|&b| b == b':')
+                    .find(|kv| kv.starts_with(b"id="))
+                    .and_then(|kv| str::from_utf8(&kv[3..]).ok());
+
+                self.handler.start_hyperlink(id, uri);
+            },
+
             // Get/set Foreground, Background, Cursor colors.
             b"10" | b"11" | b"12" => {
                 if params.len() >= 2 {
@@ -1492,6 +1523,7 @@ mod tests {
         charset: StandardCharset,
         attr: Option<Attr>,
         identity_reported: bool,
+        hyperlink: Option<(Option<String>, String)>,
     }
 
     impl Handler for MockHandler {
@@ -1515,6 +1547,14 @@ mod tests {
         fn reset_state(&mut self) {
             *self = Self::default();
         }
+
+        fn start_hyperlink(&mut self, id: Option<&str>, uri: &str) {
+            self.hyperlink = Some((id.map(|s| s.to_owned()), uri.to_owned()));
+        }
+
+        fn end_hyperlink(&mut self) {
+            self.hyperlink = None;
+        }
     }
 
     impl Default for MockHandler {
@@ -1524,6 +1564,7 @@ mod tests {
                 charset: StandardCharset::Ascii,
                 attr: None,
                 identity_reported: false,
+                hyperlink: None,
             }
         }
     }
@@ -1678,6 +1719,42 @@ mod tests {
         parser.advance(&mut handler, BYTES[3]);
 
         assert_eq!(handler.index, CharsetIndex::G1);
+    }
+
+    #[test]
+    fn parse_hyperlink_escape() {
+        static START_BYTES: &[u8] = b"\x1b]8;;http://example.com\x1b\\";
+        static END_BYTES: &[u8] = b"\x1b]8;;\x1b\\";
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in START_BYTES {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.hyperlink, Some((None, "http://example.com".to_owned())));
+
+        for byte in END_BYTES {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.hyperlink, None);
+    }
+
+    #[test]
+    fn parse_hyperlink_escape_with_id() {
+        static BYTES: &[u8] = b"\x1b]8;id=42;http://example.com\x1b\\";
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in BYTES {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(
+            handler.hyperlink,
+            Some((Some("42".to_owned()), "http://example.com".to_owned()))
+        );
     }
 
     #[test]
