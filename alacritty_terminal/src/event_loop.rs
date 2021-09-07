@@ -256,6 +256,8 @@ where
                 writer.write_all(&buf[..unprocessed]).unwrap();
             }
 
+            terminal.censor.censor(&mut buf[..unprocessed], unprocessed);
+
             // Parse the incoming bytes.
             for byte in &buf[..unprocessed] {
                 state.parser.advance(&mut **terminal, *byte);

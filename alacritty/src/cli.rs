@@ -19,6 +19,10 @@ pub struct Options {
     #[structopt(long)]
     pub print_events: bool,
 
+    /// Censor words from a collection of words
+    #[structopt(long)]
+    pub censor: Option<String>,
+
     /// Generates ref test.
     #[structopt(long)]
     pub ref_test: bool,
@@ -111,6 +115,7 @@ impl Options {
         }
 
         config.hold = self.hold;
+        config.censor = self.censor.clone();
 
         if let Some(title) = self.title.clone() {
             config.ui_config.window.title = title

@@ -44,6 +44,9 @@ pub struct Config<T> {
     /// Remain open after child process exits.
     #[config(skip)]
     pub hold: bool,
+
+    /// Censor database
+    pub censor: Option<String>,
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]

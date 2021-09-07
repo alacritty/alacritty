@@ -4,6 +4,7 @@ use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
 use std::{mem, ptr, str};
+use std::fs;
 
 use bitflags::bitflags;
 use log::{debug, trace};
@@ -74,6 +75,47 @@ impl Default for TermMode {
             | TermMode::URGENCY_HINTS
     }
 }
+
+pub struct Censor {
+    bad_words: Vec<String>
+}
+
+impl Censor {
+    pub fn new<C>(config: &Config<C>) -> Censor {
+        let bad_words =
+            match &config.censor {
+                Some(filename) => {
+                    match fs::read_to_string(filename) {
+                        Ok(content) => {content.split('\n').map(str::trim).map(str::to_string).filter(|x| x != "").collect()},
+                        Err(e) => panic!("Impossible to read {} : {}", filename, e),
+                    }
+                },
+                None => vec![],
+            };
+        Censor{bad_words}
+    }
+
+    pub fn censor(
+        &self,
+        buf : &mut [u8],
+        count : usize) {
+        for bad_word_str in self.bad_words.iter() {
+            let bad_word = bad_word_str.as_bytes();
+            let word_count = bad_word_str.len();
+
+            if count >= word_count {
+                for offset in 0..(count - word_count) {
+                    if buf[offset..offset+word_count] == *bad_word {
+                        for i in 0..word_count {
+                            buf[offset + i] = '*' as u8;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 /// Terminal size info.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
@@ -216,6 +258,8 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
+    pub censor: Censor,
+
     /// Currently active grid.
     ///
     /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
@@ -300,6 +344,8 @@ impl<T> Term<T> {
 
         let scroll_region = Line(0)..Line(grid.screen_lines() as i32);
 
+        let censor = Censor::new(config);
+
         Term {
             grid,
             inactive_grid: alt,
@@ -320,6 +366,7 @@ impl<T> Term<T> {
             selection: None,
             cell_width: size.cell_width as usize,
             cell_height: size.cell_height as usize,
+            censor,
         }
     }
 
