@@ -125,7 +125,7 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install cmake freetype-devel fontconfig-devel libxcb-devel
+zypper install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-dev
 ```
 
 #### Slackware
