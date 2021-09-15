@@ -82,10 +82,6 @@ fn set_controlling_terminal(fd: c_int) {
 #[derive(Debug)]
 struct Passwd<'a> {
     name: &'a str,
-    passwd: &'a str,
-    uid: libc::uid_t,
-    gid: libc::gid_t,
-    gecos: &'a str,
     dir: &'a str,
     shell: &'a str,
 }
@@ -122,10 +118,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Build a borrowed Passwd struct.
     Passwd {
         name: unsafe { CStr::from_ptr(entry.pw_name).to_str().unwrap() },
-        passwd: unsafe { CStr::from_ptr(entry.pw_passwd).to_str().unwrap() },
-        uid: entry.pw_uid,
-        gid: entry.pw_gid,
-        gecos: unsafe { CStr::from_ptr(entry.pw_gecos).to_str().unwrap() },
         dir: unsafe { CStr::from_ptr(entry.pw_dir).to_str().unwrap() },
         shell: unsafe { CStr::from_ptr(entry.pw_shell).to_str().unwrap() },
     }
