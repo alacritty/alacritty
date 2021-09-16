@@ -11,6 +11,7 @@ use alacritty_terminal::term::SizeInfo;
 
 use crate::display::content::RenderableCell;
 use crate::gl::types::*;
+use crate::renderer::shader::ShaderProgram;
 use crate::{gl, renderer};
 
 #[derive(Debug, Copy, Clone)]
@@ -221,7 +222,7 @@ pub struct RectRenderer {
     vao: GLuint,
     vbo: GLuint,
 
-    program: RectShaderProgram,
+    program: ShaderProgram,
 
     vertices: Vec<Vertex>,
 }
@@ -230,7 +231,7 @@ impl RectRenderer {
     pub fn new() -> Result<Self, renderer::Error> {
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
-        let program = RectShaderProgram::new()?;
+        let program = ShaderProgram::new(RECT_SHADER_V, RECT_SHADER_F)?;
 
         unsafe {
             // Allocate buffers.
@@ -283,7 +284,7 @@ impl RectRenderer {
             // Bind VBO only once for buffer data upload only.
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-            gl::UseProgram(self.program.id);
+            gl::UseProgram(self.program.id());
         }
 
         let half_width = size_info.width() / 2.;
@@ -349,41 +350,6 @@ impl Drop for RectRenderer {
         unsafe {
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
-        }
-    }
-}
-
-/// Rectangle drawing program.
-#[derive(Debug)]
-pub struct RectShaderProgram {
-    /// Program id.
-    id: GLuint,
-}
-
-impl RectShaderProgram {
-    pub fn new() -> Result<Self, renderer::ShaderCreationError> {
-        let vertex_shader = renderer::create_shader(gl::VERTEX_SHADER, RECT_SHADER_V)?;
-        let fragment_shader = renderer::create_shader(gl::FRAGMENT_SHADER, RECT_SHADER_F)?;
-        let program = renderer::create_program(vertex_shader, fragment_shader)?;
-
-        unsafe {
-            gl::DeleteShader(fragment_shader);
-            gl::DeleteShader(vertex_shader);
-            gl::UseProgram(program);
-        }
-
-        let shader = Self { id: program };
-
-        unsafe { gl::UseProgram(0) }
-
-        Ok(shader)
-    }
-}
-
-impl Drop for RectShaderProgram {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.id);
         }
     }
 }
