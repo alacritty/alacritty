@@ -127,17 +127,21 @@ fn create_gl_window<E>(
     event_loop: &EventLoop<E>,
     srgb: bool,
     vsync: bool,
+    deep_color: bool,
     dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
     if let Some(dimensions) = dimensions {
         window = window.with_inner_size(dimensions);
     }
 
-    let windowed_context = ContextBuilder::new()
-        .with_srgb(srgb)
-        .with_vsync(vsync)
-        .with_hardware_acceleration(None)
-        .build_windowed(window, event_loop)?;
+    let mut windowed_context =
+        ContextBuilder::new().with_srgb(srgb).with_vsync(vsync).with_hardware_acceleration(None);
+
+    if deep_color {
+        windowed_context = windowed_context.with_pixel_format(30, 2);
+    }
+
+    let windowed_context = windowed_context.build_windowed(window, event_loop)?;
 
     // Make the context current so OpenGL operations can run.
     let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
@@ -186,9 +190,29 @@ impl Window {
         let is_wayland = false;
 
         let windowed_context =
-            create_gl_window(window_builder.clone(), event_loop, false, !is_wayland, size)
+            create_gl_window(window_builder.clone(), event_loop, false, !is_wayland, false, size)
                 .or_else(|_| {
-                    create_gl_window(window_builder, event_loop, true, !is_wayland, size)
+                    create_gl_window(
+                        window_builder.clone(),
+                        event_loop,
+                        true,
+                        !is_wayland,
+                        false,
+                        size,
+                    )
+                })
+                .or_else(|_| {
+                    create_gl_window(
+                        window_builder.clone(),
+                        event_loop,
+                        false,
+                        !is_wayland,
+                        true,
+                        size,
+                    )
+                })
+                .or_else(|_| {
+                    create_gl_window(window_builder, event_loop, true, !is_wayland, true, size)
                 })?;
 
         // Text cursor.
