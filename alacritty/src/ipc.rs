@@ -67,14 +67,11 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
 
     // Handle --socket CLI override.
     if let Some(socket_path) = socket_path {
-        match socket.connect(&socket_path) {
-            Ok(_) => return Ok(socket),
-            // Ensure we inform the user about an invalid path.
-            Err(err) => {
-                let message = format!("invalid socket path {:?}", socket_path);
-                return Err(IoError::new(err.kind(), message));
-            },
-        }
+        // Ensure we inform the user about an invalid path.
+        socket.connect(&socket_path).map_err(|err| {
+            let message = format!("invalid socket path {:?}", socket_path);
+            IoError::new(err.kind(), message)
+        })?;
     }
 
     // Handle environment variable.

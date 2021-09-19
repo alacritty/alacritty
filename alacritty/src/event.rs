@@ -395,7 +395,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         start_daemon(&alacritty, &args);
     }
 
-    fn spawn_new_window(&mut self) {
+    fn create_new_window(&mut self) {
         let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow, None));
     }
 
