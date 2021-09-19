@@ -394,7 +394,7 @@ where
                                     // This sucks, but checking the process is either racy or
                                     // blocking.
                                     #[cfg(target_os = "linux")]
-                                    if err.kind() == ErrorKind::Other {
+                                    if err.raw_os_error() == Some(libc::EIO) {
                                         continue;
                                     }
 
