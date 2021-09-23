@@ -158,9 +158,9 @@ impl RenderLines {
     /// Update the stored lines with the next cell info.
     #[inline]
     pub fn update(&mut self, cell: &RenderableCell) {
-        self.update_flag(&cell, Flags::UNDERLINE);
-        self.update_flag(&cell, Flags::DOUBLE_UNDERLINE);
-        self.update_flag(&cell, Flags::STRIKEOUT);
+        self.update_flag(cell, Flags::UNDERLINE);
+        self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
+        self.update_flag(cell, Flags::STRIKEOUT);
     }
 
     /// Update the lines for a specific flag.

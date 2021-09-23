@@ -88,14 +88,14 @@ impl<T> Term<T> {
             _ => end.sub(self, Boundary::None, 1),
         };
 
-        let mut regex_iter = RegexIter::new(start, end, Direction::Right, &self, dfas).peekable();
+        let mut regex_iter = RegexIter::new(start, end, Direction::Right, self, dfas).peekable();
 
         // Check if there's any match at all.
         let first_match = regex_iter.peek()?.clone();
 
         let regex_match = regex_iter
             .find(|regex_match| {
-                let match_point = Self::match_side(&regex_match, side);
+                let match_point = Self::match_side(regex_match, side);
 
                 // If the match's point is beyond the origin, we're done.
                 match_point.line < start.line
@@ -127,14 +127,14 @@ impl<T> Term<T> {
             _ => end.add(self, Boundary::None, 1),
         };
 
-        let mut regex_iter = RegexIter::new(start, end, Direction::Left, &self, dfas).peekable();
+        let mut regex_iter = RegexIter::new(start, end, Direction::Left, self, dfas).peekable();
 
         // Check if there's any match at all.
         let first_match = regex_iter.peek()?.clone();
 
         let regex_match = regex_iter
             .find(|regex_match| {
-                let match_point = Self::match_side(&regex_match, side);
+                let match_point = Self::match_side(regex_match, side);
 
                 // If the match's point is beyond the origin, we're done.
                 match_point.line > start.line

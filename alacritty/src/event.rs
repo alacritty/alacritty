@@ -65,7 +65,7 @@ const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 /// Events dispatched through the UI event loop.
 #[derive(Debug, Clone)]
 pub enum Event {
-    TerminalEvent(TerminalEvent),
+    Terminal(TerminalEvent),
     DprChanged(f64, (u32, u32)),
     Scroll(Scroll),
     ConfigReload(PathBuf),
@@ -82,7 +82,7 @@ impl From<Event> for GlutinEvent<'_, Event> {
 
 impl From<TerminalEvent> for Event {
     fn from(event: TerminalEvent) -> Self {
-        Event::TerminalEvent(event)
+        Event::Terminal(event)
     }
 }
 
@@ -421,11 +421,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.origin = self.terminal.vi_mode_cursor.point;
             self.search_state.display_offset_delta = 0;
         } else {
-            let screen_lines = self.terminal.screen_lines();
+            let viewport_top = Line(-(self.terminal.grid().display_offset() as i32)) - 1;
+            let viewport_bottom = viewport_top + self.terminal.bottommost_line();
             let last_column = self.terminal.last_column();
             self.search_state.origin = match direction {
-                Direction::Right => Point::new(Line(0), Column(0)),
-                Direction::Left => Point::new(Line(screen_lines as i32 - 2), last_column),
+                Direction::Right => Point::new(viewport_top, Column(0)),
+                Direction::Left => Point::new(viewport_bottom, last_column),
             };
         }
 
@@ -670,6 +671,42 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Expand the selection to the current mouse cursor position.
+    #[inline]
+    fn expand_selection(&mut self) {
+        let selection_type = match self.mouse().click_state {
+            ClickState::Click => {
+                if self.modifiers().ctrl() {
+                    SelectionType::Block
+                } else {
+                    SelectionType::Simple
+                }
+            },
+            ClickState::DoubleClick => SelectionType::Semantic,
+            ClickState::TripleClick => SelectionType::Lines,
+            ClickState::None => return,
+        };
+
+        // Load mouse point, treating message bar and padding as the closest cell.
+        let display_offset = self.terminal().grid().display_offset();
+        let point = self.mouse().point(&self.size_info(), display_offset);
+
+        let cell_side = self.mouse().cell_side;
+
+        let selection = match &mut self.terminal_mut().selection {
+            Some(selection) => selection,
+            None => return,
+        };
+
+        selection.ty = selection_type;
+        self.update_selection(point, cell_side);
+
+        // Move vi mode cursor to mouse click position.
+        if self.terminal().mode().contains(TermMode::VI) && !self.search_active() {
+            self.terminal_mut().vi_mode_cursor.point = point;
+        }
+    }
+
     /// Paste a text into the terminal.
     fn paste(&mut self, text: &str) {
         if self.search_active() {
@@ -743,7 +780,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             self.search_state.dfas = None;
         } else {
             // Create search dfas for the new regex string.
-            self.search_state.dfas = RegexSearch::new(&regex).ok();
+            self.search_state.dfas = RegexSearch::new(regex).ok();
 
             // Update search highlighting.
             self.goto_match(MAX_SEARCH_WHILE_TYPING);
@@ -770,7 +807,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Reset display offset and cursor position.
         self.terminal.scroll_display(Scroll::Delta(self.search_state.display_offset_delta));
         self.search_state.display_offset_delta = 0;
-        self.terminal.vi_mode_cursor.point = self.search_state.origin;
+        self.terminal.vi_mode_cursor.point =
+            self.search_state.origin.grid_clamp(self.terminal, Boundary::Grid);
 
         *self.dirty = true;
     }
@@ -805,7 +843,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
                 // Store number of lines the viewport had to be moved.
                 let display_offset = self.terminal.grid().display_offset();
-                self.search_state.display_offset_delta = old_offset - display_offset as i32;
+                self.search_state.display_offset_delta += old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
                 self.scheduler.unschedule(TimerId::DelayedSearch);
@@ -1038,7 +1076,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
             match event {
                 // Check for shutdown.
-                GlutinEvent::UserEvent(Event::TerminalEvent(TerminalEvent::Exit)) => {
+                GlutinEvent::UserEvent(Event::Terminal(TerminalEvent::Exit)) => {
                     *control_flow = ControlFlow::Exit;
                     return;
                 },
@@ -1181,7 +1219,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     processor.ctx.display.cursor_hidden ^= true;
                     *processor.ctx.dirty = true;
                 },
-                Event::TerminalEvent(event) => match event {
+                Event::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
                         let ui_config = &processor.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
@@ -1347,7 +1385,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.dirty = true;
         }
 
-        let config = match config::reload(&path, &processor.ctx.cli_options) {
+        let config = match config::reload(path, processor.ctx.cli_options) {
             Ok(config) => config,
             Err(_) => return,
         };
@@ -1398,7 +1436,7 @@ impl<N: Notify + OnResize> Processor<N> {
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        processor.ctx.window().set_has_shadow(config.ui_config.background_opacity() >= 1.0);
+        processor.ctx.window().set_has_shadow(config.ui_config.window_opacity() >= 1.0);
 
         // Update hint keys.
         processor.ctx.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());
@@ -1493,6 +1531,6 @@ impl EventProxy {
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.0.send_event(Event::TerminalEvent(event));
+        let _ = self.0.send_event(Event::Terminal(event));
     }
 }

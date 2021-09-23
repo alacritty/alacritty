@@ -103,11 +103,15 @@ pub enum Action {
 
     /// Perform vi mode action.
     #[config(skip)]
-    ViAction(ViAction),
+    Vi(ViAction),
 
     /// Perform search mode action.
     #[config(skip)]
-    SearchAction(SearchAction),
+    Search(SearchAction),
+
+    /// Perform mouse binding exclusive action.
+    #[config(skip)]
+    Mouse(MouseAction),
 
     /// Paste contents of system clipboard.
     Paste,
@@ -211,7 +215,7 @@ impl From<&'static str> for Action {
 
 impl From<ViAction> for Action {
     fn from(action: ViAction) -> Self {
-        Self::ViAction(action)
+        Self::Vi(action)
     }
 }
 
@@ -223,7 +227,13 @@ impl From<ViMotion> for Action {
 
 impl From<SearchAction> for Action {
     fn from(action: SearchAction) -> Self {
-        Self::SearchAction(action)
+        Self::Search(action)
+    }
+}
+
+impl From<MouseAction> for Action {
+    fn from(action: MouseAction) -> Self {
+        Self::Mouse(action)
     }
 }
 
@@ -232,7 +242,8 @@ impl Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Action::ViMotion(motion) => motion.fmt(f),
-            Action::ViAction(action) => action.fmt(f),
+            Action::Vi(action) => action.fmt(f),
+            Action::Mouse(action) => action.fmt(f),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -262,6 +273,7 @@ pub enum ViAction {
 }
 
 /// Search mode specific actions.
+#[allow(clippy::enum_variant_names)]
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SearchAction {
     /// Move the focus to the next search match.
@@ -280,6 +292,13 @@ pub enum SearchAction {
     SearchHistoryPrevious,
     /// Go to the next regex in the search history.
     SearchHistoryNext,
+}
+
+/// Mouse binding specific actions.
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum MouseAction {
+    /// Expand the selection to the current mouse cursor position.
+    ExpandSelection,
 }
 
 macro_rules! bindings {
@@ -342,6 +361,7 @@ macro_rules! bindings {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
+        MouseButton::Right;                    MouseAction::ExpandSelection;
         MouseButton::Middle, ~BindingMode::VI; Action::PasteSelection;
     )
 }
@@ -423,16 +443,16 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         F19,         ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[33~".into());
         F20,         ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[34~".into());
         NumpadEnter, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\n".into());
-        Space, ModifiersState::SHIFT | ModifiersState::CTRL, +BindingMode::VI, ~BindingMode::SEARCH;
-            Action::ScrollToBottom;
         Space, ModifiersState::SHIFT | ModifiersState::CTRL, ~BindingMode::SEARCH;
             Action::ToggleViMode;
+        Space, ModifiersState::SHIFT | ModifiersState::CTRL, +BindingMode::VI, ~BindingMode::SEARCH;
+            Action::ScrollToBottom;
         Escape,                        +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ClearSelection;
         I,                             +BindingMode::VI, ~BindingMode::SEARCH;
-            Action::ScrollToBottom;
-        I,                             +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ToggleViMode;
+        I,                             +BindingMode::VI, ~BindingMode::SEARCH;
+            Action::ScrollToBottom;
         C,      ModifiersState::CTRL,  +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ToggleViMode;
         Y,      ModifiersState::CTRL,  +BindingMode::VI, ~BindingMode::SEARCH;
@@ -1026,6 +1046,9 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 SearchAction::deserialize(value.clone())
                             {
                                 Some(search_action.into())
+                            } else if let Ok(mouse_action) = MouseAction::deserialize(value.clone())
+                            {
+                                Some(mouse_action.into())
                             } else {
                                 match Action::deserialize(value.clone()).map_err(V::Error::custom) {
                                     Ok(action) => Some(action),
@@ -1081,7 +1104,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)
-                    | (Some(action @ Action::ViAction(_)), None, None) => {
+                    | (Some(action @ Action::Vi(_)), None, None) => {
                         if !mode.intersects(BindingMode::VI) || not_mode.intersects(BindingMode::VI)
                         {
                             return Err(V::Error::custom(format!(
@@ -1091,11 +1114,20 @@ impl<'a> Deserialize<'a> for RawBinding {
                         }
                         action
                     },
-                    (Some(action @ Action::SearchAction(_)), None, None) => {
+                    (Some(action @ Action::Search(_)), None, None) => {
                         if !mode.intersects(BindingMode::SEARCH) {
                             return Err(V::Error::custom(format!(
                                 "action `{}` is only available in search mode, try adding `mode: \
                                  Search`",
+                                action,
+                            )));
+                        }
+                        action
+                    },
+                    (Some(action @ Action::Mouse(_)), None, None) => {
+                        if mouse.is_none() {
+                            return Err(V::Error::custom(format!(
+                                "action `{}` is only available for mouse bindings",
                                 action,
                             )));
                         }

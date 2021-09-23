@@ -29,7 +29,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, BindingMode, Config, Key, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, Config, Key, MouseAction, SearchAction, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -104,6 +104,7 @@ pub trait ActionContext<T: EventListener> {
     fn toggle_vi_mode(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
+    fn expand_selection(&mut self) {}
     fn paste(&mut self, _text: &str) {}
 }
 
@@ -148,19 +149,19 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.terminal_mut().vi_motion(*motion);
                 ctx.mark_dirty();
             },
-            Action::ViAction(ViAction::ToggleNormalSelection) => {
+            Action::Vi(ViAction::ToggleNormalSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Simple);
             },
-            Action::ViAction(ViAction::ToggleLineSelection) => {
+            Action::Vi(ViAction::ToggleLineSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Lines);
             },
-            Action::ViAction(ViAction::ToggleBlockSelection) => {
+            Action::Vi(ViAction::ToggleBlockSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Block);
             },
-            Action::ViAction(ViAction::ToggleSemanticSelection) => {
+            Action::Vi(ViAction::ToggleSemanticSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Semantic);
             },
-            Action::ViAction(ViAction::Open) => {
+            Action::Vi(ViAction::Open) => {
                 let hint = ctx.display().vi_highlighted_hint.take();
                 if let Some(hint) = &hint {
                     ctx.mouse_mut().block_hint_launcher = false;
@@ -168,7 +169,7 @@ impl<T: EventListener> Execute<T> for Action {
                 }
                 ctx.display().vi_highlighted_hint = hint;
             },
-            Action::ViAction(ViAction::SearchNext) => {
+            Action::Vi(ViAction::SearchNext) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
                 let vi_point = terminal.vi_mode_cursor.point;
@@ -182,7 +183,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-            Action::ViAction(ViAction::SearchPrevious) => {
+            Action::Vi(ViAction::SearchPrevious) => {
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
                 let vi_point = terminal.vi_mode_cursor.point;
@@ -196,7 +197,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-            Action::ViAction(ViAction::SearchStart) => {
+            Action::Vi(ViAction::SearchStart) => {
                 let terminal = ctx.terminal();
                 let origin = terminal.vi_mode_cursor.point.sub(terminal, Boundary::None, 1);
 
@@ -205,7 +206,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-            Action::ViAction(ViAction::SearchEnd) => {
+            Action::Vi(ViAction::SearchEnd) => {
                 let terminal = ctx.terminal();
                 let origin = terminal.vi_mode_cursor.point.add(terminal, Boundary::None, 1);
 
@@ -214,25 +215,24 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-            Action::SearchAction(SearchAction::SearchFocusNext) => {
+            Action::Search(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
             },
-            Action::SearchAction(SearchAction::SearchFocusPrevious) => {
+            Action::Search(SearchAction::SearchFocusPrevious) => {
                 let direction = ctx.search_direction().opposite();
                 ctx.advance_search_origin(direction);
             },
-            Action::SearchAction(SearchAction::SearchConfirm) => ctx.confirm_search(),
-            Action::SearchAction(SearchAction::SearchCancel) => ctx.cancel_search(),
-            Action::SearchAction(SearchAction::SearchClear) => {
+            Action::Search(SearchAction::SearchConfirm) => ctx.confirm_search(),
+            Action::Search(SearchAction::SearchCancel) => ctx.cancel_search(),
+            Action::Search(SearchAction::SearchClear) => {
                 let direction = ctx.search_direction();
                 ctx.cancel_search();
                 ctx.start_search(direction);
             },
-            Action::SearchAction(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
-            Action::SearchAction(SearchAction::SearchHistoryPrevious) => {
-                ctx.search_history_previous()
-            },
-            Action::SearchAction(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
+            Action::Search(SearchAction::SearchDeleteWord) => ctx.search_pop_word(),
+            Action::Search(SearchAction::SearchHistoryPrevious) => ctx.search_history_previous(),
+            Action::Search(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
+            Action::Mouse(MouseAction::ExpandSelection) => ctx.expand_selection(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
@@ -533,48 +533,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let display_offset = self.ctx.terminal().grid().display_offset();
             let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
 
-            match button {
-                MouseButton::Left => self.on_left_click(point),
-                MouseButton::Right => self.on_right_click(point),
-                // Do nothing when using buttons other than LMB.
-                _ => self.ctx.mouse_mut().click_state = ClickState::None,
+            if let MouseButton::Left = button {
+                self.on_left_click(point)
             }
-        }
-    }
-
-    /// Handle selection expansion on right click.
-    fn on_right_click(&mut self, point: Point) {
-        match self.ctx.mouse().click_state {
-            ClickState::Click => {
-                let selection_type = if self.ctx.modifiers().ctrl() {
-                    SelectionType::Block
-                } else {
-                    SelectionType::Simple
-                };
-
-                self.expand_selection(point, selection_type);
-            },
-            ClickState::DoubleClick => self.expand_selection(point, SelectionType::Semantic),
-            ClickState::TripleClick => self.expand_selection(point, SelectionType::Lines),
-            ClickState::None => (),
-        }
-    }
-
-    /// Expand existing selection.
-    fn expand_selection(&mut self, point: Point, selection_type: SelectionType) {
-        let cell_side = self.ctx.mouse().cell_side;
-
-        let selection = match &mut self.ctx.terminal_mut().selection {
-            Some(selection) => selection,
-            None => return,
-        };
-
-        selection.ty = selection_type;
-        self.ctx.update_selection(point, cell_side);
-
-        // Move vi mode cursor to mouse click position.
-        if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
-            self.ctx.terminal_mut().vi_mode_cursor.point = point;
         }
     }
 
@@ -751,8 +712,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else {
             match state {
                 ElementState::Pressed => {
-                    self.process_mouse_bindings(button);
+                    // Process mouse press before bindings to update the `click_state`.
                     self.on_mouse_press(button);
+                    self.process_mouse_bindings(button);
                 },
                 ElementState::Released => self.on_mouse_release(button),
             }
@@ -1036,7 +998,7 @@ mod tests {
         }
 
         fn terminal(&self) -> &Term<T> {
-            &self.terminal
+            self.terminal
         }
 
         fn terminal_mut(&mut self) -> &mut Term<T> {
@@ -1140,6 +1102,7 @@ mod tests {
 
                 let mut mouse = Mouse {
                     click_state: $initial_state,
+                    last_click_button: $initial_button,
                     ..Mouse::default()
                 };
 
@@ -1241,7 +1204,7 @@ mod tests {
             },
             window_id: unsafe { std::mem::transmute_copy(&0) },
         },
-        end_state: ClickState::None,
+        end_state: ClickState::Click,
     }
 
     test_clickstate! {

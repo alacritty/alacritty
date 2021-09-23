@@ -69,7 +69,8 @@ pub struct UiConfig {
     mouse_bindings: MouseBindings,
 
     /// Background opacity from 0.0 to 1.0.
-    background_opacity: Percentage,
+    #[config(deprecated = "use window.opacity instead")]
+    background_opacity: Option<Percentage>,
 }
 
 impl Default for UiConfig {
@@ -115,13 +116,13 @@ impl UiConfig {
     }
 
     #[inline]
-    pub fn background_opacity(&self) -> f32 {
-        self.background_opacity.as_f32()
+    pub fn window_opacity(&self) -> f32 {
+        self.background_opacity.unwrap_or(self.window.opacity).as_f32()
     }
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        &self.key_bindings.0.as_slice()
+        self.key_bindings.0.as_slice()
     }
 
     #[inline]
@@ -399,7 +400,7 @@ impl LazyRegexVariant {
         };
 
         // Compile the regex.
-        let regex_search = match RegexSearch::new(&regex) {
+        let regex_search = match RegexSearch::new(regex) {
             Ok(regex_search) => regex_search,
             Err(error) => {
                 error!("hint regex is invalid: {}", error);

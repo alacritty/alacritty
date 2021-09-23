@@ -17,6 +17,7 @@ pub struct Colors {
     pub search: SearchColors,
     pub line_indicator: LineIndicatorColors,
     pub hints: HintColors,
+    pub transparent_background_colors: bool,
 }
 
 impl Colors {

@@ -7,6 +7,7 @@ packages:
   - freetype2
   - fontconfig
   - libxcb
+  - libxkbcommon
 
 sources:
   - https://github.com/alacritty/alacritty
@@ -26,8 +27,8 @@ tasks:
       cargo +nightly fmt -- --check
   - oldstable: |
       cd alacritty
-      rustup toolchain install --profile minimal 1.45.2
-      rustup default 1.45.2
+      rustup toolchain install --profile minimal 1.46.0
+      rustup default 1.46.0
       cargo test
   - clippy: |
       cd alacritty

@@ -22,7 +22,9 @@ mod bindings;
 mod mouse;
 
 use crate::cli::Options;
-pub use crate::config::bindings::{Action, Binding, BindingMode, Key, SearchAction, ViAction};
+pub use crate::config::bindings::{
+    Action, Binding, BindingMode, Key, MouseAction, SearchAction, ViAction,
+};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UiConfig;
@@ -99,8 +101,8 @@ impl From<serde_yaml::Error> for Error {
 
 /// Load the configuration file.
 pub fn load(options: &Options) -> Config {
-    let config_options = options.config_options().clone();
-    let config_path = options.config_path().or_else(installed_config);
+    let config_options = options.config_options.clone();
+    let config_path = options.config_file.clone().or_else(installed_config);
 
     // Load the config using the following fallback behavior:
     //  - Config path + CLI overrides
@@ -126,7 +128,7 @@ pub fn load(options: &Options) -> Config {
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
     // Load config, propagating errors.
-    let config_options = options.config_options().clone();
+    let config_options = options.config_options.clone();
     let mut config = load_from(config_path, config_options)?;
 
     after_loading(&mut config, options);
@@ -157,7 +159,7 @@ fn load_from(path: &Path, cli_config: Value) -> Result<Config> {
 /// Deserialize configuration file from path.
 fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     let mut config_paths = Vec::new();
-    let mut config_value = parse_config(&path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
+    let mut config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
     // Override config with CLI options.
     config_value = serde_utils::merge(config_value, cli_config);

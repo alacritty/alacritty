@@ -194,7 +194,7 @@ impl GlyphCache {
         let size = font.size();
 
         // Load regular font.
-        let regular_desc = Self::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
+        let regular_desc = Self::make_desc(font.normal(), Slant::Normal, Weight::Normal);
 
         let regular = Self::load_regular_font(rasterizer, &regular_desc, size)?;
 
@@ -236,7 +236,7 @@ impl GlyphCache {
                 error!("{}", err);
 
                 let fallback_desc =
-                    Self::make_desc(&Font::default().normal(), Slant::Normal, Weight::Normal);
+                    Self::make_desc(Font::default().normal(), Slant::Normal, Weight::Normal);
                 rasterizer.load_font(&fallback_desc, size)
             },
         }
@@ -375,7 +375,7 @@ impl GlyphCache {
     /// Calculate font metrics without access to a glyph cache.
     pub fn static_metrics(font: Font, dpr: f64) -> Result<crossfont::Metrics, crossfont::Error> {
         let mut rasterizer = crossfont::Rasterizer::new(dpr as f32, font.use_thin_strokes)?;
-        let regular_desc = GlyphCache::make_desc(&font.normal(), Slant::Normal, Weight::Normal);
+        let regular_desc = GlyphCache::make_desc(font.normal(), Slant::Normal, Weight::Normal);
         let regular = Self::load_regular_font(&mut rasterizer, &regular_desc, font.size())?;
         rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
 
@@ -785,7 +785,7 @@ impl Drop for QuadRenderer {
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         unsafe {
-            let alpha = self.config.background_opacity();
+            let alpha = self.config.window_opacity();
             gl::ClearColor(
                 (f32::from(color.r) / 255.0).min(1.0) * alpha,
                 (f32::from(color.g) / 255.0).min(1.0) * alpha,
@@ -1325,12 +1325,12 @@ impl Atlas {
         }
 
         // If there's not enough room in current row, go onto next one.
-        if !self.room_in_row(&glyph) {
+        if !self.room_in_row(glyph) {
             self.advance_row()?;
         }
 
         // If there's still not room, there's nothing that can be done here..
-        if !self.room_in_row(&glyph) {
+        if !self.room_in_row(glyph) {
             return Err(AtlasInsertError::Full);
         }
 
