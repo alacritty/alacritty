@@ -546,7 +546,7 @@ pub enum Mode {
     /// ?25
     ShowCursor = 25,
     /// ?80
-    SixelScrolling = 80,
+    SixelDisplay = 80,
     /// ?1000
     ReportMouseClicks = 1000,
     /// ?1002
@@ -590,7 +590,7 @@ impl Mode {
                 7 => Mode::LineWrap,
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
-                80 => Mode::SixelScrolling,
+                80 => Mode::SixelDisplay,
                 1000 => Mode::ReportMouseClicks,
                 1002 => Mode::ReportCellMouseMotion,
                 1003 => Mode::ReportAllMouseMotion,

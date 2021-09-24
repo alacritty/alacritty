@@ -67,7 +67,7 @@ bitflags! {
         const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
         const VI                  = 0b0001_0000_0000_0000_0000;
         const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
-        const SIXEL_SCROLLING     = 0b0100_0000_0000_0000_0000;
+        const SIXEL_DISPLAY       = 0b0100_0000_0000_0000_0000;
         const SIXEL_PRIV_PALETTE  = 0b1000_0000_0000_0000_0000;
         const SIXEL_CURSOR_TO_THE_RIGHT  = 0b0001_0000_0000_0000_0000_0000;
         const ANY                 = std::u32::MAX;
@@ -80,7 +80,6 @@ impl Default for TermMode {
             | TermMode::LINE_WRAP
             | TermMode::ALTERNATE_SCROLL
             | TermMode::URGENCY_HINTS
-            | TermMode::SIXEL_SCROLLING
             | TermMode::SIXEL_PRIV_PALETTE
     }
 }
@@ -1598,7 +1597,7 @@ impl<T: EventListener> Handler for Term<T> {
                 style.blinking = true;
                 self.event_proxy.send_event(Event::CursorBlinkingChange(true));
             },
-            ansi::Mode::SixelScrolling => self.mode.insert(TermMode::SIXEL_SCROLLING),
+            ansi::Mode::SixelDisplay => self.mode.insert(TermMode::SIXEL_DISPLAY),
             ansi::Mode::SixelPrivateColorRegisters => {
                 self.mode.insert(TermMode::SIXEL_PRIV_PALETTE)
             },
@@ -1647,7 +1646,7 @@ impl<T: EventListener> Handler for Term<T> {
                 style.blinking = false;
                 self.event_proxy.send_event(Event::CursorBlinkingChange(false));
             },
-            ansi::Mode::SixelScrolling => self.mode.remove(TermMode::SIXEL_SCROLLING),
+            ansi::Mode::SixelDisplay => self.mode.remove(TermMode::SIXEL_DISPLAY),
             ansi::Mode::SixelPrivateColorRegisters => {
                 self.graphics.sixel_shared_palette = None;
                 self.mode.remove(TermMode::SIXEL_PRIV_PALETTE);
@@ -1838,7 +1837,7 @@ impl<T: EventListener> Handler for Term<T> {
         let graphic_id = self.graphics.next_id();
         self.graphics.pending.push(GraphicData { id: graphic_id, ..graphic });
 
-        // If SIXEL_SCROLLING is enabled, the start of the graphic is the
+        // If SIXEL_DISPLAY is disabled, the start of the graphic is the
         // cursor position, and the grid can be scrolled if the graphic is
         // larger than the screen. The cursor is moved to the next line
         // after the graphic.
@@ -1846,7 +1845,7 @@ impl<T: EventListener> Handler for Term<T> {
         // If it is disabled, the graphic starts at (0, 0), the grid is never
         // scrolled, and the cursor position is unmodified.
 
-        let scrolling = self.mode.contains(TermMode::SIXEL_SCROLLING);
+        let scrolling = !self.mode.contains(TermMode::SIXEL_DISPLAY);
 
         // Fill the cells under the graphic.
         //
