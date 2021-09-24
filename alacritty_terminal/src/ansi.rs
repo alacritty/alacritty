@@ -569,6 +569,8 @@ pub enum Mode {
     SixelPrivateColorRegisters = 1070,
     /// ?2004
     BracketedPaste = 2004,
+    /// Sixel scrolling leaves cursor to right of graphic.
+    SixelCursorToTheRight = 8452,
 }
 
 impl Mode {
@@ -600,6 +602,7 @@ impl Mode {
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 1070 => Mode::SixelPrivateColorRegisters,
                 2004 => Mode::BracketedPaste,
+                8452 => Mode::SixelCursorToTheRight,
                 _ => {
                     trace!("[unimplemented] primitive mode: {}", num);
                     return None;
