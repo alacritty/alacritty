@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Line indicator obstructing vi mode cursor when scrolled into history
+- Vi mode search starting in the line below the vi cursor
 
 ## 0.9.0
 
