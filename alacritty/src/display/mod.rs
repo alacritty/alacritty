@@ -416,6 +416,9 @@ impl Display {
         let (mut cell_width, mut cell_height) =
             (self.size_info.cell_width(), self.size_info.cell_height());
 
+        // Ensure we're modifying the correct OpenGL context.
+        self.window.make_current();
+
         // Update font size and cell dimensions.
         if let Some(font) = pending_update.font() {
             let cell_dimensions = self.update_glyph_cache(config, font);
@@ -458,7 +461,6 @@ impl Display {
         terminal.resize(self.size_info);
 
         // Resize renderer.
-        self.window.make_current();
         let physical = PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
