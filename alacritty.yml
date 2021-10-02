@@ -452,6 +452,20 @@
   # If this is `true`, the cursor is temporarily hidden when typing.
   #hide_when_typing: false
 
+  # Drag & dropping a file into alacritty's window will insert its path at
+  # cursor position. This setting controls how the path is escaped before
+  # insertion.
+  #
+  # Values for `escape_dropped_path`:
+  #   - None
+  #       Don't escape the file path.
+  #   - SingleQuotes
+  #       Wrap the file path in single quotes and escape single quotes in
+  #       the file path.
+  #   - Backslashes
+  #       Backlash-escape spaces and shell control characters.
+  #escape_dropped_path: None
+
 # Regex hints
 #
 # Terminal hints can be used to find text in the visible part of the terminal

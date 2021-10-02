@@ -1325,7 +1325,12 @@ impl<N: Notify + OnResize> Processor<N> {
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        processor.ctx.write_to_pty((path + " ").into_bytes());
+                        let ui_config = &processor.ctx.config.ui_config;
+                        let escaped_path = match ui_config.mouse.escape_dropped_path {
+                            Some(mode) => mode.escape(&path),
+                            None => path,
+                        };
+                        processor.ctx.write_to_pty((escaped_path + " ").into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
                         processor.ctx.mouse.inside_text_area = false;

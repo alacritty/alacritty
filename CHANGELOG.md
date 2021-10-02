@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Option `colors.transparent_background_colors` to allow applying opacity to all background colors
+- Option `mouse.escape_dropped_path` to control escaping of a dropped file's path
 
 ### Changed
 
