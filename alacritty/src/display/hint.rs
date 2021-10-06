@@ -324,6 +324,12 @@ impl<'a, T> HintPostProcessor<'a, T> {
     ///
     /// This is most useful for identifying URLs appropriately.
     fn hint_post_processing(&self, regex_match: &Match) -> Match {
+        // If the match only contains a single character,
+        // the character should be included and no futher process is needed.
+        if regex_match.start() == regex_match.end() {
+            return regex_match.clone();
+        }
+
         let mut iter = self.term.grid().iter_from(*regex_match.start());
 
         let mut c = iter.cell().c;
@@ -402,6 +408,11 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use alacritty_terminal::{
+        index::{Column, Line},
+        term::test::mock_term,
+    };
+
     use super::*;
 
     #[test]
@@ -441,5 +452,22 @@ mod tests {
         assert_eq!(generator.next(), vec!['3', '3', '2', '1']);
         assert_eq!(generator.next(), vec!['3', '3', '3', '0']);
         assert_eq!(generator.next(), vec!['3', '3', '3', '1']);
+    }
+
+    #[test]
+    fn closed_bracket_does_not_result_in_infinite_iterator() {
+        let term = mock_term(" ) ");
+
+        let search = RegexSearch::new("[^/ ]").unwrap();
+
+        let count = HintPostProcessor::new(
+            &term,
+            &search,
+            Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
+        )
+        .take(2)
+        .count();
+
+        assert_eq!(count, 1);
     }
 }
