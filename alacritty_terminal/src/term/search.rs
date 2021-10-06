@@ -291,7 +291,7 @@ impl<T> Term<T> {
                     && iter.point().column < self.last_column() =>
             {
                 iter.next();
-            }
+            },
             Direction::Right if cell.flags.contains(Flags::LEADING_WIDE_CHAR_SPACER) => {
                 if let Some(Indexed { cell: new_cell, .. }) = iter.next() {
                     *cell = new_cell;

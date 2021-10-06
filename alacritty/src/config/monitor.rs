@@ -80,7 +80,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
                     // Always reload the primary configuration file.
                     let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
                     let _ = event_proxy.send_event(event);
-                }
+                },
                 _ => (),
             }
         }
