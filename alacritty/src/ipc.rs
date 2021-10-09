@@ -24,8 +24,8 @@ const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
     // Create the IPC socket and export its path as env variable if necessary.
     let socket_path = options.socket.clone().unwrap_or_else(|| {
-        let mut path = env::temp_dir();
-        path.push(format!("Alacritty-{}.sock", process::id()));
+        let mut path = socket_dir();
+        path.push(format!("{}-{}.sock", socket_prefix(), process::id()));
         path
     });
     env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
@@ -61,6 +61,22 @@ pub fn send_message(socket: Option<PathBuf>, message: &[u8]) -> IoResult<()> {
     Ok(())
 }
 
+/// Directory for the IPC socket file.
+#[cfg(not(target_os = "macos"))]
+fn socket_dir() -> PathBuf {
+    xdg::BaseDirectories::with_prefix("alacritty")
+        .ok()
+        .and_then(|xdg| xdg.get_runtime_directory().map(ToOwned::to_owned).ok())
+        .and_then(|path| fs::create_dir_all(&path).map(|_| path).ok())
+        .unwrap_or_else(env::temp_dir)
+}
+
+/// Directory for the IPC socket file.
+#[cfg(target_os = "macos")]
+fn socket_dir() -> PathBuf {
+    env::temp_dir()
+}
+
 /// Find the IPC socket path.
 fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
     let socket = UnixDatagram::unbound()?;
@@ -82,15 +98,16 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
         }
     }
 
-    // Search for sockets in /tmp.
-    for entry in fs::read_dir(env::temp_dir())?.filter_map(|entry| entry.ok()) {
+    // Search for sockets files.
+    for entry in fs::read_dir(socket_dir())?.filter_map(|entry| entry.ok()) {
         let path = entry.path();
 
         // Skip files that aren't Alacritty sockets.
+        let socket_prefix = socket_prefix();
         if path
             .file_name()
             .and_then(OsStr::to_str)
-            .filter(|file| file.starts_with("Alacritty-") && file.ends_with(".sock"))
+            .filter(|file| file.starts_with(&socket_prefix) && file.ends_with(".sock"))
             .is_none()
         {
             continue;
@@ -109,4 +126,21 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
     }
 
     Err(IoError::new(ErrorKind::NotFound, "no socket found"))
+}
+
+/// File prefix matching all available sockets.
+///
+/// This prefix will include display server information to allow for environments with multiple
+/// display servers running for the same user.
+#[cfg(not(target_os = "macos"))]
+fn socket_prefix() -> String {
+    let wayland_display = env::var("WAYLAND_DISPLAY").unwrap_or_default();
+    let x11_display = env::var("DISPLAY").unwrap_or_default();
+    format!("Alacritty-{}{}", x11_display, wayland_display)
+}
+
+/// File prefix matching all available sockets.
+#[cfg(target_os = "macos")]
+fn socket_prefix() -> String {
+    String::from("Alacritty")
 }

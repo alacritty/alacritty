@@ -2,7 +2,7 @@
 .SH NAME
 Alacritty \- A fast, cross-platform, OpenGL terminal emulator
 .SH "SYNOPSIS"
-alacritty [FLAGS] [OPTIONS]
+alacritty [SUBCOMMANDS] [FLAGS] [OPTIONS]
 .SH DESCRIPTION
 Alacritty is a modern terminal emulator that comes with sensible defaults, but
 allows for extensive configuration. By integrating with other applications,
@@ -57,11 +57,18 @@ Defines the X11 window ID (as a decimal integer) to embed Alacritty within
 \fB\-o\fR, \fB\-\-option\fR <option>...
 Override configuration file options [example: cursor.style=Beam]
 .TP
+\fB\-\-socket\fR <socket>
+Path for IPC socket creation
+.TP
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
 .TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
+.SH "SUBCOMMANDS"
+.TP
+\fBmsg\fR
+Available socket messages
 .SH "SEE ALSO"
 See the alacritty github repository at https://github.com/alacritty/alacritty for the full documentation.
 .SH "BUGS"

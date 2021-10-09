@@ -66,12 +66,12 @@ pub struct Event {
     window_id: Option<WindowId>,
 
     /// Event payload.
-    event: EventType,
+    payload: EventType,
 }
 
 impl Event {
-    pub fn new<I: Into<Option<WindowId>>>(event: EventType, window_id: I) -> Self {
-        Self { window_id: window_id.into(), event }
+    pub fn new<I: Into<Option<WindowId>>>(payload: EventType, window_id: I) -> Self {
+        Self { window_id: window_id.into(), payload }
     }
 }
 
@@ -999,7 +999,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Doesn't take self mutably due to borrow checking.
     pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
         match event {
-            GlutinEvent::UserEvent(Event { event, .. }) => match event {
+            GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::DprChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
@@ -1232,7 +1232,7 @@ impl Processor {
                 // Check for shutdown.
                 GlutinEvent::UserEvent(Event {
                     window_id: Some(window_id),
-                    event: EventType::Terminal(TerminalEvent::Exit),
+                    payload: EventType::Terminal(TerminalEvent::Exit),
                 }) => {
                     // Remove the closed terminal.
                     let window_context = match self.windows.remove(&window_id) {
@@ -1281,7 +1281,9 @@ impl Processor {
                     }
                 },
                 // Process config update.
-                GlutinEvent::UserEvent(Event { event: EventType::ConfigReload(path), .. }) => {
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::ConfigReload(path), ..
+                }) => {
                     // Clear config logs from message bar for all terminals.
                     for window_context in self.windows.values_mut() {
                         if !window_context.message_buffer.is_empty() {
@@ -1300,7 +1302,7 @@ impl Processor {
                     }
                 },
                 // Create a new terminal window.
-                GlutinEvent::UserEvent(Event { event: EventType::CreateWindow, .. }) => {
+                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow, .. }) => {
                     if let Err(err) = self.create_window(event_loop, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }

@@ -743,6 +743,7 @@ impl QuadRenderer {
     }
 
     /// Set the viewport for cell rendering.
+    #[inline]
     pub fn set_viewport(&self, size: &SizeInfo) {
         unsafe {
             gl::Viewport(

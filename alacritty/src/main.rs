@@ -16,11 +16,12 @@ compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-#[cfg(unix)]
+use std::path::PathBuf;
 use std::process;
+use std::string::ToString;
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
-use log::{error, info};
+use log::info;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
@@ -75,24 +76,50 @@ fn main() {
     let options = Options::new();
 
     #[cfg(unix)]
-    match options.subcommands {
+    let result = match options.subcommands {
         Some(Subcommands::Msg(options)) => msg(options),
         None => alacritty(options),
-    }
+    };
 
     #[cfg(not(unix))]
-    alacritty(options);
+    let result = alacritty(options);
+
+    // Handle command failure.
+    if let Err(err) = result {
+        eprintln!("Error: {}", err);
+        process::exit(1);
+    }
 }
 
 /// `msg` subcommand entrypoint.
 #[cfg(unix)]
-fn msg(options: MessageOptions) {
-    match ipc::send_message(options.socket, &SOCKET_MESSAGE_CREATE_WINDOW) {
-        Ok(()) => process::exit(0),
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            process::exit(1);
-        },
+fn msg(options: MessageOptions) -> Result<(), String> {
+    ipc::send_message(options.socket, &SOCKET_MESSAGE_CREATE_WINDOW).map_err(|err| err.to_string())
+}
+
+/// Temporary files stored for Alacritty.
+///
+/// This stores temporary files to automate their destruction through its `Drop` implementation.
+struct TemporaryFiles {
+    #[cfg(unix)]
+    socket_path: Option<PathBuf>,
+    log_file: Option<PathBuf>,
+}
+
+impl Drop for TemporaryFiles {
+    fn drop(&mut self) {
+        // Clean up the IPC socket file.
+        #[cfg(unix)]
+        if let Some(socket_path) = &self.socket_path {
+            let _ = fs::remove_file(socket_path);
+        }
+
+        // Clean up logfile.
+        if let Some(log_file) = &self.log_file {
+            if fs::remove_file(log_file).is_ok() {
+                let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
+            }
+        }
     }
 }
 
@@ -100,7 +127,9 @@ fn msg(options: MessageOptions) {
 ///
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn alacritty(options: Options) {
+fn alacritty(options: Options) -> Result<(), String> {
+    info!("Welcome to Alacritty");
+
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
 
@@ -110,27 +139,21 @@ fn alacritty(options: Options) {
 
     // Load configuration file.
     let config = config::load(&options);
+    log_config_path(&config);
 
     // Update the log level from config.
     log::set_max_level(config.ui_config.debug.log_level);
 
+    // Set environment variables.
+    tty::setup_env(&config);
+
     // Switch to home directory.
     #[cfg(target_os = "macos")]
     env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
-    // Set locale.
+
+    // Set macOS locale.
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
-
-    // Store if log file should be deleted before moving config.
-    let persistent_logging = config.ui_config.debug.persistent_logging;
-
-    info!("Welcome to Alacritty");
-
-    // Log the configuration paths.
-    log_config_path(&config);
-
-    // Set environment variables.
-    tty::setup_env(&config);
 
     // Create a config monitor when config was loaded from path.
     //
@@ -148,15 +171,20 @@ fn alacritty(options: Options) {
         None
     };
 
+    // Setup automatic RAII cleanup for our files.
+    let log_cleanup = log_file.filter(|_| !config.ui_config.debug.persistent_logging);
+    let _files = TemporaryFiles {
+        #[cfg(unix)]
+        socket_path,
+        log_file: log_cleanup,
+    };
+
     // Event processor.
     let mut processor = Processor::new(config, options, &window_event_loop);
 
     // Create the first Alacritty window.
     let proxy = window_event_loop.create_proxy();
-    if let Err(error) = processor.create_window(&window_event_loop, proxy) {
-        error!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", error);
-        std::process::exit(1);
-    }
+    processor.create_window(&window_event_loop, proxy).map_err(|err| err.to_string())?;
 
     info!("Initialisation complete");
 
@@ -185,20 +213,8 @@ fn alacritty(options: Options) {
         FreeConsole();
     }
 
-    // Clean up the IPC socket file.
-    #[cfg(unix)]
-    if let Some(socket_path) = socket_path {
-        let _ = fs::remove_file(socket_path);
-    }
-
     info!("Goodbye");
-
-    // Clean up logfile.
-    if let Some(log_file) = log_file {
-        if !persistent_logging && fs::remove_file(&log_file).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
-        }
-    }
+    Ok(())
 }
 
 fn log_config_path(config: &Config) {
