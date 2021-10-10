@@ -158,7 +158,7 @@ pub struct Window {
     pub wayland_surface: Option<Attached<WlSurface>>,
 
     /// Cached DPR for quickly scaling pixel sizes.
-    pub dpr: f64,
+    dpr: f64,
 
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
@@ -220,18 +220,7 @@ impl Window {
             None
         };
 
-        #[allow(unused_mut)]
-        let mut dpr = windowed_context.window().scale_factor();
-
-        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if !is_wayland && dpr > MAX_X11_DPR {
-            dpr = 1.;
-        }
-
-        dpr = dpr
-            .max(config.ui_config.window.min_dpr)
-            .min(config.ui_config.window.max_dpr);
+        let dpr = Self::calculate_dpr(windowed_context.window().scale_factor(), is_wayland, config);
 
         Ok(Self {
             current_mouse_cursor,
@@ -243,6 +232,36 @@ impl Window {
             wayland_surface,
             dpr,
         })
+    }
+
+    /// Calculate the bounded dpr, this applies min and max values from `config` and ignores `dpr`
+    /// if it appears to be erroneous data from an incorrect XRandr metrics.
+    fn calculate_dpr(mut dpr: f64, is_wayland: bool, config: &Config) -> f64 {
+        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if !is_wayland && dpr > MAX_X11_DPR {
+            dpr = 1.;
+        }
+
+        dpr.max(config.ui_config.window.min_dpr).min(config.ui_config.window.max_dpr)
+    }
+
+    /// Update the cached dpr value. This applies any configured clamping.
+    pub fn update_dpr(&mut self, dpr: f64, is_wayland: bool, config: &Config) {
+        self.dpr = Self::calculate_dpr(dpr, is_wayland, config);
+    }
+
+    /// Retreive the effective dpr
+    #[inline]
+    pub fn get_dpr(&self) -> f64 {
+        self.dpr
+    }
+
+    /// Retreive the raw scale factor reported by the glutin window.
+    ///
+    /// You should only use this for updating the effective dpr using `update_dpr`.
+    pub fn raw_dpr(&self) -> f64 {
+        self.window().scale_factor()
     }
 
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {

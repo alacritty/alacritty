@@ -248,25 +248,26 @@ impl Display {
             wayland_event_queue.as_ref(),
         )?;
 
-        info!("Device pixel ratio: {}", window.dpr);
+        let dpr = window.get_dpr();
+        info!("Device pixel ratio: {}", dpr);
 
         // Create renderer.
         let mut renderer = QuadRenderer::new()?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(window.dpr, &mut renderer, config)?;
+            Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
         if let Some(dimensions) = dimensions {
-            if (estimated_dpr - window.dpr).abs() < f64::EPSILON {
+            if (estimated_dpr - dpr).abs() < f64::EPSILON {
                 info!("Estimated DPR correctly, skipping resize");
             } else {
                 // Resize the window again if the DPR was not estimated correctly.
-                let size = window_size(config, dimensions, cell_width, cell_height, window.dpr);
+                let size = window_size(config, dimensions, cell_width, cell_height, dpr);
                 window.set_inner_size(size);
             }
         }
 
-        let padding = config.ui_config.window.padding(window.dpr);
+        let padding = config.ui_config.window.padding(window.get_dpr());
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
@@ -388,7 +389,7 @@ impl Display {
     /// This will return a tuple of the cell width and height.
     fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
         let cache = &mut self.glyph_cache;
-        let dpr = self.window.dpr;
+        let dpr = self.window.get_dpr();
 
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(font, dpr, &mut api);
@@ -438,7 +439,7 @@ impl Display {
             height = dimensions.height as f32;
         }
 
-        let padding = config.ui_config.window.padding(self.window.dpr);
+        let padding = config.ui_config.window.padding(self.window.get_dpr());
 
         self.size_info = SizeInfo::new(
             width,

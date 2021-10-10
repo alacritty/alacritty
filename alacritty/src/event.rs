@@ -1209,9 +1209,12 @@ impl<N: Notify + OnResize> Processor<N> {
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.window().dpr = scale_factor
-                        .max(processor.ctx.config.ui_config.window.min_dpr)
-                        .min(processor.ctx.config.ui_config.window.max_dpr);
+                    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                    let is_wayland = processor.ctx.event_loop.is_wayland();
+                    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
+                    let is_wayland = false;
+
+                    processor.ctx.display.window.update_dpr(scale_factor, is_wayland, processor.ctx.config);
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
@@ -1387,6 +1390,8 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
+        info!("Reloading config");
+
         if !processor.ctx.message_buffer.is_empty() {
             processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
             processor.ctx.display_update_pending.dirty = true;
@@ -1396,6 +1401,11 @@ impl<N: Notify + OnResize> Processor<N> {
             Ok(config) => config,
             Err(_) => return,
         };
+
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let is_wayland = processor.ctx.event_loop.is_wayland();
+        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
+        let is_wayland = false;
 
         processor.ctx.display.update_config(&config);
         processor.ctx.terminal.update_config(&config);
@@ -1407,7 +1417,21 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.set_cursor_dirty();
         }
 
-        if processor.ctx.config.ui_config.font != config.ui_config.font {
+        // Have the dpr bounds beem updated
+        let dpr_update = processor.ctx.config.ui_config.window.max_dpr != config.ui_config.window.max_dpr
+            || processor.ctx.config.ui_config.window.min_dpr != config.ui_config.window.min_dpr;
+        // Has the font been updated
+        let font_update = processor.ctx.config.ui_config.font != config.ui_config.font;
+
+        if dpr_update {
+            // Update dpr (the min and max values might have changed in the config).
+            let window = processor.ctx.window();
+            window.update_dpr(window.raw_dpr(), is_wayland, &config);
+            // font update will be pushed later
+        }
+
+        // Push a font update if required, or always if the dpr scaling has changed.
+        if font_update || dpr_update {
             // Do not update font size if it has been changed at runtime.
             if *processor.ctx.font_size == processor.ctx.config.ui_config.font.size() {
                 *processor.ctx.font_size = config.ui_config.font.size();
@@ -1432,8 +1456,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.window().set_title(&config.ui_config.window.title);
         }
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if processor.ctx.event_loop.is_wayland() {
+        if is_wayland {
             processor.ctx.window().set_wayland_theme(&config.ui_config.colors);
         }
 
