@@ -1462,6 +1462,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.window().set_title(&config.ui_config.window.title);
         }
 
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         if is_wayland {
             processor.ctx.window().set_wayland_theme(&config.ui_config.colors);
         }
