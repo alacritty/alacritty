@@ -1214,7 +1214,11 @@ impl<N: Notify + OnResize> Processor<N> {
                     #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
                     let is_wayland = false;
 
-                    processor.ctx.display.window.update_dpr(scale_factor, is_wayland, processor.ctx.config);
+                    processor.ctx.display.window.update_dpr(
+                        scale_factor,
+                        is_wayland,
+                        processor.ctx.config,
+                    );
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
@@ -1418,7 +1422,8 @@ impl<N: Notify + OnResize> Processor<N> {
         }
 
         // Have the dpr bounds beem updated
-        let dpr_update = processor.ctx.config.ui_config.window.max_dpr != config.ui_config.window.max_dpr
+        let dpr_update = processor.ctx.config.ui_config.window.max_dpr
+            != config.ui_config.window.max_dpr
             || processor.ctx.config.ui_config.window.min_dpr != config.ui_config.window.min_dpr;
         // Has the font been updated
         let font_update = processor.ctx.config.ui_config.font != config.ui_config.font;
