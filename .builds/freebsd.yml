@@ -19,6 +19,10 @@ environment:
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
+  - clippy: |
+      cd alacritty
+      rustup component add clippy
+      cargo clippy --all-targets
   - test: |
       cd alacritty
       cargo test
@@ -27,10 +31,6 @@ tasks:
       rustup toolchain install --profile minimal 1.46.0
       rustup default 1.46.0
       cargo test
-  - clippy: |
-      cd alacritty
-      rustup component add clippy
-      cargo clippy --all-targets
   - feature-wayland: |
       cd alacritty/alacritty
       cargo test --no-default-features --features=wayland
