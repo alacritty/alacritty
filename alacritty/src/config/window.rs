@@ -48,6 +48,12 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
+    /// Minimum DPR.
+    pub min_dpr: f64,
+
+    /// Maximum DPR.
+    pub max_dpr: f64,
+
     /// Pixel padding.
     padding: Delta<u8>,
 
@@ -70,6 +76,8 @@ impl Default for WindowConfig {
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            min_dpr: 0.,
+            max_dpr: f64::INFINITY,
         }
     }
 }

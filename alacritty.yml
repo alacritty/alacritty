@@ -99,6 +99,15 @@
   # and `light`. Set this to `None` to use the default theme variant.
   #gtk_theme_variant: None
 
+  # Clamp the scale factor values.
+  #
+  # The device pixel ratio (DPR) is the value used for saling, it's often
+  # based on your displays DPI.
+  #
+  # To disable scaling, set both the minimum and maximum dpr to 1.
+  #min_dpr: 0
+  #max_dpr: .inf
+
 #scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.

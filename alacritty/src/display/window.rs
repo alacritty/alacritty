@@ -229,6 +229,10 @@ impl Window {
             dpr = 1.;
         }
 
+        dpr = dpr
+            .max(config.ui_config.window.min_dpr)
+            .min(config.ui_config.window.max_dpr);
+
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,

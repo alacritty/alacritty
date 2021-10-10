@@ -1209,7 +1209,9 @@ impl<N: Notify + OnResize> Processor<N> {
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.window().dpr = scale_factor;
+                    processor.ctx.window().dpr = scale_factor
+                        .max(processor.ctx.config.ui_config.window.min_dpr)
+                        .min(processor.ctx.config.ui_config.window.max_dpr);
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
