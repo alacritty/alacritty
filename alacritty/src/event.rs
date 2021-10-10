@@ -1421,6 +1421,7 @@ impl<N: Notify + OnResize> Processor<N> {
             processor.ctx.display_update_pending.set_cursor_dirty();
         }
 
+        #[allow(clippy::float_cmp)]
         // Have the dpr bounds beem updated
         let dpr_update = processor.ctx.config.ui_config.window.max_dpr
             != config.ui_config.window.max_dpr
