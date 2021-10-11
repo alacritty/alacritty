@@ -1,10 +1,8 @@
 #![allow(clippy::let_unit_value)]
 
-use std::env;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::slice;
-use std::str;
+use std::{env, slice, str};
 
 use libc::{setlocale, LC_ALL, LC_CTYPE};
 use log::debug;

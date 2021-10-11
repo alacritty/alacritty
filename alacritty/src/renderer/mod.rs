@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::hash::BuildHasherDefault;
-use std::io;
 use std::mem::size_of;
-use std::ptr;
+use std::{io, ptr};
 
 use bitflags::bitflags;
 use crossfont::{

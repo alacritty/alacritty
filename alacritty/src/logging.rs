@@ -4,13 +4,12 @@
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
 
-use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
-use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::{env, process};
 
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level, LevelFilter};

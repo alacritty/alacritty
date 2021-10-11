@@ -52,8 +52,7 @@ mod gl {
 }
 
 use crate::cli::Options;
-use crate::config::monitor;
-use crate::config::Config;
+use crate::config::{monitor, Config};
 use crate::display::Display;
 use crate::event::{Event, EventProxy, Processor};
 #[cfg(target_os = "macos")]
