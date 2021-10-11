@@ -114,7 +114,7 @@ impl HintState {
             // Use backspace to remove the last character pressed.
             '\x08' | '\x1f' => {
                 self.keys.pop();
-            },
+            }
             // Cancel hint highlighting on ESC/Ctrl+c.
             '\x1b' | '\x03' => self.stop(),
             _ => (),
@@ -320,6 +320,10 @@ impl<'a, T> HintPostProcessor<'a, T> {
         post_processor
     }
 
+    fn get_next_start(&self, regex_match: &Match) -> Point {
+        max(regex_match.start(), regex_match.end()).add(self.term, Boundary::Grid, 1)
+    }
+
     /// Apply some hint post processing heuristics.
     ///
     /// This will check the end of the hint and make it shorter if certain characters are determined
@@ -346,7 +350,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
                     } else {
                         open_parents -= 1;
                     }
-                },
+                }
                 ']' => {
                     if open_brackets == 0 {
                         iter.prev();
@@ -354,7 +358,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
                     } else {
                         open_brackets -= 1;
                     }
-                },
+                }
                 _ => (),
             }
 
