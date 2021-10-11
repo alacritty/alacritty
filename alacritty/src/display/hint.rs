@@ -311,10 +311,14 @@ impl<'a, T> HintPostProcessor<'a, T> {
 
         // Post-process the first hint match.
         let next_match = post_processor.hint_post_processing(&regex_match);
-        post_processor.start = next_match.end().add(term, Boundary::Grid, 1);
+        post_processor.start = post_processor.get_next_start(&next_match);
         post_processor.next_match = Some(next_match);
 
         post_processor
+    }
+
+    fn get_next_start(&self, regex_match: &Match) -> Point {
+        max(regex_match.start(), regex_match.end()).add(self.term, Boundary::Grid, 1)
     }
 
     /// Apply some hint post processing heuristics.
@@ -324,12 +328,6 @@ impl<'a, T> HintPostProcessor<'a, T> {
     ///
     /// This is most useful for identifying URLs appropriately.
     fn hint_post_processing(&self, regex_match: &Match) -> Match {
-        // If the match only contains a single character,
-        // the character should be included and no futher process is needed.
-        if regex_match.start() == regex_match.end() {
-            return regex_match.clone();
-        }
-
         let mut iter = self.term.grid().iter_from(*regex_match.start());
 
         let mut c = iter.cell().c;
@@ -397,7 +395,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
         if self.start <= self.end {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
                 let regex_match = self.hint_post_processing(&rm);
-                self.start = regex_match.end().add(self.term, Boundary::Grid, 1);
+                self.start = self.get_next_start(&regex_match);
                 self.next_match = Some(regex_match);
             }
         }
