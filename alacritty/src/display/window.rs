@@ -158,7 +158,7 @@ pub struct Window {
     pub wayland_surface: Option<Attached<WlSurface>>,
 
     /// Cached DPR for quickly scaling pixel sizes.
-    pub dpr: f64,
+    dpr: f64,
 
     windowed_context: WindowedContext<PossiblyCurrent>,
     current_mouse_cursor: CursorIcon,
@@ -220,14 +220,7 @@ impl Window {
             None
         };
 
-        #[allow(unused_mut)]
-        let mut dpr = windowed_context.window().scale_factor();
-
-        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if !is_wayland && dpr > MAX_X11_DPR {
-            dpr = 1.;
-        }
+        let dpr = Self::calculate_dpr(windowed_context.window().scale_factor(), is_wayland);
 
         Ok(Self {
             current_mouse_cursor,
@@ -239,6 +232,32 @@ impl Window {
             wayland_surface,
             dpr,
         })
+    }
+
+    /// Calculate the dpr to apply, this will ignore the input and always return `1.` if the value
+    /// seems erroneous on X11 systems, likely from incorrect XRandr metrics.
+    #[inline]
+    fn calculate_dpr(dpr: f64, is_wayland: bool) -> f64 {
+        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if !is_wayland && dpr > MAX_X11_DPR {
+            1.
+        } else {
+            dpr
+        }
+    }
+
+    /// Update the cached dpr value. This checks that the value is sane on X11 systems and sets it
+    /// to 1. if it isn't.
+    #[inline]
+    pub fn update_dpr(&mut self, dpr: f64, is_wayland: bool) {
+        self.dpr = Self::calculate_dpr(dpr, is_wayland);
+    }
+
+    /// Retreive the effective dpr
+    #[inline]
+    pub fn get_dpr(&self) -> f64 {
+        self.dpr
     }
 
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {

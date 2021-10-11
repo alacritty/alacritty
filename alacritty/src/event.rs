@@ -1209,7 +1209,12 @@ impl<N: Notify + OnResize> Processor<N> {
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.window().dpr = scale_factor;
+                    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                    let is_wayland = processor.ctx.event_loop.is_wayland();
+                    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
+                    let is_wayland = false;
+
+                    processor.ctx.window().update_dpr(scale_factor, is_wayland);
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {
@@ -1385,6 +1390,8 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
+        info!("Reloading config");
+
         if !processor.ctx.message_buffer.is_empty() {
             processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
             processor.ctx.display_update_pending.dirty = true;
