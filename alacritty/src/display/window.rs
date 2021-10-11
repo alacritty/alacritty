@@ -241,10 +241,9 @@ impl Window {
         // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland && dpr > MAX_X11_DPR {
-            1.
-        } else {
-            dpr
+            return 1.;
         }
+        dpr
     }
 
     /// Update the cached dpr value. This checks that the value is sane on X11 systems and sets it
