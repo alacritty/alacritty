@@ -5,15 +5,12 @@ use std::borrow::Cow;
 use std::env;
 use std::ffi::CStr;
 use std::fs::File;
-use std::io;
 use std::mem::MaybeUninit;
-use std::os::unix::{
-    io::{AsRawFd, FromRawFd, RawFd},
-    process::CommandExt,
-};
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
-use std::ptr;
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+use std::{io, ptr};
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;
@@ -21,7 +18,8 @@ use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
-use signal_hook::{self as sighook, iterator::Signals};
+use signal_hook as sighook;
+use signal_hook::iterator::Signals;
 
 use crate::config::{Config, Program};
 use crate::event::OnResize;

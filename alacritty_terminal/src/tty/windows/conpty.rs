@@ -1,8 +1,6 @@
-use std::i16;
 use std::io::Error;
-use std::mem;
 use std::os::windows::io::IntoRawHandle;
-use std::ptr;
+use std::{i16, mem, ptr};
 
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};

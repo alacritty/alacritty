@@ -7,9 +7,8 @@ use structopt::StructOpt;
 
 use alacritty_terminal::config::Program;
 
-use crate::config::serde_utils;
 use crate::config::window::{Class, DEFAULT_NAME};
-use crate::config::Config;
+use crate::config::{serde_utils, Config};
 
 /// Options specified on the command line.
 #[derive(StructOpt, Debug)]

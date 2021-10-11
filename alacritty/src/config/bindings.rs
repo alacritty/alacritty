@@ -5,8 +5,7 @@ use std::fmt::{self, Debug, Display};
 use bitflags::bitflags;
 use glutin::event::VirtualKeyCode::*;
 use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
-use serde::de::Error as SerdeError;
-use serde::de::{self, MapAccess, Unexpected, Visitor};
+use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
@@ -1139,7 +1138,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                     _ => {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",
-                        ))
+                        ));
                     },
                 };
 
