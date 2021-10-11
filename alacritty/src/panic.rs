@@ -1,11 +1,13 @@
+use std::io::Write;
+use std::{io, panic, ptr};
+
+use winapi::um::winuser;
+
 use alacritty_terminal::tty::windows::win32_string;
 
 // Install a panic handler that renders the panic in a classical Windows error
 // dialog box as well as writes the panic to STDERR.
 pub fn attach_handler() {
-    use std::{io, io::Write, panic, ptr};
-    use winapi::um::winuser;
-
     panic::set_hook(Box::new(|panic_info| {
         let _ = writeln!(io::stderr(), "{}", panic_info);
         let msg = format!("{}\n\nPress Ctrl-C to Copy", panic_info);

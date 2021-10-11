@@ -3,19 +3,17 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
-use std::env;
-use std::f32;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::mem;
 use std::path::{Path, PathBuf};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::{env, f32, mem};
 
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};

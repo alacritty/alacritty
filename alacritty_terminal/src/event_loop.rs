@@ -15,12 +15,10 @@ use mio::unix::UnixReady;
 use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
-use crate::ansi;
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::{SizeInfo, Term};
-use crate::thread;
-use crate::tty;
+use crate::{ansi, thread, tty};
 
 /// Max bytes to read from the PTY before forced terminal synchronization.
 const READ_BUFFER_SIZE: usize = 0x10_0000;

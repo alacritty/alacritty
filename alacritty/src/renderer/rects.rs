@@ -10,9 +10,8 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::display::content::RenderableCell;
-use crate::gl;
 use crate::gl::types::*;
-use crate::renderer;
+use crate::{gl, renderer};
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {
