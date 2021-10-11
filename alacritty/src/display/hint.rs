@@ -406,10 +406,8 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use alacritty_terminal::{
-        index::{Column, Line},
-        term::test::mock_term,
-    };
+    use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::term::test::mock_term;
 
     use super::*;
 
