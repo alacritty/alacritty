@@ -320,6 +320,10 @@ impl<'a, T> HintPostProcessor<'a, T> {
         post_processor
     }
 
+    fn get_next_start(&self, regex_match: &Match) -> Point {
+        max(regex_match.start(), regex_match.end()).add(self.term, Boundary::Grid, 1)
+    }
+
     /// Apply some hint post processing heuristics.
     ///
     /// This will check the end of the hint and make it shorter if certain characters are determined
