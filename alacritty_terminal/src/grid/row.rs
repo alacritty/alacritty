@@ -1,10 +1,8 @@
 //! Defines the Row type which makes up lines in the grid.
 
 use std::cmp::{max, min};
-use std::ops::{Index, IndexMut};
-use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
-use std::ptr;
-use std::slice;
+use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
+use std::{ptr, slice};
 
 use serde::{Deserialize, Serialize};
 
