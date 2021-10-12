@@ -1388,8 +1388,6 @@ impl<N: Notify + OnResize> Processor<N> {
     where
         T: EventListener,
     {
-        info!("Reloading config");
-
         if !processor.ctx.message_buffer.is_empty() {
             processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
             processor.ctx.display_update_pending.dirty = true;

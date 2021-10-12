@@ -248,7 +248,7 @@ impl Display {
             wayland_event_queue.as_ref(),
         )?;
 
-        let dpr = window.get_dpr();
+        let dpr = window.dpr();
         info!("Device pixel ratio: {}", dpr);
 
         // Create renderer.
@@ -267,7 +267,7 @@ impl Display {
             }
         }
 
-        let padding = config.ui_config.window.padding(window.get_dpr());
+        let padding = config.ui_config.window.padding(dpr);
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
@@ -389,7 +389,7 @@ impl Display {
     /// This will return a tuple of the cell width and height.
     fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
         let cache = &mut self.glyph_cache;
-        let dpr = self.window.get_dpr();
+        let dpr = self.window.dpr();
 
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(font, dpr, &mut api);
@@ -439,7 +439,7 @@ impl Display {
             height = dimensions.height as f32;
         }
 
-        let padding = config.ui_config.window.padding(self.window.get_dpr());
+        let padding = config.ui_config.window.padding(self.window.dpr());
 
         self.size_info = SizeInfo::new(
             width,

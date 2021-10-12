@@ -220,7 +220,7 @@ impl Window {
             None
         };
 
-        let dpr = Self::calculate_dpr(windowed_context.window().scale_factor(), is_wayland);
+        let dpr = Self::limit_dpr(windowed_context.window().scale_factor(), is_wayland);
 
         Ok(Self {
             current_mouse_cursor,
@@ -234,11 +234,10 @@ impl Window {
         })
     }
 
-    /// Calculate the dpr to apply, this will ignore the input and always return `1.` if the value
-    /// seems erroneous on X11 systems, likely from incorrect XRandr metrics.
+    /// Limit the dpr to apply, this will ignore the input and always return `1.` if the value seems
+    /// erroneous on X11 systems due to incorrect XRandr metrics.
     #[inline]
-    fn calculate_dpr(dpr: f64, is_wayland: bool) -> f64 {
-        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
+    fn limit_dpr(dpr: f64, is_wayland: bool) -> f64 {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland && dpr > MAX_X11_DPR {
             return 1.;
@@ -250,12 +249,12 @@ impl Window {
     /// to 1. if it isn't.
     #[inline]
     pub fn update_dpr(&mut self, dpr: f64, is_wayland: bool) {
-        self.dpr = Self::calculate_dpr(dpr, is_wayland);
+        self.dpr = Self::limit_dpr(dpr, is_wayland);
     }
 
     /// Retreive the effective dpr
     #[inline]
-    pub fn get_dpr(&self) -> f64 {
+    pub fn dpr(&self) -> f64 {
         self.dpr
     }
 

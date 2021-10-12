@@ -909,7 +909,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle automatic scrolling when selecting above/below the window.
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
-        let dpr = self.ctx.window().get_dpr();
+        let dpr = self.ctx.window().dpr();
         let size = self.ctx.size_info();
         let scheduler = self.ctx.scheduler_mut();
 
