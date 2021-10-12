@@ -1212,7 +1212,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
                     let is_wayland = false;
 
-                    processor.ctx.window().update_dpr(scale_factor, is_wayland);
+                    processor.ctx.window().set_dpr(scale_factor, is_wayland);
                     *processor.ctx.dirty = true;
                 },
                 Event::Message(message) => {

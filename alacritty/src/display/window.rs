@@ -245,10 +245,10 @@ impl Window {
         dpr
     }
 
-    /// Update the cached dpr value. This checks that the value is sane on X11 systems and sets it
-    /// to 1. if it isn't.
+    /// Set the cached dpr value. This checks that the value is sane on X11 systems and sets it to
+    /// 1. instead if it isn't.
     #[inline]
-    pub fn update_dpr(&mut self, dpr: f64, is_wayland: bool) {
+    pub fn set_dpr(&mut self, dpr: f64, is_wayland: bool) {
         self.dpr = Self::limit_dpr(dpr, is_wayland);
     }
 
