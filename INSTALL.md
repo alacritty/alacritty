@@ -153,7 +153,7 @@ pkg install cmake freetype2 fontconfig pkgconf python3
 
 #### OpenBSD
 
-On OpenBSD 6.5, you need [Xenocara](https://xenocara.org) and Rust to build
+On OpenBSD you need [Xenocara](https://xenocara.org) and Rust to build
 Alacritty, plus Python 3 to build its XCB dependency. If something is still
 found to be missing, please open an issue.
 
@@ -162,6 +162,49 @@ pkg_add rust python
 ```
 
 Select the package for Python 3 (e.g. `python-3.6.8p0`) when prompted.
+
+The default user limits, specifically datasize, in OpenBSD are insufficient to
+build Alacritty. Fortunately OpenBSD provides the `_pbuild` user who has user
+limits appropriate for building [ports(7)](https://man.openbsd.org/ports) and
+other software like Alacritty.
+
+To build Alacritty as the `_pbuild` user:
+
+* Fetch all of Alacritty's build dependencies<br>
+  `cargo fetch`
+* Make the cargo registry readable by others, so `_pbuild` can access the
+  previously fetched dependencies<br>
+  `chmod -R o+r $HOME/.cargo`
+* Create a target directory for building Alacritty<br>
+  `mkdir -p target`
+* Make the target directory writeble to others, so `_pbuild` can write the
+  generated artifacts to it<br>
+  `chmod o+w target`
+* Build Alacritty as the `_pbuild` user
+    ```
+    /usr/bin/doas -u _pbuild \
+      /usr/bin/env HOME=$HOME RUSTFLAGS=-L/usr/local/lib \
+      cargo build --offline --release --target-dir target -j$(sysctl -n hw.ncpu)
+    ```
+    Since the `_pbuild` user's `HOME` directory is set to `/nonexistent`
+    (`getent passwd _pbuild | cut -d: -f6`) `cargo` is run via
+    [env(1)](https://man.openbsd.org/env) to set the `HOME` directory
+    to the `HOME` directory of the current user.
+
+    Specifying the `RUSTFLAGS` is only necessary until the
+    [winit](https://github.com/rust-windowing/winit) dependency
+    [smithay-client-toolkit](https://github.com/Smithay/client-toolkit) has been
+    [updated to 0.15.1](https://github.com/rust-windowing/winit/pull/2034)
+    as that [contains a fix](https://github.com/Smithay/client-toolkit/pull/198)
+    to link libxkbcommon when building without the dlopen feature on OpenBSD.
+* To delete the build files owned by the `_pbuild` user run<br>
+  `/usr/bin/doas -u _pbuild rm -rf target/*`
+
+In case the user limits for the `_pbuild` user on your platform are not
+sufficient to build Alacritty increase the `datasize-cur` for the `*pbuild`
+login class to at least 3GB
+(see [login.conf(5)](https://man.openbsd.org/login.conf)).
+
 
 #### Solus
 
