@@ -312,13 +312,18 @@ impl<'a, T> HintPostProcessor<'a, T> {
         // Post-process the first hint match.
         let next_match = post_processor.hint_post_processing(&regex_match);
         post_processor.start = post_processor.get_next_start(&next_match);
-        post_processor.next_match = Some(next_match);
+        post_processor.next_match = next_match;
 
         post_processor
     }
 
-    fn get_next_start(&self, regex_match: &Match) -> Point {
-        max(regex_match.start(), regex_match.end()).add(self.term, Boundary::Grid, 1)
+    fn get_next_start(&self, regex_match: &Option<Match>) -> Point {
+        let end = match regex_match {
+            Some(rm) => rm.end(),
+            None => &self.end,
+        };
+
+        end.add(self.term, Boundary::Grid, 1)
     }
 
     /// Apply some hint post processing heuristics.
@@ -327,7 +332,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
     /// to be unlikely to be intentionally part of the hint.
     ///
     /// This is most useful for identifying URLs appropriately.
-    fn hint_post_processing(&self, regex_match: &Match) -> Match {
+    fn hint_post_processing(&self, regex_match: &Match) -> Option<Match> {
         let mut iter = self.term.grid().iter_from(*regex_match.start());
 
         let mut c = iter.cell().c;
@@ -382,7 +387,13 @@ impl<'a, T> HintPostProcessor<'a, T> {
             }
         }
 
-        start..=iter.point()
+        let result = start..=iter.point();
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
     }
 }
 
@@ -396,7 +407,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
                 let regex_match = self.hint_post_processing(&rm);
                 self.start = self.get_next_start(&regex_match);
-                self.next_match = Some(regex_match);
+                self.next_match = regex_match;
             }
         }
 
@@ -461,9 +472,9 @@ mod tests {
             &search,
             Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
         )
-        .take(2)
+        .take(1)
         .count();
 
-        assert_eq!(count, 1);
+        assert_eq!(count, 0);
     }
 }
