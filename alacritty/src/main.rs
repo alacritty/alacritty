@@ -14,11 +14,10 @@ compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#
 
 #[cfg(target_os = "macos")]
 use std::env;
-use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::process;
 use std::string::ToString;
+use std::{fs, process};
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
 use log::info;
@@ -51,8 +50,9 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+use crate::cli::Options;
 #[cfg(unix)]
-use crate::cli::{MessageOptions, Options, Subcommands};
+use crate::cli::{MessageOptions, Subcommands};
 use crate::config::{monitor, Config};
 use crate::event::{Event, Processor};
 #[cfg(unix)]
