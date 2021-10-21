@@ -361,3 +361,16 @@ To install the completions for fish, run
 mkdir -p $fish_complete_path[1]
 cp extra/completions/alacritty.fish $fish_complete_path[1]/alacritty.fish
 ```
+
+### When you're not seeing color in the output of `ls` commands
+
+On some distributions, such as Fedora Linux, you may notice an absence of color in directory listings when you run `ls` commands in an Alacritty shell.
+
+If you notice this, you can enable color in `ls` output in Alacritty as follows:
+
+```
+cp /etc/DIR_COLORS ~/.dir_colors
+echo "TERM alacritty" >> ~/.dir_colors
+```
+
+After running these commands, close all Alacritty windows, reopen a new one and try running `ls` again. You should now get output in color.
