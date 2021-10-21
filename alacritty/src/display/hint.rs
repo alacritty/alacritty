@@ -306,24 +306,18 @@ struct HintPostProcessor<'a, T> {
 impl<'a, T> HintPostProcessor<'a, T> {
     /// Create a new iterator for an unprocessed match.
     fn new(term: &'a Term<T>, regex: &'a RegexSearch, regex_match: Match) -> Self {
-        let end = *regex_match.end();
-        let mut post_processor = Self { next_match: None, start: end, end, term, regex };
-
-        // Post-process the first hint match.
-        let next_match = post_processor.hint_post_processing(&regex_match);
-        post_processor.start = post_processor.get_next_start(&next_match);
-        post_processor.next_match = next_match;
-
-        post_processor
-    }
-
-    fn get_next_start(&self, regex_match: &Option<Match>) -> Point {
-        let end = match regex_match {
-            Some(rm) => rm.end(),
-            None => &self.end,
+        let mut post_processor = Self {
+            next_match: None,
+            start: *regex_match.start(),
+            end: *regex_match.end(),
+            term,
+            regex,
         };
 
-        end.add(self.term, Boundary::Grid, 1)
+        // Post-process the first hint match.
+        post_processor.process_next_match_and_start_point(&regex_match);
+
+        post_processor
     }
 
     /// Apply some hint post processing heuristics.
@@ -387,12 +381,25 @@ impl<'a, T> HintPostProcessor<'a, T> {
             }
         }
 
-        let result = start..=iter.point();
-
-        if result.is_empty() {
+        if start > iter.point() {
             None
         } else {
-            Some(result)
+            Some(start..=iter.point())
+        }
+    }
+
+    /// Loops over processed matches until a match is found or the
+    /// range is exhausted.
+    fn process_next_match_and_start_point(&mut self, regex_match: &Match) {
+        while self.start <= self.end {
+            self.next_match = self.hint_post_processing(regex_match);
+
+            if let Some(nm) = &self.next_match {
+                self.start = nm.end().add(self.term, Boundary::Grid, 1);
+                break;
+            } else {
+                self.start = self.start.add(self.term, Boundary::Grid, 1);
+            }
         }
     }
 }
@@ -405,9 +412,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
         if self.start <= self.end {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                let regex_match = self.hint_post_processing(&rm);
-                self.start = self.get_next_start(&regex_match);
-                self.next_match = regex_match;
+                self.process_next_match_and_start_point(&rm);
             }
         }
 
