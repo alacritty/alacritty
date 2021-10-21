@@ -39,7 +39,7 @@ dirs = "3.0.1"
 gl_generator = "0.14.0"
 
 [target.'cfg(not(windows))'.dependencies]
-xdg = "2"
+xdg = "2.4.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.16.8", default-features = false, optional = true }
