@@ -134,9 +134,8 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
 /// display servers running for the same user.
 #[cfg(not(target_os = "macos"))]
 fn socket_prefix() -> String {
-    let wayland_display = env::var("WAYLAND_DISPLAY").unwrap_or_default();
-    let x11_display = env::var("DISPLAY").unwrap_or_default();
-    format!("Alacritty-{}{}", x11_display, wayland_display)
+    let display = env::var("WAYLAND_DISPLAY").or_else(|_| env::var("DISPLAY")).unwrap_or_default();
+    format!("Alacritty-{}", display)
 }
 
 /// File prefix matching all available sockets.
