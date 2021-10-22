@@ -117,22 +117,23 @@ impl<'a> RenderableContent<'a> {
         } else {
             self.config.ui_config.colors.cursor
         };
-        let mut cursor_color =
+        let cursor_color =
             self.terminal_content.colors[NamedColor::Cursor].map_or(color.background, CellRgb::Rgb);
-        let mut text_color = color.foreground;
+        let text_color = color.foreground;
 
-        // Invert the cursor if it has a fixed background close to the cell's background.
-        if matches!(
-            cursor_color,
-            CellRgb::Rgb(color) if color.contrast(cell.bg) < MIN_CURSOR_CONTRAST
-        ) {
-            cursor_color = CellRgb::CellForeground;
-            text_color = CellRgb::CellBackground;
-        }
+        let insufficient_contrast = (!matches!(cursor_color, CellRgb::Rgb(_))
+            || !matches!(text_color, CellRgb::Rgb(_)))
+            && cell.fg.contrast(cell.bg) < MIN_CURSOR_CONTRAST;
 
         // Convert from cell colors to RGB.
-        let text_color = text_color.color(cell.fg, cell.bg);
-        let cursor_color = cursor_color.color(cell.fg, cell.bg);
+        let mut text_color = text_color.color(cell.fg, cell.bg);
+        let mut cursor_color = cursor_color.color(cell.fg, cell.bg);
+
+        // Invert cursor color with insufficient contrast to prevent invisible cursors.
+        if insufficient_contrast {
+            cursor_color = self.config.ui_config.colors.primary.foreground;
+            text_color = self.config.ui_config.colors.primary.background;
+        }
 
         Some(RenderableCursor {
             is_wide: cell.flags.contains(Flags::WIDE_CHAR),
