@@ -185,7 +185,7 @@ struct Attr {
 }
 
 impl Parse for Attr {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> parse::Result<Self> {
         let ident = input.parse::<Ident>()?.to_string();
         let param = input.parse::<Token![=]>().and_then(|_| input.parse()).ok();
         Ok(Self { ident, param })

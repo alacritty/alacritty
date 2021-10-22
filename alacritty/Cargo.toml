@@ -6,7 +6,8 @@ license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
