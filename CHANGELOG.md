@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Line indicator obstructing vi mode cursor when scrolled into history
 - Vi mode search starting in the line below the vi cursor
+- Invisible cursor with matching foreground/background colors
 
 ## 0.9.0
 
