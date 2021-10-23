@@ -34,9 +34,9 @@ use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ClickState, Event, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
-use crate::scheduler::{Scheduler, TimerId};
+use crate::scheduler::{Scheduler, TimerId, Topic};
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -80,6 +80,7 @@ pub trait ActionContext<T: EventListener> {
     fn terminal(&self) -> &Term<T>;
     fn terminal_mut(&mut self) -> &mut Term<T>;
     fn spawn_new_instance(&mut self) {}
+    fn create_new_window(&mut self) {}
     fn change_font_size(&mut self, _delta: f32) {}
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
@@ -319,6 +320,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
+            Action::CreateNewWindow => ctx.create_new_window(),
             Action::ReceiveChar | Action::None => (),
         }
     }
@@ -594,7 +596,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
         self.ctx.display().highlighted_hint = hint;
 
-        self.ctx.scheduler_mut().unschedule(TimerId::SelectionScrolling);
+        let timer_id = TimerId::new(Topic::SelectionScrolling, self.ctx.window().id());
+        self.ctx.scheduler_mut().unschedule(timer_id);
 
         // Copy selection on release, to prevent flooding the display server.
         self.ctx.copy_selection(ClipboardType::Selection);
@@ -731,8 +734,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
-            if let Some(timer) = self.ctx.scheduler_mut().get_mut(TimerId::DelayedSearch) {
-                timer.deadline = Instant::now() + TYPING_SEARCH_DELAY;
+            let timer_id = TimerId::new(Topic::DelayedSearch, self.ctx.window().id());
+            let scheduler = self.ctx.scheduler_mut();
+            if let Some(timer) = scheduler.unschedule(timer_id) {
+                scheduler.schedule(timer.event, TYPING_SEARCH_DELAY, false, timer.id);
             }
         }
 
@@ -911,6 +916,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     fn update_selection_scrolling(&mut self, mouse_y: i32) {
         let dpr = self.ctx.window().dpr;
         let size = self.ctx.size_info();
+        let window_id = self.ctx.window().id();
         let scheduler = self.ctx.scheduler_mut();
 
         // Scale constants by DPI.
@@ -928,26 +934,18 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         } else if mouse_y >= start_bottom {
             start_bottom - mouse_y - step
         } else {
-            scheduler.unschedule(TimerId::SelectionScrolling);
+            scheduler.unschedule(TimerId::new(Topic::SelectionScrolling, window_id));
             return;
         };
 
         // Scale number of lines scrolled based on distance to boundary.
         let delta = delta as i32 / step as i32;
-        let event = Event::Scroll(Scroll::Delta(delta));
+        let event = Event::new(EventType::Scroll(Scroll::Delta(delta)), Some(window_id));
 
         // Schedule event.
-        match scheduler.get_mut(TimerId::SelectionScrolling) {
-            Some(timer) => timer.event = event.into(),
-            None => {
-                scheduler.schedule(
-                    event.into(),
-                    SELECTION_SCROLLING_INTERVAL,
-                    true,
-                    TimerId::SelectionScrolling,
-                );
-            },
-        }
+        let timer_id = TimerId::new(Topic::SelectionScrolling, window_id);
+        scheduler.unschedule(timer_id);
+        scheduler.schedule(event, SELECTION_SCROLLING_INTERVAL, true, timer_id);
     }
 }
 
@@ -1106,7 +1104,7 @@ mod tests {
                     ..Mouse::default()
                 };
 
-                let mut message_buffer = MessageBuffer::new();
+                let mut message_buffer = MessageBuffer::default();
 
                 let context = ActionContext {
                     terminal: &mut terminal,

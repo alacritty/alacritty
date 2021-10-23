@@ -246,6 +246,16 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     }
 }
 
+impl Drop for Pty {
+    fn drop(&mut self) {
+        // Make sure the PTY is terminated properly.
+        unsafe {
+            libc::kill(self.child.id() as i32, libc::SIGHUP);
+        }
+        let _ = self.child.wait();
+    }
+}
+
 impl EventedReadWrite for Pty {
     type Reader = File;
     type Writer = File;
@@ -339,6 +349,22 @@ impl EventedPty for Pty {
     }
 }
 
+impl OnResize for Pty {
+    /// Resize the PTY.
+    ///
+    /// Tells the kernel that the window size changed with the new pixel
+    /// dimensions and line/column counts.
+    fn on_resize(&mut self, size: &SizeInfo) {
+        let win = size.to_winsize();
+
+        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
+
+        if res < 0 {
+            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
+        }
+    }
+}
+
 /// Types that can produce a `libc::winsize`.
 pub trait ToWinsize {
     /// Get a `libc::winsize`.
@@ -352,22 +378,6 @@ impl<'a> ToWinsize for &'a SizeInfo {
             ws_col: self.columns() as libc::c_ushort,
             ws_xpixel: self.width() as libc::c_ushort,
             ws_ypixel: self.height() as libc::c_ushort,
-        }
-    }
-}
-
-impl OnResize for Pty {
-    /// Resize the PTY.
-    ///
-    /// Tells the kernel that the window size changed with the new pixel
-    /// dimensions and line/column counts.
-    fn on_resize(&mut self, size: &SizeInfo) {
-        let win = size.to_winsize();
-
-        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
-
-        if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
         }
     }
 }

@@ -2,19 +2,20 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
 
+use glutin::event_loop::EventLoopProxy;
 use log::{debug, error};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use alacritty_terminal::thread;
 
-use crate::event::{Event, EventProxy};
+use crate::event::{Event, EventType};
 
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(10);
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(1000);
 
-pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
+pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
     // Don't monitor config if there is no path to watch.
     if paths.is_empty() {
         return;
@@ -77,9 +78,10 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventProxy) {
                     if paths.contains(&path) =>
                 {
                     // Always reload the primary configuration file.
-                    event_proxy.send_event(Event::ConfigReload(paths[0].clone()));
+                    let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
+                    let _ = event_proxy.send_event(event);
                 }
-                _ => {},
+                _ => (),
             }
         }
     });

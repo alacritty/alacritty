@@ -673,11 +673,7 @@ impl QuadRenderer {
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
 
             // Restore viewport with padding.
-            let padding_x = size_info.padding_x() as i32;
-            let padding_y = size_info.padding_y() as i32;
-            let width = size_info.width() as i32;
-            let height = size_info.height() as i32;
-            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
+            self.set_viewport(&size_info);
         }
     }
 
@@ -730,15 +726,9 @@ impl QuadRenderer {
         })
     }
 
-    pub fn resize(&mut self, size: &SizeInfo) {
-        // Viewport.
+    pub fn resize(&self, size: &SizeInfo) {
         unsafe {
-            gl::Viewport(
-                size.padding_x() as i32,
-                size.padding_y() as i32,
-                size.width() as i32 - 2 * size.padding_x() as i32,
-                size.height() as i32 - 2 * size.padding_y() as i32,
-            );
+            self.set_viewport(size);
 
             // Update projection.
             gl::UseProgram(self.program.id);
@@ -749,6 +739,19 @@ impl QuadRenderer {
                 size.padding_y(),
             );
             gl::UseProgram(0);
+        }
+    }
+
+    /// Set the viewport for cell rendering.
+    #[inline]
+    pub fn set_viewport(&self, size: &SizeInfo) {
+        unsafe {
+            gl::Viewport(
+                size.padding_x() as i32,
+                size.padding_y() as i32,
+                size.width() as i32 - 2 * size.padding_x() as i32,
+                size.height() as i32 - 2 * size.padding_y() as i32,
+            );
         }
     }
 }

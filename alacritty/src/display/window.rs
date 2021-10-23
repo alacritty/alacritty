@@ -29,11 +29,12 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
+use std::ops::{Deref, DerefMut};
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glutin::event_loop::EventLoop;
+use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
@@ -124,7 +125,7 @@ impl From<crossfont::Error> for Error {
 
 fn create_gl_window<E>(
     mut window: WindowBuilder,
-    event_loop: &EventLoop<E>,
+    event_loop: &EventLoopWindowTarget<E>,
     srgb: bool,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
@@ -160,7 +161,7 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
-    windowed_context: WindowedContext<PossiblyCurrent>,
+    windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
 }
@@ -170,7 +171,7 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new<E>(
-        event_loop: &EventLoop<E>,
+        event_loop: &EventLoopWindowTarget<E>,
         config: &Config,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -232,7 +233,7 @@ impl Window {
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
-            windowed_context,
+            windowed_context: Replaceable::new(windowed_context),
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -241,10 +242,12 @@ impl Window {
         })
     }
 
+    #[inline]
     pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
         self.window().set_inner_size(size);
     }
 
+    #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window().inner_size()
     }
@@ -258,6 +261,11 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window().set_title(title);
+    }
+
+    #[inline]
+    pub fn request_redraw(&self) {
+        self.window().request_redraw();
     }
 
     #[inline]
@@ -374,7 +382,7 @@ impl Window {
         None
     }
 
-    pub fn window_id(&self) -> WindowId {
+    pub fn id(&self) -> WindowId {
         self.window().id()
     }
 
@@ -436,6 +444,13 @@ impl Window {
         self.windowed_context.resize(size);
     }
 
+    pub fn make_current(&mut self) {
+        if !self.windowed_context.is_current() {
+            self.windowed_context
+                .replace_with(|context| unsafe { context.make_current().expect("context swap") });
+        }
+    }
+
     /// Disable macOS window shadows.
     ///
     /// This prevents rendering artifacts from showing up when the window is transparent.
@@ -495,4 +510,45 @@ fn x_embed_window(window: &GlutinWindow, parent_id: std::os::raw::c_ulong) {
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
     log::error!("Could not embed into specified window.");
     std::process::exit(1);
+}
+
+/// Struct for safe in-place replacement.
+///
+/// This struct allows easily replacing struct fields that provide `self -> Self` methods in-place,
+/// without having to deal with constantly unwrapping the underlying [`Option`].
+struct Replaceable<T>(Option<T>);
+
+impl<T> Replaceable<T> {
+    pub fn new(inner: T) -> Self {
+        Self(Some(inner))
+    }
+
+    /// Replace the contents of the container.
+    pub fn replace_with<F: FnMut(T) -> T>(&mut self, f: F) {
+        self.0 = self.0.take().map(f);
+    }
+
+    /// Get immutable access to the wrapped value.
+    pub fn get(&self) -> &T {
+        self.0.as_ref().unwrap()
+    }
+
+    /// Get mutable access to the wrapped value.
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.as_mut().unwrap()
+    }
+}
+
+impl<T> Deref for Replaceable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<T> DerefMut for Replaceable<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.get_mut()
+    }
 }

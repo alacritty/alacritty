@@ -2,16 +2,12 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::error::Error;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -21,35 +17,38 @@ use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindow
 use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use log::info;
-use serde_json as json;
+use glutin::window::WindowId;
+use log::{error, info};
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use wayland_client::{Display as WaylandDisplay, EventQueue};
 
 use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify, OnResize};
+use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
+use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
-use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 
-use crate::cli::Options as CLIOptions;
+use crate::cli::Options as CliOptions;
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{self, Display, DisplayUpdate};
+use crate::display::{self, Display};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 #[cfg(target_os = "macos")]
 use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
-use crate::scheduler::{Scheduler, TimerId};
+use crate::scheduler::{Scheduler, TimerId, Topic};
+use crate::window_context::WindowContext;
 
 /// Duration after the last user input until an unlimited search is performed.
 pub const TYPING_SEARCH_DELAY: Duration = Duration::from_millis(500);
@@ -60,16 +59,20 @@ const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 /// Maximum number of search terms stored in the history.
 const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 
-/// Events dispatched through the UI event loop.
+/// Alacritty events.
 #[derive(Debug, Clone)]
-pub enum Event {
-    Terminal(TerminalEvent),
-    DprChanged(f64, (u32, u32)),
-    Scroll(Scroll),
-    ConfigReload(PathBuf),
-    Message(Message),
-    BlinkCursor,
-    SearchNext,
+pub struct Event {
+    /// Limit event to a specific window.
+    window_id: Option<WindowId>,
+
+    /// Event payload.
+    payload: EventType,
+}
+
+impl Event {
+    pub fn new<I: Into<Option<WindowId>>>(payload: EventType, window_id: I) -> Self {
+        Self { window_id: window_id.into(), payload }
+    }
 }
 
 impl From<Event> for GlutinEvent<'_, Event> {
@@ -78,16 +81,32 @@ impl From<Event> for GlutinEvent<'_, Event> {
     }
 }
 
-impl From<TerminalEvent> for Event {
+/// Alacritty events.
+#[derive(Debug, Clone)]
+pub enum EventType {
+    DprChanged(f64, (u32, u32)),
+    Terminal(TerminalEvent),
+    ConfigReload(PathBuf),
+    Message(Message),
+    Scroll(Scroll),
+    CreateWindow,
+    BlinkCursor,
+    SearchNext,
+}
+
+impl From<TerminalEvent> for EventType {
     fn from(event: TerminalEvent) -> Self {
-        Event::Terminal(event)
+        Self::Terminal(event)
     }
 }
 
 /// Regex search state.
 pub struct SearchState {
     /// Search direction.
-    direction: Direction,
+    pub direction: Direction,
+
+    /// Current position in the search history.
+    pub history_index: Option<usize>,
 
     /// Change in display offset since the beginning of the search.
     display_offset_delta: i32,
@@ -105,9 +124,6 @@ pub struct SearchState {
     /// While going through history, the [`SearchState::history_index`] will point to the element
     /// in history which is currently being previewed.
     history: VecDeque<String>,
-
-    /// Current position in the search history.
-    history_index: Option<usize>,
 
     /// Compiled search automatons.
     dfas: Option<RegexSearch>,
@@ -164,14 +180,13 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut ModifiersState,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
-    pub display_update_pending: &'a mut DisplayUpdate,
     pub config: &'a mut Config,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
+    pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
-    cli_options: &'a CLIOptions,
-    font_size: &'a mut Size,
-    dirty: &'a mut bool,
+    pub font_size: &'a mut Size,
+    pub dirty: &'a mut bool,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -380,23 +395,27 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         start_daemon(&alacritty, &args);
     }
 
+    fn create_new_window(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow, None));
+    }
+
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
         let font = self.config.ui_config.font.clone().with_size(*self.font_size);
-        self.display_update_pending.set_font(font);
+        self.display.pending_update.set_font(font);
         *self.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
         *self.font_size = self.config.ui_config.font.size();
-        self.display_update_pending.set_font(self.config.ui_config.font.clone());
+        self.display.pending_update.set_font(self.config.ui_config.font.clone());
         *self.dirty = true;
     }
 
     #[inline]
     fn pop_message(&mut self) {
         if !self.message_buffer.is_empty() {
-            self.display_update_pending.dirty = true;
+            self.display.pending_update.dirty = true;
             self.message_buffer.pop();
             *self.dirty = true;
         }
@@ -433,7 +452,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             };
         }
 
-        self.display_update_pending.dirty = true;
+        self.display.pending_update.dirty = true;
         *self.dirty = true;
     }
 
@@ -446,7 +465,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Force unlimited search if the previous one was interrupted.
-        if self.scheduler.scheduled(TimerId::DelayedSearch) {
+        let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+        if self.scheduler.scheduled(timer_id) {
             self.goto_match(None);
         }
 
@@ -610,9 +630,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
-        let blink_interval = self.config.cursor.blink_interval();
-        if let Some(timer) = self.scheduler.get_mut(TimerId::BlinkCursor) {
-            timer.deadline = Instant::now() + Duration::from_millis(blink_interval);
+        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
+        if let Some(timer) = self.scheduler.unschedule(timer_id) {
+            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            self.scheduler.schedule(timer.event, interval, true, timer.id);
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
@@ -795,7 +816,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Reset terminal to the state before search was started.
     fn search_reset_state(&mut self) {
         // Unschedule pending timers.
-        self.scheduler.unschedule(TimerId::DelayedSearch);
+        let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+        self.scheduler.unschedule(timer_id);
 
         // Clear focused match.
         self.search_state.focused_match = None;
@@ -849,19 +871,17 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
                 self.search_state.display_offset_delta += old_offset - display_offset as i32;
 
                 // Since we found a result, we require no delayed re-search.
-                self.scheduler.unschedule(TimerId::DelayedSearch);
+                let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+                self.scheduler.unschedule(timer_id);
             },
             // Reset viewport only when we know there is no match, to prevent unnecessary jumping.
             None if limit.is_none() => self.search_reset_state(),
             None => {
                 // Schedule delayed search if we ran into our search limit.
-                if !self.scheduler.scheduled(TimerId::DelayedSearch) {
-                    self.scheduler.schedule(
-                        Event::SearchNext.into(),
-                        TYPING_SEARCH_DELAY,
-                        false,
-                        TimerId::DelayedSearch,
-                    );
+                let timer_id = TimerId::new(Topic::DelayedSearch, self.display.window.id());
+                if !self.scheduler.scheduled(timer_id) {
+                    let event = Event::new(EventType::SearchNext, self.display.window.id());
+                    self.scheduler.schedule(event, TYPING_SEARCH_DELAY, false, timer_id);
                 }
 
                 // Clear focused match.
@@ -874,7 +894,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Cleanup the search state.
     fn exit_search(&mut self) {
-        self.display_update_pending.dirty = true;
+        self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
         *self.dirty = true;
 
@@ -895,14 +915,12 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
 
         // Update cursor blinking state.
-        self.scheduler.unschedule(TimerId::BlinkCursor);
+        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
+        self.scheduler.unschedule(timer_id);
         if blinking && self.terminal.is_focused {
-            self.scheduler.schedule(
-                GlutinEvent::UserEvent(Event::BlinkCursor),
-                Duration::from_millis(self.config.cursor.blink_interval()),
-                true,
-                TimerId::BlinkCursor,
-            )
+            let event = Event::new(EventType::BlinkCursor, self.display.window.id());
+            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            self.scheduler.schedule(event, interval, true, timer_id);
         } else {
             self.display.cursor_hidden = false;
             *self.dirty = true;
@@ -975,305 +993,88 @@ impl Mouse {
     }
 }
 
-/// The event processor.
-///
-/// Stores some state from received events and dispatches actions when they are
-/// triggered.
-pub struct Processor<N> {
-    notifier: N,
-    mouse: Mouse,
-    received_count: usize,
-    suppress_chars: bool,
-    modifiers: ModifiersState,
-    config: Config,
-    message_buffer: MessageBuffer,
-    display: Display,
-    font_size: Size,
-    event_queue: Vec<GlutinEvent<'static, Event>>,
-    search_state: SearchState,
-    cli_options: CLIOptions,
-    dirty: bool,
-}
-
-impl<N: Notify + OnResize> Processor<N> {
-    /// Create a new event processor.
-    ///
-    /// Takes a writer which is expected to be hooked up to the write end of a PTY.
-    pub fn new(
-        notifier: N,
-        message_buffer: MessageBuffer,
-        config: Config,
-        display: Display,
-        cli_options: CLIOptions,
-    ) -> Processor<N> {
-        Processor {
-            font_size: config.ui_config.font.size(),
-            message_buffer,
-            cli_options,
-            notifier,
-            display,
-            config,
-            received_count: Default::default(),
-            suppress_chars: Default::default(),
-            search_state: Default::default(),
-            event_queue: Default::default(),
-            modifiers: Default::default(),
-            mouse: Default::default(),
-            dirty: Default::default(),
-        }
-    }
-
-    /// Return `true` if `event_queue` is empty, `false` otherwise.
-    #[inline]
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    fn event_queue_empty(&mut self) -> bool {
-        let wayland_event_queue = match self.display.wayland_event_queue.as_mut() {
-            Some(wayland_event_queue) => wayland_event_queue,
-            // Since frame callbacks do not exist on X11, just check for event queue.
-            None => return self.event_queue.is_empty(),
-        };
-
-        // Check for pending frame callbacks on Wayland.
-        let events_dispatched = wayland_event_queue
-            .dispatch_pending(&mut (), |_, _, _| {})
-            .expect("failed to dispatch event queue");
-
-        self.event_queue.is_empty() && events_dispatched == 0
-    }
-
-    /// Return `true` if `event_queue` is empty, `false` otherwise.
-    #[inline]
-    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-    fn event_queue_empty(&mut self) -> bool {
-        self.event_queue.is_empty()
-    }
-
-    /// Run the event loop.
-    pub fn run<T>(&mut self, terminal: Arc<FairMutex<Term<T>>>, mut event_loop: EventLoop<Event>)
-    where
-        T: EventListener,
-    {
-        let mut scheduler = Scheduler::new();
-
-        // Start the initial cursor blinking timer.
-        if self.config.cursor.style().blinking {
-            let event: Event = TerminalEvent::CursorBlinkingChange(true).into();
-            self.event_queue.push(event.into());
-        }
-
-        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut clipboard = unsafe { Clipboard::new(event_loop.wayland_display()) };
-        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-        let mut clipboard = Clipboard::new();
-
-        event_loop.run_return(|event, event_loop, control_flow| {
-            if self.config.ui_config.debug.print_events {
-                info!("glutin event: {:?}", event);
-            }
-
-            // Ignore all events we do not care about.
-            if Self::skip_event(&event) {
-                return;
-            }
-
-            match event {
-                // Check for shutdown.
-                GlutinEvent::UserEvent(Event::Terminal(TerminalEvent::Exit)) => {
-                    *control_flow = ControlFlow::Exit;
-                    return;
-                },
-                // Process events.
-                GlutinEvent::RedrawEventsCleared => {
-                    *control_flow = match scheduler.update(&mut self.event_queue) {
-                        Some(instant) => ControlFlow::WaitUntil(instant),
-                        None => ControlFlow::Wait,
-                    };
-
-                    if self.event_queue_empty() {
-                        return;
-                    }
-                },
-                // Remap DPR change event to remove lifetime.
-                GlutinEvent::WindowEvent {
-                    event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
-                    ..
-                } => {
-                    *control_flow = ControlFlow::Poll;
-                    let size = (new_inner_size.width, new_inner_size.height);
-                    self.event_queue.push(Event::DprChanged(scale_factor, size).into());
-                    return;
-                },
-                // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
-                // Since we remap that event to remove the lifetime, this is safe.
-                event => unsafe {
-                    *control_flow = ControlFlow::Poll;
-                    self.event_queue.push(mem::transmute(event));
-                    return;
-                },
-            }
-
-            let mut terminal = terminal.lock();
-
-            let mut display_update_pending = DisplayUpdate::default();
-            let old_is_searching = self.search_state.history_index.is_some();
-
-            let context = ActionContext {
-                terminal: &mut terminal,
-                notifier: &mut self.notifier,
-                mouse: &mut self.mouse,
-                clipboard: &mut clipboard,
-                received_count: &mut self.received_count,
-                suppress_chars: &mut self.suppress_chars,
-                modifiers: &mut self.modifiers,
-                message_buffer: &mut self.message_buffer,
-                display_update_pending: &mut display_update_pending,
-                display: &mut self.display,
-                font_size: &mut self.font_size,
-                config: &mut self.config,
-                scheduler: &mut scheduler,
-                search_state: &mut self.search_state,
-                cli_options: &self.cli_options,
-                dirty: &mut self.dirty,
-                event_loop,
-            };
-            let mut processor = input::Processor::new(context);
-
-            for event in self.event_queue.drain(..) {
-                Processor::handle_event(event, &mut processor);
-            }
-
-            // Process DisplayUpdate events.
-            if display_update_pending.dirty {
-                self.submit_display_update(&mut terminal, old_is_searching, display_update_pending);
-            }
-
-            // Skip rendering on Wayland until we get frame event from compositor.
-            #[cfg(not(any(target_os = "macos", windows)))]
-            if !self.display.is_x11 && !self.display.window.should_draw.load(Ordering::Relaxed) {
-                return;
-            }
-
-            if self.dirty || self.mouse.hint_highlight_dirty {
-                self.dirty |= self.display.update_highlighted_hints(
-                    &terminal,
-                    &self.config,
-                    &self.mouse,
-                    self.modifiers,
-                );
-                self.mouse.hint_highlight_dirty = false;
-            }
-
-            if self.dirty {
-                self.dirty = false;
-
-                // Request immediate re-draw if visual bell animation is not finished yet.
-                if !self.display.visual_bell.completed() {
-                    let event: Event = TerminalEvent::Wakeup.into();
-                    self.event_queue.push(event.into());
-
-                    *control_flow = ControlFlow::Poll;
-                }
-
-                // Redraw screen.
-                self.display.draw(terminal, &self.message_buffer, &self.config, &self.search_state);
-            }
-        });
-
-        // Write ref tests to disk.
-        if self.config.ui_config.debug.ref_test {
-            self.write_ref_test_results(&terminal.lock());
-        }
-    }
-
+impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from glutin.
     ///
     /// Doesn't take self mutably due to borrow checking.
-    fn handle_event<T>(
-        event: GlutinEvent<'_, Event>,
-        processor: &mut input::Processor<T, ActionContext<'_, N, T>>,
-    ) where
-        T: EventListener,
-    {
+    pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
         match event {
-            GlutinEvent::UserEvent(event) => match event {
-                Event::DprChanged(scale_factor, (width, height)) => {
-                    let display_update_pending = &mut processor.ctx.display_update_pending;
+            GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
+                EventType::DprChanged(scale_factor, (width, height)) => {
+                    let display_update_pending = &mut self.ctx.display.pending_update;
 
                     // Push current font to update its DPR.
-                    let font = processor.ctx.config.ui_config.font.clone();
-                    display_update_pending.set_font(font.with_size(*processor.ctx.font_size));
+                    let font = self.ctx.config.ui_config.font.clone();
+                    display_update_pending.set_font(font.with_size(*self.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    processor.ctx.window().dpr = scale_factor;
-                    *processor.ctx.dirty = true;
+                    self.ctx.window().dpr = scale_factor;
+                    *self.ctx.dirty = true;
                 },
-                Event::Message(message) => {
-                    processor.ctx.message_buffer.push(message);
-                    processor.ctx.display_update_pending.dirty = true;
-                    *processor.ctx.dirty = true;
+                EventType::SearchNext => self.ctx.goto_match(None),
+                EventType::Scroll(scroll) => self.ctx.scroll(scroll),
+                EventType::BlinkCursor => {
+                    self.ctx.display.cursor_hidden ^= true;
+                    *self.ctx.dirty = true;
                 },
-                Event::SearchNext => processor.ctx.goto_match(None),
-                Event::ConfigReload(path) => Self::reload_config(&path, processor),
-                Event::Scroll(scroll) => processor.ctx.scroll(scroll),
-                Event::BlinkCursor => {
-                    processor.ctx.display.cursor_hidden ^= true;
-                    *processor.ctx.dirty = true;
+                EventType::Message(message) => {
+                    self.ctx.message_buffer.push(message);
+                    self.ctx.display.pending_update.dirty = true;
+                    *self.ctx.dirty = true;
                 },
-                Event::Terminal(event) => match event {
+                EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        let ui_config = &processor.ctx.config.ui_config;
+                        let ui_config = &self.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
-                            processor.ctx.window().set_title(&title);
+                            self.ctx.window().set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        let ui_config = &processor.ctx.config.ui_config;
+                        let ui_config = &self.ctx.config.ui_config;
                         if ui_config.window.dynamic_title {
-                            processor.ctx.display.window.set_title(&ui_config.window.title);
+                            self.ctx.display.window.set_title(&ui_config.window.title);
                         }
                     },
-                    TerminalEvent::Wakeup => *processor.ctx.dirty = true,
+                    TerminalEvent::Wakeup => *self.ctx.dirty = true,
                     TerminalEvent::Bell => {
                         // Set window urgency.
-                        if processor.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
-                            let focused = processor.ctx.terminal.is_focused;
-                            processor.ctx.window().set_urgent(!focused);
+                        if self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
+                            let focused = self.ctx.terminal.is_focused;
+                            self.ctx.window().set_urgent(!focused);
                         }
 
                         // Ring visual bell.
-                        processor.ctx.display.visual_bell.ring();
+                        self.ctx.display.visual_bell.ring();
 
                         // Execute bell command.
-                        if let Some(bell_command) = &processor.ctx.config.ui_config.bell.command {
+                        if let Some(bell_command) = &self.ctx.config.ui_config.bell.command {
                             start_daemon(bell_command.program(), bell_command.args());
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
-                        processor.ctx.clipboard.store(clipboard_type, content);
+                        self.ctx.clipboard.store(clipboard_type, content);
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
-                        let text = format(processor.ctx.clipboard.load(clipboard_type).as_str());
-                        processor.ctx.write_to_pty(text.into_bytes());
+                        let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
+                        self.ctx.write_to_pty(text.into_bytes());
                     },
                     TerminalEvent::ColorRequest(index, format) => {
-                        let text = format(processor.ctx.display.colors[index]);
-                        processor.ctx.write_to_pty(text.into_bytes());
+                        let text = format(self.ctx.display.colors[index]);
+                        self.ctx.write_to_pty(text.into_bytes());
                     },
-                    TerminalEvent::PtyWrite(text) => processor.ctx.write_to_pty(text.into_bytes()),
-                    TerminalEvent::MouseCursorDirty => processor.reset_mouse_cursor(),
+                    TerminalEvent::PtyWrite(text) => self.ctx.write_to_pty(text.into_bytes()),
+                    TerminalEvent::MouseCursorDirty => self.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
-                    TerminalEvent::CursorBlinkingChange(_) => {
-                        processor.ctx.update_cursor_blinking();
-                    },
+                    TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
+                EventType::ConfigReload(_) | EventType::CreateWindow => (),
             },
-            GlutinEvent::RedrawRequested(_) => *processor.ctx.dirty = true,
-            GlutinEvent::WindowEvent { event, window_id, .. } => {
+            GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
+            GlutinEvent::WindowEvent { event, .. } => {
                 match event {
-                    WindowEvent::CloseRequested => processor.ctx.terminal.exit(),
+                    WindowEvent::CloseRequested => self.ctx.terminal.exit(),
                     WindowEvent::Resized(size) => {
                         // Minimizing the window sends a Resize event with zero width and
                         // height. But there's no need to ever actually resize to this.
@@ -1283,53 +1084,49 @@ impl<N: Notify + OnResize> Processor<N> {
                             return;
                         }
 
-                        processor.ctx.display_update_pending.set_dimensions(size);
-                        *processor.ctx.dirty = true;
+                        self.ctx.display.pending_update.set_dimensions(size);
+                        *self.ctx.dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
-                        processor.key_input(input);
+                        self.key_input(input);
                     },
-                    WindowEvent::ModifiersChanged(modifiers) => {
-                        processor.modifiers_input(modifiers)
-                    },
-                    WindowEvent::ReceivedCharacter(c) => processor.received_char(c),
+                    WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
+                    WindowEvent::ReceivedCharacter(c) => self.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {
-                        processor.ctx.window().set_mouse_visible(true);
-                        processor.mouse_input(state, button);
-                        *processor.ctx.dirty = true;
+                        self.ctx.window().set_mouse_visible(true);
+                        self.mouse_input(state, button);
+                        *self.ctx.dirty = true;
                     },
                     WindowEvent::CursorMoved { position, .. } => {
-                        processor.ctx.window().set_mouse_visible(true);
-                        processor.mouse_moved(position);
+                        self.ctx.window().set_mouse_visible(true);
+                        self.mouse_moved(position);
                     },
                     WindowEvent::MouseWheel { delta, phase, .. } => {
-                        processor.ctx.window().set_mouse_visible(true);
-                        processor.mouse_wheel_input(delta, phase);
+                        self.ctx.window().set_mouse_visible(true);
+                        self.mouse_wheel_input(delta, phase);
                     },
                     WindowEvent::Focused(is_focused) => {
-                        if window_id == processor.ctx.window().window_id() {
-                            processor.ctx.terminal.is_focused = is_focused;
-                            *processor.ctx.dirty = true;
+                        self.ctx.terminal.is_focused = is_focused;
+                        *self.ctx.dirty = true;
 
-                            if is_focused {
-                                processor.ctx.window().set_urgent(false);
-                            } else {
-                                processor.ctx.window().set_mouse_visible(true);
-                            }
-
-                            processor.ctx.update_cursor_blinking();
-                            processor.on_focus_change(is_focused);
+                        if is_focused {
+                            self.ctx.window().set_urgent(false);
+                        } else {
+                            self.ctx.window().set_mouse_visible(true);
                         }
+
+                        self.ctx.update_cursor_blinking();
+                        self.on_focus_change(is_focused);
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        processor.ctx.write_to_pty((path + " ").into_bytes());
+                        self.ctx.write_to_pty((path + " ").into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
-                        processor.ctx.mouse.inside_text_area = false;
+                        self.ctx.mouse.inside_text_area = false;
 
-                        if processor.ctx.display().highlighted_hint.is_some() {
-                            *processor.ctx.dirty = true;
+                        if self.ctx.display().highlighted_hint.is_some() {
+                            *self.ctx.dirty = true;
                         }
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
@@ -1354,6 +1151,194 @@ impl<N: Notify + OnResize> Processor<N> {
             | GlutinEvent::LoopDestroyed => (),
         }
     }
+}
+
+/// The event processor.
+///
+/// Stores some state from received events and dispatches actions when they are
+/// triggered.
+pub struct Processor {
+    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+    wayland_event_queue: Option<EventQueue>,
+    windows: HashMap<WindowId, WindowContext>,
+    cli_options: CliOptions,
+    config: Config,
+}
+
+impl Processor {
+    /// Create a new event processor.
+    ///
+    /// Takes a writer which is expected to be hooked up to the write end of a PTY.
+    pub fn new(
+        config: Config,
+        cli_options: CliOptions,
+        _event_loop: &EventLoop<Event>,
+    ) -> Processor {
+        // Initialize Wayland event queue, to handle Wayland callbacks.
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let wayland_event_queue = _event_loop.wayland_display().map(|display| {
+            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
+            display.create_event_queue()
+        });
+
+        Processor {
+            windows: HashMap::new(),
+            cli_options,
+            config,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            wayland_event_queue,
+        }
+    }
+
+    /// Create a new terminal window.
+    pub fn create_window(
+        &mut self,
+        event_loop: &EventLoopWindowTarget<Event>,
+        proxy: EventLoopProxy<Event>,
+    ) -> Result<(), Box<dyn Error>> {
+        let window_context = WindowContext::new(
+            &self.config,
+            event_loop,
+            proxy,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            self.wayland_event_queue.as_ref(),
+        )?;
+        self.windows.insert(window_context.id(), window_context);
+        Ok(())
+    }
+
+    /// Run the event loop.
+    pub fn run(&mut self, mut event_loop: EventLoop<Event>) {
+        let proxy = event_loop.create_proxy();
+        let mut scheduler = Scheduler::new(proxy.clone());
+
+        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        let mut clipboard = unsafe { Clipboard::new(event_loop.wayland_display()) };
+        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
+        let mut clipboard = Clipboard::new();
+
+        event_loop.run_return(|event, event_loop, control_flow| {
+            if self.config.ui_config.debug.print_events {
+                info!("glutin event: {:?}", event);
+            }
+
+            // Ignore all events we do not care about.
+            if Self::skip_event(&event) {
+                return;
+            }
+
+            match event {
+                // Check for shutdown.
+                GlutinEvent::UserEvent(Event {
+                    window_id: Some(window_id),
+                    payload: EventType::Terminal(TerminalEvent::Exit),
+                }) => {
+                    // Remove the closed terminal.
+                    let window_context = match self.windows.remove(&window_id) {
+                        Some(window_context) => window_context,
+                        None => return,
+                    };
+
+                    // Unschedule pending events.
+                    scheduler.unschedule_window(window_context.id());
+
+                    // Shutdown if no more terminals are open.
+                    if self.windows.is_empty() {
+                        // Write ref tests of last window to disk.
+                        if self.config.ui_config.debug.ref_test {
+                            window_context.write_ref_test_results();
+                        }
+
+                        *control_flow = ControlFlow::Exit;
+                    }
+                },
+                // Process all pending events.
+                GlutinEvent::RedrawEventsCleared => {
+                    *control_flow = match scheduler.update() {
+                        Some(instant) => ControlFlow::WaitUntil(instant),
+                        None => ControlFlow::Wait,
+                    };
+
+                    // Check for pending frame callbacks on Wayland.
+                    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                    if let Some(wayland_event_queue) = self.wayland_event_queue.as_mut() {
+                        wayland_event_queue
+                            .dispatch_pending(&mut (), |_, _, _| {})
+                            .expect("failed to dispatch wayland event queue");
+                    }
+
+                    // Dispatch event to all windows.
+                    for window_context in self.windows.values_mut() {
+                        window_context.handle_event(
+                            event_loop,
+                            &proxy,
+                            &mut self.config,
+                            &mut clipboard,
+                            &mut scheduler,
+                            GlutinEvent::RedrawEventsCleared,
+                        );
+                    }
+                },
+                // Process config update.
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::ConfigReload(path), ..
+                }) => {
+                    // Clear config logs from message bar for all terminals.
+                    for window_context in self.windows.values_mut() {
+                        if !window_context.message_buffer.is_empty() {
+                            window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
+                            window_context.display.pending_update.dirty = true;
+                        }
+                    }
+
+                    // Load config and update each terminal.
+                    if let Ok(config) = config::reload(&path, &self.cli_options) {
+                        let old_config = mem::replace(&mut self.config, config);
+
+                        for window_context in self.windows.values_mut() {
+                            window_context.update_config(&old_config, &self.config);
+                        }
+                    }
+                },
+                // Create a new terminal window.
+                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow, .. }) => {
+                    if let Err(err) = self.create_window(event_loop, proxy.clone()) {
+                        error!("Could not open window: {:?}", err);
+                    }
+                },
+                // Process events affecting all windows.
+                GlutinEvent::UserEvent(event @ Event { window_id: None, .. }) => {
+                    for window_context in self.windows.values_mut() {
+                        window_context.handle_event(
+                            event_loop,
+                            &proxy,
+                            &mut self.config,
+                            &mut clipboard,
+                            &mut scheduler,
+                            event.clone().into(),
+                        );
+                    }
+                },
+                // Process window-specific events.
+                GlutinEvent::WindowEvent { window_id, .. }
+                | GlutinEvent::UserEvent(Event { window_id: Some(window_id), .. })
+                | GlutinEvent::RedrawRequested(window_id) => {
+                    if let Some(window_context) = self.windows.get_mut(&window_id) {
+                        window_context.handle_event(
+                            event_loop,
+                            &proxy,
+                            &mut self.config,
+                            &mut clipboard,
+                            &mut scheduler,
+                            event,
+                        );
+                    }
+                },
+                _ => (),
+            }
+        });
+    }
 
     /// Check if an event is irrelevant and can be skipped.
     fn skip_event(event: &GlutinEvent<'_, Event>) -> bool {
@@ -1377,163 +1362,27 @@ impl<N: Notify + OnResize> Processor<N> {
             _ => false,
         }
     }
-
-    /// Reload the configuration files from disk.
-    fn reload_config<T>(path: &Path, processor: &mut input::Processor<T, ActionContext<'_, N, T>>)
-    where
-        T: EventListener,
-    {
-        if !processor.ctx.message_buffer.is_empty() {
-            processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
-            processor.ctx.display_update_pending.dirty = true;
-        }
-
-        let config = match config::reload(path, processor.ctx.cli_options) {
-            Ok(config) => config,
-            Err(_) => return,
-        };
-
-        processor.ctx.display.update_config(&config);
-        processor.ctx.terminal.update_config(&config);
-
-        // Reload cursor if its thickness has changed.
-        if (processor.ctx.config.cursor.thickness() - config.cursor.thickness()).abs()
-            > f32::EPSILON
-        {
-            processor.ctx.display_update_pending.set_cursor_dirty();
-        }
-
-        if processor.ctx.config.ui_config.font != config.ui_config.font {
-            // Do not update font size if it has been changed at runtime.
-            if *processor.ctx.font_size == processor.ctx.config.ui_config.font.size() {
-                *processor.ctx.font_size = config.ui_config.font.size();
-            }
-
-            let font = config.ui_config.font.clone().with_size(*processor.ctx.font_size);
-            processor.ctx.display_update_pending.set_font(font);
-        }
-
-        // Update display if padding options were changed.
-        let window_config = &processor.ctx.config.ui_config.window;
-        if window_config.padding(1.) != config.ui_config.window.padding(1.)
-            || window_config.dynamic_padding != config.ui_config.window.dynamic_padding
-        {
-            processor.ctx.display_update_pending.dirty = true;
-        }
-
-        // Live title reload.
-        if !config.ui_config.window.dynamic_title
-            || processor.ctx.config.ui_config.window.title != config.ui_config.window.title
-        {
-            processor.ctx.window().set_title(&config.ui_config.window.title);
-        }
-
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if processor.ctx.event_loop.is_wayland() {
-            processor.ctx.window().set_wayland_theme(&config.ui_config.colors);
-        }
-
-        // Set subpixel anti-aliasing.
-        #[cfg(target_os = "macos")]
-        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
-
-        // Disable shadows for transparent windows on macOS.
-        #[cfg(target_os = "macos")]
-        processor.ctx.window().set_has_shadow(config.ui_config.window_opacity() >= 1.0);
-
-        // Update hint keys.
-        processor.ctx.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());
-
-        *processor.ctx.config = config;
-
-        // Update cursor blinking.
-        processor.ctx.update_cursor_blinking();
-
-        *processor.ctx.dirty = true;
-    }
-
-    /// Submit the pending changes to the `Display`.
-    fn submit_display_update<T>(
-        &mut self,
-        terminal: &mut Term<T>,
-        old_is_searching: bool,
-        display_update_pending: DisplayUpdate,
-    ) where
-        T: EventListener,
-    {
-        // Compute cursor positions before resize.
-        let num_lines = terminal.screen_lines();
-        let cursor_at_bottom = terminal.grid().cursor.point.line + 1 == num_lines;
-        let origin_at_bottom = if terminal.mode().contains(TermMode::VI) {
-            terminal.vi_mode_cursor.point.line == num_lines - 1
-        } else {
-            self.search_state.direction == Direction::Left
-        };
-
-        self.display.handle_update(
-            terminal,
-            &mut self.notifier,
-            &self.message_buffer,
-            self.search_state.history_index.is_some(),
-            &self.config,
-            display_update_pending,
-        );
-
-        let new_is_searching = self.search_state.history_index.is_some();
-        if !old_is_searching && new_is_searching {
-            // Scroll on search start to make sure origin is visible with minimal viewport motion.
-            let display_offset = terminal.grid().display_offset();
-            if display_offset == 0 && cursor_at_bottom && !origin_at_bottom {
-                terminal.scroll_display(Scroll::Delta(1));
-            } else if display_offset != 0 && origin_at_bottom {
-                terminal.scroll_display(Scroll::Delta(-1));
-            }
-        }
-    }
-
-    /// Write the ref test results to the disk.
-    fn write_ref_test_results<T>(&self, terminal: &Term<T>) {
-        // Dump grid state.
-        let mut grid = terminal.grid().clone();
-        grid.initialize_all();
-        grid.truncate();
-
-        let serialized_grid = json::to_string(&grid).expect("serialize grid");
-
-        let serialized_size = json::to_string(&self.display.size_info).expect("serialize size");
-
-        let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
-
-        File::create("./grid.json")
-            .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
-            .expect("write grid.json");
-
-        File::create("./size.json")
-            .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
-            .expect("write size.json");
-
-        File::create("./config.json")
-            .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
-            .expect("write config.json");
-    }
 }
 
 #[derive(Debug, Clone)]
-pub struct EventProxy(EventLoopProxy<Event>);
+pub struct EventProxy {
+    proxy: EventLoopProxy<Event>,
+    window_id: WindowId,
+}
 
 impl EventProxy {
-    pub fn new(proxy: EventLoopProxy<Event>) -> Self {
-        EventProxy(proxy)
+    pub fn new(proxy: EventLoopProxy<Event>, window_id: WindowId) -> Self {
+        Self { proxy, window_id }
     }
 
     /// Send an event to the event loop.
-    pub fn send_event(&self, event: Event) {
-        let _ = self.0.send_event(event);
+    pub fn send_event(&self, event: EventType) {
+        let _ = self.proxy.send_event(Event::new(event, self.window_id));
     }
 }
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
-        let _ = self.0.send_event(Event::Terminal(event));
+        let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
 }

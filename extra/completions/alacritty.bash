@@ -11,7 +11,7 @@ _alacritty()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="-h --help -V --version --print-events -q -qq -v -vv -vvv --ref-test --hold -e --command --config-file -o --option -t --title --embed --class --working-directory"
+    opts="-h --help -V --version --print-events -q -qq -v -vv -vvv --ref-test --hold -e --command --config-file -o --option -t --title --embed --class --working-directory --socket msg"
 
     # If `--command` or `-e` is used, stop completing
     for i in "${!COMP_WORDS[@]}"; do
@@ -29,8 +29,8 @@ _alacritty()
             # Complete all commands in $PATH
             COMPREPLY=( $(compgen -c -- "${cur}") )
             return 0;;
-        --config-file)
-            # Path based completion
+        --config-file | --socket)
+            # File completion
             local IFS=$'\n'
             compopt -o filenames
             COMPREPLY=( $(compgen -f -- "${cur}") )
@@ -43,6 +43,9 @@ _alacritty()
             local IFS=$'\n'
             compopt -o filenames
             COMPREPLY=( $(compgen -d -- "${cur}") )
+            return 0;;
+        msg)
+            COMPREPLY=( $(compgen -W "-h --help -V --version -s --socket" -- "${cur}") )
             return 0;;
     esac
 

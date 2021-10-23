@@ -62,6 +62,10 @@ pub struct UiConfig {
     /// Regex hints for interacting with terminal content.
     pub hints: Hints,
 
+    /// Offer IPC through a unix socket.
+    #[cfg(unix)]
+    pub ipc_socket: bool,
+
     /// Keybindings.
     key_bindings: KeyBindings,
 
@@ -76,8 +80,10 @@ pub struct UiConfig {
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
-            alt_send_esc: true,
             live_config_reload: true,
+            alt_send_esc: true,
+            #[cfg(unix)]
+            ipc_socket: true,
             font: Default::default(),
             window: Default::default(),
             mouse: Default::default(),

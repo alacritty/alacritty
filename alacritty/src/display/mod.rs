@@ -3,15 +3,15 @@
 
 use std::cmp::min;
 use std::convert::TryFrom;
-use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+use std::{f64, mem};
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
-use glutin::event_loop::EventLoop;
+use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
@@ -19,7 +19,7 @@ use log::{debug, info};
 use parking_lot::MutexGuard;
 use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use wayland_client::{Display as WaylandDisplay, EventQueue};
+use wayland_client::EventQueue;
 
 use crossfont::{self, Rasterize, Rasterizer};
 
@@ -178,9 +178,6 @@ pub struct Display {
     /// Hint highlighted by the vi mode cursor.
     pub vi_highlighted_hint: Option<HintMatch>,
 
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub wayland_event_queue: Option<EventQueue>,
-
     #[cfg(not(any(target_os = "macos", windows)))]
     pub is_x11: bool,
 
@@ -195,13 +192,21 @@ pub struct Display {
     /// State of the keyboard hints.
     pub hint_state: HintState,
 
+    /// Unprocessed display updates.
+    pub pending_update: DisplayUpdate,
+
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
 }
 
 impl Display {
-    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>) -> Result<Display, Error> {
+    pub fn new<E>(
+        config: &Config,
+        event_loop: &EventLoopWindowTarget<E>,
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        wayland_event_queue: Option<&EventQueue>,
+    ) -> Result<Display, Error> {
         #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
         let is_x11 = false;
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -229,23 +234,13 @@ impl Display {
         debug!("Estimated window size: {:?}", estimated_size);
         debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_event_queue = None;
-
-        // Initialize Wayland event queue, to handle Wayland callbacks.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if let Some(display) = event_loop.wayland_display() {
-            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
-            wayland_event_queue = Some(display.create_event_queue());
-        }
-
         // Spawn the Alacritty window.
         let mut window = Window::new(
             event_loop,
             config,
             estimated_size,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue.as_ref(),
+            wayland_event_queue,
         )?;
 
         info!("Device pixel ratio: {}", window.dpr);
@@ -344,11 +339,10 @@ impl Display {
             vi_highlighted_hint: None,
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
             cursor_hidden: false,
             visual_bell: VisualBell::from(&config.ui_config.bell),
             colors: List::from(&config.ui_config.colors),
+            pending_update: Default::default(),
         })
     }
 
@@ -414,26 +408,30 @@ impl Display {
         message_buffer: &MessageBuffer,
         search_active: bool,
         config: &Config,
-        update_pending: DisplayUpdate,
     ) where
         T: EventListener,
     {
+        let pending_update = mem::take(&mut self.pending_update);
+
         let (mut cell_width, mut cell_height) =
             (self.size_info.cell_width(), self.size_info.cell_height());
 
+        // Ensure we're modifying the correct OpenGL context.
+        self.window.make_current();
+
         // Update font size and cell dimensions.
-        if let Some(font) = update_pending.font() {
+        if let Some(font) = pending_update.font() {
             let cell_dimensions = self.update_glyph_cache(config, font);
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
             info!("Cell size: {} x {}", cell_width, cell_height);
-        } else if update_pending.cursor_dirty() {
+        } else if pending_update.cursor_dirty() {
             self.clear_glyph_cache();
         }
 
         let (mut width, mut height) = (self.size_info.width(), self.size_info.height());
-        if let Some(dimensions) = update_pending.dimensions() {
+        if let Some(dimensions) = pending_update.dimensions() {
             width = dimensions.width as f32;
             height = dimensions.height as f32;
         }
@@ -463,8 +461,7 @@ impl Display {
         terminal.resize(self.size_info);
 
         // Resize renderer.
-        let physical =
-            PhysicalSize::new(self.size_info.width() as u32, self.size_info.height() as u32);
+        let physical = PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
         self.window.resize(physical);
         self.renderer.resize(&self.size_info);
 
@@ -505,6 +502,9 @@ impl Display {
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
+        // Make sure this window's OpenGL context is active.
+        self.window.make_current();
+
         self.renderer.with_api(&config.ui_config, &size_info, |api| {
             api.clear(background_color);
         });
@@ -514,6 +514,10 @@ impl Display {
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
+
+            // Ensure macOS hasn't reset our viewport.
+            #[cfg(target_os = "macos")]
+            self.renderer.set_viewport(&size_info);
 
             let glyph_cache = &mut self.glyph_cache;
             let highlighted_hint = &self.highlighted_hint;
@@ -816,6 +820,14 @@ impl Display {
         surface.frame().quick_assign(move |_, _, _| {
             should_draw.store(true, Ordering::Relaxed);
         });
+    }
+}
+
+impl Drop for Display {
+    fn drop(&mut self) {
+        // Switch OpenGL context before dropping, otherwise objects (like programs) from other
+        // contexts might be deleted.
+        self.window.make_current()
     }
 }
 

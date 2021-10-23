@@ -10,7 +10,7 @@ use alacritty_terminal::config::Program;
 use crate::config::window::{Class, DEFAULT_NAME};
 use crate::config::{serde_utils, Config};
 
-/// Options specified on the command line.
+/// CLI options for the main Alacritty executable.
 #[derive(StructOpt, Debug)]
 #[structopt(author, about, version = env!("VERSION"))]
 pub struct Options {
@@ -57,9 +57,10 @@ pub struct Options {
     #[structopt(long)]
     pub hold: bool,
 
-    /// CLI options for config overrides.
-    #[structopt(skip)]
-    pub config_options: Value,
+    /// Path for IPC socket creation.
+    #[cfg(unix)]
+    #[structopt(long)]
+    pub socket: Option<PathBuf>,
 
     /// Reduces the level of verbosity (the min level is -qq).
     #[structopt(short, conflicts_with("verbose"), parse(from_occurrences))]
@@ -76,6 +77,15 @@ pub struct Options {
     /// Override configuration file options [example: cursor.style=Beam].
     #[structopt(short = "o", long)]
     option: Vec<String>,
+
+    /// CLI options for config overrides.
+    #[structopt(skip)]
+    pub config_options: Value,
+
+    /// Subcommand passed to the CLI.
+    #[cfg(unix)]
+    #[structopt(subcommand)]
+    pub subcommands: Option<Subcommands>,
 }
 
 impl Options {
@@ -116,6 +126,11 @@ impl Options {
         }
         if let Some(class) = &self.class {
             config.ui_config.window.class = class.clone();
+        }
+
+        #[cfg(unix)]
+        {
+            config.ui_config.ipc_socket |= self.socket.is_some();
         }
 
         config.ui_config.window.dynamic_title &= self.title.is_none();
@@ -197,6 +212,34 @@ fn parse_class(input: &str) -> Result<Class, String> {
         },
         None => Ok(Class { instance: input.into(), general: DEFAULT_NAME.into() }),
     }
+}
+
+/// Available CLI subcommands.
+#[cfg(unix)]
+#[derive(StructOpt, Debug)]
+pub enum Subcommands {
+    Msg(MessageOptions),
+}
+
+/// Send a message to the Alacritty socket.
+#[cfg(unix)]
+#[derive(StructOpt, Debug)]
+pub struct MessageOptions {
+    /// IPC socket connection path override.
+    #[structopt(long, short)]
+    pub socket: Option<PathBuf>,
+
+    /// Message which should be sent.
+    #[structopt(subcommand)]
+    pub message: SocketMessage,
+}
+
+/// Available socket messages.
+#[cfg(unix)]
+#[derive(StructOpt, Debug)]
+pub enum SocketMessage {
+    /// Create a new window in the same Alacritty process.
+    CreateWindow,
 }
 
 #[cfg(test)]

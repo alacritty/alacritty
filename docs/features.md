@@ -78,3 +78,9 @@ change in mouse cursor shape, you're required to hold <kbd>Shift</kbd> to bypass
 that.
 
 [configuration file]: ../alacritty.yml
+
+## Multi-Window
+
+Alacritty supports running multiple terminal emulators from the same Alacritty
+instance. New windows can be created either by using the `CreateNewWindow`
+keybinding action, or by executing the `alacritty msg create-window` subcommand.
