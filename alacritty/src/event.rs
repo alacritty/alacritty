@@ -5,8 +5,6 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::Debug;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
@@ -32,20 +30,16 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
-#[cfg(not(windows))]
-use alacritty_terminal::tty;
 
 use crate::cli::Options as CliOptions;
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
-use crate::daemon::start_daemon;
+use crate::daemon::{foreground_process_path, start_daemon};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-#[cfg(target_os = "macos")]
-use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
@@ -355,26 +349,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
+        // Use working directory of controlling process, or fallback to initial shell, and add the
+        // current working directory as parameter.
         #[cfg(unix)]
-        let mut args = {
-            // Use working directory of controlling process, or fallback to initial shell.
-            let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-            if pid < 0 {
-                pid = tty::child_pid();
-            }
-
-            #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-            let link_path = format!("/proc/{}/cwd", pid);
-            #[cfg(target_os = "freebsd")]
-            let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-            #[cfg(not(target_os = "macos"))]
-            let cwd = fs::read_link(link_path);
-            #[cfg(target_os = "macos")]
-            let cwd = macos::proc::cwd(pid);
-
-            // Add the current working directory as parameter.
-            cwd.map(|path| vec!["--working-directory".into(), path]).unwrap_or_default()
-        };
+        let mut args = foreground_process_path()
+            .map(|path| vec!["--working-directory".into(), path])
+            .unwrap_or_default();
 
         #[cfg(not(unix))]
         let mut args: Vec<PathBuf> = Vec::new();
