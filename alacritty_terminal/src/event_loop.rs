@@ -407,7 +407,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        }
+                        },
                         _ => (),
                     }
                 }
