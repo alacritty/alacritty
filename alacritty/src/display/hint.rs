@@ -248,7 +248,7 @@ pub fn highlighted_at<T>(
 ) -> Option<HintMatch> {
     let mouse_mode = term.mode().intersects(TermMode::MOUSE_MODE);
 
-    config.ui_config.hints.enabled.iter().find_map(|hint| {
+    config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
         let highlight = hint.mouse.map_or(false, |mouse| {
             mouse.enabled

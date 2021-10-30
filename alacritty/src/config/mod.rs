@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_yaml::mapping::Mapping;
 use serde_yaml::Value;
 
-use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 
 pub mod bell;
 pub mod color;
@@ -32,7 +32,7 @@ use crate::config::ui_config::UiConfig;
 /// Maximum number of depth for the configuration file imports.
 const IMPORT_RECURSION_LIMIT: usize = 5;
 
-pub type Config = TermConfig<UiConfig>;
+pub type Config = UiConfig;
 
 /// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -114,7 +114,7 @@ pub fn load(options: &Options) -> Config {
         .unwrap_or_else(|| {
             let mut config = Config::deserialize(config_options).unwrap_or_default();
             match config_path {
-                Some(config_path) => config.ui_config.config_paths.push(config_path),
+                Some(config_path) => config.config_paths.push(config_path),
                 None => info!(target: LOG_TARGET_CONFIG, "No config file found; using default"),
             }
             config
@@ -142,7 +142,7 @@ fn after_loading(config: &mut Config, options: &Options) {
     options.override_config(config);
 
     // Create key bindings for regex hints.
-    config.ui_config.generate_hint_bindings();
+    config.generate_hint_bindings();
 }
 
 /// Load configuration file and log errors.
@@ -166,7 +166,7 @@ fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
 
     // Deserialize to concrete type.
     let mut config = Config::deserialize(config_value)?;
-    config.ui_config.config_paths = config_paths;
+    config.config_paths = config_paths;
 
     Ok(config)
 }
@@ -307,7 +307,7 @@ mod tests {
     fn config_read_eof() {
         let config_path: PathBuf = DEFAULT_ALACRITTY_CONFIG.into();
         let mut config = read_config(&config_path, Value::Null).unwrap();
-        config.ui_config.config_paths = Vec::new();
+        config.config_paths = Vec::new();
         assert_eq!(config, Config::default());
     }
 }

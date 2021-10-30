@@ -109,39 +109,39 @@ impl Options {
     pub fn override_config(&self, config: &mut Config) {
         if let Some(working_directory) = &self.working_directory {
             if working_directory.is_dir() {
-                config.working_directory = Some(working_directory.to_owned());
+                config.terminal_config.working_directory = Some(working_directory.to_owned());
             } else {
                 error!("Invalid working directory: {:?}", working_directory);
             }
         }
 
         if let Some(command) = self.command() {
-            config.shell = Some(command);
+            config.terminal_config.shell = Some(command);
         }
 
-        config.hold = self.hold;
+        config.terminal_config.hold = self.hold;
 
         if let Some(title) = self.title.clone() {
-            config.ui_config.window.title = title
+            config.window.title = title
         }
         if let Some(class) = &self.class {
-            config.ui_config.window.class = class.clone();
+            config.window.class = class.clone();
         }
 
         #[cfg(unix)]
         {
-            config.ui_config.ipc_socket |= self.socket.is_some();
+            config.ipc_socket |= self.socket.is_some();
         }
 
-        config.ui_config.window.dynamic_title &= self.title.is_none();
-        config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
-        config.ui_config.debug.print_events |= self.print_events;
-        config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level());
-        config.ui_config.debug.ref_test |= self.ref_test;
+        config.window.dynamic_title &= self.title.is_none();
+        config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
+        config.debug.print_events |= self.print_events;
+        config.debug.log_level = max(config.debug.log_level, self.log_level());
+        config.debug.ref_test |= self.ref_test;
 
-        if config.ui_config.debug.print_events {
-            config.ui_config.debug.log_level =
-                max(config.ui_config.debug.log_level, LevelFilter::Info);
+        if config.debug.print_events {
+            config.debug.log_level =
+                max(config.debug.log_level, LevelFilter::Info);
         }
     }
 
@@ -258,11 +258,11 @@ mod tests {
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
         let mut config = Config::default();
-        let old_dynamic_title = config.ui_config.window.dynamic_title;
+        let old_dynamic_title = config.window.dynamic_title;
 
         Options::new().override_config(&mut config);
 
-        assert_eq!(old_dynamic_title, config.ui_config.window.dynamic_title);
+        assert_eq!(old_dynamic_title, config.window.dynamic_title);
     }
 
     #[test]
@@ -272,17 +272,17 @@ mod tests {
         let options = Options { title: Some("foo".to_owned()), ..Options::new() };
         options.override_config(&mut config);
 
-        assert!(!config.ui_config.window.dynamic_title);
+        assert!(!config.window.dynamic_title);
     }
 
     #[test]
     fn dynamic_title_not_overridden_by_config() {
         let mut config = Config::default();
 
-        config.ui_config.window.title = "foo".to_owned();
+        config.window.title = "foo".to_owned();
         Options::new().override_config(&mut config);
 
-        assert!(config.ui_config.window.dynamic_title);
+        assert!(config.window.dynamic_title);
     }
 
     #[test]

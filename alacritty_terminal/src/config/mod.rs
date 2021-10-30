@@ -15,11 +15,11 @@ pub use crate::config::scrolling::Scrolling;
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const MIN_BLINK_INTERVAL: u64 = 10;
 
-pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
+pub type MockConfig = Config;
 
 /// Top-level config type.
 #[derive(ConfigDeserialize, Debug, PartialEq, Default)]
-pub struct Config<T> {
+pub struct Config {
     /// TERM env variable.
     pub env: HashMap<String, String>,
 
@@ -37,9 +37,9 @@ pub struct Config<T> {
     /// Shell startup directory.
     pub working_directory: Option<PathBuf>,
 
-    /// Additional configuration options not directly required by the terminal.
-    #[config(flatten)]
-    pub ui_config: T,
+    // /// Additional configuration options not directly required by the terminal.
+    // #[config(flatten)]
+    // pub ui_config: T,
 
     /// Remain open after child process exits.
     #[config(skip)]

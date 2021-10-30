@@ -288,7 +288,7 @@ impl<T> Term<T> {
         self.vi_mode_recompute_selection();
     }
 
-    pub fn new<C>(config: &Config<C>, size: SizeInfo, event_proxy: T) -> Term<T> {
+    pub fn new(config: &Config, size: SizeInfo, event_proxy: T) -> Term<T> {
         let num_cols = size.columns;
         let num_lines = size.screen_lines;
 
@@ -323,7 +323,7 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn update_config<C>(&mut self, config: &Config<C>)
+    pub fn update_config(&mut self, config: &Config)
     where
         T: EventListener,
     {
@@ -1903,7 +1903,7 @@ pub mod test {
 
         // Create terminal with the appropriate dimensions.
         let size = SizeInfo::new(num_cols as f32, lines.len() as f32, 1., 1., 0., 0., false);
-        let mut term = Term::new(&Config::<()>::default(), size, ());
+        let mut term = Term::new(&Config::default(), size, ());
 
         // Fill terminal with content.
         for (line, text) in lines.iter().enumerate() {

@@ -785,7 +785,7 @@ mod tests {
     #[test]
     fn wide_without_spacer() {
         let size = SizeInfo::new(2., 2., 1., 1., 0., 0., false);
-        let mut term = Term::new(&Config::<()>::default(), size, ());
+        let mut term = Term::new(&Config::default(), size, ());
         term.grid[Line(0)][Column(0)].c = 'x';
         term.grid[Line(0)][Column(1)].c = '字';
         term.grid[Line(0)][Column(1)].flags = Flags::WIDE_CHAR;

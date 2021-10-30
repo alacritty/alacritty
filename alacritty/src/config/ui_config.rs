@@ -9,7 +9,7 @@ use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::{Percentage, Program, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
@@ -75,6 +75,10 @@ pub struct UiConfig {
     /// Background opacity from 0.0 to 1.0.
     #[config(deprecated = "use window.opacity instead")]
     background_opacity: Option<Percentage>,
+
+    /// Config for the alacritty_terminal itself.
+    #[config(flatten)]
+    pub terminal_config: TerminalConfig,
 }
 
 impl Default for UiConfig {
@@ -96,6 +100,7 @@ impl Default for UiConfig {
             colors: Default::default(),
             draw_bold_text_with_bright_colors: Default::default(),
             hints: Default::default(),
+            terminal_config: Default::default(),
         }
     }
 }

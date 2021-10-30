@@ -177,7 +177,7 @@ impl Window {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
-        let window_config = &config.ui_config.window;
+        let window_config = &config.window;
         let window_builder = Window::get_platform_window(&window_config.title, window_config);
 
         // Check if we're running Wayland to disable vsync.
@@ -210,7 +210,7 @@ impl Window {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let wayland_surface = if is_wayland {
             // Apply client side decorations theme.
-            let theme = AlacrittyWaylandTheme::new(&config.ui_config.colors);
+            let theme = AlacrittyWaylandTheme::new(&config.colors);
             windowed_context.window().set_wayland_theme(theme);
 
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.

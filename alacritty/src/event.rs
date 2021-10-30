@@ -235,7 +235,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             None => return,
         };
 
-        if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
+        if ty == ClipboardType::Selection && self.config.terminal_config.selection.save_to_clipboard
+        {
             self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
         self.clipboard.store(ty, text);
@@ -381,14 +382,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        let font = self.config.ui_config.font.clone().with_size(*self.font_size);
+        let font = self.config.font.clone().with_size(*self.font_size);
         self.display.pending_update.set_font(font);
         *self.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.config.ui_config.font.size();
-        self.display.pending_update.set_font(self.config.ui_config.font.clone());
+        *self.font_size = self.config.font.size();
+        self.display.pending_update.set_font(self.config.font.clone());
         *self.dirty = true;
     }
 
@@ -612,14 +613,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Disable cursor blinking.
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
         if let Some(timer) = self.scheduler.unschedule(timer_id) {
-            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            let interval =
+                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
             self.scheduler.schedule(timer.event, interval, true, timer.id);
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
 
         // Hide mouse cursor.
-        if self.config.ui_config.mouse.hide_when_typing {
+        if self.config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
     }
@@ -774,7 +776,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         };
 
         // Hide cursor while typing into the search bar.
-        if self.config.ui_config.mouse.hide_when_typing {
+        if self.config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
 
@@ -885,9 +887,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Update the cursor blinking state.
     fn update_cursor_blinking(&mut self) {
         // Get config cursor style.
-        let mut cursor_style = self.config.cursor.style;
+        let mut cursor_style = self.config.terminal_config.cursor.style;
         if self.terminal.mode().contains(TermMode::VI) {
-            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
+            cursor_style = self.config.terminal_config.cursor.vi_mode_style.unwrap_or(cursor_style);
         };
 
         // Check terminal cursor style.
@@ -899,7 +901,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.scheduler.unschedule(timer_id);
         if blinking && self.terminal.is_focused {
             let event = Event::new(EventType::BlinkCursor, self.display.window.id());
-            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            let interval =
+                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
             self.scheduler.schedule(event, interval, true, timer_id);
         } else {
             self.display.cursor_hidden = false;
@@ -984,7 +987,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
                     // Push current font to update its DPR.
-                    let font = self.ctx.config.ui_config.font.clone();
+                    let font = self.ctx.config.font.clone();
                     display_update_pending.set_font(font.with_size(*self.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
@@ -1006,15 +1009,15 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        let ui_config = &self.ctx.config.ui_config;
-                        if ui_config.window.dynamic_title {
+                        let config = &self.ctx.config;
+                        if config.window.dynamic_title {
                             self.ctx.window().set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        let ui_config = &self.ctx.config.ui_config;
-                        if ui_config.window.dynamic_title {
-                            self.ctx.display.window.set_title(&ui_config.window.title);
+                        let config = &self.ctx.config;
+                        if config.window.dynamic_title {
+                            self.ctx.display.window.set_title(&config.window.title);
                         }
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
@@ -1029,7 +1032,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.display.visual_bell.ring();
 
                         // Execute bell command.
-                        if let Some(bell_command) = &self.ctx.config.ui_config.bell.command {
+                        if let Some(bell_command) = &self.ctx.config.bell.command {
                             start_daemon(bell_command.program(), bell_command.args());
                         }
                     },
@@ -1199,7 +1202,7 @@ impl Processor {
         let mut clipboard = Clipboard::new();
 
         event_loop.run_return(|event, event_loop, control_flow| {
-            if self.config.ui_config.debug.print_events {
+            if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
 
@@ -1226,7 +1229,7 @@ impl Processor {
                     // Shutdown if no more terminals are open.
                     if self.windows.is_empty() {
                         // Write ref tests of last window to disk.
-                        if self.config.ui_config.debug.ref_test {
+                        if self.config.debug.ref_test {
                             window_context.write_ref_test_results();
                         }
 
