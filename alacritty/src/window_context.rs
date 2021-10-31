@@ -104,7 +104,7 @@ impl WindowContext {
             None => &config.terminal_config.pty_config,
         };
 
-        let pty = tty::new(pty_config, &display.size_info, display.window.x11_window_id());
+        let pty = tty::new(pty_config, &display.size_info, display.window.x11_window_id())?;
 
         // Create the pseudoterminal I/O loop.
         //
