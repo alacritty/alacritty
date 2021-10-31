@@ -9,7 +9,6 @@ use std::{env, fs, process};
 use glutin::event_loop::EventLoopProxy;
 use log::warn;
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use alacritty_terminal::thread;
 
@@ -83,7 +82,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 pub fn send_message(socket: Option<PathBuf>, message: IPCMessage) -> IoResult<()> {
     let mut socket = find_socket(socket)?;
     let message = serde_json::to_string(&message)? + "\n";
-    socket.write_all(&message[..].as_bytes())?;
+    socket.write_all(message[..].as_bytes())?;
     Ok(())
 }
 

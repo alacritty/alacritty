@@ -284,7 +284,7 @@ impl Display {
 
         // Clear screen.
         let background_color = config.colors.primary.background;
-        renderer.with_api(&config, &size_info, |api| {
+        renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -301,7 +301,7 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         if is_x11 {
             window.swap_buffers();
-            renderer.with_api(&config, &size_info, |api| {
+            renderer.with_api(config, &size_info, |api| {
                 api.finish();
             });
         }
@@ -505,7 +505,7 @@ impl Display {
         // Make sure this window's OpenGL context is active.
         self.window.make_current();
 
-        self.renderer.with_api(&config, &size_info, |api| {
+        self.renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -522,7 +522,7 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             let highlighted_hint = &self.highlighted_hint;
             let vi_highlighted_hint = &self.vi_highlighted_hint;
-            self.renderer.with_api(&config, &size_info, |mut api| {
+            self.renderer.with_api(config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
                     // Underline hints hovered by mouse or vi mode cursor.
@@ -605,7 +605,7 @@ impl Display {
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
-                self.renderer.with_api(&config, &size_info, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(glyph_cache, point, fg, bg, message_text);
                 });
             }
@@ -651,7 +651,7 @@ impl Display {
             // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
             // will block to synchronize (this is `glClear` in Alacritty), which causes a
             // permanent one frame delay.
-            self.renderer.with_api(&config, &size_info, |api| {
+            self.renderer.with_api(config, &size_info, |api| {
                 api.finish();
             });
         }
@@ -755,7 +755,7 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
 
-        self.renderer.with_api(&config, size_info, |mut api| {
+        self.renderer.with_api(config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &text);
         });
     }
@@ -773,7 +773,7 @@ impl Display {
         let fg = config.colors.primary.background;
         let bg = config.colors.normal.red;
 
-        self.renderer.with_api(&config, size_info, |mut api| {
+        self.renderer.with_api(config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &timing);
         });
     }
@@ -796,7 +796,7 @@ impl Display {
         // Do not render anything if it would obscure the vi mode cursor.
         if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
-            self.renderer.with_api(&config, size_info, |mut api| {
+            self.renderer.with_api(config, size_info, |mut api| {
                 api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
             });
         }

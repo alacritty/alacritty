@@ -203,7 +203,7 @@ impl RenderableCell {
             mem::swap(&mut fg, &mut bg);
             1.0
         } else {
-            Self::compute_bg_alpha(&content.config, cell.bg)
+            Self::compute_bg_alpha(content.config, cell.bg)
         };
 
         let is_selected = content.terminal_content.selection.map_or(false, |selection| {

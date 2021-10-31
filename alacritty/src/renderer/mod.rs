@@ -673,7 +673,7 @@ impl QuadRenderer {
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
 
             // Restore viewport with padding.
-            self.set_viewport(&size_info);
+            self.set_viewport(size_info);
         }
     }
 

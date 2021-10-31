@@ -94,11 +94,9 @@ fn main() {
 /// `msg` subcommand entrypoint.
 #[cfg(unix)]
 fn msg(options: MessageOptions) -> Result<(), String> {
-    let msg = match options.message {
-        SocketMessage::CreateWindow(msg) => msg,
-    };
-
+    let SocketMessage::CreateWindow(msg) = options.message;
     let msg = IPCMessage::CreateWindow(msg);
+
     ipc::send_message(options.socket, msg).map_err(|err| err.to_string())
 }
 
