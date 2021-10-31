@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Option `colors.transparent_background_colors` to allow applying opacity to all background colors
 - Support for running multiple windows from a single Alacritty instance (see docs/features.md)
+- Urgency support on Wayland via `xdg_activation_v1`
 
 ### Changed
 
@@ -28,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi mode search starting in the line below the vi cursor
 - Invisible cursor with matching foreground/background colors
 - Crash when hovering over a match emptied by post-processing
+
+### Removed
+
+- Wayland client side decorations were simplified
 
 ## 0.9.0
 

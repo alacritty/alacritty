@@ -56,8 +56,6 @@ pub mod window;
 mod bell;
 mod color;
 mod meter;
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-mod wayland_theme;
 
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 pub const MAX_SEARCH_LINES: usize = 100;
