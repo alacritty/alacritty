@@ -44,7 +44,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 
             match stream.read_line(&mut data) {
                 Ok(0) | Err(_) => continue,
-                Ok(bytes_read) => bytes_read,
+                Ok(_) => (),
             };
 
             // Read pending events on socket.

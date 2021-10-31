@@ -11,9 +11,6 @@ use log::{debug, warn};
 #[cfg(windows)]
 use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
-#[cfg(target_os = "macos")]
-use crate::macos;
-
 /// Start the daemon and log error on failure.
 pub fn start_daemon<I, S>(program: &str, args: I)
 where

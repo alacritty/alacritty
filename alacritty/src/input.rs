@@ -29,7 +29,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, BindingMode, UiConfig, Key, MouseAction, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
