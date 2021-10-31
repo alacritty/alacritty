@@ -18,6 +18,8 @@ use crate::event::{Event, EventType};
 /// Environment variable name for the IPC socket path.
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
+const JSON_SEPARATOR: u8 = b'\n';
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum IPCMessage {
     CreateWindow(TerminalOptions),
@@ -45,32 +47,37 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
     thread::spawn_named("socket listener", move || {
         let mut data = Vec::new();
         for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    data.clear();
-                    let mut stream = BufReader::new(stream);
-
-                    match stream.read_until(b'\n', &mut data) {
-                        Ok(0) | Err(_) => continue,
-                        Ok(bytes_read) => bytes_read,
-                    };
-
-                    let options: IPCMessage = match serde_json::from_slice(&data) {
-                        Ok(options) => options,
-                        Err(_) => {
-                            warn!("Failed to read data from socket!");
-                            continue;
-                        },
-                    };
-
-                    match options {
-                        IPCMessage::CreateWindow(term_opts) => {
-                            let _ = event_proxy
-                                .send_event(Event::new(EventType::CreateWindow(term_opts), None));
-                        },
-                    }
+            let stream = match stream {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!("Failed to get incomming stream! {}", err);
+                    continue;
                 },
-                Err(err) => warn!("Failed to get incomming stream! {}", err),
+            };
+
+            data.clear();
+            let mut stream = BufReader::new(stream);
+
+            match stream.read_until(JSON_SEPARATOR, &mut data) {
+                Ok(0) | Err(_) => continue,
+                Ok(bytes_read) => bytes_read,
+            };
+
+            // Read pending events on socket.
+            let message: IPCMessage = match serde_json::from_slice(&data) {
+                Ok(message) => message,
+                Err(err) => {
+                    warn!("Fail to get data from socket: {}", err);
+                    continue;
+                },
+            };
+
+            // Handle IPC events.
+            match message {
+                IPCMessage::CreateWindow(terminal_options) => {
+                    let event = Event::new(EventType::CreateWindow(terminal_options), None);
+                    let _ = event_proxy.send_event(event);
+                },
             }
         }
     });
@@ -81,8 +88,11 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 /// Send a message to the active Alacritty socket.
 pub fn send_message(socket: Option<PathBuf>, message: IPCMessage) -> IoResult<()> {
     let mut socket = find_socket(socket)?;
-    let message = serde_json::to_string(&message)? + "\n";
+
+    let mut message = serde_json::to_string(&message)?;
+    message.push(JSON_SEPARATOR as char);
     socket.write_all(message[..].as_bytes())?;
+
     Ok(())
 }
 
