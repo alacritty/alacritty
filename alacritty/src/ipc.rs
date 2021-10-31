@@ -56,16 +56,20 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
                         Ok(bytes_read) => bytes_read,
                     };
 
-                    let options: TerminalOptions = match serde_json::from_slice(&data) {
+                    let options: IPCMessage = match serde_json::from_slice(&data) {
                         Ok(options) => options,
                         Err(_) => {
-                            eprintln!("Failed to read data from socket!");
+                            warn!("Failed to read data from socket!");
                             continue;
                         },
                     };
 
-                    let _ =
-                        event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+                    match options {
+                        IPCMessage::CreateWindow(term_opts) => {
+                            let _ = event_proxy
+                                .send_event(Event::new(EventType::CreateWindow(term_opts), None));
+                        },
+                    }
                 },
                 Err(err) => warn!("Failed to get incomming stream! {}", err),
             }
