@@ -379,13 +379,13 @@ mod tests {
     use super::*;
 
     use crate::ansi::Handler;
-    use crate::config::MockConfig;
+    use crate::config::Config;
     use crate::index::{Column, Line};
     use crate::term::{SizeInfo, Term};
 
     fn term() -> Term<()> {
         let size = SizeInfo::new(20., 20., 1.0, 1.0, 0.0, 0.0, false);
-        Term::new(&MockConfig::default(), size, ())
+        Term::new(&Config::default(), size, ())
     }
 
     #[test]

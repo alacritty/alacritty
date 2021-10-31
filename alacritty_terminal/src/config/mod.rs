@@ -15,8 +15,6 @@ pub use crate::config::scrolling::Scrolling;
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const MIN_BLINK_INTERVAL: u64 = 10;
 
-pub type MockConfig = Config;
-
 /// Top-level config type.
 #[derive(ConfigDeserialize, Debug, PartialEq, Default)]
 pub struct Config {
