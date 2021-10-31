@@ -9,7 +9,9 @@ use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::{Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{
+    Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
+};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;

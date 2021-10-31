@@ -1295,7 +1295,9 @@ impl Processor {
                     }
                 },
                 // Create a new terminal window.
-                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow(options), .. }) => {
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::CreateWindow(options), ..
+                }) => {
                     if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }

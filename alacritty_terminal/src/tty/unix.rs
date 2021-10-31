@@ -21,7 +21,7 @@ use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::consts as sigconsts;
 use signal_hook_mio::v0_6::Signals;
 
-use crate::config::{PtyConfig, Program};
+use crate::config::{Program, PtyConfig};
 use crate::event::OnResize;
 use crate::grid::Dimensions;
 use crate::term::SizeInfo;
