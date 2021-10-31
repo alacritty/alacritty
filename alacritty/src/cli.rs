@@ -34,10 +34,6 @@ pub struct Options {
     #[structopt(long)]
     pub embed: Option<String>,
 
-    /// Start the shell in the specified working directory.
-    #[structopt(long)]
-    pub working_directory: Option<PathBuf>,
-
     /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml].
     #[cfg(not(any(target_os = "macos", windows)))]
     #[structopt(long)]
@@ -53,10 +49,6 @@ pub struct Options {
     #[structopt(long)]
     pub config_file: Option<PathBuf>,
 
-    /// Remain open after child process exits.
-    #[structopt(long)]
-    pub hold: bool,
-
     /// Path for IPC socket creation.
     #[cfg(unix)]
     #[structopt(long)]
@@ -70,10 +62,6 @@ pub struct Options {
     #[structopt(short, conflicts_with("quiet"), parse(from_occurrences))]
     verbose: u8,
 
-    /// Command and args to execute (must be last argument).
-    #[structopt(short = "e", long, allow_hyphen_values = true)]
-    command: Vec<String>,
-
     /// Override configuration file options [example: cursor.style=Beam].
     #[structopt(short = "o", long)]
     option: Vec<String>,
@@ -81,6 +69,10 @@ pub struct Options {
     /// CLI options for config overrides.
     #[structopt(skip)]
     pub config_options: Value,
+
+    /// Terminal options which could be passed via IPC.
+    #[structopt(flatten)]
+    pub terminal_options: TerminalOptions,
 
     /// Subcommand passed to the CLI.
     #[cfg(unix)]
@@ -107,19 +99,20 @@ impl Options {
 
     /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut Config) {
-        if let Some(working_directory) = &self.working_directory {
+        if let Some(working_directory) = &self.terminal_options.working_directory {
             if working_directory.is_dir() {
-                config.terminal_config.working_directory = Some(working_directory.to_owned());
+                config.terminal_config.pty_config.working_directory =
+                    Some(working_directory.to_owned());
             } else {
                 error!("Invalid working directory: {:?}", working_directory);
             }
         }
 
-        if let Some(command) = self.command() {
-            config.terminal_config.shell = Some(command);
+        if let Some(command) = self.terminal_options.command() {
+            config.terminal_config.pty_config.shell = Some(command);
         }
 
-        config.terminal_config.hold = self.hold;
+        config.terminal_config.pty_config.hold = self.terminal_options.hold;
 
         if let Some(title) = self.title.clone() {
             config.window.title = title
@@ -140,8 +133,7 @@ impl Options {
         config.debug.ref_test |= self.ref_test;
 
         if config.debug.print_events {
-            config.debug.log_level =
-                max(config.debug.log_level, LevelFilter::Info);
+            config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
         }
     }
 
@@ -163,12 +155,6 @@ impl Options {
             (1, _) => LevelFilter::Error,
             (..) => LevelFilter::Off,
         }
-    }
-
-    /// Shell override passed through the CLI.
-    pub fn command(&self) -> Option<Program> {
-        let (program, args) = self.command.split_first()?;
-        Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
     }
 }
 
@@ -214,6 +200,34 @@ fn parse_class(input: &str) -> Result<Class, String> {
     }
 }
 
+/// Terminal specific cli options which could also be passed via IPC.
+#[derive(StructOpt, Default, Debug, Clone)]
+pub struct TerminalOptions {
+    /// Start the shell in the specified working directory.
+    #[structopt(long)]
+    pub working_directory: Option<PathBuf>,
+
+    /// Remain open after child process exits.
+    #[structopt(long)]
+    pub hold: bool,
+
+    /// Command and args to execute (must be last argument).
+    #[structopt(short = "e", long, allow_hyphen_values = true)]
+    command: Vec<String>,
+}
+
+impl TerminalOptions {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Shell override passed through the CLI.
+    pub fn command(&self) -> Option<Program> {
+        let (program, args) = self.command.split_first()?;
+        Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
+    }
+}
+
 /// Available CLI subcommands.
 #[cfg(unix)]
 #[derive(StructOpt, Debug)]
@@ -239,7 +253,7 @@ pub struct MessageOptions {
 #[derive(StructOpt, Debug)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
-    CreateWindow,
+    CreateWindow(TerminalOptions),
 }
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::consts as sigconsts;
 use signal_hook_mio::v0_6::Signals;
 
-use crate::config::{Config, Program};
+use crate::config::{PtyConfig, Program};
 use crate::event::OnResize;
 use crate::grid::Dimensions;
 use crate::term::SizeInfo;
@@ -143,7 +143,7 @@ fn default_shell(pw: &Passwd<'_>) -> Program {
 }
 
 /// Create a new TTY and return a handle to interact with it.
-pub fn new(config: &Config, size: &SizeInfo, window_id: Option<usize>) -> Pty {
+pub fn new(config: &PtyConfig, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     let (master, slave) = make_pty(size.to_winsize());
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]

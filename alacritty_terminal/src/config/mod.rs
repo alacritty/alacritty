@@ -25,25 +25,33 @@ pub struct Config {
 
     pub selection: Selection,
 
-    /// Path to a shell program to run on startup.
-    pub shell: Option<Program>,
-
     /// How much scrolling history to keep.
     pub scrolling: Scrolling,
 
     /// Cursor configuration.
     pub cursor: Cursor,
 
+    #[config(flatten)]
+    pub pty_config: PtyConfig,
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Default)]
+pub struct PtyConfig {
+    /// Path to a shell program to run on startup.
+    pub shell: Option<Program>,
+
     /// Shell startup directory.
     pub working_directory: Option<PathBuf>,
-
-    // /// Additional configuration options not directly required by the terminal.
-    // #[config(flatten)]
-    // pub ui_config: T,
 
     /// Remain open after child process exits.
     #[config(skip)]
     pub hold: bool,
+}
+
+impl PtyConfig {
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]

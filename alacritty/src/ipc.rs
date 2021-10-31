@@ -46,7 +46,8 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 
         while let Ok(received) = socket.recv(&mut buf) {
             if buf[..received] == SOCKET_MESSAGE_CREATE_WINDOW {
-                let _ = event_proxy.send_event(Event::new(EventType::CreateWindow, None));
+                // TODO: transfer it somehow!!!!.
+                let _ = event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
             }
         }
     });

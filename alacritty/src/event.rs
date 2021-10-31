@@ -31,7 +31,7 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 
-use crate::cli::Options as CliOptions;
+use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCLIOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
@@ -83,7 +83,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow,
+    CreateWindow(Option<TerminalCLIOptions>),
     BlinkCursor,
     SearchNext,
 }
@@ -377,7 +377,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn create_new_window(&mut self) {
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow, None));
+        let options = if let Ok(working_directory) = foreground_process_path() {
+            // TODO: refactor a bit.
+            let mut options = TerminalCLIOptions::new();
+            options.working_directory = Some(working_directory);
+            Some(options)
+        } else {
+            None
+        };
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -1052,7 +1060,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
-                EventType::ConfigReload(_) | EventType::CreateWindow => (),
+                EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, .. } => {
@@ -1177,10 +1185,12 @@ impl Processor {
     pub fn create_window(
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
+        options: Option<TerminalCLIOptions>,
         proxy: EventLoopProxy<Event>,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::new(
             &self.config,
+            options,
             event_loop,
             proxy,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1285,8 +1295,8 @@ impl Processor {
                     }
                 },
                 // Create a new terminal window.
-                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow, .. }) => {
-                    if let Err(err) = self.create_window(event_loop, proxy.clone()) {
+                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow(options), .. }) => {
+                    if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }
                 },
