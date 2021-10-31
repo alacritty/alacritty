@@ -92,7 +92,6 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        // TODO: build local version of pty config for each window.
         let mut new_pty_config = PtyConfig::new();
         let pty_config = match options {
             Some(mut options) => {

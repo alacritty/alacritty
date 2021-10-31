@@ -35,7 +35,9 @@ use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCLIOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, Config};
-use crate::daemon::{foreground_process_path, start_daemon};
+#[cfg(unix)]
+use crate::daemon::foreground_process_path;
+use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
@@ -313,17 +315,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn received_count(&mut self) -> &mut usize {
-        &mut self.received_count
+        self.received_count
     }
 
     #[inline]
     fn suppress_chars(&mut self) -> &mut bool {
-        &mut self.suppress_chars
+        self.suppress_chars
     }
 
     #[inline]
     fn modifiers(&mut self) -> &mut ModifiersState {
-        &mut self.modifiers
+        self.modifiers
     }
 
     #[inline]
@@ -333,7 +335,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn display(&mut self) -> &mut Display {
-        &mut self.display
+        self.display
     }
 
     #[inline]
@@ -377,12 +379,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn create_new_window(&mut self) {
-        let mut options = TerminalCLIOptions::new();
+        let mut _options = TerminalCLIOptions::new();
+        #[cfg(unix)]
         if let Ok(working_directory) = foreground_process_path() {
-            options.working_directory = Some(working_directory);
+            _options.working_directory = Some(working_directory);
         }
 
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(_options), None));
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -1295,7 +1298,9 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
-                    if let Err(err) = self.create_window(event_loop, Some(options), proxy.clone()) {
+                    let options = if options.is_empty() { Some(options) } else { None };
+
+                    if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }
                 },

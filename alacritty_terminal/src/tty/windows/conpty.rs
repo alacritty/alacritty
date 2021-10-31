@@ -15,7 +15,7 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-use crate::config::Config;
+use crate::config::PtyConfig;
 use crate::event::OnResize;
 use crate::grid::Dimensions;
 use crate::term::SizeInfo;
@@ -40,7 +40,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new<C>(config: &Config<C>, size: &SizeInfo) -> Option<Pty> {
+pub fn new(config: &PtyConfig, size: &SizeInfo) -> Option<Pty> {
     let mut pty_handle = 0 as HPCON;
 
     // Passing 0 as the size parameter allows the "system default" buffer
@@ -136,7 +136,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo) -> Option<Pty> {
         }
     }
 
-    let cmdline = win32_string(&cmdline(&config));
+    let cmdline = win32_string(&cmdline(config));
     let cwd = config.working_directory.as_ref().map(win32_string);
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();

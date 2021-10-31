@@ -1,23 +1,22 @@
-use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::io;
 #[cfg(not(windows))]
-use std::os::unix::process::CommandExt;
+use {
+    alacritty_terminal::tty, std::error::Error, std::os::unix::process::CommandExt,
+    std::path::PathBuf,
+};
+
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-#[cfg(not(windows))]
-use alacritty_terminal::tty;
 use log::{debug, warn};
+#[cfg(windows)]
+use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
 #[cfg(target_os = "macos")]
 use crate::macos;
-
-#[cfg(windows)]
-use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
 /// Start the daemon and log error on failure.
 pub fn start_daemon<I, S>(program: &str, args: I)
@@ -31,7 +30,7 @@ where
     }
 }
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
     let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
     if pid < 0 {

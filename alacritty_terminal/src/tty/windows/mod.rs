@@ -1,10 +1,10 @@
 use std::ffi::OsStr;
-use std::io;
+use std::io::{self, Error, ErrorKind, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
 
-use crate::config::{Config, Program};
+use crate::config::{Program, PtyConfig};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -28,8 +28,8 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
-    conpty::new(config, size).expect("Failed to create ConPTY backend")
+pub fn new(config: &PtyConfig, size: &SizeInfo, _window_id: Option<usize>) -> Result<Pty> {
+    conpty::new(config, size).ok_or_else(|| Error::new(ErrorKind::Other, "failed to spawn conpty"))
 }
 
 impl Pty {
@@ -165,11 +165,11 @@ impl OnResize for Pty {
     }
 }
 
-fn cmdline<C>(config: &Config<C>) -> String {
+fn cmdline(config: &PtyConfig) -> String {
     let default_shell = Program::Just("powershell".to_owned());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program().as_ref())
+    once(shell.program())
         .chain(shell.args().iter().map(|a| a.as_ref()))
         .collect::<Vec<_>>()
         .join(" ")
