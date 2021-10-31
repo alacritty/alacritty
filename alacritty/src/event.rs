@@ -83,7 +83,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow(Option<TerminalCLIOptions>),
+    CreateWindow(TerminalCLIOptions),
     BlinkCursor,
     SearchNext,
 }
@@ -377,14 +377,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn create_new_window(&mut self) {
-        let options = if let Ok(working_directory) = foreground_process_path() {
-            // TODO: refactor a bit.
-            let mut options = TerminalCLIOptions::new();
+        let mut options = TerminalCLIOptions::new();
+        if let Ok(working_directory) = foreground_process_path() {
             options.working_directory = Some(working_directory);
-            Some(options)
-        } else {
-            None
-        };
+        }
+
         let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
     }
 
@@ -1298,7 +1295,7 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
-                    if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
+                    if let Err(err) = self.create_window(event_loop, Some(options), proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }
                 },

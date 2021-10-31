@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::path::PathBuf;
 
 use log::{self, error, LevelFilter};
+use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use structopt::StructOpt;
 
@@ -201,7 +202,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
 }
 
 /// Terminal specific cli options which could also be passed via IPC.
-#[derive(StructOpt, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
 pub struct TerminalOptions {
     /// Start the shell in the specified working directory.
     #[structopt(long)]
@@ -219,6 +220,10 @@ pub struct TerminalOptions {
 impl TerminalOptions {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.working_directory.is_none() && !self.hold && self.command.is_empty()
     }
 
     /// Shell override passed through the CLI.

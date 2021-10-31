@@ -1,24 +1,28 @@
 //! Alacritty socket IPC.
 
 use std::ffi::OsStr;
-use std::io::{Error as IoError, ErrorKind, Result as IoResult};
-use std::os::unix::net::UnixDatagram;
+use std::io::{BufRead, BufReader, Error as IoError, ErrorKind, Result as IoResult, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::{env, fs, process};
 
 use glutin::event_loop::EventLoopProxy;
 use log::warn;
+use serde::{Deserialize, Serialize};
+use serde_json;
 
 use alacritty_terminal::thread;
 
-use crate::cli::Options;
+use crate::cli::{Options, TerminalOptions};
 use crate::event::{Event, EventType};
-
-/// IPC socket message for creating a new window.
-pub const SOCKET_MESSAGE_CREATE_WINDOW: [u8; 1] = [1];
 
 /// Environment variable name for the IPC socket path.
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum IPCMessage {
+    CreateWindow(TerminalOptions),
+}
 
 /// Create an IPC socket.
 pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
@@ -30,8 +34,8 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
     });
     env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
 
-    let socket = match UnixDatagram::bind(&socket_path) {
-        Ok(socket) => socket,
+    let listener = match UnixListener::bind(&socket_path) {
+        Ok(listener) => listener,
         Err(err) => {
             warn!("Unable to create socket: {:?}", err);
             return None;
@@ -40,14 +44,30 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 
     // Spawn a thread to listen on the IPC socket.
     thread::spawn_named("socket listener", move || {
-        // Accept up to 2 bytes to ensure only one byte is received.
-        // This ensures forward-compatibility.
-        let mut buf = [0; 2];
+        let mut data = Vec::new();
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    data.clear();
+                    let mut stream = BufReader::new(stream);
 
-        while let Ok(received) = socket.recv(&mut buf) {
-            if buf[..received] == SOCKET_MESSAGE_CREATE_WINDOW {
-                // TODO: transfer it somehow!!!!.
-                let _ = event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
+                    match stream.read_until(b'\n', &mut data) {
+                        Ok(0) | Err(_) => continue,
+                        Ok(bytes_read) => bytes_read,
+                    };
+
+                    let options: TerminalOptions = match serde_json::from_slice(&data) {
+                        Ok(options) => options,
+                        Err(_) => {
+                            eprintln!("Failed to read data from socket!");
+                            continue;
+                        },
+                    };
+
+                    let _ =
+                        event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+                },
+                Err(err) => warn!("Failed to get incomming stream! {}", err),
             }
         }
     });
@@ -56,9 +76,10 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 }
 
 /// Send a message to the active Alacritty socket.
-pub fn send_message(socket: Option<PathBuf>, message: &[u8]) -> IoResult<()> {
-    let socket = find_socket(socket)?;
-    socket.send(message)?;
+pub fn send_message(socket: Option<PathBuf>, message: IPCMessage) -> IoResult<()> {
+    let mut socket = find_socket(socket)?;
+    let message = serde_json::to_string(&message)? + "\n";
+    socket.write_all(&message[..].as_bytes())?;
     Ok(())
 }
 
@@ -79,22 +100,20 @@ fn socket_dir() -> PathBuf {
 }
 
 /// Find the IPC socket path.
-fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
-    let socket = UnixDatagram::unbound()?;
-
+fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
     // Handle --socket CLI override.
     if let Some(socket_path) = socket_path {
         // Ensure we inform the user about an invalid path.
-        socket.connect(&socket_path).map_err(|err| {
+        return UnixStream::connect(&socket_path).map_err(|err| {
             let message = format!("invalid socket path {:?}", socket_path);
             IoError::new(err.kind(), message)
-        })?;
+        });
     }
 
     // Handle environment variable.
     if let Ok(path) = env::var(ALACRITTY_SOCKET_ENV) {
         let socket_path = PathBuf::from(path);
-        if socket.connect(&socket_path).is_ok() {
+        if let Ok(socket) = UnixStream::connect(&socket_path) {
             return Ok(socket);
         }
     }
@@ -115,8 +134,8 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixDatagram> {
         }
 
         // Attempt to connect to the socket.
-        match socket.connect(&path) {
-            Ok(_) => return Ok(socket),
+        match UnixStream::connect(&path) {
+            Ok(socket) => return Ok(socket),
             // Delete orphan sockets.
             Err(error) if error.kind() == ErrorKind::ConnectionRefused => {
                 let _ = fs::remove_file(&path);
