@@ -52,11 +52,9 @@ mod gl {
 
 use crate::cli::Options;
 #[cfg(unix)]
-use crate::cli::{MessageOptions, SocketMessage, Subcommands};
+use crate::cli::{MessageOptions, Subcommands};
 use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
-#[cfg(unix)]
-use crate::ipc::IPCMessage;
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 
@@ -94,10 +92,7 @@ fn main() {
 /// `msg` subcommand entrypoint.
 #[cfg(unix)]
 fn msg(options: MessageOptions) -> Result<(), String> {
-    let SocketMessage::CreateWindow(msg) = options.message;
-    let msg = IPCMessage::CreateWindow(msg);
-
-    ipc::send_message(options.socket, msg).map_err(|err| err.to_string())
+    ipc::send_message(options.socket, options.message).map_err(|err| err.to_string())
 }
 
 /// Temporary files stored for Alacritty.

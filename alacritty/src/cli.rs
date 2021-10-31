@@ -255,7 +255,7 @@ pub struct MessageOptions {
 
 /// Available socket messages.
 #[cfg(unix)]
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
     CreateWindow(TerminalOptions),

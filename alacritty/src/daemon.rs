@@ -2,11 +2,7 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::io;
 #[cfg(not(windows))]
-use {
-    alacritty_terminal::tty, std::error::Error, std::os::unix::process::CommandExt,
-    std::path::PathBuf,
-};
-
+use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
@@ -28,27 +24,6 @@ where
         Ok(_) => debug!("Launched {} with args {:?}", program, args),
         Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
     }
-}
-
-#[cfg(not(windows))]
-pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
-    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-    if pid < 0 {
-        pid = tty::child_pid();
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-    let link_path = format!("/proc/{}/cwd", pid);
-    #[cfg(target_os = "freebsd")]
-    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-
-    #[cfg(not(target_os = "macos"))]
-    let cwd = std::fs::read_link(link_path)?;
-
-    #[cfg(target_os = "macos")]
-    let cwd = macos::proc::cwd(pid)?;
-
-    Ok(cwd)
 }
 
 #[cfg(windows)]

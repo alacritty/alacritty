@@ -68,6 +68,10 @@ pub struct UiConfig {
     #[cfg(unix)]
     pub ipc_socket: bool,
 
+    /// Config for the alacritty_terminal itself.
+    #[config(flatten)]
+    pub terminal_config: TerminalConfig,
+
     /// Keybindings.
     key_bindings: KeyBindings,
 
@@ -77,10 +81,6 @@ pub struct UiConfig {
     /// Background opacity from 0.0 to 1.0.
     #[config(deprecated = "use window.opacity instead")]
     background_opacity: Option<Percentage>,
-
-    /// Config for the alacritty_terminal itself.
-    #[config(flatten)]
-    pub terminal_config: TerminalConfig,
 }
 
 impl Default for UiConfig {
@@ -97,12 +97,12 @@ impl Default for UiConfig {
             config_paths: Default::default(),
             key_bindings: Default::default(),
             mouse_bindings: Default::default(),
+            terminal_config: Default::default(),
             background_opacity: Default::default(),
             bell: Default::default(),
             colors: Default::default(),
             draw_bold_text_with_bright_colors: Default::default(),
             hints: Default::default(),
-            terminal_config: Default::default(),
         }
     }
 }

@@ -8,22 +8,14 @@ use std::{env, fs, process};
 
 use glutin::event_loop::EventLoopProxy;
 use log::warn;
-use serde::{Deserialize, Serialize};
 
 use alacritty_terminal::thread;
 
-use crate::cli::{Options, TerminalOptions};
+use crate::cli::{Options, SocketMessage};
 use crate::event::{Event, EventType};
 
 /// Environment variable name for the IPC socket path.
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
-
-const JSON_SEPARATOR: u8 = b'\n';
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum IPCMessage {
-    CreateWindow(TerminalOptions),
-}
 
 /// Create an IPC socket.
 pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
@@ -45,37 +37,29 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 
     // Spawn a thread to listen on the IPC socket.
     thread::spawn_named("socket listener", move || {
-        let mut data = Vec::new();
-        for stream in listener.incoming() {
-            let stream = match stream {
-                Ok(stream) => stream,
-                Err(err) => {
-                    warn!("Failed to get incomming stream! {}", err);
-                    continue;
-                },
-            };
-
+        let mut data = String::new();
+        for stream in listener.incoming().filter_map(|stream| stream.ok()) {
             data.clear();
             let mut stream = BufReader::new(stream);
 
-            match stream.read_until(JSON_SEPARATOR, &mut data) {
+            match stream.read_line(&mut data) {
                 Ok(0) | Err(_) => continue,
                 Ok(bytes_read) => bytes_read,
             };
 
             // Read pending events on socket.
-            let message: IPCMessage = match serde_json::from_slice(&data) {
+            let message: SocketMessage = match serde_json::from_str(&data) {
                 Ok(message) => message,
                 Err(err) => {
-                    warn!("Fail to get data from socket: {}", err);
+                    warn!("Fail to convert data from socket: {}", err);
                     continue;
                 },
             };
 
             // Handle IPC events.
             match message {
-                IPCMessage::CreateWindow(terminal_options) => {
-                    let event = Event::new(EventType::CreateWindow(terminal_options), None);
+                SocketMessage::CreateWindow(terminal_options) => {
+                    let event = Event::new(EventType::CreateWindow(Some(terminal_options)), None);
                     let _ = event_proxy.send_event(event);
                 },
             }
@@ -86,12 +70,12 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 }
 
 /// Send a message to the active Alacritty socket.
-pub fn send_message(socket: Option<PathBuf>, message: IPCMessage) -> IoResult<()> {
+pub fn send_message(socket: Option<PathBuf>, message: SocketMessage) -> IoResult<()> {
     let mut socket = find_socket(socket)?;
 
-    let mut message = serde_json::to_string(&message)?;
-    message.push(JSON_SEPARATOR as char);
+    let message = serde_json::to_string(&message)?;
     socket.write_all(message[..].as_bytes())?;
+    let _ = socket.flush();
 
     Ok(())
 }

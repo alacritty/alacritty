@@ -30,13 +30,13 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
+#[cfg(not(windows))]
+use alacritty_terminal::tty;
 
 use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCLIOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
-#[cfg(unix)]
-use crate::daemon::foreground_process_path;
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -85,7 +85,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow(TerminalCLIOptions),
+    CreateWindow(Option<TerminalCLIOptions>),
     BlinkCursor,
     SearchNext,
 }
@@ -352,8 +352,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
-        // Use working directory of controlling process, or fallback to initial shell, and add the
-        // current working directory as parameter.
+        // Use working directory of controlling process, or fallback to initial shell, then add it
+        // as working-directory parameter.
         #[cfg(unix)]
         let mut args = foreground_process_path()
             .map(|path| vec!["--working-directory".into(), path])
@@ -378,14 +378,22 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         start_daemon(&alacritty, &args);
     }
 
+    #[cfg(not(windows))]
     fn create_new_window(&mut self) {
-        let mut _options = TerminalCLIOptions::new();
-        #[cfg(unix)]
-        if let Ok(working_directory) = foreground_process_path() {
-            _options.working_directory = Some(working_directory);
-        }
+        let options = if let Ok(working_directory) = foreground_process_path() {
+            let mut options = TerminalCLIOptions::new();
+            options.working_directory = Some(working_directory);
+            Some(options)
+        } else {
+            None
+        };
 
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(_options), None));
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+    }
+
+    #[cfg(windows)]
+    fn create_new_window(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -1017,15 +1025,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        let config = &self.ctx.config;
-                        if config.window.dynamic_title {
+                        if self.ctx.config.window.dynamic_title {
                             self.ctx.window().set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        let config = &self.ctx.config;
-                        if config.window.dynamic_title {
-                            self.ctx.display.window.set_title(&config.window.title);
+                        if self.ctx.config.window.dynamic_title {
+                            self.ctx.display.window.set_title(&self.ctx.config.window.title);
                         }
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
@@ -1298,8 +1304,6 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
-                    let options = if options.is_empty() { Some(options) } else { None };
-
                     if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }
@@ -1382,4 +1386,25 @@ impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
         let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
+}
+
+#[cfg(not(windows))]
+pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
+    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
+    if pid < 0 {
+        pid = tty::child_pid();
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
+    let link_path = format!("/proc/{}/cwd", pid);
+    #[cfg(target_os = "freebsd")]
+    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+
+    #[cfg(not(target_os = "macos"))]
+    let cwd = std::fs::read_link(link_path)?;
+
+    #[cfg(target_os = "macos")]
+    let cwd = macos::proc::cwd(pid)?;
+
+    Ok(cwd)
 }
