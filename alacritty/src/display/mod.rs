@@ -35,7 +35,7 @@ use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
 use crate::display::content::RenderableContent;
@@ -202,7 +202,7 @@ pub struct Display {
 
 impl Display {
     pub fn new<E>(
-        config: &Config,
+        config: &UiConfig,
         event_loop: &EventLoopWindowTarget<E>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
@@ -349,7 +349,7 @@ impl Display {
     fn new_glyph_cache(
         dpr: f64,
         renderer: &mut QuadRenderer,
-        config: &Config,
+        config: &UiConfig,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.font.clone();
         let rasterizer = Rasterizer::new(dpr as f32, config.font.use_thin_strokes)?;
@@ -380,7 +380,7 @@ impl Display {
     /// Update font size and cell dimensions.
     ///
     /// This will return a tuple of the cell width and height.
-    fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
+    fn update_glyph_cache(&mut self, config: &UiConfig, font: &Font) -> (f32, f32) {
         let cache = &mut self.glyph_cache;
         let dpr = self.window.dpr;
 
@@ -407,7 +407,7 @@ impl Display {
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
         search_active: bool,
-        config: &Config,
+        config: &UiConfig,
     ) where
         T: EventListener,
     {
@@ -478,7 +478,7 @@ impl Display {
         &mut self,
         terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
-        config: &Config,
+        config: &UiConfig,
         search_state: &SearchState,
     ) {
         // Collect renderable content before the terminal is dropped.
@@ -658,7 +658,7 @@ impl Display {
     }
 
     /// Update to a new configuration.
-    pub fn update_config(&mut self, config: &Config) {
+    pub fn update_config(&mut self, config: &UiConfig) {
         self.visual_bell.update_config(&config.bell);
         self.colors = List::from(&config.colors);
     }
@@ -669,7 +669,7 @@ impl Display {
     pub fn update_highlighted_hints<T>(
         &mut self,
         term: &Term<T>,
-        config: &Config,
+        config: &UiConfig,
         mouse: &Mouse,
         modifiers: ModifiersState,
     ) -> bool {
@@ -744,7 +744,7 @@ impl Display {
     }
 
     /// Draw current search regex.
-    fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
+    fn draw_search(&mut self, config: &UiConfig, size_info: &SizeInfo, text: &str) {
         let glyph_cache = &mut self.glyph_cache;
         let num_cols = size_info.columns();
 
@@ -761,7 +761,7 @@ impl Display {
     }
 
     /// Draw render timer.
-    fn draw_render_timer(&mut self, config: &Config, size_info: &SizeInfo) {
+    fn draw_render_timer(&mut self, config: &UiConfig, size_info: &SizeInfo) {
         if !config.debug.render_timer {
             return;
         }
@@ -781,7 +781,7 @@ impl Display {
     /// Draw an indicator for the position of a line in history.
     fn draw_line_indicator(
         &mut self,
-        config: &Config,
+        config: &UiConfig,
         size_info: &SizeInfo,
         total_lines: usize,
         obstructed_column: Option<Column>,
@@ -847,7 +847,7 @@ pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
 ///
 /// This will return a tuple of the cell width and height.
 #[inline]
-fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32) {
+fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f32) {
     let offset_x = f64::from(config.font.offset.x);
     let offset_y = f64::from(config.font.offset.y);
     (
@@ -858,7 +858,7 @@ fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32
 
 /// Calculate the size of the window given padding, terminal dimensions and cell size.
 fn window_size(
-    config: &Config,
+    config: &UiConfig,
     dimensions: Dimensions,
     cell_width: f32,
     cell_height: f32,

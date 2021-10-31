@@ -12,7 +12,7 @@ use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
 
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
 use crate::display::{self, Display, MAX_SEARCH_LINES};
@@ -31,14 +31,14 @@ pub struct RenderableContent<'a> {
     cursor_point: Point<usize>,
     search: Option<Regex<'a>>,
     hint: Option<Hint<'a>>,
-    config: &'a Config,
+    config: &'a UiConfig,
     colors: &'a List,
     focused_match: Option<&'a Match>,
 }
 
 impl<'a> RenderableContent<'a> {
     pub fn new<T: EventListener>(
-        config: &'a Config,
+        config: &'a UiConfig,
         display: &'a mut Display,
         term: &'a Term<T>,
         search_state: &'a SearchState,
@@ -350,7 +350,7 @@ impl RenderableCell {
     /// using the named input color, rather than checking the RGB of the background after its color
     /// is computed.
     #[inline]
-    fn compute_bg_alpha(config: &Config, bg: Color) -> f32 {
+    fn compute_bg_alpha(config: &UiConfig, bg: Color) -> f32 {
         if bg == Color::Named(NamedColor::Background) {
             0.
         } else if config.colors.transparent_background_colors {

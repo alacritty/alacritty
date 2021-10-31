@@ -8,7 +8,7 @@ use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
 use crate::config::ui_config::{Hint, HintAction};
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::display::content::RegexMatches;
 use crate::display::MAX_SEARCH_LINES;
 
@@ -242,7 +242,7 @@ impl HintLabels {
 /// Check if there is a hint highlighted at the specified point.
 pub fn highlighted_at<T>(
     term: &Term<T>,
-    config: &Config,
+    config: &UiConfig,
     point: Point,
     mouse_mods: ModifiersState,
 ) -> Option<HintMatch> {

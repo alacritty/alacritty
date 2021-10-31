@@ -34,7 +34,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCLIOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
-use crate::config::{self, Config};
+use crate::config::{self, UiConfig};
 #[cfg(unix)]
 use crate::daemon::foreground_process_path;
 use crate::daemon::start_daemon;
@@ -176,7 +176,7 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut ModifiersState,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
-    pub config: &'a mut Config,
+    pub config: &'a mut UiConfig,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
@@ -759,7 +759,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.message_buffer.message()
     }
 
-    fn config(&self) -> &Config {
+    fn config(&self) -> &UiConfig {
         self.config
     }
 
@@ -1153,7 +1153,7 @@ pub struct Processor {
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext>,
     cli_options: CliOptions,
-    config: Config,
+    config: UiConfig,
 }
 
 impl Processor {
@@ -1161,7 +1161,7 @@ impl Processor {
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a PTY.
     pub fn new(
-        config: Config,
+        config: UiConfig,
         cli_options: CliOptions,
         _event_loop: &EventLoop<Event>,
     ) -> Processor {

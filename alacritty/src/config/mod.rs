@@ -27,12 +27,10 @@ pub use crate::config::bindings::{
 };
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
-use crate::config::ui_config::UiConfig;
+pub use crate::config::ui_config::UiConfig;
 
 /// Maximum number of depth for the configuration file imports.
 const IMPORT_RECURSION_LIMIT: usize = 5;
-
-pub type Config = UiConfig;
 
 /// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -40,7 +38,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors occurring during config loading.
 #[derive(Debug)]
 pub enum Error {
-    /// Config file not found.
+    /// UiConfig file not found.
     NotFound,
 
     /// Couldn't read $HOME environment variable.
@@ -72,7 +70,7 @@ impl Display for Error {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
             },
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(err) => write!(f, "Config error: {}", err),
+            Error::Yaml(err) => write!(f, "UiConfig error: {}", err),
         }
     }
 }
@@ -100,19 +98,19 @@ impl From<serde_yaml::Error> for Error {
 }
 
 /// Load the configuration file.
-pub fn load(options: &Options) -> Config {
+pub fn load(options: &Options) -> UiConfig {
     let config_options = options.config_options.clone();
     let config_path = options.config_file.clone().or_else(installed_config);
 
     // Load the config using the following fallback behavior:
-    //  - Config path + CLI overrides
+    //  - UiConfig path + CLI overrides
     //  - CLI overrides
     //  - Default
     let mut config = config_path
         .as_ref()
         .and_then(|config_path| load_from(config_path, config_options.clone()).ok())
         .unwrap_or_else(|| {
-            let mut config = Config::deserialize(config_options).unwrap_or_default();
+            let mut config = UiConfig::deserialize(config_options).unwrap_or_default();
             match config_path {
                 Some(config_path) => config.config_paths.push(config_path),
                 None => info!(target: LOG_TARGET_CONFIG, "No config file found; using default"),
@@ -126,7 +124,7 @@ pub fn load(options: &Options) -> Config {
 }
 
 /// Attempt to reload the configuration file.
-pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
+pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
     // Load config, propagating errors.
     let config_options = options.config_options.clone();
     let mut config = load_from(config_path, config_options)?;
@@ -136,8 +134,8 @@ pub fn reload(config_path: &Path, options: &Options) -> Result<Config> {
     Ok(config)
 }
 
-/// Modifications after the `Config` object is created.
-fn after_loading(config: &mut Config, options: &Options) {
+/// Modifications after the `UiConfig` object is created.
+fn after_loading(config: &mut UiConfig, options: &Options) {
     // Override config with CLI options.
     options.override_config(config);
 
@@ -146,7 +144,7 @@ fn after_loading(config: &mut Config, options: &Options) {
 }
 
 /// Load configuration file and log errors.
-fn load_from(path: &Path, cli_config: Value) -> Result<Config> {
+fn load_from(path: &Path, cli_config: Value) -> Result<UiConfig> {
     match read_config(path, cli_config) {
         Ok(config) => Ok(config),
         Err(err) => {
@@ -157,7 +155,7 @@ fn load_from(path: &Path, cli_config: Value) -> Result<Config> {
 }
 
 /// Deserialize configuration file from path.
-fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
+fn read_config(path: &Path, cli_config: Value) -> Result<UiConfig> {
     let mut config_paths = Vec::new();
     let mut config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
@@ -165,7 +163,7 @@ fn read_config(path: &Path, cli_config: Value) -> Result<Config> {
     config_value = serde_utils::merge(config_value, cli_config);
 
     // Deserialize to concrete type.
-    let mut config = Config::deserialize(config_value)?;
+    let mut config = UiConfig::deserialize(config_value)?;
     config.config_paths = config_paths;
 
     Ok(config)
@@ -241,7 +239,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         }
 
         if !path.exists() {
-            info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
+            info!(target: LOG_TARGET_CONFIG, "UiConfig import not found:\n  {:?}", path.display());
             continue;
         }
 
@@ -308,6 +306,6 @@ mod tests {
         let config_path: PathBuf = DEFAULT_ALACRITTY_CONFIG.into();
         let mut config = read_config(&config_path, Value::Null).unwrap();
         config.config_paths = Vec::new();
-        assert_eq!(config, Config::default());
+        assert_eq!(config, UiConfig::default());
     }
 }

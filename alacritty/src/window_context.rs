@@ -28,7 +28,7 @@ use alacritty_terminal::tty;
 
 use crate::cli::TerminalOptions as TerminalCLIOptions;
 use crate::clipboard::Clipboard;
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
 use crate::input;
@@ -54,7 +54,7 @@ pub struct WindowContext {
 impl WindowContext {
     /// Create a new terminal window context.
     pub fn new(
-        config: &Config,
+        config: &UiConfig,
         options: Option<TerminalCLIOptions>,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
@@ -149,7 +149,7 @@ impl WindowContext {
     }
 
     /// Update the terminal window to the latest config.
-    pub fn update_config(&mut self, old_config: &Config, config: &Config) {
+    pub fn update_config(&mut self, old_config: &UiConfig, config: &UiConfig) {
         self.display.update_config(config);
         self.terminal.lock().update_config(&config.terminal_config);
 
@@ -211,7 +211,7 @@ impl WindowContext {
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
         event_proxy: &EventLoopProxy<Event>,
-        config: &mut Config,
+        config: &mut UiConfig,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
         event: GlutinEvent<'_, Event>,
@@ -350,7 +350,7 @@ impl WindowContext {
         message_buffer: &MessageBuffer,
         search_state: &SearchState,
         old_is_searching: bool,
-        config: &Config,
+        config: &UiConfig,
     ) {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();

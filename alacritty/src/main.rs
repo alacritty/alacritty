@@ -53,7 +53,7 @@ mod gl {
 use crate::cli::Options;
 #[cfg(unix)]
 use crate::cli::{MessageOptions, SocketMessage, Subcommands};
-use crate::config::{monitor, Config};
+use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
 #[cfg(unix)]
 use crate::ipc::IPCMessage;
@@ -220,12 +220,12 @@ fn alacritty(options: Options) -> Result<(), String> {
     Ok(())
 }
 
-fn log_config_path(config: &Config) {
+fn log_config_path(config: &UiConfig) {
     if config.config_paths.is_empty() {
         return;
     }
 
-    let mut msg = String::from("Configuration files loaded from:");
+    let mut msg = String::from("UiConfiguration files loaded from:");
     for path in &config.config_paths {
         msg.push_str(&format!("\n  {:?}", path.display()));
     }

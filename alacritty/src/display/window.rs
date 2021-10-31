@@ -54,7 +54,7 @@ use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
 use crate::config::window::{Decorations, WindowConfig};
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::gl;
 
 /// Window icon for `_NET_WM_ICON` property.
@@ -172,7 +172,7 @@ impl Window {
     /// This creates a window and fully initializes a window.
     pub fn new<E>(
         event_loop: &EventLoopWindowTarget<E>,
-        config: &Config,
+        config: &UiConfig,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,

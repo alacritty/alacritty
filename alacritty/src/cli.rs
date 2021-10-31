@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use alacritty_terminal::config::Program;
 
 use crate::config::window::{Class, DEFAULT_NAME};
-use crate::config::{serde_utils, Config};
+use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
 #[derive(StructOpt, Debug)]
@@ -99,7 +99,7 @@ impl Options {
     }
 
     /// Override configuration file with options from the CLI.
-    pub fn override_config(&self, config: &mut Config) {
+    pub fn override_config(&self, config: &mut UiConfig) {
         if let Some(working_directory) = &self.terminal_options.working_directory {
             if working_directory.is_dir() {
                 config.terminal_config.pty_config.working_directory =
@@ -201,7 +201,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
     }
 }
 
-/// Terminal specific cli options which could also be passed via IPC.
+/// Terminal specific cli options which can be passed to new windows via IPC.
 #[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
 pub struct TerminalOptions {
     /// Start the shell in the specified working directory.
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let mut config = Config::default();
+        let mut config = UiConfig::default();
         let old_dynamic_title = config.window.dynamic_title;
 
         Options::new().override_config(&mut config);
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let mut config = Config::default();
+        let mut config = UiConfig::default();
 
         let options = Options { title: Some("foo".to_owned()), ..Options::new() };
         options.override_config(&mut config);
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn dynamic_title_not_overridden_by_config() {
-        let mut config = Config::default();
+        let mut config = UiConfig::default();
 
         config.window.title = "foo".to_owned();
         Options::new().override_config(&mut config);

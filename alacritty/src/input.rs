@@ -29,7 +29,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, BindingMode, Config, Key, MouseAction, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, UiConfig, Key, MouseAction, SearchAction, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -85,7 +85,7 @@ pub trait ActionContext<T: EventListener> {
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
-    fn config(&self) -> &Config;
+    fn config(&self) -> &UiConfig;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
@@ -974,7 +974,7 @@ mod tests {
         pub received_count: usize,
         pub suppress_chars: bool,
         pub modifiers: ModifiersState,
-        config: &'a Config,
+        config: &'a UiConfig,
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
@@ -1057,7 +1057,7 @@ mod tests {
             self.message_buffer.message()
         }
 
-        fn config(&self) -> &Config {
+        fn config(&self) -> &UiConfig {
             self.config
         }
 
@@ -1085,7 +1085,7 @@ mod tests {
             #[test]
             fn $name() {
                 let mut clipboard = Clipboard::new_nop();
-                let cfg = Config::default();
+                let cfg = UiConfig::default();
                 let size = SizeInfo::new(
                     21.0,
                     51.0,
