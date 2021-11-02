@@ -134,6 +134,15 @@ pub enum Action {
     /// Reset font size to the config value.
     ResetFontSize,
 
+    /// Set font size to first preset.
+    FontSize1,
+
+    /// Set font size to second preset.
+    FontSize2,
+
+    /// Set font size to third preset.
+    FontSize3,
+
     /// Scroll exactly one page up.
     ScrollPageUp,
 
@@ -667,6 +676,9 @@ fn common_keybindings() -> Vec<KeyBinding> {
             +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~BindingMode::VI; Action::PasteSelection;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
+        Key1,     ModifiersState::CTRL;  Action::FontSize1;
+        Key2,     ModifiersState::CTRL;  Action::FontSize2;
+        Key3,     ModifiersState::CTRL;  Action::FontSize3;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
         Plus,     ModifiersState::CTRL;  Action::IncreaseFontSize;
         NumpadAdd,      ModifiersState::CTRL;  Action::IncreaseFontSize;
@@ -695,6 +707,9 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
         Key0,           ModifiersState::LOGO; Action::ResetFontSize;
+        Key1,           ModifiersState::LOGO; Action::FontSize1;
+        Key2,           ModifiersState::LOGO; Action::FontSize2;
+        Key3,           ModifiersState::LOGO; Action::FontSize3;
         Equals,         ModifiersState::LOGO; Action::IncreaseFontSize;
         Plus,           ModifiersState::LOGO; Action::IncreaseFontSize;
         NumpadAdd,      ModifiersState::LOGO; Action::IncreaseFontSize;

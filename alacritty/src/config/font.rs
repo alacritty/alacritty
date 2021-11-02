@@ -38,6 +38,9 @@ pub struct Font {
 
     /// Font size in points.
     size: Size,
+
+    /// Preset font sizes in points.
+    preset_size: [Size; 3],
 }
 
 impl Font {
@@ -49,6 +52,11 @@ impl Font {
     #[inline]
     pub fn size(&self) -> FontSize {
         self.size.0
+    }
+
+    #[inline]
+    pub fn preset_size(&self, preset: usize) -> FontSize {
+        self.preset_size[preset].0
     }
 
     /// Get normal font description.

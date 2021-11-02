@@ -412,6 +412,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
+    fn preset_font_size(&mut self, preset: usize) {
+        *self.font_size = self.config.ui_config.font.preset_size(preset);
+        let font = self.config.ui_config.font.clone().with_size(*self.font_size);
+        self.display.pending_update.set_font(font);
+        *self.dirty = true;
+    }
+
     #[inline]
     fn pop_message(&mut self) {
         if !self.message_buffer.is_empty() {

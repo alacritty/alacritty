@@ -158,6 +158,12 @@
   # Point size
   #size: 11.0
 
+  # Predefined alternative sizes
+  #preset_size
+  #  - 14.0
+  #  - 18.0
+  #  - 24.0
+
   # Offset is the extra space around each character. `offset.y` can be thought
   # of as modifying the line spacing, and `offset.x` as modifying the letter
   # spacing.
@@ -579,6 +585,9 @@
 #   - IncreaseFontSize
 #   - DecreaseFontSize
 #   - ResetFontSize
+#   - FontSize1
+#   - FontSize2
+#   - FontSize3
 #   - ScrollPageUp
 #   - ScrollPageDown
 #   - ScrollHalfPageUp
@@ -817,6 +826,9 @@
   #- { key: C,              mods: Control|Shift, mode: Vi|~Search, action: ClearSelection   }
   #- { key: Insert,         mods: Shift,                           action: PasteSelection   }
   #- { key: Key0,           mods: Control,                         action: ResetFontSize    }
+  #- { key: Key1,           mods: Control,                         action: FontSize1        }
+  #- { key: Key2,           mods: Control,                         action: FontSize2        }
+  #- { key: Key3,           mods: Control,                         action: FontSize3        }
   #- { key: Equals,         mods: Control,                         action: IncreaseFontSize }
   #- { key: Plus,           mods: Control,                         action: IncreaseFontSize }
   #- { key: NumpadAdd,      mods: Control,                         action: IncreaseFontSize }
@@ -830,6 +842,9 @@
   #- { key: K,              mods: Command, mode: ~Vi|~Search, chars: "\x0c"                 }
   #- { key: K,              mods: Command, mode: ~Vi|~Search, action: ClearHistory          }
   #- { key: Key0,           mods: Command,                    action: ResetFontSize         }
+  #- { key: Key1,           mods: Command,                    action: FontSize1             }
+  #- { key: Key2,           mods: Command,                    action: FontSize2             }
+  #- { key: Key3,           mods: Control,                    action: FontSize3             }
   #- { key: Equals,         mods: Command,                    action: IncreaseFontSize      }
   #- { key: Plus,           mods: Command,                    action: IncreaseFontSize      }
   #- { key: NumpadAdd,      mods: Command,                    action: IncreaseFontSize      }
