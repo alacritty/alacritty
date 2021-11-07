@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
+use crate::term::hyperlink::Hyperlink;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -53,6 +54,7 @@ impl ResetDiscriminant<Color> for Cell {
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 struct CellExtra {
     zerowidth: Vec<char>,
+    hyperlink: Option<Hyperlink>,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -106,6 +108,31 @@ impl Cell {
         self.flags.remove(Flags::WIDE_CHAR);
         self.drop_extra();
         self.c = ' ';
+    }
+
+    /// Get hyperlink information of this cell.
+    #[inline]
+    pub fn hyperlink(&self) -> Option<&Hyperlink> {
+        self.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref())
+    }
+
+    /// Set hyperlink information of this cell.
+    #[inline]
+    pub fn set_hyperlink(&mut self, hyperlink: Hyperlink) {
+        self.extra.get_or_insert_with(Default::default).hyperlink = Some(hyperlink);
+    }
+
+    /// Drop hyperlink information of this cell, and drop dynamically allocated storage if it's not
+    /// used now.
+    #[inline]
+    pub fn clear_hyperlink(&mut self) {
+        if let Some(extra) = &mut self.extra {
+            if extra.zerowidth.is_empty() {
+                self.drop_extra();
+            } else {
+                extra.hyperlink = None;
+            }
+        }
     }
 }
 

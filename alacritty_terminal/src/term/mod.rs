@@ -20,10 +20,12 @@ use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::{Colors, Rgb};
+use crate::term::hyperlink::Hyperlink;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
 pub mod color;
+pub mod hyperlink;
 pub mod search;
 
 /// Minimum number of columns.
@@ -269,6 +271,10 @@ pub struct Term<T> {
     /// Information about cell dimensions.
     cell_width: usize,
     cell_height: usize,
+
+    /// Auto-increment counter to give hyperlink without id a unique numeric id for each starting
+    /// escape sequence.
+    hyperlink_id_counter: usize,
 }
 
 impl<T> Term<T> {
@@ -320,6 +326,7 @@ impl<T> Term<T> {
             selection: None,
             cell_width: size.cell_width as usize,
             cell_height: size.cell_height as usize,
+            hyperlink_id_counter: 0,
         }
     }
 
@@ -784,6 +791,7 @@ impl<T> Term<T> {
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
         let flags = self.grid.cursor.template.flags;
+        let hyperlink = self.grid.cursor.template.hyperlink().cloned();
 
         let mut cursor_cell = self.grid.cursor_cell();
 
@@ -813,6 +821,14 @@ impl<T> Term<T> {
         cursor_cell.fg = fg;
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
+        if let Some(hyperlink) = hyperlink {
+            cursor_cell.set_hyperlink(hyperlink);
+        }
+    }
+
+    #[inline]
+    pub fn hyperlink_at(&self, point: Point) -> Option<Hyperlink> {
+        self.grid[point].hyperlink().cloned()
     }
 }
 
@@ -1739,6 +1755,25 @@ impl<T: EventListener> Handler for Term<T> {
     fn text_area_size_chars(&mut self) {
         let text = format!("\x1b[8;{};{}t", self.screen_lines(), self.columns());
         self.event_proxy.send_event(Event::PtyWrite(text));
+    }
+
+    #[inline]
+    fn start_hyperlink(&mut self, id: Option<&str>, uri: &str) {
+        trace!("Starting hyperlink: id={:?} uri={:?}", id, uri);
+        let hyperlink = match id {
+            Some(id) => Hyperlink::new_with_string_id(id, uri),
+            None => {
+                self.hyperlink_id_counter = self.hyperlink_id_counter.wrapping_add(1);
+                Hyperlink::new_with_numeric_id(self.hyperlink_id_counter, uri)
+            },
+        };
+        self.grid.cursor.template.set_hyperlink(hyperlink);
+    }
+
+    #[inline]
+    fn end_hyperlink(&mut self) {
+        trace!("Ending hyperlink");
+        self.grid.cursor.template.clear_hyperlink();
     }
 }
 
