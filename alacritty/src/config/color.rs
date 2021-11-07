@@ -18,15 +18,26 @@ pub struct Colors {
     pub line_indicator: LineIndicatorColors,
     pub hints: HintColors,
     pub transparent_background_colors: bool,
+    pub information_bar: BarColors,
 }
 
 impl Colors {
-    pub fn search_bar_foreground(&self) -> Rgb {
-        self.search.bar.foreground.unwrap_or(self.primary.background)
+    pub fn information_bar_foreground(&self) -> Rgb {
+        // Legacy field first.
+        self.search
+            .bar
+            .foreground
+            .or(self.information_bar.foreground)
+            .unwrap_or(self.primary.background)
     }
 
-    pub fn search_bar_background(&self) -> Rgb {
-        self.search.bar.background.unwrap_or(self.primary.foreground)
+    pub fn information_bar_background(&self) -> Rgb {
+        // Legacy field first.
+        self.search
+            .bar
+            .background
+            .or(self.information_bar.background)
+            .unwrap_or(self.primary.foreground)
     }
 }
 
@@ -125,6 +136,7 @@ impl Default for InvertedCellColors {
 pub struct SearchColors {
     pub focused_match: FocusedMatchColors,
     pub matches: MatchColors,
+    #[config(deprecated = "use `information_bar` instead")]
     bar: BarColors,
 }
 

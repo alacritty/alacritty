@@ -219,7 +219,7 @@
 
   # Search colors
   #
-  # Colors used for the search bar and match highlighting.
+  # Colors used for search match highlighting.
   #search:
     # Allowed values are CellForeground/CellBackground, which reference the
     # affected cell, or hexadecimal colors like #ff00ff.
@@ -229,10 +229,6 @@
     #focused_match:
     #  foreground: '#ffffff'
     #  background: '#000000'
-
-    #bar:
-    #  background: '#c5c8c6'
-    #  foreground: '#1d1f21'
 
   # Keyboard regex hints
   #hints:
@@ -259,6 +255,16 @@
   #
   # By default, these will use the opposing primary color.
   #line_indicator:
+  #  foreground: None
+  #  background: None
+
+  # Information bar
+  #
+  # Color used for the information bar on the bottom, used by search
+  # regex input, hyperlink URI preview and etc.
+  #
+  # By default, these will use the opposing primary color.
+  #information_bar:
   #  foreground: None
   #  background: None
 

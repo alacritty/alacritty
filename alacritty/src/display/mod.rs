@@ -752,8 +752,8 @@ impl Display {
         let text = format!("{:<1$}", text, num_cols);
 
         let point = Point::new(size_info.screen_lines(), Column(0));
-        let fg = config.ui_config.colors.search_bar_foreground();
-        let bg = config.ui_config.colors.search_bar_background();
+        let fg = config.ui_config.colors.information_bar_foreground();
+        let bg = config.ui_config.colors.information_bar_background();
 
         self.renderer.with_api(&config.ui_config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &text);
