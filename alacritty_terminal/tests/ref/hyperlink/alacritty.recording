@@ -1,0 +1,14 @@
+
+[1;32m[]0;oxa@invar: ~oxa@invar:~]$[0m printf '\e]8;;https://example.com\e\\foo\e]8;;\e\\\n'
+]8;;https://example.com\foo]8;;\
+
+[1;32m[]0;oxa@invar: ~oxa@invar:~]$[0m printf '\e]8;;https://example.com\e\\foo\e]8;;\e\\\n'
+]8;;https://example.com\foo]8;;\
+
+[1;32m[]0;oxa@invar: ~oxa@invar:~]$[0m printf '\e]8;id=42;https://example.com\e\\bar\e]8;;\e\\\n'
+]8;id=42;https://example.com\bar]8;;\
+
+[1;32m[]0;oxa@invar: ~oxa@invar:~]$[0m printf '\e]8;id=42;https://example.com\e\\bar\e]8;;\e\\\n'
+]8;id=42;https://example.com\bar]8;;\
+
+[1;32m[]0;oxa@invar: ~oxa@invar:~]$[0m 
