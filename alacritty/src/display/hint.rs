@@ -1,4 +1,5 @@
-use std::cmp::{max, min};
+use std::cmp::{max, min, Reverse};
+use std::collections::HashSet;
 
 use glutin::event::ModifiersState;
 
@@ -18,7 +19,7 @@ pub const MAX_SEARCH_LINES: usize = 100;
 /// Percentage of characters in the hints alphabet used for the last character.
 const HINT_SPLIT_PERCENTAGE: f32 = 0.5;
 
-/// Keyboard regex hint state.
+/// Keyboard hint state.
 pub struct HintState {
     /// Hint currently in use.
     hint: Option<Hint>,
@@ -27,7 +28,7 @@ pub struct HintState {
     alphabet: String,
 
     /// Visible matches.
-    matches: RegexMatches,
+    matches: Vec<Match>,
 
     /// Key label for each visible match.
     labels: Vec<Vec<char>>,
@@ -73,24 +74,44 @@ impl HintState {
             None => return,
         };
 
-        // Find visible matches.
-        self.matches.0 = Vec::new();
+        let mut hint_matches: Vec<Match> = Vec::new();
+
+        // Find hyperlinks.
+        if hint.hyperlinks {
+            let mut visited = HashSet::new();
+            for (hyperlink, bounds) in visible_hyperlink_iter(term) {
+                // Only make the first part of a hyperlink is navigate-able, if there are many.
+                if visited.insert(hyperlink) {
+                    hint_matches.push(bounds);
+                }
+            }
+        }
+
+        // Find regex matches.
         if let Some(regex) = &hint.regex {
-            self.matches.0 = regex.with_compiled(|regex| {
-                let mut matches = RegexMatches::new(term, regex);
+            regex.with_compiled(|regex| {
+                let matches = RegexMatches::new(term, regex);
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    matches
-                        .drain(..)
-                        .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
-                        .flatten()
-                        .collect()
+                    hint_matches.extend(
+                        matches
+                            .0
+                            .into_iter()
+                            .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
+                            .flatten(),
+                    );
                 } else {
-                    matches.0
+                    hint_matches.extend(matches.0);
                 }
             });
         }
+
+        // Sort and dedup ranges. Currently overlapped but not exactly same ranges are kept.
+        hint_matches.sort_by_key(|bounds| (*bounds.start(), Reverse(*bounds.end())));
+        hint_matches.dedup_by_key(|bounds| *bounds.start());
+
+        self.matches = hint_matches;
 
         // Cancel highlight with no visible matches.
         if self.matches.is_empty() {
@@ -160,8 +181,8 @@ impl HintState {
         &self.labels
     }
 
-    /// Visible hint regex matches.
-    pub fn matches(&self) -> &RegexMatches {
+    /// Visible hint matches.
+    pub fn matches(&self) -> &[Match] {
         &self.matches
     }
 

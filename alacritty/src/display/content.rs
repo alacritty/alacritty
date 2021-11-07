@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::mem;
-use std::ops::{Deref, DerefMut, RangeInclusive};
+use std::ops::{Deref, DerefMut};
 
 use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::config::Config;
@@ -31,7 +31,7 @@ pub struct RenderableContent<'a> {
     cursor: Option<RenderableCursor>,
     cursor_shape: CursorShape,
     cursor_point: Point<usize>,
-    search: Option<Regex<'a>>,
+    search: Option<HintMatches<'a>>,
     hint: Option<Hint<'a>>,
     config: &'a Config<UiConfig>,
     colors: &'a List,
@@ -45,7 +45,7 @@ impl<'a> RenderableContent<'a> {
         term: &'a Term<T>,
         search_state: &'a SearchState,
     ) -> Self {
-        let search = search_state.dfas().map(|dfas| Regex::new(term, dfas));
+        let search = search_state.dfas().map(|dfas| HintMatches::new_from_regex(term, dfas));
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
@@ -393,10 +393,10 @@ impl RenderableCursor {
     }
 }
 
-/// Regex hints for keyboard shortcuts.
+/// Hints for keyboard shortcuts.
 struct Hint<'a> {
     /// Hint matches and position.
-    regex: Regex<'a>,
+    matches: HintMatches<'a>,
 
     /// Last match checked against current cell position.
     labels: &'a Vec<Vec<char>>,
@@ -411,16 +411,15 @@ impl<'a> Hint<'a> {
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
     fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
         // Check if we're within a match at all.
-        if !self.regex.advance(point) {
+        if !self.matches.advance(point) {
             return None;
         }
 
         // Match starting position on this line; linebreaks interrupt the hint labels.
         let start = self
-            .regex
             .matches
-            .get(self.regex.index)
-            .map(|regex_match| max(*regex_match.start(), viewport_start))
+            .get(self.matches.index)
+            .map(|bounds| max(*bounds.start(), viewport_start))
             .filter(|start| start.line == point.line)?;
 
         // Position within the hint label.
@@ -428,20 +427,20 @@ impl<'a> Hint<'a> {
         let is_first = label_position == 0;
 
         // Hint label character.
-        self.labels[self.regex.index].get(label_position).copied().map(|c| (c, is_first))
+        self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
     }
 }
 
 impl<'a> From<&'a HintState> for Hint<'a> {
     fn from(hint_state: &'a HintState) -> Self {
-        let regex = Regex { matches: Cow::Borrowed(hint_state.matches()), index: 0 };
-        Self { labels: hint_state.labels(), regex }
+        let matches = HintMatches::new(hint_state.matches());
+        Self { labels: hint_state.labels(), matches }
     }
 }
 
 /// Wrapper for finding visible regex matches.
 #[derive(Default, Clone)]
-pub struct RegexMatches(pub Vec<RangeInclusive<Point>>);
+pub struct RegexMatches(pub Vec<Match>);
 
 impl RegexMatches {
     /// Find all visible matches.
@@ -469,7 +468,7 @@ impl RegexMatches {
 }
 
 impl Deref for RegexMatches {
-    type Target = Vec<RangeInclusive<Point>>;
+    type Target = Vec<Match>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -482,36 +481,49 @@ impl DerefMut for RegexMatches {
     }
 }
 
-/// Visible regex match tracking.
+/// Visible hint matches with current index, also used in VI mode search.
 #[derive(Default)]
-struct Regex<'a> {
+struct HintMatches<'a> {
     /// All visible matches.
-    matches: Cow<'a, RegexMatches>,
+    matches: Cow<'a, [Match]>,
 
     /// Index of the last match checked.
     index: usize,
 }
 
-impl<'a> Regex<'a> {
-    /// Create a new renderable regex iterator.
-    fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
-        let matches = Cow::Owned(RegexMatches::new(term, dfas));
-        Self { index: 0, matches }
+impl<'a> HintMatches<'a> {
+    /// Create from given matches with index 0.
+    fn new(matches: impl Into<Cow<'a, [Match]>>) -> Self {
+        Self { matches: matches.into(), index: 0 }
     }
 
-    /// Advance the regex tracker to the next point.
+    /// Create from regex matches on term visable part.
+    fn new_from_regex<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
+        let matches = RegexMatches::new(term, dfas);
+        Self::new(matches.0)
+    }
+
+    /// Advance the tracker to the next point.
     ///
-    /// This will return `true` if the point passed is part of a regex match.
+    /// This will return `true` if the point passed is part of a hint match.
     fn advance(&mut self, point: Point) -> bool {
-        while let Some(regex_match) = self.matches.get(self.index) {
-            if regex_match.start() > &point {
+        while let Some(bounds) = self.get(self.index) {
+            if bounds.start() > &point {
                 break;
-            } else if regex_match.end() < &point {
+            } else if bounds.end() < &point {
                 self.index += 1;
             } else {
                 return true;
             }
         }
         false
+    }
+}
+
+impl<'a> Deref for HintMatches<'a> {
+    type Target = [Match];
+
+    fn deref(&self) -> &Self::Target {
+        &*self.matches
     }
 }
