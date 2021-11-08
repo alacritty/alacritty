@@ -1,4 +1,4 @@
-use std::cmp::{max, min, Reverse};
+use std::cmp::Reverse;
 use std::collections::HashSet;
 
 use glutin::event::ModifiersState;
@@ -11,7 +11,6 @@ use alacritty_terminal::term::{Term, TermMode};
 
 use crate::config::ui_config::{Hint, HintAction};
 use crate::config::Config;
-use crate::display::content::RegexMatches;
 
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 pub const MAX_SEARCH_LINES: usize = 100;
@@ -90,19 +89,15 @@ impl HintState {
         // Find regex matches.
         if let Some(regex) = &hint.regex {
             regex.with_compiled(|regex| {
-                let matches = RegexMatches::new(term, regex);
+                let matches = visible_regex_match_iter(term, regex);
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    hint_matches.extend(
-                        matches
-                            .0
-                            .into_iter()
-                            .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
-                            .flatten(),
-                    );
+                    hint_matches.extend(matches.flat_map(|rm| {
+                        HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
+                    }));
                 } else {
-                    hint_matches.extend(matches.0);
+                    hint_matches.extend(matches);
                 }
             });
         }
@@ -376,6 +371,23 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
     visible_hyperlink_iter(term).find(|(_, bounds)| bounds.contains(&point))
 }
 
+/// Iterate over all visible regex matches.
+pub fn visible_regex_match_iter<'a, T>(
+    term: &'a Term<T>,
+    regex: &'a RegexSearch,
+) -> impl Iterator<Item = Match> + 'a {
+    let viewport_start = Line(-(term.grid().display_offset() as i32));
+    let viewport_end = viewport_start + term.bottommost_line();
+    let mut start = term.line_search_left(Point::new(viewport_start, Column(0)));
+    let mut end = term.line_search_right(Point::new(viewport_end, Column(0)));
+    start.line = start.line.max(viewport_start - MAX_SEARCH_LINES);
+    end.line = end.line.min(viewport_start + MAX_SEARCH_LINES);
+
+    RegexIter::new(start, end, Direction::Right, term, regex)
+        .skip_while(move |rm| rm.end().line < viewport_start)
+        .take_while(move |rm| rm.start().line <= viewport_end)
+}
+
 /// Retrive the match, if the specified point in inside the content matching the regex.
 fn regex_match_at<T>(
     term: &Term<T>,
@@ -383,29 +395,11 @@ fn regex_match_at<T>(
     regex: &RegexSearch,
     post_processing: bool,
 ) -> Option<Match> {
-    let viewport_start = Line(-(term.grid().display_offset() as i32));
-    let viewport_end = viewport_start + term.bottommost_line();
-
-    // Compute start of the first and end of the last line.
-    let start_point = Point::new(viewport_start, Column(0));
-    let mut start = term.line_search_left(start_point);
-    let end_point = Point::new(viewport_end, term.last_column());
-    let mut end = term.line_search_right(end_point);
-
-    // Set upper bound on search before/after the viewport to prevent excessive blocking.
-    start.line = max(start.line, viewport_start - MAX_SEARCH_LINES);
-    end.line = min(end.line, viewport_end + MAX_SEARCH_LINES);
-
-    // Function to verify that the specified point is inside the match.
-    let at_point = |rm: &Match| *rm.end() >= point && *rm.start() <= point;
-
-    // Check if there's any match at the specified point.
-    let mut iter = RegexIter::new(start, end, Direction::Right, term, regex);
-    let regex_match = iter.find(at_point)?;
+    let regex_match = visible_regex_match_iter(term, regex).find(|rm| rm.contains(&point))?;
 
     // Apply post-processing and search for sub-matches if necessary.
     if post_processing {
-        HintPostProcessor::new(term, regex, regex_match).find(at_point)
+        HintPostProcessor::new(term, regex, regex_match).find(|rm| rm.contains(&point))
     } else {
         Some(regex_match)
     }

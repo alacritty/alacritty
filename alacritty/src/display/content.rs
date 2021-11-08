@@ -1,22 +1,22 @@
 use std::borrow::Cow;
-use std::cmp::{max, min};
+use std::cmp::max;
 use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::config::Config;
 use alacritty_terminal::event::EventListener;
-use alacritty_terminal::grid::{Dimensions, Indexed};
-use alacritty_terminal::index::{Column, Direction, Line, Point};
+use alacritty_terminal::grid::Indexed;
+use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::hyperlink::Hyperlink;
-use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
+use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
 
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
-use crate::display::hint::{HintState, MAX_SEARCH_LINES};
+use crate::display::hint::{visible_regex_match_iter, HintState};
 use crate::display::{self, Display};
 use crate::event::SearchState;
 
@@ -45,7 +45,7 @@ impl<'a> RenderableContent<'a> {
         term: &'a Term<T>,
         search_state: &'a SearchState,
     ) -> Self {
-        let search = search_state.dfas().map(|dfas| HintMatches::new_from_regex(term, dfas));
+        let search = search_state.dfas().map(|dfas| HintMatches::visible_regex_matches(term, dfas));
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
@@ -438,49 +438,6 @@ impl<'a> From<&'a HintState> for Hint<'a> {
     }
 }
 
-/// Wrapper for finding visible regex matches.
-#[derive(Default, Clone)]
-pub struct RegexMatches(pub Vec<Match>);
-
-impl RegexMatches {
-    /// Find all visible matches.
-    pub fn new<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
-        let viewport_start = Line(-(term.grid().display_offset() as i32));
-        let viewport_end = viewport_start + term.bottommost_line();
-
-        // Compute start of the first and end of the last line.
-        let start_point = Point::new(viewport_start, Column(0));
-        let mut start = term.line_search_left(start_point);
-        let end_point = Point::new(viewport_end, term.last_column());
-        let mut end = term.line_search_right(end_point);
-
-        // Set upper bound on search before/after the viewport to prevent excessive blocking.
-        start.line = max(start.line, viewport_start - MAX_SEARCH_LINES);
-        end.line = min(end.line, viewport_end + MAX_SEARCH_LINES);
-
-        // Create an iterater for the current regex search for all visible matches.
-        let iter = RegexIter::new(start, end, Direction::Right, term, dfas)
-            .skip_while(move |rm| rm.end().line < viewport_start)
-            .take_while(move |rm| rm.start().line <= viewport_end);
-
-        Self(iter.collect())
-    }
-}
-
-impl Deref for RegexMatches {
-    type Target = Vec<Match>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RegexMatches {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 /// Visible hint matches with current index, also used in VI mode search.
 #[derive(Default)]
 struct HintMatches<'a> {
@@ -497,10 +454,10 @@ impl<'a> HintMatches<'a> {
         Self { matches: matches.into(), index: 0 }
     }
 
-    /// Create from regex matches on term visable part.
-    fn new_from_regex<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
-        let matches = RegexMatches::new(term, dfas);
-        Self::new(matches.0)
+    /// Create from regex matches on term visable part, with index 0.
+    fn visible_regex_matches<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
+        let matches = visible_regex_match_iter(term, dfas).collect::<Vec<_>>();
+        Self::new(matches)
     }
 
     /// Advance the tracker to the next point.
