@@ -315,7 +315,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
         };
 
         // Post-process the first hint match.
-        post_processor.iterate_to_next_processed_match(regex_match);
+        post_processor.find_next_match(regex_match);
 
         post_processor
     }
@@ -388,24 +388,19 @@ impl<'a, T> HintPostProcessor<'a, T> {
         }
     }
 
-    /// Loops over processed matches until a match is found or the
-    /// range is exhausted.
-    fn iterate_to_next_processed_match(&mut self, mut regex_match: Match) {
-        self.next_match = None;
+    fn find_next_match(&mut self, regex_match: Match) {
+        self.next_match = self.hint_post_processing(&regex_match);
 
-        while regex_match.start() <= regex_match.end() {
-            self.next_match = self.hint_post_processing(&regex_match);
-
-            regex_match = match self.next_match {
-                Some(_) => break,
-                None => regex_match.start().add(self.term, Boundary::Grid, 1)..=*regex_match.end(),
-            }
+        if self.next_match.is_none() {
+            self.next_match =
+                self.term.regex_search_right(self.regex, *regex_match.start(), *regex_match.end())
         }
 
-        self.start = self
-            .next_match
-            .as_ref()
-            .map_or(*regex_match.start(), |nm| nm.end().add(self.term, Boundary::Grid, 1));
+        self.start = self.next_match.as_ref().map_or(regex_match.end(), |nm| nm.end()).add(
+            self.term,
+            Boundary::Grid,
+            1,
+        );
     }
 }
 
@@ -417,7 +412,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
         if self.start <= self.end {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                self.iterate_to_next_processed_match(rm);
+                self.find_next_match(rm);
             }
         }
 
@@ -482,9 +477,9 @@ mod tests {
             &search,
             Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
         )
-        .take(1)
+        .take(2)
         .count();
 
-        assert_eq!(count, 0);
+        assert_eq!(count, 1);
     }
 }
