@@ -71,12 +71,15 @@ jobs:
       - name: Test
         run: cargo test --release
       - name: Gzip manpage
-        run: gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
+        run: |
+          gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
+          gzip -c "./extra/alacritty-msg.man" > "./alacritty-msg.1.gz"
       - name: Upload Assets
         run: |
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
           ./.github/workflows/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty-msg.1.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
