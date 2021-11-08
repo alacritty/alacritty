@@ -365,9 +365,7 @@ pub fn highlighted_at<T>(
 
 /// Retrive the hyperlink with its range, if there is one at the specified point.
 fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
-    if term.hyperlink_at(point).is_none() {
-        return None;
-    }
+    let _ = term.hyperlink_at(point)?;
     visible_hyperlink_iter(term).find(|(_, bounds)| bounds.contains(&point))
 }
 
