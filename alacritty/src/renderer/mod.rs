@@ -844,6 +844,7 @@ impl<'a> RenderApi<'a> {
                 point: Point::new(point.line, point.column + i),
                 character,
                 zerowidth: None,
+                hyperlink: None,
                 flags: Flags::empty(),
                 bg_alpha: 1.0,
                 fg,

@@ -2,15 +2,18 @@ use std::cmp::{max, min};
 
 use glutin::event::ModifiersState;
 
-use alacritty_terminal::grid::BidirectionalIterator;
-use alacritty_terminal::index::{Boundary, Direction, Point};
+use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
+use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point};
+use alacritty_terminal::term::hyperlink::Hyperlink;
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
 use crate::config::ui_config::{Hint, HintAction};
 use crate::config::Config;
 use crate::display::content::RegexMatches;
-use crate::display::MAX_SEARCH_LINES;
+
+/// Maximum number of linewraps followed outside of the viewport during search highlighting.
+pub const MAX_SEARCH_LINES: usize = 100;
 
 /// Percentage of characters in the hints alphabet used for the last character.
 const HINT_SPLIT_PERCENTAGE: f32 = 0.5;
@@ -71,20 +74,23 @@ impl HintState {
         };
 
         // Find visible matches.
-        self.matches.0 = hint.regex.with_compiled(|regex| {
-            let mut matches = RegexMatches::new(term, regex);
+        self.matches.0 = Vec::new();
+        if let Some(regex) = &hint.regex {
+            self.matches.0 = regex.with_compiled(|regex| {
+                let mut matches = RegexMatches::new(term, regex);
 
-            // Apply post-processing and search for sub-matches if necessary.
-            if hint.post_processing {
-                matches
-                    .drain(..)
-                    .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
-                    .flatten()
-                    .collect()
-            } else {
-                matches.0
-            }
-        });
+                // Apply post-processing and search for sub-matches if necessary.
+                if hint.post_processing {
+                    matches
+                        .drain(..)
+                        .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
+                        .flatten()
+                        .collect()
+                } else {
+                    matches.0
+                }
+            });
+        }
 
         // Cancel highlight with no visible matches.
         if self.matches.is_empty() {
@@ -136,7 +142,11 @@ impl HintState {
 
             self.stop();
 
-            Some(HintMatch { action, bounds })
+            match term.hyperlink_at(*bounds.start()) {
+                // Hyperlinks take precedence over regex matches.
+                Some(hyperlink) => Some(HintMatch::Hyperlink { hyperlink, action, bounds }),
+                None => Some(HintMatch::Regex { action, bounds }),
+            }
         } else {
             // Store character to preserve the selection.
             self.keys.push(c);
@@ -165,13 +175,42 @@ impl HintState {
 }
 
 /// Hint match which was selected by the user.
-#[derive(PartialEq, Debug, Clone)]
-pub struct HintMatch {
-    /// Action for handling the text.
-    pub action: HintAction,
+#[derive(PartialEq, Debug)]
+pub enum HintMatch {
+    Regex {
+        /// Action for handling the text.
+        action: HintAction,
+        /// Terminal range matching the hint.
+        bounds: Match,
+    },
+    Hyperlink {
+        /// Action for handling the text.
+        action: HintAction,
+        hyperlink: Hyperlink,
+        bounds: Match,
+    },
+}
 
-    /// Terminal range matching the hint.
-    pub bounds: Match,
+impl HintMatch {
+    #[inline]
+    pub fn should_highlight(&self, point: Point, pointed_hyperlink: Option<&Hyperlink>) -> bool {
+        match self {
+            Self::Regex { bounds, .. } => bounds.contains(&point),
+            Self::Hyperlink { hyperlink, .. } => Some(hyperlink) == pointed_hyperlink,
+        }
+    }
+
+    pub fn action(&self) -> &HintAction {
+        match self {
+            Self::Regex { action, .. } | Self::Hyperlink { action, .. } => action,
+        }
+    }
+
+    pub fn bounds(&self) -> Match {
+        match self {
+            Self::Regex { bounds, .. } | Self::Hyperlink { bounds, .. } => bounds.clone(),
+        }
+    }
 }
 
 /// Generator for creating new hint labels.
@@ -239,6 +278,34 @@ impl HintLabels {
     }
 }
 
+/// Iterate all visible hyperlinks.
+/// Multiple adjacent cells from the same hyperlink are joined into a single range.
+fn visible_hyperlink_iter<T>(term: &Term<T>) -> impl Iterator<Item = (Hyperlink, Match)> + '_ {
+    let mut grid_iter = term
+        .grid()
+        .display_iter()
+        // Keep None here. It should stop the `while` below since non-links should cut links.
+        .map(|cell| Some((cell.point, cell.hyperlink().cloned()?)))
+        .peekable();
+
+    std::iter::from_fn(move || {
+        // Find the next hyperlink.
+        let (start_point, hyperlink) = grid_iter.find_map(|cell| cell)?;
+        let mut end_point = start_point;
+        // Extend until another link or a non-link cell.
+        loop {
+            match grid_iter.peek() {
+                Some(Some((next_point, next_hyperlink))) if &hyperlink == next_hyperlink => {
+                    end_point = *next_point;
+                    let _ = grid_iter.next();
+                },
+                _ => break,
+            }
+        }
+        Some((hyperlink, start_point..=end_point))
+    })
+}
+
 /// Check if there is a hint highlighted at the specified point.
 pub fn highlighted_at<T>(
     term: &Term<T>,
@@ -259,30 +326,68 @@ pub fn highlighted_at<T>(
             return None;
         }
 
-        hint.regex.with_compiled(|regex| {
-            // Setup search boundaries.
-            let mut start = term.line_search_left(point);
-            start.line = max(start.line, point.line - MAX_SEARCH_LINES);
-            let mut end = term.line_search_right(point);
-            end.line = min(end.line, point.line + MAX_SEARCH_LINES);
+        // TODO: Use `bool::then` instead of double-if when MSRV >= 1.50.0
+        if hint.hyperlinks {
+            if let Some((hyperlink, bounds)) = hyperlink_at(term, point) {
+                return Some(HintMatch::Hyperlink {
+                    hyperlink,
+                    bounds,
+                    action: hint.action.clone(),
+                });
+            }
+        }
 
-            // Function to verify that the specified point is inside the match.
-            let at_point = |rm: &Match| *rm.end() >= point && *rm.start() <= point;
+        if let Some(bounds) = hint.regex.as_ref().and_then(|regex| {
+            regex.with_compiled(|regex| regex_match_at(term, point, regex, hint.post_processing))
+        }) {
+            return Some(HintMatch::Regex { bounds, action: hint.action.clone() });
+        }
 
-            // Check if there's any match at the specified point.
-            let mut iter = RegexIter::new(start, end, Direction::Right, term, regex);
-            let regex_match = iter.find(at_point)?;
-
-            // Apply post-processing and search for sub-matches if necessary.
-            let regex_match = if hint.post_processing {
-                HintPostProcessor::new(term, regex, regex_match).find(at_point)
-            } else {
-                Some(regex_match)
-            };
-
-            regex_match.map(|bounds| HintMatch { action: hint.action.clone(), bounds })
-        })
+        None
     })
+}
+
+/// Retrive the hyperlink with its range, if there is one at the specified point.
+fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
+    if term.hyperlink_at(point).is_none() {
+        return None;
+    }
+    visible_hyperlink_iter(term).find(|(_, bounds)| bounds.contains(&point))
+}
+
+/// Retrive the match, if the specified point in inside the content matching the regex.
+fn regex_match_at<T>(
+    term: &Term<T>,
+    point: Point,
+    regex: &RegexSearch,
+    post_processing: bool,
+) -> Option<Match> {
+    let viewport_start = Line(-(term.grid().display_offset() as i32));
+    let viewport_end = viewport_start + term.bottommost_line();
+
+    // Compute start of the first and end of the last line.
+    let start_point = Point::new(viewport_start, Column(0));
+    let mut start = term.line_search_left(start_point);
+    let end_point = Point::new(viewport_end, term.last_column());
+    let mut end = term.line_search_right(end_point);
+
+    // Set upper bound on search before/after the viewport to prevent excessive blocking.
+    start.line = max(start.line, viewport_start - MAX_SEARCH_LINES);
+    end.line = min(end.line, viewport_end + MAX_SEARCH_LINES);
+
+    // Function to verify that the specified point is inside the match.
+    let at_point = |rm: &Match| *rm.end() >= point && *rm.start() <= point;
+
+    // Check if there's any match at the specified point.
+    let mut iter = RegexIter::new(start, end, Direction::Right, term, regex);
+    let regex_match = iter.find(at_point)?;
+
+    // Apply post-processing and search for sub-matches if necessary.
+    if post_processing {
+        HintPostProcessor::new(term, regex, regex_match).find(at_point)
+    } else {
+        Some(regex_match)
+    }
 }
 
 /// Iterator over all post-processed matches inside an existing hint match.

@@ -397,11 +397,18 @@ impl<T> Grid<T> {
         self.raw.truncate();
     }
 
-    /// Iterate over all cells in the grid starting at a specific point.
+    /// Iterate over all cells in the grid from a starting point (exclusive) to an ending point
+    /// (inclusive).
+    #[inline]
+    pub fn iter_from_to(&self, start: Point, end: Point) -> GridIterator<'_, T> {
+        GridIterator { grid: self, point: start, end }
+    }
+
+    /// Iterate over all cells in the grid starting at a specific point (exclusive).
     #[inline]
     pub fn iter_from(&self, point: Point) -> GridIterator<'_, T> {
         let end = Point::new(self.bottommost_line(), self.last_column());
-        GridIterator { grid: self, point, end }
+        self.iter_from_to(point, end)
     }
 
     /// Iterate over all visible cells.

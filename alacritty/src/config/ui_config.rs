@@ -242,7 +242,8 @@ impl Default for Hints {
 
         Self {
             enabled: vec![Hint {
-                regex,
+                regex: Some(regex),
+                hyperlinks: true,
                 action,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
@@ -324,8 +325,13 @@ pub enum HintAction {
 /// Hint configuration.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
-    /// Regex for finding matches.
-    pub regex: LazyRegex,
+    /// Apply this hint to regex matches.
+    #[serde(default)]
+    pub regex: Option<LazyRegex>,
+
+    /// Apply this hint to hyperlinks.
+    #[serde(default)]
+    pub hyperlinks: bool,
 
     /// Action executed when this hint is triggered.
     #[serde(flatten)]

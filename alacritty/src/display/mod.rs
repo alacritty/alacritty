@@ -59,9 +59,6 @@ mod meter;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 mod wayland_theme;
 
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-pub const MAX_SEARCH_LINES: usize = 100;
-
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 
@@ -520,15 +517,18 @@ impl Display {
             self.renderer.set_viewport(&size_info);
 
             let glyph_cache = &mut self.glyph_cache;
-            let highlighted_hint = &self.highlighted_hint;
-            let vi_highlighted_hint = &self.vi_highlighted_hint;
+            let highlighted_hint = self.highlighted_hint.as_ref();
+            let vi_highlighted_hint = self.vi_highlighted_hint.as_ref();
+
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid.
                 for mut cell in grid_cells {
                     // Underline hints hovered by mouse or vi mode cursor.
                     let point = viewport_to_point(display_offset, cell.point);
-                    if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                        || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
+                    let hyperlink = cell.hyperlink.as_ref();
+                    if highlighted_hint.map_or(false, |h| h.should_highlight(point, hyperlink))
+                        || vi_highlighted_hint
+                            .map_or(false, |h| h.should_highlight(point, hyperlink))
                     {
                         cell.flags.insert(Flags::UNDERLINE);
                     }
@@ -615,6 +615,7 @@ impl Display {
         }
 
         self.draw_render_timer(config, &size_info);
+        self.draw_active_hyperlink_preview(config, &size_info);
 
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
@@ -776,6 +777,47 @@ impl Display {
         self.renderer.with_api(&config.ui_config, size_info, |mut api| {
             api.render_string(glyph_cache, point, fg, bg, &timing);
         });
+    }
+
+    /// Draw the hyperlink target URI preview of which are currently active.
+    fn draw_active_hyperlink_preview(&mut self, config: &Config, size_info: &SizeInfo) {
+        // Currently we simply stack vi-highlighted and cursor-pointed URL if both exist.
+        for (idx, uri) in self
+            .highlighted_hint
+            .iter()
+            .chain(&self.vi_highlighted_hint)
+            .filter_map(|m| match m {
+                HintMatch::Hyperlink { hyperlink, .. } => Some(hyperlink.uri()),
+                _ => None,
+            })
+            .enumerate()
+        {
+            let glyph_cache = &mut self.glyph_cache;
+
+            let point = Point::new(size_info.screen_lines().saturating_sub(1 + idx), Column(0));
+            let fg = config.ui_config.colors.information_bar_foreground();
+            let bg = config.ui_config.colors.information_bar_background();
+
+            let mut text = String::with_capacity(uri.len());
+            let mut text_len = 0usize;
+            // Leave room for the ellipsis character.
+            let max_len = size_info.columns().saturating_sub(2);
+            for c in uri.chars() {
+                let width = c.width().unwrap_or(0);
+                if text_len + width > max_len {
+                    text.push_str("… ");
+                    break;
+                }
+                text.push(c);
+                text_len += width;
+                // Pad spaces for wide characters.
+                text.extend((1..width).map(|_| ' '));
+            }
+
+            self.renderer.with_api(&config.ui_config, size_info, |mut api| {
+                api.render_string(glyph_cache, point, fg, bg, &text);
+            });
+        }
     }
 
     /// Draw an indicator for the position of a line in history.

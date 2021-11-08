@@ -10,13 +10,14 @@ use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
+use alacritty_terminal::term::hyperlink::Hyperlink;
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
 
 use crate::config::ui_config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
-use crate::display::hint::HintState;
-use crate::display::{self, Display, MAX_SEARCH_LINES};
+use crate::display::hint::{HintState, MAX_SEARCH_LINES};
+use crate::display::{self, Display};
 use crate::event::SearchState;
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
@@ -187,6 +188,7 @@ impl<'a> Iterator for RenderableContent<'a> {
 pub struct RenderableCell {
     pub character: char,
     pub zerowidth: Option<Vec<char>>,
+    pub hyperlink: Option<Hyperlink>,
     pub point: Point<usize>,
     pub fg: Rgb,
     pub bg: Rgb,
@@ -258,6 +260,7 @@ impl RenderableCell {
 
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
+            hyperlink: cell.hyperlink().cloned(),
             flags: cell.flags,
             character,
             bg_alpha,
