@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 use glutin::dpi::PhysicalPosition;
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
+    VirtualKeyCode,
 };
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
@@ -841,8 +842,84 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
         }
 
+        // if Option/Alt is suppressed, handle as Alt+key
+        #[cfg(target_os = "macos")]
+        if self.ctx.config().ui_config.alt_send_esc {
+            let key_str = self.keycode_string(input.virtual_keycode);
+            if mods.alt() && !suppress_chars.unwrap_or(false) && key_str.is_some() {
+                Action::Esc(format!("\x1b{}", key_str.expect("already checked is_some")))
+                    .execute(&mut self.ctx);
+                suppress_chars = Some(true);
+            }
+        }
+
         // Don't suppress char if no bindings were triggered.
         *self.ctx.suppress_chars() = suppress_chars.unwrap_or(false);
+    }
+
+    /// Attempt to resolve a character from a VirtualKeyCode
+    fn keycode_string(&mut self, v: Option<VirtualKeyCode>) -> Option<&'static str> {
+        let mods = *self.ctx.modifiers();
+        match v? {
+            glutin::event::VirtualKeyCode::Key1 => Some(if mods.shift() { "!" } else { "1" }),
+            glutin::event::VirtualKeyCode::Key2 => Some(if mods.shift() { "@" } else { "2" }),
+            glutin::event::VirtualKeyCode::Key3 => Some(if mods.shift() { "#" } else { "3" }),
+            glutin::event::VirtualKeyCode::Key4 => Some(if mods.shift() { "$" } else { "4" }),
+            glutin::event::VirtualKeyCode::Key5 => Some(if mods.shift() { "%" } else { "5" }),
+            glutin::event::VirtualKeyCode::Key6 => Some(if mods.shift() { "^" } else { "6" }),
+            glutin::event::VirtualKeyCode::Key7 => Some(if mods.shift() { "&" } else { "7" }),
+            glutin::event::VirtualKeyCode::Key8 => Some(if mods.shift() { "*" } else { "8" }),
+            glutin::event::VirtualKeyCode::Key9 => Some(if mods.shift() { "(" } else { "9" }),
+            glutin::event::VirtualKeyCode::Key0 => Some(if mods.shift() { ")" } else { "0" }),
+            glutin::event::VirtualKeyCode::A => Some(if mods.shift() { "A" } else { "a" }),
+            glutin::event::VirtualKeyCode::B => Some(if mods.shift() { "B" } else { "b" }),
+            glutin::event::VirtualKeyCode::C => Some(if mods.shift() { "C" } else { "c" }),
+            glutin::event::VirtualKeyCode::D => Some(if mods.shift() { "D" } else { "d" }),
+            glutin::event::VirtualKeyCode::E => Some(if mods.shift() { "E" } else { "e" }),
+            glutin::event::VirtualKeyCode::F => Some(if mods.shift() { "F" } else { "f" }),
+            glutin::event::VirtualKeyCode::G => Some(if mods.shift() { "G" } else { "g" }),
+            glutin::event::VirtualKeyCode::H => Some(if mods.shift() { "H" } else { "h" }),
+            glutin::event::VirtualKeyCode::I => Some(if mods.shift() { "I" } else { "i" }),
+            glutin::event::VirtualKeyCode::J => Some(if mods.shift() { "J" } else { "j" }),
+            glutin::event::VirtualKeyCode::K => Some(if mods.shift() { "K" } else { "k" }),
+            glutin::event::VirtualKeyCode::L => Some(if mods.shift() { "L" } else { "l" }),
+            glutin::event::VirtualKeyCode::M => Some(if mods.shift() { "M" } else { "m" }),
+            glutin::event::VirtualKeyCode::N => Some(if mods.shift() { "N" } else { "n" }),
+            glutin::event::VirtualKeyCode::O => Some(if mods.shift() { "O" } else { "o" }),
+            glutin::event::VirtualKeyCode::P => Some(if mods.shift() { "P" } else { "p" }),
+            glutin::event::VirtualKeyCode::Q => Some(if mods.shift() { "Q" } else { "q" }),
+            glutin::event::VirtualKeyCode::R => Some(if mods.shift() { "R" } else { "r" }),
+            glutin::event::VirtualKeyCode::S => Some(if mods.shift() { "S" } else { "s" }),
+            glutin::event::VirtualKeyCode::T => Some(if mods.shift() { "T" } else { "t" }),
+            glutin::event::VirtualKeyCode::U => Some(if mods.shift() { "U" } else { "u" }),
+            glutin::event::VirtualKeyCode::V => Some(if mods.shift() { "V" } else { "v" }),
+            glutin::event::VirtualKeyCode::W => Some(if mods.shift() { "W" } else { "w" }),
+            glutin::event::VirtualKeyCode::X => Some(if mods.shift() { "X" } else { "x" }),
+            glutin::event::VirtualKeyCode::Y => Some(if mods.shift() { "Y" } else { "y" }),
+            glutin::event::VirtualKeyCode::Z => Some(if mods.shift() { "Z" } else { "Z" }),
+            glutin::event::VirtualKeyCode::Return => Some("\n"),
+            glutin::event::VirtualKeyCode::Space => Some(" "),
+            glutin::event::VirtualKeyCode::Caret => Some("^"),
+            glutin::event::VirtualKeyCode::Apostrophe => {
+                Some(if mods.shift() { "\"" } else { "'" })
+            }
+            glutin::event::VirtualKeyCode::Asterisk => Some("*"),
+            glutin::event::VirtualKeyCode::Backslash => Some(if mods.shift() { "|" } else { "\\" }),
+            glutin::event::VirtualKeyCode::Colon => Some(":"),
+            glutin::event::VirtualKeyCode::Comma => Some(if mods.shift() { "<" } else { "," }),
+            glutin::event::VirtualKeyCode::Period => Some(if mods.shift() { ">" } else { "." }),
+            glutin::event::VirtualKeyCode::Equals => Some("="),
+            glutin::event::VirtualKeyCode::Grave => Some(if mods.shift() { "~" } else { "`" }),
+            glutin::event::VirtualKeyCode::Minus => Some("-"),
+            glutin::event::VirtualKeyCode::Plus => Some("+"),
+            glutin::event::VirtualKeyCode::LBracket => Some(if mods.shift() { "[" } else { "{" }),
+            glutin::event::VirtualKeyCode::RBracket => Some(if mods.shift() { "]" } else { "}" }),
+            glutin::event::VirtualKeyCode::Semicolon => Some(";"),
+            glutin::event::VirtualKeyCode::Slash => Some("/"),
+            glutin::event::VirtualKeyCode::Tab => Some("\t"),
+            glutin::event::VirtualKeyCode::Underline => Some("_"),
+            _ => None,
+        }
     }
 
     /// Attempt to find a binding and execute its action.
