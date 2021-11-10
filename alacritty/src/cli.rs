@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use structopt::StructOpt;
 
-use alacritty_terminal::config::Program;
+use alacritty_terminal::config::{Program, PtyConfig};
 
 use crate::config::window::{Class, DEFAULT_NAME};
 use crate::config::{serde_utils, UiConfig};
@@ -208,7 +208,7 @@ pub struct TerminalOptions {
     #[structopt(long)]
     pub working_directory: Option<PathBuf>,
 
-    /// Remain open after child process exits.
+    /// Remain open after child process exit.
     #[structopt(long)]
     pub hold: bool,
 
@@ -230,6 +230,15 @@ impl TerminalOptions {
     pub fn command(&self) -> Option<Program> {
         let (program, args) = self.command.split_first()?;
         Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
+    }
+}
+
+impl From<TerminalOptions> for PtyConfig {
+    fn from(mut options: TerminalOptions) -> Self {
+        let working_directory = options.working_directory.take();
+        let shell = options.command();
+        let hold = options.hold;
+        PtyConfig { hold, shell, working_directory }
     }
 }
 

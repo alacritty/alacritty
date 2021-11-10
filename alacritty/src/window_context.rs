@@ -17,7 +17,6 @@ use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
-use alacritty_terminal::config::PtyConfig;
 use alacritty_terminal::event::Event as TerminalEvent;
 use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -26,7 +25,7 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
-use crate::cli::TerminalOptions as TerminalCLIOptions;
+use crate::cli::TerminalOptions as TerminalCliOptions;
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::Display;
@@ -55,7 +54,7 @@ impl WindowContext {
     /// Create a new terminal window context.
     pub fn new(
         config: &UiConfig,
-        options: Option<TerminalCLIOptions>,
+        options: Option<TerminalCliOptions>,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -92,12 +91,10 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let mut new_pty_config = PtyConfig::new();
+        let new_pty_config;
         let pty_config = match options {
-            Some(mut options) => {
-                new_pty_config.working_directory = options.working_directory.take();
-                new_pty_config.shell = options.command();
-                new_pty_config.hold = options.hold;
+            Some(options) => {
+                new_pty_config = options.into();
                 &new_pty_config
             },
             None => &config.terminal_config.pty_config,

@@ -38,7 +38,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
     // Spawn a thread to listen on the IPC socket.
     thread::spawn_named("socket listener", move || {
         let mut data = String::new();
-        for stream in listener.incoming().filter_map(|stream| stream.ok()) {
+        for stream in listener.incoming().filter_map(Result::ok) {
             data.clear();
             let mut stream = BufReader::new(stream);
 
@@ -51,7 +51,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
             let message: SocketMessage = match serde_json::from_str(&data) {
                 Ok(message) => message,
                 Err(err) => {
-                    warn!("Fail to convert data from socket: {}", err);
+                    warn!("Failed to convert data from socket: {}", err);
                     continue;
                 },
             };

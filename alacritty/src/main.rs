@@ -220,7 +220,7 @@ fn log_config_path(config: &UiConfig) {
         return;
     }
 
-    let mut msg = String::from("UiConfiguration files loaded from:");
+    let mut msg = String::from("Configuration files loaded from:");
     for path in &config.config_paths {
         msg.push_str(&format!("\n  {:?}", path.display()));
     }

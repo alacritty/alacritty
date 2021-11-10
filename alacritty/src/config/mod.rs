@@ -38,7 +38,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors occurring during config loading.
 #[derive(Debug)]
 pub enum Error {
-    /// UiConfig file not found.
+    /// Config file not found.
     NotFound,
 
     /// Couldn't read $HOME environment variable.
@@ -70,7 +70,7 @@ impl Display for Error {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
             },
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(err) => write!(f, "UiConfig error: {}", err),
+            Error::Yaml(err) => write!(f, "Config error: {}", err),
         }
     }
 }
@@ -103,7 +103,7 @@ pub fn load(options: &Options) -> UiConfig {
     let config_path = options.config_file.clone().or_else(installed_config);
 
     // Load the config using the following fallback behavior:
-    //  - UiConfig path + CLI overrides
+    //  - Config path + CLI overrides
     //  - CLI overrides
     //  - Default
     let mut config = config_path
@@ -239,7 +239,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         }
 
         if !path.exists() {
-            info!(target: LOG_TARGET_CONFIG, "UiConfig import not found:\n  {:?}", path.display());
+            info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
             continue;
         }
 

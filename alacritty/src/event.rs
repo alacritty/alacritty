@@ -33,7 +33,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 
-use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCLIOptions};
+use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCliOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
@@ -87,7 +87,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow(Option<TerminalCLIOptions>),
+    CreateWindow(Option<TerminalCliOptions>),
     BlinkCursor,
     SearchNext,
 }
@@ -383,7 +383,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[cfg(not(windows))]
     fn create_new_window(&mut self) {
         let options = if let Ok(working_directory) = foreground_process_path() {
-            let mut options = TerminalCLIOptions::new();
+            let mut options = TerminalCliOptions::new();
             options.working_directory = Some(working_directory);
             Some(options)
         } else {
@@ -1193,7 +1193,7 @@ impl Processor {
     pub fn create_window(
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
-        options: Option<TerminalCLIOptions>,
+        options: Option<TerminalCliOptions>,
         proxy: EventLoopProxy<Event>,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::new(
