@@ -388,19 +388,30 @@ impl<'a, T> HintPostProcessor<'a, T> {
         }
     }
 
-    fn find_next_match(&mut self, regex_match: Match) {
-        self.next_match = self.hint_post_processing(&regex_match);
+    /// Loops over processed matches until a match is found or the
+    /// range is exhausted.
+    fn find_next_match(&mut self, mut regex_match: Match) {
+        loop {
+            self.next_match = self.hint_post_processing(&regex_match);
 
-        if self.next_match.is_none() {
-            self.next_match =
-                self.term.regex_search_right(self.regex, *regex_match.start(), *regex_match.end())
+            if let Some(nm) = &self.next_match {
+                self.start = nm.end().add(self.term, Boundary::Grid, 1);
+                break;
+            } else {
+                self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
+
+                if self.start > self.end {
+                    break;
+                }
+
+                if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
+                    regex_match = rm;
+                } else {
+                    self.start = self.end.add(self.term, Boundary::Grid, 1);
+                    break;
+                }
+            }
         }
-
-        self.start = self.next_match.as_ref().map_or(regex_match.end(), |nm| nm.end()).add(
-            self.term,
-            Boundary::Grid,
-            1,
-        );
     }
 }
 
@@ -477,9 +488,9 @@ mod tests {
             &search,
             Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
         )
-        .take(2)
+        .take(1)
         .count();
 
-        assert_eq!(count, 1);
+        assert_eq!(count, 0);
     }
 }
