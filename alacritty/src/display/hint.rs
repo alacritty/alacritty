@@ -306,13 +306,16 @@ struct HintPostProcessor<'a, T> {
 impl<'a, T> HintPostProcessor<'a, T> {
     /// Create a new iterator for an unprocessed match.
     fn new(term: &'a Term<T>, regex: &'a RegexSearch, regex_match: Match) -> Self {
-        let end = *regex_match.end();
-        let mut post_processor = Self { next_match: None, start: end, end, term, regex };
+        let mut post_processor = Self {
+            next_match: None,
+            start: *regex_match.start(),
+            end: *regex_match.end(),
+            term,
+            regex,
+        };
 
         // Post-process the first hint match.
-        let next_match = post_processor.hint_post_processing(&regex_match);
-        post_processor.start = next_match.end().add(term, Boundary::Grid, 1);
-        post_processor.next_match = Some(next_match);
+        post_processor.next_processed_match(regex_match);
 
         post_processor
     }
@@ -323,7 +326,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
     /// to be unlikely to be intentionally part of the hint.
     ///
     /// This is most useful for identifying URLs appropriately.
-    fn hint_post_processing(&self, regex_match: &Match) -> Match {
+    fn hint_post_processing(&self, regex_match: &Match) -> Option<Match> {
         let mut iter = self.term.grid().iter_from(*regex_match.start());
 
         let mut c = iter.cell().c;
@@ -378,7 +381,31 @@ impl<'a, T> HintPostProcessor<'a, T> {
             }
         }
 
-        start..=iter.point()
+        if start > iter.point() {
+            None
+        } else {
+            Some(start..=iter.point())
+        }
+    }
+
+    /// Loop over submatches until a non-empty post-processed match is found.
+    fn next_processed_match(&mut self, mut regex_match: Match) {
+        self.next_match = loop {
+            if let Some(next_match) = self.hint_post_processing(&regex_match) {
+                self.start = next_match.end().add(self.term, Boundary::Grid, 1);
+                break Some(next_match);
+            }
+
+            self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
+            if self.start > self.end {
+                return;
+            }
+
+            match self.term.regex_search_right(self.regex, self.start, self.end) {
+                Some(rm) => regex_match = rm,
+                None => return,
+            }
+        };
     }
 }
 
@@ -390,9 +417,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
         if self.start <= self.end {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                let regex_match = self.hint_post_processing(&rm);
-                self.start = regex_match.end().add(self.term, Boundary::Grid, 1);
-                self.next_match = Some(regex_match);
+                self.next_processed_match(rm);
             }
         }
 
@@ -402,6 +427,9 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::term::test::mock_term;
+
     use super::*;
 
     #[test]
@@ -441,5 +469,22 @@ mod tests {
         assert_eq!(generator.next(), vec!['3', '3', '2', '1']);
         assert_eq!(generator.next(), vec!['3', '3', '3', '0']);
         assert_eq!(generator.next(), vec!['3', '3', '3', '1']);
+    }
+
+    #[test]
+    fn closed_bracket_does_not_result_in_infinite_iterator() {
+        let term = mock_term(" ) ");
+
+        let search = RegexSearch::new("[^/ ]").unwrap();
+
+        let count = HintPostProcessor::new(
+            &term,
+            &search,
+            Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
+        )
+        .take(1)
+        .count();
+
+        assert_eq!(count, 0);
     }
 }
