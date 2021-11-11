@@ -315,7 +315,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
         };
 
         // Post-process the first hint match.
-        post_processor.find_next_match(regex_match);
+        post_processor.next_processed_match(regex_match);
 
         post_processor
     }
@@ -388,30 +388,24 @@ impl<'a, T> HintPostProcessor<'a, T> {
         }
     }
 
-    /// Loops over processed matches until a match is found or the
-    /// range is exhausted.
-    fn find_next_match(&mut self, mut regex_match: Match) {
-        loop {
-            self.next_match = self.hint_post_processing(&regex_match);
-
-            if let Some(nm) = &self.next_match {
-                self.start = nm.end().add(self.term, Boundary::Grid, 1);
-                break;
-            } else {
-                self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
-
-                if self.start > self.end {
-                    break;
-                }
-
-                if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                    regex_match = rm;
-                } else {
-                    self.start = self.end.add(self.term, Boundary::Grid, 1);
-                    break;
-                }
+    /// Loop over submatches until a non-empty post-processed match is found.
+    fn next_processed_match(&mut self, mut regex_match: Match) {
+        self.next_match = loop {
+            if let Some(next_match) = self.hint_post_processing(&regex_match) {
+                self.start = next_match.end().add(self.term, Boundary::Grid, 1);
+                break Some(next_match);
             }
-        }
+
+            self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
+            if self.start > self.end {
+                return;
+            }
+
+            match self.term.regex_search_right(self.regex, self.start, self.end) {
+                Some(rm) => regex_match = rm,
+                None => return,
+            }
+        };
     }
 }
 
@@ -423,7 +417,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
         if self.start <= self.end {
             if let Some(rm) = self.term.regex_search_right(self.regex, self.start, self.end) {
-                self.find_next_match(rm);
+                self.next_processed_match(rm);
             }
         }
 
