@@ -1423,6 +1423,11 @@ impl<T: EventListener> Handler for Term<T> {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.reset_region(..);
                 } else {
+                    // Change the absolute vi cursor position into inside the viewport, but
+                    // preserve the relative one in the display area.
+                    let line = self.vi_mode_cursor.point.line + self.grid.display_offset();
+                    self.vi_mode_cursor.point.line = line.grid_clamp(self, Boundary::Cursor);
+
                     self.grid.clear_viewport();
                 }
 
@@ -2116,6 +2121,36 @@ mod tests {
         term.input('a');
 
         assert_eq!(term.grid()[cursor].c, '▒');
+    }
+
+    #[test]
+    fn clear_viewport_updates_vi_mode_cursor_pos() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Emulate vi cursor motions on default configurations.
+        // gg
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor = term.vi_mode_cursor.scroll(&term, 10);
+        // jjjjj
+        for _ in 0..5 {
+            term.vi_mode_cursor = term.vi_mode_cursor.motion(&mut term, ViMotion::Down);
+        }
+        // lll
+        for _ in 0..3 {
+            term.vi_mode_cursor = term.vi_mode_cursor.motion(&mut term, ViMotion::Right);
+        }
+
+        // Clear the viewport.
+        term.clear_screen(ansi::ClearMode::All);
+
+        assert_eq!(term.vi_mode_cursor.point.line.0, 5);
+        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
     }
 
     #[test]
