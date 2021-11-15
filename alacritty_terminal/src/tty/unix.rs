@@ -18,8 +18,8 @@ use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
-use signal_hook as sighook;
-use signal_hook::iterator::Signals;
+use signal_hook::consts as sigconsts;
+use signal_hook_mio::v0_6::Signals;
 
 use crate::config::{Config, Program};
 use crate::event::OnResize;
@@ -218,7 +218,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
     }
 
     // Prepare signal handling before spawning child.
-    let signals = Signals::new(&[sighook::SIGCHLD]).expect("error preparing signal handling");
+    let signals = Signals::new(&[sigconsts::SIGCHLD]).expect("error preparing signal handling");
 
     match builder.spawn() {
         Ok(child) => {
@@ -328,7 +328,7 @@ impl EventedPty for Pty {
     #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
         self.signals.pending().next().and_then(|signal| {
-            if signal != sighook::SIGCHLD {
+            if signal != sigconsts::SIGCHLD {
                 return None;
             }
 
