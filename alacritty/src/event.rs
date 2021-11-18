@@ -664,6 +664,28 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             HintAction::Command(command) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
+
+                #[cfg(unix)]
+                args.iter_mut().filter(|a| a.as_str() == "PWD").for_each(|a| {
+                    // Substitute with working directory of controlling process
+                    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
+                    if pid < 0 {
+                        pid = tty::child_pid();
+                    }
+
+                    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
+                    let link_path = format!("/proc/{}/cwd", pid);
+                    #[cfg(target_os = "freebsd")]
+                    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+                    #[cfg(not(target_os = "macos"))]
+                    let cwd = fs::read_link(link_path);
+                    #[cfg(target_os = "macos")]
+                    let cwd = macos::proc::cwd(pid);
+
+                    // Add the current working directory as parameter.
+                    *a = cwd.unwrap_or_default().to_string_lossy().to_string()
+                });
+
                 args.push(text);
                 start_daemon(command.program(), &args);
             },
