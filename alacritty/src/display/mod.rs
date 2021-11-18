@@ -45,8 +45,9 @@ use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
-use crate::renderer::rects::{RenderLines, RenderRect};
+use crate::renderer::rects::RenderRect;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::text_run::{TextRun, TextRunIter};
 
 pub mod content;
 pub mod cursor;
@@ -359,8 +360,9 @@ impl Display {
             info!("Initializing glyph cache...");
             let init_start = Instant::now();
 
-            let cache =
-                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
+            let cache = renderer.with_loader(|mut api| {
+                GlyphCache::new(rasterizer, &font, &mut api, &config.ui_config)
+            })?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
@@ -481,14 +483,16 @@ impl Display {
         config: &Config,
         search_state: &SearchState,
     ) {
+        let highlighted_hint = self.highlighted_hint.as_ref().map(|m| m.bounds.clone());
+        let vi_highlighted_hint = self.vi_highlighted_hint.as_ref().map(|m| m.bounds.clone());
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
-        let mut grid_cells = Vec::new();
-        for cell in &mut content {
-            grid_cells.push(cell);
-        }
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
+        let grid_text_runs: Vec<TextRun> = {
+            TextRunIter::<()>::from_content(&mut content, highlighted_hint, vi_highlighted_hint)
+                .collect()
+        };
         let cursor = content.cursor();
 
         let cursor_point = terminal.grid().cursor.point;
@@ -509,7 +513,7 @@ impl Display {
             api.clear(background_color);
         });
 
-        let mut lines = RenderLines::new();
+        let mut rects: Vec<RenderRect> = Vec::new();
 
         // Draw grid.
         {
@@ -520,29 +524,37 @@ impl Display {
             self.renderer.set_viewport(&size_info);
 
             let glyph_cache = &mut self.glyph_cache;
-            let highlighted_hint = &self.highlighted_hint;
-            let vi_highlighted_hint = &self.vi_highlighted_hint;
+
             self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                // Iterate over all non-empty cells in the grid.
-                for mut cell in grid_cells {
-                    // Underline hints hovered by mouse or vi mode cursor.
-                    let point = viewport_to_point(display_offset, cell.point);
-                    if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                        || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                    {
-                        cell.flags.insert(Flags::UNDERLINE);
+                for text_run in grid_text_runs {
+                    if text_run.flags.contains(Flags::UNDERLINE) {
+                        let underline_metrics = (
+                            metrics.descent,
+                            metrics.underline_position,
+                            metrics.underline_thickness,
+                        );
+                        rects.push(RenderRect::from_text_run(
+                            &text_run,
+                            underline_metrics,
+                            &size_info,
+                        ));
                     }
-
-                    // Update underline/strikeout.
-                    lines.update(&cell);
-
-                    // Draw the cell.
-                    api.render_cell(cell, glyph_cache);
+                    if text_run.flags.contains(Flags::STRIKEOUT) {
+                        let strikeout_metrics = (
+                            metrics.descent,
+                            metrics.strikeout_position,
+                            metrics.strikeout_thickness,
+                        );
+                        rects.push(RenderRect::from_text_run(
+                            &text_run,
+                            strikeout_metrics,
+                            &size_info,
+                        ));
+                    }
+                    api.render_text_run(text_run, glyph_cache);
                 }
             });
         }
-
-        let mut rects = lines.rects(&metrics, &size_info);
 
         if let Some(vi_mode_cursor) = vi_mode_cursor {
             // Indicate vi mode by showing the cursor's position in the top right corner.
