@@ -278,11 +278,11 @@ impl GlyphCache {
         FontDesc::new(desc.family.clone(), style)
     }
 
-    pub fn shape_run<'a, L>(
-        &'a mut self,
-        text_run: &'a str,
+    pub fn shape_run<L>(
+        &mut self,
+        text_run: &str,
         font_key: FontKey,
-        loader: &'a mut L,
+        loader: &mut L,
     ) -> Result<Vec<Glyph>, Box<dyn std::error::Error>>
     where
         L: LoadGlyph,
