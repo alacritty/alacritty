@@ -35,6 +35,9 @@ unicode-width = "0.1"
 bitflags = "1"
 dirs = "3.0.1"
 
+[dev-dependencies]
+clap = "2.33.3"
+
 [build-dependencies]
 gl_generator = "0.14.0"
 

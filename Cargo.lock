@@ -21,6 +21,7 @@ dependencies = [
  "alacritty_config_derive",
  "alacritty_terminal",
  "bitflags",
+ "clap",
  "cocoa 0.24.0",
  "copypasta",
  "crossfont",

@@ -1,62 +1,135 @@
 #compdef alacritty
 
-# Completions available for the first parameter.
-_alacritty_first_param() {
-    # Main subcommands.
-    _describe "command" "(msg:'Available socket messages')"
+autoload -U is-at-least
 
-    # Default options.
-    _alacritty_main
+_alacritty() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" \
+'-t+[Defines the window title \[default: Alacritty\]]' \
+'--title=[Defines the window title \[default: Alacritty\]]' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
+'--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]' \
+'--working-directory=[Start the shell in the specified working directory]' \
+'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]' \
+'--socket=[Path for IPC socket creation]' \
+'*-e+[Command and args to execute (must be last argument)]' \
+'*--command=[Command and args to execute (must be last argument)]' \
+'*-o+[Override configuration file options \[example: cursor.style=Beam\]]' \
+'*--option=[Override configuration file options \[example: cursor.style=Beam\]]' \
+'--print-events[Print all events to stdout]' \
+'--ref-test[Generates ref test]' \
+'--hold[Remain open after child process exits]' \
+'(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
+'(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+":: :_alacritty_commands" \
+"*::: :->alacritty" \
+&& ret=0
+    case $state in
+    (alacritty)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:alacritty-command-$line[1]:"
+        case $line[1] in
+            (msg)
+_arguments "${_arguments_options[@]}" \
+'-s+[IPC socket connection path override]' \
+'--socket=[IPC socket connection path override]' \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+":: :_alacritty__msg_commands" \
+"*::: :->msg" \
+&& ret=0
+case $state in
+    (msg)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:alacritty-msg-command-$line[1]:"
+        case $line[1] in
+            (create-window)
+_arguments "${_arguments_options[@]}" \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(help)
+_arguments "${_arguments_options[@]}" \
+'-h[Prints help information]' \
+'--help[Prints help information]' \
+'-V[Prints version information]' \
+'--version[Prints version information]' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
 }
 
-# Completions available for parameters after the first.
-_alacritty_following_param() {
-    case $words[2] in
-      msg)
-        _alacritty_msg;;
-      *)
-        _alacritty_main;;
-    esac
+(( $+functions[_alacritty_commands] )) ||
+_alacritty_commands() {
+    local commands; commands=(
+        "msg:Available socket messages" \
+"help:Prints this message or the help of the given subcommand(s)" \
+    )
+    _describe -t commands 'alacritty commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__create-window_commands] )) ||
+_alacritty__msg__create-window_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'alacritty msg create-window commands' commands "$@"
+}
+(( $+functions[_alacritty__help_commands] )) ||
+_alacritty__help_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'alacritty help commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help_commands] )) ||
+_alacritty__msg__help_commands() {
+    local commands; commands=(
+        
+    )
+    _describe -t commands 'alacritty msg help commands' commands "$@"
+}
+(( $+functions[_alacritty__msg_commands] )) ||
+_alacritty__msg_commands() {
+    local commands; commands=(
+        "create-window:Create a new window in the same Alacritty process" \
+"help:Prints this message or the help of the given subcommand(s)" \
+    )
+    _describe -t commands 'alacritty msg commands' commands "$@"
 }
 
-# Completions for the main Alacritty executable.
-_alacritty_main() {
-  # Limit some suggestions to the first option.
-  local ignore
-  (( $#words > 2 )) && ignore='!'
-
-  _arguments \
-    "$ignore(-)"{-h,--help}"[print help information]" \
-    "$ignore(-)"{-V,--version}"[print version information]" \
-    "--print-events[print all events to stdout]" \
-    '(-v)'{-q,-qq}"[reduce the level of verbosity (min is -qq)]" \
-    "--ref-test[generate ref test]" \
-    "--hold[remain open after child process exits]" \
-    '(-q)'{-v,-vv,-vvv}"[increase the level of verbosity (max is -vvv)]" \
-    "--class=[define the window class]:class" \
-    "--embed=[define the X11 window ID (as a decimal integer) to embed Alacritty within]:windowId" \
-    "(-e --command)"{-e,--command}"[execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal" \
-    "--config-file=[specify an alternative config file]:file:_files" \
-    "*"{-o=,--option=}"[override config file options]:option" \
-    "(-t --title)"{-t=,--title=}"[define the window title]:title" \
-    "--working-directory=[start shell in specified directory]:directory:_directories"\
-    "--socket=[Path for IPC socket creation]:file:_files"
-}
-
-# Completions for the `msg` subcommand.
-_alacritty_msg() {
-  # Limit some suggestions to the first option.
-  local ignore
-  (( $#words > 3 )) && ignore='!'
-
-  _arguments \
-    "$ignore(-)"{-h,--help}"[print help information]" \
-    "$ignore(-)"{-V,--version}"[print version information]" \
-    "(-s --socket)"{-s=,--socket=}"[Path for IPC socket creation]:file:_files" \
-    "*: :((create-window:'Create a new window in the same Alacritty process'))"
-}
-
-# Handle arguments based on their position.
-_arguments \
-  "1: :_alacritty_first_param" \
-  "*: :_alacritty_following_param"
+_alacritty "$@"
