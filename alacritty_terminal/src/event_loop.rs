@@ -241,7 +241,7 @@ where
             // Attempt to lock the terminal.
             let terminal = match &mut terminal {
                 Some(terminal) => terminal,
-                None => terminal.insert(match self.terminal.try_lock_unfair() {
+                terminal @ None => OptionInsert::insert(terminal, match self.terminal.try_lock_unfair() {
                     // Force block if we are at the buffer size limit.
                     None if unprocessed >= READ_BUFFER_SIZE => self.terminal.lock_unfair(),
                     None => continue,
