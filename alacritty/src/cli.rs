@@ -246,6 +246,13 @@ pub enum SocketMessage {
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "linux")]
+    use std::fs::File;
+    #[cfg(target_os = "linux")]
+    use std::io::Read;
+
+    #[cfg(target_os = "linux")]
+    use clap::Shell;
     use serde_yaml::mapping::Mapping;
 
     #[test]
@@ -333,5 +340,33 @@ mod tests {
     fn parse_invalid_class() {
         let class = parse_class("one,two,three");
         assert!(class.is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn completions() {
+        let mut clap = Options::clap();
+
+        for (shell, file) in &[
+            (Shell::Bash, "alacritty.bash"),
+            (Shell::Fish, "alacritty.fish"),
+            (Shell::Zsh, "_alacritty"),
+        ] {
+            let mut generated = Vec::new();
+            clap.gen_completions_to("alacritty", *shell, &mut generated);
+            let generated = String::from_utf8_lossy(&generated);
+
+            let mut completion = String::new();
+            let mut file = File::open(format!("../extra/completions/{}", file)).unwrap();
+            file.read_to_string(&mut completion).unwrap();
+
+            assert_eq!(generated, completion);
+        }
+
+        // NOTE: Use this to generate new completions.
+        //
+        // clap.gen_completions("alacritty", Shell::Bash, "../extra/completions/");
+        // clap.gen_completions("alacritty", Shell::Fish, "../extra/completions/");
+        // clap.gen_completions("alacritty", Shell::Zsh, "../extra/completions/");
     }
 }
