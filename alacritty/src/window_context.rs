@@ -1,5 +1,6 @@
 //! Terminal window context.
 
+use std::borrow::Cow;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -91,16 +92,10 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let new_pty_config;
-        let pty_config = match options {
-            Some(options) => {
-                new_pty_config = options.into();
-                &new_pty_config
-            },
-            None => &config.terminal_config.pty_config,
-        };
-
-        let pty = tty::new(pty_config, &display.size_info, display.window.x11_window_id())?;
+        let pty_config = options
+            .map(|o| Cow::Owned(o.into()))
+            .unwrap_or(Cow::Borrowed(&config.terminal_config.pty_config));
+        let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
 
         // Create the pseudoterminal I/O loop.
         //
