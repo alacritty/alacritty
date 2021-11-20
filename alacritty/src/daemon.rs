@@ -2,9 +2,9 @@
 use alacritty_terminal::tty;
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::io;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::fs;
+use std::io;
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
 #[cfg(windows)]
