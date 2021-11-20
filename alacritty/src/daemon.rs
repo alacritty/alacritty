@@ -1,6 +1,10 @@
+#[cfg(not(windows))]
+use alacritty_terminal::tty;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::io;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::fs;
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
 #[cfg(windows)]
@@ -43,6 +47,26 @@ where
         .map(|_| ())
 }
 
+// get working directory of controlling process
+#[cfg(not(windows))]
+pub fn foreground_process_path() -> io::Result<std::path::PathBuf> {
+    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
+    if pid < 0 {
+        pid = tty::child_pid();
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
+    let link_path = format!("/proc/{}/cwd", pid);
+    #[cfg(target_os = "freebsd")]
+    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+    #[cfg(not(target_os = "macos"))]
+    let cwd = fs::read_link(link_path);
+    #[cfg(target_os = "macos")]
+    let cwd = macos::proc::cwd(pid);
+
+    cwd
+}
+
 #[cfg(not(windows))]
 fn spawn_daemon<I, S>(program: &str, args: I) -> io::Result<()>
 where
@@ -55,6 +79,7 @@ where
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
+            .current_dir(foreground_process_path().unwrap_or_default())
             .pre_exec(|| {
                 match libc::fork() {
                     -1 => return Err(io::Error::last_os_error()),

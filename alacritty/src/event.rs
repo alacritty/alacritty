@@ -30,14 +30,12 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
-#[cfg(not(windows))]
-use alacritty_terminal::tty;
 
 use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCliOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
-use crate::daemon::start_daemon;
+use crate::daemon::{foreground_process_path, start_daemon};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
@@ -354,14 +352,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
-        // Use working directory of controlling process, or fallback to initial shell, then add it
-        // as working-directory parameter.
-        #[cfg(unix)]
-        let mut args = foreground_process_path()
-            .map(|path| vec!["--working-directory".into(), path])
-            .unwrap_or_default();
-
-        #[cfg(not(unix))]
         let mut args: Vec<PathBuf> = Vec::new();
 
         let working_directory_set = !args.is_empty();
@@ -664,27 +654,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             HintAction::Command(command) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
-
-                #[cfg(unix)]
-                args.iter_mut().filter(|a| a.as_str() == "PWD").for_each(|a| {
-                    // Substitute with working directory of controlling process
-                    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-                    if pid < 0 {
-                        pid = tty::child_pid();
-                    }
-
-                    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-                    let link_path = format!("/proc/{}/cwd", pid);
-                    #[cfg(target_os = "freebsd")]
-                    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-                    #[cfg(not(target_os = "macos"))]
-                    let cwd = fs::read_link(link_path);
-                    #[cfg(target_os = "macos")]
-                    let cwd = macos::proc::cwd(pid);
-
-                    // Add the current working directory as parameter.
-                    *a = cwd.unwrap_or_default().to_string_lossy().to_string()
-                });
 
                 args.push(text);
                 start_daemon(command.program(), &args);
@@ -1410,25 +1379,4 @@ impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
         let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
-}
-
-#[cfg(not(windows))]
-pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
-    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-    if pid < 0 {
-        pid = tty::child_pid();
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-    let link_path = format!("/proc/{}/cwd", pid);
-    #[cfg(target_os = "freebsd")]
-    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-
-    #[cfg(not(target_os = "macos"))]
-    let cwd = std::fs::read_link(link_path)?;
-
-    #[cfg(target_os = "macos")]
-    let cwd = macos::proc::cwd(pid)?;
-
-    Ok(cwd)
 }
