@@ -19,18 +19,18 @@ _alacritty() {
 '--title=[Defines the window title \[default: Alacritty\]]' \
 '--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
 '--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]' \
-'--working-directory=[Start the shell in the specified working directory]' \
 '--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]' \
 '--socket=[Path for IPC socket creation]' \
-'*-e+[Command and args to execute (must be last argument)]' \
-'*--command=[Command and args to execute (must be last argument)]' \
 '*-o+[Override configuration file options \[example: cursor.style=Beam\]]' \
 '*--option=[Override configuration file options \[example: cursor.style=Beam\]]' \
+'--working-directory=[Start the shell in the specified working directory]' \
+'*-e+[Command and args to execute (must be last argument)]' \
+'*--command=[Command and args to execute (must be last argument)]' \
 '--print-events[Print all events to stdout]' \
 '--ref-test[Generates ref test]' \
-'--hold[Remain open after child process exits]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
+'--hold[Remain open after child process exit]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \
@@ -63,6 +63,10 @@ case $state in
         case $line[1] in
             (create-window)
 _arguments "${_arguments_options[@]}" \
+'--working-directory=[Start the shell in the specified working directory]' \
+'*-e+[Command and args to execute (must be last argument)]' \
+'*--command=[Command and args to execute (must be last argument)]' \
+'--hold[Remain open after child process exit]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
 '-V[Prints version information]' \

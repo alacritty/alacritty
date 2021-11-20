@@ -29,7 +29,7 @@ _alacritty() {
 
     case "${cmd}" in
         alacritty)
-            opts=" -q -v -h -V -t -e -o  --print-events --ref-test --hold --help --version --title --class --embed --working-directory --config-file --socket --command --option   msg help"
+            opts=" -q -v -h -V -t -o -e  --print-events --ref-test --hold --help --version --title --class --embed --config-file --socket --option --working-directory --command   msg help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -52,10 +52,6 @@ _alacritty() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --working-directory)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --config-file)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -64,19 +60,23 @@ _alacritty() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --command)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                    -e)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --option)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -o)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --working-directory)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --command)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -e)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -127,13 +127,25 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__create__window)
-            opts=" -h -V  --help --version  "
+            opts=" -h -V -e  --hold --help --version --working-directory --command  "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
+                --working-directory)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --command)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -e)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
