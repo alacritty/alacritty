@@ -4,7 +4,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut, RangeInclusive};
 
 use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
-use alacritty_terminal::config::Config;
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
@@ -13,7 +12,7 @@ use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
 
-use crate::config::ui_config::UiConfig;
+use crate::config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
 use crate::display::{self, Display, MAX_SEARCH_LINES};
@@ -32,14 +31,14 @@ pub struct RenderableContent<'a> {
     cursor_point: Point<usize>,
     search: Option<Regex<'a>>,
     hint: Option<Hint<'a>>,
-    config: &'a Config<UiConfig>,
+    config: &'a UiConfig,
     colors: &'a List,
     focused_match: Option<&'a Match>,
 }
 
 impl<'a> RenderableContent<'a> {
     pub fn new<T: EventListener>(
-        config: &'a Config<UiConfig>,
+        config: &'a UiConfig,
         display: &'a mut Display,
         term: &'a Term<T>,
         search_state: &'a SearchState,
@@ -54,7 +53,7 @@ impl<'a> RenderableContent<'a> {
             || search_state.regex().is_some()
         {
             CursorShape::Hidden
-        } else if !term.is_focused && config.cursor.unfocused_hollow {
+        } else if !term.is_focused && config.terminal_config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
         } else {
             terminal_content.cursor.shape
@@ -113,9 +112,9 @@ impl<'a> RenderableContent<'a> {
 
         // Cursor colors.
         let color = if self.terminal_content.mode.contains(TermMode::VI) {
-            self.config.ui_config.colors.vi_mode_cursor
+            self.config.colors.vi_mode_cursor
         } else {
-            self.config.ui_config.colors.cursor
+            self.config.colors.cursor
         };
         let cursor_color =
             self.terminal_content.colors[NamedColor::Cursor].map_or(color.background, CellRgb::Rgb);
@@ -131,8 +130,8 @@ impl<'a> RenderableContent<'a> {
 
         // Invert cursor color with insufficient contrast to prevent invisible cursors.
         if insufficient_contrast {
-            cursor_color = self.config.ui_config.colors.primary.foreground;
-            text_color = self.config.ui_config.colors.primary.background;
+            cursor_color = self.config.colors.primary.foreground;
+            text_color = self.config.colors.primary.background;
         }
 
         Some(RenderableCursor {
@@ -204,7 +203,7 @@ impl RenderableCell {
             mem::swap(&mut fg, &mut bg);
             1.0
         } else {
-            Self::compute_bg_alpha(&content.config.ui_config, cell.bg)
+            Self::compute_bg_alpha(content.config, cell.bg)
         };
 
         let is_selected = content.terminal_content.selection.map_or(false, |selection| {
@@ -217,7 +216,7 @@ impl RenderableCell {
 
         let display_offset = content.terminal_content.display_offset;
         let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
-        let colors = &content.config.ui_config.colors;
+        let colors = &content.config.colors;
         let mut character = cell.c;
 
         if let Some((c, is_first)) =
@@ -293,18 +292,18 @@ impl RenderableCell {
 
     /// Get the RGB color from a cell's foreground color.
     fn compute_fg_rgb(content: &mut RenderableContent<'_>, fg: Color, flags: Flags) -> Rgb {
-        let ui_config = &content.config.ui_config;
+        let config = &content.config;
         match fg {
             Color::Spec(rgb) => match flags & Flags::DIM {
                 Flags::DIM => rgb * DIM_FACTOR,
                 _ => rgb,
             },
             Color::Named(ansi) => {
-                match (ui_config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
+                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
                     (_, Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
-                            && ui_config.colors.primary.bright_foreground.is_none() =>
+                            && config.colors.primary.bright_foreground.is_none() =>
                     {
                         content.color(NamedColor::DimForeground as usize)
                     },
@@ -320,7 +319,7 @@ impl RenderableCell {
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    ui_config.draw_bold_text_with_bright_colors,
+                    config.draw_bold_text_with_bright_colors,
                     flags & Flags::DIM_BOLD,
                     idx,
                 ) {

@@ -5,12 +5,13 @@ use std::borrow::Cow;
 use std::env;
 use std::ffi::CStr;
 use std::fs::File;
+use std::io::{Error, ErrorKind, Result};
 use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
+use std::ptr;
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
-use std::{io, ptr};
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use log::error;
@@ -21,7 +22,7 @@ use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::consts as sigconsts;
 use signal_hook_mio::v0_6::Signals;
 
-use crate::config::{Config, Program};
+use crate::config::{Program, PtyConfig};
 use crate::event::OnResize;
 use crate::grid::Dimensions;
 use crate::term::SizeInfo;
@@ -73,7 +74,7 @@ fn set_controlling_terminal(fd: c_int) {
     };
 
     if res < 0 {
-        die!("ioctl TIOCSCTTY failed: {}", io::Error::last_os_error());
+        die!("ioctl TIOCSCTTY failed: {}", Error::last_os_error());
     }
 }
 
@@ -143,7 +144,7 @@ fn default_shell(pw: &Passwd<'_>) -> Program {
 }
 
 /// Create a new TTY and return a handle to interact with it.
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
+pub fn new(config: &PtyConfig, size: &SizeInfo, window_id: Option<usize>) -> Result<Pty> {
     let (master, slave) = make_pty(size.to_winsize());
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -192,7 +193,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
             // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
-                die!("Failed to set session id: {}", io::Error::last_os_error());
+                return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
             }
 
             set_controlling_terminal(slave);
@@ -240,9 +241,12 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
                 signals_token: mio::Token::from(0),
             };
             pty.on_resize(size);
-            pty
+            Ok(pty)
         },
-        Err(err) => die!("Failed to spawn command '{}': {}", shell.program(), err),
+        Err(err) => Err(Error::new(
+            ErrorKind::NotFound,
+            format!("Failed to spawn command '{}': {}", shell.program(), err),
+        )),
     }
 }
 
@@ -267,7 +271,7 @@ impl EventedReadWrite for Pty {
         token: &mut dyn Iterator<Item = mio::Token>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         self.token = token.next().unwrap();
         poll.register(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
 
@@ -286,7 +290,7 @@ impl EventedReadWrite for Pty {
         poll: &mio::Poll,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         poll.reregister(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
 
         poll.reregister(
@@ -298,7 +302,7 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
+    fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
         poll.deregister(&EventedFd(&self.fd.as_raw_fd()))?;
         poll.deregister(&self.signals)
     }
@@ -360,7 +364,7 @@ impl OnResize for Pty {
         let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
+            die!("ioctl TIOCSWINSZ failed: {}", Error::last_os_error());
         }
     }
 }

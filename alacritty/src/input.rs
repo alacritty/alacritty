@@ -29,7 +29,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
-use crate::config::{Action, BindingMode, Config, Key, MouseAction, SearchAction, ViAction};
+use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -85,7 +85,7 @@ pub trait ActionContext<T: EventListener> {
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
-    fn config(&self) -> &Config;
+    fn config(&self) -> &UiConfig;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
@@ -515,7 +515,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.ctx.mouse_mut().last_click_timestamp = now;
 
             // Update multi-click state.
-            let mouse_config = &self.ctx.config().ui_config.mouse;
+            let mouse_config = &self.ctx.config().mouse;
             self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
                 // Reset click state if button has changed.
                 _ if button != self.ctx.mouse().last_click_button => {
@@ -643,7 +643,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().shift()
         {
-            let multiplier = f64::from(self.ctx.config().scrolling.multiplier);
+            let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let cmd = if new_scroll_px > 0. { b'A' } else { b'B' };
@@ -657,7 +657,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = f64::from(self.ctx.config().scrolling.multiplier);
+            let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
@@ -801,7 +801,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             c.encode_utf8(&mut bytes[..]);
         }
 
-        if self.ctx.config().ui_config.alt_send_esc
+        if self.ctx.config().alt_send_esc
             && *self.ctx.received_count() == 0
             && self.ctx.modifiers().alt()
             && utf8_len == 1
@@ -823,8 +823,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mods = *self.ctx.modifiers();
         let mut suppress_chars = None;
 
-        for i in 0..self.ctx.config().ui_config.key_bindings().len() {
-            let binding = &self.ctx.config().ui_config.key_bindings()[i];
+        for i in 0..self.ctx.config().key_bindings().len() {
+            let binding = &self.ctx.config().key_bindings()[i];
 
             let key = match (binding.trigger, input.virtual_keycode) {
                 (Key::Scancode(_), _) => Key::Scancode(input.scancode),
@@ -854,8 +854,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mouse_mode = self.ctx.mouse_mode();
         let mods = *self.ctx.modifiers();
 
-        for i in 0..self.ctx.config().ui_config.mouse_bindings().len() {
-            let mut binding = self.ctx.config().ui_config.mouse_bindings()[i].clone();
+        for i in 0..self.ctx.config().mouse_bindings().len() {
+            let mut binding = self.ctx.config().mouse_bindings()[i].clone();
 
             // Require shift for all modifiers when mouse mode is active.
             if mouse_mode {
@@ -974,7 +974,7 @@ mod tests {
         pub received_count: usize,
         pub suppress_chars: bool,
         pub modifiers: ModifiersState,
-        config: &'a Config,
+        config: &'a UiConfig,
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
@@ -1057,7 +1057,7 @@ mod tests {
             self.message_buffer.message()
         }
 
-        fn config(&self) -> &Config {
+        fn config(&self) -> &UiConfig {
             self.config
         }
 
@@ -1085,7 +1085,7 @@ mod tests {
             #[test]
             fn $name() {
                 let mut clipboard = Clipboard::new_nop();
-                let cfg = Config::default();
+                let cfg = UiConfig::default();
                 let size = SizeInfo::new(
                     21.0,
                     51.0,
@@ -1096,7 +1096,7 @@ mod tests {
                     false,
                 );
 
-                let mut terminal = Term::new(&cfg, size, MockEventProxy);
+                let mut terminal = Term::new(&cfg.terminal_config, size, MockEventProxy);
 
                 let mut mouse = Mouse {
                     click_state: $initial_state,

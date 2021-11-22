@@ -8,7 +8,6 @@ use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 
 use log::{debug, warn};
-
 #[cfg(windows)]
 use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 

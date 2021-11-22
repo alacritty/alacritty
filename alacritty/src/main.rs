@@ -53,10 +53,8 @@ mod gl {
 use crate::cli::Options;
 #[cfg(unix)]
 use crate::cli::{MessageOptions, Subcommands};
-use crate::config::{monitor, Config};
+use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
-#[cfg(unix)]
-use crate::ipc::SOCKET_MESSAGE_CREATE_WINDOW;
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 
@@ -94,7 +92,7 @@ fn main() {
 /// `msg` subcommand entrypoint.
 #[cfg(unix)]
 fn msg(options: MessageOptions) -> Result<(), String> {
-    ipc::send_message(options.socket, &SOCKET_MESSAGE_CREATE_WINDOW).map_err(|err| err.to_string())
+    ipc::send_message(options.socket, options.message).map_err(|err| err.to_string())
 }
 
 /// Temporary files stored for Alacritty.
@@ -142,10 +140,10 @@ fn alacritty(options: Options) -> Result<(), String> {
     log_config_path(&config);
 
     // Update the log level from config.
-    log::set_max_level(config.ui_config.debug.log_level);
+    log::set_max_level(config.debug.log_level);
 
     // Set environment variables.
-    tty::setup_env(&config);
+    tty::setup_env(&config.terminal_config);
 
     // Switch to home directory.
     #[cfg(target_os = "macos")]
@@ -159,20 +157,20 @@ fn alacritty(options: Options) -> Result<(), String> {
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    if config.ui_config.live_config_reload {
-        monitor::watch(config.ui_config.config_paths.clone(), window_event_loop.create_proxy());
+    if config.live_config_reload {
+        monitor::watch(config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
     // Create the IPC socket listener.
     #[cfg(unix)]
-    let socket_path = if config.ui_config.ipc_socket {
+    let socket_path = if config.ipc_socket {
         ipc::spawn_ipc_socket(&options, window_event_loop.create_proxy())
     } else {
         None
     };
 
     // Setup automatic RAII cleanup for our files.
-    let log_cleanup = log_file.filter(|_| !config.ui_config.debug.persistent_logging);
+    let log_cleanup = log_file.filter(|_| !config.debug.persistent_logging);
     let _files = TemporaryFiles {
         #[cfg(unix)]
         socket_path,
@@ -184,7 +182,7 @@ fn alacritty(options: Options) -> Result<(), String> {
 
     // Create the first Alacritty window.
     let proxy = window_event_loop.create_proxy();
-    processor.create_window(&window_event_loop, proxy).map_err(|err| err.to_string())?;
+    processor.create_window(&window_event_loop, None, proxy).map_err(|err| err.to_string())?;
 
     info!("Initialisation complete");
 
@@ -217,13 +215,13 @@ fn alacritty(options: Options) -> Result<(), String> {
     Ok(())
 }
 
-fn log_config_path(config: &Config) {
-    if config.ui_config.config_paths.is_empty() {
+fn log_config_path(config: &UiConfig) {
+    if config.config_paths.is_empty() {
         return;
     }
 
     let mut msg = String::from("Configuration files loaded from:");
-    for path in &config.ui_config.config_paths {
+    for path in &config.config_paths {
         msg.push_str(&format!("\n  {:?}", path.display()));
     }
 

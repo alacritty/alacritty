@@ -9,7 +9,9 @@ use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_config_derive::ConfigDeserialize;
-use alacritty_terminal::config::{Percentage, Program, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{
+    Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
+};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
@@ -66,6 +68,10 @@ pub struct UiConfig {
     #[cfg(unix)]
     pub ipc_socket: bool,
 
+    /// Config for the alacritty_terminal itself.
+    #[config(flatten)]
+    pub terminal_config: TerminalConfig,
+
     /// Keybindings.
     key_bindings: KeyBindings,
 
@@ -91,6 +97,7 @@ impl Default for UiConfig {
             config_paths: Default::default(),
             key_bindings: Default::default(),
             mouse_bindings: Default::default(),
+            terminal_config: Default::default(),
             background_opacity: Default::default(),
             bell: Default::default(),
             colors: Default::default(),

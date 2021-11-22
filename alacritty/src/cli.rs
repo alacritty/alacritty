@@ -2,13 +2,14 @@ use std::cmp::max;
 use std::path::PathBuf;
 
 use log::{self, error, LevelFilter};
+use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use structopt::StructOpt;
 
-use alacritty_terminal::config::Program;
+use alacritty_terminal::config::{Program, PtyConfig};
 
 use crate::config::window::{Class, DEFAULT_NAME};
-use crate::config::{serde_utils, Config};
+use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
 #[derive(StructOpt, Debug)]
@@ -34,10 +35,6 @@ pub struct Options {
     #[structopt(long)]
     pub embed: Option<String>,
 
-    /// Start the shell in the specified working directory.
-    #[structopt(long)]
-    pub working_directory: Option<PathBuf>,
-
     /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml].
     #[cfg(not(any(target_os = "macos", windows)))]
     #[structopt(long)]
@@ -53,10 +50,6 @@ pub struct Options {
     #[structopt(long)]
     pub config_file: Option<PathBuf>,
 
-    /// Remain open after child process exits.
-    #[structopt(long)]
-    pub hold: bool,
-
     /// Path for IPC socket creation.
     #[cfg(unix)]
     #[structopt(long)]
@@ -70,10 +63,6 @@ pub struct Options {
     #[structopt(short, conflicts_with("quiet"), parse(from_occurrences))]
     verbose: u8,
 
-    /// Command and args to execute (must be last argument).
-    #[structopt(short = "e", long, allow_hyphen_values = true)]
-    command: Vec<String>,
-
     /// Override configuration file options [example: cursor.style=Beam].
     #[structopt(short = "o", long)]
     option: Vec<String>,
@@ -81,6 +70,10 @@ pub struct Options {
     /// CLI options for config overrides.
     #[structopt(skip)]
     pub config_options: Value,
+
+    /// Terminal options which could be passed via IPC.
+    #[structopt(flatten)]
+    pub terminal_options: TerminalOptions,
 
     /// Subcommand passed to the CLI.
     #[cfg(unix)]
@@ -106,42 +99,42 @@ impl Options {
     }
 
     /// Override configuration file with options from the CLI.
-    pub fn override_config(&self, config: &mut Config) {
-        if let Some(working_directory) = &self.working_directory {
+    pub fn override_config(&self, config: &mut UiConfig) {
+        if let Some(working_directory) = &self.terminal_options.working_directory {
             if working_directory.is_dir() {
-                config.working_directory = Some(working_directory.to_owned());
+                config.terminal_config.pty_config.working_directory =
+                    Some(working_directory.to_owned());
             } else {
                 error!("Invalid working directory: {:?}", working_directory);
             }
         }
 
-        if let Some(command) = self.command() {
-            config.shell = Some(command);
+        if let Some(command) = self.terminal_options.command() {
+            config.terminal_config.pty_config.shell = Some(command);
         }
 
-        config.hold = self.hold;
+        config.terminal_config.pty_config.hold = self.terminal_options.hold;
 
         if let Some(title) = self.title.clone() {
-            config.ui_config.window.title = title
+            config.window.title = title
         }
         if let Some(class) = &self.class {
-            config.ui_config.window.class = class.clone();
+            config.window.class = class.clone();
         }
 
         #[cfg(unix)]
         {
-            config.ui_config.ipc_socket |= self.socket.is_some();
+            config.ipc_socket |= self.socket.is_some();
         }
 
-        config.ui_config.window.dynamic_title &= self.title.is_none();
-        config.ui_config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
-        config.ui_config.debug.print_events |= self.print_events;
-        config.ui_config.debug.log_level = max(config.ui_config.debug.log_level, self.log_level());
-        config.ui_config.debug.ref_test |= self.ref_test;
+        config.window.dynamic_title &= self.title.is_none();
+        config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
+        config.debug.print_events |= self.print_events;
+        config.debug.log_level = max(config.debug.log_level, self.log_level());
+        config.debug.ref_test |= self.ref_test;
 
-        if config.ui_config.debug.print_events {
-            config.ui_config.debug.log_level =
-                max(config.ui_config.debug.log_level, LevelFilter::Info);
+        if config.debug.print_events {
+            config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
         }
     }
 
@@ -163,12 +156,6 @@ impl Options {
             (1, _) => LevelFilter::Error,
             (..) => LevelFilter::Off,
         }
-    }
-
-    /// Shell override passed through the CLI.
-    pub fn command(&self) -> Option<Program> {
-        let (program, args) = self.command.split_first()?;
-        Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
     }
 }
 
@@ -214,6 +201,47 @@ fn parse_class(input: &str) -> Result<Class, String> {
     }
 }
 
+/// Terminal specific cli options which can be passed to new windows via IPC.
+#[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
+pub struct TerminalOptions {
+    /// Start the shell in the specified working directory.
+    #[structopt(long)]
+    pub working_directory: Option<PathBuf>,
+
+    /// Remain open after child process exit.
+    #[structopt(long)]
+    pub hold: bool,
+
+    /// Command and args to execute (must be last argument).
+    #[structopt(short = "e", long, allow_hyphen_values = true)]
+    command: Vec<String>,
+}
+
+impl TerminalOptions {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.working_directory.is_none() && !self.hold && self.command.is_empty()
+    }
+
+    /// Shell override passed through the CLI.
+    pub fn command(&self) -> Option<Program> {
+        let (program, args) = self.command.split_first()?;
+        Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
+    }
+}
+
+impl From<TerminalOptions> for PtyConfig {
+    fn from(mut options: TerminalOptions) -> Self {
+        let working_directory = options.working_directory.take();
+        let shell = options.command();
+        let hold = options.hold;
+        PtyConfig { hold, shell, working_directory }
+    }
+}
+
 /// Available CLI subcommands.
 #[cfg(unix)]
 #[derive(StructOpt, Debug)]
@@ -236,10 +264,10 @@ pub struct MessageOptions {
 
 /// Available socket messages.
 #[cfg(unix)]
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
-    CreateWindow,
+    CreateWindow(TerminalOptions),
 }
 
 #[cfg(test)]
@@ -257,32 +285,32 @@ mod tests {
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let mut config = Config::default();
-        let old_dynamic_title = config.ui_config.window.dynamic_title;
+        let mut config = UiConfig::default();
+        let old_dynamic_title = config.window.dynamic_title;
 
         Options::new().override_config(&mut config);
 
-        assert_eq!(old_dynamic_title, config.ui_config.window.dynamic_title);
+        assert_eq!(old_dynamic_title, config.window.dynamic_title);
     }
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let mut config = Config::default();
+        let mut config = UiConfig::default();
 
         let options = Options { title: Some("foo".to_owned()), ..Options::new() };
         options.override_config(&mut config);
 
-        assert!(!config.ui_config.window.dynamic_title);
+        assert!(!config.window.dynamic_title);
     }
 
     #[test]
     fn dynamic_title_not_overridden_by_config() {
-        let mut config = Config::default();
+        let mut config = UiConfig::default();
 
-        config.ui_config.window.title = "foo".to_owned();
+        config.window.title = "foo".to_owned();
         Options::new().override_config(&mut config);
 
-        assert!(config.ui_config.window.dynamic_title);
+        assert!(config.window.dynamic_title);
     }
 
     #[test]

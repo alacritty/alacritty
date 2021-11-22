@@ -1,5 +1,6 @@
 //! Terminal window context.
 
+use std::borrow::Cow;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -25,8 +26,9 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
+use crate::cli::TerminalOptions as TerminalCliOptions;
 use crate::clipboard::Clipboard;
-use crate::config::Config;
+use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
 use crate::input;
@@ -52,7 +54,8 @@ pub struct WindowContext {
 impl WindowContext {
     /// Create a new terminal window context.
     pub fn new(
-        config: &Config,
+        config: &UiConfig,
+        options: Option<TerminalCliOptions>,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -81,7 +84,7 @@ impl WindowContext {
         // This object contains all of the state about what's being displayed. It's
         // wrapped in a clonable mutex since both the I/O loop and display need to
         // access it.
-        let terminal = Term::new(config, display.size_info, event_proxy.clone());
+        let terminal = Term::new(&config.terminal_config, display.size_info, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 
         // Create the PTY.
@@ -89,7 +92,10 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(config, &display.size_info, display.window.x11_window_id());
+        let pty_config = options
+            .map(|o| Cow::Owned(o.into()))
+            .unwrap_or(Cow::Borrowed(&config.terminal_config.pty_config));
+        let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
 
         // Create the pseudoterminal I/O loop.
         //
@@ -101,8 +107,8 @@ impl WindowContext {
             Arc::clone(&terminal),
             event_proxy.clone(),
             pty,
-            config.hold,
-            config.ui_config.debug.ref_test,
+            pty_config.hold,
+            config.debug.ref_test,
         );
 
         // The event loop channel allows write requests from the event processor
@@ -113,13 +119,13 @@ impl WindowContext {
         let _io_thread = event_loop.spawn();
 
         // Start cursor blinking, in case `Focused` isn't sent on startup.
-        if config.cursor.style().blinking {
+        if config.terminal_config.cursor.style().blinking {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
 
         // Create context for the Alacritty window.
         Ok(WindowContext {
-            font_size: config.ui_config.font.size(),
+            font_size: config.font.size(),
             notifier: Notifier(loop_tx),
             terminal,
             display,
@@ -135,53 +141,55 @@ impl WindowContext {
     }
 
     /// Update the terminal window to the latest config.
-    pub fn update_config(&mut self, old_config: &Config, config: &Config) {
+    pub fn update_config(&mut self, old_config: &UiConfig, config: &UiConfig) {
         self.display.update_config(config);
-        self.terminal.lock().update_config(config);
+        self.terminal.lock().update_config(&config.terminal_config);
 
         // Reload cursor if its thickness has changed.
-        if (old_config.cursor.thickness() - config.cursor.thickness()).abs() > f32::EPSILON {
+        if (old_config.terminal_config.cursor.thickness()
+            - config.terminal_config.cursor.thickness())
+        .abs()
+            > f32::EPSILON
+        {
             self.display.pending_update.set_cursor_dirty();
         }
 
-        if old_config.ui_config.font != config.ui_config.font {
+        if old_config.font != config.font {
             // Do not update font size if it has been changed at runtime.
-            if self.font_size == old_config.ui_config.font.size() {
-                self.font_size = config.ui_config.font.size();
+            if self.font_size == old_config.font.size() {
+                self.font_size = config.font.size();
             }
 
-            let font = config.ui_config.font.clone().with_size(self.font_size);
+            let font = config.font.clone().with_size(self.font_size);
             self.display.pending_update.set_font(font);
         }
 
         // Update display if padding options were changed.
-        let window_config = &old_config.ui_config.window;
-        if window_config.padding(1.) != config.ui_config.window.padding(1.)
-            || window_config.dynamic_padding != config.ui_config.window.dynamic_padding
+        let window_config = &old_config.window;
+        if window_config.padding(1.) != config.window.padding(1.)
+            || window_config.dynamic_padding != config.window.dynamic_padding
         {
             self.display.pending_update.dirty = true;
         }
 
         // Live title reload.
-        if !config.ui_config.window.dynamic_title
-            || old_config.ui_config.window.title != config.ui_config.window.title
-        {
-            self.display.window.set_title(&config.ui_config.window.title);
+        if !config.window.dynamic_title || old_config.window.title != config.window.title {
+            self.display.window.set_title(&config.window.title);
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        self.display.window.set_wayland_theme(&config.ui_config.colors);
+        self.display.window.set_wayland_theme(&config.colors);
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
+        crossfont::set_font_smoothing(config.font.use_thin_strokes);
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        self.display.window.set_has_shadow(config.ui_config.window_opacity() >= 1.0);
+        self.display.window.set_has_shadow(config.window_opacity() >= 1.0);
 
         // Update hint keys.
-        self.display.hint_state.update_alphabet(config.ui_config.hints.alphabet());
+        self.display.hint_state.update_alphabet(config.hints.alphabet());
 
         // Update cursor blinking.
         let event = Event::new(TerminalEvent::CursorBlinkingChange.into(), None);
@@ -195,7 +203,7 @@ impl WindowContext {
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
         event_proxy: &EventLoopProxy<Event>,
-        config: &mut Config,
+        config: &mut UiConfig,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
         event: GlutinEvent<'_, Event>,
@@ -334,7 +342,7 @@ impl WindowContext {
         message_buffer: &MessageBuffer,
         search_state: &SearchState,
         old_is_searching: bool,
-        config: &Config,
+        config: &UiConfig,
     ) {
         // Compute cursor positions before resize.
         let num_lines = terminal.screen_lines();

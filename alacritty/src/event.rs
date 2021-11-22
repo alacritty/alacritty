@@ -5,8 +5,6 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::Debug;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
@@ -35,10 +33,10 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
 
-use crate::cli::Options as CliOptions;
+use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCliOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
-use crate::config::{self, Config};
+use crate::config::{self, UiConfig};
 use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -89,7 +87,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow,
+    CreateWindow(Option<TerminalCliOptions>),
     BlinkCursor,
     SearchNext,
 }
@@ -180,7 +178,7 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut ModifiersState,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
-    pub config: &'a mut Config,
+    pub config: &'a mut UiConfig,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
@@ -241,7 +239,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             None => return,
         };
 
-        if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
+        if ty == ClipboardType::Selection && self.config.terminal_config.selection.save_to_clipboard
+        {
             self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
         self.clipboard.store(ty, text);
@@ -318,17 +317,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn received_count(&mut self) -> &mut usize {
-        &mut self.received_count
+        self.received_count
     }
 
     #[inline]
     fn suppress_chars(&mut self) -> &mut bool {
-        &mut self.suppress_chars
+        self.suppress_chars
     }
 
     #[inline]
     fn modifiers(&mut self) -> &mut ModifiersState {
-        &mut self.modifiers
+        self.modifiers
     }
 
     #[inline]
@@ -338,7 +337,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn display(&mut self) -> &mut Display {
-        &mut self.display
+        self.display
     }
 
     #[inline]
@@ -355,26 +354,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
+        // Use working directory of controlling process, or fallback to initial shell, then add it
+        // as working-directory parameter.
         #[cfg(unix)]
-        let mut args = {
-            // Use working directory of controlling process, or fallback to initial shell.
-            let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
-            if pid < 0 {
-                pid = tty::child_pid();
-            }
-
-            #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-            let link_path = format!("/proc/{}/cwd", pid);
-            #[cfg(target_os = "freebsd")]
-            let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-            #[cfg(not(target_os = "macos"))]
-            let cwd = fs::read_link(link_path);
-            #[cfg(target_os = "macos")]
-            let cwd = macos::proc::cwd(pid);
-
-            // Add the current working directory as parameter.
-            cwd.map(|path| vec!["--working-directory".into(), path]).unwrap_or_default()
-        };
+        let mut args = foreground_process_path()
+            .map(|path| vec!["--working-directory".into(), path])
+            .unwrap_or_default();
 
         #[cfg(not(unix))]
         let mut args: Vec<PathBuf> = Vec::new();
@@ -395,20 +380,34 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         start_daemon(&alacritty, &args);
     }
 
+    #[cfg(not(windows))]
     fn create_new_window(&mut self) {
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow, None));
+        let options = if let Ok(working_directory) = foreground_process_path() {
+            let mut options = TerminalCliOptions::new();
+            options.working_directory = Some(working_directory);
+            Some(options)
+        } else {
+            None
+        };
+
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
+    }
+
+    #[cfg(windows)]
+    fn create_new_window(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
     }
 
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        let font = self.config.ui_config.font.clone().with_size(*self.font_size);
+        let font = self.config.font.clone().with_size(*self.font_size);
         self.display.pending_update.set_font(font);
         *self.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.config.ui_config.font.size();
-        self.display.pending_update.set_font(self.config.ui_config.font.clone());
+        *self.font_size = self.config.font.size();
+        self.display.pending_update.set_font(self.config.font.clone());
         *self.dirty = true;
     }
 
@@ -632,14 +631,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Disable cursor blinking.
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
         if let Some(timer) = self.scheduler.unschedule(timer_id) {
-            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            let interval =
+                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
             self.scheduler.schedule(timer.event, interval, true, timer.id);
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
 
         // Hide mouse cursor.
-        if self.config.ui_config.mouse.hide_when_typing {
+        if self.config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
     }
@@ -769,7 +769,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.message_buffer.message()
     }
 
-    fn config(&self) -> &Config {
+    fn config(&self) -> &UiConfig {
         self.config
     }
 
@@ -794,7 +794,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         };
 
         // Hide cursor while typing into the search bar.
-        if self.config.ui_config.mouse.hide_when_typing {
+        if self.config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
 
@@ -905,9 +905,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Update the cursor blinking state.
     fn update_cursor_blinking(&mut self) {
         // Get config cursor style.
-        let mut cursor_style = self.config.cursor.style;
+        let mut cursor_style = self.config.terminal_config.cursor.style;
         if self.terminal.mode().contains(TermMode::VI) {
-            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
+            cursor_style = self.config.terminal_config.cursor.vi_mode_style.unwrap_or(cursor_style);
         };
 
         // Check terminal cursor style.
@@ -919,7 +919,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.scheduler.unschedule(timer_id);
         if blinking && self.terminal.is_focused {
             let event = Event::new(EventType::BlinkCursor, self.display.window.id());
-            let interval = Duration::from_millis(self.config.cursor.blink_interval());
+            let interval =
+                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
             self.scheduler.schedule(event, interval, true, timer_id);
         } else {
             self.display.cursor_hidden = false;
@@ -1004,7 +1005,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
                     // Push current font to update its DPR.
-                    let font = self.ctx.config.ui_config.font.clone();
+                    let font = self.ctx.config.font.clone();
                     display_update_pending.set_font(font.with_size(*self.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
@@ -1026,15 +1027,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        let ui_config = &self.ctx.config.ui_config;
-                        if ui_config.window.dynamic_title {
+                        if self.ctx.config.window.dynamic_title {
                             self.ctx.window().set_title(&title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        let ui_config = &self.ctx.config.ui_config;
-                        if ui_config.window.dynamic_title {
-                            self.ctx.display.window.set_title(&ui_config.window.title);
+                        if self.ctx.config.window.dynamic_title {
+                            self.ctx.display.window.set_title(&self.ctx.config.window.title);
                         }
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
@@ -1049,7 +1048,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.display.visual_bell.ring();
 
                         // Execute bell command.
-                        if let Some(bell_command) = &self.ctx.config.ui_config.bell.command {
+                        if let Some(bell_command) = &self.ctx.config.bell.command {
                             start_daemon(bell_command.program(), bell_command.args());
                         }
                     },
@@ -1069,7 +1068,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
-                EventType::ConfigReload(_) | EventType::CreateWindow => (),
+                EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, .. } => {
@@ -1162,7 +1161,7 @@ pub struct Processor {
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext>,
     cli_options: CliOptions,
-    config: Config,
+    config: UiConfig,
 }
 
 impl Processor {
@@ -1170,7 +1169,7 @@ impl Processor {
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a PTY.
     pub fn new(
-        config: Config,
+        config: UiConfig,
         cli_options: CliOptions,
         _event_loop: &EventLoop<Event>,
     ) -> Processor {
@@ -1194,10 +1193,12 @@ impl Processor {
     pub fn create_window(
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
+        options: Option<TerminalCliOptions>,
         proxy: EventLoopProxy<Event>,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::new(
             &self.config,
+            options,
             event_loop,
             proxy,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1219,7 +1220,7 @@ impl Processor {
         let mut clipboard = Clipboard::new();
 
         event_loop.run_return(|event, event_loop, control_flow| {
-            if self.config.ui_config.debug.print_events {
+            if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
 
@@ -1246,7 +1247,7 @@ impl Processor {
                     // Shutdown if no more terminals are open.
                     if self.windows.is_empty() {
                         // Write ref tests of last window to disk.
-                        if self.config.ui_config.debug.ref_test {
+                        if self.config.debug.ref_test {
                             window_context.write_ref_test_results();
                         }
 
@@ -1302,8 +1303,10 @@ impl Processor {
                     }
                 },
                 // Create a new terminal window.
-                GlutinEvent::UserEvent(Event { payload: EventType::CreateWindow, .. }) => {
-                    if let Err(err) = self.create_window(event_loop, proxy.clone()) {
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::CreateWindow(options), ..
+                }) => {
+                    if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
                         error!("Could not open window: {:?}", err);
                     }
                 },
@@ -1385,4 +1388,25 @@ impl EventListener for EventProxy {
     fn send_event(&self, event: TerminalEvent) {
         let _ = self.proxy.send_event(Event::new(event.into(), self.window_id));
     }
+}
+
+#[cfg(not(windows))]
+pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
+    let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
+    if pid < 0 {
+        pid = tty::child_pid();
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
+    let link_path = format!("/proc/{}/cwd", pid);
+    #[cfg(target_os = "freebsd")]
+    let link_path = format!("/compat/linux/proc/{}/cwd", pid);
+
+    #[cfg(not(target_os = "macos"))]
+    let cwd = std::fs::read_link(link_path)?;
+
+    #[cfg(target_os = "macos")]
+    let cwd = macos::proc::cwd(pid)?;
+
+    Ok(cwd)
 }
