@@ -346,6 +346,9 @@
   #   - Linear
   #animation: EaseOutExpo
 
+  # Whether the visual bell should flash the entire window, or just the outer edges.
+  #just_frame: false
+
   # Duration of the visual bell flash in milliseconds. A `duration` of `0` will
   # disable the visual bell animation.
   #duration: 0

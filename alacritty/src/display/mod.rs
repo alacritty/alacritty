@@ -567,15 +567,51 @@ impl Display {
         // Push visual bell after url/underline/strikeout rects.
         let visual_bell_intensity = self.visual_bell.intensity();
         if visual_bell_intensity != 0. {
-            let visual_bell_rect = RenderRect::new(
-                0.,
-                0.,
-                size_info.width(),
-                size_info.height(),
-                config.ui_config.bell.color,
-                visual_bell_intensity as f32,
-            );
-            rects.push(visual_bell_rect);
+            if config.ui_config.bell.just_frame {
+                rects.extend_from_slice(&[
+                    RenderRect::new(
+                        0.,
+                        0.,
+                        size_info.cell_width(),
+                        size_info.height(),
+                        config.ui_config.bell.color,
+                        visual_bell_intensity as f32,
+                    ),
+                    RenderRect::new(
+                        size_info.width() - size_info.cell_width(),
+                        0.,
+                        size_info.cell_width(),
+                        size_info.height(),
+                        config.ui_config.bell.color,
+                        visual_bell_intensity as f32,
+                    ),
+                    RenderRect::new(
+                        size_info.cell_width(),
+                        0.,
+                        size_info.width() - size_info.cell_width() * 2.0,
+                        size_info.cell_height(),
+                        config.ui_config.bell.color,
+                        visual_bell_intensity as f32,
+                    ),
+                    RenderRect::new(
+                        size_info.cell_width(),
+                        size_info.height() - size_info.cell_height(),
+                        size_info.width() - size_info.cell_width() * 2.0,
+                        size_info.cell_height(),
+                        config.ui_config.bell.color,
+                        visual_bell_intensity as f32,
+                    ),
+                ]);
+            } else {
+                rects.push(RenderRect::new(
+                    0.,
+                    0.,
+                    size_info.width(),
+                    size_info.height(),
+                    config.ui_config.bell.color,
+                    visual_bell_intensity as f32,
+                ));
+            }
         }
 
         if let Some(message) = message_buffer.message() {

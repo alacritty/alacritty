@@ -10,6 +10,9 @@ pub struct BellConfig {
     /// Visual bell animation function.
     pub animation: BellAnimation,
 
+    /// Flash entire window, or just the outer frame.
+    pub just_frame: bool,
+
     /// Command to run on bell.
     pub command: Option<Program>,
 
@@ -25,6 +28,7 @@ impl Default for BellConfig {
         Self {
             color: Rgb { r: 255, g: 255, b: 255 },
             animation: Default::default(),
+            just_frame: Default::default(),
             command: Default::default(),
             duration: Default::default(),
         }
