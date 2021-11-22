@@ -1,0 +1,32 @@
+rinstall: 0.1.0
+pkgs:
+  alacritty:
+    type: rust
+    exe:
+      - alacritty
+    man:
+      - src: extra/alacritty.man
+        dst: alacritty.1
+    completions:
+      bash:
+        - extra/completions/alacritty.bash
+      fish:
+        - extra/completions/alacritty.fish
+      zsh:
+        - extra/completions/_alacritty
+    user-config:
+      - src: alacritty.yml
+        dst: alacritty/
+    docs:
+      - src: alacritty.yml
+        dst: example/
+    appstream-metadata:
+      - extra/linux/io.alacritty.Alacritty.appdata.xml
+    desktop-files:
+      - extra/linux/Alacritty.desktop
+    icons:
+      - src: extra/logo/alacritty-term.svg
+        dst: Alacritty.svg
+        pixmaps: true
+    terminfo:
+      - extra/alacritty.info
