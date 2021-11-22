@@ -2,7 +2,7 @@
 .SH NAME
 alacritty-msg \- Send messages to Alacritty
 .SH "SYNOPSIS"
-alacritty msg [OPTIONS] [MESSAGE] [MESSAGE_OPTIONS]
+alacritty msg [OPTIONS] <MESSAGE> [MESSAGE_OPTIONS]
 .SH DESCRIPTION
 This command communicates with running Alacritty instances through a socket,
 making it possible to control Alacritty without directly accessing it.
@@ -13,7 +13,8 @@ Path for IPC socket creation
 \fBcreate-window\fR
 Create a new window in the same Alacritty process
 .TP
-.SH "OPTIONS"
+.SH "\tOPTIONS"
+.RS 12
 \fB\-\-hold\fR
 Remain open after child process exits
 
