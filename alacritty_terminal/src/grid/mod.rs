@@ -376,6 +376,8 @@ impl<T> Grid<T> {
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history.
         self.raw.shrink_lines(self.history_size());
+
+        self.display_offset = 0;
     }
 
     /// This is used only for initializing after loading ref-tests.

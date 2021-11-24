@@ -1434,6 +1434,9 @@ impl<T: EventListener> Handler for Term<T> {
                 self.selection = None;
             },
             ansi::ClearMode::Saved if self.history_size() > 0 => {
+                let line = self.vi_mode_cursor.point.line + self.grid.display_offset();
+                self.vi_mode_cursor.point.line = line.grid_clamp(self, Boundary::Cursor);
+
                 self.grid.clear_history();
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(..Line(0)));
@@ -2148,6 +2151,36 @@ mod tests {
 
         // Clear the viewport.
         term.clear_screen(ansi::ClearMode::All);
+
+        assert_eq!(term.vi_mode_cursor.point.line.0, 5);
+        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
+    }
+
+    #[test]
+    fn clear_scrollback_updates_dispaly_area() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&MockConfig::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Emulate vi cursor motions on default configurations.
+        // gg
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor = term.vi_mode_cursor.scroll(&term, 10);
+        // jjjjj
+        for _ in 0..5 {
+            term.vi_mode_cursor = term.vi_mode_cursor.motion(&mut term, ViMotion::Down);
+        }
+        // lll
+        for _ in 0..3 {
+            term.vi_mode_cursor = term.vi_mode_cursor.motion(&mut term, ViMotion::Right);
+        }
+
+        // Clear the scrollback buffer.
+        term.clear_screen(ansi::ClearMode::Saved);
 
         assert_eq!(term.vi_mode_cursor.point.line.0, 5);
         assert_eq!(term.vi_mode_cursor.point.column.0, 3);

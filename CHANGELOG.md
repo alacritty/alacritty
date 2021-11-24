@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Invisible cursor with matching foreground/background colors
 - Crash when hovering over a match emptied by post-processing
 - Crash when clears the viewport and the vi cursor on scrollback
+- Freeze when the vi cursor is on the scrollback and scrollback clear is invoked
 
 ### Removed
 
