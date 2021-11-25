@@ -377,6 +377,7 @@ impl<T> Grid<T> {
         // Explicitly purge all lines from history.
         self.raw.shrink_lines(self.history_size());
 
+        // Reset display offset.
         self.display_offset = 0;
     }
 
