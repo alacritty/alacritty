@@ -313,9 +313,6 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
         let positions = (iter.point.line.0 + 1) as usize;
         let region = Line(0)..Line(self.lines as i32);
 
-        // Reset display offset.
-        self.display_offset = 0;
-
         // Clear the viewport.
         self.scroll_up(&region, positions);
 

@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `background_opacity`, you should use `window.opacity` instead
 - Reload configuration files when their symbolic link is replaced
 - Strip trailing whitespaces when yanking from a block selection
+- Display area keeps history position when viewport is cleared
 
 ### Fixed
 

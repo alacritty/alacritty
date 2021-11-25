@@ -1424,10 +1424,15 @@ impl<T: EventListener> Handler for Term<T> {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.reset_region(..);
                 } else {
+                    let old_offset = self.grid.display_offset();
+
                     self.grid.clear_viewport();
 
+                    // Compute number of lines scrolled by clearing the viewport.
+                    let lines = self.grid.display_offset().saturating_sub(old_offset);
+
                     self.vi_mode_cursor.point.line =
-                        self.vi_mode_cursor.point.line.grid_clamp(self, Boundary::Cursor);
+                        (self.vi_mode_cursor.point.line - lines).grid_clamp(self, Boundary::Grid);
                 }
 
                 self.selection = None;
@@ -2126,7 +2131,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_viewport_set_vi_cursor_into_viewport() {
+    fn clearing_viewport_keeps_history_position() {
         let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&Config::default(), size, ());
 
@@ -2135,20 +2140,19 @@ mod tests {
             term.newline();
         }
 
-        // Change the display area and the vi cursor position.
+        // Change the display area.
         term.scroll_display(Scroll::Top);
-        term.vi_mode_cursor.point = Point::new(Line(-5), Column(3));
+
+        assert_eq!(term.grid.display_offset(), 10);
 
         // Clear the viewport.
         term.clear_screen(ansi::ClearMode::All);
 
-        assert_eq!(term.grid.display_offset(), 0);
-        assert_eq!(term.vi_mode_cursor.point.line.0, 0);
-        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
+        assert_eq!(term.grid.display_offset(), 10);
     }
 
     #[test]
-    fn clear_scrollback_set_vi_cursor_into_viewport() {
+    fn clearing_viewport_with_vi_mode_keeps_history_position() {
         let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
         let mut term = Term::new(&Config::default(), size, ());
 
@@ -2157,16 +2161,67 @@ mod tests {
             term.newline();
         }
 
+        // Enable vi mode.
+        term.toggle_vi_mode();
+
         // Change the display area and the vi cursor position.
         term.scroll_display(Scroll::Top);
         term.vi_mode_cursor.point = Point::new(Line(-5), Column(3));
+
+        assert_eq!(term.grid.display_offset(), 10);
+
+        // Clear the viewport.
+        term.clear_screen(ansi::ClearMode::All);
+
+        assert_eq!(term.grid.display_offset(), 10);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(-5), Column(3)));
+    }
+
+    #[test]
+    fn clearing_scrollback_resets_display_offset() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Change the display area.
+        term.scroll_display(Scroll::Top);
+
+        assert_eq!(term.grid.display_offset(), 10);
 
         // Clear the scrollback buffer.
         term.clear_screen(ansi::ClearMode::Saved);
 
         assert_eq!(term.grid.display_offset(), 0);
-        assert_eq!(term.vi_mode_cursor.point.line.0, 0);
-        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
+    }
+
+    #[test]
+    fn clearing_scrollback_sets_vi_cursor_into_viewport() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Enable vi mode.
+        term.toggle_vi_mode();
+
+        // Change the display area and the vi cursor position.
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor.point = Point::new(Line(-5), Column(3));
+
+        assert_eq!(term.grid.display_offset(), 10);
+
+        // Clear the scrollback buffer.
+        term.clear_screen(ansi::ClearMode::Saved);
+
+        assert_eq!(term.grid.display_offset(), 0);
+        assert_eq!(term.vi_mode_cursor.point, Point::new(Line(0), Column(3)));
     }
 
     #[test]
