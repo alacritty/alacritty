@@ -1,5 +1,6 @@
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
+use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -9,6 +10,7 @@ use std::io;
 use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use log::{debug, warn};
@@ -49,7 +51,7 @@ where
 
 // get working directory of controlling process
 #[cfg(not(windows))]
-pub fn foreground_process_path() -> io::Result<std::path::PathBuf> {
+pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
     let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
     if pid < 0 {
         pid = tty::child_pid();
@@ -59,12 +61,15 @@ pub fn foreground_process_path() -> io::Result<std::path::PathBuf> {
     let link_path = format!("/proc/{}/cwd", pid);
     #[cfg(target_os = "freebsd")]
     let link_path = format!("/compat/linux/proc/{}/cwd", pid);
-    #[cfg(not(target_os = "macos"))]
-    let cwd = fs::read_link(link_path);
-    #[cfg(target_os = "macos")]
-    let cwd = macos::proc::cwd(pid);
 
-    cwd
+    #[cfg(not(target_os = "macos"))]
+    let cwd = fs::read_link(link_path)?;
+
+    // this might not be a io::Result, so a Boxed dyn Error is needed
+    #[cfg(target_os = "macos")]
+    let cwd = macos::proc::cwd(pid)?;
+
+    Ok(cwd)
 }
 
 #[cfg(not(windows))]
@@ -73,13 +78,15 @@ where
     I: IntoIterator<Item = S> + Copy,
     S: AsRef<OsStr>,
 {
+    let mut command = Command::new(program);
+    let mut command_builder = match foreground_process_path() {
+        Ok(cwd) => command.args(args).current_dir(cwd),
+        _ => command.args(args),
+    };
+    command_builder =
+        command_builder.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     unsafe {
-        Command::new(program)
-            .args(args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .current_dir(foreground_process_path().unwrap_or_default())
+        command_builder
             .pre_exec(|| {
                 match libc::fork() {
                     -1 => return Err(io::Error::last_os_error()),

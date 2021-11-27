@@ -354,12 +354,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         let mut args: Vec<PathBuf> = Vec::new();
 
-        let working_directory_set = !args.is_empty();
-
         // Reuse the arguments passed to Alacritty for the new instance.
         while let Some(arg) = env_args.next() {
-            // Drop working directory from existing parameters.
-            if working_directory_set && arg == "--working-directory" {
+            // Drop working directory from existing parameters; start_daemon()
+            // will set it to the parent alacritty instance current directory
+            if arg == "--working-directory" {
                 let _ = env_args.next();
                 continue;
             }
