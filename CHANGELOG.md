@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Option `colors.transparent_background_colors` to allow applying opacity to all background colors
 - Support for running multiple windows from a single Alacritty instance (see docs/features.md)
+- Default Command+N keybinding for macOS changed to CreateNewWindow
 
 ### Changed
 
