@@ -10,13 +10,14 @@ const MAX_SCROLLBACK_LINES: u32 = 100_000;
 #[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scrolling {
     pub multiplier: u8,
+    pub notched_scroll_wheel: bool,
 
     history: ScrollingHistory,
 }
 
 impl Default for Scrolling {
     fn default() -> Self {
-        Self { multiplier: 3, history: Default::default() }
+        Self { multiplier: 3, notched_scroll_wheel: false, history: Default::default() }
     }
 }
 

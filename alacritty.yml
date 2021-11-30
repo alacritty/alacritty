@@ -107,6 +107,10 @@
   # Scrolling distance multiplier.
   #multiplier: 3
 
+  # If this is `true`, each scroll wheel "step" will scroll at least 1 line.
+  # Useful if a system uses fractional scrolling.
+  #notched_scroll_wheel: false
+
 # Font configuration
 #font:
   # Normal (roman) font face

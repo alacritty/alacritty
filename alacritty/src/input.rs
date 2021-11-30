@@ -605,7 +605,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
-            MouseScrollDelta::LineDelta(_columns, lines) => {
+            MouseScrollDelta::LineDelta(_columns, mut lines) => {
+                if self.ctx.config().terminal_config.scrolling.notched_scroll_wheel {
+                    lines = lines.abs().max(1.).copysign(lines);
+                }
                 let new_scroll_px = lines * self.ctx.size_info().cell_height();
                 self.scroll_terminal(f64::from(new_scroll_px));
             },
