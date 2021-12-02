@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Packaging
 
 - New `extra/alacritty-msg.man` manpage for the `alacritty msg` subcommand
+- Minimum Rust version has been bumped to 1.53.0
 
 ### Added
 

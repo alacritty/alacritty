@@ -238,7 +238,7 @@ impl From<TerminalOptions> for PtyConfig {
         let working_directory = options.working_directory.take();
         let shell = options.command();
         let hold = options.hold;
-        PtyConfig { hold, shell, working_directory }
+        PtyConfig { shell, working_directory, hold }
     }
 }
 

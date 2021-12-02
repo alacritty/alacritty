@@ -24,8 +24,8 @@ tasks:
       cargo test
   - oldstable: |
       cd alacritty
-      rustup toolchain install --profile minimal 1.46.0
-      rustup default 1.46.0
+      rustup toolchain install --profile minimal 1.53.0
+      rustup default 1.53.0
       cargo test
   - clippy: |
       cd alacritty
