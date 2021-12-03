@@ -587,7 +587,6 @@ impl<T> Term<T> {
         // Scroll selection.
         self.selection = self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
 
-        // Scroll from origin to bottom less number of lines.
         self.grid.scroll_up(&region, lines);
 
         // Scroll vi mode cursor.
