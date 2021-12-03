@@ -1424,12 +1424,18 @@ impl<T: EventListener> Handler for Term<T> {
                     self.grid.reset_region(..);
                 } else {
                     self.grid.clear_viewport();
+
+                    self.vi_mode_cursor.point.line =
+                        self.vi_mode_cursor.point.line.grid_clamp(self, Boundary::Cursor);
                 }
 
                 self.selection = None;
             },
             ansi::ClearMode::Saved if self.history_size() > 0 => {
                 self.grid.clear_history();
+
+                self.vi_mode_cursor.point.line =
+                    self.vi_mode_cursor.point.line.grid_clamp(self, Boundary::Cursor);
 
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(..Line(0)));
             },
@@ -2116,6 +2122,50 @@ mod tests {
         term.input('a');
 
         assert_eq!(term.grid()[cursor].c, '▒');
+    }
+
+    #[test]
+    fn clear_viewport_set_vi_cursor_into_viewport() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Change the display area and the vi cursor position.
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor.point = Point::new(Line(-5), Column(3));
+
+        // Clear the viewport.
+        term.clear_screen(ansi::ClearMode::All);
+
+        assert_eq!(term.grid.display_offset(), 0);
+        assert_eq!(term.vi_mode_cursor.point.line.0, 0);
+        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
+    }
+
+    #[test]
+    fn clear_scrollback_set_vi_cursor_into_viewport() {
+        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 10 lines of scrollback.
+        for _ in 0..29 {
+            term.newline();
+        }
+
+        // Change the display area and the vi cursor position.
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor.point = Point::new(Line(-5), Column(3));
+
+        // Clear the scrollback buffer.
+        term.clear_screen(ansi::ClearMode::Saved);
+
+        assert_eq!(term.grid.display_offset(), 0);
+        assert_eq!(term.vi_mode_cursor.point.line.0, 0);
+        assert_eq!(term.vi_mode_cursor.point.column.0, 3);
     }
 
     #[test]

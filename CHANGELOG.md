@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi mode search starting in the line below the vi cursor
 - Invisible cursor with matching foreground/background colors
 - Crash when hovering over a match emptied by post-processing
+- Crash when the vi cursor is on the scrollback and viewport clear is invoked
+- Freeze when the vi cursor is on the scrollback and scrollback clear is invoked
 
 ### Removed
 
