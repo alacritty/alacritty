@@ -13,9 +13,6 @@ use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
     glutin::platform::unix::EventLoopWindowTargetExtUnix,
-
-    crate::config::color::Colors,
-    crate::display::wayland_theme::AlacrittyWaylandTheme,
 };
 
 #[rustfmt::skip]
@@ -60,10 +57,6 @@ use crate::gl;
 /// Window icon for `_NET_WM_ICON` property.
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
-
-/// Maximum DPR on X11 before it is assumed that XRandr is reporting incorrect values.
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-const MAX_X11_DPR: f64 = 10.;
 
 /// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
@@ -209,10 +202,6 @@ impl Window {
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let wayland_surface = if is_wayland {
-            // Apply client side decorations theme.
-            let theme = AlacrittyWaylandTheme::new(&config.colors);
-            windowed_context.window().set_wayland_theme(theme);
-
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
             let surface = windowed_context.window().wayland_surface().unwrap();
             let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
@@ -221,14 +210,7 @@ impl Window {
             None
         };
 
-        #[allow(unused_mut)]
-        let mut dpr = windowed_context.window().scale_factor();
-
-        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if !is_wayland && dpr > MAX_X11_DPR {
-            dpr = 1.;
-        }
+        let dpr = windowed_context.window().scale_factor();
 
         Ok(Self {
             current_mouse_cursor,
@@ -423,11 +405,6 @@ impl Window {
         self.wayland_surface.as_ref()
     }
 
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub fn set_wayland_theme(&mut self, colors: &Colors) {
-        self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
-    }
-
     /// Adjust the IME editor position according to the new location of the cursor.
     pub fn update_ime_position(&mut self, point: Point, size: &SizeInfo) {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
@@ -457,7 +434,7 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
         let raw_window = match self.window().raw_window_handle() {
-            RawWindowHandle::MacOS(handle) => handle.ns_window as id,
+            RawWindowHandle::AppKit(handle) => handle.ns_window as id,
             _ => return,
         };
 

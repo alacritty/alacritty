@@ -19,7 +19,7 @@ jobs:
         run: cargo test
       - name: Oldstable
         run: |
-          rustup default 1.46.0
+          rustup default 1.53.0
           cargo test
       - name: Clippy
         run: |

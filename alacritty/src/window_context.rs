@@ -177,9 +177,6 @@ impl WindowContext {
             self.display.window.set_title(&config.window.title);
         }
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        self.display.window.set_wayland_theme(&config.colors);
-
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
         crossfont::set_font_smoothing(config.font.use_thin_strokes);
