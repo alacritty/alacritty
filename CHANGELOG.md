@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash when hovering over a match emptied by post-processing
 - Crash when the vi cursor is on the scrollback and viewport clear is invoked
 - Freeze when the vi cursor is on the scrollback and scrollback clear is invoked
+- Vi cursor on topmost of the display moving downward when scrolled into history with active output
 
 ### Removed
 

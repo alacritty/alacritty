@@ -587,6 +587,8 @@ impl<T> Term<T> {
         // Scroll selection.
         self.selection = self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
 
+        self.grid.scroll_up(&region, lines);
+
         // Scroll vi mode cursor.
         let viewport_top = Line(-(self.grid.display_offset() as i32));
         let top = if region.start == 0 { viewport_top } else { region.start };
@@ -594,9 +596,6 @@ impl<T> Term<T> {
         if (top <= *line) && region.end > *line {
             *line = max(*line - lines, top);
         }
-
-        // Scroll from origin to bottom less number of lines.
-        self.grid.scroll_up(&region, lines);
     }
 
     fn deccolm(&mut self)
@@ -2188,6 +2187,26 @@ mod tests {
         term.grid.truncate();
 
         assert_eq!(term.grid, scrolled_grid);
+    }
+
+    #[test]
+    fn vi_cursor_keep_pos_on_scrollback_buffer() {
+        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        // Create 11 lines of scrollback.
+        for _ in 0..20 {
+            term.newline();
+        }
+
+        // Enable vi mode.
+        term.toggle_vi_mode();
+
+        term.scroll_display(Scroll::Top);
+        term.vi_mode_cursor.point.line = Line(-11);
+
+        term.linefeed();
+        assert_eq!(term.vi_mode_cursor.point.line, Line(-12));
     }
 
     #[test]
