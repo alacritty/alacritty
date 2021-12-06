@@ -49,7 +49,7 @@ where
         .map(|_| ())
 }
 
-// get working directory of controlling process
+/// Get working directory of controlling process.
 #[cfg(not(windows))]
 pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
     let mut pid = unsafe { libc::tcgetpgrp(tty::master_fd()) };
@@ -65,7 +65,6 @@ pub fn foreground_process_path() -> Result<PathBuf, Box<dyn Error>> {
     #[cfg(not(target_os = "macos"))]
     let cwd = fs::read_link(link_path)?;
 
-    // this might not be a io::Result, so a Boxed dyn Error is needed
     #[cfg(target_os = "macos")]
     let cwd = macos::proc::cwd(pid)?;
 
@@ -79,10 +78,10 @@ where
     S: AsRef<OsStr>,
 {
     let mut command = Command::new(program);
-    let mut command_builder = match foreground_process_path() {
-        Ok(cwd) => command.args(args).current_dir(cwd),
-        _ => command.args(args),
-    };
+    let mut command_builder = command.args(args);
+    if let Ok(cwd) = foreground_process_path() {
+        command_builder.current_dir(cwd);
+    }
     command_builder =
         command_builder.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     unsafe {
