@@ -358,6 +358,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         while let Some(arg) = env_args.next() {
             // Drop working directory from existing parameters; start_daemon()
             // will set it to the parent alacritty instance current directory
+            #[cfg(not(windows))]
             if arg == "--working-directory" {
                 let _ = env_args.next();
                 continue;
