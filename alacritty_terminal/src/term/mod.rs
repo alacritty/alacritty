@@ -354,14 +354,16 @@ impl<T> Term<T> {
 
         if is_block {
             for line in (start.line.0..end.line.0).map(Line::from) {
-                res += &self.line_to_string(line, start.column..end.column, start.column.0 != 0);
+                res += self
+                    .line_to_string(line, start.column..end.column, start.column.0 != 0)
+                    .trim_end();
 
                 // If the last column is included, newline is appended automatically.
                 if end.column != self.columns() - 1 {
                     res += "\n";
                 }
             }
-            res += &self.line_to_string(end.line, start.column..end.column, true);
+            res += self.line_to_string(end.line, start.column..end.column, true).trim_end();
         } else {
             res = self.bounds_to_string(start, end);
         }
