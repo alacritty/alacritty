@@ -92,9 +92,10 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty_config = options
-            .map(|o| Cow::Owned(o.into()))
-            .unwrap_or(Cow::Borrowed(&config.terminal_config.pty_config));
+        let mut pty_config = Cow::Borrowed(&config.terminal_config.pty_config);
+        if let Some(o) = options {
+            pty_config.to_mut().working_directory = o.working_directory;
+        }
         let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
 
         // Create the pseudoterminal I/O loop.
