@@ -24,6 +24,7 @@ dependencies = [
  "fnv",
  "gl_generator",
  "glutin",
+ "harfbuzz_rs",
  "libc",
  "log",
  "notify",
@@ -359,9 +360,8 @@ dependencies = [
 
 [[package]]
 name = "crossfont"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1299695a4c6417b7e4a6957bd963478406e148b7b0351e2f2ce31296b0518251"
+version = "0.3.1"
+source = "git+https://github.com/fee1-dead/crossfont#dbf0fc720f75918e56c7d8b14fd42bf40b159ede"
 dependencies = [
  "cocoa",
  "core-foundation 0.9.2",
@@ -573,6 +573,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7684cf33bb7f28497939e8c7cf17e3e4e3b8d9a0080ffa4f8ae2f515442ee855"
 
 [[package]]
+name = "freetype"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bee38378a9e3db1cc693b4f88d166ae375338a0ff75cb8263e1c601d51f35dc6"
+dependencies = [
+ "freetype-sys",
+ "libc",
+]
+
+[[package]]
 name = "freetype-rs"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -721,6 +731,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3da5951a1569dbab865c6f2a863efafff193a93caf05538d193e9e3816d21696"
 dependencies = [
  "gl_generator",
+]
+
+[[package]]
+name = "harfbuzz-sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf8c27ca13930dc4ffe474880040fe9e0f03c2121600dc9c95423624cab3e467"
+dependencies = [
+ "cc",
+ "core-graphics 0.22.3",
+ "core-text",
+ "foreign-types 0.3.2",
+ "freetype",
+ "pkg-config",
+]
+
+[[package]]
+name = "harfbuzz_rs"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58c18cfc23920d010f7637b86240a5f8892dfdbcb4f0e60828f8a9dc6ff5521d"
+dependencies = [
+ "bitflags",
+ "harfbuzz-sys",
 ]
 
 [[package]]
