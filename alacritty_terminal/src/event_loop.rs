@@ -429,32 +429,3 @@ where
         })
     }
 }
-
-trait OptionInsert {
-    type T;
-    fn insert(&mut self, value: Self::T) -> &mut Self::T;
-}
-
-// TODO: Remove when MSRV is >= 1.53.0.
-//
-/// Trait implementation to support Rust version < 1.53.0.
-///
-/// This is taken [from STD], further license information can be found in the [rust-lang/rust
-/// repository].
-///
-///
-/// [from STD]: https://github.com/rust-lang/rust/blob/6e0b554619a3bb7e75b3334e97f191af20ef5d76/library/core/src/option.rs#L829-L858
-/// [rust-lang/rust repository]: https://github.com/rust-lang/rust/blob/master/LICENSE-MIT
-impl<T> OptionInsert for Option<T> {
-    type T = T;
-
-    fn insert(&mut self, value: T) -> &mut T {
-        *self = Some(value);
-
-        match self {
-            Some(v) => v,
-            // SAFETY: the code above just filled the option
-            None => unsafe { std::hint::unreachable_unchecked() },
-        }
-    }
-}
