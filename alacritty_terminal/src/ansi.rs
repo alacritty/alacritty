@@ -976,8 +976,8 @@ where
                 }
             },
             _ => {
-                if self.handler.unhandled_hook(params, intermediates, ignore, action) 
-                    == HandledStatus::Unhandled 
+                if self.handler.unhandled_hook(params, intermediates, ignore, action)
+                    == HandledStatus::Unhandled
                 {
                     debug!(
                         "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
@@ -1016,8 +1016,8 @@ where
 
         macro_rules! unhandled {
             () => {{
-                if self.handler.unhandled_osc_dispatch(params, bell_terminated) 
-                    == HandledStatus::Unhandled 
+                if self.handler.unhandled_osc_dispatch(params, bell_terminated)
+                    == HandledStatus::Unhandled
                 {
                     let mut buf = String::new();
                     for items in params {
@@ -1179,11 +1179,12 @@ where
         macro_rules! unhandled {
             () => {{
                 if handler.unhandled_csi_dispatch(
-                    params, 
-                    intermediates, 
-                    has_ignored_intermediates, 
-                    action
-                ) == HandledStatus::Unhandled {
+                    params,
+                    intermediates,
+                    has_ignored_intermediates,
+                    action,
+                ) == HandledStatus::Unhandled
+                {
                     debug!(
                         "[Unhandled CSI] action={:?}, params={:?}, intermediates={:?}",
                         action, params, intermediates
@@ -1348,8 +1349,8 @@ where
     fn esc_dispatch(&mut self, intermediates: &[u8], ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
-                if self.handler.unhandled_esc_dispatch(intermediates, ignore, byte) 
-                    == HandledStatus::Unhandled 
+                if self.handler.unhandled_esc_dispatch(intermediates, ignore, byte)
+                    == HandledStatus::Unhandled
                 {
                     debug!(
                         "[unhandled] esc_dispatch ints={:?}, byte={:?} ({:02x})",
