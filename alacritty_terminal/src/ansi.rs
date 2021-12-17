@@ -263,6 +263,13 @@ impl<'a, H: Handler + 'a> Performer<'a, H> {
     }
 }
 
+/// Indicates if a handler has handled an action
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum HandledStatus {
+    Handled,
+    Unhandled,
+}
+
 /// Type that handles actions from the parser.
 ///
 /// XXX Should probably not provide default impls for everything, but it makes
@@ -456,6 +463,62 @@ pub trait Handler {
 
     /// Report text area size in characters.
     fn text_area_size_chars(&mut self) {}
+
+    /// Unhandled `execute` fallthrough
+    fn unhandled_execute(&mut self, _byte: u8) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `hook` fallthough
+    fn unhandled_hook(
+        &mut self,
+        _params: &Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        _action: char,
+    ) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `put` fallthrough
+    fn unhandled_put(&mut self, _byte: u8) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `unhook` fallthrough
+    fn unhandled_unhook(&mut self) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `osc_dispatch` fallthrough
+    fn unhandled_osc_dispatch(
+        &mut self,
+        _params: &[&[u8]],
+        _bell_terminated: bool,
+    ) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `csi_dispatch` fallthrough
+    fn unhandled_csi_dispatch(
+        &mut self,
+        _params: &Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        _action: char,
+    ) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
+
+    /// Unhandled `esc_dispatch` fallthrough
+    fn unhandled_esc_dispatch(
+        &mut self,
+        _intermediates: &[u8],
+        _ignore: bool,
+        _byte: u8,
+    ) -> HandledStatus {
+        HandledStatus::Unhandled
+    }
 }
 
 /// Terminal cursor configuration.
@@ -895,7 +958,11 @@ where
             C0::SUB => self.handler.substitute(),
             C0::SI => self.handler.set_active_charset(CharsetIndex::G0),
             C0::SO => self.handler.set_active_charset(CharsetIndex::G1),
-            _ => debug!("[unhandled] execute byte={:02x}", byte),
+            _ => {
+                if self.handler.unhandled_execute(byte) == HandledStatus::Unhandled {
+                    debug!("[unhandled] execute byte={:02x}", byte);
+                }
+            },
         }
     }
 
@@ -908,16 +975,24 @@ where
                     self.state.dcs = Some(Dcs::SyncStart);
                 }
             },
-            _ => debug!(
-                "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
-                params, intermediates, ignore, action
-            ),
+            _ => {
+                if self.handler.unhandled_hook(params, intermediates, ignore, action) 
+                    == HandledStatus::Unhandled 
+                {
+                    debug!(
+                        "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
+                        params, intermediates, ignore, action
+                    );
+                }
+            },
         }
     }
 
     #[inline]
     fn put(&mut self, byte: u8) {
-        debug!("[unhandled put] byte={:?}", byte);
+        if self.handler.unhandled_put(byte) == HandledStatus::Unhandled {
+            debug!("[unhandled put] byte={:?}", byte);
+        }
     }
 
     #[inline]
@@ -927,7 +1002,11 @@ where
                 self.state.sync_state.timeout = Some(Instant::now() + SYNC_UPDATE_TIMEOUT);
             },
             Some(Dcs::SyncEnd) => (),
-            _ => debug!("[unhandled unhook]"),
+            _ => {
+                if self.handler.unhandled_unhook() == HandledStatus::Unhandled {
+                    debug!("[unhandled unhook]");
+                }
+            },
         }
     }
 
@@ -935,16 +1014,22 @@ where
     fn osc_dispatch(&mut self, params: &[&[u8]], bell_terminated: bool) {
         let terminator = if bell_terminated { "\x07" } else { "\x1b\\" };
 
-        fn unhandled(params: &[&[u8]]) {
-            let mut buf = String::new();
-            for items in params {
-                buf.push('[');
-                for item in *items {
-                    buf.push_str(&format!("{:?},", *item as char));
+        macro_rules! unhandled {
+            () => {{
+                if self.handler.unhandled_osc_dispatch(params, bell_terminated) 
+                    == HandledStatus::Unhandled 
+                {
+                    let mut buf = String::new();
+                    for items in params {
+                        buf.push('[');
+                        for item in *items {
+                            buf.push_str(&format!("{:?},", *item as char));
+                        }
+                        buf.push_str("],");
+                    }
+                    debug!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
                 }
-                buf.push_str("],");
-            }
-            debug!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
+            }};
         }
 
         if params.is_empty() || params[0].is_empty() {
@@ -965,7 +1050,7 @@ where
                     self.handler.set_title(Some(title));
                     return;
                 }
-                unhandled(params);
+                unhandled!();
             },
 
             // Set color index.
@@ -980,7 +1065,7 @@ where
                         }
                     }
                 }
-                unhandled(params);
+                unhandled!();
             },
 
             // Get/set Foreground, Background, Cursor colors.
@@ -994,7 +1079,7 @@ where
 
                             // End of setting dynamic colors.
                             if index > NamedColor::Cursor as usize {
-                                unhandled(params);
+                                unhandled!();
                                 break;
                             }
 
@@ -1007,14 +1092,14 @@ where
                                     terminator,
                                 );
                             } else {
-                                unhandled(params);
+                                unhandled!();
                             }
                             dynamic_code += 1;
                         }
                         return;
                     }
                 }
-                unhandled(params);
+                unhandled!();
             },
 
             // Set cursor style.
@@ -1027,18 +1112,18 @@ where
                         '0' => CursorShape::Block,
                         '1' => CursorShape::Beam,
                         '2' => CursorShape::Underline,
-                        _ => return unhandled(params),
+                        _ => return unhandled!(),
                     };
                     self.handler.set_cursor_shape(shape);
                     return;
                 }
-                unhandled(params);
+                unhandled!();
             },
 
             // Set clipboard.
             b"52" => {
                 if params.len() < 3 {
-                    return unhandled(params);
+                    return unhandled!();
                 }
 
                 let clipboard = params[1].get(0).unwrap_or(&b'c');
@@ -1062,7 +1147,7 @@ where
                 for param in &params[1..] {
                     match parse_number(param) {
                         Some(index) => self.handler.reset_color(index as usize),
-                        None => unhandled(params),
+                        None => unhandled!(),
                     }
                 }
             },
@@ -1076,7 +1161,7 @@ where
             // Reset text cursor color.
             b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
 
-            _ => unhandled(params),
+            _ => unhandled!(),
         }
     }
 
@@ -1089,12 +1174,21 @@ where
         has_ignored_intermediates: bool,
         action: char,
     ) {
+        let handler = &mut self.handler;
+
         macro_rules! unhandled {
             () => {{
-                debug!(
-                    "[Unhandled CSI] action={:?}, params={:?}, intermediates={:?}",
-                    action, params, intermediates
-                );
+                if handler.unhandled_csi_dispatch(
+                    params, 
+                    intermediates, 
+                    has_ignored_intermediates, 
+                    action
+                ) == HandledStatus::Unhandled {
+                    debug!(
+                        "[Unhandled CSI] action={:?}, params={:?}, intermediates={:?}",
+                        action, params, intermediates
+                    );
+                }
             }};
         }
 
@@ -1104,7 +1198,6 @@ where
         }
 
         let mut params_iter = params.iter();
-        let handler = &mut self.handler;
 
         let mut next_param_or = |default: u16| {
             params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
@@ -1252,13 +1345,17 @@ where
     }
 
     #[inline]
-    fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, byte: u8) {
+    fn esc_dispatch(&mut self, intermediates: &[u8], ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
-                debug!(
-                    "[unhandled] esc_dispatch ints={:?}, byte={:?} ({:02x})",
-                    intermediates, byte as char, byte
-                );
+                if self.handler.unhandled_esc_dispatch(intermediates, ignore, byte) 
+                    == HandledStatus::Unhandled 
+                {
+                    debug!(
+                        "[unhandled] esc_dispatch ints={:?}, byte={:?} ({:02x})",
+                        intermediates, byte as char, byte
+                    );
+                }
             }};
         }
 
