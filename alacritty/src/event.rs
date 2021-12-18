@@ -42,8 +42,6 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
-#[cfg(target_os = "macos")]
-use crate::macos;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
