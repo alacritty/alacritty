@@ -1,6 +1,4 @@
 #[cfg(not(windows))]
-use alacritty_terminal::tty;
-#[cfg(not(windows))]
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -17,6 +15,12 @@ use std::process::{Command, Stdio};
 use log::{debug, warn};
 #[cfg(windows)]
 use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
+
+#[cfg(not(windows))]
+use alacritty_terminal::tty;
+
+#[cfg(target_os = "macos")]
+use crate::macos;
 
 /// Start the daemon and log error on failure.
 pub fn start_daemon<I, S>(program: &str, args: I)
