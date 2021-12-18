@@ -79,13 +79,12 @@ where
     S: AsRef<OsStr>,
 {
     let mut command = Command::new(program);
-    let mut builder = command.args(args);
+    command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     if let Ok(cwd) = foreground_process_path() {
-        builder.current_dir(cwd);
+        command.current_dir(cwd);
     }
-    builder = builder.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     unsafe {
-        builder
+        command
             .pre_exec(|| {
                 match libc::fork() {
                     -1 => return Err(io::Error::last_os_error()),
