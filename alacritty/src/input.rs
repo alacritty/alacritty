@@ -7,6 +7,8 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
+use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
@@ -30,7 +32,6 @@ use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfig, ViAction};
-use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::Display;
@@ -107,6 +108,12 @@ pub trait ActionContext<T: EventListener> {
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
     fn paste(&mut self, _text: &str) {}
+    fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
+    where
+        I: IntoIterator<Item = S> + Debug + Copy,
+        S: AsRef<OsStr>,
+    {
+    }
 }
 
 impl Action {
@@ -139,7 +146,7 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
-            Action::Command(program) => start_daemon(program.program(), program.args()),
+            Action::Command(program) => ctx.spawn_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();

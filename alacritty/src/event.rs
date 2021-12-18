@@ -4,7 +4,10 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fmt::Debug;
+#[cfg(not(windows))]
+use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
@@ -16,7 +19,7 @@ use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::WindowId;
-use log::{error, info};
+use log::{debug, error, info, warn};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 
@@ -37,7 +40,7 @@ use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
 use crate::daemon::foreground_process_path;
-use crate::daemon::start_daemon;
+use crate::daemon::spawn_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
@@ -183,6 +186,10 @@ pub struct ActionContext<'a, N, T> {
     pub search_state: &'a mut SearchState,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
+    #[cfg(not(windows))]
+    pub master_fd: RawFd,
+    #[cfg(not(windows))]
+    pub shell_pid: u32,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -367,12 +374,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             args.push(arg);
         }
 
-        start_daemon(&alacritty, &args);
+        self.spawn_daemon(&alacritty, &args);
     }
 
     #[cfg(not(windows))]
     fn create_new_window(&mut self) {
-        let options = if let Ok(working_directory) = foreground_process_path() {
+        let cwd = foreground_process_path(self.master_fd, self.shell_pid);
+        let options = if let Ok(working_directory) = cwd {
             let mut options = TerminalCliOptions::new();
             options.working_directory = Some(working_directory);
             Some(options)
@@ -386,6 +394,22 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[cfg(windows)]
     fn create_new_window(&mut self) {
         let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
+    }
+
+    fn spawn_daemon<I, S>(&self, program: &str, args: I)
+    where
+        I: IntoIterator<Item = S> + Debug + Copy,
+        S: AsRef<OsStr>,
+    {
+        #[cfg(not(windows))]
+        let result = spawn_daemon(program, args, self.master_fd, self.shell_pid);
+        #[cfg(windows)]
+        let result = spawn_daemon(program, args);
+
+        match result {
+            Ok(_) => debug!("Launched {} with args {:?}", program, args),
+            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
+        }
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -655,7 +679,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
                 args.push(text);
-                start_daemon(command.program(), &args);
+                self.spawn_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
@@ -1039,7 +1063,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         // Execute bell command.
                         if let Some(bell_command) = &self.ctx.config.bell.command {
-                            start_daemon(bell_command.program(), bell_command.args());
+                            self.ctx.spawn_daemon(bell_command.program(), bell_command.args());
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
