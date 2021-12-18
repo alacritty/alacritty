@@ -182,7 +182,7 @@ fn alacritty(options: Options) -> Result<(), String> {
 
     // Create the first Alacritty window.
     let proxy = window_event_loop.create_proxy();
-    processor.create_window(&window_event_loop, None, proxy).map_err(|err| err.to_string())?;
+    processor.create_window(&window_event_loop, proxy, None).map_err(|err| err.to_string())?;
 
     info!("Initialisation complete");
 

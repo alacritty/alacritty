@@ -1,6 +1,5 @@
 //! Terminal window context.
 
-use std::borrow::Cow;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -20,6 +19,7 @@ use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
+use alacritty_terminal::config::PtyConfig;
 use alacritty_terminal::event::Event as TerminalEvent;
 use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -28,7 +28,6 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
-use crate::cli::TerminalOptions as TerminalCliOptions;
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::Display;
@@ -61,7 +60,7 @@ impl WindowContext {
     /// Create a new terminal window context.
     pub fn new(
         config: &UiConfig,
-        options: Option<TerminalCliOptions>,
+        pty_config: &PtyConfig,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -98,10 +97,7 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty_config = options
-            .map(|o| Cow::Owned(o.into()))
-            .unwrap_or(Cow::Borrowed(&config.terminal_config.pty_config));
-        let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
+        let pty = tty::new(pty_config, &display.size_info, display.window.x11_window_id())?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
