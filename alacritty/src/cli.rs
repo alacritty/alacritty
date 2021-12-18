@@ -225,7 +225,7 @@ impl TerminalOptions {
             pty_config.shell = Some(command);
         }
 
-        pty_config.hold = self.hold;
+        pty_config.hold |= self.hold;
     }
 }
 
