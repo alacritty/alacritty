@@ -1,5 +1,6 @@
 #[cfg(not(windows))]
 use alacritty_terminal::tty;
+#[cfg(not(windows))]
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -78,14 +79,13 @@ where
     S: AsRef<OsStr>,
 {
     let mut command = Command::new(program);
-    let mut command_builder = command.args(args);
+    let mut builder = command.args(args);
     if let Ok(cwd) = foreground_process_path() {
-        command_builder.current_dir(cwd);
+        builder.current_dir(cwd);
     }
-    command_builder =
-        command_builder.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    builder = builder.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     unsafe {
-        command_builder
+        builder
             .pre_exec(|| {
                 match libc::fork() {
                     -1 => return Err(io::Error::last_os_error()),

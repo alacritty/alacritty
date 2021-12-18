@@ -356,8 +356,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Reuse the arguments passed to Alacritty for the new instance.
         while let Some(arg) = env_args.next() {
-            // Drop working directory from existing parameters; start_daemon()
-            // will set it to the parent alacritty instance current directory
+            // On unix, the working directory of the foreground shell is used by `start_daemon`.
             #[cfg(not(windows))]
             if arg == "--working-directory" {
                 let _ = env_args.next();
@@ -654,7 +653,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             HintAction::Command(command) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
-
                 args.push(text);
                 start_daemon(command.program(), &args);
             },
