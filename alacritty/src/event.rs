@@ -352,9 +352,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let mut env_args = env::args();
         let alacritty = env_args.next().unwrap();
 
-        let mut args: Vec<PathBuf> = Vec::new();
+        let mut args: Vec<String> = Vec::new();
 
         // Reuse the arguments passed to Alacritty for the new instance.
+        #[allow(clippy::while_let_on_iterator)]
         while let Some(arg) = env_args.next() {
             // On unix, the working directory of the foreground shell is used by `start_daemon`.
             #[cfg(not(windows))]
@@ -363,7 +364,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 continue;
             }
 
-            args.push(arg.into());
+            args.push(arg);
         }
 
         start_daemon(&alacritty, &args);
