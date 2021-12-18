@@ -9,6 +9,7 @@ use std::io;
 use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+#[cfg(not(windows))]
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
