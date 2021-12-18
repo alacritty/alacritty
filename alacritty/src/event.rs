@@ -35,7 +35,9 @@ use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCliOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
-use crate::daemon::{foreground_process_path, start_daemon};
+#[cfg(not(windows))]
+use crate::daemon::foreground_process_path;
+use crate::daemon::start_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{self, Display};
