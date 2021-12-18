@@ -11,9 +11,8 @@ use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::ptr;
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
-use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
+use libc::{self, c_int, winsize, TIOCSCTTY};
 use log::error;
 use mio::unix::EventedFd;
 use nix::pty::openpty;
@@ -28,27 +27,11 @@ use crate::grid::Dimensions;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
-/// Process ID of child process.
-///
-/// Necessary to put this in static storage for `SIGCHLD` to have access.
-static PID: AtomicUsize = AtomicUsize::new(0);
-
-/// File descriptor of terminal master.
-static FD: AtomicI32 = AtomicI32::new(-1);
-
 macro_rules! die {
     ($($arg:tt)*) => {{
         error!($($arg)*);
         std::process::exit(1);
     }}
-}
-
-pub fn child_pid() -> pid_t {
-    PID.load(Ordering::Relaxed) as pid_t
-}
-
-pub fn master_fd() -> RawFd {
-    FD.load(Ordering::Relaxed) as RawFd
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
@@ -124,10 +107,20 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
 
 pub struct Pty {
     child: Child,
-    fd: File,
+    file: File,
     token: mio::Token,
     signals: Signals,
     signals_token: mio::Token,
+}
+
+impl Pty {
+    pub fn child(&self) -> &Child {
+        &self.child
+    }
+
+    pub fn file(&self) -> &File {
+        &self.file
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -223,10 +216,6 @@ pub fn new(config: &PtyConfig, size: &SizeInfo, window_id: Option<usize>) -> Res
 
     match builder.spawn() {
         Ok(child) => {
-            // Remember master FD and child PID so other modules can use it.
-            PID.store(child.id() as usize, Ordering::Relaxed);
-            FD.store(master, Ordering::Relaxed);
-
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
@@ -235,7 +224,7 @@ pub fn new(config: &PtyConfig, size: &SizeInfo, window_id: Option<usize>) -> Res
 
             let mut pty = Pty {
                 child,
-                fd: unsafe { File::from_raw_fd(master) },
+                file: unsafe { File::from_raw_fd(master) },
                 token: mio::Token::from(0),
                 signals,
                 signals_token: mio::Token::from(0),
@@ -273,7 +262,7 @@ impl EventedReadWrite for Pty {
         poll_opts: mio::PollOpt,
     ) -> Result<()> {
         self.token = token.next().unwrap();
-        poll.register(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
+        poll.register(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
 
         self.signals_token = token.next().unwrap();
         poll.register(
@@ -291,7 +280,7 @@ impl EventedReadWrite for Pty {
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> Result<()> {
-        poll.reregister(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
+        poll.reregister(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
 
         poll.reregister(
             &self.signals,
@@ -303,13 +292,13 @@ impl EventedReadWrite for Pty {
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
-        poll.deregister(&EventedFd(&self.fd.as_raw_fd()))?;
+        poll.deregister(&EventedFd(&self.file.as_raw_fd()))?;
         poll.deregister(&self.signals)
     }
 
     #[inline]
     fn reader(&mut self) -> &mut File {
-        &mut self.fd
+        &mut self.file
     }
 
     #[inline]
@@ -319,7 +308,7 @@ impl EventedReadWrite for Pty {
 
     #[inline]
     fn writer(&mut self) -> &mut File {
-        &mut self.fd
+        &mut self.file
     }
 
     #[inline]
@@ -361,7 +350,7 @@ impl OnResize for Pty {
     fn on_resize(&mut self, size: &SizeInfo) {
         let win = size.to_winsize();
 
-        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
+        let res = unsafe { libc::ioctl(self.file.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", Error::last_os_error());

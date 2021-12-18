@@ -5,6 +5,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 use std::mem;
+#[cfg(not(windows))]
+use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -49,6 +51,10 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     dirty: bool,
+    #[cfg(not(windows))]
+    master_fd: RawFd,
+    #[cfg(not(windows))]
+    shell_pid: u32,
 }
 
 impl WindowContext {
@@ -97,6 +103,11 @@ impl WindowContext {
             .unwrap_or(Cow::Borrowed(&config.terminal_config.pty_config));
         let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
 
+        #[cfg(not(windows))]
+        let master_fd = pty.file().as_raw_fd();
+        #[cfg(not(windows))]
+        let shell_pid = pty.child().id();
+
         // Create the pseudoterminal I/O loop.
         //
         // PTY I/O is ran on another thread as to not occupy cycles used by the
@@ -129,6 +140,10 @@ impl WindowContext {
             notifier: Notifier(loop_tx),
             terminal,
             display,
+            #[cfg(not(windows))]
+            master_fd,
+            #[cfg(not(windows))]
+            shell_pid,
             suppress_chars: Default::default(),
             message_buffer: Default::default(),
             received_count: Default::default(),
@@ -246,6 +261,10 @@ impl WindowContext {
             mouse: &mut self.mouse,
             dirty: &mut self.dirty,
             terminal: &mut terminal,
+            #[cfg(not(windows))]
+            master_fd: self.master_fd,
+            #[cfg(not(windows))]
+            shell_pid: self.shell_pid,
             event_proxy,
             event_loop,
             clipboard,
