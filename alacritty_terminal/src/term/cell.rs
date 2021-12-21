@@ -8,7 +8,7 @@ use crate::grid::{self, GridCell};
 use crate::index::Column;
 
 bitflags! {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Default)]
     pub struct Flags: u16 {
         const INVERSE                   = 0b0000_0000_0000_0001;
         const BOLD                      = 0b0000_0000_0000_0010;

@@ -954,8 +954,6 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
-        let TextRunContent { text, zero_widths } = &text_run.content;
-
         // Get font key for cell
         let font_key = Self::determine_font_key(text_run.flags, glyph_cache);
 
@@ -963,12 +961,15 @@ impl<'a> RenderApi<'a> {
             GlyphIter::Hidden
         } else {
             GlyphIter::Shaped(
-                glyph_cache.shape_run(text, font_key, self).expect("read font").into_iter(),
+                glyph_cache
+                    .shape_run(&text_run.content.text, font_key, self)
+                    .expect("read font")
+                    .into_iter(),
             )
         };
 
         for ((mut cell, glyph), zero_width_chars) in
-            text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
+            text_run.cells().zip(shaped_glyphs).zip(text_run.content.zero_widths.iter())
         {
             self.add_render_item(&cell, &glyph);
             // Add empty spacer for full width characters

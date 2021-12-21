@@ -487,8 +487,13 @@ impl Display {
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let grid_text_runs: Vec<TextRun> = {
-            TextRunIter::<()>::from_content(&mut content, highlighted_hint, vi_highlighted_hint)
-                .collect()
+            let mut vec = Vec::with_capacity(terminal.screen_lines() * 2);
+            vec.extend(TextRunIter::from_content(
+                &mut content,
+                highlighted_hint,
+                vi_highlighted_hint,
+            ));
+            vec
         };
         let cursor = content.cursor();
 
