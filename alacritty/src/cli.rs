@@ -100,8 +100,6 @@ impl Options {
 
     /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut UiConfig) {
-        self.terminal_options.override_pty_config(&mut config.terminal_config.pty_config);
-
         if let Some(title) = self.title.clone() {
             config.window.title = title
         }

@@ -1206,16 +1206,10 @@ impl Processor {
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
-        options: Option<TerminalOptions>,
+        options: TerminalOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let pty_config = match options {
-            Some(options) => {
-                let mut pty_config = self.config.terminal_config.pty_config.clone();
-                options.override_pty_config(&mut pty_config);
-                Cow::Owned(pty_config)
-            },
-            None => Cow::Borrowed(&self.config.terminal_config.pty_config),
-        };
+        let mut pty_config = self.config.terminal_config.pty_config.clone();
+        options.override_pty_config(&mut pty_config);
 
         let window_context = WindowContext::new(
             &self.config,
@@ -1327,7 +1321,7 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
-                    if let Err(err) = self.create_window(event_loop, proxy.clone(), Some(options)) {
+                    if let Err(err) = self.create_window(event_loop, proxy.clone(), options) {
                         error!("Could not open window: {:?}", err);
                     }
                 },
