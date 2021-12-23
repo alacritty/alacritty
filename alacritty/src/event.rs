@@ -34,7 +34,7 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 
-use crate::cli::{Options as CliOptions, TerminalOptions as TerminalCliOptions};
+use crate::cli::{Options as CliOptions, TerminalOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
@@ -88,7 +88,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow(Option<TerminalCliOptions>),
+    CreateWindow(TerminalOptions),
     BlinkCursor,
     SearchNext,
 }
@@ -379,21 +379,19 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[cfg(not(windows))]
     fn create_new_window(&mut self) {
-        let cwd = foreground_process_path(self.master_fd, self.shell_pid);
-        let options = if let Ok(working_directory) = cwd {
-            let mut options = TerminalCliOptions::new();
+        let mut options = TerminalOptions::default();
+        if let Ok(working_directory) = foreground_process_path(self.master_fd, self.shell_pid) {
             options.working_directory = Some(working_directory);
-            Some(options)
-        } else {
-            None
-        };
+        }
 
         let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
     }
 
     #[cfg(windows)]
     fn create_new_window(&mut self) {
-        let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(None), None));
+        let _ = self
+            .event_proxy
+            .send_event(Event::new(EventType::CreateWindow(TerminalOptions::default()), None));
     }
 
     fn spawn_daemon<I, S>(&self, program: &str, args: I)
@@ -753,7 +751,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             }
         } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             self.write_to_pty(&b"\x1b[200~"[..]);
-            self.write_to_pty(text.replace("\x1b", "").into_bytes());
+            self.write_to_pty(text.replace('\x1b', "").into_bytes());
             self.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
@@ -762,7 +760,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             // pasting... since that's neither practical nor sensible (and probably an impossible
             // task to solve in a general way), we'll just replace line breaks (windows and unix
             // style) with a single carriage return (\r, which is what the Enter key produces).
-            self.write_to_pty(text.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
+            self.write_to_pty(text.replace("\r\n", "\r").replace('\n', "\r").into_bytes());
         }
     }
 
@@ -1207,12 +1205,15 @@ impl Processor {
     pub fn create_window(
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
-        options: Option<TerminalCliOptions>,
         proxy: EventLoopProxy<Event>,
+        options: TerminalOptions,
     ) -> Result<(), Box<dyn Error>> {
+        let mut pty_config = self.config.terminal_config.pty_config.clone();
+        options.override_pty_config(&mut pty_config);
+
         let window_context = WindowContext::new(
             &self.config,
-            options,
+            &pty_config,
             event_loop,
             proxy,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1320,7 +1321,7 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
-                    if let Err(err) = self.create_window(event_loop, options, proxy.clone()) {
+                    if let Err(err) = self.create_window(event_loop, proxy.clone(), options) {
                         error!("Could not open window: {:?}", err);
                     }
                 },

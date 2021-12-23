@@ -20,6 +20,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    #[must_use]
     pub fn opposite(self) -> Self {
         match self {
             Side::Right => Side::Left,
@@ -133,6 +134,7 @@ pub struct Line(pub i32);
 
 impl Line {
     /// Clamp a line to a grid boundary.
+    #[must_use]
     pub fn grid_clamp<D: Dimensions>(self, dimensions: &D, boundary: Boundary) -> Self {
         match boundary {
             Boundary::Cursor => max(Line(0), min(dimensions.bottommost_line(), self)),

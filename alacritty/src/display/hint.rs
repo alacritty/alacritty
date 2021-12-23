@@ -78,8 +78,7 @@ impl HintState {
             if hint.post_processing {
                 matches
                     .drain(..)
-                    .map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
-                    .flatten()
+                    .flat_map(|rm| HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>())
                     .collect()
             } else {
                 matches.0

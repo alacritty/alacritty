@@ -58,8 +58,8 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
 
             // Handle IPC events.
             match message {
-                SocketMessage::CreateWindow(terminal_options) => {
-                    let event = Event::new(EventType::CreateWindow(Some(terminal_options)), None);
+                SocketMessage::CreateWindow(options) => {
+                    let event = Event::new(EventType::CreateWindow(options), None);
                     let _ = event_proxy.send_event(event);
                 },
             }

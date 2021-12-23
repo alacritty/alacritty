@@ -100,21 +100,6 @@ impl Options {
 
     /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut UiConfig) {
-        if let Some(working_directory) = &self.terminal_options.working_directory {
-            if working_directory.is_dir() {
-                config.terminal_config.pty_config.working_directory =
-                    Some(working_directory.to_owned());
-            } else {
-                error!("Invalid working directory: {:?}", working_directory);
-            }
-        }
-
-        if let Some(command) = self.terminal_options.command() {
-            config.terminal_config.pty_config.shell = Some(command);
-        }
-
-        config.terminal_config.pty_config.hold = self.terminal_options.hold;
-
         if let Some(title) = self.title.clone() {
             config.window.title = title
         }
@@ -218,27 +203,37 @@ pub struct TerminalOptions {
 }
 
 impl TerminalOptions {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.working_directory.is_none() && !self.hold && self.command.is_empty()
-    }
-
     /// Shell override passed through the CLI.
     pub fn command(&self) -> Option<Program> {
         let (program, args) = self.command.split_first()?;
         Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
     }
+
+    /// Override the [`PtyConfig`]'s fields with the [`TerminalOptions`].
+    pub fn override_pty_config(&self, pty_config: &mut PtyConfig) {
+        if let Some(working_directory) = &self.working_directory {
+            if working_directory.is_dir() {
+                pty_config.working_directory = Some(working_directory.to_owned());
+            } else {
+                error!("Invalid working directory: {:?}", working_directory);
+            }
+        }
+
+        if let Some(command) = self.command() {
+            pty_config.shell = Some(command);
+        }
+
+        pty_config.hold |= self.hold;
+    }
 }
 
 impl From<TerminalOptions> for PtyConfig {
     fn from(mut options: TerminalOptions) -> Self {
-        let working_directory = options.working_directory.take();
-        let shell = options.command();
-        let hold = options.hold;
-        PtyConfig { shell, working_directory, hold }
+        PtyConfig {
+            working_directory: options.working_directory.take(),
+            shell: options.command(),
+            hold: options.hold,
+        }
     }
 }
 

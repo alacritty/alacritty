@@ -697,6 +697,7 @@ pub enum NamedColor {
 }
 
 impl NamedColor {
+    #[must_use]
     pub fn to_bright(self) -> Self {
         match self {
             NamedColor::Foreground => NamedColor::BrightForeground,
@@ -721,6 +722,7 @@ impl NamedColor {
         }
     }
 
+    #[must_use]
     pub fn to_dim(self) -> Self {
         match self {
             NamedColor::Black => NamedColor::DimBlack,

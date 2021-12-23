@@ -802,11 +802,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         self.ctx.clear_selection();
 
         let utf8_len = c.len_utf8();
-        let mut bytes = Vec::with_capacity(utf8_len);
-        unsafe {
-            bytes.set_len(utf8_len);
-            c.encode_utf8(&mut bytes[..]);
-        }
+        let mut bytes = vec![0; utf8_len];
+        c.encode_utf8(&mut bytes[..]);
 
         if self.ctx.config().alt_send_esc
             && *self.ctx.received_count() == 0
@@ -1007,7 +1004,7 @@ mod tests {
         }
 
         fn terminal_mut(&mut self) -> &mut Term<T> {
-            &mut self.terminal
+            self.terminal
         }
 
         fn size_info(&self) -> SizeInfo {
