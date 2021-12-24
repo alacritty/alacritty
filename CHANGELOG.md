@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Minimum Rust version has been bumped to 1.56.0
 
+### Added
+
+- Option to pass `title` and `class` via IPC to `create-window`.
+
 ## 0.10.0
 
 ### Packaging

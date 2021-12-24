@@ -29,6 +29,7 @@ use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
 use crate::clipboard::Clipboard;
+use crate::config::window::WindowIdentityConfig;
 use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
@@ -50,6 +51,8 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     dirty: bool,
+    /// Initial information to identify the window such as default class and title.
+    identity: WindowIdentityConfig,
     #[cfg(not(windows))]
     master_fd: RawFd,
     #[cfg(not(windows))]
@@ -61,6 +64,7 @@ impl WindowContext {
     pub fn new(
         config: &UiConfig,
         pty_config: &PtyConfig,
+        identity: &WindowIdentityConfig,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -72,6 +76,7 @@ impl WindowContext {
         let display = Display::new(
             config,
             window_event_loop,
+            identity,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
         )?;
@@ -129,12 +134,14 @@ impl WindowContext {
         if config.terminal_config.cursor.style().blinking {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
+        dbg!(identity);
 
         // Create context for the Alacritty window.
         Ok(WindowContext {
             font_size: config.font.size(),
             notifier: Notifier(loop_tx),
             terminal,
+            identity: identity.clone(),
             display,
             #[cfg(not(windows))]
             master_fd,
@@ -184,8 +191,8 @@ impl WindowContext {
         }
 
         // Live title reload.
-        if !config.window.dynamic_title || old_config.window.title != config.window.title {
-            self.display.window.set_title(&config.window.title);
+        if !config.window.dynamic_title || self.identity.title != config.window.identity.title {
+            self.display.window.set_title(&config.window.identity.title);
         }
 
         // Set subpixel anti-aliasing.
