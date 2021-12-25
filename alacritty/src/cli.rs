@@ -12,7 +12,7 @@ use crate::config::window::{Class, DEFAULT_NAME};
 use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Default, Debug)]
 #[structopt(author, about, version = env!("VERSION"))]
 pub struct Options {
     /// Print all events to stdout.
@@ -283,7 +283,7 @@ mod tests {
         let mut config = UiConfig::default();
         let old_dynamic_title = config.window.dynamic_title;
 
-        Options::new().override_config(&mut config);
+        Options::default().override_config(&mut config);
 
         assert_eq!(old_dynamic_title, config.window.dynamic_title);
     }
@@ -292,7 +292,7 @@ mod tests {
     fn dynamic_title_overridden_by_options() {
         let mut config = UiConfig::default();
 
-        let options = Options { title: Some("foo".to_owned()), ..Options::new() };
+        let options = Options { title: Some("foo".to_owned()), ..Options::default() };
         options.override_config(&mut config);
 
         assert!(!config.window.dynamic_title);
@@ -303,7 +303,7 @@ mod tests {
         let mut config = UiConfig::default();
 
         config.window.title = "foo".to_owned();
-        Options::new().override_config(&mut config);
+        Options::default().override_config(&mut config);
 
         assert!(config.window.dynamic_title);
     }
