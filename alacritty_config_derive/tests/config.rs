@@ -131,7 +131,7 @@ struct Logger {
 }
 
 impl Log for Logger {
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         assert_eq!(record.target(), env!("CARGO_PKG_NAME"));
 
         match record.level() {
@@ -147,7 +147,7 @@ impl Log for Logger {
         }
     }
 
-    fn enabled(&self, _metadata: &Metadata) -> bool {
+    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
         true
     }
 

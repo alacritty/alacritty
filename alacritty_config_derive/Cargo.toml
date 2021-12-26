@@ -5,7 +5,8 @@ authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT/Apache-2.0"
 description = "Failure resistant deserialization derive"
 homepage = "https://github.com/alacritty/alacritty"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.0"
 
 [lib]
 proc-macro = true

@@ -6,7 +6,8 @@ license = "Apache-2.0"
 description = "Library for writing terminal emulators"
 readme = "../README.md"
 homepage = "https://github.com/alacritty/alacritty"
-edition = "2018"
+edition = "2021"
+rust-version = "1.56.0"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
