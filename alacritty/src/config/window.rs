@@ -39,9 +39,9 @@ pub struct WindowConfig {
     /// Use dynamic title.
     pub dynamic_title: bool,
 
-    /// Information to identify particular window.
+    /// Information to identify a particular window.
     #[config(flatten)]
-    pub identity: WindowIdentityConfig,
+    pub identity: Identity,
 
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
@@ -63,7 +63,7 @@ impl Default for WindowConfig {
             embed: Default::default(),
             gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
-            identity: WindowIdentityConfig::default(),
+            identity: Identity::default(),
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
@@ -107,7 +107,7 @@ impl WindowConfig {
 }
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
-pub struct WindowIdentityConfig {
+pub struct Identity {
     /// Window title.
     pub title: String,
 
@@ -115,7 +115,7 @@ pub struct WindowIdentityConfig {
     pub class: Class,
 }
 
-impl Default for WindowIdentityConfig {
+impl Default for Identity {
     fn default() -> Self {
         Self { title: DEFAULT_NAME.into(), class: Default::default() }
     }

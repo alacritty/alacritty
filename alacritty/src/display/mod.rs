@@ -34,7 +34,7 @@ use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN
 use crate::config::font::Font;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
-use crate::config::window::{Dimensions, WindowIdentityConfig};
+use crate::config::window::{Dimensions, Identity};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
@@ -202,7 +202,7 @@ impl Display {
     pub fn new<E>(
         config: &UiConfig,
         event_loop: &EventLoopWindowTarget<E>,
-        identity: &WindowIdentityConfig,
+        identity: &Identity,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Display, Error> {

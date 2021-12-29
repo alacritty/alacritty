@@ -29,7 +29,7 @@ use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
 use crate::clipboard::Clipboard;
-use crate::config::window::WindowIdentityConfig;
+use crate::config::window::Identity;
 use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
@@ -51,8 +51,7 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     dirty: bool,
-    /// Initial information to identify the window such as default class and title.
-    identity: WindowIdentityConfig,
+    identity: Identity,
     #[cfg(not(windows))]
     master_fd: RawFd,
     #[cfg(not(windows))]
@@ -64,7 +63,7 @@ impl WindowContext {
     pub fn new(
         config: &UiConfig,
         pty_config: &PtyConfig,
-        identity: &WindowIdentityConfig,
+        identity: &Identity,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -134,7 +133,6 @@ impl WindowContext {
         if config.terminal_config.cursor.style().blinking {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
-        dbg!(identity);
 
         // Create context for the Alacritty window.
         Ok(WindowContext {

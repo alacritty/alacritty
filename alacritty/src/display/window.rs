@@ -50,7 +50,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, WindowConfig, WindowIdentityConfig};
+use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
 use crate::gl;
 
@@ -166,7 +166,7 @@ impl Window {
     pub fn new<E>(
         event_loop: &EventLoopWindowTarget<E>,
         config: &UiConfig,
-        identity: &WindowIdentityConfig,
+        identity: &Identity,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
@@ -268,10 +268,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(
-        identity: &WindowIdentityConfig,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
             let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
@@ -309,10 +306,7 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(
-        identity: &WindowIdentityConfig,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = glutin::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
@@ -326,10 +320,7 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(
-        identity: &WindowIdentityConfig,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
             .with_title(&identity.title)
             .with_visible(false)

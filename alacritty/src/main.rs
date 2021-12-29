@@ -178,7 +178,7 @@ fn alacritty(options: Options) -> Result<(), String> {
     };
 
     // Event processor.
-    let new_window_options = options.new_window_options.clone();
+    let new_window_options = options.window_options.clone();
     let mut processor = Processor::new(config, options, &window_event_loop);
 
     // Create the first Alacritty window.

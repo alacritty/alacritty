@@ -34,7 +34,7 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 
-use crate::cli::{NewWindowOptions, Options as CliOptions};
+use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
@@ -88,7 +88,7 @@ pub enum EventType {
     ConfigReload(PathBuf),
     Message(Message),
     Scroll(Scroll),
-    CreateWindow(NewWindowOptions),
+    CreateWindow(WindowOptions),
     BlinkCursor,
     SearchNext,
 }
@@ -379,7 +379,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[cfg(not(windows))]
     fn create_new_window(&mut self) {
-        let mut options = NewWindowOptions::default();
+        let mut options = WindowOptions::default();
         if let Ok(working_directory) = foreground_process_path(self.master_fd, self.shell_pid) {
             options.terminal_options.working_directory = Some(working_directory);
         }
@@ -391,7 +391,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn create_new_window(&mut self) {
         let _ = self
             .event_proxy
-            .send_event(Event::new(EventType::CreateWindow(NewWindowOptions::default()), None));
+            .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
     }
 
     fn spawn_daemon<I, S>(&self, program: &str, args: I)
@@ -1044,11 +1044,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ResetTitle => {
-                        if self.ctx.config.window.dynamic_title {
-                            self.ctx
-                                .display
-                                .window
-                                .set_title(&self.ctx.config.window.identity.title);
+                        let window_config = &self.ctx.config.window;
+                        if window_config.dynamic_title {
+                            self.ctx.display.window.set_title(&window_config.identity.title);
                         }
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
@@ -1209,12 +1207,12 @@ impl Processor {
         &mut self,
         event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
-        options: NewWindowOptions,
+        options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let mut pty_config = self.config.terminal_config.pty_config.clone();
-        let mut window_identity = self.config.window.identity.clone();
         options.terminal_options.override_pty_config(&mut pty_config);
-        options.window_options.override_identity_config(&mut window_identity);
+        let mut window_identity = self.config.window.identity.clone();
+        options.window_identity.override_identity_config(&mut window_identity);
 
         let window_context = WindowContext::new(
             &self.config,
