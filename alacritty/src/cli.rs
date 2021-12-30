@@ -277,7 +277,7 @@ pub enum SocketMessage {
 /// Subset of options that we pass to a 'create-window' subcommand.
 #[derive(StructOpt, Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
 pub struct WindowOptions {
-    /// Terminal options which could be passed via IPC.
+    /// Terminal options which can be passed via IPC.
     #[structopt(flatten)]
     pub terminal_options: TerminalOptions,
 

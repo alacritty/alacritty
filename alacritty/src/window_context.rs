@@ -188,8 +188,11 @@ impl WindowContext {
             self.display.pending_update.dirty = true;
         }
 
-        // Live title reload.
-        if !config.window.dynamic_title || self.identity.title != config.window.identity.title {
+        // Live title reload only when title wasn't provided on command line.
+        //
+        // We know that the title was provided on the command line when dynamic_title is disaabled
+        // and old_config title isn't equal to the current one.
+        if !config.window.dynamic_title && self.identity.title != old_config.window.identity.title {
             self.display.window.set_title(&config.window.identity.title);
         }
 
