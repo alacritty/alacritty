@@ -188,7 +188,7 @@ impl WindowContext {
             self.display.pending_update.dirty = true;
         }
 
-        // Live title reload only when title wasn't provided on command line.
+        // Live title reload only when it wasn't provided on the command line.
         //
         // We know that the title was provided on the command line when dynamic_title is disaabled
         // and old_config title isn't equal to the current one.
