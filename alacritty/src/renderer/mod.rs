@@ -25,6 +25,7 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 
+pub mod box_drawing;
 pub mod rects;
 
 // Shader source.
@@ -265,8 +266,13 @@ impl GlyphCache {
             return *glyph;
         };
 
+        // Get glyph from the builtin set of glyphs, if it wasn't found load from the user defined
+        // font.
+        let rasterized = box_drawing::builtin_glyph(glyph_key.character, &self.metrics)
+            .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
+
         // Rasterize glyph.
-        let glyph = match self.rasterizer.get_glyph(glyph_key) {
+        let glyph = match rasterized {
             Ok(rasterized) => self.load_glyph(loader, rasterized),
             // Load fallback glyph.
             Err(RasterizerError::MissingGlyph(rasterized)) if show_missing => {
@@ -827,9 +833,9 @@ impl<'a> RenderApi<'a> {
         self.batch.clear();
     }
 
-    /// Render a string in a variable location. Used for printing the render timer, warnings and
+    /// Draw a string in a variable location. Used for printing the render timer, warnings and
     /// errors.
-    pub fn render_string(
+    pub fn draw_string(
         &mut self,
         glyph_cache: &mut GlyphCache,
         point: Point<usize>,
@@ -852,7 +858,7 @@ impl<'a> RenderApi<'a> {
             .collect::<Vec<_>>();
 
         for cell in cells {
-            self.render_cell(cell, glyph_cache);
+            self.draw_cell(cell, glyph_cache);
         }
     }
 
@@ -871,7 +877,7 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
+    pub fn draw_cell(&mut self, mut cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         // Get font key for cell.
         let font_key = match cell.flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,

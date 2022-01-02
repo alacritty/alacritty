@@ -537,7 +537,7 @@ impl Display {
                     lines.update(&cell);
 
                     // Draw the cell.
-                    api.render_cell(cell, glyph_cache);
+                    api.draw_cell(cell, glyph_cache);
                 }
             });
         }
@@ -606,7 +606,7 @@ impl Display {
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(glyph_cache, point, fg, bg, message_text);
+                    api.draw_string(glyph_cache, point, fg, bg, message_text);
                 });
             }
         } else {
@@ -756,7 +756,7 @@ impl Display {
         let bg = config.colors.search_bar_background();
 
         self.renderer.with_api(config, size_info, |mut api| {
-            api.render_string(glyph_cache, point, fg, bg, &text);
+            api.draw_string(glyph_cache, point, fg, bg, &text);
         });
     }
 
@@ -774,7 +774,7 @@ impl Display {
         let bg = config.colors.normal.red;
 
         self.renderer.with_api(config, size_info, |mut api| {
-            api.render_string(glyph_cache, point, fg, bg, &timing);
+            api.draw_string(glyph_cache, point, fg, bg, &timing);
         });
     }
 
@@ -797,7 +797,7 @@ impl Display {
         if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.with_api(config, size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
+                api.draw_string(glyph_cache, Point::new(0, column), fg, bg, &text);
             });
         }
     }
