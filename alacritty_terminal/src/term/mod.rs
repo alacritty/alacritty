@@ -358,7 +358,11 @@ impl<T> Term<T> {
                     res += self
                         .line_to_string(line, start.column..end.column, start.column.0 != 0)
                         .trim_end();
-                    res += "\n";
+
+                    // If the last column is included, newline is appended automatically.
+                    if end.column != self.columns() - 1 {
+                        res += "\n";
+                    }
                 }
                 res += self.line_to_string(end.line, start.column..end.column, true).trim_end();
             },
