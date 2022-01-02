@@ -19,7 +19,6 @@ use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
-use alacritty_terminal::config::PtyConfig;
 use alacritty_terminal::event::Event as TerminalEvent;
 use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -28,8 +27,8 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
+use crate::cli::WindowOptions;
 use crate::clipboard::Clipboard;
-use crate::config::window::Identity;
 use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
@@ -51,7 +50,7 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     dirty: bool,
-    identity: Identity,
+    preserve_title: bool,
     #[cfg(not(windows))]
     master_fd: RawFd,
     #[cfg(not(windows))]
@@ -62,20 +61,26 @@ impl WindowContext {
     /// Create a new terminal window context.
     pub fn new(
         config: &UiConfig,
-        pty_config: &PtyConfig,
-        identity: &Identity,
+        options: &WindowOptions,
         window_event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Self, Box<dyn Error>> {
+        let mut pty_config = config.terminal_config.pty_config.clone();
+        options.terminal_options.override_pty_config(&mut pty_config);
+
+        let mut identity = config.window.identity.clone();
+        let preserve_title = options.window_identity.title.is_some();
+        options.window_identity.override_identity_config(&mut identity);
+
         // Create a display.
         //
         // The display manages a window and can draw the terminal.
         let display = Display::new(
             config,
             window_event_loop,
-            identity,
+            &identity,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
         )?;
@@ -101,7 +106,7 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(pty_config, &display.size_info, display.window.x11_window_id())?;
+        let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
@@ -139,8 +144,8 @@ impl WindowContext {
             font_size: config.font.size(),
             notifier: Notifier(loop_tx),
             terminal,
-            identity: identity.clone(),
             display,
+            preserve_title,
             #[cfg(not(windows))]
             master_fd,
             #[cfg(not(windows))]
@@ -188,11 +193,15 @@ impl WindowContext {
             self.display.pending_update.dirty = true;
         }
 
-        // Live title reload only when it wasn't provided on the command line.
+        // Update title on config reload according to the following table.
         //
-        // We know that the title was provided on the command line when dynamic_title is disaabled
-        // and old_config title isn't equal to the current one.
-        if !config.window.dynamic_title && self.identity.title != old_config.window.identity.title {
+        // │cli │ dynamic_title │ current_title == old_config ││ set_title │
+        // │ Y  │       _       │              _              ││     N     │
+        // │ N  │       Y       │              Y              ││     Y     │
+        // │ N  │       Y       │              N              ││     N     │
+        // │ N  │       N       │              _              ││     Y     │
+
+        if !self.preserve_title && !config.window.dynamic_title {
             self.display.window.set_title(&config.window.identity.title);
         }
 

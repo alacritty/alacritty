@@ -1209,15 +1209,9 @@ impl Processor {
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let mut pty_config = self.config.terminal_config.pty_config.clone();
-        options.terminal_options.override_pty_config(&mut pty_config);
-        let mut window_identity = self.config.window.identity.clone();
-        options.window_identity.override_identity_config(&mut window_identity);
-
         let window_context = WindowContext::new(
             &self.config,
-            &pty_config,
-            &window_identity,
+            &options,
             event_loop,
             proxy,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
