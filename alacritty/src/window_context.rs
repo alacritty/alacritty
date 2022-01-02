@@ -200,7 +200,6 @@ impl WindowContext {
         // │ N  │       Y       │              Y              ││     Y     │
         // │ N  │       Y       │              N              ││     N     │
         // │ N  │       N       │              _              ││     Y     │
-
         if !self.preserve_title
             && (!config.window.dynamic_title
                 || self.display.window.title() == old_config.window.identity.title)
