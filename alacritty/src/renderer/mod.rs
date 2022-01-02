@@ -25,7 +25,7 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 
-pub mod box_drawing;
+pub mod builtin_font;
 pub mod rects;
 
 // Shader source.
@@ -266,12 +266,11 @@ impl GlyphCache {
             return *glyph;
         };
 
-        // Get glyph from the builtin set of glyphs, if it wasn't found load from the user defined
-        // font.
-        let rasterized = box_drawing::builtin_glyph(glyph_key.character, &self.metrics)
+        // Rasterize the glyph using the built-in font for special characters or the user's font
+        // for everything else.
+        let rasterized = builtin_font::builtin_glyph(glyph_key.character, &self.metrics)
             .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
 
-        // Rasterize glyph.
         let glyph = match rasterized {
             Ok(rasterized) => self.load_glyph(loader, rasterized),
             // Load fallback glyph.
