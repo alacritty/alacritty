@@ -201,8 +201,11 @@ impl WindowContext {
         // │ N  │       Y       │              N              ││     N     │
         // │ N  │       N       │              _              ││     Y     │
 
-        if !self.preserve_title && !config.window.dynamic_title {
-            self.display.window.set_title(&config.window.identity.title);
+        if !self.preserve_title
+            && (!config.window.dynamic_title
+                || self.display.window.title() == old_config.window.identity.title)
+        {
+            self.display.window.set_title(config.window.identity.title.clone());
         }
 
         // Set subpixel anti-aliasing.

@@ -1040,13 +1040,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
                         if self.ctx.config.window.dynamic_title {
-                            self.ctx.window().set_title(&title);
+                            self.ctx.window().set_title(title);
                         }
                     },
                     TerminalEvent::ResetTitle => {
                         let window_config = &self.ctx.config.window;
                         if window_config.dynamic_title {
-                            self.ctx.display.window.set_title(&window_config.identity.title);
+                            self.ctx.display.window.set_title(window_config.identity.title.clone());
                         }
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,

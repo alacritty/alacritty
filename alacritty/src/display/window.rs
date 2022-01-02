@@ -154,6 +154,9 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
+    /// Current window title.
+    title: String,
+
     windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
@@ -217,6 +220,7 @@ impl Window {
             current_mouse_cursor,
             mouse_visible: true,
             windowed_context: Replaceable::new(windowed_context),
+            title: identity.title,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -242,8 +246,15 @@ impl Window {
 
     /// Set the window title.
     #[inline]
-    pub fn set_title(&self, title: &str) {
-        self.window().set_title(title);
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
+        self.window().set_title(&self.title);
+    }
+
+    /// Get the window title.
+    #[inline]
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     #[inline]
