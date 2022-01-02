@@ -505,6 +505,7 @@ impl Canvas {
         let d_y = to_y - from_y;
         for x in from_x as usize..=to_x as usize {
             let y = from_y + d_y * (x as f32 - from_x) / d_x;
+            let y = y.clamp(0., self.height as f32 - 1.);
             let index = min(x + y as usize * self.width, self.buffer.len() - 1);
             self.buffer[index] = COLOR_FILL;
         }
