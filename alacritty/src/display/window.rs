@@ -50,7 +50,7 @@ use winapi::shared::minwindef::WORD;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, WindowConfig};
+use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
 use crate::gl;
 
@@ -154,6 +154,9 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
+    /// Current window title.
+    title: String,
+
     windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
@@ -166,12 +169,13 @@ impl Window {
     pub fn new<E>(
         event_loop: &EventLoopWindowTarget<E>,
         config: &UiConfig,
+        identity: &Identity,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
-        let window_config = &config.window;
-        let window_builder = Window::get_platform_window(&window_config.title, window_config);
+        let identity = identity.clone();
+        let window_builder = Window::get_platform_window(&identity, &config.window);
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -195,7 +199,7 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
             // On X11, embed the window inside another if the parent ID has been set.
-            if let Some(parent_window_id) = window_config.embed {
+            if let Some(parent_window_id) = config.window.embed {
                 x_embed_window(windowed_context.window(), parent_window_id);
             }
         }
@@ -216,6 +220,7 @@ impl Window {
             current_mouse_cursor,
             mouse_visible: true,
             windowed_context: Replaceable::new(windowed_context),
+            title: identity.title,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -241,8 +246,15 @@ impl Window {
 
     /// Set the window title.
     #[inline]
-    pub fn set_title(&self, title: &str) {
-        self.window().set_title(title);
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
+        self.window().set_title(&self.title);
+    }
+
+    /// Get the window title.
+    #[inline]
+    pub fn title(&self) -> &str {
+        &self.title
     }
 
     #[inline]
@@ -267,7 +279,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
             let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
@@ -278,7 +290,7 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
@@ -289,13 +301,11 @@ impl Window {
         let builder = builder.with_window_icon(icon.ok());
 
         #[cfg(feature = "wayland")]
-        let builder = builder.with_app_id(window_config.class.instance.to_owned());
+        let builder = builder.with_app_id(identity.class.instance.to_owned());
 
         #[cfg(feature = "x11")]
-        let builder = builder.with_class(
-            window_config.class.instance.to_owned(),
-            window_config.class.general.to_owned(),
-        );
+        let builder = builder
+            .with_class(identity.class.instance.to_owned(), identity.class.general.to_owned());
 
         #[cfg(feature = "x11")]
         let builder = match &window_config.gtk_theme_variant {
@@ -307,11 +317,11 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = glutin::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
@@ -321,9 +331,9 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_transparent(true)
             .with_maximized(window_config.maximized())

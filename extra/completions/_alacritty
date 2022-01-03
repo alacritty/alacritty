@@ -15,9 +15,6 @@ _alacritty() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'-t+[Defines the window title \[default: Alacritty\]]' \
-'--title=[Defines the window title \[default: Alacritty\]]' \
-'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
 '--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]' \
 '--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]' \
 '--socket=[Path for IPC socket creation]' \
@@ -26,6 +23,9 @@ _alacritty() {
 '--working-directory=[Start the shell in the specified working directory]' \
 '*-e+[Command and args to execute (must be last argument)]' \
 '*--command=[Command and args to execute (must be last argument)]' \
+'-t+[Defines the window title \[default: Alacritty\]]' \
+'--title=[Defines the window title \[default: Alacritty\]]' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
 '--print-events[Print all events to stdout]' \
 '--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
@@ -66,6 +66,9 @@ _arguments "${_arguments_options[@]}" \
 '--working-directory=[Start the shell in the specified working directory]' \
 '*-e+[Command and args to execute (must be last argument)]' \
 '*--command=[Command and args to execute (must be last argument)]' \
+'-t+[Defines the window title \[default: Alacritty\]]' \
+'--title=[Defines the window title \[default: Alacritty\]]' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
 '--hold[Remain open after child process exit]' \
 '-h[Prints help information]' \
 '--help[Prints help information]' \
