@@ -1,10 +1,12 @@
 use std::cmp::max;
 use std::path::PathBuf;
 
+#[cfg(unix)]
+use clap::Subcommand;
+use clap::{Args, Parser};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
-use clap::{Parser, Args, Subcommand};
 
 use alacritty_terminal::config::{Program, PtyConfig};
 
@@ -296,9 +298,9 @@ mod tests {
     use std::io::Read;
 
     #[cfg(target_os = "linux")]
-    use clap_complete::Shell;
-    #[cfg(target_os = "linux")]
     use clap::IntoApp;
+    #[cfg(target_os = "linux")]
+    use clap_complete::Shell;
     use serde_yaml::mapping::Mapping;
 
     #[test]
