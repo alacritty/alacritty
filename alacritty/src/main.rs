@@ -178,13 +178,13 @@ fn alacritty(options: Options) -> Result<(), String> {
     };
 
     // Event processor.
-    let cli_options = options.terminal_options.clone();
+    let window_options = options.window_options.clone();
     let mut processor = Processor::new(config, options, &window_event_loop);
 
     // Create the first Alacritty window.
     let proxy = window_event_loop.create_proxy();
     processor
-        .create_window(&window_event_loop, proxy, cli_options)
+        .create_window(&window_event_loop, proxy, window_options)
         .map_err(|err| err.to_string())?;
 
     info!("Initialisation complete");
