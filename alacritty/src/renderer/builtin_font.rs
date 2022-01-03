@@ -623,6 +623,8 @@ mod test {
             assert!(builtin_glyph(character, &metrics).is_some());
         }
 
-        // TODO add catch unwind test.
+        for character in ('\u{2450}'..'\u{2500}').into_iter().chain('\u{25a0}'..'\u{2600}') {
+            assert!(builtin_glyph(character, &metrics).is_none());
+        }
     }
 }
