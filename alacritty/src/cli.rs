@@ -8,7 +8,7 @@ use structopt::StructOpt;
 
 use alacritty_terminal::config::{Program, PtyConfig};
 
-use crate::config::window::{Class, DEFAULT_NAME};
+use crate::config::window::{Class, Identity, DEFAULT_NAME};
 use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
@@ -22,14 +22,6 @@ pub struct Options {
     /// Generates ref test.
     #[structopt(long)]
     pub ref_test: bool,
-
-    /// Defines the window title [default: Alacritty].
-    #[structopt(short, long)]
-    pub title: Option<String>,
-
-    /// Defines window class/app_id on X11/Wayland [default: Alacritty].
-    #[structopt(long, value_name = "instance> | <instance>,<general", parse(try_from_str = parse_class))]
-    pub class: Option<Class>,
 
     /// Defines the X11 window ID (as a decimal integer) to embed Alacritty within.
     #[structopt(long)]
@@ -71,9 +63,9 @@ pub struct Options {
     #[structopt(skip)]
     pub config_options: Value,
 
-    /// Terminal options which could be passed via IPC.
+    /// Options which could be passed via IPC.
     #[structopt(flatten)]
-    pub terminal_options: TerminalOptions,
+    pub window_options: WindowOptions,
 
     /// Subcommand passed to the CLI.
     #[cfg(unix)]
@@ -100,19 +92,12 @@ impl Options {
 
     /// Override configuration file with options from the CLI.
     pub fn override_config(&self, config: &mut UiConfig) {
-        if let Some(title) = self.title.clone() {
-            config.window.title = title
-        }
-        if let Some(class) = &self.class {
-            config.window.class = class.clone();
-        }
-
         #[cfg(unix)]
         {
             config.ipc_socket |= self.socket.is_some();
         }
 
-        config.window.dynamic_title &= self.title.is_none();
+        config.window.dynamic_title &= self.window_options.window_identity.title.is_none();
         config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
         config.debug.print_events |= self.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level());
@@ -237,6 +222,30 @@ impl From<TerminalOptions> for PtyConfig {
     }
 }
 
+/// Window specific cli options which can be passed to new windows via IPC.
+#[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
+pub struct WindowIdentity {
+    /// Defines the window title [default: Alacritty].
+    #[structopt(short, long)]
+    pub title: Option<String>,
+
+    /// Defines window class/app_id on X11/Wayland [default: Alacritty].
+    #[structopt(long, value_name = "instance> | <instance>,<general", parse(try_from_str = parse_class))]
+    pub class: Option<Class>,
+}
+
+impl WindowIdentity {
+    /// Override the [`WindowIdentityConfig`]'s fields with the [`WindowOptions`].
+    pub fn override_identity_config(&self, identity: &mut Identity) {
+        if let Some(title) = &self.title {
+            identity.title = title.clone();
+        }
+        if let Some(class) = &self.class {
+            identity.class = class.clone();
+        }
+    }
+}
+
 /// Available CLI subcommands.
 #[cfg(unix)]
 #[derive(StructOpt, Debug)]
@@ -262,7 +271,19 @@ pub struct MessageOptions {
 #[derive(StructOpt, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
-    CreateWindow(TerminalOptions),
+    CreateWindow(WindowOptions),
+}
+
+/// Subset of options that we pass to a 'create-window' subcommand.
+#[derive(StructOpt, Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+pub struct WindowOptions {
+    /// Terminal options which can be passed via IPC.
+    #[structopt(flatten)]
+    pub terminal_options: TerminalOptions,
+
+    #[structopt(flatten)]
+    /// Window options which could be passed via IPC.
+    pub window_identity: WindowIdentity,
 }
 
 #[cfg(test)]
@@ -292,7 +313,10 @@ mod tests {
     fn dynamic_title_overridden_by_options() {
         let mut config = UiConfig::default();
 
-        let options = Options { title: Some("foo".to_owned()), ..Options::default() };
+        let title = Some(String::from("foo"));
+        let window_identity = WindowIdentity { title, ..WindowIdentity::default() };
+        let new_window_options = WindowOptions { window_identity, ..WindowOptions::default() };
+        let options = Options { window_options: new_window_options, ..Options::default() };
         options.override_config(&mut config);
 
         assert!(!config.window.dynamic_title);
@@ -302,7 +326,7 @@ mod tests {
     fn dynamic_title_not_overridden_by_config() {
         let mut config = UiConfig::default();
 
-        config.window.title = "foo".to_owned();
+        config.window.identity.title = "foo".to_owned();
         Options::default().override_config(&mut config);
 
         assert!(config.window.dynamic_title);

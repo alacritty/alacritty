@@ -4,7 +4,7 @@ use std::os::raw::c_ulong;
 use glutin::window::Fullscreen;
 use log::error;
 use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use alacritty_config_derive::ConfigDeserialize;
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -39,11 +39,9 @@ pub struct WindowConfig {
     /// Use dynamic title.
     pub dynamic_title: bool,
 
-    /// Window title.
-    pub title: String,
-
-    /// Window class.
-    pub class: Class,
+    /// Information to identify a particular window.
+    #[config(flatten)]
+    pub identity: Identity,
 
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
@@ -59,14 +57,13 @@ impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             dynamic_title: true,
-            title: DEFAULT_NAME.into(),
             position: Default::default(),
             decorations: Default::default(),
             startup_mode: Default::default(),
             embed: Default::default(),
             gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
-            class: Default::default(),
+            identity: Identity::default(),
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
@@ -106,6 +103,21 @@ impl WindowConfig {
     #[inline]
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
+    }
+}
+
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+pub struct Identity {
+    /// Window title.
+    pub title: String,
+
+    /// Window class.
+    pub class: Class,
+}
+
+impl Default for Identity {
+    fn default() -> Self {
+        Self { title: DEFAULT_NAME.into(), class: Default::default() }
     }
 }
 
@@ -153,7 +165,7 @@ pub struct Dimensions {
 }
 
 /// Window class hint.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     pub instance: String,
     pub general: String,

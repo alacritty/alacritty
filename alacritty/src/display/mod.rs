@@ -32,9 +32,9 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
+use crate::config::window::{Dimensions, Identity};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
@@ -202,6 +202,7 @@ impl Display {
     pub fn new<E>(
         config: &UiConfig,
         event_loop: &EventLoopWindowTarget<E>,
+        identity: &Identity,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Display, Error> {
@@ -236,6 +237,7 @@ impl Display {
         let mut window = Window::new(
             event_loop,
             config,
+            identity,
             estimated_size,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
