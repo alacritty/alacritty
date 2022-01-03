@@ -271,26 +271,38 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
         },
         // Arcs: '╭', '╮', '╯', '╰'.
         '\u{256d}' | '\u{256e}' | '\u{256f}' | '\u{2570}' => {
-            canvas.draw_arc_centered(stroke_size);
-            // Mirror `X` axis.
+            canvas.draw_arc(stroke_size);
             if character == '\u{256d}' || character == '\u{2570}' {
                 let center = canvas.x_center() as usize;
+                let extra_offset = if width % 2 == 0 { 1 } else { 0 };
+                let buffer = canvas.buffer_mut();
                 for y in 1..height {
                     let left = (y - 1) * width;
                     let right = y * width - 1;
+                    if extra_offset != 0 {
+                        buffer[right] = buffer[left];
+                    }
                     for offset in 0..center {
-                        canvas.buffer_mut().swap(left + offset, right - offset);
+                        buffer.swap(left + offset, right - offset - extra_offset);
                     }
                 }
             }
             // Mirror `Y` axis.
             if character == '\u{256d}' || character == '\u{256e}' {
                 let center = canvas.y_center() as usize;
+                let extra_offset = if height % 2 == 0 { 1 } else { 0 };
+                let buffer = canvas.buffer_mut();
+                if extra_offset != 0 {
+                    let bottom_row = (height - 1) * width;
+                    for index in 0..width {
+                        buffer[bottom_row + index] = buffer[index];
+                    }
+                }
                 for offset in 1..=center {
                     let top_row = (offset - 1) * width;
-                    let bottom_row = (height - offset) * width;
+                    let bottom_row = (height - offset - extra_offset) * width;
                     for index in 0..width {
-                        canvas.buffer_mut().swap(top_row + index, bottom_row + index);
+                        buffer.swap(top_row + index, bottom_row + index);
                     }
                 }
             }
@@ -412,6 +424,12 @@ struct Pixel {
     _b: u8,
 }
 
+impl Pixel {
+    fn gray(color: u8) -> Self {
+        Self { _r: color, _g: color, _b: color }
+    }
+}
+
 /// Canvas which is used for simple line drawing operations.
 struct Canvas {
     /// Canvas width.
@@ -498,32 +516,69 @@ impl Canvas {
         }
     }
 
-    /// Draws an arc from `(0, self.center_v())` to `(self.center_h(), 0)`.
-    ///
-    /// You can mirror Arc in whichever direction you'd like.
-    fn draw_arc_centered(&mut self, stroke_size: usize) {
-        let v_line_bounds = self.v_line_bounds(self.x_center(), stroke_size);
-        let v_line_bounds = (v_line_bounds.0 as usize + 1, v_line_bounds.1 as usize);
+    /// Draws an arc from `(0, self.center_v())` to `(self.center_h(), 0)` with the specified
+    /// stroke.
+    fn draw_arc(&mut self, stroke_size: usize) {
+        fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
+            let transparancy = error * max_transparancy;
+            let alpha_1 = 1. - transparancy;
+            let alpha_2 = 1. - (max_transparancy - transparancy);
+            let color_1 = Pixel::gray((COLOR_FILL._r as f32 * alpha_1) as u8);
+            let color_2 = Pixel::gray((COLOR_FILL._r as f32 * alpha_2) as u8);
+            (color_1, color_2)
+        }
+
         let h_line_bounds = self.h_line_bounds(self.y_center(), stroke_size);
-        let h_line_bounds = (h_line_bounds.0 as usize + 1, h_line_bounds.1 as usize);
+        let v_line_bounds = self.v_line_bounds(self.x_center(), stroke_size);
+        let h_line_bounds = (h_line_bounds.0 as usize, h_line_bounds.1 as usize);
+        let v_line_bounds = (v_line_bounds.0 as usize, v_line_bounds.1 as usize);
+        let max_transparancy = 0.5;
 
-        for (to_x, from_y) in (v_line_bounds.0..=v_line_bounds.1)
+        for (radious_y, radious_x) in (h_line_bounds.0..h_line_bounds.1)
             .into_iter()
-            .zip((h_line_bounds.0..=h_line_bounds.1).into_iter())
+            .zip((v_line_bounds.0..v_line_bounds.1).into_iter())
         {
-            let d1 = to_x as f32;
-            let d2 = from_y as f32;
+            let radious_x = radious_x as f32;
+            let radious_y = radious_y as f32;
+            let radious_x2 = radious_x * radious_x;
+            let radious_y2 = radious_y * radious_y;
+            let quarter = f32::round(radious_x2 / f32::sqrt(radious_x2 + radious_y2)) as usize;
 
-            let mut y = from_y as f32;
-            while y >= 0. {
-                let x = f32::sqrt(d2 * d2 - y * y) * d1 / d2;
-                let x_r = cmp::min(x as usize, v_line_bounds.1 as usize - 1);
-                let y_r = cmp::min(y as usize, h_line_bounds.1 as usize - 1);
-                let index = cmp::min(x_r + y_r as usize * self.width, self.buffer.len() - 1);
-                self.buffer[index] = COLOR_FILL;
-                y -= 0.1;
+            for x in 0..=quarter {
+                let x = x as f32;
+                let y = radious_y * f32::sqrt(1. - x * x / radious_x2);
+                let error = y - y.floor();
+
+                let (color_1, color_2) = colors_with_error(error, max_transparancy);
+
+                let x = x.clamp(0., radious_x) as usize;
+                let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.) as usize;
+                let y = y.clamp(0., h_line_bounds.1 as f32 - 1.) as usize;
+
+                self.buffer[x + y * self.width] = color_1;
+                self.buffer[x + y_next * self.width] = color_2;
+            }
+
+            let quarter = f32::round(radious_y2 / f32::sqrt(radious_x2 + radious_y2)) as usize;
+            for y in 0..=quarter {
+                let y = y as f32;
+                let x = radious_x * f32::sqrt(1. - y * y / radious_y2);
+                let error = x - x.floor();
+
+                let (color_1, color_2) = colors_with_error(error, max_transparancy);
+
+                let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.) as usize;
+                let x = x.clamp(0., v_line_bounds.1 as f32 - 1.) as usize;
+                let y = y.clamp(0., radious_y as f32) as usize;
+
+                self.buffer[x + y * self.width] = color_1;
+                self.buffer[x_next + y * self.width] = color_2;
             }
         }
+
+        // Ensure the part closer to edges is properly filled.
+        self.draw_h_line(0., self.y_center(), stroke_size as f32, stroke_size);
+        self.draw_v_line(self.x_center(), 0., stroke_size as f32, stroke_size);
     }
 
     /// Fills the `Canvas` with the given `Color`.
@@ -567,5 +622,7 @@ mod test {
         for character in '\u{2500}'..='\u{259f}' {
             assert!(builtin_glyph(character, &metrics).is_some());
         }
+
+        // TODO add catch unwind test.
     }
 }
