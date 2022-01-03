@@ -19,7 +19,7 @@ path = "../alacritty_config_derive"
 version = "0.1.0"
 
 [dependencies]
-structopt = "0.3.22"
+clap = { version = "3.0.0", features = ["derive"] }
 log = { version = "0.4", features = ["std", "serde"] }
 time = "0.1.40"
 fnv = "1"
@@ -36,11 +36,11 @@ unicode-width = "0.1"
 bitflags = "1"
 dirs = "3.0.1"
 
-[dev-dependencies]
-clap = "2.33.3"
-
 [build-dependencies]
 gl_generator = "0.14.0"
+
+[dev-dependencies]
+clap_complete = "3.0.0"
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2.4.0"
