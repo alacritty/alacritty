@@ -504,15 +504,85 @@ impl Canvas {
         }
     }
 
-    /// Naive line drawing from (`from_x`, `from_y`) to (`to_x`, `to_y`).
-    fn draw_line(&mut self, from_x: f32, from_y: f32, to_x: f32, to_y: f32) {
-        let d_x = to_x - from_x;
-        let d_y = to_y - from_y;
-        for x in from_x as usize..=to_x as usize {
-            let y = from_y + d_y * (x as f32 - from_x) / d_x;
-            let y = y.clamp(0., self.height as f32 - 1.);
-            let index = cmp::min(x + y as usize * self.width, self.buffer.len() - 1);
-            self.buffer[index] = COLOR_FILL;
+    /// Put pixel into buffer with the given color if the color is brighter than the one buffer
+    /// already has in place.
+    #[inline]
+    fn put_pixel(&mut self, x: f32, y: f32, color: Pixel) {
+        let x = (x as usize).clamp(0, self.width - 1);
+        let y = (y as usize).clamp(0, self.height - 1);
+        let index = x as usize + y as usize * self.width;
+        if color._r > self.buffer[index]._r {
+            self.buffer[index] = color;
+        }
+    }
+
+    /// Xiaolin Wu's line drawing from (`from_x`, `from_y`) to (`to_x`, `to_y`).
+    fn draw_line(&mut self, mut from_x: f32, mut from_y: f32, mut to_x: f32, mut to_y: f32) {
+        let steep = (to_y - from_y).abs() > (to_x - from_x).abs();
+        if steep {
+            mem::swap(&mut from_x, &mut from_y);
+            mem::swap(&mut to_x, &mut to_y);
+        }
+        if from_x > to_x {
+            mem::swap(&mut from_x, &mut to_x);
+            mem::swap(&mut from_y, &mut to_y);
+        }
+
+        let delta_x = to_x - from_x;
+        let delta_y = to_y - from_y;
+        let gradient = if delta_x.abs() <= f32::EPSILON { 1. } else { delta_y / delta_x };
+
+        let x_end = f32::round(from_x);
+        let y_end = from_y + gradient * (x_end - from_x);
+        let x_gap = (from_x + 0.5).fract();
+
+        let xpx11 = f32::floor(x_end);
+        let ypx11 = f32::floor(y_end);
+
+        let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
+        let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
+        if steep {
+            self.put_pixel(ypx11, xpx11, color_1);
+            self.put_pixel(ypx11 + 1., xpx11, color_2);
+        } else {
+            self.put_pixel(xpx11, ypx11, color_1);
+            self.put_pixel(xpx11 + 1., ypx11, color_2);
+        }
+
+        let mut intery = y_end + gradient;
+
+        let x_end = f32::round(to_x);
+        let y_end = to_y + gradient * (x_end - to_x);
+        let x_gap = (to_x + 0.5).fract();
+        let xpx12 = f32::floor(x_end);
+        let ypx12 = f32::floor(y_end);
+
+        let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
+        let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
+        if steep {
+            self.put_pixel(ypx12, xpx12, color_1);
+            self.put_pixel(ypx12 + 1., xpx12, color_2);
+        } else {
+            self.put_pixel(xpx12, ypx12, color_1);
+            self.put_pixel(xpx12, ypx12 + 1., color_2);
+        }
+
+        if steep {
+            for x in xpx11 as usize + 1..xpx12 as usize {
+                let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
+                let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
+                self.put_pixel(intery.trunc(), x as f32, color_1);
+                self.put_pixel(intery.trunc() + 1., x as f32, color_2);
+                intery += gradient;
+            }
+        } else {
+            for x in xpx11 as usize + 1..xpx12 as usize {
+                let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
+                let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
+                self.put_pixel(x as f32, intery.trunc(), color_1);
+                self.put_pixel(x as f32, intery.trunc() + 1., color_2);
+                intery += gradient;
+            }
         }
     }
 
@@ -547,32 +617,32 @@ impl Canvas {
             for x in 0..=quarter {
                 let x = x as f32;
                 let y = radious_y * f32::sqrt(1. - x * x / radious_x2);
-                let error = y - y.floor();
+                let error = y.fract();
 
                 let (color_1, color_2) = colors_with_error(error, max_transparancy);
 
-                let x = x.clamp(0., radious_x) as usize;
-                let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.) as usize;
-                let y = y.clamp(0., h_line_bounds.1 as f32 - 1.) as usize;
+                let x = x.clamp(0., radious_x);
+                let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.);
+                let y = y.clamp(0., h_line_bounds.1 as f32 - 1.);
 
-                self.buffer[x + y * self.width] = color_1;
-                self.buffer[x + y_next * self.width] = color_2;
+                self.put_pixel(x, y, color_1);
+                self.put_pixel(x, y_next, color_2);
             }
 
             let quarter = f32::round(radious_y2 / f32::sqrt(radious_x2 + radious_y2)) as usize;
             for y in 0..=quarter {
                 let y = y as f32;
                 let x = radious_x * f32::sqrt(1. - y * y / radious_y2);
-                let error = x - x.floor();
+                let error = x - x.fract();
 
                 let (color_1, color_2) = colors_with_error(error, max_transparancy);
 
-                let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.) as usize;
-                let x = x.clamp(0., v_line_bounds.1 as f32 - 1.) as usize;
-                let y = y.clamp(0., radious_y as f32) as usize;
+                let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.);
+                let x = x.clamp(0., v_line_bounds.1 as f32 - 1.);
+                let y = y.clamp(0., radious_y as f32);
 
-                self.buffer[x + y * self.width] = color_1;
-                self.buffer[x_next + y * self.width] = color_2;
+                self.put_pixel(x, y, color_1);
+                self.put_pixel(x_next, y, color_2);
             }
         }
 
