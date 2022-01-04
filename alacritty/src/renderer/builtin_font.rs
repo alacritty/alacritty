@@ -271,7 +271,8 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
         },
         // Arcs: '╭', '╮', '╯', '╰'.
         '\u{256d}' | '\u{256e}' | '\u{256f}' | '\u{2570}' => {
-            canvas.draw_arc(stroke_size);
+            canvas.draw_ellipse_arc(stroke_size);
+            // Mirror `X` axis.
             if character == '\u{256d}' || character == '\u{2570}' {
                 let center = canvas.x_center() as usize;
                 let extra_offset = if width % 2 == 0 { 1 } else { 0 };
@@ -314,12 +315,12 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
             for stroke_size in 0..=stroke_size {
                 let stroke_size = stroke_size as f32 / 2.;
                 if character == '\u{2571}' || character == '\u{2573}' {
-                    canvas.draw_line(stroke_size, height - 1., width - 1., stroke_size);
-                    canvas.draw_line(0., height - 1. - stroke_size, width - 1. - stroke_size, 0.);
+                    canvas.draw_line(stroke_size - 1., height, width, stroke_size);
+                    canvas.draw_line(-1., height - stroke_size, width - stroke_size, 0.);
                 }
                 if character == '\u{2572}' || character == '\u{2573}' {
-                    canvas.draw_line(stroke_size, 0., width - 1., height - 1. - stroke_size);
-                    canvas.draw_line(0., stroke_size, width - 1. - stroke_size, height - 1.);
+                    canvas.draw_line(stroke_size - 1., 0., width, height - stroke_size);
+                    canvas.draw_line(-1., stroke_size - 1., width - stroke_size, height);
                 }
             }
         },
@@ -332,22 +333,24 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
                 '\u{2589}' => width * 7. / 8.,
                 '\u{258a}' => width * 6. / 8.,
                 '\u{258b}' => width * 5. / 8.,
-                '\u{258c}' | '\u{2590}' => width * 4. / 8.,
+                '\u{258c}' => width * 4. / 8.,
                 '\u{258d}' => width * 3. / 8.,
                 '\u{258e}' => width * 2. / 8.,
-                '\u{258f}' | '\u{2595}' => width / 8.,
+                '\u{258f}' => width * 1. / 8.,
+                '\u{2590}' => width * 4. / 8.,
+                '\u{2595}' => width * 1. / 8.,
                 _ => width,
             };
             let (rect_height, y) = match character {
-                '\u{2580}' => (height * 4. / 8., height),
-                '\u{2581}' => (height / 8., height / 8.),
+                '\u{2580}' => (height * 4. / 8., height * 8. / 8.),
+                '\u{2581}' => (height * 1. / 8., height * 1. / 8.),
                 '\u{2582}' => (height * 2. / 8., height * 2. / 8.),
                 '\u{2583}' => (height * 3. / 8., height * 3. / 8.),
                 '\u{2584}' => (height * 4. / 8., height * 4. / 8.),
                 '\u{2585}' => (height * 5. / 8., height * 5. / 8.),
                 '\u{2586}' => (height * 6. / 8., height * 6. / 8.),
                 '\u{2587}' => (height * 7. / 8., height * 7. / 8.),
-                '\u{2594}' => (height / 8., height),
+                '\u{2594}' => (height * 1. / 8., height * 8. / 8.),
                 _ => (height, height),
             };
             // Fixup `y` coordinates.
@@ -431,6 +434,18 @@ impl Pixel {
 }
 
 /// Canvas which is used for simple line drawing operations.
+///
+/// The coordinate system is the following:
+///
+///                x
+///  --------------→
+///  |
+///  |
+///  |
+///  |
+///  |
+///  |
+/// y↓
 struct Canvas {
     /// Canvas width.
     width: usize,
@@ -536,17 +551,17 @@ impl Canvas {
         let y_end = from_y + gradient * (x_end - from_x);
         let x_gap = (from_x + 0.5).fract();
 
-        let xpx11 = f32::floor(x_end);
-        let ypx11 = f32::floor(y_end);
+        let xpxl1 = f32::floor(x_end);
+        let ypxl1 = f32::floor(y_end);
 
         let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
         let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
         if steep {
-            self.put_pixel(ypx11, xpx11, color_1);
-            self.put_pixel(ypx11 + 1., xpx11, color_2);
+            self.put_pixel(ypxl1, xpxl1, color_1);
+            self.put_pixel(ypxl1 + 1., xpxl1, color_2);
         } else {
-            self.put_pixel(xpx11, ypx11, color_1);
-            self.put_pixel(xpx11 + 1., ypx11, color_2);
+            self.put_pixel(xpxl1, ypxl1, color_1);
+            self.put_pixel(xpxl1 + 1., ypxl1, color_2);
         }
 
         let mut intery = y_end + gradient;
@@ -554,21 +569,21 @@ impl Canvas {
         let x_end = f32::round(to_x);
         let y_end = to_y + gradient * (x_end - to_x);
         let x_gap = (to_x + 0.5).fract();
-        let xpx12 = f32::floor(x_end);
-        let ypx12 = f32::floor(y_end);
+        let xpxl2 = f32::floor(x_end);
+        let ypxl2 = f32::floor(y_end);
 
         let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
         let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
         if steep {
-            self.put_pixel(ypx12, xpx12, color_1);
-            self.put_pixel(ypx12 + 1., xpx12, color_2);
+            self.put_pixel(ypxl2, xpxl2, color_1);
+            self.put_pixel(ypxl2 + 1., xpxl2, color_2);
         } else {
-            self.put_pixel(xpx12, ypx12, color_1);
-            self.put_pixel(xpx12, ypx12 + 1., color_2);
+            self.put_pixel(xpxl2, ypxl2, color_1);
+            self.put_pixel(xpxl2, ypxl2 + 1., color_2);
         }
 
         if steep {
-            for x in xpx11 as usize + 1..xpx12 as usize {
+            for x in xpxl1 as usize + 1..xpxl2 as usize {
                 let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
                 let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
                 self.put_pixel(intery.trunc(), x as f32, color_1);
@@ -576,7 +591,7 @@ impl Canvas {
                 intery += gradient;
             }
         } else {
-            for x in xpx11 as usize + 1..xpx12 as usize {
+            for x in xpxl1 as usize + 1..xpxl2 as usize {
                 let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
                 let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
                 self.put_pixel(x as f32, intery.trunc(), color_1);
@@ -586,9 +601,9 @@ impl Canvas {
         }
     }
 
-    /// Draws an arc from `(0, self.center_v())` to `(self.center_h(), 0)` with the specified
-    /// stroke.
-    fn draw_arc(&mut self, stroke_size: usize) {
+    /// Draws a part of ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
+    /// radiuses with a given `stroke` in second quadrant of the coordinate system.
+    fn draw_ellipse_arc(&mut self, stroke_size: usize) {
         fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
             let transparancy = error * max_transparancy;
             let alpha_1 = 1. - transparancy;
@@ -604,24 +619,24 @@ impl Canvas {
         let v_line_bounds = (v_line_bounds.0 as usize, v_line_bounds.1 as usize);
         let max_transparancy = 0.5;
 
-        for (radious_y, radious_x) in (h_line_bounds.0..h_line_bounds.1)
+        for (radius_y, radius_x) in (h_line_bounds.0..h_line_bounds.1)
             .into_iter()
             .zip((v_line_bounds.0..v_line_bounds.1).into_iter())
         {
-            let radious_x = radious_x as f32;
-            let radious_y = radious_y as f32;
-            let radious_x2 = radious_x * radious_x;
-            let radious_y2 = radious_y * radious_y;
-            let quarter = f32::round(radious_x2 / f32::sqrt(radious_x2 + radious_y2)) as usize;
+            let radius_x = radius_x as f32;
+            let radius_y = radius_y as f32;
+            let radius_x2 = radius_x * radius_x;
+            let radius_y2 = radius_y * radius_y;
+            let quarter = f32::round(radius_x2 / f32::sqrt(radius_x2 + radius_y2)) as usize;
 
             for x in 0..=quarter {
                 let x = x as f32;
-                let y = radious_y * f32::sqrt(1. - x * x / radious_x2);
+                let y = radius_y * f32::sqrt(1. - x * x / radius_x2);
                 let error = y.fract();
 
                 let (color_1, color_2) = colors_with_error(error, max_transparancy);
 
-                let x = x.clamp(0., radious_x);
+                let x = x.clamp(0., radius_x);
                 let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.);
                 let y = y.clamp(0., h_line_bounds.1 as f32 - 1.);
 
@@ -629,17 +644,17 @@ impl Canvas {
                 self.put_pixel(x, y_next, color_2);
             }
 
-            let quarter = f32::round(radious_y2 / f32::sqrt(radious_x2 + radious_y2)) as usize;
+            let quarter = f32::round(radius_y2 / f32::sqrt(radius_x2 + radius_y2)) as usize;
             for y in 0..=quarter {
                 let y = y as f32;
-                let x = radious_x * f32::sqrt(1. - y * y / radious_y2);
+                let x = radius_x * f32::sqrt(1. - y * y / radius_y2);
                 let error = x - x.fract();
 
                 let (color_1, color_2) = colors_with_error(error, max_transparancy);
 
                 let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.);
                 let x = x.clamp(0., v_line_bounds.1 as f32 - 1.);
-                let y = y.clamp(0., radious_y as f32);
+                let y = y.clamp(0., radius_y as f32);
 
                 self.put_pixel(x, y, color_1);
                 self.put_pixel(x_next, y, color_2);
@@ -661,7 +676,7 @@ impl Canvas {
         // SAFETY This is safe since we use `repr(packed)` on `Pixel` struct for underlying storage
         // of the `Canvas` buffer which consists of three u8 values.
         unsafe {
-            let capacity = self.buffer.capacity();
+            let capacity = self.buffer.capacity() * mem::size_of::<Pixel>();
             let len = self.buffer.len() * mem::size_of::<Pixel>();
             let buf = self.buffer.as_ptr() as *mut u8;
             mem::forget(self.buffer);
