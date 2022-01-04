@@ -1,10 +1,12 @@
 use std::cmp::max;
 use std::path::PathBuf;
 
+#[cfg(unix)]
+use clap::Subcommand;
+use clap::{Args, Parser};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
-use structopt::StructOpt;
 
 use alacritty_terminal::config::{Program, PtyConfig};
 
@@ -12,70 +14,70 @@ use crate::config::window::{Class, Identity, DEFAULT_NAME};
 use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
-#[derive(StructOpt, Default, Debug)]
-#[structopt(author, about, version = env!("VERSION"))]
+#[derive(Parser, Default, Debug)]
+#[clap(author, about, version = env!("VERSION"))]
 pub struct Options {
     /// Print all events to stdout.
-    #[structopt(long)]
+    #[clap(long)]
     pub print_events: bool,
 
     /// Generates ref test.
-    #[structopt(long)]
+    #[clap(long)]
     pub ref_test: bool,
 
     /// Defines the X11 window ID (as a decimal integer) to embed Alacritty within.
-    #[structopt(long)]
+    #[clap(long)]
     pub embed: Option<String>,
 
     /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml].
     #[cfg(not(any(target_os = "macos", windows)))]
-    #[structopt(long)]
+    #[clap(long)]
     pub config_file: Option<PathBuf>,
 
     /// Specify alternative configuration file [default: %APPDATA%\alacritty\alacritty.yml].
     #[cfg(windows)]
-    #[structopt(long)]
+    #[clap(long)]
     pub config_file: Option<PathBuf>,
 
     /// Specify alternative configuration file [default: $HOME/.config/alacritty/alacritty.yml].
     #[cfg(target_os = "macos")]
-    #[structopt(long)]
+    #[clap(long)]
     pub config_file: Option<PathBuf>,
 
     /// Path for IPC socket creation.
     #[cfg(unix)]
-    #[structopt(long)]
+    #[clap(long)]
     pub socket: Option<PathBuf>,
 
     /// Reduces the level of verbosity (the min level is -qq).
-    #[structopt(short, conflicts_with("verbose"), parse(from_occurrences))]
+    #[clap(short, conflicts_with("verbose"), parse(from_occurrences))]
     quiet: u8,
 
     /// Increases the level of verbosity (the max level is -vvv).
-    #[structopt(short, conflicts_with("quiet"), parse(from_occurrences))]
+    #[clap(short, conflicts_with("quiet"), parse(from_occurrences))]
     verbose: u8,
 
     /// Override configuration file options [example: cursor.style=Beam].
-    #[structopt(short = "o", long)]
+    #[clap(short = 'o', long, multiple_values = true)]
     option: Vec<String>,
 
     /// CLI options for config overrides.
-    #[structopt(skip)]
+    #[clap(skip)]
     pub config_options: Value,
 
-    /// Options which could be passed via IPC.
-    #[structopt(flatten)]
+    /// Options which can be passed via IPC.
+    #[clap(flatten)]
     pub window_options: WindowOptions,
 
     /// Subcommand passed to the CLI.
     #[cfg(unix)]
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub subcommands: Option<Subcommands>,
 }
 
 impl Options {
     pub fn new() -> Self {
-        let mut options = Self::from_args();
+        let mut options = Self::parse();
 
         // Convert `--option` flags into serde `Value`.
         for option in &options.option {
@@ -172,18 +174,18 @@ fn parse_class(input: &str) -> Result<Class, String> {
 }
 
 /// Terminal specific cli options which can be passed to new windows via IPC.
-#[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq)]
 pub struct TerminalOptions {
     /// Start the shell in the specified working directory.
-    #[structopt(long)]
+    #[clap(long)]
     pub working_directory: Option<PathBuf>,
 
     /// Remain open after child process exit.
-    #[structopt(long)]
+    #[clap(long)]
     pub hold: bool,
 
     /// Command and args to execute (must be last argument).
-    #[structopt(short = "e", long, allow_hyphen_values = true)]
+    #[clap(short = 'e', long, allow_hyphen_values = true, multiple_values = true)]
     command: Vec<String>,
 }
 
@@ -223,14 +225,14 @@ impl From<TerminalOptions> for PtyConfig {
 }
 
 /// Window specific cli options which can be passed to new windows via IPC.
-#[derive(Serialize, Deserialize, StructOpt, Default, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq)]
 pub struct WindowIdentity {
     /// Defines the window title [default: Alacritty].
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub title: Option<String>,
 
     /// Defines window class/app_id on X11/Wayland [default: Alacritty].
-    #[structopt(long, value_name = "instance> | <instance>,<general", parse(try_from_str = parse_class))]
+    #[clap(long, value_name = "instance> | <instance>,<general", parse(try_from_str = parse_class))]
     pub class: Option<Class>,
 }
 
@@ -248,40 +250,40 @@ impl WindowIdentity {
 
 /// Available CLI subcommands.
 #[cfg(unix)]
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 pub enum Subcommands {
     Msg(MessageOptions),
 }
 
 /// Send a message to the Alacritty socket.
 #[cfg(unix)]
-#[derive(StructOpt, Debug)]
+#[derive(Args, Debug)]
 pub struct MessageOptions {
     /// IPC socket connection path override.
-    #[structopt(long, short)]
+    #[clap(long, short)]
     pub socket: Option<PathBuf>,
 
     /// Message which should be sent.
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub message: SocketMessage,
 }
 
 /// Available socket messages.
 #[cfg(unix)]
-#[derive(StructOpt, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Subcommand, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
     CreateWindow(WindowOptions),
 }
 
 /// Subset of options that we pass to a 'create-window' subcommand.
-#[derive(StructOpt, Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Clone, Debug, PartialEq)]
 pub struct WindowOptions {
     /// Terminal options which can be passed via IPC.
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub terminal_options: TerminalOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     /// Window options which could be passed via IPC.
     pub window_identity: WindowIdentity,
 }
@@ -296,7 +298,9 @@ mod tests {
     use std::io::Read;
 
     #[cfg(target_os = "linux")]
-    use clap::Shell;
+    use clap::IntoApp;
+    #[cfg(target_os = "linux")]
+    use clap_complete::Shell;
     use serde_yaml::mapping::Mapping;
 
     #[test]
@@ -392,7 +396,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn completions() {
-        let mut clap = Options::clap();
+        let mut clap = Options::into_app();
 
         for (shell, file) in &[
             (Shell::Bash, "alacritty.bash"),
@@ -400,7 +404,7 @@ mod tests {
             (Shell::Zsh, "_alacritty"),
         ] {
             let mut generated = Vec::new();
-            clap.gen_completions_to("alacritty", *shell, &mut generated);
+            clap_complete::generate(*shell, &mut clap, "alacritty", &mut generated);
             let generated = String::from_utf8_lossy(&generated);
 
             let mut completion = String::new();
@@ -412,8 +416,11 @@ mod tests {
 
         // NOTE: Use this to generate new completions.
         //
-        // clap.gen_completions("alacritty", Shell::Bash, "../extra/completions/");
-        // clap.gen_completions("alacritty", Shell::Fish, "../extra/completions/");
-        // clap.gen_completions("alacritty", Shell::Zsh, "../extra/completions/");
+        // let mut file = File::create("../extra/completions/alacritty.bash").unwrap();
+        // clap_complete::generate(Shell::Bash, &mut clap, "alacritty", &mut file);
+        // let mut file = File::create("../extra/completions/alacritty.fish").unwrap();
+        // clap_complete::generate(Shell::Fish, &mut clap, "alacritty", &mut file);
+        // let mut file = File::create("../extra/completions/_alacritty").unwrap();
+        // clap_complete::generate(Shell::Zsh, &mut clap, "alacritty", &mut file);
     }
 }

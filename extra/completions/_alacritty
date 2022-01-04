@@ -15,26 +15,26 @@ _alacritty() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]' \
-'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]' \
-'--socket=[Path for IPC socket creation]' \
-'*-o+[Override configuration file options \[example: cursor.style=Beam\]]' \
-'*--option=[Override configuration file options \[example: cursor.style=Beam\]]' \
-'--working-directory=[Start the shell in the specified working directory]' \
-'*-e+[Command and args to execute (must be last argument)]' \
-'*--command=[Command and args to execute (must be last argument)]' \
-'-t+[Defines the window title \[default: Alacritty\]]' \
-'--title=[Defines the window title \[default: Alacritty\]]' \
-'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
+'--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]:EMBED: ' \
+'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]:CONFIG_FILE: ' \
+'--socket=[Path for IPC socket creation]:SOCKET: ' \
+'*-o+[Override configuration file options \[example: cursor.style=Beam\]]:OPTION: ' \
+'*--option=[Override configuration file options \[example: cursor.style=Beam\]]:OPTION: ' \
+'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY: ' \
+'*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
+'*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
+'-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:instance> | <instance>,<general: ' \
+'-h[Print help information]' \
+'--help[Print help information]' \
+'-V[Print version information]' \
+'--version[Print version information]' \
 '--print-events[Print all events to stdout]' \
 '--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
 '--hold[Remain open after child process exit]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
 ":: :_alacritty_commands" \
 "*::: :->alacritty" \
 && ret=0
@@ -46,16 +46,15 @@ _alacritty() {
         case $line[1] in
             (msg)
 _arguments "${_arguments_options[@]}" \
-'-s+[IPC socket connection path override]' \
-'--socket=[IPC socket connection path override]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
+'-s+[IPC socket connection path override]:SOCKET: ' \
+'--socket=[IPC socket connection path override]:SOCKET: ' \
+'-h[Print help information]' \
+'--help[Print help information]' \
 ":: :_alacritty__msg_commands" \
 "*::: :->msg" \
 && ret=0
-case $state in
+
+    case $state in
     (msg)
         words=($line[1] "${words[@]}")
         (( CURRENT += 1 ))
@@ -63,25 +62,23 @@ case $state in
         case $line[1] in
             (create-window)
 _arguments "${_arguments_options[@]}" \
-'--working-directory=[Start the shell in the specified working directory]' \
-'*-e+[Command and args to execute (must be last argument)]' \
-'*--command=[Command and args to execute (must be last argument)]' \
-'-t+[Defines the window title \[default: Alacritty\]]' \
-'--title=[Defines the window title \[default: Alacritty\]]' \
-'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]' \
+'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY: ' \
+'*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
+'*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
+'-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:instance> | <instance>,<general: ' \
+'--version[Print version information]' \
 '--hold[Remain open after child process exit]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
+'-h[Print help information]' \
+'--help[Print help information]' \
 && ret=0
 ;;
 (help)
 _arguments "${_arguments_options[@]}" \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
+'--version[Print version information]' \
+'-h[Print help information]' \
+'--help[Print help information]' \
 && ret=0
 ;;
         esac
@@ -90,10 +87,6 @@ esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
 && ret=0
 ;;
         esac
@@ -104,37 +97,31 @@ esac
 (( $+functions[_alacritty_commands] )) ||
 _alacritty_commands() {
     local commands; commands=(
-        "msg:Available socket messages" \
-"help:Prints this message or the help of the given subcommand(s)" \
+'msg:Send a message to the Alacritty socket' \
+'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty commands' commands "$@"
 }
 (( $+functions[_alacritty__msg__create-window_commands] )) ||
 _alacritty__msg__create-window_commands() {
-    local commands; commands=(
-        
-    )
+    local commands; commands=()
     _describe -t commands 'alacritty msg create-window commands' commands "$@"
 }
 (( $+functions[_alacritty__help_commands] )) ||
 _alacritty__help_commands() {
-    local commands; commands=(
-        
-    )
+    local commands; commands=()
     _describe -t commands 'alacritty help commands' commands "$@"
 }
 (( $+functions[_alacritty__msg__help_commands] )) ||
 _alacritty__msg__help_commands() {
-    local commands; commands=(
-        
-    )
+    local commands; commands=()
     _describe -t commands 'alacritty msg help commands' commands "$@"
 }
 (( $+functions[_alacritty__msg_commands] )) ||
 _alacritty__msg_commands() {
     local commands; commands=(
-        "create-window:Create a new window in the same Alacritty process" \
-"help:Prints this message or the help of the given subcommand(s)" \
+'create-window:Create a new window in the same Alacritty process' \
+'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty msg commands' commands "$@"
 }
