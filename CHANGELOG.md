@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Strip trailing whitespaces when yanking from a block selection
 - Display area keeps history position when viewport is cleared
 - Commands spawn from the current directory of the foreground shell in Unix-like systems
+- Remove trailing newline from strings taken from hints or simple/semantic selections
 
 ### Fixed
 

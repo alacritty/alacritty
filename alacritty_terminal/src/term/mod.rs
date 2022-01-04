@@ -17,7 +17,7 @@ use crate::config::Config;
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
-use crate::selection::{Selection, SelectionRange};
+use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::{Colors, Rgb};
 use crate::vi_mode::{ViModeCursor, ViMotion};
@@ -348,24 +348,30 @@ impl<T> Term<T> {
     /// Convert the active selection to a String.
     pub fn selection_to_string(&self) -> Option<String> {
         let selection_range = self.selection.as_ref().and_then(|s| s.to_range(self))?;
-        let SelectionRange { start, end, is_block } = selection_range;
+        let SelectionRange { start, end, .. } = selection_range;
 
         let mut res = String::new();
 
-        if is_block {
-            for line in (start.line.0..end.line.0).map(Line::from) {
-                res += self
-                    .line_to_string(line, start.column..end.column, start.column.0 != 0)
-                    .trim_end();
+        match self.selection.as_ref() {
+            Some(Selection { ty: SelectionType::Block, .. }) => {
+                for line in (start.line.0..end.line.0).map(Line::from) {
+                    res += self
+                        .line_to_string(line, start.column..end.column, start.column.0 != 0)
+                        .trim_end();
 
-                // If the last column is included, newline is appended automatically.
-                if end.column != self.columns() - 1 {
-                    res += "\n";
+                    // If the last column is included, newline is appended automatically.
+                    if end.column != self.columns() - 1 {
+                        res += "\n";
+                    }
                 }
-            }
-            res += self.line_to_string(end.line, start.column..end.column, true).trim_end();
-        } else {
-            res = self.bounds_to_string(start, end);
+                res += self.line_to_string(end.line, start.column..end.column, true).trim_end();
+            },
+            Some(Selection { ty: SelectionType::Lines, .. }) => {
+                res = self.bounds_to_string(start, end) + "\n";
+            },
+            _ => {
+                res = self.bounds_to_string(start, end);
+            },
         }
 
         Some(res)
@@ -382,7 +388,7 @@ impl<T> Term<T> {
             res += &self.line_to_string(line, start_col..end_col, line == end.line);
         }
 
-        res
+        res.strip_suffix('\n').map(str::to_owned).unwrap_or(res)
     }
 
     /// Convert a single line in the grid to a String.
@@ -2103,7 +2109,7 @@ mod tests {
         );
         selection.update(Point { line: Line(2), column: Column(2) }, Side::Right);
         term.selection = Some(selection);
-        assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
+        assert_eq!(term.selection_to_string(), Some("aaa\n\naaa".into()));
     }
 
     /// Check that the grid can be serialized back and forth losslessly.
