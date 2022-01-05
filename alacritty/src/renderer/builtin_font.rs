@@ -639,7 +639,7 @@ impl Canvas {
     }
 
     /// Draws a part of an ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
-    /// vertex and co-vertex respectively using a given `stroke` in the first quadrant of the
+    /// vertex and co-vertex respectively using a given `stroke` in the bottom-right quadrant of the
     /// `Canvas` coordinate system.
     fn draw_ellipse_arc(&mut self, stroke_size: usize) {
         fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
