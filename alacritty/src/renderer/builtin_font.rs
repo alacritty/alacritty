@@ -323,6 +323,7 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
         // Arcs: '╭', '╮', '╯', '╰'.
         '\u{256d}' | '\u{256e}' | '\u{256f}' | '\u{2570}' => {
             canvas.draw_ellipse_arc(stroke_size);
+
             // Mirror `X` axis.
             if character == '\u{256d}' || character == '\u{2570}' {
                 let center = canvas.x_center() as usize;
@@ -637,8 +638,9 @@ impl Canvas {
         }
     }
 
-    /// Draws a part of ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
-    /// radius with a given `stroke` in second quadrant of the coordinate system.
+    /// Draws a part of an ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
+    /// vertex and co-vertex respectively using a given `stroke` in the first quadrant of the
+    /// `Canvas` coordinate system.
     fn draw_ellipse_arc(&mut self, stroke_size: usize) {
         fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
             let transparancy = error * max_transparancy;
