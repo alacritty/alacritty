@@ -27,10 +27,61 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
     let width = metrics.average_advance as usize;
     let stroke_size = cmp::max(metrics.underline_thickness as usize, 1);
     let heavy_stroke_size = stroke_size * 3;
-    let mut canvas = Canvas::new(width, height);
+    // Certain symbols require larger canvas than the cell itself, since for proper contiguous
+    // lines they require drawing on neighbour cells. So treat them specially early on and handle
+    // 'normal' characters later.
+    let mut canvas = match character {
+        // Diagonals: '╱', '╲', '╳'.
+        '\u{2571}'..='\u{2573}' => {
+            // Last coordinates.
+            let x_end = width as f32;
+            let mut y_end = height as f32;
+
+            let top = height as i32 + metrics.descent as i32 + stroke_size as i32;
+            let height = height + 2 * stroke_size;
+            let mut canvas = Canvas::new(width, height + 2 * stroke_size);
+
+            // The offset that we should take into account when drawing, since we've enlarged
+            // buffer vertically by twice of that amount.
+            let y_offset = stroke_size as f32;
+            y_end += y_offset;
+
+            let k = y_end / x_end;
+            let f_x = |x: f32, h: f32| -> f32 { -1. * k * x + h + y_offset };
+            let g_x = |x: f32, h: f32| -> f32 { k * x + h + y_offset };
+
+            let from_x = 0.;
+            let to_x = x_end + 1.;
+            for stroke_size in stroke_size..2 * stroke_size {
+                let stroke_size = stroke_size as f32 / 2.;
+                if character == '\u{2571}' || character == '\u{2573}' {
+                    let h = y_end - stroke_size as f32;
+                    let from_y = f_x(from_x, h);
+                    let to_y = f_x(to_x, h);
+                    canvas.draw_line(from_x, from_y, to_x, to_y);
+                }
+                if character == '\u{2572}' || character == '\u{2573}' {
+                    let from_y = g_x(from_x, stroke_size as f32);
+                    let to_y = g_x(to_x, stroke_size as f32);
+                    canvas.draw_line(from_x, from_y, to_x, to_y);
+                }
+            }
+
+            let buffer = BitmapBuffer::Rgb(canvas.into_raw());
+            return RasterizedGlyph {
+                character,
+                top,
+                left: 0,
+                height: height as i32,
+                width: width as i32,
+                buffer,
+            };
+        },
+        _ => Canvas::new(width, height),
+    };
 
     match character {
-        // Horizonatal dashes: '┄', '┅', '┈', '┉', '╌', '╍'.
+        // Horizontal dashes: '┄', '┅', '┈', '┉', '╌', '╍'.
         '\u{2504}' | '\u{2505}' | '\u{2508}' | '\u{2509}' | '\u{254c}' | '\u{254d}' => {
             let (num_gaps, stroke_size) = match character {
                 '\u{2504}' => (2, stroke_size),
@@ -308,22 +359,6 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
                 }
             }
         },
-        // Diagonals: '╱', '╲', '╳'.
-        '\u{2571}' | '\u{2572}' | '\u{2573}' => {
-            let width = width as f32;
-            let height = height as f32;
-            for stroke_size in 0..=stroke_size {
-                let stroke_size = stroke_size as f32 / 2.;
-                if character == '\u{2571}' || character == '\u{2573}' {
-                    canvas.draw_line(stroke_size - 1., height, width, stroke_size);
-                    canvas.draw_line(-1., height - stroke_size, width - stroke_size, 0.);
-                }
-                if character == '\u{2572}' || character == '\u{2573}' {
-                    canvas.draw_line(stroke_size - 1., 0., width, height - stroke_size);
-                    canvas.draw_line(-1., stroke_size - 1., width - stroke_size, height);
-                }
-            }
-        },
         // Parts of full block: '▀', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '▔', '▉', '▊', '▋', '▌',
         // '▍', '▎', '▏', '▐', '▕'.
         '\u{2580}'..='\u{2587}' | '\u{2589}'..='\u{2590}' | '\u{2594}' | '\u{2595}' => {
@@ -353,7 +388,7 @@ fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
                 '\u{2594}' => (height * 1. / 8., height * 8. / 8.),
                 _ => (height, height),
             };
-            // Fixup `y` coordinates.
+            // Fix `y` coordinates.
             let y = height - y;
 
             let x = match character {
@@ -437,7 +472,7 @@ impl Pixel {
 ///
 /// The coordinate system is the following:
 ///
-///                x
+///  0             x
 ///  --------------→
 ///  |
 ///  |
@@ -523,8 +558,9 @@ impl Canvas {
     /// already has in place.
     #[inline]
     fn put_pixel(&mut self, x: f32, y: f32, color: Pixel) {
-        let x = (x as usize).clamp(0, self.width - 1);
-        let y = (y as usize).clamp(0, self.height - 1);
+        if x < 0. || y < 0. || x > self.width as f32 - 1. || y > self.height as f32 - 1. {
+            return;
+        }
         let index = x as usize + y as usize * self.width;
         if color._r > self.buffer[index]._r {
             self.buffer[index] = color;
@@ -549,10 +585,10 @@ impl Canvas {
 
         let x_end = f32::round(from_x);
         let y_end = from_y + gradient * (x_end - from_x);
-        let x_gap = (from_x + 0.5).fract();
+        let x_gap = 1. - (from_x + 0.5).fract();
 
-        let xpxl1 = f32::floor(x_end);
-        let ypxl1 = f32::floor(y_end);
+        let xpxl1 = x_end;
+        let ypxl1 = y_end.trunc();
 
         let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
         let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
@@ -569,8 +605,8 @@ impl Canvas {
         let x_end = f32::round(to_x);
         let y_end = to_y + gradient * (x_end - to_x);
         let x_gap = (to_x + 0.5).fract();
-        let xpxl2 = f32::floor(x_end);
-        let ypxl2 = f32::floor(y_end);
+        let xpxl2 = x_end;
+        let ypxl2 = y_end.trunc();
 
         let color_1 = Pixel::gray(((1. - y_end.fract()) * x_gap * COLOR_FILL._r as f32) as u8);
         let color_2 = Pixel::gray((y_end.fract() * x_gap * COLOR_FILL._r as f32) as u8);
@@ -583,7 +619,7 @@ impl Canvas {
         }
 
         if steep {
-            for x in xpxl1 as usize + 1..xpxl2 as usize {
+            for x in xpxl1 as i32 + 1..xpxl2 as i32 {
                 let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
                 let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
                 self.put_pixel(intery.trunc(), x as f32, color_1);
@@ -591,7 +627,7 @@ impl Canvas {
                 intery += gradient;
             }
         } else {
-            for x in xpxl1 as usize + 1..xpxl2 as usize {
+            for x in xpxl1 as i32 + 1..xpxl2 as i32 {
                 let color_1 = Pixel::gray(((1. - intery.fract()) * COLOR_FILL._r as f32) as u8);
                 let color_2 = Pixel::gray((intery.fract() * COLOR_FILL._r as f32) as u8);
                 self.put_pixel(x as f32, intery.trunc(), color_1);
@@ -602,7 +638,7 @@ impl Canvas {
     }
 
     /// Draws a part of ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
-    /// radiuses with a given `stroke` in second quadrant of the coordinate system.
+    /// radius with a given `stroke` in second quadrant of the coordinate system.
     fn draw_ellipse_arc(&mut self, stroke_size: usize) {
         fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
             let transparancy = error * max_transparancy;
@@ -708,7 +744,7 @@ mod test {
             assert!(builtin_glyph(character, &metrics).is_some());
         }
 
-        for character in ('\u{2450}'..'\u{2500}').into_iter().chain('\u{25a0}'..'\u{2600}') {
+        for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
             assert!(builtin_glyph(character, &metrics).is_none());
         }
     }
