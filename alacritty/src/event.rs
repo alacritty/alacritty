@@ -186,6 +186,7 @@ pub struct ActionContext<'a, N, T> {
     pub search_state: &'a mut SearchState,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
+    pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
     #[cfg(not(windows))]
@@ -1039,7 +1040,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
-                        if self.ctx.config.window.dynamic_title {
+                        if !self.ctx.preserve_title && self.ctx.config.window.dynamic_title {
                             self.ctx.window().set_title(title);
                         }
                     },
