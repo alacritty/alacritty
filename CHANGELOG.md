@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Freeze when the vi cursor is on the scrollback and scrollback clear is invoked
 - Vi cursor on topmost of the display moving downward when scrolled into history with active output
 - Input lag on Wayland with Nvidia binary driver
+- Crash when hovering the mouse over fullwidth characters
 
 ### Removed
 
