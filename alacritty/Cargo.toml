@@ -21,7 +21,7 @@ version = "0.1.0"
 [dependencies]
 clap = { version = "3.0.0", features = ["derive"] }
 log = { version = "0.4", features = ["std", "serde"] }
-time = "0.1.40"
+time = { version = "0.3.5", features = ["formatting", "local-offset", "macros"] }
 fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
