@@ -363,7 +363,8 @@ macro_rules! bindings {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
-        MouseButton::Right;                    MouseAction::ExpandSelection;
+        MouseButton::Right;                         MouseAction::ExpandSelection;
+        MouseButton::Right,   ModifiersState::CTRL; MouseAction::ExpandSelection;
         MouseButton::Middle, ~BindingMode::VI; Action::PasteSelection;
     )
 }
