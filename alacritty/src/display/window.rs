@@ -175,7 +175,12 @@ impl Window {
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
         let identity = identity.clone();
-        let window_builder = Window::get_platform_window(&identity, &config.window);
+        let mut window_builder = Window::get_platform_window(&identity, &config.window);
+
+        if let Some(position) = config.window.position {
+            window_builder = window_builder
+                .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
+        }
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -358,10 +363,6 @@ impl Window {
         let attention = if is_urgent { Some(UserAttentionType::Critical) } else { None };
 
         self.window().request_user_attention(attention);
-    }
-
-    pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
-        self.window().set_outer_position(pos);
     }
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
