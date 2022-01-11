@@ -919,13 +919,15 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn update_cursor_blinking(&mut self) {
         // Get config cursor style.
         let mut cursor_style = self.config.terminal_config.cursor.style;
-        if self.terminal.mode().contains(TermMode::VI) {
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+        if vi_mode {
             cursor_style = self.config.terminal_config.cursor.vi_mode_style.unwrap_or(cursor_style);
-        };
+        }
 
         // Check terminal cursor style.
         let terminal_blinking = self.terminal.cursor_style().blinking;
-        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
+        let mut blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
+        blinking &= vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR);
 
         // Update cursor blinking state.
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
