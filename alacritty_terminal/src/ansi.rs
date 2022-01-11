@@ -972,26 +972,27 @@ where
 
             // Set color index.
             b"4" => {
-                if params.len() > 1 && params.len() % 2 != 0 {
-                    for chunk in params[1..].chunks(2) {
-                        if let Some(index) = parse_number(chunk[0]) {
-                            if let Some(c) = xparse_color(chunk[1]) {
-                                self.handler.set_color(index as usize, c);
-                            } else if chunk[1] == b"?" {
-                                self.handler.dynamic_color_sequence(
-                                    index,
-                                    index as usize,
-                                    terminator,
-                                );
-                            } else {
-                                unhandled(params);
-                            }
-                        }
-                    }
+                if params.len() <= 1 || params.len() % 2 == 0 {
+                    unhandled(params);
                     return;
                 }
-                unhandled(params);
-                
+
+                for chunk in params[1..].chunks(2) {
+                    let index = if let Some(i) = parse_number(chunk[0]) {
+                        i
+                    } else {
+                        unhandled(params);
+                        continue;
+                    };
+
+                    if let Some(c) = xparse_color(chunk[1]) {
+                        self.handler.set_color(index as usize, c);
+                    } else if chunk[1] == b"?" {
+                        self.handler.dynamic_color_sequence(index, index as usize, terminator);
+                    } else {
+                        unhandled(params);
+                    }
+                }
             },
 
             // Get/set Foreground, Background, Cursor colors.
