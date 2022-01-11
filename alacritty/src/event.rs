@@ -926,9 +926,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
         // Check terminal cursor style.
         let terminal_blinking = self.terminal.cursor_style().blinking;
-        let blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
-        let blinking =
-            blinking && (vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR));
+        let mut blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
+        blinking &= vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR);
 
         // Update cursor blinking state.
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
