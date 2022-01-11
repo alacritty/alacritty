@@ -974,15 +974,24 @@ where
             b"4" => {
                 if params.len() > 1 && params.len() % 2 != 0 {
                     for chunk in params[1..].chunks(2) {
-                        let index = parse_number(chunk[0]);
-                        let color = xparse_color(chunk[1]);
-                        if let (Some(i), Some(c)) = (index, color) {
-                            self.handler.set_color(i as usize, c);
-                            return;
+                        if let Some(index) = parse_number(chunk[0]) {
+                            if let Some(c) = xparse_color(chunk[1]) {
+                                self.handler.set_color(index as usize, c);
+                            } else if chunk[1] == b"?" {
+                                self.handler.dynamic_color_sequence(
+                                    index,
+                                    index as usize,
+                                    terminator,
+                                );
+                            } else {
+                                unhandled(params);
+                            }
                         }
                     }
+                    return;
                 }
                 unhandled(params);
+                
             },
 
             // Get/set Foreground, Background, Cursor colors.
