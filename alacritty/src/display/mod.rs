@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 use std::{f64, mem};
 
-use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::dpi::PhysicalSize;
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -307,14 +307,6 @@ impl Display {
         }
 
         window.set_visible(true);
-
-        // Set window position.
-        //
-        // TODO: replace `set_position` with `with_position` once available.
-        // Upstream issue: https://github.com/rust-windowing/winit/issues/806.
-        if let Some(position) = config.window.position {
-            window.set_outer_position(PhysicalPosition::from((position.x, position.y)));
-        }
 
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
