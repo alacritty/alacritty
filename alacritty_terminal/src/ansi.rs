@@ -1505,6 +1505,7 @@ mod tests {
         charset: StandardCharset,
         attr: Option<Attr>,
         identity_reported: bool,
+        color: Option<Rgb>
     }
 
     impl Handler for MockHandler {
@@ -1528,6 +1529,10 @@ mod tests {
         fn reset_state(&mut self) {
             *self = Self::default();
         }
+
+        fn set_color(&mut self, _: usize, c: Rgb) {
+            self.color = Some(c);
+        }
     }
 
     impl Default for MockHandler {
@@ -1537,6 +1542,7 @@ mod tests {
                 charset: StandardCharset::Ascii,
                 attr: None,
                 identity_reported: false,
+                color: None
             }
         }
     }
