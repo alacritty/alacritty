@@ -1734,4 +1734,18 @@ mod tests {
     fn parse_number_too_large() {
         assert_eq!(parse_number(b"321"), None);
     }
+
+    #[test]
+    fn parse_osc4_set_color() {
+        let bytes: &[u8] = &[0x1b, b']', b'4', b';', b'0', b';', b'#', b'f', b'f', b'f', 0x1b];
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.color, xparse_color(&[b'#', b'f', b'f', b'f']));
+    }
 }
