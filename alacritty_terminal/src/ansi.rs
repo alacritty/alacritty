@@ -1505,7 +1505,7 @@ mod tests {
         charset: StandardCharset,
         attr: Option<Attr>,
         identity_reported: bool,
-        color: Option<Rgb>
+        color: Option<Rgb>,
     }
 
     impl Handler for MockHandler {
@@ -1542,7 +1542,7 @@ mod tests {
                 charset: StandardCharset::Ascii,
                 attr: None,
                 identity_reported: false,
-                color: None
+                color: None,
             }
         }
     }
