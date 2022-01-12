@@ -768,7 +768,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
-        if !self.terminal.mode().contains(TermMode::VI) {
+        if self.terminal.mode().contains(TermMode::VI) {
+            // Damage line indicator and Vi cursor if we're leaving Vi mode.
+            self.terminal.damage_vi_cursor();
+            self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
+        } else {
             self.clear_selection();
         }
 

@@ -7,6 +7,7 @@ use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Direction, Line, Point};
+use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
@@ -26,7 +27,7 @@ pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 /// This provides the terminal cursor and an iterator over all non-empty cells.
 pub struct RenderableContent<'a> {
     terminal_content: TerminalContent<'a>,
-    cursor: Option<RenderableCursor>,
+    cursor: RenderableCursor,
     cursor_shape: CursorShape,
     cursor_point: Point<usize>,
     search: Option<Regex<'a>>,
@@ -73,7 +74,7 @@ impl<'a> RenderableContent<'a> {
 
         Self {
             colors: &display.colors,
-            cursor: None,
+            cursor: RenderableCursor::new_hidden(),
             terminal_content,
             focused_match,
             cursor_shape,
@@ -90,7 +91,7 @@ impl<'a> RenderableContent<'a> {
     }
 
     /// Get the terminal cursor.
-    pub fn cursor(mut self) -> Option<RenderableCursor> {
+    pub fn cursor(mut self) -> RenderableCursor {
         // Assure this function is only called after the iterator has been drained.
         debug_assert!(self.next().is_none());
 
@@ -102,14 +103,14 @@ impl<'a> RenderableContent<'a> {
         self.terminal_content.colors[color].unwrap_or(self.colors[color])
     }
 
+    pub fn selection_range(&self) -> Option<SelectionRange> {
+        self.terminal_content.selection
+    }
+
     /// Assemble the information required to render the terminal cursor.
     ///
     /// This will return `None` when there is no cursor visible.
-    fn renderable_cursor(&mut self, cell: &RenderableCell) -> Option<RenderableCursor> {
-        if self.cursor_shape == CursorShape::Hidden {
-            return None;
-        }
-
+    fn renderable_cursor(&mut self, cell: &RenderableCell) -> RenderableCursor {
         // Cursor colors.
         let color = if self.terminal_content.mode.contains(TermMode::VI) {
             self.config.colors.vi_mode_cursor
@@ -134,13 +135,13 @@ impl<'a> RenderableContent<'a> {
             text_color = self.config.colors.primary.background;
         }
 
-        Some(RenderableCursor {
+        RenderableCursor {
             is_wide: cell.flags.contains(Flags::WIDE_CHAR),
             shape: self.cursor_shape,
             point: self.cursor_point,
             cursor_color,
             text_color,
-        })
+        }
     }
 }
 
@@ -159,18 +160,15 @@ impl<'a> Iterator for RenderableContent<'a> {
 
             if self.cursor_point == cell.point {
                 // Store the cursor which should be rendered.
-                self.cursor = self.renderable_cursor(&cell).map(|cursor| {
-                    if cursor.shape == CursorShape::Block {
-                        cell.fg = cursor.text_color;
-                        cell.bg = cursor.cursor_color;
+                self.cursor = self.renderable_cursor(&cell);
+                if self.cursor.shape == CursorShape::Block {
+                    cell.fg = self.cursor.text_color;
+                    cell.bg = self.cursor.cursor_color;
 
-                        // Since we draw Block cursor by drawing cell below it with a proper color,
-                        // we must adjust alpha to make it visible.
-                        cell.bg_alpha = 1.;
-                    }
-
-                    cursor
-                });
+                    // Since we draw Block cursor by drawing cell below it with a proper color,
+                    // we must adjust alpha to make it visible.
+                    cell.bg_alpha = 1.;
+                }
 
                 return Some(cell);
             } else if !cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
@@ -369,6 +367,17 @@ pub struct RenderableCursor {
     text_color: Rgb,
     is_wide: bool,
     point: Point<usize>,
+}
+
+impl RenderableCursor {
+    fn new_hidden() -> Self {
+        let shape = CursorShape::Hidden;
+        let cursor_color = Rgb::default();
+        let text_color = Rgb::default();
+        let is_wide = false;
+        let point = Point::default();
+        Self { shape, cursor_color, text_color, is_wide, point }
+    }
 }
 
 impl RenderableCursor {

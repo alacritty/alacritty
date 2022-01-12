@@ -801,7 +801,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.on_typing_start();
 
-        self.ctx.scroll(Scroll::Bottom);
+        if self.ctx.terminal().grid().display_offset() != 0 {
+            self.ctx.scroll(Scroll::Bottom);
+        }
         self.ctx.clear_selection();
 
         let utf8_len = c.len_utf8();

@@ -41,6 +41,7 @@ pub struct SelectionRange {
 
 impl SelectionRange {
     pub fn new(start: Point, end: Point, is_block: bool) -> Self {
+        assert!(start <= end);
         Self { start, end, is_block }
     }
 }
