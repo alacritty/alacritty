@@ -978,11 +978,12 @@ where
                 }
 
                 for chunk in params[1..].chunks(2) {
-                    let index = if let Some(i) = parse_number(chunk[0]) {
-                        i
-                    } else {
-                        unhandled(params);
-                        continue;
+                    let index = match parse_number(chunk[0]) {
+                        Some(i) => i,
+                        None => {
+                            unhandled(params);
+                            continue;
+                        },
                     };
 
                     if let Some(c) = xparse_color(chunk[1]) {
