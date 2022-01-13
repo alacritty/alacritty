@@ -1753,6 +1753,6 @@ mod tests {
             parser.advance(&mut handler, *byte);
         }
 
-        assert_eq!(handler.color, xparse_color(&[b'#', b'f', b'f', b'f']));
+        assert_eq!(handler.color, Some(Rgb { r: 0xf0, g: 0xf0, b: 0xf0 }));
     }
 }
