@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Commands spawn from the current directory of the foreground shell in Unix-like systems
 - Remove trailing newline from strings taken from hints or simple/semantic selections
 - Builtin font is now used for box drawing characters from `U+2500` to `U+259f`
+- Logs now print the time since startup instead of the local time
 
 ### Fixed
 
