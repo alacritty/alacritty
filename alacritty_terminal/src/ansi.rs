@@ -979,7 +979,7 @@ where
 
                 for chunk in params[1..].chunks(2) {
                     let index = match parse_number(chunk[0]) {
-                        Some(i) => i,
+                        Some(index) => index,
                         None => {
                             unhandled(params);
                             continue;
