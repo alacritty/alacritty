@@ -20,7 +20,6 @@ version = "0.1.0"
 [dependencies]
 structopt = "0.3.22"
 log = { version = "0.4", features = ["std", "serde"] }
-time = { version = "0.3.5", features = ["formatting", "local-offset", "macros"] }
 fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
