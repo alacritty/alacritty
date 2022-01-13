@@ -131,8 +131,9 @@ impl log::Log for Logger {
 
 fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) -> String {
     let runtime = start.elapsed();
-    let runtime_str = format!("{}.{:0>9}s", runtime.as_secs(), runtime.subsec_nanos());
-    let mut message = format!("[{}] [{:<5}] [{}] ", runtime_str, record.level(), target);
+    let secs = runtime.as_secs();
+    let nanos = runtime.subsec_nanos();
+    let mut message = format!("[{}.{:0>9}s] [{:<5}] [{}] ", secs, nanos, record.level(), target);
 
     // Alignment for the lines after the first new line character in the payload. We don't deal
     // with fullwidth/unicode chars here, so just `message.len()` is sufficient.
