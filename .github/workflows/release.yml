@@ -18,8 +18,8 @@ jobs:
         run: rustup update && rustup target add aarch64-apple-darwin
       - name: Test
         run: cargo test --release
-      - name: Test ARM
-        run: cargo test --release --target=aarch64-apple-darwin
+      - name: Build ARM
+        run: cargo build --release --target=aarch64-apple-darwin
       - name: Make DMG
         run: make dmg-universal
       - name: Upload Application
