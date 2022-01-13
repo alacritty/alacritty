@@ -1744,7 +1744,7 @@ mod tests {
 
     #[test]
     fn parse_osc4_set_color() {
-        let bytes: &[u8] = &[0x1b, b']', b'4', b';', b'0', b';', b'#', b'f', b'f', b'f', 0x1b];
+        let bytes: &[u8] = b"\x1b]4;0;#fff\x1b\\";
 
         let mut parser = Processor::new();
         let mut handler = MockHandler::default();
