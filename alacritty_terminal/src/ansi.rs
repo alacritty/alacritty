@@ -1064,7 +1064,7 @@ where
             // Reset color index.
             b"104" => {
                 // Reset all color indexes when no parameters are given.
-                if params.len() == 1 {
+                if params.len() == 1 || (params.len() > 1 && params[1].is_empty()) {
                     for i in 0..256 {
                         self.handler.reset_color(i);
                     }
