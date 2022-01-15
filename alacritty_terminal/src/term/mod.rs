@@ -818,6 +818,10 @@ impl<T> Term<T> {
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
     }
+
+    pub fn colors(&self) -> &Colors {
+        &self.colors
+    }
 }
 
 impl<T> Dimensions for Term<T> {
