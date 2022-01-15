@@ -1076,8 +1076,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.write_to_pty(text.into_bytes());
                     },
                     TerminalEvent::ColorRequest(index, format) => {
-                        let text = format(self.ctx.display.colors[index]);
-                        self.ctx.write_to_pty(text.into_bytes());
+                        let color = self.ctx.terminal().colors()[index]
+                            .unwrap_or(self.ctx.display.colors[index]);
+                        self.ctx.write_to_pty(format(color).into_bytes());
                     },
                     TerminalEvent::PtyWrite(text) => self.ctx.write_to_pty(text.into_bytes()),
                     TerminalEvent::MouseCursorDirty => self.reset_mouse_cursor(),

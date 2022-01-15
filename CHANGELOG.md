@@ -5,6 +5,13 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 0.11.0-dev
+
+### Fixed
+
+- OSC 4 not handling `?`
+- `?` in OSC strings reporting default colors instead of modified ones
+
 ## 0.10.0
 
 ### Packaging

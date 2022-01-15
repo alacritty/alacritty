@@ -972,17 +972,28 @@ where
 
             // Set color index.
             b"4" => {
-                if params.len() > 1 && params.len() % 2 != 0 {
-                    for chunk in params[1..].chunks(2) {
-                        let index = parse_number(chunk[0]);
-                        let color = xparse_color(chunk[1]);
-                        if let (Some(i), Some(c)) = (index, color) {
-                            self.handler.set_color(i as usize, c);
-                            return;
-                        }
+                if params.len() <= 1 || params.len() % 2 == 0 {
+                    unhandled(params);
+                    return;
+                }
+
+                for chunk in params[1..].chunks(2) {
+                    let index = match parse_number(chunk[0]) {
+                        Some(index) => index,
+                        None => {
+                            unhandled(params);
+                            continue;
+                        },
+                    };
+
+                    if let Some(c) = xparse_color(chunk[1]) {
+                        self.handler.set_color(index as usize, c);
+                    } else if chunk[1] == b"?" {
+                        self.handler.dynamic_color_sequence(index, index as usize, terminator);
+                    } else {
+                        unhandled(params);
                     }
                 }
-                unhandled(params);
             },
 
             // Get/set Foreground, Background, Cursor colors.
@@ -1494,6 +1505,7 @@ mod tests {
         charset: StandardCharset,
         attr: Option<Attr>,
         identity_reported: bool,
+        color: Option<Rgb>,
     }
 
     impl Handler for MockHandler {
@@ -1517,6 +1529,10 @@ mod tests {
         fn reset_state(&mut self) {
             *self = Self::default();
         }
+
+        fn set_color(&mut self, _: usize, c: Rgb) {
+            self.color = Some(c);
+        }
     }
 
     impl Default for MockHandler {
@@ -1526,6 +1542,7 @@ mod tests {
                 charset: StandardCharset::Ascii,
                 attr: None,
                 identity_reported: false,
+                color: None,
             }
         }
     }
@@ -1723,5 +1740,19 @@ mod tests {
     #[test]
     fn parse_number_too_large() {
         assert_eq!(parse_number(b"321"), None);
+    }
+
+    #[test]
+    fn parse_osc4_set_color() {
+        let bytes: &[u8] = b"\x1b]4;0;#fff\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.color, Some(Rgb { r: 0xf0, g: 0xf0, b: 0xf0 }));
     }
 }
