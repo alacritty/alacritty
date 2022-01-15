@@ -1506,6 +1506,8 @@ mod tests {
         attr: Option<Attr>,
         identity_reported: bool,
         color: Option<Rgb>,
+        reset_color_index: Option<usize>,
+        reset_color_count: usize,
     }
 
     impl Handler for MockHandler {
@@ -1533,6 +1535,11 @@ mod tests {
         fn set_color(&mut self, _: usize, c: Rgb) {
             self.color = Some(c);
         }
+
+        fn reset_color(&mut self, index: usize) {
+            self.reset_color_index = Some(index);
+            self.reset_color_count += 1;
+        }
     }
 
     impl Default for MockHandler {
@@ -1543,6 +1550,8 @@ mod tests {
                 attr: None,
                 identity_reported: false,
                 color: None,
+                reset_color_index: None,
+                reset_color_count: 0,
             }
         }
     }
@@ -1754,5 +1763,46 @@ mod tests {
         }
 
         assert_eq!(handler.color, Some(Rgb { r: 0xf0, g: 0xf0, b: 0xf0 }));
+    }
+
+    #[test]
+    fn parse_osc104_reset_color() {
+        let bytes: &[u8] = b"\x1b]104;1;\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.reset_color_index, Some(1));
+        assert_eq!(handler.reset_color_count, 1);
+    }
+
+    #[test]
+    fn parse_osc104_reset_all_colors() {
+        let bytes: &[u8] = b"\x1b]104;\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.reset_color_count, 256);
+
+        // And test without trailling semicolon
+        let bytes: &[u8] = b"\x1b]104\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.reset_color_count, 256);
     }
 }
