@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - OSC 4 not handling `?`
 - `?` in OSC strings reporting default colors instead of modified ones
+- OSC 104 not working when called without parameters but with a trailling semicolon (e.g. '\e]104;\e\\')
 
 ## 0.10.0
 
