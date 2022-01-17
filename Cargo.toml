@@ -9,3 +9,6 @@ members = [
 lto = true
 debug = 1
 incremental = false
+
+[patch.crates-io]
+winit = { git = "https://github.com/rust-windowing/winit", branch = "composition-event" }

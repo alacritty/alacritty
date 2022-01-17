@@ -19,11 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for OpenGL ES 2.0
 - Escape sequence to set underline color (`CSI 58 : 2 : Ps : Ps : Ps m`/`CSI 58 : 5 : Ps m`)
 - Escape sequence to reset underline color (`CSI 59 m`)
+- Support for inline input method
 
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
 - OSC 52 is now disabled on unfocused windows
+- Search bar is now respecting cursor thickness
+- On X11 the IME popup window is stuck at the bottom of the window due to libX11 limitations
+- IME no longer works in Vi mode when moving around
 
 ### Fixed
 

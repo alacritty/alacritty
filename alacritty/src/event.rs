@@ -13,7 +13,9 @@ use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
+use glutin::event::{
+    ElementState, Event as GlutinEvent, Ime, ModifiersState, MouseButton, WindowEvent,
+};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
 use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -464,6 +466,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             };
         }
 
+        // Enable IME so user can type using it.
+        self.window().set_ime_allowed(true);
+
         self.display.pending_update.dirty = true;
         *self.dirty = true;
     }
@@ -768,7 +773,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
-        if self.terminal.mode().contains(TermMode::VI) {
+        let was_in_vi_mode = self.terminal.mode().contains(TermMode::VI);
+        if was_in_vi_mode {
             // If we had search running when leaving Vi mode we should mark terminal fully damaged
             // to cleanup highlighted results.
             if self.search_state.dfas().is_some() {
@@ -784,6 +790,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.cancel_search();
         self.terminal.toggle_vi_mode();
+
+        // We don't want IME input for Vi mode.
+        self.window().set_ime_allowed(was_in_vi_mode);
 
         *self.dirty = true;
     }
@@ -916,6 +925,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Cleanup the search state.
     fn exit_search(&mut self) {
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+        self.window().set_ime_allowed(!vi_mode);
+
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
         *self.dirty = true;
@@ -1122,6 +1134,37 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         self.key_input(input);
+                    },
+                    WindowEvent::Ime(ime) => match ime {
+                        Ime::Enabled => {
+                            self.ctx.display.ime_input.set_enabled(true);
+                        },
+                        // The text is commited thus should be written to PTY.
+                        Ime::Commit(text) => {
+                            self.ctx.display.ime_input.clear_preedit();
+                            if self.ctx.display.collect_damage() {
+                                // Damage the entire line with preedit.
+                                let line = self.ctx.display.ime_input.line();
+                                let point = Point::new(line, Column(0));
+                                let num_cols = self.ctx.terminal.columns() as u32 - 1;
+                                self.ctx.display.damage_from_point(point, num_cols);
+                            }
+
+                            // Don't suppress chars for commit.
+                            let mut suppress = false;
+                            mem::swap(self.ctx.suppress_chars, &mut suppress);
+                            text.chars().for_each(|ch| self.received_char(ch));
+                            *self.ctx.suppress_chars = suppress;
+                        },
+                        // This text is being composed, thus should be shown as inline input to
+                        // the user.
+                        Ime::Preedit(text, cursor_range) => {
+                            *self.ctx.dirty = true;
+                            self.ctx.display.ime_input.set_preedit(text, cursor_range);
+                        },
+                        Ime::Disabled => {
+                            self.ctx.display.ime_input.set_enabled(false);
+                        },
                     },
                     WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
                     WindowEvent::ReceivedCharacter(c) => self.received_char(c),

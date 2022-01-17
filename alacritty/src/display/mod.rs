@@ -21,9 +21,9 @@ use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
-use crossfont::{self, Rasterize, Rasterizer};
+use crossfont::{self, Metrics, Rasterize, Rasterizer};
 
-use alacritty_terminal::ansi::NamedColor;
+use alacritty_terminal::ansi::{CursorShape, NamedColor};
 use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
 use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
 use alacritty_terminal::grid::Dimensions as TermDimensions;
@@ -40,7 +40,7 @@ use crate::config::window::{Dimensions, Identity};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
-use crate::display::content::RenderableContent;
+use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::RenderDamageIterator;
 use crate::display::hint::{HintMatch, HintState};
@@ -48,7 +48,7 @@ use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
-use crate::renderer::rects::{RenderLines, RenderRect};
+use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, Renderer};
 
 pub mod content;
@@ -360,12 +360,93 @@ pub struct Display {
     /// Unprocessed display updates.
     pub pending_update: DisplayUpdate,
 
+    /// Unprocessed IME input.
+    pub ime_input: ImeInput,
+
     is_damage_supported: bool,
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
     renderer: Renderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+}
+
+/// A state of IME input into the window.
+#[derive(Debug, Default)]
+pub struct ImeInput {
+    /// The line in a viewport where preedit string is located.
+    pub line: usize,
+
+    /// Whether the ime is enabled or not.
+    is_enabled: bool,
+
+    /// State of the preedit IME preedit.
+    preedit: Option<PreeditState>,
+}
+
+#[derive(Debug, Default)]
+struct PreeditState {
+    /// The text being preedit.
+    text: String,
+
+    /// Byte offset for cursor start in text.
+    cursor_offset: Option<usize>,
+}
+
+impl PreeditState {
+    fn new(preedit: String, cursor_range: Option<(usize, usize)>) -> Self {
+        Self { text: preedit, cursor_offset: cursor_range.map(|cursor_range| cursor_range.0) }
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.text.is_empty()
+    }
+}
+
+impl ImeInput {
+    fn new() -> Self {
+        Default::default()
+    }
+
+    #[inline]
+    pub fn set_enabled(&mut self, is_enabled: bool) {
+        if !is_enabled {
+            // Clear state when disabling input method.
+            *self = Default::default();
+        }
+
+        self.is_enabled = is_enabled;
+    }
+
+    #[inline]
+    pub fn enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    fn preedit(&self) -> Option<&PreeditState> {
+        self.preedit.as_ref()
+    }
+
+    #[inline]
+    pub fn set_preedit(&mut self, preedit: String, cursor_range: Option<(usize, usize)>) {
+        self.preedit = Some(PreeditState::new(preedit, cursor_range));
+    }
+
+    #[inline]
+    pub fn clear_preedit(&mut self) {
+        self.preedit = None;
+    }
+
+    #[inline]
+    pub fn line(&self) -> usize {
+        self.line
+    }
+
+    #[inline]
+    pub fn set_preedit_line(&mut self, line: usize) {
+        self.line = line;
+    }
 }
 
 impl Display {
@@ -524,6 +605,7 @@ impl Display {
             is_damage_supported,
             debug_damage,
             damage_rects,
+            ime_input: ImeInput::new(),
         })
     }
 
@@ -671,9 +753,7 @@ impl Display {
             TermDamage::Full => self.fully_damage(),
             TermDamage::Partial(damaged_lines) => {
                 let damaged_rects = RenderDamageIterator::new(damaged_lines, self.size_info.into());
-                for damaged_rect in damaged_rects {
-                    self.damage_rects.push(damaged_rect);
-                }
+                self.damage_rects.extend(damaged_rects);
             },
         }
         terminal.reset_damage();
@@ -685,6 +765,97 @@ impl Display {
 
         // Damage highlighted hints for the next frame as well, so we'll clear them.
         self.damage_highlighted_hints(terminal);
+    }
+
+    /// Whether the display is currently handling pending IME.
+    pub fn handling_ime(&self) -> bool {
+        self.ime_input.enabled() && self.ime_input.preedit().is_some()
+    }
+
+    /// Updates ime spot position and draws preedit text *ineline* from `point` using given
+    /// foreground and background colors.
+    fn handle_ime_input(
+        &mut self,
+        point: Point<usize>,
+        fg: Rgb,
+        bg: Rgb,
+        rects: &mut Vec<RenderRect>,
+        metrics: &Metrics,
+        config: &UiConfig,
+    ) {
+        // IME is disabled, so no need to process anything.
+        if !self.ime_input.enabled() {
+            return;
+        }
+
+        let preedit_state = match self.ime_input.preedit() {
+            Some(preedit_state) if !preedit_state.is_empty() => preedit_state,
+            _ => {
+                let ime_popup_point = Point::new(Line(point.line as i32), point.column);
+                self.window.update_ime_position(ime_popup_point, &self.size_info);
+                return;
+            },
+        };
+
+        let mut preedit = String::new();
+        let mut is_wide = false;
+        let mut cursor_index = None;
+        for (byte, ch) in preedit_state.text.char_indices() {
+            let ch_width = ch.width().unwrap_or_default();
+            if Some(byte) == preedit_state.cursor_offset {
+                cursor_index = Some(preedit.chars().count());
+                is_wide = ch_width == 2;
+            }
+
+            preedit.push(ch);
+            if ch_width == 2 {
+                preedit.push(' ');
+            }
+        }
+
+        // Truncate preedit line.
+        let num_cols = self.size_info.columns();
+        let total_len = preedit.chars().count();
+        let truncate_len = cmp::min((total_len).saturating_sub(num_cols), total_len);
+        let index = preedit.char_indices().nth(truncate_len).map(|(i, _c)| i).unwrap_or(0);
+
+        let glyph_cache = &mut self.glyph_cache;
+
+        // Compute start and end point of visible preedit text.
+        let end = cmp::min(point.column.0 + total_len, num_cols);
+        let start = end.saturating_sub(total_len);
+        let start = Point::new(point.line, Column(start));
+        let end = Point::new(point.line, Column(end - 1));
+
+        // Draw IME preedit inline.
+        self.renderer.draw_string(start, fg, bg, &preedit[index..], &self.size_info, glyph_cache);
+
+        // Damage the entire line with preedit.
+        self.damage_from_point(Point::new(start.line, Column(0)), num_cols as u32);
+
+        // Stash the current preedit line, so we can clean up on commit.
+        self.ime_input.set_preedit_line(start.line);
+
+        // Add underline under preedit text.
+        let underline = RenderLine { start, end, color: fg };
+        let size_info = &self.size_info;
+        rects.extend(underline.rects(Flags::UNDERLINE, metrics, size_info));
+
+        // Draw cursor if visible.
+        let ime_popup_point = match cursor_index {
+            Some(cursor_index) if cursor_index >= total_len.saturating_sub(num_cols) => {
+                let cursor_column = end.column - (total_len - (cursor_index + 1));
+
+                let cursor = Point::new(start.line, cursor_column);
+                let cursor = RenderableCursor::new(cursor, CursorShape::HollowBlock, fg, is_wide);
+                rects.extend(cursor.rects(size_info, config.terminal_config.cursor.thickness()));
+                Point::new(Line(start.line as i32), cursor_column)
+            },
+            // The cursor isn't visible or is at the last column, thus use `end`.
+            _ => Point::new(Line(end.line as i32), end.column),
+        };
+
+        self.window.update_ime_position(ime_popup_point, size_info);
     }
 
     /// Draw the screen.
@@ -707,6 +878,7 @@ impl Display {
         }
         let selection_range = content.selection_range();
         let background_color = content.color(NamedColor::Background as usize);
+        let foreground_color = content.color(NamedColor::Foreground as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
 
@@ -778,9 +950,7 @@ impl Display {
         }
 
         // Draw cursor.
-        for rect in cursor.rects(&size_info, config.terminal_config.cursor.thickness()) {
-            rects.push(rect);
-        }
+        rects.extend(cursor.rects(&size_info, config.terminal_config.cursor.thickness()));
 
         // Push visual bell after url/underline/strikeout rects.
         let visual_bell_intensity = self.visual_bell.intensity();
@@ -795,6 +965,47 @@ impl Display {
             );
             rects.push(visual_bell_rect);
         }
+
+        // Handle search and IME drawing/positioning.
+        match search_state.regex() {
+            Some(regex) => {
+                let search_label = match search_state.direction() {
+                    Direction::Right => FORWARD_SEARCH_LABEL,
+                    Direction::Left => BACKWARD_SEARCH_LABEL,
+                };
+
+                let search_text = Self::format_search(&size_info, regex, search_label);
+
+                // Render the search bar.
+                self.draw_search(config, &size_info, &search_text);
+
+                // Compute IME position.
+                let line = size_info.screen_lines();
+                let column = Column(search_text.chars().count() - 1);
+                let ime_point = Point::new(line, column);
+
+                let fg = config.colors.search_bar_foreground();
+                let bg = config.colors.search_bar_background();
+                self.handle_ime_input(ime_point, fg, bg, &mut rects, &metrics, config);
+
+                if !self.handling_ime() {
+                    // Push search bar cursor if there's no IME.
+                    let shape = CursorShape::Underline;
+                    let cursor = RenderableCursor::new(Point::new(line, column), shape, fg, false);
+                    rects.extend(
+                        cursor.rects(&size_info, config.terminal_config.cursor.thickness()),
+                    );
+                }
+            },
+            None if self.ime_input.enabled() => {
+                let fg = foreground_color;
+                let bg = background_color;
+                let point =
+                    Point::new(cursor_point.line.0 as usize + display_offset, cursor_point.column);
+                self.handle_ime_input(point, fg, bg, &mut rects, &metrics, config);
+            },
+            _ => (),
+        };
 
         if self.debug_damage {
             self.highlight_damage(&mut rects);
@@ -835,29 +1046,6 @@ impl Display {
         }
 
         self.draw_render_timer(config, &size_info);
-
-        // Handle search and IME positioning.
-        let ime_position = match search_state.regex() {
-            Some(regex) => {
-                let search_label = match search_state.direction() {
-                    Direction::Right => FORWARD_SEARCH_LABEL,
-                    Direction::Left => BACKWARD_SEARCH_LABEL,
-                };
-
-                let search_text = Self::format_search(&size_info, regex, search_label);
-
-                // Render the search bar.
-                self.draw_search(config, &size_info, &search_text);
-
-                // Compute IME position.
-                let line = Line(size_info.screen_lines() as i32 + 1);
-                Point::new(line, Column(search_text.chars().count() - 1))
-            },
-            None => cursor_point,
-        };
-
-        // Update IME position.
-        self.window.update_ime_position(ime_position, &self.size_info);
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -949,8 +1137,8 @@ impl Display {
             }
         }
 
-        // Add cursor to show whitespace.
-        formatted_regex.push('_');
+        // Add spacer for cursor to show whitespace.
+        formatted_regex.push(' ');
 
         // Truncate beginning of the search regex if it exceeds the viewport width.
         let num_cols = size_info.columns();
@@ -1045,7 +1233,7 @@ impl Display {
 
     /// Damage `len` starting from a `point`.
     #[inline]
-    fn damage_from_point(&mut self, point: Point<usize>, len: u32) {
+    pub fn damage_from_point(&mut self, point: Point<usize>, len: u32) {
         if !self.collect_damage() {
             return;
         }
@@ -1073,7 +1261,7 @@ impl Display {
 
     /// Returns `true` if damage information should be collected, `false` otherwise.
     #[inline]
-    fn collect_damage(&self) -> bool {
+    pub fn collect_damage(&self) -> bool {
         self.is_damage_supported || self.debug_damage
     }
 

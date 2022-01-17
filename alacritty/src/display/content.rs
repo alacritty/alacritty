@@ -51,6 +51,7 @@ impl<'a> RenderableContent<'a> {
         // Find terminal cursor shape.
         let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
+            || display.handling_ime()
             || search_state.regex().is_some()
         {
             CursorShape::Hidden
@@ -386,6 +387,10 @@ impl RenderableCursor {
 }
 
 impl RenderableCursor {
+    pub fn new(point: Point<usize>, shape: CursorShape, cursor_color: Rgb, is_wide: bool) -> Self {
+        Self { point, shape, cursor_color, text_color: cursor_color, is_wide }
+    }
+
     pub fn color(&self) -> Rgb {
         self.cursor_color
     }

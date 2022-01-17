@@ -741,6 +741,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Process key input.
     pub fn key_input(&mut self, input: KeyboardInput) {
+        // Don't process anything if we have IME input.
+        if self.ctx.display().handling_ime() {
+            *self.ctx.suppress_chars() = true;
+            return;
+        }
+
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
             *self.ctx.suppress_chars() = false;
