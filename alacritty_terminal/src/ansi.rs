@@ -1506,8 +1506,7 @@ mod tests {
         attr: Option<Attr>,
         identity_reported: bool,
         color: Option<Rgb>,
-        reset_color_index: Option<usize>,
-        reset_color_count: usize,
+        reset_colors: Vec<usize>,
     }
 
     impl Handler for MockHandler {
@@ -1537,8 +1536,7 @@ mod tests {
         }
 
         fn reset_color(&mut self, index: usize) {
-            self.reset_color_index = Some(index);
-            self.reset_color_count += 1;
+            self.reset_colors.push(index)
         }
     }
 
@@ -1550,8 +1548,7 @@ mod tests {
                 attr: None,
                 identity_reported: false,
                 color: None,
-                reset_color_index: None,
-                reset_color_count: 0,
+                reset_colors: Vec::new(),
             }
         }
     }
@@ -1776,8 +1773,7 @@ mod tests {
             parser.advance(&mut handler, *byte);
         }
 
-        assert_eq!(handler.reset_color_index, Some(1));
-        assert_eq!(handler.reset_color_count, 1);
+        assert_eq!(handler.reset_colors, vec![1]);
     }
 
     #[test]
@@ -1791,7 +1787,8 @@ mod tests {
             parser.advance(&mut handler, *byte);
         }
 
-        assert_eq!(handler.reset_color_count, 256);
+        let expected: Vec<usize> = (0..256).collect();
+        assert_eq!(handler.reset_colors, expected);
 
         // And test without trailling semicolon
         let bytes: &[u8] = b"\x1b]104\x1b\\";
@@ -1803,6 +1800,6 @@ mod tests {
             parser.advance(&mut handler, *byte);
         }
 
-        assert_eq!(handler.reset_color_count, 256);
+        assert_eq!(handler.reset_colors, expected);
     }
 }
