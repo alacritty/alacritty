@@ -5,7 +5,7 @@ use std::{fmt, ptr};
 
 use bitflags::bitflags;
 use crossfont::{
-    BitmapBuffer, Error as RasterizerError, FontDesc, FontKey, GlyphKey, Rasterize,
+    BitmapBuffer, Error as RasterizerError, FontDesc, FontKey, GlyphKey, Metrics, Rasterize,
     RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
 use fnv::FnvHasher;
@@ -35,6 +35,7 @@ macro_rules! cstr {
         unsafe { std::ffi::CStr::from_ptr(concat!($s, "\0").as_ptr().cast()) }
     };
 }
+pub(crate) use cstr;
 
 // Shader source.
 static TEXT_SHADER_F: &str = include_str!("../../res/text.f.glsl");
@@ -148,7 +149,7 @@ pub struct GlyphCache {
     glyph_offset: Delta<i8>,
 
     /// Font metrics.
-    metrics: crossfont::Metrics,
+    metrics: Metrics,
 
     /// Whether to use the built-in font for box drawing characters.
     builtin_box_drawing: bool,
@@ -687,7 +688,7 @@ impl QuadRenderer {
     }
 
     /// Draw all rectangles simultaneously to prevent excessive program swaps.
-    pub fn draw_rects(&mut self, size_info: &SizeInfo, rects: Vec<RenderRect>) {
+    pub fn draw_rects(&mut self, size_info: &SizeInfo, metrics: &Metrics, rects: Vec<RenderRect>) {
         if rects.is_empty() {
             return;
         }
@@ -699,7 +700,7 @@ impl QuadRenderer {
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
         }
 
-        self.rect_renderer.draw(size_info, rects);
+        self.rect_renderer.draw(size_info, metrics, rects);
 
         // Activate regular state again.
         unsafe {

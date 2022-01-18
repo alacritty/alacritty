@@ -267,7 +267,7 @@ impl RenderableCell {
         self.bg_alpha == 0.
             && self.character == ' '
             && self.zerowidth.is_none()
-            && !self.flags.intersects(Flags::UNDERLINE | Flags::STRIKEOUT | Flags::DOUBLE_UNDERLINE)
+            && !self.flags.intersects(Flags::ALL_UNDERLINES | Flags::STRIKEOUT)
     }
 
     /// Apply [`CellRgb`] colors to the cell's colors.
