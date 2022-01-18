@@ -25,12 +25,14 @@ use {
     png::Decoder,
 };
 
+use std::collections::HashSet;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::event::ClipboardMetadata;
 use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
@@ -48,7 +50,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::index::Point;
-use alacritty_terminal::term::SizeInfo;
+use alacritty_terminal::term::{ClipboardType, SizeInfo};
 
 use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
@@ -377,6 +379,42 @@ impl Window {
 
     pub fn id(&self) -> WindowId {
         self.window().id()
+    }
+
+    #[inline]
+    pub fn set_clipboard_content(&self, ty: ClipboardType, text: String) {
+        let mut mimes = HashSet::new();
+        mimes.insert(String::from("text/plain;charset=utf-8"));
+        mimes.insert(String::from("text/plain"));
+        mimes.insert(String::from("UTF8_STRING"));
+        match ty {
+            ClipboardType::Clipboard => self.window().set_clipboard_content(text, mimes),
+            #[cfg(not(any(target_os = "macos", windows)))]
+            ClipboardType::Selection => self.window().set_primary_clipboard_content(text, mimes),
+            #[cfg(any(target_os = "macos", windows))]
+            ClipboardType::Selection => return,
+        }
+    }
+
+    #[inline]
+    pub fn request_clipboard_content(
+        &self,
+        ty: ClipboardType,
+        metadata: Option<Arc<ClipboardMetadata>>,
+    ) {
+        let mut mimes = HashSet::new();
+        mimes.insert(String::from("text/plain;charset=utf-8"));
+        mimes.insert(String::from("text/plain"));
+        mimes.insert(String::from("UTF8_STRING"));
+        match ty {
+            ClipboardType::Clipboard => self.window().request_clipboard_content(mimes, metadata),
+            #[cfg(not(any(target_os = "macos", windows)))]
+            ClipboardType::Selection => {
+                self.window().request_primary_clipboard_content(mimes, metadata)
+            },
+            #[cfg(any(target_os = "macos", windows))]
+            ClipboardType::Selection => return,
+        }
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]

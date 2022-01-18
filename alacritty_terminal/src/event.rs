@@ -5,6 +5,8 @@ use std::sync::Arc;
 use crate::term::color::Rgb;
 use crate::term::{ClipboardType, SizeInfo};
 
+pub type ClipboardFormater = dyn Fn(&str) -> String + Sync + Send + 'static;
+
 /// Terminal event.
 ///
 /// These events instruct the UI over changes that can't be handled by the terminal emulation layer
@@ -27,7 +29,7 @@ pub enum Event {
     ///
     /// The attached function is a formatter which will corectly transform the clipboard content
     /// into the expected escape sequence format.
-    ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
+    ClipboardLoad(ClipboardType, Arc<ClipboardFormater>),
 
     /// Request to write the RGB value of a color to the PTY.
     ///

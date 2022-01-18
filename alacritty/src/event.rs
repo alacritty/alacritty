@@ -9,6 +9,7 @@ use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -26,7 +27,7 @@ use wayland_client::{Display as WaylandDisplay, EventQueue};
 use crossfont::{self, Size};
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
-use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
+use alacritty_terminal::event::{ClipboardFormater, Event as TerminalEvent, EventListener, Notify};
 use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
@@ -35,7 +36,6 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 
 use crate::cli::{Options as CliOptions, WindowOptions};
-use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
@@ -172,7 +172,6 @@ impl Default for SearchState {
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
-    pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
@@ -247,9 +246,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         if ty == ClipboardType::Selection && self.config.terminal_config.selection.save_to_clipboard
         {
-            self.clipboard.store(ClipboardType::Clipboard, text.clone());
+            self.window().set_clipboard_content(ClipboardType::Clipboard, text.clone());
         }
-        self.clipboard.store(ty, text);
+        self.window().set_clipboard_content(ty, text);
     }
 
     fn selection_is_empty(&self) -> bool {
@@ -683,7 +682,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
                 let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
-                self.clipboard.store(ClipboardType::Clipboard, text);
+                self.window().set_clipboard_content(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => {
@@ -788,10 +787,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
         self.event_loop
-    }
-
-    fn clipboard_mut(&mut self) -> &mut Clipboard {
-        self.clipboard
     }
 
     fn scheduler_mut(&mut self) -> &mut Scheduler {
@@ -1069,11 +1064,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
-                        self.ctx.clipboard.store(clipboard_type, content);
+                        self.ctx.window().set_clipboard_content(clipboard_type, content);
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
-                        let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
-                        self.ctx.write_to_pty(text.into_bytes());
+                        let window = self.ctx.window();
+                        window.request_clipboard_content(clipboard_type, Some(Arc::new(format)));
                     },
                     TerminalEvent::ColorRequest(index, format) => {
                         let color = self.ctx.terminal().colors()[index]
@@ -1133,6 +1128,24 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
+                    },
+                    WindowEvent::ClipboardContent(mut content) => {
+                        let text = String::from_utf8_lossy(&content.data);
+                        match content.metadata.take() {
+                            Some(metadata) => {
+                                // Check if we've got a filter from alacritty_terminal which we
+                                // should apply before writing to terminal.
+                                let format = match metadata.downcast_ref::<Arc<ClipboardFormater>>()
+                                {
+                                    Some(format) => format,
+                                    None => return,
+                                };
+
+                                let text = format(&text);
+                                self.ctx.write_to_pty(text.into_bytes());
+                            },
+                            None => self.ctx.paste(&text),
+                        }
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
@@ -1230,12 +1243,6 @@ impl Processor {
         let proxy = event_loop.create_proxy();
         let mut scheduler = Scheduler::new(proxy.clone());
 
-        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut clipboard = unsafe { Clipboard::new(event_loop.wayland_display()) };
-        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-        let mut clipboard = Clipboard::new();
-
         event_loop.run_return(|event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
@@ -1292,7 +1299,6 @@ impl Processor {
                             event_loop,
                             &proxy,
                             &mut self.config,
-                            &mut clipboard,
                             &mut scheduler,
                             GlutinEvent::RedrawEventsCleared,
                         );
@@ -1334,7 +1340,6 @@ impl Processor {
                             event_loop,
                             &proxy,
                             &mut self.config,
-                            &mut clipboard,
                             &mut scheduler,
                             event.clone().into(),
                         );
@@ -1349,7 +1354,6 @@ impl Processor {
                             event_loop,
                             &proxy,
                             &mut self.config,
-                            &mut clipboard,
                             &mut scheduler,
                             event,
                         );

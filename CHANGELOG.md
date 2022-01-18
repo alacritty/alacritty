@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - OSC 4 not handling `?`
 - `?` in OSC strings reporting default colors instead of modified ones
+- Pasting from clipboard freezing alacritty
+- Hight wakeup count when idle on Wayland
+- X11 clipboard is lagging behind
+- Pasting with 'text/plain' mime type not working
 
 ## 0.10.0
 

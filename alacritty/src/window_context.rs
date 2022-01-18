@@ -28,7 +28,6 @@ use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
 use crate::cli::WindowOptions;
-use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
@@ -231,7 +230,6 @@ impl WindowContext {
         event_loop: &EventLoopWindowTarget<Event>,
         event_proxy: &EventLoopProxy<Event>,
         config: &mut UiConfig,
-        clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
         event: GlutinEvent<'_, Event>,
     ) {
@@ -283,7 +281,6 @@ impl WindowContext {
             preserve_title: self.preserve_title,
             event_proxy,
             event_loop,
-            clipboard,
             scheduler,
             config,
         };

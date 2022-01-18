@@ -27,7 +27,6 @@ use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use alacritty_terminal::tty;
 
 mod cli;
-mod clipboard;
 mod config;
 mod daemon;
 mod display;

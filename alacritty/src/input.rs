@@ -30,7 +30,6 @@ use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
-use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -89,7 +88,6 @@ pub trait ActionContext<T: EventListener> {
     fn config(&self) -> &UiConfig;
     fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
     fn mouse_mode(&self) -> bool;
-    fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
     fn start_search(&mut self, _direction: Direction) {}
     fn confirm_search(&mut self) {}
@@ -248,12 +246,10 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
             Action::ClearSelection => ctx.clear_selection(),
             Action::Paste => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                ctx.paste(&text);
+                ctx.window().request_clipboard_content(ClipboardType::Clipboard, None);
             },
             Action::PasteSelection => {
-                let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                ctx.paste(&text);
+                ctx.window().request_clipboard_content(ClipboardType::Selection, None);
             },
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
@@ -973,7 +969,6 @@ mod tests {
         pub terminal: &'a mut Term<T>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
-        pub clipboard: &'a mut Clipboard,
         pub message_buffer: &'a mut MessageBuffer,
         pub received_count: usize,
         pub suppress_chars: bool,
@@ -1065,10 +1060,6 @@ mod tests {
             self.config
         }
 
-        fn clipboard_mut(&mut self) -> &mut Clipboard {
-            self.clipboard
-        }
-
         fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
             unimplemented!();
         }
@@ -1088,7 +1079,6 @@ mod tests {
         } => {
             #[test]
             fn $name() {
-                let mut clipboard = Clipboard::new_nop();
                 let cfg = UiConfig::default();
                 let size = SizeInfo::new(
                     21.0,
@@ -1114,7 +1104,6 @@ mod tests {
                     terminal: &mut terminal,
                     mouse: &mut mouse,
                     size_info: &size,
-                    clipboard: &mut clipboard,
                     received_count: 0,
                     suppress_chars: false,
                     modifiers: Default::default(),
