@@ -1064,7 +1064,7 @@ where
             // Reset color index.
             b"104" => {
                 // Reset all color indexes when no parameters are given.
-                if params.len() == 1 {
+                if params.len() == 1 || params[1].is_empty() {
                     for i in 0..256 {
                         self.handler.reset_color(i);
                     }
@@ -1506,6 +1506,7 @@ mod tests {
         attr: Option<Attr>,
         identity_reported: bool,
         color: Option<Rgb>,
+        reset_colors: Vec<usize>,
     }
 
     impl Handler for MockHandler {
@@ -1533,6 +1534,10 @@ mod tests {
         fn set_color(&mut self, _: usize, c: Rgb) {
             self.color = Some(c);
         }
+
+        fn reset_color(&mut self, index: usize) {
+            self.reset_colors.push(index)
+        }
     }
 
     impl Default for MockHandler {
@@ -1543,6 +1548,7 @@ mod tests {
                 attr: None,
                 identity_reported: false,
                 color: None,
+                reset_colors: Vec::new(),
             }
         }
     }
@@ -1754,5 +1760,49 @@ mod tests {
         }
 
         assert_eq!(handler.color, Some(Rgb { r: 0xf0, g: 0xf0, b: 0xf0 }));
+    }
+
+    #[test]
+    fn parse_osc104_reset_color() {
+        let bytes: &[u8] = b"\x1b]104;1;\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        assert_eq!(handler.reset_colors, vec![1]);
+    }
+
+    #[test]
+    fn parse_osc104_reset_all_colors() {
+        let bytes: &[u8] = b"\x1b]104;\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        let expected: Vec<usize> = (0..256).collect();
+        assert_eq!(handler.reset_colors, expected);
+    }
+
+    #[test]
+    fn parse_osc104_reset_all_colors_no_semicolon() {
+        let bytes: &[u8] = b"\x1b]104\x1b\\";
+
+        let mut parser = Processor::new();
+        let mut handler = MockHandler::default();
+
+        for byte in bytes {
+            parser.advance(&mut handler, *byte);
+        }
+
+        let expected: Vec<usize> = (0..256).collect();
+        assert_eq!(handler.reset_colors, expected);
     }
 }
