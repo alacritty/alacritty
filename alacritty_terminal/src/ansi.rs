@@ -1789,8 +1789,10 @@ mod tests {
 
         let expected: Vec<usize> = (0..256).collect();
         assert_eq!(handler.reset_colors, expected);
+    }
 
-        // And test without trailling semicolon
+    #[test]
+    fn parse_osc104_reset_all_colors_no_semicolon() {
         let bytes: &[u8] = b"\x1b]104\x1b\\";
 
         let mut parser = Processor::new();
@@ -1800,6 +1802,7 @@ mod tests {
             parser.advance(&mut handler, *byte);
         }
 
+        let expected: Vec<usize> = (0..256).collect();
         assert_eq!(handler.reset_colors, expected);
     }
 }
