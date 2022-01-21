@@ -151,7 +151,10 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.display().hint_state.start(hint.clone());
                 ctx.mark_dirty();
             },
-            Action::ToggleViMode => ctx.toggle_vi_mode(),
+            Action::ToggleViMode => {
+                ctx.on_typing_start();
+                ctx.toggle_vi_mode()
+            },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(*motion);
