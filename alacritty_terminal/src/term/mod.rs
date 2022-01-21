@@ -93,7 +93,7 @@ pub struct SizeInfo {
     /// Horizontal window padding.
     padding_x: f32,
 
-    /// Horizontal window padding.
+    /// Vertical window padding.
     padding_y: f32,
 
     /// Number of lines in the viewport.
