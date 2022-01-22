@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi cursor on topmost of the display moving downward when scrolled into history with active output
 - Input lag on Wayland with Nvidia binary driver
 - Crash when hovering the mouse over fullwidth characters
+- Do not create logfile if the file already exists
 
 ### Removed
 
