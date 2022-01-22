@@ -184,7 +184,7 @@ impl OnDemandLogFile {
 
         // Create the file if it doesn't exist yet.
         if self.file.is_none() {
-            let file = OpenOptions::new().append(true).create(true).open(&self.path);
+            let file = OpenOptions::new().append(true).create_new(true).open(&self.path);
 
             match file {
                 Ok(file) => {
