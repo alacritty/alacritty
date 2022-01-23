@@ -69,7 +69,7 @@ following locations:
 
 On Windows, the config file should be located at:
 
-`%APPDATA%\alacritty\alacritty.yml`
+`%APPDATA%\Roaming\alacritty\alacritty.yml`
 
 ## Contributing
 
