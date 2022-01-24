@@ -166,6 +166,11 @@ Select the package for Python 3 (e.g. `python-3.6.8p0`) when prompted.
 The default user limits in OpenBSD are insufficient to build Alacritty. A
 `datasize-cur` of at least 3GB is recommended (see [login.conf](https://man.openbsd.org/login.conf)).
 
+On OpenBSD-current (and future stable releases):
+```sh
+pkg_add alacritty
+```
+
 #### Solus
 
 On [Solus](https://solus-project.com/), you need a few extra libraries to build
