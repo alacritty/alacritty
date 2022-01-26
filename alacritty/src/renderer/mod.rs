@@ -137,6 +137,9 @@ pub struct GlyphCache {
 
     /// Font metrics.
     metrics: crossfont::Metrics,
+
+    /// Whether to use the built-in font for box drawing characters.
+    use_built_in_font_for_box_drawing: bool,
 }
 
 impl GlyphCache {
@@ -144,6 +147,7 @@ impl GlyphCache {
         mut rasterizer: Rasterizer,
         font: &Font,
         loader: &mut L,
+        use_built_in_font_for_box_drawing: bool,
     ) -> Result<GlyphCache, crossfont::Error>
     where
         L: LoadGlyph,
@@ -167,6 +171,7 @@ impl GlyphCache {
             bold_italic_key: bold_italic,
             glyph_offset: font.glyph_offset,
             metrics,
+            use_built_in_font_for_box_drawing,
         };
 
         cache.load_common_glyphs(loader);
@@ -268,8 +273,12 @@ impl GlyphCache {
 
         // Rasterize the glyph using the built-in font for special characters or the user's font
         // for everything else.
-        let rasterized = builtin_font::builtin_glyph(glyph_key.character, &self.metrics)
-            .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
+        let rasterized = if self.use_built_in_font_for_box_drawing {
+            builtin_font::builtin_glyph(glyph_key.character, &self.metrics)
+                .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok)
+        } else {
+            self.rasterizer.get_glyph(glyph_key)
+        };
 
         let glyph = match rasterized {
             Ok(rasterized) => self.load_glyph(loader, rasterized),

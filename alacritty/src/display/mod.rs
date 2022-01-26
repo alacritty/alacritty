@@ -351,8 +351,14 @@ impl Display {
             info!("Initializing glyph cache...");
             let init_start = Instant::now();
 
-            let cache =
-                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
+            let cache = renderer.with_loader(|mut api| {
+                GlyphCache::new(
+                    rasterizer,
+                    &font,
+                    &mut api,
+                    config.font.use_built_in_font_for_box_drawing,
+                )
+            })?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;

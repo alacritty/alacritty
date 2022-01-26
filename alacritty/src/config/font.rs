@@ -38,6 +38,9 @@ pub struct Font {
 
     /// Font size in points.
     size: Size,
+
+    /// Whether to use the built-in font for box drawing characters.
+    pub use_built_in_font_for_box_drawing: bool,
 }
 
 impl Font {
