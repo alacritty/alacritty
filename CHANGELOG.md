@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Minimum Rust version has been bumped to 1.56.0
 
+### Added
+
+ - Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
