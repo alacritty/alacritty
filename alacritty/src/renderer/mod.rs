@@ -132,6 +132,9 @@ pub struct GlyphCache {
     /// Font size.
     font_size: crossfont::Size,
 
+    /// Font offset.
+    font_offset: Delta<i8>,
+
     /// Glyph offset.
     glyph_offset: Delta<i8>,
 
@@ -168,6 +171,7 @@ impl GlyphCache {
             bold_key: bold,
             italic_key: italic,
             bold_italic_key: bold_italic,
+            font_offset: font.offset,
             glyph_offset: font.glyph_offset,
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
@@ -274,7 +278,14 @@ impl GlyphCache {
         // for everything else.
         let rasterized = self
             .builtin_box_drawing
-            .then(|| builtin_font::builtin_glyph(glyph_key.character, &self.metrics))
+            .then(|| {
+                builtin_font::builtin_glyph(
+                    glyph_key.character,
+                    &self.metrics,
+                    &self.font_offset,
+                    &self.glyph_offset,
+                )
+            })
             .flatten()
             .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
 
@@ -342,6 +353,7 @@ impl GlyphCache {
     ) -> Result<(), crossfont::Error> {
         // Update dpi scaling.
         self.rasterizer.update_dpr(dpr as f32);
+        self.font_offset = font.offset;
 
         // Recompute font keys.
         let (regular, bold, italic, bold_italic) =

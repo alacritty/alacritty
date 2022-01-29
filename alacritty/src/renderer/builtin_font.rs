@@ -5,6 +5,8 @@ use std::{cmp, mem};
 
 use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
+use crate::config::ui_config::Delta;
+
 // Colors which are used for filling shade variants.
 const COLOR_FILL_ALPHA_STEP_1: Pixel = Pixel { _r: 192, _g: 192, _b: 192 };
 const COLOR_FILL_ALPHA_STEP_2: Pixel = Pixel { _r: 128, _g: 128, _b: 128 };
@@ -14,17 +16,29 @@ const COLOR_FILL_ALPHA_STEP_3: Pixel = Pixel { _r: 64, _g: 64, _b: 64 };
 const COLOR_FILL: Pixel = Pixel { _r: 255, _g: 255, _b: 255 };
 
 /// Returns the rasterized glyph if the character is part of the built-in font.
-pub fn builtin_glyph(character: char, metrics: &Metrics) -> Option<RasterizedGlyph> {
-    match character {
+pub fn builtin_glyph(
+    character: char,
+    metrics: &Metrics,
+    offset: &Delta<i8>,
+    glyph_offset: &Delta<i8>,
+) -> Option<RasterizedGlyph> {
+    let mut glyph = match character {
         // Box drawing characters and block elements.
-        '\u{2500}'..='\u{259f}' => Some(box_drawing(character, metrics)),
-        _ => None,
-    }
+        '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
+        _ => return None,
+    };
+
+    // Since we want to ignore `glyph_offset` for the built-in font, subtract it to compensate its
+    // addition when loading glyphs in the renderer.
+    glyph.left -= glyph_offset.x as i32;
+    glyph.top -= glyph_offset.y as i32;
+
+    Some(glyph)
 }
 
-fn box_drawing(character: char, metrics: &Metrics) -> RasterizedGlyph {
-    let height = metrics.line_height as usize;
-    let width = metrics.average_advance as usize;
+fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+    let height = (metrics.line_height as i32 + offset.y as i32) as usize;
+    let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
     let stroke_size = cmp::max(metrics.underline_thickness as usize, 1);
     let heavy_stroke_size = stroke_size * 3;
     // Certain symbols require larger canvas than the cell itself, since for proper contiguous
@@ -741,13 +755,16 @@ mod test {
             strikeout_thickness: 2.,
         };
 
+        let offset = Default::default();
+        let glyph_offset = Default::default();
+
         // Test coverage of box drawing characters.
         for character in '\u{2500}'..='\u{259f}' {
-            assert!(builtin_glyph(character, &metrics).is_some());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_some());
         }
 
         for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
-            assert!(builtin_glyph(character, &metrics).is_none());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_none());
         }
     }
 }
