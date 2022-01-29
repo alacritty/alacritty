@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.11.0-dev
 
+### Added
+
+ - Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+
 ### Fixed
 
 - OSC 4 not handling `?`
