@@ -12,7 +12,7 @@ use std::{f64, mem};
 use glutin::dpi::PhysicalSize;
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoopWindowTarget;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
