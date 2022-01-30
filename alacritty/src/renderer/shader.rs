@@ -109,8 +109,7 @@ fn get_program_info_log(program: GLuint) -> String {
         buf.set_len(actual_length as usize);
     }
 
-    // XXX should we expect OpenGL to return garbage?
-    String::from_utf8(buf).unwrap()
+    String::from_utf8_lossy(&buf).to_string()
 }
 
 fn get_shader_info_log(shader: GLuint) -> String {
@@ -132,8 +131,7 @@ fn get_shader_info_log(shader: GLuint) -> String {
         buf.set_len(actual_length as usize);
     }
 
-    // XXX should we expect OpenGL to return garbage?
-    String::from_utf8(buf).unwrap()
+    String::from_utf8_lossy(&buf).to_string()
 }
 
 #[derive(Debug)]
