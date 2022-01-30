@@ -20,6 +20,8 @@ use std::string::ToString;
 use std::{fs, process};
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
@@ -126,14 +128,19 @@ impl Drop for TemporaryFiles {
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn alacritty(options: Options) -> Result<(), String> {
-    info!("Welcome to Alacritty");
-
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
         .expect("Unable to initialize logger");
+
+    info!("Welcome to Alacritty");
+
+    #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+    info!("Running on {}", if window_event_loop.is_x11() { "X11" } else { "Wayland" });
+    #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
+    info!("Running on Wayland");
 
     // Load configuration file.
     let config = config::load(&options);
