@@ -1,7 +1,7 @@
 //! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf)
 //! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf).
 
-use std::{cmp, mem};
+use std::{cmp, mem, ops};
 
 use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
@@ -39,8 +39,10 @@ pub fn builtin_glyph(
 fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
-    let stroke_size = cmp::max(metrics.underline_thickness as usize, 1);
-    let heavy_stroke_size = stroke_size * 3;
+    // Use one eight of the cell width, since this is used as a step size for block elemenets.
+    let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1);
+    let heavy_stroke_size = stroke_size * 2;
+
     // Certain symbols require larger canvas than the cell itself, since for proper contiguous
     // lines they require drawing on neighbour cells. So treat them specially early on and handle
     // 'normal' characters later.
@@ -66,7 +68,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
 
             let from_x = 0.;
             let to_x = x_end + 1.;
-            for stroke_size in stroke_size..2 * stroke_size {
+            for stroke_size in 0..2 * stroke_size {
                 let stroke_size = stroke_size as f32 / 2.;
                 if character == '\u{2571}' || character == '\u{2573}' {
                     let h = y_end - stroke_size as f32;
@@ -341,7 +343,9 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             // Mirror `X` axis.
             if character == '\u{256d}' || character == '\u{2570}' {
                 let center = canvas.x_center() as usize;
-                let extra_offset = if width % 2 == 0 { 1 } else { 0 };
+
+                let extra_offset = if stroke_size % 2 == width % 2 { 0 } else { 1 };
+
                 let buffer = canvas.buffer_mut();
                 for y in 1..height {
                     let left = (y - 1) * width;
@@ -357,7 +361,9 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             // Mirror `Y` axis.
             if character == '\u{256d}' || character == '\u{256e}' {
                 let center = canvas.y_center() as usize;
-                let extra_offset = if height % 2 == 0 { 1 } else { 0 };
+
+                let extra_offset = if stroke_size % 2 == height % 2 { 0 } else { 1 };
+
                 let buffer = canvas.buffer_mut();
                 if extra_offset != 0 {
                     let bottom_row = (height - 1) * width;
@@ -480,6 +486,28 @@ struct Pixel {
 impl Pixel {
     fn gray(color: u8) -> Self {
         Self { _r: color, _g: color, _b: color }
+    }
+}
+
+impl ops::Add for Pixel {
+    type Output = Pixel;
+
+    fn add(self, rhs: Pixel) -> Self::Output {
+        let _r = self._r.saturating_add(rhs._r);
+        let _g = self._g.saturating_add(rhs._g);
+        let _b = self._b.saturating_add(rhs._b);
+        Pixel { _r, _g, _b }
+    }
+}
+
+impl ops::Div<u8> for Pixel {
+    type Output = Pixel;
+
+    fn div(self, rhs: u8) -> Self::Output {
+        let _r = self._r / rhs;
+        let _g = self._g / rhs;
+        let _b = self._b / rhs;
+        Pixel { _r, _g, _b }
     }
 }
 
@@ -716,6 +744,24 @@ impl Canvas {
         // Ensure the part closer to edges is properly filled.
         self.draw_h_line(0., self.y_center(), stroke_size as f32, stroke_size);
         self.draw_v_line(self.x_center(), 0., stroke_size as f32, stroke_size);
+
+        // Fill the resulted arc, since it could have gaps in-between.
+        for y in 0..self.height {
+            let row = y * self.width;
+            let left = match self.buffer[row..row + self.width].iter().position(|p| p._r != 0) {
+                Some(left) => row + left,
+                _ => continue,
+            };
+            let right = match self.buffer[row..row + self.width].iter().rposition(|p| p._r != 0) {
+                Some(right) => row + right,
+                _ => continue,
+            };
+
+            for index in left + 1..right {
+                self.buffer[index] =
+                    self.buffer[index] + self.buffer[index - 1] / 2 + self.buffer[index + 1] / 2;
+            }
+        }
     }
 
     /// Fills the `Canvas` with the given `Color`.
@@ -744,7 +790,7 @@ mod test {
 
     #[test]
     fn builtin_line_drawing_glyphs_coverage() {
-        // Dummy metrics values to test builtin glyphs coverage.
+        // Dummy metrics values to test built-in glyphs coverage.
         let metrics = Metrics {
             average_advance: 6.,
             line_height: 16.,
