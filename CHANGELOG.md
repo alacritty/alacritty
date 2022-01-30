@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
+- Builtin font thickness is now based on cell width instead of underline thickness
 
 ### Fixed
 
@@ -26,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - OSC 104 not clearing colors when second parameter is empty
 - Builtin font lines not contiguous when `font.offset` is used
 - `font.glyph_offset` is no longer applied on builtin font
+- Buili-in font arcs alignment
 
 ## 0.10.0
 
