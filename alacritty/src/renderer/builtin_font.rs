@@ -39,8 +39,7 @@ pub fn builtin_glyph(
 fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
-    // We use one eight of the cell width, since this is used as a step of increasing cell
-    // fulfillness in certain glyphs.
+    // Use one eight of the cell width, since this is used as a step size for block elemenets.
     let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1);
     let heavy_stroke_size = stroke_size * 2;
 
