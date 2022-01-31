@@ -869,6 +869,7 @@ impl<'a> RenderApi<'a> {
         point: Point<usize>,
         fg: Rgb,
         bg: Rgb,
+        bg_alpha: f32,
         string: &str,
     ) {
         let cells = string
@@ -879,7 +880,7 @@ impl<'a> RenderApi<'a> {
                 character,
                 zerowidth: None,
                 flags: Flags::empty(),
-                bg_alpha: 1.0,
+                bg_alpha,
                 fg,
                 bg,
             })

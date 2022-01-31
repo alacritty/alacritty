@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - The `--help` output was reworked with a new colorful syntax
 - Builtin font thickness is now based on cell width instead of underline thickness
+- `window.opacity` is now applied on search bar
 
 ### Fixed
 
