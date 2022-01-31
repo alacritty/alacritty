@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
  - Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+- Underline color escape sequence (`CSI 58 : 2 : Ps : Ps : Ps m`/`CSI 58 : 5 : Ps m`)
 
 ### Changed
 

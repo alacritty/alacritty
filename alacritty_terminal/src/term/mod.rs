@@ -427,7 +427,7 @@ impl<T> Term<T> {
                 text.push(cell.c);
 
                 // Push zero-width characters.
-                for c in cell.zerowidth().into_iter().flatten() {
+                for c in cell.extra().map(|extra| &extra.zerowidth).into_iter().flatten() {
                     text.push(*c);
                 }
             }
@@ -787,6 +787,8 @@ impl<T> Term<T> {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
+        let underline_color =
+            self.grid.cursor.template.extra().and_then(|extra| extra.underline_color);
         let flags = self.grid.cursor.template.flags;
 
         let mut cursor_cell = self.grid.cursor_cell();
@@ -812,6 +814,10 @@ impl<T> Term<T> {
         }
 
         cursor_cell.drop_extra();
+
+        if let Some(underline_color) = underline_color {
+            cursor_cell.set_underline_color(underline_color);
+        }
 
         cursor_cell.c = c;
         cursor_cell.fg = fg;
@@ -1540,6 +1546,8 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::CancelHidden => cursor.template.flags.remove(Flags::HIDDEN),
             Attr::Strike => cursor.template.flags.insert(Flags::STRIKEOUT),
             Attr::CancelStrike => cursor.template.flags.remove(Flags::STRIKEOUT),
+            Attr::UnderlineColor(Some(color)) => cursor.template.set_underline_color(color),
+            Attr::UnderlineColor(None) => cursor.template.unset_underline_color(),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
             },
