@@ -787,9 +787,8 @@ impl<T> Term<T> {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
-        let underline_color =
-            self.grid.cursor.template.extra().and_then(|extra| extra.underline_color);
         let flags = self.grid.cursor.template.flags;
+        let extra = self.grid.cursor.template.extra.clone();
 
         let mut cursor_cell = self.grid.cursor_cell();
 
@@ -813,11 +812,7 @@ impl<T> Term<T> {
             cursor_cell = self.grid.cursor_cell();
         }
 
-        cursor_cell.drop_extra();
-
-        if let Some(underline_color) = underline_color {
-            cursor_cell.set_underline_color(underline_color);
-        }
+        cursor_cell.extra = extra;
 
         cursor_cell.c = c;
         cursor_cell.fg = fg;
