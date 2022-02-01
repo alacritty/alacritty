@@ -788,7 +788,11 @@ impl<T> Term<T> {
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
         let flags = self.grid.cursor.template.flags;
-        let extra = self.grid.cursor.template.extra.clone();
+        let extra = if self.grid.cursor.template.extra.is_some() {
+            self.grid.cursor.template.extra.clone()
+        } else {
+            None
+        };
 
         let mut cursor_cell = self.grid.cursor_cell();
 
@@ -812,7 +816,11 @@ impl<T> Term<T> {
             cursor_cell = self.grid.cursor_cell();
         }
 
-        cursor_cell.extra = extra;
+        if extra.is_some() {
+            cursor_cell.extra = extra;
+        } else {
+            cursor_cell.drop_extra();
+        }
 
         cursor_cell.c = c;
         cursor_cell.fg = fg;
