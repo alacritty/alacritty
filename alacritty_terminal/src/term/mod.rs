@@ -1,9 +1,8 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
-use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
-use std::{mem, ptr, str};
+use std::{cmp, mem, ptr, slice, str};
 
 use bitflags::bitflags;
 use log::{debug, trace};
@@ -62,7 +61,7 @@ bitflags! {
         const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
         const VI                  = 0b0001_0000_0000_0000_0000;
         const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
-        const ANY                 = std::u32::MAX;
+        const ANY                 = u32::MAX;
     }
 }
 
@@ -77,24 +76,24 @@ impl Default for TermMode {
 
 /// Terminal size info.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
-pub struct SizeInfo {
+pub struct SizeInfo<T = f32> {
     /// Terminal window width.
-    width: f32,
+    width: T,
 
     /// Terminal window height.
-    height: f32,
+    height: T,
 
     /// Width of individual cell.
-    cell_width: f32,
+    cell_width: T,
 
     /// Height of individual cell.
-    cell_height: f32,
+    cell_height: T,
 
     /// Horizontal window padding.
-    padding_x: f32,
+    padding_x: T,
 
     /// Vertical window padding.
-    padding_y: f32,
+    padding_y: T,
 
     /// Number of lines in the viewport.
     screen_lines: usize,
@@ -103,7 +102,54 @@ pub struct SizeInfo {
     columns: usize,
 }
 
-impl SizeInfo {
+impl From<SizeInfo<f32>> for SizeInfo<u32> {
+    fn from(size_info: SizeInfo<f32>) -> Self {
+        Self {
+            width: size_info.width as u32,
+            height: size_info.height as u32,
+            cell_width: size_info.cell_width as u32,
+            cell_height: size_info.cell_height as u32,
+            padding_x: size_info.padding_x as u32,
+            padding_y: size_info.padding_y as u32,
+            screen_lines: size_info.screen_lines,
+            columns: size_info.screen_lines,
+        }
+    }
+}
+
+impl<T: Clone + Copy> SizeInfo<T> {
+    #[inline]
+    pub fn width(&self) -> T {
+        self.width
+    }
+
+    #[inline]
+    pub fn height(&self) -> T {
+        self.height
+    }
+
+    #[inline]
+    pub fn cell_width(&self) -> T {
+        self.cell_width
+    }
+
+    #[inline]
+    pub fn cell_height(&self) -> T {
+        self.cell_height
+    }
+
+    #[inline]
+    pub fn padding_x(&self) -> T {
+        self.padding_x
+    }
+
+    #[inline]
+    pub fn padding_y(&self) -> T {
+        self.padding_y
+    }
+}
+
+impl SizeInfo<f32> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         width: f32,
@@ -120,10 +166,10 @@ impl SizeInfo {
         }
 
         let lines = (height - 2. * padding_y) / cell_height;
-        let screen_lines = max(lines as usize, MIN_SCREEN_LINES);
+        let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
 
         let columns = (width - 2. * padding_x) / cell_width;
-        let columns = max(columns as usize, MIN_COLUMNS);
+        let columns = cmp::max(columns as usize, MIN_COLUMNS);
 
         SizeInfo {
             width,
@@ -139,7 +185,7 @@ impl SizeInfo {
 
     #[inline]
     pub fn reserve_lines(&mut self, count: usize) {
-        self.screen_lines = max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
+        self.screen_lines = cmp::max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
     }
 
     /// Check if coordinates are inside the terminal grid.
@@ -151,36 +197,6 @@ impl SizeInfo {
             && x > self.padding_x as usize
             && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
-    }
-
-    #[inline]
-    pub fn width(&self) -> f32 {
-        self.width
-    }
-
-    #[inline]
-    pub fn height(&self) -> f32 {
-        self.height
-    }
-
-    #[inline]
-    pub fn cell_width(&self) -> f32 {
-        self.cell_width
-    }
-
-    #[inline]
-    pub fn cell_height(&self) -> f32 {
-        self.cell_height
-    }
-
-    #[inline]
-    pub fn padding_x(&self) -> f32 {
-        self.padding_x
-    }
-
-    #[inline]
-    pub fn padding_y(&self) -> f32 {
-        self.padding_y
     }
 
     /// Calculate padding to spread it evenly around the terminal content.
@@ -204,6 +220,155 @@ impl Dimensions for SizeInfo {
     #[inline]
     fn total_lines(&self) -> usize {
         self.screen_lines()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LineDamageBounds {
+    /// Damaged line number.
+    pub line: usize,
+
+    /// Leftmost damaged column.
+    pub left: usize,
+
+    /// Rightmost damaged column.
+    pub right: usize,
+}
+
+impl LineDamageBounds {
+    #[inline]
+    pub fn undamaged(line: usize, num_cols: usize) -> Self {
+        Self { line, left: num_cols, right: 0 }
+    }
+
+    #[inline]
+    pub fn reset(&mut self, num_cols: usize) {
+        *self = Self::undamaged(self.line, num_cols);
+    }
+
+    #[inline]
+    pub fn expand(&mut self, left: usize, right: usize) {
+        self.left = cmp::min(self.left, left);
+        self.right = cmp::max(self.right, right);
+    }
+
+    #[inline]
+    pub fn is_damaged(&self) -> bool {
+        self.left <= self.right
+    }
+}
+
+/// Terminal damage information collected since the last [`Term::reset_damage`] call.
+#[derive(Debug)]
+pub enum TermDamage<'a> {
+    /// The entire terminal is damaged.
+    Full,
+
+    /// Iterator over damaged lines in the terminal.
+    Partial(TermDamageIterator<'a>),
+}
+
+/// Iterator over the terminal's damaged lines.
+#[derive(Clone, Debug)]
+pub struct TermDamageIterator<'a> {
+    line_damage: slice::Iter<'a, LineDamageBounds>,
+}
+
+impl<'a> TermDamageIterator<'a> {
+    fn new(line_damage: &'a [LineDamageBounds]) -> Self {
+        Self { line_damage: line_damage.iter() }
+    }
+}
+
+impl<'a> Iterator for TermDamageIterator<'a> {
+    type Item = LineDamageBounds;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.line_damage.find(|line| line.is_damaged()).copied()
+    }
+}
+
+/// State of the terminal damage.
+struct TermDamageState {
+    /// Hint whether terminal should be damaged entirely regardless of the actual damage changes.
+    is_fully_damaged: bool,
+
+    /// Information about damage on terminal lines.
+    lines: Vec<LineDamageBounds>,
+
+    /// Old terminal cursor point.
+    last_cursor: Point,
+
+    /// Old selection range.
+    last_selection: Option<SelectionRange>,
+}
+
+impl TermDamageState {
+    fn new(num_cols: usize, num_lines: usize) -> Self {
+        let lines =
+            (0..num_lines).map(|line| LineDamageBounds::undamaged(line, num_cols)).collect();
+
+        Self {
+            is_fully_damaged: true,
+            lines,
+            last_cursor: Default::default(),
+            last_selection: Default::default(),
+        }
+    }
+
+    #[inline]
+    fn resize(&mut self, num_cols: usize, num_lines: usize) {
+        // Reset point, so old cursor won't end up outside of the viewport.
+        self.last_cursor = Default::default();
+        self.last_selection = None;
+        self.is_fully_damaged = true;
+
+        self.lines.clear();
+        self.lines.reserve(num_lines);
+        for line in 0..num_lines {
+            self.lines.push(LineDamageBounds::undamaged(line, num_cols));
+        }
+    }
+
+    /// Damage point inside of the viewport.
+    #[inline]
+    fn damage_point(&mut self, point: Point<usize>) {
+        self.damage_line(point.line, point.column.0 as usize, point.column.0 as usize);
+    }
+
+    /// Expand `line`'s damage to span at least `left` to `right` column.
+    #[inline]
+    fn damage_line(&mut self, line: usize, left: usize, right: usize) {
+        self.lines[line].expand(left, right);
+    }
+
+    fn damage_selection(
+        &mut self,
+        selection: SelectionRange,
+        display_offset: usize,
+        num_cols: usize,
+    ) {
+        let display_offset = display_offset as i32;
+        let last_visible_line = self.lines.len() as i32 - 1;
+
+        // Don't damage invisible selection.
+        if selection.end.line.0 + display_offset < 0
+            || selection.start.line.0.abs() < display_offset - last_visible_line
+        {
+            return;
+        };
+
+        let start = cmp::max(selection.start.line.0 + display_offset, 0);
+        let end = cmp::min(cmp::max(selection.end.line.0 + display_offset, 0), last_visible_line);
+        for line in start as usize..=end as usize {
+            self.damage_line(line, 0, num_cols - 1);
+        }
+    }
+
+    /// Reset information about terminal damage.
+    fn reset(&mut self, num_cols: usize) {
+        self.is_fully_damaged = false;
+        self.lines.iter_mut().for_each(|line| line.reset(num_cols));
     }
 }
 
@@ -269,6 +434,9 @@ pub struct Term<T> {
     /// Information about cell dimensions.
     cell_width: usize,
     cell_height: usize,
+
+    /// Information about damaged cells.
+    damage: TermDamageState,
 }
 
 impl<T> Term<T> {
@@ -277,6 +445,7 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
+        let old_display_offset = self.grid.display_offset();
         self.grid.scroll_display(scroll);
         self.event_proxy.send_event(Event::MouseCursorDirty);
 
@@ -284,8 +453,13 @@ impl<T> Term<T> {
         let viewport_start = -(self.grid.display_offset() as i32);
         let viewport_end = viewport_start + self.bottommost_line().0;
         let vi_cursor_line = &mut self.vi_mode_cursor.point.line.0;
-        *vi_cursor_line = min(viewport_end, max(viewport_start, *vi_cursor_line));
+        *vi_cursor_line = cmp::min(viewport_end, cmp::max(viewport_start, *vi_cursor_line));
         self.vi_mode_recompute_selection();
+
+        // Damage everything if display offset changed.
+        if old_display_offset != self.grid().display_offset() {
+            self.mark_fully_damaged();
+        }
     }
 
     pub fn new(config: &Config, size: SizeInfo, event_proxy: T) -> Term<T> {
@@ -299,6 +473,9 @@ impl<T> Term<T> {
         let tabs = TabStops::new(grid.columns());
 
         let scroll_region = Line(0)..Line(grid.screen_lines() as i32);
+
+        // Initialize terminal damage, covering the entire terminal upon launch.
+        let damage = TermDamageState::new(num_cols, num_lines);
 
         Term {
             grid,
@@ -320,7 +497,68 @@ impl<T> Term<T> {
             selection: None,
             cell_width: size.cell_width as usize,
             cell_height: size.cell_height as usize,
+            damage,
         }
+    }
+
+    #[must_use]
+    pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
+        // Ensure the entire terminal is damaged after entering insert mode.
+        // Leaving is handled in the ansi handler.
+        if self.mode.contains(TermMode::INSERT) {
+            self.mark_fully_damaged();
+        }
+
+        // Early return if the entire terminal is damaged.
+        if self.damage.is_fully_damaged {
+            self.damage.last_cursor = self.grid.cursor.point;
+            self.damage.last_selection = selection;
+            return TermDamage::Full;
+        }
+
+        // Add information about old cursor position and new one if they are not the same, so we
+        // cover everything that was produced by `Term::input`.
+        if self.damage.last_cursor != self.grid.cursor.point {
+            // Cursor cooridanates are always inside viewport even if you have `display_offset`.
+            let point =
+                Point::new(self.damage.last_cursor.line.0 as usize, self.damage.last_cursor.column);
+            self.damage.damage_point(point);
+        }
+
+        // Always damage current cursor.
+        self.damage_cursor();
+        self.damage.last_cursor = self.grid.cursor.point;
+
+        // Damage Vi cursor if it's present.
+        if self.mode.contains(TermMode::VI) {
+            self.damage_vi_cursor();
+        }
+
+        if self.damage.last_selection != selection {
+            let display_offset = self.grid().display_offset();
+            for selection in self.damage.last_selection.into_iter().chain(selection) {
+                self.damage.damage_selection(selection, display_offset, self.columns());
+            }
+        }
+        self.damage.last_selection = selection;
+
+        TermDamage::Partial(TermDamageIterator::new(&self.damage.lines))
+    }
+
+    /// Resets the terminal damage information.
+    pub fn reset_damage(&mut self) {
+        self.damage.reset(self.columns());
+    }
+
+    #[inline]
+    pub fn mark_fully_damaged(&mut self) {
+        self.damage.is_fully_damaged = true;
+    }
+
+    /// Damage line in a terminal viewport.
+    #[inline]
+    pub fn damage_line(&mut self, line: usize, left: usize, right: usize) {
+        self.damage.damage_line(line, left, right);
     }
 
     pub fn update_config(&mut self, config: &Config)
@@ -343,6 +581,9 @@ impl<T> Term<T> {
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
+
+        // Damage everything on config updates.
+        self.mark_fully_damaged();
     }
 
     /// Convert the active selection to a String.
@@ -398,7 +639,7 @@ impl<T> Term<T> {
         let mut text = String::new();
 
         let grid_line = &self.grid[line];
-        let line_length = min(grid_line.line_length(), cols.end + 1);
+        let line_length = cmp::min(grid_line.line_length(), cols.end + 1);
 
         // Include wide char when trailing spacer is selected.
         if grid_line[cols.start].flags.contains(Flags::WIDE_CHAR_SPACER) {
@@ -496,8 +737,8 @@ impl<T> Term<T> {
         // Move vi mode cursor with the content.
         let history_size = self.history_size();
         let mut delta = num_lines as i32 - old_lines as i32;
-        let min_delta = min(0, num_lines as i32 - self.grid.cursor.point.line.0 - 1);
-        delta = min(max(delta, min_delta), history_size as i32);
+        let min_delta = cmp::min(0, num_lines as i32 - self.grid.cursor.point.line.0 - 1);
+        delta = cmp::min(cmp::max(delta, min_delta), history_size as i32);
         self.vi_mode_cursor.point.line += delta;
 
         // Invalidate selection and tabs only when necessary.
@@ -519,11 +760,15 @@ impl<T> Term<T> {
         let vi_point = self.vi_mode_cursor.point;
         let viewport_top = Line(-(self.grid.display_offset() as i32));
         let viewport_bottom = viewport_top + self.bottommost_line();
-        self.vi_mode_cursor.point.line = max(min(vi_point.line, viewport_bottom), viewport_top);
-        self.vi_mode_cursor.point.column = min(vi_point.column, self.last_column());
+        self.vi_mode_cursor.point.line =
+            cmp::max(cmp::min(vi_point.line, viewport_bottom), viewport_top);
+        self.vi_mode_cursor.point.column = cmp::min(vi_point.column, self.last_column());
 
         // Reset scrolling region.
         self.scroll_region = Line(0)..Line(self.screen_lines() as i32);
+
+        // Resize damage information.
+        self.damage.resize(num_cols, num_lines);
     }
 
     /// Active terminal modes.
@@ -548,6 +793,7 @@ impl<T> Term<T> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
+        self.mark_fully_damaged();
     }
 
     /// Scroll screen down.
@@ -558,8 +804,8 @@ impl<T> Term<T> {
     fn scroll_down_relative(&mut self, origin: Line, mut lines: usize) {
         trace!("Scrolling down relative: origin={}, lines={}", origin, lines);
 
-        lines = min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
-        lines = min(lines, (self.scroll_region.end - origin).0 as usize);
+        lines = cmp::min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
+        lines = cmp::min(lines, (self.scroll_region.end - origin).0 as usize);
 
         let region = origin..self.scroll_region.end;
 
@@ -570,11 +816,12 @@ impl<T> Term<T> {
         // Scroll vi mode cursor.
         let line = &mut self.vi_mode_cursor.point.line;
         if region.start <= *line && region.end > *line {
-            *line = min(*line + lines, region.end - 1);
+            *line = cmp::min(*line + lines, region.end - 1);
         }
 
         // Scroll between origin and bottom
         self.grid.scroll_down(&region, lines);
+        self.mark_fully_damaged();
     }
 
     /// Scroll screen up
@@ -585,7 +832,7 @@ impl<T> Term<T> {
     fn scroll_up_relative(&mut self, origin: Line, mut lines: usize) {
         trace!("Scrolling up relative: origin={}, lines={}", origin, lines);
 
-        lines = min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
+        lines = cmp::min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
 
         let region = origin..self.scroll_region.end;
 
@@ -599,8 +846,9 @@ impl<T> Term<T> {
         let top = if region.start == 0 { viewport_top } else { region.start };
         let line = &mut self.vi_mode_cursor.point.line;
         if (top <= *line) && region.end > *line {
-            *line = max(*line - lines, top);
+            *line = cmp::max(*line - lines, top);
         }
+        self.mark_fully_damaged();
     }
 
     fn deccolm(&mut self)
@@ -613,6 +861,7 @@ impl<T> Term<T> {
 
         // Clear grid.
         self.grid.reset_region(..);
+        self.mark_fully_damaged();
     }
 
     #[inline]
@@ -659,7 +908,9 @@ impl<T> Term<T> {
         }
 
         // Move cursor.
+        self.damage_vi_cursor();
         self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
+        self.damage_vi_cursor();
         self.vi_mode_recompute_selection();
     }
 
@@ -669,6 +920,7 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
+        self.damage_vi_cursor();
         // Move viewport to make point visible.
         self.scroll_to_point(point);
 
@@ -676,6 +928,7 @@ impl<T> Term<T> {
         self.vi_mode_cursor.point = point;
 
         self.vi_mode_recompute_selection();
+        self.damage_vi_cursor();
     }
 
     /// Update the active selection to match the vi mode cursor position.
@@ -720,7 +973,7 @@ impl<T> Term<T> {
                 point.line += 1;
             },
             Direction::Right if flags.contains(Flags::WIDE_CHAR) => {
-                point.column = min(point.column + 1, self.last_column());
+                point.column = cmp::min(point.column + 1, self.last_column());
             },
             Direction::Left if flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) => {
                 if flags.contains(Flags::WIDE_CHAR_SPACER) {
@@ -757,6 +1010,10 @@ impl<T> Term<T> {
         }
     }
 
+    pub fn colors(&self) -> &Colors {
+        &self.colors
+    }
+
     /// Insert a linebreak at the current cursor position.
     #[inline]
     fn wrapline(&mut self)
@@ -774,11 +1031,13 @@ impl<T> Term<T> {
         if self.grid.cursor.point.line + 1 >= self.scroll_region.end {
             self.linefeed();
         } else {
+            self.damage_cursor();
             self.grid.cursor.point.line += 1;
         }
 
         self.grid.cursor.point.column = Column(0);
         self.grid.cursor.input_needs_wrap = false;
+        self.damage_cursor();
     }
 
     /// Write `c` to the cell at the cursor position.
@@ -819,8 +1078,21 @@ impl<T> Term<T> {
         cursor_cell.flags = flags;
     }
 
-    pub fn colors(&self) -> &Colors {
-        &self.colors
+    #[inline]
+    fn damage_cursor(&mut self) {
+        // The normal cursor coordinates are always in viewport.
+        let point =
+            Point::new(self.grid.cursor.point.line.0 as usize, self.grid.cursor.point.column);
+        self.damage.damage_point(point);
+    }
+
+    /// Damage `Vi` mode cursor.
+    #[inline]
+    pub fn damage_vi_cursor(&mut self) {
+        let line = (self.grid.display_offset() as i32 + self.vi_mode_cursor.point.line.0)
+            .clamp(0, self.screen_lines() as i32 - 1) as usize;
+        let vi_point = Point::new(line, self.vi_mode_cursor.point.column);
+        self.damage.damage_point(vi_point);
     }
 }
 
@@ -933,6 +1205,8 @@ impl<T: EventListener> Handler for Term<T> {
                 cell.c = 'E';
             }
         }
+
+        self.mark_fully_damaged();
     }
 
     #[inline]
@@ -944,8 +1218,10 @@ impl<T: EventListener> Handler for Term<T> {
             (Line(0), self.bottommost_line())
         };
 
-        self.grid.cursor.point.line = max(min(line + y_offset, max_y), Line(0));
-        self.grid.cursor.point.column = min(col, self.last_column());
+        self.damage_cursor();
+        self.grid.cursor.point.line = cmp::max(cmp::min(line + y_offset, max_y), Line(0));
+        self.grid.cursor.point.column = cmp::min(col, self.last_column());
+        self.damage_cursor();
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -967,13 +1243,15 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = cursor.template.bg;
 
         // Ensure inserting within terminal bounds
-        let count = min(count, self.columns() - cursor.point.column.0);
+        let count = cmp::min(count, self.columns() - cursor.point.column.0);
 
         let source = cursor.point.column;
         let destination = cursor.point.column.0 + count;
         let num_cells = self.columns() - destination;
 
         let line = cursor.point.line;
+        self.damage.damage_line(line.0 as usize, 0, self.columns() - 1);
+
         let row = &mut self.grid[line][..];
 
         for offset in (0..num_cells).rev() {
@@ -1002,16 +1280,24 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         trace!("Moving forward: {}", cols);
-        let last_column = self.last_column();
-        self.grid.cursor.point.column = min(self.grid.cursor.point.column + cols, last_column);
+        let last_column = cmp::min(self.grid.cursor.point.column + cols, self.last_column());
+
+        let cursor_line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(cursor_line, self.grid.cursor.point.column.0, last_column.0);
+
+        self.grid.cursor.point.column = last_column;
         self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         trace!("Moving backward: {}", cols);
-        self.grid.cursor.point.column =
-            Column(self.grid.cursor.point.column.saturating_sub(cols.0));
+        let column = self.grid.cursor.point.column.saturating_sub(cols.0);
+
+        let cursor_line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(cursor_line, column, self.grid.cursor.point.column.0);
+
+        self.grid.cursor.point.column = Column(column);
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -1100,8 +1386,11 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Backspace");
 
         if self.grid.cursor.point.column > Column(0) {
+            let line = self.grid.cursor.point.line.0 as usize;
+            let column = self.grid.cursor.point.column.0 as usize;
             self.grid.cursor.point.column -= 1;
             self.grid.cursor.input_needs_wrap = false;
+            self.damage.damage_line(line, column - 1, column);
         }
     }
 
@@ -1109,7 +1398,10 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn carriage_return(&mut self) {
         trace!("Carriage return");
-        self.grid.cursor.point.column = Column(0);
+        let new_col = 0;
+        let line = self.grid.cursor.point.line.0 as usize;
+        self.damage_line(line, new_col, self.grid.cursor.point.column.0);
+        self.grid.cursor.point.column = Column(new_col);
         self.grid.cursor.input_needs_wrap = false;
     }
 
@@ -1121,7 +1413,9 @@ impl<T: EventListener> Handler for Term<T> {
         if next == self.scroll_region.end {
             self.scroll_up(1);
         } else if next < self.screen_lines() {
+            self.damage_cursor();
             self.grid.cursor.point.line += 1;
+            self.damage_cursor();
         }
     }
 
@@ -1199,7 +1493,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn delete_lines(&mut self, lines: usize) {
         let origin = self.grid.cursor.point.line;
-        let lines = min(self.screen_lines() - origin.0 as usize, lines);
+        let lines = cmp::min(self.screen_lines() - origin.0 as usize, lines);
 
         trace!("Deleting {} lines", lines);
 
@@ -1215,11 +1509,12 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Erasing chars: count={}, col={}", count, cursor.point.column);
 
         let start = cursor.point.column;
-        let end = min(start + count, Column(self.columns()));
+        let end = cmp::min(start + count, Column(self.columns()));
 
         // Cleared cells have current background color set.
         let bg = self.grid.cursor.template.bg;
         let line = cursor.point.line;
+        self.damage.damage_line(line.0 as usize, start.0, end.0);
         let row = &mut self.grid[line];
         for cell in &mut row[start..end] {
             *cell = bg.into();
@@ -1233,13 +1528,14 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = cursor.template.bg;
 
         // Ensure deleting within terminal bounds.
-        let count = min(count, columns);
+        let count = cmp::min(count, columns);
 
         let start = cursor.point.column.0;
-        let end = min(start + count, columns - 1);
+        let end = cmp::min(start + count, columns - 1);
         let num_cells = columns - end;
 
         let line = cursor.point.line;
+        self.damage.damage_line(line.0 as usize, 0, self.columns() - 1);
         let row = &mut self.grid[line][..];
 
         for offset in 0..num_cells {
@@ -1257,7 +1553,9 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_backward_tabs(&mut self, count: u16) {
         trace!("Moving backward {} tabs", count);
+        self.damage_cursor();
 
+        let old_col = self.grid.cursor.point.column.0;
         for _ in 0..count {
             let mut col = self.grid.cursor.point.column;
             for i in (0..(col.0)).rev() {
@@ -1268,6 +1566,9 @@ impl<T: EventListener> Handler for Term<T> {
             }
             self.grid.cursor.point.column = col;
         }
+
+        let line = self.grid.cursor.point.line.0 as usize;
+        self.damage_line(line, self.grid.cursor.point.column.0, old_col);
     }
 
     #[inline]
@@ -1286,7 +1587,9 @@ impl<T: EventListener> Handler for Term<T> {
     fn restore_cursor_position(&mut self) {
         trace!("Restoring cursor position");
 
+        self.damage_cursor();
         self.grid.cursor = self.grid.saved_cursor.clone();
+        self.damage_cursor();
     }
 
     #[inline]
@@ -1295,26 +1598,19 @@ impl<T: EventListener> Handler for Term<T> {
 
         let cursor = &self.grid.cursor;
         let bg = cursor.template.bg;
-
         let point = cursor.point;
-        let row = &mut self.grid[point.line];
 
-        match mode {
-            ansi::LineClearMode::Right => {
-                for cell in &mut row[point.column..] {
-                    *cell = bg.into();
-                }
-            },
-            ansi::LineClearMode::Left => {
-                for cell in &mut row[..=point.column] {
-                    *cell = bg.into();
-                }
-            },
-            ansi::LineClearMode::All => {
-                for cell in &mut row[..] {
-                    *cell = bg.into();
-                }
-            },
+        let (left, right) = match mode {
+            ansi::LineClearMode::Right => (point.column, Column(self.columns())),
+            ansi::LineClearMode::Left => (Column(0), point.column + 1),
+            ansi::LineClearMode::All => (Column(0), Column(self.columns())),
+        };
+
+        self.damage.damage_line(point.line.0 as usize, left.0, right.0 - 1);
+
+        let row = &mut self.grid[point.line];
+        for cell in &mut row[left..right] {
+            *cell = bg.into();
         }
 
         let range = self.grid.cursor.point.line..=self.grid.cursor.point.line;
@@ -1406,7 +1702,7 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 // Clear up to the current column in the current line.
-                let end = min(cursor.column + 1, Column(self.columns()));
+                let end = cmp::min(cursor.column + 1, Column(self.columns()));
                 for cell in &mut self.grid[cursor.line][..end] {
                     *cell = bg.into();
                 }
@@ -1455,6 +1751,8 @@ impl<T: EventListener> Handler for Term<T> {
             // We have no history to clear.
             ansi::ClearMode::Saved => (),
         }
+
+        self.mark_fully_damaged();
     }
 
     #[inline]
@@ -1491,6 +1789,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode.insert(TermMode::default());
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
+        self.mark_fully_damaged();
     }
 
     #[inline]
@@ -1500,7 +1799,9 @@ impl<T: EventListener> Handler for Term<T> {
         if self.grid.cursor.point.line == self.scroll_region.start {
             self.scroll_down(1);
         } else {
-            self.grid.cursor.point.line = max(self.grid.cursor.point.line - 1, Line(0));
+            self.damage_cursor();
+            self.grid.cursor.point.line = cmp::max(self.grid.cursor.point.line - 1, Line(0));
+            self.damage_cursor();
         }
     }
 
@@ -1632,7 +1933,10 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::ColumnMode => self.deccolm(),
-            ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
+            ansi::Mode::Insert => {
+                self.mode.remove(TermMode::INSERT);
+                self.mark_fully_damaged();
+            },
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = false;
@@ -1661,8 +1965,8 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Setting scrolling region: ({};{})", start, end);
 
         let screen_lines = Line(self.screen_lines() as i32);
-        self.scroll_region.start = min(start, screen_lines);
-        self.scroll_region.end = min(end, screen_lines);
+        self.scroll_region.start = cmp::min(start, screen_lines);
+        self.scroll_region.end = cmp::min(end, screen_lines);
         self.goto(Line(0), Column(0));
     }
 
@@ -1833,7 +2137,7 @@ impl IndexMut<Column> for TabStops {
 }
 
 /// Terminal cursor rendering information.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct RenderableCursor {
     pub shape: CursorShape,
     pub point: Point,
@@ -2427,6 +2731,285 @@ mod tests {
 
         assert_eq!(term.history_size(), 15);
         assert_eq!(term.grid.cursor.point, Point::new(Line(4), Column(0)));
+    }
+
+    #[test]
+    fn damage_public_usage() {
+        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+        // Reset terminal for partial damage tests since it's initialized as fully damaged.
+        term.reset_damage();
+
+        // Test that we damage input form [`Term::input`].
+
+        let left = term.grid.cursor.point.column.0;
+        term.input('d');
+        term.input('a');
+        term.input('m');
+        term.input('a');
+        term.input('g');
+        term.input('e');
+        let right = term.grid.cursor.point.column.0;
+
+        let mut damaged_lines = match term.damage(None) {
+            TermDamage::Full => panic!("Expected partial damage, however got Full"),
+            TermDamage::Partial(damaged_lines) => damaged_lines,
+        };
+        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line: 0, left, right }));
+        assert_eq!(damaged_lines.next(), None);
+        term.reset_damage();
+
+        // Check that selection we've passed was properly damaged.
+
+        let line = 1;
+        let left = 0;
+        let right = term.columns() - 1;
+        let mut selection =
+            Selection::new(SelectionType::Block, Point::new(Line(line), Column(3)), Side::Left);
+        selection.update(Point::new(Line(line), Column(5)), Side::Left);
+        let selection_range = selection.to_range(&term);
+
+        let mut damaged_lines = match term.damage(selection_range) {
+            TermDamage::Full => panic!("Expected partial damage, however got Full"),
+            TermDamage::Partial(damaged_lines) => damaged_lines,
+        };
+        let line = line as usize;
+        // Skip cursor damage information, since we're just testing selection.
+        damaged_lines.next();
+        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
+        assert_eq!(damaged_lines.next(), None);
+        term.reset_damage();
+
+        // Check that existing selection gets damaged when it is removed.
+
+        let mut damaged_lines = match term.damage(None) {
+            TermDamage::Full => panic!("Expected partial damage, however got Full"),
+            TermDamage::Partial(damaged_lines) => damaged_lines,
+        };
+        // Skip cursor damage information, since we're just testing selection clearing.
+        damaged_lines.next();
+        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
+        assert_eq!(damaged_lines.next(), None);
+        term.reset_damage();
+
+        // Check that `Vi` cursor in vi mode is being always damaged.
+
+        term.toggle_vi_mode();
+        // Put Vi cursor to a different location than normal cursor.
+        term.vi_goto_point(Point::new(Line(5), Column(5)));
+        // Reset damage, so the damage information from `vi_goto_point` won't affect test.
+        term.reset_damage();
+        let vi_cursor_point = term.vi_mode_cursor.point;
+        let line = vi_cursor_point.line.0 as usize;
+        let left = vi_cursor_point.column.0 as usize;
+        let right = left;
+        let mut damaged_lines = match term.damage(None) {
+            TermDamage::Full => panic!("Expected partial damage, however got Full"),
+            TermDamage::Partial(damaged_lines) => damaged_lines,
+        };
+        // Skip cursor damage information, since we're just testing Vi cursor.
+        damaged_lines.next();
+        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
+        assert_eq!(damaged_lines.next(), None);
+    }
+
+    #[test]
+    fn damage_cursor_movements() {
+        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+        let num_cols = term.columns();
+        // Reset terminal for partial damage tests since it's initialized as fully damaged.
+        term.reset_damage();
+
+        term.goto(Line(1), Column(1));
+
+        // NOTE While we can use `[Term::damage]` to access terminal damage information, in the
+        // following tests we will be accessing `term.damage.lines` directly to avoid adding extra
+        // damage information (like cursor and Vi cursor), which we're not testing.
+
+        assert_eq!(term.damage.lines[0], LineDamageBounds { line: 0, left: 0, right: 0 });
+        assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 1, right: 1 });
+        term.damage.reset(num_cols);
+
+        term.move_forward(Column(3));
+        assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 1, right: 4 });
+        term.damage.reset(num_cols);
+
+        term.move_backward(Column(8));
+        assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 0, right: 4 });
+        term.goto(Line(5), Column(5));
+        term.damage.reset(num_cols);
+
+        term.backspace();
+        term.backspace();
+        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 3, right: 5 });
+        term.damage.reset(num_cols);
+
+        term.move_up(1);
+        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 3, right: 3 });
+        assert_eq!(term.damage.lines[4], LineDamageBounds { line: 4, left: 3, right: 3 });
+        term.damage.reset(num_cols);
+
+        term.move_down(1);
+        term.move_down(1);
+        assert_eq!(term.damage.lines[4], LineDamageBounds { line: 4, left: 3, right: 3 });
+        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 3, right: 3 });
+        assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 3, right: 3 });
+        term.damage.reset(num_cols);
+
+        term.wrapline();
+        assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 3, right: 3 });
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 0 });
+        term.move_forward(Column(3));
+        term.move_up(1);
+        term.damage.reset(num_cols);
+
+        term.linefeed();
+        assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 3, right: 3 });
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 3, right: 3 });
+        term.damage.reset(num_cols);
+
+        term.carriage_return();
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 3 });
+        term.damage.reset(num_cols);
+
+        term.erase_chars(Column(5));
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 5 });
+        term.damage.reset(num_cols);
+
+        term.delete_chars(3);
+        let right = term.columns() - 1;
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right });
+        term.move_forward(Column(term.columns()));
+        term.damage.reset(num_cols);
+
+        term.move_backward_tabs(1);
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right });
+        term.save_cursor_position();
+        term.goto(Line(1), Column(1));
+        term.damage.reset(num_cols);
+
+        term.restore_cursor_position();
+        assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 1, right: 1 });
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right: 8 });
+        term.damage.reset(num_cols);
+
+        term.clear_line(ansi::LineClearMode::All);
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right });
+        term.damage.reset(num_cols);
+
+        term.clear_line(ansi::LineClearMode::Left);
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 8 });
+        term.damage.reset(num_cols);
+
+        term.clear_line(ansi::LineClearMode::Right);
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right });
+        term.damage.reset(num_cols);
+
+        term.reverse_index();
+        assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right: 8 });
+        assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 8, right: 8 });
+    }
+
+    #[test]
+    fn damage_vi_movements() {
+        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+        let num_cols = term.columns();
+        // Reset terminal for partial damage tests since it's initialized as fully damaged.
+        term.reset_damage();
+
+        // Enable Vi mode.
+        term.toggle_vi_mode();
+
+        // NOTE While we can use `[Term::damage]` to access terminal damage information, in the
+        // following tests we will be accessing `term.damage.lines` directly to avoid adding extra
+        // damage information (like cursor and Vi cursor), which we're not testing.
+
+        term.vi_goto_point(Point::new(Line(5), Column(5)));
+        assert_eq!(term.damage.lines[0], LineDamageBounds { line: 0, left: 0, right: 0 });
+        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 5, right: 5 });
+        term.damage.reset(num_cols);
+
+        term.vi_motion(ViMotion::Up);
+        term.vi_motion(ViMotion::Right);
+        term.vi_motion(ViMotion::Up);
+        term.vi_motion(ViMotion::Left);
+        assert_eq!(term.damage.lines[3], LineDamageBounds { line: 3, left: 5, right: 6 });
+        assert_eq!(term.damage.lines[4], LineDamageBounds { line: 4, left: 5, right: 6 });
+        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 5, right: 5 });
+
+        // Ensure that we haven't damaged entire terminal during the test.
+        assert!(!term.damage.is_fully_damaged);
+    }
+
+    #[test]
+    fn full_damage() {
+        let size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        let mut term = Term::new(&Config::default(), size, ());
+
+        assert!(term.damage.is_fully_damaged);
+        for _ in 0..20 {
+            term.newline();
+        }
+        term.reset_damage();
+
+        term.clear_screen(ansi::ClearMode::Above);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.scroll_display(Scroll::Top);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        // Sequential call to scroll display without doing anything shouldn't damage.
+        term.scroll_display(Scroll::Top);
+        assert!(!term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.update_config(&Config::default());
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.scroll_down_relative(Line(5), 2);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.scroll_up_relative(Line(3), 2);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.deccolm();
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.decaln();
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.set_mode(ansi::Mode::Insert);
+        // Just setting `Insert` mode shouldn't mark terminal as damaged.
+        assert!(!term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        // However requesting terminal damage should mark terminal as fully damaged in `Insert`
+        // mode.
+        let _ = term.damage(None);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        term.unset_mode(ansi::Mode::Insert);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        // Keep this as a last check, so we don't have to deal with restoring from alt-screen.
+        term.swap_alt();
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        term.resize(size);
+        assert!(term.damage.is_fully_damaged);
     }
 
     #[test]

@@ -39,7 +39,7 @@ use glutin::platform::windows::IconExtWindows;
 use glutin::window::{
     CursorIcon, Fullscreen, UserAttentionType, Window as GlutinWindow, WindowBuilder, WindowId,
 };
-use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
+use glutin::{self, ContextBuilder, PossiblyCurrent, Rect, WindowedContext};
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 #[cfg(target_os = "macos")]
@@ -426,6 +426,14 @@ impl Window {
 
     pub fn swap_buffers(&self) {
         self.windowed_context.swap_buffers().expect("swap buffers");
+    }
+
+    pub fn swap_buffers_with_damage(&self, damage: &[Rect]) {
+        self.windowed_context.swap_buffers_with_damage(damage).expect("swap buffes with damage");
+    }
+
+    pub fn swap_buffers_with_damage_supported(&self) -> bool {
+        self.windowed_context.swap_buffers_with_damage_supported()
     }
 
     pub fn resize(&self, size: PhysicalSize<u32>) {

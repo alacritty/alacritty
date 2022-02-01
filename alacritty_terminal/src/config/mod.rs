@@ -10,7 +10,7 @@ mod scrolling;
 
 use crate::ansi::{CursorShape, CursorStyle};
 
-pub use crate::config::scrolling::Scrolling;
+pub use crate::config::scrolling::{Scrolling, MAX_SCROLLBACK_LINES};
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const MIN_BLINK_INTERVAL: u64 = 10;

@@ -15,6 +15,9 @@ pub struct Debug {
     /// Should show render timer.
     pub render_timer: bool,
 
+    /// Highlight damage information produced by alacritty.
+    pub highlight_damage: bool,
+
     /// Record ref test.
     #[config(skip)]
     pub ref_test: bool,
@@ -27,6 +30,7 @@ impl Default for Debug {
             print_events: Default::default(),
             persistent_logging: Default::default(),
             render_timer: Default::default(),
+            highlight_damage: Default::default(),
             ref_test: Default::default(),
         }
     }

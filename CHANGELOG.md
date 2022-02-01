@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
- - Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+- Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+- Track and report surface damage information to Wayland compositors
 
 ### Changed
 
