@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Builtin font lines not contiguous when `font.offset` is used
 - `font.glyph_offset` is no longer applied on builtin font
 - Buili-in font arcs alignment
+- Repeated permission prompts on M1 macs
 
 ## 0.10.0
 
