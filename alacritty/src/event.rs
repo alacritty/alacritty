@@ -769,9 +769,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn toggle_vi_mode(&mut self) {
         if self.terminal.mode().contains(TermMode::VI) {
-            // Damage line indicator and Vi cursor if we're leaving Vi mode.
-            self.terminal.damage_vi_cursor();
-            self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
+            // If we had search running when leaving Vi mode we should mark terminal fully damaged
+            // to cleanup highlighted results.
+            if self.search_state.dfas().is_some() {
+                self.terminal.mark_fully_damaged();
+            } else {
+                // Damage line indicator and Vi cursor.
+                self.terminal.damage_vi_cursor();
+                self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
+            }
         } else {
             self.clear_selection();
         }
