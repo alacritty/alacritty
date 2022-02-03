@@ -385,7 +385,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
         '\u{2580}'..='\u{2587}' | '\u{2589}'..='\u{2590}' | '\u{2594}' | '\u{2595}' => {
             let width = width as f32;
             let height = height as f32;
-            let rect_width = match character {
+            let mut rect_width = match character {
                 '\u{2589}' => width * 7. / 8.,
                 '\u{258a}' => width * 6. / 8.,
                 '\u{258b}' => width * 5. / 8.,
@@ -397,7 +397,8 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 '\u{2595}' => width * 1. / 8.,
                 _ => width,
             };
-            let (rect_height, y) = match character {
+
+            let (mut rect_height, mut y) = match character {
                 '\u{2580}' => (height * 4. / 8., height * 8. / 8.),
                 '\u{2581}' => (height * 1. / 8., height * 1. / 8.),
                 '\u{2582}' => (height * 2. / 8., height * 2. / 8.),
@@ -409,12 +410,18 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 '\u{2594}' => (height * 1. / 8., height * 8. / 8.),
                 _ => (height, height),
             };
+
             // Fix `y` coordinates.
-            let y = height - y;
+            y = height - y;
+
+            // Ensure that resulted glyph will be visible and also round sizes instead of straight
+            // flooring them.
+            rect_width = cmp::max(rect_width.round() as i32, 1) as f32;
+            rect_height = cmp::max(rect_height.round() as i32, 1) as f32;
 
             let x = match character {
                 '\u{2590}' => canvas.x_center(),
-                '\u{2595}' => width as f32 - width / 8.,
+                '\u{2595}' => width as f32 - rect_width,
                 _ => 0.,
             };
 
