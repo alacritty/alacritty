@@ -108,8 +108,6 @@ impl<'a> RenderableContent<'a> {
     }
 
     /// Assemble the information required to render the terminal cursor.
-    ///
-    /// This will return `None` when there is no cursor visible.
     fn renderable_cursor(&mut self, cell: &RenderableCell) -> RenderableCursor {
         // Cursor colors.
         let color = if self.terminal_content.mode.contains(TermMode::VI) {
