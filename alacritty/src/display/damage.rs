@@ -5,6 +5,9 @@ use glutin::Rect;
 
 use alacritty_terminal::term::{LineDamageBounds, SizeInfo, TermDamageIterator};
 
+/// Maximum percent of area growth from merging damaged rects.
+const MAX_GROWTH: f32 = 0.3;
+
 /// Iterator which converts `alacritty_terminal` damage information into renderer damaged rects.
 pub struct RenderDamageIterator<'a> {
     damaged_lines: Peekable<TermDamageIterator<'a>>,
@@ -46,14 +49,29 @@ impl<'a> Iterator for RenderDamageIterator<'a> {
         let line = self.damaged_lines.next()?;
         let mut total_damage_rect = self.overdamage(self.rect_for_line(line));
 
-        // Merge rectangles which overlap with each other.
+        // We don't want to merge `total_damage_rect` with lines that a much longer/shorter than
+        // it, since we'd end up damaging in suboptimal way.
+        let max_width_growth = self.size_info.width() / 3;
+
+        // Merge rectangles which overlap with each other, unless they don't grow by
+        // `max_width_growth` at once.
         while let Some(line) = self.damaged_lines.peek().copied() {
             let next_rect = self.overdamage(self.rect_for_line(line));
-            if !rects_overlap(total_damage_rect, next_rect) {
+            if !rects_overlap(&total_damage_rect, &next_rect) {
                 break;
             }
 
-            total_damage_rect = merge_rects(total_damage_rect, next_rect);
+            let merged_rect = merge_rects(total_damage_rect, next_rect);
+
+            // If the width growth is higher than `max_width_growth` don't merge rects and the
+            // area growth is larger than `MAX_GROWTH` to avoid overdamaging.
+            if width_growth(&total_damage_rect, &next_rect) > max_width_growth
+                && area_growth(&total_damage_rect, &merged_rect) > MAX_GROWTH
+            {
+                break;
+            }
+
+            total_damage_rect = merged_rect;
             let _ = self.damaged_lines.next();
         }
 
@@ -61,8 +79,24 @@ impl<'a> Iterator for RenderDamageIterator<'a> {
     }
 }
 
+/// The growth of width of intersected `[glutin::Rect]`.
+fn width_growth(lhs: &Rect, rhs: &Rect) -> u32 {
+    let lhs_x_end = (lhs.x + lhs.width) as i32;
+    let rhs_x_end = (rhs.x + rhs.width) as i32;
+
+    // The amount damage rect width growth.
+    (lhs.x as i32 - rhs.x as i32).abs() as u32 + (lhs_x_end - rhs_x_end).abs() as u32
+}
+
+/// Area occupied by `[glutin::Rect]`.
+fn area_growth(lhs: &Rect, rhs: &Rect) -> f32 {
+    let lhs_area = lhs.width * lhs.height;
+    let rhs_area = rhs.width * rhs.height;
+    1. - cmp::min(rhs_area, lhs_area) as f32 / cmp::max(rhs_area, lhs_area) as f32
+}
+
 /// Check if two given [`glutin::Rect`] overlap.
-fn rects_overlap(lhs: Rect, rhs: Rect) -> bool {
+pub fn rects_overlap(lhs: &Rect, rhs: &Rect) -> bool {
     !(
         // `lhs` is left of `rhs`.
         lhs.x + lhs.width < rhs.x
@@ -76,8 +110,7 @@ fn rects_overlap(lhs: Rect, rhs: Rect) -> bool {
 }
 
 /// Merge two [`glutin::Rect`] by producing the smallest rectangle that contains both.
-#[inline]
-fn merge_rects(lhs: Rect, rhs: Rect) -> Rect {
+pub fn merge_rects(lhs: Rect, rhs: Rect) -> Rect {
     let left_x = cmp::min(lhs.x, rhs.x);
     let right_x = cmp::max(lhs.x + lhs.width, rhs.x + rhs.width);
     let y_top = cmp::max(lhs.y + lhs.height, rhs.y + rhs.height);

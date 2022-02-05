@@ -31,9 +31,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::{Selection, SelectionRange};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{
-    SizeInfo, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
-};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 #[cfg(not(windows))]
@@ -74,6 +72,9 @@ const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
 
 /// Color which is used to highlight damaged rects when debugging.
 const DAMAGE_RECT_COLOR: Rgb = Rgb { r: 255, g: 0, b: 255 };
+
+/// Damage rect alpha.
+const DAMAGE_RECT_ALPHA: f32 = 0.3;
 
 #[derive(Debug)]
 pub enum Error {
@@ -492,6 +493,7 @@ impl Display {
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
     }
 
+    #[inline(never)]
     fn update_damage<T: EventListener>(
         &mut self,
         terminal: &mut MutexGuard<'_, Term<T>>,
@@ -502,29 +504,23 @@ impl Display {
             || self.hint_state.active()
             || search_state.regex().is_some();
         if requires_full_damage {
-            terminal.mark_fully_damaged();
+            terminal.damage_all();
         }
 
         self.damage_highlighted_hints(terminal);
+
         let size_info: SizeInfo<u32> = self.size_info.into();
-        match terminal.damage(selection_range) {
-            TermDamage::Full => {
-                let screen_rect =
-                    DamageRect { x: 0, y: 0, width: size_info.width(), height: size_info.height() };
-                self.damage_rects.push(screen_rect);
-            },
-            TermDamage::Partial(damaged_lines) => {
-                let damaged_rects = RenderDamageIterator::new(damaged_lines, size_info);
-                for damaged_rect in damaged_rects {
-                    self.damage_rects.push(damaged_rect);
-                }
-            },
+        let damaged_rects = RenderDamageIterator::new(terminal.damage(selection_range), size_info);
+        for damaged_rect in damaged_rects {
+            self.damage_rects.push(damaged_rect);
         }
-        terminal.reset_damage();
 
         // Ensure that the content requiring full damage is cleaned up again on the next frame.
         if requires_full_damage {
-            terminal.mark_fully_damaged();
+            terminal.damage_all();
+        } else {
+            // Reset the terminal damage otherwise.
+            terminal.reset_damage();
         }
 
         // Damage highlighted hints for the next frame as well, so we'll clear them.
@@ -644,48 +640,6 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
-        if self.debug_damage {
-            self.highlight_damage(&mut rects);
-        }
-
-        if let Some(message) = message_buffer.message() {
-            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
-            let text = message.text(&size_info);
-
-            // Create a new rectangle for the background.
-            let start_line = size_info.screen_lines() + search_offset;
-            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
-
-            let bg = match message.ty() {
-                MessageType::Error => config.colors.normal.red,
-                MessageType::Warning => config.colors.normal.yellow,
-            };
-
-            let message_bar_rect =
-                RenderRect::new(0., y, size_info.width(), size_info.height() - y, bg, 1.);
-
-            // Push message_bar in the end, so it'll be above all other content.
-            rects.push(message_bar_rect);
-
-            // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
-
-            // Relay messages to the user.
-            let glyph_cache = &mut self.glyph_cache;
-            let fg = config.colors.primary.background;
-            for (i, message_text) in text.iter().enumerate() {
-                let point = Point::new(start_line + i, Column(0));
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.draw_string(glyph_cache, point, fg, bg, message_text);
-                });
-            }
-        } else {
-            // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
-        }
-
-        self.draw_render_timer(config, &size_info);
-
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
             Some(regex) => {
@@ -708,6 +662,47 @@ impl Display {
 
         // Update IME position.
         self.window.update_ime_position(ime_position, &self.size_info);
+
+        if let Some(message) = message_buffer.message() {
+            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
+            let text = message.text(&size_info);
+
+            // Create a new rectangle for the background.
+            let start_line = size_info.screen_lines() + search_offset;
+            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
+
+            let bg = match message.ty() {
+                MessageType::Error => config.colors.normal.red,
+                MessageType::Warning => config.colors.normal.yellow,
+            };
+
+            let message_bar_rect =
+                RenderRect::new(0., y, size_info.width(), size_info.height() - y, bg, 1.);
+
+            // Push message_bar in the end, so it'll be above all other content.
+            self.add_damage_rect(message_bar_rect.damage_rect(&self.size_info));
+            rects.push(message_bar_rect);
+
+            // Draw rectangles.
+            self.highlight_damage(&mut rects);
+            self.renderer.draw_rects(&size_info, rects);
+
+            // Relay messages to the user.
+            let glyph_cache = &mut self.glyph_cache;
+            let fg = config.colors.primary.background;
+            for (i, message_text) in text.iter().enumerate() {
+                let point = Point::new(start_line + i, Column(0));
+                self.renderer.with_api(config, &size_info, |mut api| {
+                    api.draw_string(glyph_cache, point, fg, bg, message_text);
+                });
+            }
+        } else {
+            // Draw rectangles.
+            self.highlight_damage(&mut rects);
+            self.renderer.draw_rects(&size_info, rects);
+        }
+
+        self.draw_render_timer(config, &size_info);
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -821,7 +816,6 @@ impl Display {
 
     /// Draw current search regex.
     fn draw_search(&mut self, config: &UiConfig, size_info: &SizeInfo, text: &str) {
-        let glyph_cache = &mut self.glyph_cache;
         let num_cols = size_info.columns();
 
         // Assure text length is at least num_cols.
@@ -831,6 +825,10 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
 
+        // Damage search bar.
+        self.damage_from_point(point, num_cols as u32);
+
+        let glyph_cache = &mut self.glyph_cache;
         self.renderer.with_api(config, size_info, |mut api| {
             api.draw_string(glyph_cache, point, fg, bg, &text);
         });
@@ -882,8 +880,9 @@ impl Display {
 
         // Damage the maximum possible length of the format text, which could be achieved when
         // using `MAX_SCROLLBACK_LINES` as current and total lines adding a `3` for formatting.
-        const MAX_LEN: usize = num_digits(MAX_SCROLLBACK_LINES) + 3;
-        self.damage_from_point(Point::new(0, point.column - MAX_LEN), MAX_LEN as u32 * 2);
+        const MAX_SIZE: usize = 2 * num_digits(MAX_SCROLLBACK_LINES) + 3;
+        let damage_point = Point::new(0, Column(size_info.columns().saturating_sub(MAX_SIZE)));
+        self.damage_from_point(damage_point, MAX_SIZE as u32);
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
@@ -910,7 +909,25 @@ impl Display {
         let y_top = size_info.height() - size_info.padding_y();
         let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
         let width = len as u32 * size_info.cell_width();
-        self.damage_rects.push(DamageRect { x, y, width, height: size_info.cell_height() })
+
+        self.add_damage_rect(DamageRect { x, y, width, height: size_info.cell_height() });
+    }
+
+    /// Adds damage rect to Display's damage_rects merging it with some existing rect on
+    /// intersection.
+    fn add_damage_rect(&mut self, new_rect: DamageRect) {
+        // If new rect overlaps with existing rect merge it with the one it overlaps with.
+        for rect in &mut self.damage_rects {
+            if !damage::rects_overlap(rect, &new_rect) {
+                continue;
+            }
+
+            *rect = damage::merge_rects(*rect, new_rect);
+            return;
+        }
+
+        // We haven't merged it with any existing rect.
+        self.damage_rects.push(new_rect);
     }
 
     /// Damage currently highlighted `Display` hints.
@@ -936,12 +953,17 @@ impl Display {
     ///
     /// This function is for debug purposes only.
     fn highlight_damage(&self, render_rects: &mut Vec<RenderRect>) {
+        if !self.debug_damage {
+            return;
+        }
+
         for damage_rect in &self.damage_rects {
             let x = damage_rect.x as f32;
             let height = damage_rect.height as f32;
             let width = damage_rect.width as f32;
             let y = self.size_info.height() - damage_rect.y as f32 - height;
-            let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
+            let render_rect =
+                RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, DAMAGE_RECT_ALPHA);
 
             render_rects.push(render_rect);
         }

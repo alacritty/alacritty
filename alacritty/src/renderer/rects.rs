@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::mem;
 
+use glutin::Rect as DamageRect;
+
 use crossfont::Metrics;
 
 use alacritty_terminal::grid::Dimensions;
@@ -27,6 +29,11 @@ pub struct RenderRect {
 impl RenderRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
         RenderRect { x, y, width, height, color, alpha }
+    }
+
+    pub fn damage_rect(&self, size_info: &SizeInfo) -> DamageRect {
+        let y = (size_info.height() - self.y - self.height) as u32;
+        DamageRect { x: self.x as u32, y, width: self.width as u32, height: self.height as u32 }
     }
 }
 
