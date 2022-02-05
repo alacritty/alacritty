@@ -28,12 +28,10 @@ use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
 use alacritty_terminal::event::{EventListener, OnResize};
 use alacritty_terminal::grid::Dimensions as _;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
-use alacritty_terminal::selection::{Selection, SelectionRange};
+use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{
-    SizeInfo, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
-};
+use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 #[cfg(not(windows))]
@@ -74,6 +72,9 @@ const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
 
 /// Color which is used to highlight damaged rects when debugging.
 const DAMAGE_RECT_COLOR: Rgb = Rgb { r: 255, g: 0, b: 255 };
+
+/// Damage rect alpha.
+const DAMAGE_RECT_ALPHA: f32 = 0.3;
 
 #[derive(Debug)]
 pub enum Error {
@@ -492,43 +493,24 @@ impl Display {
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
     }
 
-    fn update_damage<T: EventListener>(
-        &mut self,
-        terminal: &mut MutexGuard<'_, Term<T>>,
-        selection_range: Option<SelectionRange>,
-        search_state: &SearchState,
-    ) {
+    #[inline(never)]
+    fn update_damage(&mut self, display_offset: usize, search_state: &SearchState) {
+        let size_info = self.size_info.into();
+        let terminal_damage_history = self.window.terminal_damage_history_mut();
         let requires_full_damage = self.visual_bell.intensity() != 0.
             || self.hint_state.active()
             || search_state.regex().is_some();
         if requires_full_damage {
-            terminal.mark_fully_damaged();
+            terminal_damage_history.damage_all(&self.size_info);
         }
 
-        self.damage_highlighted_hints(terminal);
-        let size_info: SizeInfo<u32> = self.size_info.into();
-        match terminal.damage(selection_range) {
-            TermDamage::Full => {
-                let screen_rect =
-                    DamageRect { x: 0, y: 0, width: size_info.width(), height: size_info.height() };
-                self.damage_rects.push(screen_rect);
-            },
-            TermDamage::Partial(damaged_lines) => {
-                let damaged_rects = RenderDamageIterator::new(damaged_lines, size_info);
-                for damaged_rect in damaged_rects {
-                    self.damage_rects.push(damaged_rect);
-                }
-            },
-        }
-        terminal.reset_damage();
+        self.damage_highlighted_hints(display_offset);
 
-        // Ensure that the content requiring full damage is cleaned up again on the next frame.
-        if requires_full_damage {
-            terminal.mark_fully_damaged();
+        let latest_damage = self.window.terminal_damage_history().latest_damage();
+        let damaged_rects = RenderDamageIterator::new(latest_damage, size_info);
+        for damaged_rect in damaged_rects {
+            self.damage_rects.push(damaged_rect);
         }
-
-        // Damage highlighted hints for the next frame as well, so we'll clear them.
-        self.damage_highlighted_hints(terminal);
     }
 
     /// Draw the screen.
@@ -543,13 +525,36 @@ impl Display {
         config: &UiConfig,
         search_state: &SearchState,
     ) {
+        let mut num_frames = self.window.buffer_age();
+        let mut should_clear = false;
+
+        // In case we don't have any frame or we don't have a history entry for that frame mark
+        // frame as fully damaged and require clearing.
+        if num_frames == 0 || num_frames > self.window.terminal_damage_history().history_size() {
+            // Damage the entire terminal, since we need to process every visible cell.
+            terminal.damage_all();
+            num_frames += 1;
+            should_clear = true;
+        }
+
+        let selection = terminal.selection.as_ref().and_then(|s| s.to_range(&terminal));
+        let damage = terminal.damage(selection);
+
+        let terminal_damage_history = self.window.terminal_damage_history_mut();
+
+        terminal_damage_history.save_damage(damage, should_clear);
+        terminal_damage_history.use_frames(num_frames);
+
+        // Reset terminal damage after saving it.
+        terminal.reset_damage();
+
         // Collect renderable content before the terminal is dropped.
-        let mut content = RenderableContent::new(config, self, &terminal, search_state);
+        let mut content = RenderableContent::new(config, self, &terminal, selection, search_state);
         let mut grid_cells = Vec::new();
         for cell in &mut content {
             grid_cells.push(cell);
         }
-        let selection_range = content.selection_range();
+
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
@@ -562,20 +567,17 @@ impl Display {
         let vi_mode = terminal.mode().contains(TermMode::VI);
         let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
 
-        if self.collect_damage() {
-            self.damage_rects.clear();
-            self.update_damage(&mut terminal, selection_range, search_state);
-        }
-
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
         // Make sure this window's OpenGL context is active.
         self.window.make_current();
 
-        self.renderer.with_api(config, &size_info, |api| {
-            api.clear(background_color);
-        });
+        if self.window.terminal_damage_history().should_clear() {
+            self.renderer.with_api(config, &size_info, |api| {
+                api.clear(background_color);
+            });
+        }
 
         let mut lines = RenderLines::new();
 
@@ -644,48 +646,6 @@ impl Display {
             rects.push(visual_bell_rect);
         }
 
-        if self.debug_damage {
-            self.highlight_damage(&mut rects);
-        }
-
-        if let Some(message) = message_buffer.message() {
-            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
-            let text = message.text(&size_info);
-
-            // Create a new rectangle for the background.
-            let start_line = size_info.screen_lines() + search_offset;
-            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
-
-            let bg = match message.ty() {
-                MessageType::Error => config.colors.normal.red,
-                MessageType::Warning => config.colors.normal.yellow,
-            };
-
-            let message_bar_rect =
-                RenderRect::new(0., y, size_info.width(), size_info.height() - y, bg, 1.);
-
-            // Push message_bar in the end, so it'll be above all other content.
-            rects.push(message_bar_rect);
-
-            // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
-
-            // Relay messages to the user.
-            let glyph_cache = &mut self.glyph_cache;
-            let fg = config.colors.primary.background;
-            for (i, message_text) in text.iter().enumerate() {
-                let point = Point::new(start_line + i, Column(0));
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.draw_string(glyph_cache, point, fg, bg, message_text);
-                });
-            }
-        } else {
-            // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
-        }
-
-        self.draw_render_timer(config, &size_info);
-
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
             Some(regex) => {
@@ -708,6 +668,53 @@ impl Display {
 
         // Update IME position.
         self.window.update_ime_position(ime_position, &self.size_info);
+
+        if let Some(message) = message_buffer.message() {
+            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
+            let text = message.text(&size_info);
+
+            // Create a new rectangle for the background.
+            let start_line = size_info.screen_lines() + search_offset;
+            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
+
+            let bg = match message.ty() {
+                MessageType::Error => config.colors.normal.red,
+                MessageType::Warning => config.colors.normal.yellow,
+            };
+
+            let message_bar_rect =
+                RenderRect::new(0., y, size_info.width(), size_info.height() - y, bg, 1.);
+
+            // Push message_bar in the end, so it'll be above all other content.
+            self.add_damage_rect(message_bar_rect.damage_rect(&self.size_info));
+            rects.push(message_bar_rect);
+
+            // Draw rectangles.
+            self.highlight_damage(&mut rects);
+            self.renderer.draw_rects(&size_info, rects);
+
+            // Relay messages to the user.
+            let glyph_cache = &mut self.glyph_cache;
+            let fg = config.colors.primary.background;
+            for (i, message_text) in text.iter().enumerate() {
+                let point = Point::new(start_line + i, Column(0));
+                self.renderer.with_api(config, &size_info, |mut api| {
+                    api.draw_string(glyph_cache, point, fg, bg, message_text);
+                });
+            }
+        } else {
+            // Draw rectangles.
+            self.highlight_damage(&mut rects);
+            self.renderer.draw_rects(&size_info, rects);
+        }
+
+        self.draw_render_timer(config, &size_info);
+
+        // Update damage in before rendering.
+        if self.collect_damage() {
+            self.damage_rects.clear();
+            self.update_damage(display_offset, search_state);
+        }
 
         // Frame event should be requested before swaping buffers, since it requires surface
         // `commit`, which is done by swap buffers under the hood.
@@ -821,7 +828,6 @@ impl Display {
 
     /// Draw current search regex.
     fn draw_search(&mut self, config: &UiConfig, size_info: &SizeInfo, text: &str) {
-        let glyph_cache = &mut self.glyph_cache;
         let num_cols = size_info.columns();
 
         // Assure text length is at least num_cols.
@@ -831,6 +837,10 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
 
+        // Damage search bar.
+        self.damage_from_point(point, num_cols);
+
+        let glyph_cache = &mut self.glyph_cache;
         self.renderer.with_api(config, size_info, |mut api| {
             api.draw_string(glyph_cache, point, fg, bg, &text);
         });
@@ -848,7 +858,7 @@ impl Display {
         let bg = config.colors.normal.red;
 
         // Damage the entire line.
-        self.damage_from_point(point, self.size_info.columns() as u32);
+        self.damage_from_point(point, self.size_info.columns());
 
         let glyph_cache = &mut self.glyph_cache;
         self.renderer.with_api(config, size_info, |mut api| {
@@ -882,8 +892,9 @@ impl Display {
 
         // Damage the maximum possible length of the format text, which could be achieved when
         // using `MAX_SCROLLBACK_LINES` as current and total lines adding a `3` for formatting.
-        const MAX_LEN: usize = num_digits(MAX_SCROLLBACK_LINES) + 3;
-        self.damage_from_point(Point::new(0, point.column - MAX_LEN), MAX_LEN as u32 * 2);
+        const MAX_SIZE: usize = 2 * num_digits(MAX_SCROLLBACK_LINES) + 3;
+        let damage_point = Point::new(0, Column(size_info.columns().saturating_sub(MAX_SIZE)));
+        self.damage_from_point(damage_point, MAX_SIZE);
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
@@ -900,28 +911,38 @@ impl Display {
 
     /// Damage `len` starting from a `point`.
     #[inline]
-    fn damage_from_point(&mut self, point: Point<usize>, len: u32) {
-        if !self.collect_damage() {
+    fn damage_from_point(&mut self, point: Point<usize>, len: usize) {
+        let terminal_damage_history = self.window.terminal_damage_history_mut();
+        terminal_damage_history.damage_line(point.line, point.column.0, point.column.0 + len);
+    }
+
+    /// Adds damage rect to Display's damage_rects merging it with some existing rect on
+    /// intersection.
+    fn add_damage_rect(&mut self, new_rect: DamageRect) {
+        // If new rect overlaps with existing rect merge it with the one it overlaps with.
+        for rect in &mut self.damage_rects {
+            if !damage::rects_overlap(rect, &new_rect) {
+                continue;
+            }
+
+            *rect = damage::merge_rects(*rect, new_rect);
             return;
         }
 
-        let size_info: SizeInfo<u32> = self.size_info.into();
-        let x = size_info.padding_x() + point.column.0 as u32 * size_info.cell_width();
-        let y_top = size_info.height() - size_info.padding_y();
-        let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
-        let width = len as u32 * size_info.cell_width();
-        self.damage_rects.push(DamageRect { x, y, width, height: size_info.cell_height() })
+        // We haven't merged it with any existing rect.
+        self.damage_rects.push(new_rect);
     }
 
     /// Damage currently highlighted `Display` hints.
     #[inline]
-    fn damage_highlighted_hints<T: EventListener>(&self, terminal: &mut Term<T>) {
-        let display_offset = terminal.grid().display_offset();
+    fn damage_highlighted_hints(&mut self, display_offset: usize) {
+        let terminal_damage_history = self.window.terminal_damage_history_mut();
+        let last_col = self.size_info.columns() - 1;
         for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
             for point in (hint.bounds.start().line.0..=hint.bounds.end().line.0).flat_map(|line| {
                 point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
             }) {
-                terminal.damage_line(point.line, 0, terminal.columns() - 1);
+                terminal_damage_history.damage_line(point.line, 0, last_col);
             }
         }
     }
@@ -936,12 +957,17 @@ impl Display {
     ///
     /// This function is for debug purposes only.
     fn highlight_damage(&self, render_rects: &mut Vec<RenderRect>) {
+        if !self.debug_damage {
+            return;
+        }
+
         for damage_rect in &self.damage_rects {
             let x = damage_rect.x as f32;
             let height = damage_rect.height as f32;
             let width = damage_rect.width as f32;
             let y = self.size_info.height() - damage_rect.y as f32 - height;
-            let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
+            let render_rect =
+                RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, DAMAGE_RECT_ALPHA);
 
             render_rects.push(render_rect);
         }
