@@ -434,6 +434,46 @@ impl<T> Term<T> {
 
         point
     }
+
+    /// Find the next shell prompt.
+    pub fn next_prompt(&self, mut point: Point) -> Option<Point> {
+        // If we're at the start of the prompt go to the next.
+        if point.column == Column(0) {
+            point.line += 1
+        } else {
+            point.column = Column(0);
+        }
+
+        while point.line <= self.bottommost_line() {
+            if self.grid[point].flags.contains(Flags::PROMPT_MARK) {
+                return Some(point);
+            }
+
+            point.line += 1;
+        }
+
+        None
+    }
+
+    /// Find the previous shell prompt.
+    pub fn previous_prompt(&self, mut point: Point) -> Option<Point> {
+        // If we're at the start of the prompt go to the previous.
+        if point.column == Column(0) {
+            point.line.0 -= 1
+        } else {
+            point.column = Column(0);
+        }
+
+        while point.line >= self.grid.topmost_line() {
+            if self.grid[point].flags.contains(Flags::PROMPT_MARK) {
+                return Some(point);
+            }
+
+            point.line -= 1;
+        }
+
+        None
+    }
 }
 
 /// Iterator over regex matches.

@@ -67,6 +67,7 @@ ref_tests! {
     saved_cursor_alt
     sgr
     underline
+    prompt_marks
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

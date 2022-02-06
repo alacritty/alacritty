@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Escape sequence for undercurl, dotted and dashed underlines (`CSI 4 : [3-5] m`)
 - `ToggleMaximized` key binding action to (un-)maximize the active window, not bound by default
 - Support for OpenGL ES 2.0
+- Prompt marker `OSC 133 ; A ST` and `NextPrompt`/`PreviousPrompt` bindings to jump between them
 
 ### Changed
 

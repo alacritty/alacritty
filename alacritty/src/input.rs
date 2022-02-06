@@ -246,6 +246,14 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Mouse(MouseAction::ExpandSelection) => ctx.expand_selection(),
             Action::SearchForward => ctx.start_search(Direction::Right),
             Action::SearchBackward => ctx.start_search(Direction::Left),
+            Action::NextPrompt => {
+                ctx.terminal_mut().goto_next_prompt();
+                ctx.mark_dirty();
+            },
+            Action::PreviousPrompt => {
+                ctx.terminal_mut().goto_previous_prompt();
+                ctx.mark_dirty();
+            },
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),

@@ -96,6 +96,7 @@ brevity.
 | `OSC 110` | IMPLEMENTED |                                                    |
 | `OSC 111` | IMPLEMENTED |                                                    |
 | `OSC 112` | IMPLEMENTED |                                                    |
+| `OSC 133` | PARTIAL     | Only `A` is supported                              |
 
 ### DCS (Device Control String) - `ESC P`
 

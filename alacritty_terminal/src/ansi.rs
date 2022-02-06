@@ -456,6 +456,9 @@ pub trait Handler {
 
     /// Report text area size in characters.
     fn text_area_size_chars(&mut self) {}
+
+    /// Set shell prompt mark.
+    fn set_prompt_mark(&mut self) {}
 }
 
 /// Terminal cursor configuration.
@@ -1095,6 +1098,11 @@ where
             // Reset text cursor color.
             b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
 
+            // Set shell prompt mark.
+            b"133" => match params.get(1) {
+                Some(first) if first.get(0) == Some(&b'A') => self.handler.set_prompt_mark(),
+                _ => unhandled(params),
+            },
             _ => unhandled(params),
         }
     }

@@ -208,6 +208,12 @@ pub enum Action {
     /// Start a backward buffer search.
     SearchBackward,
 
+    /// Jump to the next shell prompt marked with OSC 133.
+    NextPrompt,
+
+    /// Jump to the previous shell prompt marked with OSC 133.
+    PreviousPrompt,
+
     /// No action.
     None,
 }

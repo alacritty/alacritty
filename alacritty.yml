@@ -595,6 +595,10 @@
 #   - ScrollLineDown
 #   - ScrollToTop
 #   - ScrollToBottom
+#   - NextPrompt
+#       Goes to next shell prompt marked with OSC 133.
+#   - PreviousPrompt
+#       Goes to previous shell prompt marked with OSC 133.
 #   - ClearHistory
 #       Remove the terminal's scrollback history.
 #   - Hide

@@ -14,7 +14,7 @@ use crate::ansi::{
 };
 use crate::config::Config;
 use crate::event::{Event, EventListener};
-use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
+use crate::grid::{Dimensions, Grid, GridCell, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
@@ -498,6 +498,57 @@ impl<T> Term<T> {
             cell_width: size.cell_width as usize,
             cell_height: size.cell_height as usize,
             damage,
+        }
+    }
+
+    /// Go to next prompt farthest down in history.
+    pub fn goto_next_prompt(&mut self)
+    where
+        T: EventListener,
+    {
+        let point = if self.mode.contains(TermMode::VI) {
+            self.vi_mode_cursor.point
+        } else {
+            let display_offset = self.grid.display_offset() as i32;
+            // If we're outside of Vi mode use bottom most visible line.
+            Point::new(Line(self.screen_lines() as i32 - 1 - display_offset), Column(0))
+        };
+
+        let prompt_point = match self.next_prompt(point) {
+            Some(point) => point,
+            None => return,
+        };
+
+        if self.mode().contains(TermMode::VI) {
+            self.vi_goto_point(prompt_point);
+        } else {
+            let scroll = Scroll::Delta(point.line.0 - prompt_point.line.0);
+            self.scroll_display(scroll);
+        }
+    }
+
+    /// Go to previous prompt farthest up in history.
+    pub fn goto_previous_prompt(&mut self)
+    where
+        T: EventListener,
+    {
+        let point = if self.mode.contains(TermMode::VI) {
+            self.vi_mode_cursor.point
+        } else {
+            // If we're outside of Vi mode use topmost visible line.
+            Point::new(Line(-(self.grid.display_offset() as i32)), Column(0))
+        };
+
+        let prompt_point = match self.previous_prompt(point) {
+            Some(point) => point,
+            None => return,
+        };
+
+        if self.mode.contains(TermMode::VI) {
+            self.vi_goto_point(prompt_point);
+        } else {
+            let scroll = Scroll::Delta(point.line.0 - prompt_point.line.0);
+            self.scroll_display(scroll);
         }
     }
 
@@ -1046,9 +1097,12 @@ impl<T> Term<T> {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
-        let flags = self.grid.cursor.template.flags;
+        let mut flags = self.grid.cursor.template.flags;
 
         let mut cursor_cell = self.grid.cursor_cell();
+
+        // Preserve PROMPT_MARK if we had it.
+        flags |= cursor_cell.flags & Flags::PROMPT_MARK;
 
         // Clear all related cells when overwriting a fullwidth cell.
         if cursor_cell.flags.intersects(Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER) {
@@ -1600,6 +1654,9 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = cursor.template.bg;
         let point = cursor.point;
 
+        // We don't want to clear prompt markers.
+        let prompt_marked = *self.grid[point.line][Column(0)].flags() & Flags::PROMPT_MARK;
+
         let (left, right) = match mode {
             ansi::LineClearMode::Right => (point.column, Column(self.columns())),
             ansi::LineClearMode::Left => (Column(0), point.column + 1),
@@ -1612,6 +1669,9 @@ impl<T: EventListener> Handler for Term<T> {
         for cell in &mut row[left..right] {
             *cell = bg.into();
         }
+
+        // Restore prompt mark if it got reset.
+        self.grid[point.line][Column(0)].flags_mut().insert(prompt_marked);
 
         let range = self.grid.cursor.point.line..=self.grid.cursor.point.line;
         self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
@@ -1724,6 +1784,7 @@ impl<T: EventListener> Handler for Term<T> {
             },
             ansi::ClearMode::Below => {
                 let cursor = self.grid.cursor.point;
+                let prompt_mark = self.grid[cursor.line][Column(0)].flags & Flags::PROMPT_MARK;
                 for cell in &mut self.grid[cursor.line][cursor.column..] {
                     *cell = bg.into();
                 }
@@ -1731,6 +1792,7 @@ impl<T: EventListener> Handler for Term<T> {
                 if (cursor.line.0 as usize) < screen_lines - 1 {
                     self.grid.reset_region((cursor.line + 1)..);
                 }
+                self.grid[cursor.line][Column(0)].flags.insert(prompt_mark);
 
                 let range = cursor.line..Line(screen_lines as i32);
                 self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
@@ -2070,6 +2132,15 @@ impl<T: EventListener> Handler for Term<T> {
             trace!("Title '{:?}' popped from stack", popped);
             self.set_title(popped);
         }
+    }
+
+    #[inline]
+    fn set_prompt_mark(&mut self) {
+        let mark_point = self.line_search_left(self.grid.cursor.point);
+        trace!("Setting shell prompt mark at: line={}", mark_point.line);
+
+        // Set prompt mark flag.
+        self.grid[mark_point].flags_mut().insert(Flags::PROMPT_MARK);
     }
 
     #[inline]
