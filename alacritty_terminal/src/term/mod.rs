@@ -1621,6 +1621,12 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
+
+        // Damage terminal if the color changed and it's not the cursor.
+        if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
+            self.mark_fully_damaged();
+        }
+
         self.colors[index] = Some(color);
     }
 
@@ -1645,6 +1651,12 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn reset_color(&mut self, index: usize) {
         trace!("Resetting color[{}]", index);
+
+        // Damage terminal if the color changed and it's not the cursor.
+        if index != NamedColor::Cursor as usize && self.colors[index].is_some() {
+            self.mark_fully_damaged();
+        }
+
         self.colors[index] = None;
     }
 
@@ -2991,6 +3003,23 @@ mod tests {
         // Just setting `Insert` mode shouldn't mark terminal as damaged.
         assert!(!term.damage.is_fully_damaged);
         term.reset_damage();
+
+        let color_index = 257;
+        term.set_color(color_index, Rgb::default());
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        // Setting the same color once again shouldn't trigger full damage.
+        term.set_color(color_index, Rgb::default());
+        assert!(!term.damage.is_fully_damaged);
+
+        term.reset_color(color_index);
+        assert!(term.damage.is_fully_damaged);
+        term.reset_damage();
+
+        // We shouldn't trigger fully damage when cursor gets update.
+        term.set_color(NamedColor::Cursor as usize, Rgb::default());
+        assert!(!term.damage.is_fully_damaged);
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`
         // mode.
