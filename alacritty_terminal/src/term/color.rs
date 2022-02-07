@@ -229,6 +229,12 @@ impl<'de> Deserialize<'de> for CellRgb {
     }
 }
 
+/// Index of background color.
+pub const BACKGROUND_COLOR_INDEX: usize = 257;
+
+/// Index of cursor color.
+pub const CURSOR_COLOR_INDEX: usize = 258;
+
 /// Array of indexed colors.
 ///
 /// | Indices  | Description       |

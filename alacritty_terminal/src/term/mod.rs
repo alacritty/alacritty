@@ -18,7 +18,7 @@ use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
-use crate::term::color::{Colors, Rgb};
+use crate::term::color::{Colors, Rgb, BACKGROUND_COLOR_INDEX, CURSOR_COLOR_INDEX};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
@@ -1659,6 +1659,16 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
+        if self.colors[index] != Some(color) {
+            if index == BACKGROUND_COLOR_INDEX {
+                // If we've changed the background color damage the entire terminal, since it
+                // doesn't affect `occ`.
+                self.damage_all();
+            } else if index != CURSOR_COLOR_INDEX {
+                // We damage cursor every frame so don't need to damage the entire screen.
+                self.mark_fully_damaged();
+            }
+        }
         self.colors[index] = Some(color);
     }
 
@@ -1683,6 +1693,15 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn reset_color(&mut self, index: usize) {
         trace!("Resetting color[{}]", index);
+        if self.colors[index].is_none() {
+            return;
+        } else if index == BACKGROUND_COLOR_INDEX {
+            // Damage the entire screen when resetting background color.
+            self.damage_all();
+        } else if index != CURSOR_COLOR_INDEX {
+            // We damage cursor every frame so don't need to damage the entire screen.
+            self.mark_fully_damaged();
+        }
         self.colors[index] = None;
     }
 
