@@ -242,7 +242,7 @@ filling in this section of the README.
 cargo build --release
 ```
 
-On Linux, if it is desired to build Alacritty without support for either the X11
+On Linux/BSD, if it is desired to build Alacritty without support for either the X11 or Wayland
 rendering backend the following commands can be used.
 
 ```sh
