@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `font.glyph_offset` is no longer applied on builtin font
 - Buili-in font arcs alignment
 - Repeated permission prompts on M1 macs
+- Colors being slightly off when using `colors.transparent_background_colors`
 
 ## 0.10.0
 
