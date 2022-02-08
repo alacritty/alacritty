@@ -242,6 +242,17 @@ filling in this section of the README.
 cargo build --release
 ```
 
+On Linux, if it is desired to build Alacritty without support for either the X11
+rendering backend the following commands can be used.
+
+```sh
+# Force support for only Wayland
+cargo build --release --no-default-features --features=wayland
+
+# Force support for only X11
+cargo build --release --no-default-features --features=x11
+```
+
 If all goes well, this should place a binary at `target/release/alacritty`.
 
 ### macOS
