@@ -36,7 +36,7 @@ Please refer to the [Dependencies](#dependencies) section.
         16. [Windows](#windows)
         17. [Other](#other)
 2. [Building](#building)
-    1. [Linux/Windows](#linux--windows)
+    1. [Linux/Windows/BSD](#linux--windows--bsd)
     2. [macOS](#macos)
 3. [Post Build](#post-build)
     1. [Terminfo](#terminfo)
@@ -236,14 +236,14 @@ filling in this section of the README.
 
 ## Building
 
-### Linux / Windows
+### Linux / Windows / BSD
 
 ```sh
 cargo build --release
 ```
 
-On Linux/BSD, if it is desired to build Alacritty without support for either the X11 or Wayland
-rendering backend the following commands can be used.
+On Linux/BSD, if it is desired to build Alacritty without support for either the
+X11 or Wayland rendering backend the following commands can be used.
 
 ```sh
 # Force support for only Wayland
