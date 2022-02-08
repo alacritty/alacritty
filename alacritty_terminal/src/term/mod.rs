@@ -831,7 +831,7 @@ impl<T> Term<T> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
-        self.mark_fully_damaged();
+        self.damage_all();
     }
 
     /// Scroll screen down.

@@ -494,15 +494,9 @@ impl Display {
     }
 
     #[inline(never)]
-    fn update_damage(&mut self, display_offset: usize, search_state: &SearchState) {
+    fn update_damage(&mut self, display_offset: usize) {
         let size_info = self.size_info.into();
         let terminal_damage_history = self.window.terminal_damage_history_mut();
-        let requires_full_damage = self.visual_bell.intensity() != 0.
-            || self.hint_state.active()
-            || search_state.regex().is_some();
-        if requires_full_damage {
-            terminal_damage_history.damage_all(&self.size_info);
-        }
 
         self.damage_highlighted_hints(display_offset);
 
@@ -526,23 +520,26 @@ impl Display {
         search_state: &SearchState,
     ) {
         let mut num_frames = self.window.buffer_age();
-        let mut should_clear = false;
 
-        // In case we don't have any frame or we don't have a history entry for that frame mark
-        // frame as fully damaged and require clearing.
-        if num_frames == 0 || num_frames > self.window.terminal_damage_history().history_size() {
-            // Damage the entire terminal, since we need to process every visible cell.
-            terminal.damage_all();
-            num_frames += 1;
-            should_clear = true;
-        }
+        let requires_full_damage = self.visual_bell.intensity() != 0.
+            || self.hint_state.active()
+            || search_state.regex().is_some()
+            || num_frames == 0
+            || num_frames > self.window.terminal_damage_history().history_size();
 
         let selection = terminal.selection.as_ref().and_then(|s| s.to_range(&terminal));
         let damage = terminal.damage(selection);
 
         let terminal_damage_history = self.window.terminal_damage_history_mut();
+        terminal_damage_history.save_damage(damage, requires_full_damage);
 
-        terminal_damage_history.save_damage(damage, should_clear);
+        // Ui requires damaging the entire terminal.
+        if requires_full_damage {
+            // Damage the entire terminal, since we need to process every visible cell.
+            terminal_damage_history.damage_all(&self.size_info);
+            num_frames = 1;
+        }
+
         terminal_damage_history.use_frames(num_frames);
 
         // Reset terminal damage after saving it.
@@ -713,7 +710,7 @@ impl Display {
         // Update damage in before rendering.
         if self.collect_damage() {
             self.damage_rects.clear();
-            self.update_damage(display_offset, search_state);
+            self.update_damage(display_offset);
         }
 
         // Frame event should be requested before swaping buffers, since it requires surface
@@ -838,7 +835,7 @@ impl Display {
         let bg = config.colors.search_bar_background();
 
         // Damage search bar.
-        self.damage_from_point(point, num_cols);
+        // self.damage_from_point(point, num_cols);
 
         let glyph_cache = &mut self.glyph_cache;
         self.renderer.with_api(config, size_info, |mut api| {
