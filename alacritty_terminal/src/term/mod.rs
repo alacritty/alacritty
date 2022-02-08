@@ -1851,7 +1851,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode.insert(TermMode::default());
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
-        self.mark_fully_damaged();
+        self.damage_all();
     }
 
     #[inline]

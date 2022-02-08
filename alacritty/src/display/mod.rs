@@ -496,8 +496,6 @@ impl Display {
     #[inline(never)]
     fn update_damage(&mut self, display_offset: usize) {
         let size_info = self.size_info.into();
-        let terminal_damage_history = self.window.terminal_damage_history_mut();
-
         self.damage_highlighted_hints(display_offset);
 
         let latest_damage = self.window.terminal_damage_history().latest_damage();
@@ -741,6 +739,7 @@ impl Display {
         self.debug_damage = config.debug.highlight_damage;
         self.visual_bell.update_config(&config.bell);
         self.colors = List::from(&config.colors);
+        self.window.terminal_damage_history_mut().invalidate();
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
