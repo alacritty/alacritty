@@ -23,12 +23,12 @@ pub struct RenderRect {
     pub height: f32,
     pub color: Rgb,
     pub alpha: f32,
-    pub is_undercurl: bool,
+    pub kind: RectKind,
 }
 
 impl RenderRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
-        RenderRect { x, y, width, height, color, alpha, is_undercurl: false }
+        RenderRect { kind: RectKind::Normal, x, y, width, height, color, alpha }
     }
 }
 
@@ -37,6 +37,17 @@ pub struct RenderLine {
     pub start: Point<usize>,
     pub end: Point<usize>,
     pub color: Rgb,
+}
+
+// NOTE: These flags must be in sync with their usage in the rect.*.glsl shaders.
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RectKind {
+    Normal = 0,
+    Undercurl = 1,
+    DottedUnderline = 2,
+    DashedUnderline = 3,
+    NumKinds = 4,
 }
 
 impl RenderLine {
@@ -64,7 +75,7 @@ impl RenderLine {
         end: Point<usize>,
         color: Rgb,
     ) {
-        let (position, thickness) = match flag {
+        let (position, thickness, ty) = match flag {
             Flags::DOUBLE_UNDERLINE => {
                 // Position underlines so each one has 50% of descent available.
                 let top_pos = 0.25 * metrics.descent;
@@ -80,18 +91,29 @@ impl RenderLine {
                     color,
                 ));
 
-                (bottom_pos, metrics.underline_thickness)
+                (bottom_pos, metrics.underline_thickness, RectKind::Normal)
             },
             // Make undercurl occupy the entire descent area.
-            Flags::UNDERCURL => (metrics.descent, metrics.descent.abs()),
-            Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
-            Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
+            Flags::UNDERCURL => (metrics.descent, metrics.descent.abs(), RectKind::Undercurl),
+            Flags::UNDERLINE => {
+                (metrics.underline_position, metrics.underline_thickness, RectKind::Normal)
+            },
+            // Make dotted occupy the entire descent area.
+            Flags::DOTTED_UNDERLINE => {
+                (metrics.descent, metrics.descent.abs(), RectKind::DottedUnderline)
+            },
+            Flags::DASHED_UNDERLINE => {
+                (metrics.underline_position, metrics.underline_thickness, RectKind::DashedUnderline)
+            },
+            Flags::STRIKEOUT => {
+                (metrics.strikeout_position, metrics.strikeout_thickness, RectKind::Normal)
+            },
             _ => unimplemented!("Invalid flag for cell line drawing specified"),
         };
 
         let mut rect =
             Self::create_rect(size, metrics.descent, start, end, position, thickness, color);
-        rect.is_undercurl = flag == Flags::UNDERCURL;
+        rect.kind = ty;
         rects.push(rect);
     }
 
@@ -161,6 +183,8 @@ impl RenderLines {
         self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
         self.update_flag(cell, Flags::STRIKEOUT);
         self.update_flag(cell, Flags::UNDERCURL);
+        self.update_flag(cell, Flags::DOTTED_UNDERLINE);
+        self.update_flag(cell, Flags::DASHED_UNDERLINE);
     }
 
     /// Update the lines for a specific flag.
@@ -224,8 +248,7 @@ pub struct RectRenderer {
 
     program: RectShaderProgram,
 
-    rect_vertices: Vec<Vertex>,
-    curl_vertices: Vec<Vertex>,
+    vertices: [Vec<Vertex>; 4],
 }
 
 impl RectRenderer {
@@ -274,7 +297,7 @@ impl RectRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
-        Ok(Self { vao, vbo, program, rect_vertices: Vec::new(), curl_vertices: Vec::new() })
+        Ok(Self { vao, vbo, program, vertices: Default::default() })
     }
 
     pub fn draw(&mut self, size_info: &SizeInfo, metrics: &Metrics, rects: Vec<RenderRect>) {
@@ -293,43 +316,32 @@ impl RectRenderer {
         let half_height = size_info.height() / 2.;
 
         // Build rect vertices vector.
-        self.rect_vertices.clear();
-        self.curl_vertices.clear();
+        self.vertices.iter_mut().for_each(|vertices| vertices.clear());
         for rect in &rects {
-            if rect.is_undercurl {
-                Self::add_rect(&mut self.curl_vertices, half_width, half_height, rect);
-            } else {
-                Self::add_rect(&mut self.rect_vertices, half_width, half_height, rect);
-            }
+            Self::add_rect(&mut self.vertices[rect.kind as usize], half_width, half_height, rect);
         }
 
         unsafe {
-            if !self.curl_vertices.is_empty() {
-                self.program.set_undercurl(true);
+            // We iterate in reverse order to draw plain rects at the end, since we want visual
+            // bell or damage rects be above the lines.
+            for rect_kind in (RectKind::Normal as u8..RectKind::NumKinds as u8).rev() {
+                let vertices = &mut self.vertices[rect_kind as usize];
+                if vertices.is_empty() {
+                    continue;
+                }
+
+                self.program.set_rect_kind(rect_kind as u8);
+
                 // Upload accumulated undercurl vertices.
                 gl::BufferData(
                     gl::ARRAY_BUFFER,
-                    (self.curl_vertices.len() * mem::size_of::<Vertex>()) as isize,
-                    self.curl_vertices.as_ptr() as *const _,
+                    (vertices.len() * mem::size_of::<Vertex>()) as isize,
+                    vertices.as_ptr() as *const _,
                     gl::STREAM_DRAW,
                 );
 
                 // Draw all vertices as list of triangles.
-                gl::DrawArrays(gl::TRIANGLES, 0, self.curl_vertices.len() as i32);
-            }
-
-            if !self.rect_vertices.is_empty() {
-                self.program.set_undercurl(false);
-                // Upload accumulated rect vertices.
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (self.rect_vertices.len() * mem::size_of::<Vertex>()) as isize,
-                    self.rect_vertices.as_ptr() as *const _,
-                    gl::STREAM_DRAW,
-                );
-
-                // Draw all vertices as list of triangles.
-                gl::DrawArrays(gl::TRIANGLES, 0, self.rect_vertices.len() as i32);
+                gl::DrawArrays(gl::TRIANGLES, 0, vertices.len() as i32);
             }
 
             // Disable program.
@@ -384,10 +396,8 @@ pub struct RectShaderProgram {
     /// Shader program.
     program: ShaderProgram,
 
-    /// Undercurl flag.
-    ///
-    /// Rect rendering has two modes; one for normal filled rects, and other for undercurls.
-    u_is_undercurl: GLint,
+    /// Kind of rect we're drawing.
+    u_rect_kind: GLint,
 
     /// Cell width.
     u_cell_width: GLint,
@@ -399,8 +409,11 @@ pub struct RectShaderProgram {
     u_padding_x: GLint,
     u_padding_y: GLint,
 
-    /// Undercurl thickness.
-    u_undercurl_thickness: GLint,
+    /// Underline position.
+    u_underline_position: GLint,
+
+    /// Underline thickness.
+    u_underline_thickness: GLint,
 
     /// Undercurl position.
     u_undercurl_position: GLint,
@@ -411,13 +424,14 @@ impl RectShaderProgram {
         let program = ShaderProgram::new(RECT_SHADER_V, RECT_SHADER_F)?;
 
         Ok(Self {
-            u_is_undercurl: program.get_uniform_location(cstr!("isUndercurl"))?,
+            u_rect_kind: program.get_uniform_location(cstr!("rectKind"))?,
             u_cell_width: program.get_uniform_location(cstr!("cellWidth"))?,
             u_cell_height: program.get_uniform_location(cstr!("cellHeight"))?,
             u_padding_x: program.get_uniform_location(cstr!("paddingX"))?,
             u_padding_y: program.get_uniform_location(cstr!("paddingY"))?,
+            u_underline_position: program.get_uniform_location(cstr!("underlinePosition"))?,
+            u_underline_thickness: program.get_uniform_location(cstr!("underlineThickness"))?,
             u_undercurl_position: program.get_uniform_location(cstr!("undercurlPosition"))?,
-            u_undercurl_thickness: program.get_uniform_location(cstr!("undercurlThickness"))?,
             program,
         })
     }
@@ -426,22 +440,22 @@ impl RectShaderProgram {
         self.program.id()
     }
 
-    fn set_undercurl(&self, is_undercurl: bool) {
-        let value = if is_undercurl { 1 } else { 0 };
-
+    fn set_rect_kind(&self, ty: u8) {
         unsafe {
-            gl::Uniform1i(self.u_is_undercurl, value);
+            gl::Uniform1i(self.u_rect_kind, ty as i32);
         }
     }
 
     pub fn update_uniforms(&self, size_info: &SizeInfo, metrics: &Metrics) {
         let position = (0.5 * metrics.descent).abs();
+        let underline_position = metrics.descent.abs() - metrics.underline_position.abs();
         unsafe {
             gl::Uniform1f(self.u_cell_width, size_info.cell_width());
             gl::Uniform1f(self.u_cell_height, size_info.cell_height());
             gl::Uniform1f(self.u_padding_y, size_info.padding_y());
             gl::Uniform1f(self.u_padding_x, size_info.padding_x());
-            gl::Uniform1f(self.u_undercurl_thickness, metrics.underline_thickness);
+            gl::Uniform1f(self.u_underline_position, underline_position);
+            gl::Uniform1f(self.u_underline_thickness, metrics.underline_thickness);
             gl::Uniform1f(self.u_undercurl_position, position);
         }
     }
