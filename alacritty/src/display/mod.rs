@@ -668,7 +668,7 @@ impl Display {
             rects.push(message_bar_rect);
 
             // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
+            self.renderer.draw_rects(&size_info, &metrics, rects);
 
             // Relay messages to the user.
             let glyph_cache = &mut self.glyph_cache;
@@ -681,7 +681,7 @@ impl Display {
             }
         } else {
             // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
+            self.renderer.draw_rects(&size_info, &metrics, rects);
         }
 
         self.draw_render_timer(config, &size_info);

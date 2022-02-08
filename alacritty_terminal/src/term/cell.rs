@@ -24,6 +24,8 @@ bitflags! {
         const STRIKEOUT                 = 0b0000_0010_0000_0000;
         const LEADING_WIDE_CHAR_SPACER  = 0b0000_0100_0000_0000;
         const DOUBLE_UNDERLINE          = 0b0000_1000_0000_0000;
+        const UNDERCURL                 = 0b0001_0000_0000_0000;
+        const ALL_UNDERLINES            = Self::UNDERLINE.bits | Self::DOUBLE_UNDERLINE.bits | Self::UNDERCURL.bits;
     }
 }
 
@@ -119,6 +121,7 @@ impl GridCell for Cell {
                 Flags::INVERSE
                     | Flags::UNDERLINE
                     | Flags::DOUBLE_UNDERLINE
+                    | Flags::UNDERCURL
                     | Flags::STRIKEOUT
                     | Flags::WRAPLINE
                     | Flags::WIDE_CHAR_SPACER
