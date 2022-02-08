@@ -15,6 +15,7 @@ use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermM
 
 use crate::config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
+use crate::display::damage::TerminalDamageHistory;
 use crate::display::hint::HintState;
 use crate::display::{self, Display, MAX_SEARCH_LINES};
 use crate::event::SearchState;
@@ -27,6 +28,7 @@ pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 /// This provides the terminal cursor and an iterator over all non-empty cells.
 pub struct RenderableContent<'a> {
     terminal_content: TerminalContent<'a>,
+    terminal_damage_history: &'a TerminalDamageHistory,
     cursor: RenderableCursor,
     cursor_shape: CursorShape,
     cursor_point: Point<usize>,
@@ -35,6 +37,7 @@ pub struct RenderableContent<'a> {
     config: &'a UiConfig,
     colors: &'a List,
     focused_match: Option<&'a Match>,
+    skip_empty_cells: bool,
 }
 
 impl<'a> RenderableContent<'a> {
@@ -42,11 +45,12 @@ impl<'a> RenderableContent<'a> {
         config: &'a UiConfig,
         display: &'a mut Display,
         term: &'a Term<T>,
+        selection: Option<SelectionRange>,
         search_state: &'a SearchState,
     ) -> Self {
+        let terminal_content = term.renderable_content(selection);
         let search = search_state.dfas().map(|dfas| Regex::new(term, dfas));
         let focused_match = search_state.focused_match();
-        let terminal_content = term.renderable_content();
 
         // Find terminal cursor shape.
         let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
@@ -72,10 +76,17 @@ impl<'a> RenderableContent<'a> {
             None
         };
 
+        let terminal_damage_history = display.window.terminal_damage_history();
+
+        // If we'll clear terminal content anyway we can skip empty cells. Otherwise process them.
+        let skip_empty_cells = terminal_damage_history.should_clear();
+
         Self {
             colors: &display.colors,
             cursor: RenderableCursor::new_hidden(),
             terminal_content,
+            terminal_damage_history,
+            skip_empty_cells,
             focused_match,
             cursor_shape,
             cursor_point,
@@ -101,10 +112,6 @@ impl<'a> RenderableContent<'a> {
     /// Get the RGB value for a color index.
     pub fn color(&self, color: usize) -> Rgb {
         self.terminal_content.colors[color].unwrap_or(self.colors[color])
-    }
-
-    pub fn selection_range(&self) -> Option<SelectionRange> {
-        self.terminal_content.selection
     }
 
     /// Assemble the information required to render the terminal cursor.
@@ -152,8 +159,17 @@ impl<'a> Iterator for RenderableContent<'a> {
     /// (eg. invert fg and bg colors).
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
+        let mut cell = loop {
             let cell = self.terminal_content.display_iter.next()?;
+            let point =
+                display::point_to_viewport(self.terminal_content.display_offset, cell.point)
+                    .unwrap();
+
+            // Don't process undamaged points.
+            if !self.terminal_damage_history.is_damaged(point) {
+                continue;
+            }
+
             let mut cell = RenderableCell::new(self, cell);
 
             if self.cursor_point == cell.point {
@@ -168,12 +184,21 @@ impl<'a> Iterator for RenderableContent<'a> {
                     cell.bg_alpha = 1.;
                 }
 
-                return Some(cell);
-            } else if !cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-                // Skip empty cells and wide char spacers.
-                return Some(cell);
+                break cell;
+                // Wide char spacers are likely fine...
+            } else if !self.skip_empty_cells
+                || (!cell.is_empty() && !cell.flags.contains(Flags::WIDE_CHAR_SPACER))
+            {
+                break cell;
             }
+        };
+
+        // Restore alpha for background cells.
+        if cell.bg_alpha == 0. {
+            cell.bg_alpha = self.config.window_opacity();
         }
+
+        Some(cell)
     }
 }
 

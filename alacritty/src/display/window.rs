@@ -52,6 +52,7 @@ use alacritty_terminal::term::SizeInfo;
 
 use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
+use crate::display::damage::TerminalDamageHistory;
 use crate::gl;
 
 /// Window icon for `_NET_WM_ICON` property.
@@ -154,6 +155,9 @@ pub struct Window {
     /// Cached DPR for quickly scaling pixel sizes.
     pub dpr: f64,
 
+    /// Damage history from `alacritty_terminal` running in that Window.
+    terminal_damage_history: TerminalDamageHistory,
+
     /// Current window title.
     title: String,
 
@@ -220,11 +224,13 @@ impl Window {
         };
 
         let dpr = windowed_context.window().scale_factor();
+        let terminal_damage_history = TerminalDamageHistory::new();
 
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
             windowed_context: Replaceable::new(windowed_context),
+            terminal_damage_history,
             title: identity.title,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
@@ -232,6 +238,16 @@ impl Window {
             wayland_surface,
             dpr,
         })
+    }
+
+    #[inline]
+    pub fn terminal_damage_history(&self) -> &TerminalDamageHistory {
+        &self.terminal_damage_history
+    }
+
+    #[inline]
+    pub fn terminal_damage_history_mut(&mut self) -> &mut TerminalDamageHistory {
+        &mut self.terminal_damage_history
     }
 
     #[inline]
@@ -424,6 +440,11 @@ impl Window {
         self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }
 
+    #[inline]
+    pub fn buffer_age(&self) -> usize {
+        self.windowed_context.buffer_age().unwrap_or(0) as usize
+    }
+
     pub fn swap_buffers(&self) {
         self.windowed_context.swap_buffers().expect("swap buffers");
     }
@@ -436,7 +457,8 @@ impl Window {
         self.windowed_context.swap_buffers_with_damage_supported()
     }
 
-    pub fn resize(&self, size: PhysicalSize<u32>) {
+    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.terminal_damage_history.invalidate();
         self.windowed_context.resize(size);
     }
 

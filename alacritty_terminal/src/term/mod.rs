@@ -258,16 +258,6 @@ impl LineDamageBounds {
     }
 }
 
-/// Terminal damage information collected since the last [`Term::reset_damage`] call.
-#[derive(Debug)]
-pub enum TermDamage<'a> {
-    /// The entire terminal is damaged.
-    Full,
-
-    /// Iterator over damaged lines in the terminal.
-    Partial(TermDamageIterator<'a>),
-}
-
 /// Iterator over the terminal's damaged lines.
 #[derive(Clone, Debug)]
 pub struct TermDamageIterator<'a> {
@@ -275,7 +265,7 @@ pub struct TermDamageIterator<'a> {
 }
 
 impl<'a> TermDamageIterator<'a> {
-    fn new(line_damage: &'a [LineDamageBounds]) -> Self {
+    pub fn new(line_damage: &'a [LineDamageBounds]) -> Self {
         Self { line_damage: line_damage.iter() }
     }
 }
@@ -301,6 +291,9 @@ struct TermDamageState {
 
     /// Old selection range.
     last_selection: Option<SelectionRange>,
+
+    /// Previous visible lines `occ`.
+    last_occ: Vec<usize>,
 }
 
 impl TermDamageState {
@@ -313,6 +306,7 @@ impl TermDamageState {
             lines,
             last_cursor: Default::default(),
             last_selection: Default::default(),
+            last_occ: vec![0; num_lines],
         }
     }
 
@@ -323,10 +317,17 @@ impl TermDamageState {
         self.last_selection = None;
         self.is_fully_damaged = true;
 
+        self.last_occ.clear();
+        self.last_occ.reserve(num_lines);
+
         self.lines.clear();
         self.lines.reserve(num_lines);
         for line in 0..num_lines {
             self.lines.push(LineDamageBounds::undamaged(line, num_cols));
+
+            // Since we've resized the terminal we should redraw the entire screen, so we're
+            // marking terminal as fully damaged and make it look like all cells are occupied.
+            self.last_occ.push(num_cols);
         }
     }
 
@@ -502,7 +503,7 @@ impl<T> Term<T> {
     }
 
     #[must_use]
-    pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
+    pub fn damage(&mut self, selection: Option<SelectionRange>) -> &Vec<LineDamageBounds> {
         // Ensure the entire terminal is damaged after entering insert mode.
         // Leaving is handled in the ansi handler.
         if self.mode.contains(TermMode::INSERT) {
@@ -511,15 +512,39 @@ impl<T> Term<T> {
 
         // Early return if the entire terminal is damaged.
         if self.damage.is_fully_damaged {
+            for line in 0..self.screen_lines() {
+                let grid_line = Line(line as i32 - self.grid.display_offset() as i32);
+                let new_occ = self.grid[grid_line].occ;
+                let right = cmp::max(new_occ, self.damage.last_occ[line]);
+
+                self.damage.last_occ[line] = new_occ;
+
+                // Don't have to do anything when the line wasn't touched at all, since `occ` on row
+                // doesn't include right bound.
+                if right == 0 {
+                    continue;
+                }
+
+                self.damage_line(line, 0, cmp::min(right - 1, self.columns() - 1));
+            }
+
             self.damage.last_cursor = self.grid.cursor.point;
             self.damage.last_selection = selection;
-            return TermDamage::Full;
+            return &self.damage.lines;
+        } else {
+            // We should always maintain `occ` state from the previous call to `[Term::damage]` so
+            // when we switch from partial damage to full damage we will cleanup viewport properly.
+            for line in 0..self.screen_lines() {
+                let grid_line = Line(line as i32 - self.grid.display_offset() as i32);
+                let occ = self.grid[grid_line].occ;
+                self.damage.last_occ[line] = occ;
+            }
         }
 
         // Add information about old cursor position and new one if they are not the same, so we
         // cover everything that was produced by `Term::input`.
         if self.damage.last_cursor != self.grid.cursor.point {
-            // Cursor cooridanates are always inside viewport even if you have `display_offset`.
+            // Cursor coordinates are always inside viewport even if you have `display_offset`.
             let point =
                 Point::new(self.damage.last_cursor.line.0 as usize, self.damage.last_cursor.column);
             self.damage.damage_point(point);
@@ -542,7 +567,7 @@ impl<T> Term<T> {
         }
         self.damage.last_selection = selection;
 
-        TermDamage::Partial(TermDamageIterator::new(&self.damage.lines))
+        &self.damage.lines
     }
 
     /// Resets the terminal damage information.
@@ -550,9 +575,22 @@ impl<T> Term<T> {
         self.damage.reset(self.columns());
     }
 
+    /// Marks terminal as fully damaged making it to produce the maximum damage area of occupied
+    /// cells intersected from previous call to [`Term::damage`] and the next one.
+    ///
+    /// If the goal is to damage all the cells including past `Row.occ` call `[Term::damage_all]`.
     #[inline]
     pub fn mark_fully_damaged(&mut self) {
         self.damage.is_fully_damaged = true;
+    }
+
+    /// Damages all the cells in the terminal including empty cells and unoccupied.
+    #[inline]
+    pub fn damage_all(&mut self) {
+        let num_cols = self.columns() - 1;
+        for line in 0..self.screen_lines() {
+            self.damage_line(line, 0, num_cols);
+        }
     }
 
     /// Damage line in a terminal viewport.
@@ -695,11 +733,11 @@ impl<T> Term<T> {
 
     /// Terminal content required for rendering.
     #[inline]
-    pub fn renderable_content(&self) -> RenderableContent<'_>
+    pub fn renderable_content(&self, selection: Option<SelectionRange>) -> RenderableContent<'_>
     where
         T: EventListener,
     {
-        RenderableContent::new(self)
+        RenderableContent::new(self, selection)
     }
 
     /// Access to the raw grid data structure.
@@ -793,7 +831,7 @@ impl<T> Term<T> {
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
         self.selection = None;
-        self.mark_fully_damaged();
+        self.damage_all();
     }
 
     /// Scroll screen down.
@@ -1624,7 +1662,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
-            self.mark_fully_damaged();
+            if index == NamedColor::Background as usize {
+                // Background changes require redrawing the entire screen.
+                self.damage_all();
+            } else {
+                self.mark_fully_damaged();
+            }
         }
 
         self.colors[index] = Some(color);
@@ -1654,7 +1697,12 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index].is_some() {
-            self.mark_fully_damaged();
+            if index == NamedColor::Background as usize {
+                // Background changes require redrawing the entire screen.
+                self.damage_all();
+            } else {
+                self.mark_fully_damaged();
+            }
         }
 
         self.colors[index] = None;
@@ -1702,6 +1750,7 @@ impl<T: EventListener> Handler for Term<T> {
         let bg = self.grid.cursor.template.bg;
 
         let screen_lines = self.screen_lines();
+        // TODO fix this bloody function.
 
         match mode {
             ansi::ClearMode::Above => {
@@ -1738,6 +1787,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::ClearMode::All => {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.reset_region(..);
+                    self.damage_all();
                 } else {
                     let old_offset = self.grid.display_offset();
 
@@ -1801,7 +1851,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode.insert(TermMode::default());
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
-        self.mark_fully_damaged();
+        self.damage_all();
     }
 
     #[inline]
@@ -2023,7 +2073,7 @@ impl<T: EventListener> Handler for Term<T> {
         style.shape = shape;
     }
 
-    #[inline]
+    #[inline(never)]
     fn set_title(&mut self, title: Option<String>) {
         trace!("Setting title to '{:?}'", title);
 
@@ -2188,12 +2238,12 @@ pub struct RenderableContent<'a> {
 }
 
 impl<'a> RenderableContent<'a> {
-    fn new<T>(term: &'a Term<T>) -> Self {
+    fn new<T>(term: &'a Term<T>, selection: Option<SelectionRange>) -> Self {
         Self {
             display_iter: term.grid().display_iter(),
             display_offset: term.grid().display_offset(),
             cursor: RenderableCursor::new(term),
-            selection: term.selection.as_ref().and_then(|s| s.to_range(term)),
+            selection,
             colors: &term.colors,
             mode: *term.mode(),
         }
@@ -2763,10 +2813,7 @@ mod tests {
         term.input('e');
         let right = term.grid.cursor.point.column.0;
 
-        let mut damaged_lines = match term.damage(None) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
+        let mut damaged_lines = term.damage(None);
         assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line: 0, left, right }));
         assert_eq!(damaged_lines.next(), None);
         term.reset_damage();
@@ -2781,10 +2828,7 @@ mod tests {
         selection.update(Point::new(Line(line), Column(5)), Side::Left);
         let selection_range = selection.to_range(&term);
 
-        let mut damaged_lines = match term.damage(selection_range) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
+        let mut damaged_lines = term.damage(selection_range);
         let line = line as usize;
         // Skip cursor damage information, since we're just testing selection.
         damaged_lines.next();
@@ -2794,10 +2838,7 @@ mod tests {
 
         // Check that existing selection gets damaged when it is removed.
 
-        let mut damaged_lines = match term.damage(None) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
+        let mut damaged_lines = term.damage(None);
         // Skip cursor damage information, since we're just testing selection clearing.
         damaged_lines.next();
         assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
@@ -2815,10 +2856,7 @@ mod tests {
         let line = vi_cursor_point.line.0 as usize;
         let left = vi_cursor_point.column.0 as usize;
         let right = left;
-        let mut damaged_lines = match term.damage(None) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
+        let mut damaged_lines = term.damage(None);
         // Skip cursor damage information, since we're just testing Vi cursor.
         damaged_lines.next();
         assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
