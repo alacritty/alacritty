@@ -54,7 +54,7 @@ impl ResetDiscriminant<Color> for Cell {
 /// storage is actually required.
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
 struct CellExtra {
-    zerowidth: Vec<char>,
+    zerowidth: bool,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -65,7 +65,7 @@ pub struct Cell {
     pub bg: Color,
     pub flags: Flags,
     #[serde(default)]
-    extra: Option<Box<CellExtra>>,
+    extra: Option<CellExtra>,
 }
 
 impl Default for Cell {
@@ -85,13 +85,14 @@ impl Cell {
     /// Zerowidth characters stored in this cell.
     #[inline]
     pub fn zerowidth(&self) -> Option<&[char]> {
-        self.extra.as_ref().map(|extra| extra.zerowidth.as_slice())
+        None
+        // self.extra.as_ref().map(|extra| extra.zerowidth.as_slice())
     }
 
     /// Write a new zerowidth character to this cell.
     #[inline]
     pub fn push_zerowidth(&mut self, c: char) {
-        self.extra.get_or_insert_with(Default::default).zerowidth.push(c);
+        self.extra.get_or_insert_with(Default::default).zerowidth = true;
     }
 
     /// Free all dynamically allocated cell storage.
@@ -127,7 +128,6 @@ impl GridCell for Cell {
                     | Flags::WIDE_CHAR_SPACER
                     | Flags::LEADING_WIDE_CHAR_SPACER,
             )
-            && self.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) != Some(false)
     }
 
     #[inline]
@@ -168,9 +168,7 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' '
-                || cell.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) == Some(false)
-            {
+            if cell.c != ' ' || cell.extra.is_some() {
                 length = Column(self.len() - index);
                 break;
             }
