@@ -136,6 +136,7 @@ fn alacritty(options: Options) -> Result<(), String> {
         .expect("Unable to initialize logger");
 
     info!("Welcome to Alacritty");
+    info!("Version {}", env!("VERSION"));
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     info!("Running on {}", if window_event_loop.is_x11() { "X11" } else { "Wayland" });
