@@ -20,7 +20,7 @@ use std::string::ToString;
 use std::{fs, process};
 
 use glutin::event_loop::EventLoop as GlutinEventLoop;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 #[cfg(windows)]
