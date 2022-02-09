@@ -33,7 +33,7 @@ tasks:
       cargo clippy --all-targets
   - feature-wayland: |
       cd alacritty/alacritty
-      cargo test --no-default-features --features=wayland
+      RUSTFLAGS="-D warnings" cargo test --no-default-features --features=wayland
   - feature-x11: |
       cd alacritty/alacritty
-      cargo test --no-default-features --features=x11
+      RUSTFLAGS="-D warnings" cargo test --no-default-features --features=x11
