@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.10.0"
+version = "0.10.1-rc1"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.16.0"
+version = "0.16.1-rc1"
 default-features = false
 
 [dependencies.alacritty_config_derive]

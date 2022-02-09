@@ -10,7 +10,7 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
 name = "alacritty"
-version = "0.10.0"
+version = "0.10.1-rc1"
 dependencies = [
  "alacritty_config_derive",
  "alacritty_terminal",
@@ -56,7 +56,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.16.0"
+version = "0.16.1-rc1"
 dependencies = [
  "alacritty_config_derive",
  "base64",
