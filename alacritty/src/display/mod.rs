@@ -573,7 +573,6 @@ impl Display {
         let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
 
         if self.collect_damage() {
-            self.damage_rects.clear();
             self.update_damage(&mut terminal, selection_range, search_state);
         }
 
@@ -740,6 +739,8 @@ impl Display {
                 api.finish();
             });
         }
+
+        self.damage_rects.clear();
     }
 
     /// Update to a new configuration.
