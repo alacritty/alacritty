@@ -37,8 +37,9 @@ void main()
         * cos(float(x) * 2 * PI / float(cellWidth))
         + cellHeight - undercurlPosition;
 
-    float undercurl_top = undercurl + undercurlThickness / 2.;
-    float undercurl_bottom = undercurl - undercurlThickness / 2.;
+    // We subtract one, since curve is already 1px thick.
+    float undercurl_top = undercurl + max((undercurlThickness - 1), 0);
+    float undercurl_bottom = undercurl - max((undercurlThickness - 1), 0);
 
 
     // Compute resulted alpha based on distance from `gl_FragCoord.y` to the
