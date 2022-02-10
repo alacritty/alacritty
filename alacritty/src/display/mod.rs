@@ -490,6 +490,21 @@ impl Display {
 
         info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
+
+        // Damage the entire screen after processing update.
+        self.fully_damage();
+    }
+
+    /// Damage the entire window.
+    fn fully_damage(&mut self) {
+        let screen_rect = DamageRect {
+            x: 0,
+            y: 0,
+            width: self.size_info.width() as u32,
+            height: self.size_info.height() as u32,
+        };
+
+        self.damage_rects.push(screen_rect);
     }
 
     fn update_damage<T: EventListener>(
@@ -506,15 +521,10 @@ impl Display {
         }
 
         self.damage_highlighted_hints(terminal);
-        let size_info: SizeInfo<u32> = self.size_info.into();
         match terminal.damage(selection_range) {
-            TermDamage::Full => {
-                let screen_rect =
-                    DamageRect { x: 0, y: 0, width: size_info.width(), height: size_info.height() };
-                self.damage_rects.push(screen_rect);
-            },
+            TermDamage::Full => self.fully_damage(),
             TermDamage::Partial(damaged_lines) => {
-                let damaged_rects = RenderDamageIterator::new(damaged_lines, size_info);
+                let damaged_rects = RenderDamageIterator::new(damaged_lines, self.size_info.into());
                 for damaged_rect in damaged_rects {
                     self.damage_rects.push(damaged_rect);
                 }
