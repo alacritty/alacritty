@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
 use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
+    self, Attr, CharsetIndex, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::config::Config;
 use crate::event::{Event, EventListener};
@@ -1044,8 +1044,7 @@ impl<T> Term<T> {
     #[inline(always)]
     fn write_at_cursor(&mut self, c: char) {
         let c = self.grid.cursor.charsets[self.active_charset].map(c);
-        let fg = self.grid.cursor.template.fg;
-        let bg = self.grid.cursor.template.bg;
+        let colors = self.grid.cursor.template.colors;
         let flags = self.grid.cursor.template.flags;
 
         let mut cursor_cell = self.grid.cursor_cell();
@@ -1073,8 +1072,7 @@ impl<T> Term<T> {
         cursor_cell.drop_extra();
 
         cursor_cell.c = c;
-        cursor_cell.fg = fg;
-        cursor_cell.bg = bg;
+        cursor_cell.colors = colors;
         cursor_cell.flags = flags;
     }
 
@@ -1240,7 +1238,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn insert_blank(&mut self, count: usize) {
         let cursor = &self.grid.cursor;
-        let bg = cursor.template.bg;
+        let bg = cursor.template.colors.bg();
 
         // Ensure inserting within terminal bounds
         let count = cmp::min(count, self.columns() - cursor.point.column.0);
@@ -1512,7 +1510,7 @@ impl<T: EventListener> Handler for Term<T> {
         let end = cmp::min(start + count, Column(self.columns()));
 
         // Cleared cells have current background color set.
-        let bg = self.grid.cursor.template.bg;
+        let bg = self.grid.cursor.template.colors.bg();
         let line = cursor.point.line;
         self.damage.damage_line(line.0 as usize, start.0, end.0);
         let row = &mut self.grid[line];
@@ -1525,7 +1523,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn delete_chars(&mut self, count: usize) {
         let columns = self.columns();
         let cursor = &self.grid.cursor;
-        let bg = cursor.template.bg;
+        let bg = cursor.template.colors.bg();
 
         // Ensure deleting within terminal bounds.
         let count = cmp::min(count, columns);
@@ -1597,7 +1595,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Clearing line: {:?}", mode);
 
         let cursor = &self.grid.cursor;
-        let bg = cursor.template.bg;
+        let bg = cursor.template.colors.bg();
         let point = cursor.point;
 
         let (left, right) = match mode {
@@ -1699,7 +1697,7 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("Clearing screen: {:?}", mode);
-        let bg = self.grid.cursor.template.bg;
+        let bg = self.grid.cursor.template.colors.bg();
 
         let screen_lines = self.screen_lines();
 
@@ -1823,11 +1821,10 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Setting attribute: {:?}", attr);
         let cursor = &mut self.grid.cursor;
         match attr {
-            Attr::Foreground(color) => cursor.template.fg = color,
-            Attr::Background(color) => cursor.template.bg = color,
+            Attr::Foreground(color) => cursor.template.colors.set_fg(color),
+            Attr::Background(color) => cursor.template.colors.set_bg(color),
             Attr::Reset => {
-                cursor.template.fg = Color::Named(NamedColor::Foreground);
-                cursor.template.bg = Color::Named(NamedColor::Background);
+                cursor.template.colors = Default::default();
                 cursor.template.flags = Flags::empty();
             },
             Attr::Reverse => cursor.template.flags.insert(Flags::INVERSE),
@@ -1858,6 +1855,7 @@ impl<T: EventListener> Handler for Term<T> {
                 cursor.template.flags.remove(Flags::ALL_UNDERLINES);
                 cursor.template.flags.insert(Flags::DASHED_UNDERLINE);
             },
+            Attr::UnderlineColor(color) => cursor.template.colors.set_underline_color(color),
             Attr::CancelUnderline => cursor.template.flags.remove(Flags::ALL_UNDERLINES),
             Attr::Hidden => cursor.template.flags.insert(Flags::HIDDEN),
             Attr::CancelHidden => cursor.template.flags.remove(Flags::HIDDEN),

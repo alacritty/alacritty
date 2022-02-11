@@ -185,6 +185,7 @@ pub struct RenderableCell {
     pub point: Point<usize>,
     pub fg: Rgb,
     pub bg: Rgb,
+    pub underline: Rgb,
     pub bg_alpha: f32,
     pub flags: Flags,
 }
@@ -192,14 +193,14 @@ pub struct RenderableCell {
 impl RenderableCell {
     fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
-        let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
-        let mut bg = Self::compute_bg_rgb(content, cell.bg);
+        let mut fg = Self::compute_fg_rgb(content, cell.colors.fg(), cell.flags);
+        let mut bg = Self::compute_bg_rgb(content, cell.colors.bg());
 
         let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
             mem::swap(&mut fg, &mut bg);
             1.0
         } else {
-            Self::compute_bg_alpha(content.config, cell.bg)
+            Self::compute_bg_alpha(content.config, cell.colors.bg())
         };
 
         let is_selected = content.terminal_content.selection.map_or(false, |selection| {
@@ -250,6 +251,10 @@ impl RenderableCell {
         // Convert cell point to viewport position.
         let cell_point = cell.point;
         let point = display::point_to_viewport(display_offset, cell_point).unwrap();
+        let underline = cell
+            .colors
+            .underline()
+            .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, cell.flags));
 
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
@@ -259,6 +264,7 @@ impl RenderableCell {
             point,
             fg,
             bg,
+            underline,
         }
     }
 
