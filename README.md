@@ -26,7 +26,7 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 
 ## Features
 
-You can find an overview over the features available in Alacritty [here](./docs/features.md).
+See the overview over the [features](docs/features.md) available in Alacritty.
 
 ## Further information
 
@@ -42,8 +42,8 @@ macOS and Windows.
 Prebuilt binaries for macOS and Windows can also be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
-For everyone else, the detailed instructions to install Alacritty can be found
-[here](INSTALL.md).
+For everyone else, we maintain detailed instructions
+to [install](INSTALL.md) Alacritty.
 
 ### Requirements
 
