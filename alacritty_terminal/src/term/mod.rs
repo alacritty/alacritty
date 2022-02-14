@@ -1850,6 +1850,14 @@ impl<T: EventListener> Handler for Term<T> {
                 cursor.template.flags.remove(Flags::ALL_UNDERLINES);
                 cursor.template.flags.insert(Flags::UNDERCURL);
             },
+            Attr::DottedUnderline => {
+                cursor.template.flags.remove(Flags::ALL_UNDERLINES);
+                cursor.template.flags.insert(Flags::DOTTED_UNDERLINE);
+            },
+            Attr::DashedUnderline => {
+                cursor.template.flags.remove(Flags::ALL_UNDERLINES);
+                cursor.template.flags.insert(Flags::DASHED_UNDERLINE);
+            },
             Attr::CancelUnderline => cursor.template.flags.remove(Flags::ALL_UNDERLINES),
             Attr::Hidden => cursor.template.flags.insert(Flags::HIDDEN),
             Attr::CancelHidden => cursor.template.flags.remove(Flags::HIDDEN),
