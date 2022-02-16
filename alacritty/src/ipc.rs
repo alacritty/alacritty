@@ -152,7 +152,7 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
 #[cfg(not(target_os = "macos"))]
 fn socket_prefix() -> String {
     let display = env::var("WAYLAND_DISPLAY").or_else(|_| env::var("DISPLAY")).unwrap_or_default();
-    format!("Alacritty-{}", display)
+    format!("Alacritty-{}", display.replace('/', "-"))
 }
 
 /// File prefix matching all available sockets.

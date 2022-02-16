@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Buili-in font arcs alignment
 - Repeated permission prompts on M1 macs
 - Colors being slightly off when using `colors.transparent_background_colors`
+- Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
 
 ## 0.10.0
 
