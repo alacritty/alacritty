@@ -232,7 +232,8 @@ impl Display {
         };
 
         // Guess the target window dimensions.
-        let metrics = GlyphCache::static_metrics(config.font.clone(), estimated_dpr)?;
+        let mut rasterizer = Rasterizer::new(estimated_dpr as f32, config.font.use_thin_strokes)?;
+        let metrics = GlyphCache::static_metrics(&mut rasterizer, config.font.clone())?;
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
 
         // Guess the target window size if the user has specified the number of lines/columns.
@@ -256,12 +257,13 @@ impl Display {
         )?;
 
         info!("Device pixel ratio: {}", window.dpr);
+        rasterizer.update_dpr(window.dpr as f32);
 
         // Create renderer.
         let mut renderer = QuadRenderer::new()?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(window.dpr, &mut renderer, config)?;
+            Self::new_glyph_cache(rasterizer, &mut renderer, config)?;
 
         if let Some(dimensions) = dimensions {
             if (estimated_dpr - window.dpr).abs() < f64::EPSILON {
@@ -361,12 +363,11 @@ impl Display {
     }
 
     fn new_glyph_cache(
-        dpr: f64,
+        rasterizer: Rasterizer,
         renderer: &mut QuadRenderer,
         config: &UiConfig,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.font.clone();
-        let rasterizer = Rasterizer::new(dpr as f32, config.font.use_thin_strokes)?;
 
         // Initialize glyph cache.
         let glyph_cache = {
