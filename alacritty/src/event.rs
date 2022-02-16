@@ -83,7 +83,7 @@ impl From<Event> for GlutinEvent<'_, Event> {
 /// Alacritty events.
 #[derive(Debug, Clone)]
 pub enum EventType {
-    DprChanged(f64, (u32, u32)),
+    ScaleFactorChanged(f64, (u32, u32)),
     Terminal(TerminalEvent),
     ConfigReload(PathBuf),
     Message(Message),
@@ -1026,17 +1026,17 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
         match event {
             GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
-                EventType::DprChanged(scale_factor, (width, height)) => {
+                EventType::ScaleFactorChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
-                    // Push current font to update its DPR.
+                    // Push current font to update its scale factor.
                     let font = self.ctx.config.font.clone();
                     display_update_pending.set_font(font.with_size(*self.ctx.font_size));
 
                     // Resize to event's dimensions, since no resize event is emitted on Wayland.
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
-                    self.ctx.window().dpr = scale_factor;
+                    self.ctx.window().scale_factor = scale_factor;
                     *self.ctx.dirty = true;
                 },
                 EventType::SearchNext => self.ctx.goto_match(None),
