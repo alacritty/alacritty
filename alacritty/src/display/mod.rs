@@ -5,7 +5,6 @@ use std::convert::TryFrom;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
-use std::time::Instant;
 use std::{cmp, mem};
 
 use glutin::dpi::PhysicalSize;
@@ -264,7 +263,7 @@ impl Display {
         let scale_factor = window.scale_factor;
         info!("Display scale factor: {}", scale_factor);
 
-        // If the scaling factor changed update the glyph cache and resize latter on.
+        // If the scaling factor changed update the glyph cache and mark for resize.
         let should_resize = (estimated_scale_factor - window.scale_factor).abs() > f64::EPSILON;
         let (cell_width, cell_height) = if should_resize {
             Self::update_glyph_cache(&mut renderer, &mut glyph_cache, scale_factor, config, font)
@@ -273,20 +272,11 @@ impl Display {
         };
 
         // Load font common glyphs to accelerate rendering.
-        {
-            info!("Initializing glyph cache...");
-            let init_start = Instant::now();
+        renderer.with_loader(|mut api| {
+            glyph_cache.load_common_glyphs(&mut api);
+        });
 
-            renderer.with_loader(|mut api| {
-                glyph_cache.load_common_glyphs(&mut api);
-            });
-
-            let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            info!("... finished initializing glyph cache in {}s", stop_f);
-        }
-
-        if let Some(dimensions) = should_resize.then(|| dimensions).flatten() {
+        if let Some(dimensions) = dimensions.filter(|_| should_resize) {
             // Resize the window again if the scale factor was not estimated correctly.
             let size =
                 window_size(config, dimensions, cell_width, cell_height, window.scale_factor);
