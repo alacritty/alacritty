@@ -231,6 +231,7 @@ impl Display {
         };
 
         // Guess the target window dimensions.
+        debug!("Loading \"{}\" font", &config.font.normal().family);
         let font = &config.font;
         let rasterizer = Rasterizer::new(estimated_scale_factor as f32, font.use_thin_strokes)?;
         let mut glyph_cache = GlyphCache::new(rasterizer, font)?;
@@ -272,6 +273,7 @@ impl Display {
         };
 
         // Load font common glyphs to accelerate rendering.
+        debug!("Filling glyph cache with common glyphs");
         renderer.with_loader(|mut api| {
             glyph_cache.load_common_glyphs(&mut api);
         });
