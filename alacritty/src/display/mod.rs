@@ -5,7 +5,6 @@ use std::convert::TryFrom;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
-use std::time::Instant;
 use std::{cmp, mem};
 
 use glutin::dpi::PhysicalSize;
@@ -223,26 +222,29 @@ impl Display {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         let is_x11 = event_loop.is_x11();
 
-        // Guess DPR based on first monitor. On Wayland the initial frame always renders at a DPR
-        // of 1.
-        let estimated_dpr = if cfg!(any(target_os = "macos", windows)) || is_x11 {
+        // Guess scale_factor based on first monitor. On Wayland the initial frame always renders at
+        // a scale factor of 1.
+        let estimated_scale_factor = if cfg!(any(target_os = "macos", windows)) || is_x11 {
             event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.)
         } else {
             1.
         };
 
         // Guess the target window dimensions.
-        let mut rasterizer = Rasterizer::new(estimated_dpr as f32, config.font.use_thin_strokes)?;
-        let metrics = GlyphCache::static_metrics(&mut rasterizer, config.font.clone())?;
+        debug!("Loading \"{}\" font", &config.font.normal().family);
+        let font = &config.font;
+        let rasterizer = Rasterizer::new(estimated_scale_factor as f32, font.use_thin_strokes)?;
+        let mut glyph_cache = GlyphCache::new(rasterizer, font)?;
+        let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
 
         // Guess the target window size if the user has specified the number of lines/columns.
         let dimensions = config.window.dimensions();
         let estimated_size = dimensions.map(|dimensions| {
-            window_size(config, dimensions, cell_width, cell_height, estimated_dpr)
+            window_size(config, dimensions, cell_width, cell_height, estimated_scale_factor)
         });
 
-        debug!("Estimated DPR: {}", estimated_dpr);
+        debug!("Estimated scaling factor: {}", estimated_scale_factor);
         debug!("Estimated window size: {:?}", estimated_size);
         debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
@@ -256,26 +258,34 @@ impl Display {
             wayland_event_queue,
         )?;
 
-        info!("Device pixel ratio: {}", window.dpr);
-        rasterizer.update_dpr(window.dpr as f32);
-
         // Create renderer.
         let mut renderer = QuadRenderer::new()?;
 
-        let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(rasterizer, &mut renderer, config)?;
+        let scale_factor = window.scale_factor;
+        info!("Display scale factor: {}", scale_factor);
 
-        if let Some(dimensions) = dimensions {
-            if (estimated_dpr - window.dpr).abs() < f64::EPSILON {
-                info!("Estimated DPR correctly, skipping resize");
-            } else {
-                // Resize the window again if the DPR was not estimated correctly.
-                let size = window_size(config, dimensions, cell_width, cell_height, window.dpr);
-                window.set_inner_size(size);
-            }
+        // If the scaling factor changed update the glyph cache and mark for resize.
+        let should_resize = (estimated_scale_factor - window.scale_factor).abs() > f64::EPSILON;
+        let (cell_width, cell_height) = if should_resize {
+            Self::update_glyph_cache(&mut renderer, &mut glyph_cache, scale_factor, config, font)
+        } else {
+            (cell_width, cell_height)
+        };
+
+        // Load font common glyphs to accelerate rendering.
+        debug!("Filling glyph cache with common glyphs");
+        renderer.with_loader(|mut api| {
+            glyph_cache.load_common_glyphs(&mut api);
+        });
+
+        if let Some(dimensions) = dimensions.filter(|_| should_resize) {
+            // Resize the window again if the scale factor was not estimated correctly.
+            let size =
+                window_size(config, dimensions, cell_width, cell_height, window.scale_factor);
+            window.set_inner_size(size);
         }
 
-        let padding = config.window.padding(window.dpr);
+        let padding = config.window.padding(window.scale_factor);
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
@@ -362,49 +372,22 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(
-        rasterizer: Rasterizer,
-        renderer: &mut QuadRenderer,
-        config: &UiConfig,
-    ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config.font.clone();
-
-        // Initialize glyph cache.
-        let glyph_cache = {
-            info!("Initializing glyph cache...");
-            let init_start = Instant::now();
-
-            let cache =
-                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
-
-            let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            info!("... finished initializing glyph cache in {}s", stop_f);
-
-            cache
-        };
-
-        // Need font metrics to resize the window properly. This suggests to me the
-        // font metrics should be computed before creating the window in the first
-        // place so that a resize is not needed.
-        let (cw, ch) = compute_cell_size(config, &glyph_cache.font_metrics());
-
-        Ok((glyph_cache, cw, ch))
-    }
-
     /// Update font size and cell dimensions.
     ///
     /// This will return a tuple of the cell width and height.
-    fn update_glyph_cache(&mut self, config: &UiConfig, font: &Font) -> (f32, f32) {
-        let cache = &mut self.glyph_cache;
-        let dpr = self.window.dpr;
-
-        self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(font, dpr, &mut api);
+    fn update_glyph_cache(
+        renderer: &mut QuadRenderer,
+        glyph_cache: &mut GlyphCache,
+        scale_factor: f64,
+        config: &UiConfig,
+        font: &Font,
+    ) -> (f32, f32) {
+        renderer.with_loader(|mut api| {
+            let _ = glyph_cache.update_font_size(font, scale_factor, &mut api);
         });
 
         // Compute new cell sizes.
-        compute_cell_size(config, &self.glyph_cache.font_metrics())
+        compute_cell_size(config, &glyph_cache.font_metrics())
     }
 
     /// Clear glyph cache.
@@ -436,7 +419,14 @@ impl Display {
 
         // Update font size and cell dimensions.
         if let Some(font) = pending_update.font() {
-            let cell_dimensions = self.update_glyph_cache(config, font);
+            let scale_factor = self.window.scale_factor;
+            let cell_dimensions = Self::update_glyph_cache(
+                &mut self.renderer,
+                &mut self.glyph_cache,
+                scale_factor,
+                config,
+                font,
+            );
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
@@ -451,7 +441,7 @@ impl Display {
             height = dimensions.height as f32;
         }
 
-        let padding = config.window.padding(self.window.dpr);
+        let padding = config.window.padding(self.window.scale_factor);
 
         self.size_info = SizeInfo::new(
             width,
@@ -1021,9 +1011,9 @@ fn window_size(
     dimensions: Dimensions,
     cell_width: f32,
     cell_height: f32,
-    dpr: f64,
+    scale_factor: f64,
 ) -> PhysicalSize<u32> {
-    let padding = config.window.padding(dpr);
+    let padding = config.window.padding(scale_factor);
 
     let grid_width = cell_width * dimensions.columns.0.max(MIN_COLUMNS) as f32;
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;

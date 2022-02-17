@@ -151,8 +151,8 @@ pub struct Window {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub wayland_surface: Option<Attached<WlSurface>>,
 
-    /// Cached DPR for quickly scaling pixel sizes.
-    pub dpr: f64,
+    /// Cached scale factor for quickly scaling pixel sizes.
+    pub scale_factor: f64,
 
     /// Current window title.
     title: String,
@@ -219,7 +219,7 @@ impl Window {
             None
         };
 
-        let dpr = windowed_context.window().scale_factor();
+        let scale_factor = windowed_context.window().scale_factor();
 
         Ok(Self {
             current_mouse_cursor,
@@ -230,7 +230,7 @@ impl Window {
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
-            dpr,
+            scale_factor,
         })
     }
 

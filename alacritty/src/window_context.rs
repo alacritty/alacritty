@@ -242,13 +242,14 @@ impl WindowContext {
             },
             // Continue to process all pending events.
             GlutinEvent::RedrawEventsCleared => (),
-            // Remap DPR change event to remove the lifetime.
+            // Remap scale_factor change event to remove the lifetime.
             GlutinEvent::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                 window_id,
             } => {
                 let size = (new_inner_size.width, new_inner_size.height);
-                let event = Event::new(EventType::DprChanged(scale_factor, size), window_id);
+                let event =
+                    Event::new(EventType::ScaleFactorChanged(scale_factor, size), window_id);
                 self.event_queue.push(event.into());
                 return;
             },
