@@ -50,7 +50,7 @@ use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::renderer::{self, GlyphCache, Renderer};
 
 pub mod content;
 pub mod cursor;
@@ -204,7 +204,7 @@ pub struct Display {
     is_damage_supported: bool,
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
-    renderer: QuadRenderer,
+    renderer: Renderer,
     glyph_cache: GlyphCache,
     meter: Meter,
 }
@@ -259,7 +259,7 @@ impl Display {
         )?;
 
         // Create renderer.
-        let mut renderer = QuadRenderer::new()?;
+        let mut renderer = Renderer::new()?;
 
         let scale_factor = window.scale_factor;
         info!("Display scale factor: {}", scale_factor);
@@ -308,9 +308,7 @@ impl Display {
 
         // Clear screen.
         let background_color = config.colors.primary.background;
-        renderer.with_api(config, &size_info, |api| {
-            api.clear(background_color);
-        });
+        renderer.clear(background_color, config.window_opacity());
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
@@ -325,9 +323,7 @@ impl Display {
         #[cfg(not(any(target_os = "macos", windows)))]
         if is_x11 {
             window.swap_buffers();
-            renderer.with_api(config, &size_info, |api| {
-                api.finish();
-            });
+            renderer.finish();
         }
 
         window.set_visible(true);
@@ -376,7 +372,7 @@ impl Display {
     ///
     /// This will return a tuple of the cell width and height.
     fn update_glyph_cache(
-        renderer: &mut QuadRenderer,
+        renderer: &mut Renderer,
         glyph_cache: &mut GlyphCache,
         scale_factor: f64,
         config: &UiConfig,
@@ -573,10 +569,7 @@ impl Display {
         // Make sure this window's OpenGL context is active.
         self.window.make_current();
 
-        self.renderer.with_api(config, &size_info, |api| {
-            api.clear(background_color);
-        });
-
+        self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
 
         // Draw grid.
@@ -590,9 +583,10 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             let highlighted_hint = &self.highlighted_hint;
             let vi_highlighted_hint = &self.vi_highlighted_hint;
-            self.renderer.with_api(config, &size_info, |mut api| {
-                // Iterate over all non-empty cells in the grid.
-                for mut cell in grid_cells {
+            self.renderer.draw_cells(
+                &size_info,
+                glyph_cache,
+                grid_cells.into_iter().map(|mut cell| {
                     // Underline hints hovered by mouse or vi mode cursor.
                     let point = viewport_to_point(display_offset, cell.point);
                     if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
@@ -604,10 +598,9 @@ impl Display {
                     // Update underline/strikeout.
                     lines.update(&cell);
 
-                    // Draw the cell.
-                    api.draw_cell(cell, glyph_cache);
-                }
-            });
+                    cell
+                }),
+            );
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
@@ -675,9 +668,7 @@ impl Display {
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.draw_string(glyph_cache, point, fg, bg, message_text);
-                });
+                self.renderer.draw_string(point, fg, bg, message_text, &size_info, glyph_cache);
             }
         } else {
             // Draw rectangles.
@@ -726,9 +717,7 @@ impl Display {
             // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
             // will block to synchronize (this is `glClear` in Alacritty), which causes a
             // permanent one frame delay.
-            self.renderer.with_api(config, &size_info, |api| {
-                api.finish();
-            });
+            self.renderer.finish();
         }
 
         self.damage_rects.clear();
@@ -833,9 +822,7 @@ impl Display {
         let fg = config.colors.search_bar_foreground();
         let bg = config.colors.search_bar_background();
 
-        self.renderer.with_api(config, size_info, |mut api| {
-            api.draw_string(glyph_cache, point, fg, bg, &text);
-        });
+        self.renderer.draw_string(point, fg, bg, &text, size_info, glyph_cache);
     }
 
     /// Draw render timer.
@@ -853,9 +840,7 @@ impl Display {
         self.damage_from_point(point, self.size_info.columns() as u32);
 
         let glyph_cache = &mut self.glyph_cache;
-        self.renderer.with_api(config, size_info, |mut api| {
-            api.draw_string(glyph_cache, point, fg, bg, &timing);
-        });
+        self.renderer.draw_string(point, fg, bg, &timing, size_info, glyph_cache);
     }
 
     /// Draw an indicator for the position of a line in history.
@@ -894,9 +879,7 @@ impl Display {
         // Do not render anything if it would obscure the vi mode cursor.
         if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
-            self.renderer.with_api(config, size_info, |mut api| {
-                api.draw_string(glyph_cache, point, fg, bg, &text);
-            });
+            self.renderer.draw_string(point, fg, bg, &text, size_info, glyph_cache);
         }
     }
 

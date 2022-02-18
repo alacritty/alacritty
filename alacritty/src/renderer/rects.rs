@@ -12,7 +12,7 @@ use alacritty_terminal::term::SizeInfo;
 use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::shader::{ShaderError, ShaderProgram};
+use crate::renderer::shader::{ShaderError, ShaderProgram, ShadersVersion};
 use crate::renderer::{self, cstr};
 
 #[derive(Debug, Copy, Clone)]
@@ -252,10 +252,10 @@ pub struct RectRenderer {
 }
 
 impl RectRenderer {
-    pub fn new() -> Result<Self, renderer::Error> {
+    pub fn new(shaders_version: ShadersVersion) -> Result<Self, renderer::Error> {
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
-        let program = RectShaderProgram::new()?;
+        let program = RectShaderProgram::new(shaders_version)?;
 
         unsafe {
             // Allocate buffers.
@@ -422,8 +422,8 @@ pub struct RectShaderProgram {
 }
 
 impl RectShaderProgram {
-    pub fn new() -> Result<Self, ShaderError> {
-        let program = ShaderProgram::new(RECT_SHADER_V, RECT_SHADER_F)?;
+    pub fn new(shaders_version: ShadersVersion) -> Result<Self, ShaderError> {
+        let program = ShaderProgram::new(shaders_version, RECT_SHADER_V, RECT_SHADER_F)?;
 
         Ok(Self {
             u_rect_kind: program.get_uniform_location(cstr!("rectKind"))?,
