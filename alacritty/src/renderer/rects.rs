@@ -407,6 +407,8 @@ pub struct RectShaderProgram {
 
     /// Terminal padding.
     u_padding_x: GLint,
+
+    /// A padding from the bottom of the screen to viewport.
     u_padding_y: GLint,
 
     /// Underline position.
@@ -449,10 +451,15 @@ impl RectShaderProgram {
     pub fn update_uniforms(&self, size_info: &SizeInfo, metrics: &Metrics) {
         let position = (0.5 * metrics.descent).abs();
         let underline_position = metrics.descent.abs() - metrics.underline_position.abs();
+
+        let viewport_height = size_info.height() - size_info.padding_y();
+        let padding_y = viewport_height
+            - (viewport_height / size_info.cell_height()).floor() * size_info.cell_height();
+
         unsafe {
             gl::Uniform1f(self.u_cell_width, size_info.cell_width());
             gl::Uniform1f(self.u_cell_height, size_info.cell_height());
-            gl::Uniform1f(self.u_padding_y, size_info.padding_y());
+            gl::Uniform1f(self.u_padding_y, padding_y);
             gl::Uniform1f(self.u_padding_x, size_info.padding_x());
             gl::Uniform1f(self.u_underline_position, underline_position);
             gl::Uniform1f(self.u_underline_thickness, metrics.underline_thickness);

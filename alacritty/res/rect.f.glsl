@@ -1,14 +1,7 @@
 #version 330 core
 
-// We're using `origin_upper_left`, since we only known about padding from left
-// and top. If we use default `origin_bottom_left` we won't be able to offset
-// `gl_FragCoord` properly to align with the terminal grid.
-layout(origin_upper_left) in vec4 gl_FragCoord;
-
 flat in vec4 color;
-
 out vec4 FragColor;
-
 uniform int rectKind;
 
 uniform float cellWidth;
@@ -31,8 +24,8 @@ vec4 draw_undercurl(int x, int y) {
   // We use `undercurlPosition` as an amplitude, since it's half of the descent
   // value.
   float undercurl =
-      -1. * undercurlPosition / 2. * cos(float(x) * 2 * PI / cellWidth) +
-      cellHeight - undercurlPosition;
+      undercurlPosition / 2. * cos(float(x) * 2 * PI / cellWidth) +
+      + undercurlPosition - 1.;
 
   float undercurlTop = undercurl + max((underlineThickness - 1), 0);
   float undercurlBottom = undercurl - max((underlineThickness - 1), 0);
@@ -54,7 +47,7 @@ vec4 draw_dotted_aliased(float x, float y) {
   int dotNumber = int(x / underlineThickness);
 
   float radius = underlineThickness / 2.;
-  float centerY = cellHeight - underlinePosition;
+  float centerY = underlinePosition - 1.;
 
   float leftCenter = (dotNumber - dotNumber % 2) * underlineThickness + radius;
   float rightCenter = leftCenter + 2 * underlineThickness;
@@ -81,7 +74,7 @@ vec4 draw_dotted(int x, int y) {
 
   // Since we use the entire descent area for dotted underlines, we limit its
   // height to a single pixel so we don't draw bars instead of dots.
-  float alpha = 1. - abs(round(cellHeight - underlinePosition) - y);
+  float alpha = 1. - abs(round(underlinePosition - 1.) - y);
   if (x % 2 != cellEven) {
     alpha = 0;
   }
