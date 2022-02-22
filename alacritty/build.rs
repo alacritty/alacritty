@@ -28,6 +28,7 @@ fn commit_hash() -> Option<String> {
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
+        .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .map(|hash| hash.trim().into())
 }
