@@ -13,13 +13,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
 - Track and report surface damage information to Wayland compositors
 - Escape sequence for undercurl, dotted and dashed underlines (`CSI 4 : [3-5] m`)
 
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
+
+### Fixed
+
+- Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
+
+## 0.10.1
+
+### Added
+
+ - Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+
+### Changed
+
 - Builtin font thickness is now based on cell width instead of underline thickness
 
 ### Fixed
@@ -32,7 +44,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Buili-in font arcs alignment
 - Repeated permission prompts on M1 macs
 - Colors being slightly off when using `colors.transparent_background_colors`
-- Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
 
 ## 0.10.0
 
