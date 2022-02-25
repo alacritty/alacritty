@@ -61,6 +61,7 @@ ref_tests! {
     erase_chars_reset
     scroll_up_reset
     clear_underline
+    colored_underline
     region_scroll_down
     wrapline_alt_toggle
     saved_cursor
