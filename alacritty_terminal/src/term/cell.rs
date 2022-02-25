@@ -141,6 +141,7 @@ impl Serialize for CellColors {
         let mut s = serializer.serialize_struct("CellColors", 2)?;
         s.serialize_field("fg", &self.fg())?;
         s.serialize_field("bg", &self.bg())?;
+        s.serialize_field("underline", &self.underline())?;
         s.end()
     }
 }
@@ -154,12 +155,14 @@ impl<'de> Deserialize<'de> for CellColors {
         struct UnpackedColors {
             fg: Color,
             bg: Color,
+            underline: Option<Color>,
         }
 
         let unpacked = UnpackedColors::deserialize(deserializer)?;
         let mut cell_colors = CellColors::default();
         cell_colors.set_fg(unpacked.fg);
         cell_colors.set_bg(unpacked.bg);
+        cell_colors.set_underline_color(unpacked.underline);
         Ok(cell_colors)
     }
 }
