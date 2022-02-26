@@ -249,7 +249,7 @@ impl Display {
         debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
         // Spawn the Alacritty window.
-        let mut window = Window::new(
+        let window = Window::new(
             event_loop,
             config,
             identity,
