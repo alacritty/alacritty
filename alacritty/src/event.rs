@@ -37,6 +37,7 @@ use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
 use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
+#[cfg(target_os = "macos")]
 use crate::config::window::StartupMode;
 use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
@@ -1227,8 +1228,7 @@ impl Processor {
         // On macOS, when current window is Fullscreen, new window should be Windowed,
         // otherwise the creation of the window is chaotic.
         #[cfg(target_os = "macos")]
-        if !self.windows.is_empty() 
-            && self.config.window.startup_mode == StartupMode::Fullscreen {
+        if !self.windows.is_empty() && self.config.window.startup_mode == StartupMode::Fullscreen {
             self.config.window.startup_mode = StartupMode::Windowed;
         }
         let window_context = WindowContext::new(
