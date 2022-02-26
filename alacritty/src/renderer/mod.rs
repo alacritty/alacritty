@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::fmt;
+use std::borrow::Cow;
 
 use crossfont::Metrics;
 use log::info;
@@ -63,18 +64,20 @@ impl From<ShaderError> for Error {
 #[derive(Debug)]
 enum TextRendererProvider {
     Gles2(Gles2Renderer),
-
     Glsl3(Glsl3Renderer),
 }
 
 #[derive(Debug)]
 pub struct Renderer {
     text_renderer: TextRendererProvider,
-
     rect_renderer: RectRenderer,
 }
 
 impl Renderer {
+    /// Create a new renderer.
+    ///
+    /// This will automatically pick between the GLES2 and GLSL3 renderer based on the GPU's
+    /// supported OpenGL version.
     pub fn new() -> Result<Self, Error> {
         let (version, renderer) = unsafe {
             let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _);
@@ -84,7 +87,7 @@ impl Renderer {
 
         info!("Running on {}", renderer);
 
-        let (text_renderer, rect_renderer) = if version >= std::borrow::Cow::Borrowed("3.3") {
+        let (text_renderer, rect_renderer) = if version >= Cow::Borrowed("3.3") {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShadersVersion::Glsl3)?;
             (text_renderer, rect_renderer)
