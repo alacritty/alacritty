@@ -1,6 +1,5 @@
 use std::ffi::CStr;
 use std::fmt;
-use std::borrow::Cow;
 
 use crossfont::Metrics;
 use log::info;
@@ -87,7 +86,7 @@ impl Renderer {
 
         info!("Running on {}", renderer);
 
-        let (text_renderer, rect_renderer) = if version >= Cow::Borrowed("3.3") {
+        let (text_renderer, rect_renderer) = if version.as_ref() >= "3.3" {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShadersVersion::Glsl3)?;
             (text_renderer, rect_renderer)
