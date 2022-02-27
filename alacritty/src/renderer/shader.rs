@@ -9,17 +9,17 @@ use crate::gl::types::*;
 pub struct ShaderProgram(GLuint);
 
 #[derive(Copy, Clone, Debug)]
-pub enum ShadersVersion {
-    /// GLSL 3.3 core shaders.
+pub enum ShaderVersion {
+    /// OpenGL 3.3 core shaders.
     Glsl3,
 
-    /// GLES2 shaders.
+    /// OpenGL ES 2.0 shaders.
     Gles2,
 }
 
-impl ShadersVersion {
-    // Header to which we concatenate the entire shader. The new lines are required.
-    fn as_shader_header(&self) -> &'static str {
+impl ShaderVersion {
+    // Header to which we concatenate the entire shader. The newlines are required.
+    fn shader_header(&self) -> &'static str {
         match self {
             Self::Glsl3 => "#version 330 core\n",
             Self::Gles2 => "#version 100\n#define GLES2_RENDERER\n",
@@ -29,12 +29,12 @@ impl ShadersVersion {
 
 impl ShaderProgram {
     pub fn new(
-        shaders_version: ShadersVersion,
+        shader_version: ShaderVersion,
         vertex_shader: &'static str,
         fragment_shader: &'static str,
     ) -> Result<Self, ShaderError> {
-        let vertex_shader = Shader::new(shaders_version, gl::VERTEX_SHADER, vertex_shader)?;
-        let fragment_shader = Shader::new(shaders_version, gl::FRAGMENT_SHADER, fragment_shader)?;
+        let vertex_shader = Shader::new(shader_version, gl::VERTEX_SHADER, vertex_shader)?;
+        let fragment_shader = Shader::new(shader_version, gl::FRAGMENT_SHADER, fragment_shader)?;
 
         let program = unsafe { Self(gl::CreateProgram()) };
 
@@ -81,11 +81,11 @@ struct Shader(GLuint);
 
 impl Shader {
     fn new(
-        shader_version: ShadersVersion,
+        shader_version: ShaderVersion,
         kind: GLenum,
         source: &'static str,
     ) -> Result<Self, ShaderError> {
-        let header = shader_version.as_shader_header();
+        let header = shader_version.shader_header();
         let len: [GLint; 2] = [header.len() as GLint, source.len() as GLint];
         let source = [header.as_ptr() as *const _, source.as_ptr() as *const _];
 
@@ -103,11 +103,11 @@ impl Shader {
             gl::GetShaderiv(shader.id(), gl::COMPILE_STATUS, &mut success);
         }
 
-        if success != GLint::from(gl::TRUE) {
-            panic!("{}", ShaderError::Compile(get_shader_info_log(shader.id())));
+        if success == GLint::from(gl::TRUE) {
+            Ok(shader)
+        } else {
+            Err(ShaderError::Compile(get_shader_info_log(shader.id())))
         }
-
-        Ok(shader)
     }
 
     fn id(&self) -> GLuint {

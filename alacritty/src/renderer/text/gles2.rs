@@ -10,7 +10,7 @@ use alacritty_terminal::term::SizeInfo;
 use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::shader::{ShaderProgram, ShadersVersion};
+use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 use crate::renderer::{cstr, Error};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
@@ -38,7 +38,7 @@ impl Gles2Renderer {
     pub fn new() -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 
-        let program = TextShaderProgram::new(ShadersVersion::Gles2)?;
+        let program = TextShaderProgram::new(ShaderVersion::Gles2)?;
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -279,10 +279,11 @@ impl TextRenderBatch for Batch {
             self.tex = glyph.tex_id;
         }
 
-        // Calculate rectangle position.
+        // Calculate the cell position.
         let x = cell.point.column.0 as i16 * size_info.cell_width() as i16;
         let y = cell.point.line as i16 * size_info.cell_height() as i16;
 
+        // Calculate the glyph position.
         let glyph_x = cell.point.column.0 as i16 * size_info.cell_width() as i16 + glyph.left;
         let glyph_y = (cell.point.line + 1) as i16 * size_info.cell_height() as i16 - glyph.top;
 
@@ -388,22 +389,22 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
             // https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md.
 
             // Draw background.
-            self.program.set_rendering_pass(0);
+            self.program.set_rendering_pass(RenderingPass::Background);
             gl::BlendFunc(gl::ONE, gl::ZERO);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
             // First text rendering pass.
-            self.program.set_rendering_pass(1);
+            self.program.set_rendering_pass(RenderingPass::SubpixelPass1);
             gl::BlendFuncSeparate(gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
             // Second text rendering pass.
-            self.program.set_rendering_pass(2);
+            self.program.set_rendering_pass(RenderingPass::SubpixelPass2);
             gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
             // Third pass.
-            self.program.set_rendering_pass(3);
+            self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
             gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
         }
@@ -442,6 +443,15 @@ struct TextVertex {
     bg_a: u8,
 }
 
+// NOTE: These flags must be in sync with their usage in the gles2/text.*.glsl shaders.
+#[repr(u8)]
+enum RenderingPass {
+    Background = 0,
+    SubpixelPass1 = 1,
+    SubpixelPass2 = 2,
+    SubpixelPass3 = 3,
+}
+
 #[derive(Debug)]
 struct TextShaderProgram {
     /// Shader program.
@@ -450,16 +460,19 @@ struct TextShaderProgram {
     /// Projection scale and offset uniform.
     u_projection: GLint,
 
-    // TODO document.
     /// Rendering pass.
+    ///
+    /// The rendering is split into 4 passes. One is used for the background and the rest to
+    /// perform subpixel text rendering according to
+    /// https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md.
     ///
     /// Rendering is split into three passes.
     u_rendering_pass: GLint,
 }
 
 impl TextShaderProgram {
-    pub fn new(shaders_version: ShadersVersion) -> Result<Self, Error> {
-        let program = ShaderProgram::new(shaders_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
+    pub fn new(shader_version: ShaderVersion) -> Result<Self, Error> {
+        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
@@ -475,7 +488,7 @@ impl TextShaderProgram {
         super::update_projection(self.u_projection, width, height, padding_x, padding_y);
     }
 
-    fn set_rendering_pass(&self, rendering_pass: u8) {
+    fn set_rendering_pass(&self, rendering_pass: RenderingPass) {
         unsafe { gl::Uniform1i(self.u_rendering_pass, rendering_pass as i32) }
     }
 }

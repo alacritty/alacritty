@@ -18,7 +18,7 @@ pub mod rects;
 mod shader;
 mod text;
 
-use shader::ShadersVersion;
+use shader::ShaderVersion;
 use text::Glsl3Renderer;
 pub use text::{Gles2Renderer, GlyphCache, LoaderApi, TextRenderer};
 
@@ -88,11 +88,11 @@ impl Renderer {
 
         let (text_renderer, rect_renderer) = if version.as_ref() >= "3.3" {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
-            let rect_renderer = RectRenderer::new(ShadersVersion::Glsl3)?;
+            let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
             (text_renderer, rect_renderer)
         } else {
             let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new()?);
-            let rect_renderer = RectRenderer::new(ShadersVersion::Gles2)?;
+            let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
             (text_renderer, rect_renderer)
         };
 

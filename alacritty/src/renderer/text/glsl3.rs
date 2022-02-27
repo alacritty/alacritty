@@ -10,7 +10,7 @@ use alacritty_terminal::term::SizeInfo;
 use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::shader::{ShaderProgram, ShadersVersion};
+use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 use crate::renderer::{cstr, Error};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
@@ -42,7 +42,7 @@ impl Glsl3Renderer {
     pub fn new() -> Result<Self, Error> {
         info!("Using OpenGL 3.3 renderer");
 
-        let program = TextShaderProgram::new(ShadersVersion::Glsl3)?;
+        let program = TextShaderProgram::new(ShaderVersion::Glsl3)?;
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
         let mut vbo_instance: GLuint = 0;
@@ -443,8 +443,8 @@ pub struct TextShaderProgram {
 }
 
 impl TextShaderProgram {
-    pub fn new(shaders_version: ShadersVersion) -> Result<TextShaderProgram, Error> {
-        let program = ShaderProgram::new(shaders_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
+    pub fn new(shader_version: ShaderVersion) -> Result<TextShaderProgram, Error> {
+        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_cell_dim: program.get_uniform_location(cstr!("cellDim"))?,
