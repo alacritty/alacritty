@@ -235,7 +235,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
+    pub fn set_inner_size(&self, size: PhysicalSize<u32>) {
         self.window().set_inner_size(size);
     }
 
@@ -379,7 +379,6 @@ impl Window {
         self.window().id()
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn set_maximized(&self, maximized: bool) {
         self.window().set_maximized(maximized);
     }
@@ -389,16 +388,21 @@ impl Window {
     }
 
     /// Toggle the window's fullscreen state.
-    pub fn toggle_fullscreen(&mut self) {
+    pub fn toggle_fullscreen(&self) {
         self.set_fullscreen(self.window().fullscreen().is_none());
     }
 
+    /// Toggle the window's maximized state.
+    pub fn toggle_maximized(&self) {
+        self.set_maximized(!self.window().is_maximized());
+    }
+
     #[cfg(target_os = "macos")]
-    pub fn toggle_simple_fullscreen(&mut self) {
+    pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window().simple_fullscreen());
     }
 
-    pub fn set_fullscreen(&mut self, fullscreen: bool) {
+    pub fn set_fullscreen(&self, fullscreen: bool) {
         if fullscreen {
             self.window().set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
@@ -407,7 +411,7 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn set_simple_fullscreen(&mut self, simple_fullscreen: bool) {
+    pub fn set_simple_fullscreen(&self, simple_fullscreen: bool) {
         self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
@@ -417,7 +421,7 @@ impl Window {
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
-    pub fn update_ime_position(&mut self, point: Point, size: &SizeInfo) {
+    pub fn update_ime_position(&self, point: Point, size: &SizeInfo) {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line.0 + 1) as f32 * size.cell_height());
 

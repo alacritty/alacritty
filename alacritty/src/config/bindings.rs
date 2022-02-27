@@ -186,6 +186,9 @@ pub enum Action {
     /// Toggle fullscreen.
     ToggleFullscreen,
 
+    /// Toggle maximized.
+    ToggleMaximized,
+
     /// Toggle simple fullscreen on macOS.
     #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
