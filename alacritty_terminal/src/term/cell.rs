@@ -1,5 +1,5 @@
 use std::boxed::Box;
-use std::{fmt, mem};
+use std::fmt;
 
 use bitflags::bitflags;
 use serde::ser::SerializeStruct;
@@ -55,26 +55,75 @@ impl ResetDiscriminant<Color> for Cell {
 }
 
 bitflags! {
-    pub struct ColorMask : u8 {
-        const DEFUALT_COLORS        = 0b0000_00_00;
+    pub struct ColorTy : u8 {
+        const NAMED   = 0b0000_0000;
+        const INDEXED = 0b0000_0001;
+        const SPEC    = 0b0000_0010;
+    }
+}
 
-        // Foreground color.
-        const RESET_FOREGROUND      = 0b1111_11_00;
-        const FOREGROUND_NAMED      = 0b0000_00_00;
-        const FOREGROUND_INDEXED    = 0b0000_00_01;
-        const FOREGROUND_SPEC       = 0b0000_00_10;
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+struct ColorMask {
+    mask: u8,
+}
 
-        // Background color.
-        const RESET_BACKGROUND      = 0b1111_00_11;
-        const BACKGROUND_NAMED      = 0b0000_00_00;
-        const BACKGROUND_INDEXED    = 0b0000_01_00;
-        const BACKGROUND_SPEC       = 0b0000_10_00;
+impl ColorMask {
+    /// The offset in bits for `bg` color type in mask.
+    const BG_OFFSET: u8 = 2;
+    /// Whether the underline was set.
+    const HAS_UNDERLINE: u8 = 0b1000_0000;
+    /// Reset type mask.
+    const RESET_MASK: u8 = 0b0000_0011;
+    /// The offset in bits for `fg` color type in mask.
+    const UNDERLINE_OFFSET: u8 = 4;
 
-        // NOTE we use three bits for underline color to express absence of it.
-        const RESET_UNDERLINE      = 0b1000_11_11;
-        const UNDERLINE_NAMED      = 0b0001_00_00;
-        const UNDERLINE_INDEXED    = 0b0010_00_00;
-        const UNDERLINE_SPEC       = 0b0100_00_00;
+    #[inline]
+    fn new() -> Self {
+        Default::default()
+    }
+
+    #[inline]
+    fn fg_ty(&self) -> ColorTy {
+        ColorTy::from_bits(self.mask & Self::RESET_MASK).unwrap()
+    }
+
+    #[inline]
+    fn bg_ty(&self) -> ColorTy {
+        ColorTy::from_bits(self.mask >> Self::BG_OFFSET & Self::RESET_MASK).unwrap()
+    }
+
+    #[inline]
+    fn underline_ty(&self) -> ColorTy {
+        ColorTy::from_bits(self.mask >> Self::UNDERLINE_OFFSET & Self::RESET_MASK).unwrap()
+    }
+
+    #[inline]
+    fn set_fg_ty(&mut self, ty: ColorTy) {
+        self.mask &= !(Self::RESET_MASK);
+        self.mask |= ty.bits();
+    }
+
+    #[inline]
+    fn set_bg_ty(&mut self, ty: ColorTy) {
+        self.mask &= !(Self::RESET_MASK << Self::BG_OFFSET);
+        self.mask |= ty.bits() << Self::BG_OFFSET;
+    }
+
+    #[inline]
+    fn set_underline_ty(&mut self, ty: ColorTy) {
+        self.mask |= Self::HAS_UNDERLINE;
+        self.mask &= !(Self::RESET_MASK << Self::UNDERLINE_OFFSET);
+        self.mask |= ty.bits() << Self::UNDERLINE_OFFSET;
+    }
+
+    #[inline]
+    fn clear_underline(&mut self) {
+        self.mask &= !Self::HAS_UNDERLINE;
+    }
+
+    #[inline]
+    fn has_underline(&self) -> bool {
+        self.mask & Self::HAS_UNDERLINE != 0
     }
 }
 
@@ -84,6 +133,22 @@ pub union PackedColor {
     indexed: u8,
     named: NamedColor,
     rgb: Rgb,
+}
+
+impl PackedColor {
+    #[inline]
+    fn into_color(self, ty: ColorTy) -> Color {
+        // SAFETY: The acess is type checked.
+        unsafe {
+            if ty.contains(ColorTy::SPEC) {
+                Color::Spec(self.rgb)
+            } else if ty.contains(ColorTy::INDEXED) {
+                Color::Indexed(self.indexed)
+            } else {
+                Color::Named(self.named)
+            }
+        }
+    }
 }
 
 /// Packed storage for the colors cell is using.
@@ -119,7 +184,7 @@ impl Default for CellColors {
         let fg = PackedColor { named: NamedColor::Foreground };
         let bg = PackedColor { named: NamedColor::Background };
         let underline = PackedColor { rgb: Rgb::default() };
-        Self { mask: ColorMask::DEFUALT_COLORS, fg, bg, underline }
+        Self { mask: ColorMask::new(), fg, bg, underline }
     }
 }
 
@@ -167,116 +232,61 @@ impl<'de> Deserialize<'de> for CellColors {
     }
 }
 
+impl Color {
+    #[inline]
+    fn into_packed_with_type(self) -> (ColorTy, PackedColor) {
+        match self {
+            Self::Spec(rgb) => (ColorTy::SPEC, PackedColor { rgb }),
+            Self::Indexed(indexed) => (ColorTy::INDEXED, PackedColor { indexed }),
+            Self::Named(named) => (ColorTy::NAMED, PackedColor { named }),
+        }
+    }
+}
+
 impl CellColors {
     #[inline]
     pub fn set_fg(&mut self, color: Color) {
-        self.mask &= ColorMask::RESET_FOREGROUND;
-        self.fg = unsafe { mem::zeroed() };
-        match color {
-            Color::Spec(rgb) => {
-                self.mask |= ColorMask::FOREGROUND_SPEC;
-                self.fg.rgb = rgb;
-            },
-            Color::Indexed(index) => {
-                self.mask |= ColorMask::FOREGROUND_INDEXED;
-                self.fg.indexed = index;
-            },
-            Color::Named(named) => {
-                self.mask |= ColorMask::FOREGROUND_NAMED;
-                self.fg.named = named;
-            },
-        }
+        let (ty, color) = color.into_packed_with_type();
+        self.fg = color;
+        self.mask.set_fg_ty(ty);
     }
 
     #[inline]
     pub fn set_bg(&mut self, color: Color) {
-        self.mask &= ColorMask::RESET_BACKGROUND;
-        self.bg = unsafe { mem::zeroed() };
-        match color {
-            Color::Spec(rgb) => {
-                self.mask |= ColorMask::BACKGROUND_SPEC;
-                self.bg.rgb = rgb;
-            },
-            Color::Indexed(index) => {
-                self.mask |= ColorMask::BACKGROUND_INDEXED;
-                self.bg.indexed = index;
-            },
-            Color::Named(named) => {
-                self.mask |= ColorMask::BACKGROUND_NAMED;
-                self.bg.named = named;
-            },
-        }
+        let (ty, color) = color.into_packed_with_type();
+        self.bg = color;
+        self.mask.set_bg_ty(ty);
     }
 
     #[inline]
     pub fn set_underline_color(&mut self, color: Option<Color>) {
-        self.mask &= ColorMask::RESET_UNDERLINE;
-        self.underline = unsafe { mem::zeroed() };
-        let color = match color {
-            Some(color) => color,
-            None => return,
+        let (ty, color) = match color {
+            Some(color) => color.into_packed_with_type(),
+            None => {
+                self.mask.clear_underline();
+                return;
+            },
         };
-
-        match color {
-            Color::Spec(rgb) => {
-                self.mask |= ColorMask::UNDERLINE_SPEC;
-                self.underline.rgb = rgb;
-            },
-            Color::Named(named) => {
-                self.mask |= ColorMask::UNDERLINE_NAMED;
-                self.underline.named = named;
-            },
-            Color::Indexed(index) => {
-                self.mask |= ColorMask::UNDERLINE_INDEXED;
-                self.underline.indexed = index;
-            },
-        }
+        self.underline = color;
+        self.mask.set_underline_ty(ty);
     }
 
     #[inline]
     pub fn fg(&self) -> Color {
-        // SAFETY the mask is carrying the type of color.
-        unsafe {
-            if self.mask.intersects(ColorMask::FOREGROUND_SPEC) {
-                Color::Spec(self.fg.rgb)
-            } else if self.mask.intersects(ColorMask::FOREGROUND_INDEXED) {
-                Color::Indexed(self.fg.indexed)
-            } else {
-                Color::Named(self.fg.named)
-            }
-        }
+        self.fg.into_color(self.mask.fg_ty())
     }
 
     #[inline]
     pub fn bg(&self) -> Color {
-        // SAFETY the mask is carrying the type of color.
-        unsafe {
-            if self.mask.contains(ColorMask::BACKGROUND_SPEC) {
-                Color::Spec(self.bg.rgb)
-            } else if self.mask.contains(ColorMask::BACKGROUND_INDEXED) {
-                Color::Indexed(self.bg.indexed)
-            } else {
-                Color::Named(self.bg.named)
-            }
-        }
+        self.bg.into_color(self.mask.bg_ty())
     }
 
     #[inline]
     pub fn underline(&self) -> Option<Color> {
-        // If the mask for underline colors is empty there's no special color for underline.
-        if self.mask & !ColorMask::RESET_UNDERLINE == ColorMask::DEFUALT_COLORS {
-            return None;
-        }
-
-        // SAFETY the mask is carrying the type of color.
-        unsafe {
-            if self.mask.contains(ColorMask::UNDERLINE_SPEC) {
-                Some(Color::Spec(self.underline.rgb))
-            } else if self.mask.contains(ColorMask::UNDERLINE_INDEXED) {
-                Some(Color::Indexed(self.underline.indexed))
-            } else {
-                Some(Color::Named(self.underline.named))
-            }
+        if self.mask.has_underline() {
+            Some(self.underline.into_color(self.mask.underline_ty()))
+        } else {
+            None
         }
     }
 }
