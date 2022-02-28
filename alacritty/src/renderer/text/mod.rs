@@ -29,20 +29,43 @@ bitflags! {
     }
 }
 
-pub trait TextRenderer {
+pub trait TextRenderer<'a> {
+    type Shader: TextShader;
+    type RenderBatch: TextRenderBatch;
+    type RenderApi: TextRenderApi<Self::RenderBatch>;
+
     /// Get loader API for the renderer.
     fn loader_api(&mut self) -> LoaderApi<'_>;
 
     /// Draw cells.
-    fn draw_cells<I: Iterator<Item = RenderableCell>>(
-        &mut self,
-        size_info: &SizeInfo,
-        glyph_cache: &mut GlyphCache,
+    fn draw_cells<'b: 'a, I: Iterator<Item = RenderableCell>>(
+        &'b mut self,
+        size_info: &'b SizeInfo,
+        glyph_cache: &'a mut GlyphCache,
         cells: I,
-    );
+    ) {
+        self.with_api(size_info, |mut api| {
+            for cell in cells {
+                api.draw_cell(cell, glyph_cache, size_info);
+            }
+        })
+    }
+
+    fn with_api<'b: 'a, F, T>(&'b mut self, size_info: &'b SizeInfo, func: F) -> T
+    where
+        F: FnOnce(Self::RenderApi) -> T;
+
+    fn program(&self) -> &Self::Shader;
 
     /// Resize the text rendering.
-    fn resize(&self, size: &SizeInfo);
+    fn resize(&self, size: &SizeInfo) {
+        unsafe {
+            let program = self.program();
+            gl::UseProgram(program.id());
+            update_projection(program.projection_uniform(), size);
+            gl::UseProgram(0);
+        }
+    }
 
     /// Invoke renderer with the loader.
     fn with_loader<F: FnOnce(LoaderApi<'_>) -> T, T>(&mut self, func: F) -> T {
@@ -54,7 +77,7 @@ pub trait TextRenderer {
     }
 }
 
-trait TextRenderBatch {
+pub trait TextRenderBatch {
     /// Check if `Batch` is empty.
     fn is_empty(&self) -> bool;
 
@@ -68,7 +91,7 @@ trait TextRenderBatch {
     fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph, size_info: &SizeInfo);
 }
 
-trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
+pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
     /// Get `Batch` the api is using.
     fn batch(&mut self) -> &mut T;
 
@@ -130,6 +153,13 @@ trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
     }
 }
 
+pub trait TextShader {
+    fn id(&self) -> GLuint;
+
+    /// Id of the projection uniform.
+    fn projection_uniform(&self) -> GLint;
+}
+
 #[derive(Debug)]
 pub struct LoaderApi<'a> {
     active_tex: &'a mut GLuint,
@@ -147,7 +177,12 @@ impl<'a> LoadGlyph for LoaderApi<'a> {
     }
 }
 
-fn update_projection(u_projection: GLint, width: f32, height: f32, padding_x: f32, padding_y: f32) {
+fn update_projection(u_projection: GLint, size: &SizeInfo) {
+    let width = size.width();
+    let height = size.height();
+    let padding_x = size.padding_x();
+    let padding_y = size.padding_y();
+
     // Bounds check.
     if (width as u32) < (2 * padding_x as u32) || (height as u32) < (2 * padding_y as u32) {
         return;

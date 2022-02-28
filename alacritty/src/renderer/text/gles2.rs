@@ -15,7 +15,7 @@ use crate::renderer::{cstr, Error};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
 use super::{
-    Glyph, GlyphCache, LoadGlyph, LoaderApi, TextRenderApi, TextRenderBatch, TextRenderer,
+    Glyph, LoadGlyph, LoaderApi, TextRenderApi, TextRenderBatch, TextRenderer, TextShader,
 };
 
 // Shader source.
@@ -141,10 +141,30 @@ impl Gles2Renderer {
             active_tex: 0,
         })
     }
+}
 
-    fn with_api<F, T>(&mut self, _: &SizeInfo, func: F) -> T
+impl Drop for Gles2Renderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteBuffers(1, &self.ebo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
+impl<'a> TextRenderer<'a> for Gles2Renderer {
+    type RenderApi = RenderApi<'a>;
+    type RenderBatch = Batch;
+    type Shader = TextShaderProgram;
+
+    fn program(&self) -> &Self::Shader {
+        &self.program
+    }
+
+    fn with_api<'b: 'a, F, T>(&'b mut self, _: &'b SizeInfo, func: F) -> T
     where
-        F: FnOnce(RenderApi<'_>) -> T,
+        F: FnOnce(Self::RenderApi) -> T,
     {
         unsafe {
             gl::UseProgram(self.program.id());
@@ -172,44 +192,6 @@ impl Gles2Renderer {
 
         res
     }
-}
-
-impl Drop for Gles2Renderer {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteBuffers(1, &self.vbo);
-            gl::DeleteBuffers(1, &self.ebo);
-            gl::DeleteVertexArrays(1, &self.vao);
-        }
-    }
-}
-
-impl TextRenderer for Gles2Renderer {
-    fn draw_cells<I: Iterator<Item = RenderableCell>>(
-        &mut self,
-        size_info: &SizeInfo,
-        glyph_cache: &mut GlyphCache,
-        cells: I,
-    ) {
-        self.with_api(size_info, |mut api| {
-            for cell in cells {
-                api.draw_cell(cell, glyph_cache, size_info)
-            }
-        })
-    }
-
-    fn resize(&self, size_info: &SizeInfo) {
-        unsafe {
-            gl::UseProgram(self.program.id());
-            self.program.update_projection(
-                size_info.width(),
-                size_info.height(),
-                size_info.padding_x(),
-                size_info.padding_y(),
-            );
-            gl::UseProgram(0);
-        }
-    }
 
     fn loader_api(&mut self) -> LoaderApi<'_> {
         LoaderApi {
@@ -227,7 +209,7 @@ impl TextRenderer for Gles2Renderer {
 const BATCH_MAX: usize = (u16::MAX - u16::MAX % 4) as usize;
 
 #[derive(Debug)]
-struct Batch {
+pub struct Batch {
     tex: GLuint,
     vertices: Vec<TextVertex>,
 }
@@ -334,7 +316,7 @@ impl TextRenderBatch for Batch {
 }
 
 #[derive(Debug)]
-struct RenderApi<'a> {
+pub struct RenderApi<'a> {
     active_tex: &'a mut GLuint,
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
@@ -453,7 +435,7 @@ enum RenderingPass {
 }
 
 #[derive(Debug)]
-struct TextShaderProgram {
+pub struct TextShaderProgram {
     /// Shader program.
     program: ShaderProgram,
 
@@ -480,15 +462,17 @@ impl TextShaderProgram {
         })
     }
 
+    fn set_rendering_pass(&self, rendering_pass: RenderingPass) {
+        unsafe { gl::Uniform1i(self.u_rendering_pass, rendering_pass as i32) }
+    }
+}
+
+impl TextShader for TextShaderProgram {
     fn id(&self) -> GLuint {
         self.program.id()
     }
 
-    fn update_projection(&self, width: f32, height: f32, padding_x: f32, padding_y: f32) {
-        super::update_projection(self.u_projection, width, height, padding_x, padding_y);
-    }
-
-    fn set_rendering_pass(&self, rendering_pass: RenderingPass) {
-        unsafe { gl::Uniform1i(self.u_rendering_pass, rendering_pass as i32) }
+    fn projection_uniform(&self) -> GLint {
+        self.u_projection
     }
 }

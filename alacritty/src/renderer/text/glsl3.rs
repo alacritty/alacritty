@@ -15,8 +15,8 @@ use crate::renderer::{cstr, Error};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
 use super::{
-    Glyph, GlyphCache, LoadGlyph, LoaderApi, RenderingGlyphFlags, TextRenderApi, TextRenderBatch,
-    TextRenderer,
+    Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, TextRenderApi, TextRenderBatch, TextRenderer,
+    TextShader,
 };
 
 // Shader source.
@@ -144,10 +144,16 @@ impl Glsl3Renderer {
             batch: Batch::new(),
         })
     }
+}
 
-    fn with_api<F, T>(&mut self, size_info: &SizeInfo, func: F) -> T
+impl<'a> TextRenderer<'a> for Glsl3Renderer {
+    type RenderApi = RenderApi<'a>;
+    type RenderBatch = Batch;
+    type Shader = TextShaderProgram;
+
+    fn with_api<'b: 'a, F, T>(&'b mut self, size_info: &'b SizeInfo, func: F) -> T
     where
-        F: FnOnce(RenderApi<'_>) -> T,
+        F: FnOnce(Self::RenderApi) -> T,
     {
         unsafe {
             gl::UseProgram(self.program.id());
@@ -177,34 +183,9 @@ impl Glsl3Renderer {
 
         res
     }
-}
 
-impl TextRenderer for Glsl3Renderer {
-    /// Draw cells.
-    fn draw_cells<I: Iterator<Item = RenderableCell>>(
-        &mut self,
-        size_info: &SizeInfo,
-        glyph_cache: &mut GlyphCache,
-        cells: I,
-    ) {
-        self.with_api(size_info, |mut api| {
-            for cell in cells {
-                api.draw_cell(cell, glyph_cache, size_info)
-            }
-        })
-    }
-
-    fn resize(&self, size: &SizeInfo) {
-        unsafe {
-            gl::UseProgram(self.program.id());
-            self.program.update_projection(
-                size.width(),
-                size.height(),
-                size.padding_x(),
-                size.padding_y(),
-            );
-            gl::UseProgram(0);
-        }
+    fn program(&self) -> &Self::Shader {
+        &self.program
     }
 
     fn loader_api(&mut self) -> LoaderApi<'_> {
@@ -227,7 +208,7 @@ impl Drop for Glsl3Renderer {
 }
 
 #[derive(Debug)]
-struct RenderApi<'a> {
+pub struct RenderApi<'a> {
     active_tex: &'a mut GLuint,
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
@@ -453,14 +434,6 @@ impl TextShaderProgram {
         })
     }
 
-    fn id(&self) -> GLuint {
-        self.program.id()
-    }
-
-    fn update_projection(&self, width: f32, height: f32, padding_x: f32, padding_y: f32) {
-        super::update_projection(self.u_projection, width, height, padding_x, padding_y);
-    }
-
     fn set_term_uniforms(&self, props: &SizeInfo) {
         unsafe {
             gl::Uniform2f(self.u_cell_dim, props.cell_width(), props.cell_height());
@@ -473,5 +446,15 @@ impl TextShaderProgram {
         unsafe {
             gl::Uniform1i(self.u_background, value);
         }
+    }
+}
+
+impl TextShader for TextShaderProgram {
+    fn id(&self) -> GLuint {
+        self.program.id()
+    }
+
+    fn projection_uniform(&self) -> GLint {
+        self.u_projection
     }
 }
