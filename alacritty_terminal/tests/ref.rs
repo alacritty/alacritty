@@ -11,7 +11,8 @@ use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Grid};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
-use alacritty_terminal::term::{SizeInfo, Term};
+use alacritty_terminal::term::test::TermSize;
+use alacritty_terminal::term::Term;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -98,14 +99,14 @@ fn ref_test(dir: &Path) {
     let serialized_grid = fs::read_to_string(dir.join("grid.json")).unwrap();
     let serialized_cfg = fs::read_to_string(dir.join("config.json")).unwrap();
 
-    let size: SizeInfo = json::from_str(&serialized_size).unwrap();
+    let size: TermSize = json::from_str(&serialized_size).unwrap();
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap();
 
     let mut config = Config::default();
     config.scrolling.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size, Mock);
+    let mut terminal = Term::new(&config, &size, Mock);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

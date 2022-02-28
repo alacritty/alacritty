@@ -27,14 +27,14 @@ use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Point, Side};
 use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
-use alacritty_terminal::term::{ClipboardType, SizeInfo, Term, TermMode};
+use alacritty_terminal::term::{ClipboardType, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
 use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::Display;
+use crate::display::{Display, SizeInfo};
 use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -1110,7 +1110,7 @@ mod tests {
                     false,
                 );
 
-                let mut terminal = Term::new(&cfg.terminal_config, size, MockEventProxy);
+                let mut terminal = Term::new(&cfg.terminal_config, &size, MockEventProxy);
 
                 let mut mouse = Mouse {
                     click_state: $initial_state,

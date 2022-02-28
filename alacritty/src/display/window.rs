@@ -50,10 +50,10 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::index::Point;
-use alacritty_terminal::term::SizeInfo;
 
 use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
+use crate::display::SizeInfo;
 use crate::gl;
 
 /// Window icon for `_NET_WM_ICON` property.

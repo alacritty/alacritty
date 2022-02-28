@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::term::SizeInfo;
+
+use crate::display::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -186,7 +187,7 @@ impl MessageBuffer {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::term::SizeInfo;
+    use crate::display::SizeInfo;
 
     #[test]
     fn appends_close_button() {
