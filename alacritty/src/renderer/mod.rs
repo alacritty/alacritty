@@ -136,14 +136,7 @@ impl Renderer {
             bg,
         });
 
-        match &mut self.text_renderer {
-            TextRendererProvider::Gles2(renderer) => {
-                renderer.draw_cells(size_info, glyph_cache, cells)
-            },
-            TextRendererProvider::Glsl3(renderer) => {
-                renderer.draw_cells(size_info, glyph_cache, cells)
-            },
-        }
+        self.draw_cells(size_info, glyph_cache, cells);
     }
 
     pub fn with_loader<F, T>(&mut self, func: F) -> T

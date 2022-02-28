@@ -43,16 +43,16 @@ impl Gles2Renderer {
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
 
-        let mut indices = Vec::with_capacity(BATCH_MAX / 4 * 6);
+        let mut vertex_indices = Vec::with_capacity(BATCH_MAX / 4 * 6);
         for index in 0..(BATCH_MAX / 4) as u16 {
             let index = index * 4;
-            indices.push(index);
-            indices.push(index + 1);
-            indices.push(index + 3);
+            vertex_indices.push(index);
+            vertex_indices.push(index + 1);
+            vertex_indices.push(index + 3);
 
-            indices.push(index + 1);
-            indices.push(index + 2);
-            indices.push(index + 3);
+            vertex_indices.push(index + 1);
+            vertex_indices.push(index + 2);
+            vertex_indices.push(index + 3);
         }
 
         unsafe {
@@ -69,8 +69,8 @@ impl Gles2Renderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (indices.capacity() * size_of::<u16>()) as isize,
-                indices.as_ptr() as *const _,
+                (vertex_indices.capacity() * size_of::<u16>()) as isize,
+                vertex_indices.as_ptr() as *const _,
                 gl::STATIC_DRAW,
             );
 
@@ -222,8 +222,8 @@ impl TextRenderer for Gles2Renderer {
 
 /// Maximum items to be drawn in a batch.
 ///
-/// We use the closest dividable by 4(amount of vertices we push for a glyph) number to `u16::MAX`,
-/// since it's maximum possible index in `glDrawElements` in gles2.
+/// We use the closest number to `u16::MAX` dividable by 4 (amount of vertices we push for a glyph),
+/// since it's the maximum possible index in `glDrawElements` in gles2.
 const BATCH_MAX: usize = (u16::MAX - u16::MAX % 4) as usize;
 
 #[derive(Debug)]
