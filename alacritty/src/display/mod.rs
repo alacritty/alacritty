@@ -633,11 +633,12 @@ impl Display {
         // Push visual bell after url/underline/strikeout rects.
         let visual_bell_intensity = self.visual_bell.intensity();
         if visual_bell_intensity != 0. {
+            let rect = self.visual_bell.cursor_radii().rect_around(cursor_point, size_info);
             let visual_bell_rect = RenderRect::new(
-                0.,
-                0.,
-                size_info.width(),
-                size_info.height(),
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height,
                 config.bell.color,
                 visual_bell_intensity as f32,
             );

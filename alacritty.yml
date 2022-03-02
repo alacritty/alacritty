@@ -360,6 +360,11 @@
   # Visual bell animation color.
   #color: '#ffffff'
 
+  # Radii in cells (can be decimals) around the cursor where the flash will
+  # be drawn.
+  # The value [-1, -1] means the whole window should flash.
+  #cursor_radii: [-1, -1]
+
   # Bell Command
   #
   # This program is executed whenever the bell is rung.
