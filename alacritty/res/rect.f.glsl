@@ -98,12 +98,12 @@ color_t draw_dotted(float_t x, float_t y) {
 color_t draw_dashed(float_t x) {
   // Since dashes of adjacent cells connect with each other our dash length is
   // half of the desired total length.
-  float_t halfDashLen = floor(cellWidth / 4.);
+  float_t halfDashLen = floor(cellWidth / 4. + 0.5);
 
   float_t alpha = 1.;
 
   // Check if `x` coordinate is where we should draw gap.
-  if (x > halfDashLen && x < cellWidth - halfDashLen - 1.) {
+  if (x > halfDashLen - 1. && x < cellWidth - halfDashLen) {
     alpha = 0.;
   }
 
