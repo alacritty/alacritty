@@ -18,9 +18,10 @@ pub mod rects;
 mod shader;
 mod text;
 
+pub use text::{GlyphCache, LoaderApi};
+
 use shader::ShaderVersion;
-use text::Glsl3Renderer;
-pub use text::{Gles2Renderer, GlyphCache, LoaderApi, TextRenderer};
+use text::{Gles2Renderer, Glsl3Renderer, TextRenderer};
 
 macro_rules! cstr {
     ($s:literal) => {
