@@ -257,10 +257,10 @@ mod tests {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![
-            String::from("hahahahahahahahaha [X]"),
-            String::from("[MESSAGE TRUNCATED]   ")
-        ]);
+        assert_eq!(
+            lines,
+            vec![String::from("hahahahahahahahaha [X]"), String::from("[MESSAGE TRUNCATED]   ")]
+        );
     }
 
     #[test]
@@ -346,11 +346,10 @@ mod tests {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![
-            String::from("a [X]"),
-            String::from("bc   "),
-            String::from("defg ")
-        ]);
+        assert_eq!(
+            lines,
+            vec![String::from("a [X]"), String::from("bc   "), String::from("defg ")]
+        );
     }
 
     #[test]
@@ -362,11 +361,10 @@ mod tests {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![
-            String::from("ab  [X]"),
-            String::from("c 👩 d  "),
-            String::from("fgh    ")
-        ]);
+        assert_eq!(
+            lines,
+            vec![String::from("ab  [X]"), String::from("c 👩 d  "), String::from("fgh    ")]
+        );
     }
 
     #[test]
