@@ -135,6 +135,7 @@ impl Renderer {
             bg_alpha: 1.0,
             fg,
             bg,
+            underline: fg,
         });
 
         self.draw_cells(size_info, glyph_cache, cells);

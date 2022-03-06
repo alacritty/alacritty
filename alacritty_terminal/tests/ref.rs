@@ -52,6 +52,7 @@ ref_tests! {
     zerowidth
     selective_erasure
     colored_reset
+    colored_underline
     delete_lines
     delete_chars_reset
     alt_reset

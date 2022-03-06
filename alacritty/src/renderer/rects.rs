@@ -193,6 +193,9 @@ impl RenderLines {
             return;
         }
 
+        // The underline color escape does not apply to strikeout.
+        let color = if flag.contains(Flags::STRIKEOUT) { cell.fg } else { cell.underline };
+
         // Include wide char spacer if the current cell is a wide char.
         let mut end = cell.point;
         if cell.flags.contains(Flags::WIDE_CHAR) {
@@ -201,7 +204,7 @@ impl RenderLines {
 
         // Check if there's an active line.
         if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
-            if cell.fg == line.color
+            if color == line.color
                 && cell.point.column == line.end.column + 1
                 && cell.point.line == line.end.line
             {
@@ -212,7 +215,7 @@ impl RenderLines {
         }
 
         // Start new line if there currently is none.
-        let line = RenderLine { start: cell.point, end, color: cell.fg };
+        let line = RenderLine { start: cell.point, end, color };
         match self.inner.get_mut(&flag) {
             Some(lines) => lines.push(line),
             None => {
