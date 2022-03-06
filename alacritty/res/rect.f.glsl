@@ -87,7 +87,7 @@ color_t draw_dotted(float_t x, float_t y) {
 
   // Since we use the entire descent area for dotted underlines, we limit its
   // height to a single pixel so we don't draw bars instead of dots.
-  float_t alpha = 1. - abs(floor(underlinePosition - 0.5) - y);
+  float_t alpha = 1. - abs(floor(underlinePosition) - y);
   if (int(mod(x, 2.)) != int(cellEven)) {
     alpha = 0.;
   }
