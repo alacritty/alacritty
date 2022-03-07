@@ -1145,8 +1145,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.on_focus_change(is_focused);
                     },
                     WindowEvent::DroppedFile(path) => {
-                        let path: String = path.to_string_lossy().into();
-                        self.ctx.write_to_pty((path + " ").into_bytes());
+						let path: String = path.to_string_lossy().into();
+						let mut pathstr: String = "'".to_owned();
+						pathstr.push_str(&path);
+                        self.ctx.write_to_pty((pathstr + "' ").into_bytes());
                     },
                     WindowEvent::CursorLeft { .. } => {
                         self.ctx.mouse.inside_text_area = false;
