@@ -75,11 +75,10 @@ impl Scheduler {
         let deadline = Instant::now() + interval;
 
         // Get insert position in the schedule.
-        let index = self
-            .timers
-            .iter()
-            .position(|timer| timer.deadline > deadline)
-            .unwrap_or_else(|| self.timers.len());
+        // FIXME once MSRV is bumped to 1.59.0 inline `self.timers.len()`.
+        let num_timers = self.timers.len();
+        let index =
+            self.timers.iter().position(|timer| timer.deadline > deadline).unwrap_or(num_timers);
 
         // Set the automatic event repeat rate.
         let interval = if repeat { Some(interval) } else { None };
