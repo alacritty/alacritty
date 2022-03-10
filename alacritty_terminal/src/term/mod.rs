@@ -1795,6 +1795,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.title_stack = Vec::new();
         self.title = None;
         self.selection = None;
+        self.vi_mode_cursor = Default::default();
 
         // Preserve vi mode across resets.
         self.mode &= TermMode::VI;

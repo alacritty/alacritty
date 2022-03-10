@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
+- Crash when resetting the terminal while in vi mode
 
 ## 0.10.1
 
