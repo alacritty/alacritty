@@ -869,8 +869,9 @@ impl Display {
 
         // Damage the maximum possible length of the format text, which could be achieved when
         // using `MAX_SCROLLBACK_LINES` as current and total lines adding a `3` for formatting.
-        const MAX_LEN: usize = num_digits(MAX_SCROLLBACK_LINES) + 3;
-        self.damage_from_point(Point::new(0, point.column - MAX_LEN), MAX_LEN as u32 * 2);
+        const MAX_SIZE: usize = 2 * num_digits(MAX_SCROLLBACK_LINES) + 3;
+        let damage_point = Point::new(0, Column(size_info.columns().saturating_sub(MAX_SIZE)));
+        self.damage_from_point(damage_point, MAX_SIZE as u32);
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
