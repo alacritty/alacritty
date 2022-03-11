@@ -281,6 +281,7 @@ impl GlyphCache {
         // Update dpi scaling.
         self.rasterizer.update_dpr(scale_factor as f32);
         self.font_offset = font.offset;
+        self.glyph_offset = font.glyph_offset;
 
         // Recompute font keys.
         let (regular, bold, italic, bold_italic) =
