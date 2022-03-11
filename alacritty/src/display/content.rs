@@ -254,7 +254,7 @@ impl RenderableCell {
 
         let flags = cell.flags;
         let underline = cell
-            .undreline_color()
+            .underline_color()
             .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, flags));
 
         RenderableCell {

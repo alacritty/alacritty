@@ -70,8 +70,7 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
-    #[serde(default)]
-    pub(crate) extra: Option<Arc<CellExtra>>,
+    pub extra: Option<Arc<CellExtra>>,
 }
 
 impl Default for Cell {
@@ -97,47 +96,36 @@ impl Cell {
     /// Write a new zerowidth character to this cell.
     #[inline]
     pub(crate) fn push_zerowidth(&mut self, character: char) {
-        self.init_extra();
-
-        let extra = Arc::make_mut(self.extra.as_mut().unwrap());
-        extra.zerowidth.push(character);
+        let extra = self.extra.get_or_insert(Arc::new(Default::default()));
+        Arc::make_mut(extra).zerowidth.push(character);
     }
 
     /// Remove all wide char data from a cell.
     #[inline(never)]
     pub(crate) fn clear_wide(&mut self) {
         self.flags.remove(Flags::WIDE_CHAR);
-        self.extra = None;
+        if let Some(extra) = self.extra.as_mut() {
+            Arc::make_mut(extra).zerowidth = Vec::new();
+        }
         self.c = ' ';
     }
 
     /// Set underline color on the cell.
     pub(crate) fn set_underline_color(&mut self, color: Option<Color>) {
         // If we reset color and we don't have zerowidth we should drop extra storage.
-        if color.is_none()
-            && self.extra.as_ref().map(|extra| !extra.zerowidth.is_empty()) != Some(false)
+        if color.is_none() && self.extra.as_ref().map_or(true, |extra| !extra.zerowidth.is_empty())
         {
             self.extra = None;
             return;
         }
 
-        self.init_extra();
-
-        let extra = Arc::make_mut(self.extra.as_mut().unwrap());
-        extra.underline_color = color;
-    }
-
-    /// Initializes extra storage if there's none.
-    #[inline]
-    fn init_extra(&mut self) {
-        if self.extra.is_none() {
-            self.extra = Some(Arc::new(Default::default()));
-        }
+        let extra = self.extra.get_or_insert(Arc::new(Default::default()));
+        Arc::make_mut(extra).underline_color = color;
     }
 
     /// Underline color stored in this cell.
     #[inline]
-    pub fn undreline_color(&self) -> Option<Color> {
+    pub fn underline_color(&self) -> Option<Color> {
         self.extra.as_ref()?.underline_color
     }
 }
@@ -211,20 +199,20 @@ impl LineLength for grid::Row<Cell> {
 
 #[cfg(test)]
 mod tests {
-    use std::mem;
+    use super::*;
 
-    use super::{Cell, LineLength};
+    use std::mem;
 
     use crate::grid::Row;
     use crate::index::Column;
 
     #[test]
     fn cell_size_is_below_cap() {
-        // Estimated cell size on 64-bit architectures.
-        const ESTIMATED_CELL_SIZE: usize = 24;
+        // Expected cell size on 64-bit architectures.
+        const EXPECTED_CELL_SIZE: usize = 24;
 
         // Ensure that cell size isn't growning by accident.
-        assert!(mem::size_of::<Cell>() <= ESTIMATED_CELL_SIZE);
+        assert!(mem::size_of::<Cell>() <= EXPECTED_CELL_SIZE);
     }
 
     #[test]
