@@ -37,11 +37,14 @@ uniform float_t undercurlPosition;
 color_t draw_undercurl(float_t x, float_t y) {
   // We use `undercurlPosition` as an amplitude, since it's half of the descent
   // value.
-  float_t undercurl = undercurlPosition / 2. * cos(x * 2. * PI / cellWidth)
-                    + undercurlPosition - 1.;
+  //
+  // The `x` represents the left bound of pixel we should add `1/2` to it, so
+  // we compute the undercurl position for the center of the pixel.
+  float_t undercurl = undercurlPosition / 2. * cos((x + 0.5) * 2.
+                    * PI / cellWidth) + undercurlPosition - 1.;
 
-  float_t undercurlTop = undercurl + max((underlineThickness - 1.), 0.);
-  float_t undercurlBottom = undercurl - max((underlineThickness - 1.), 0.);
+  float_t undercurlTop = undercurl + max((underlineThickness - 1.), 0.) / 2.;
+  float_t undercurlBottom = undercurl - max((underlineThickness - 1.), 0.) / 2.;
 
   // Compute resulted alpha based on distance from `gl_FragCoord.y` to the
   // cosine curve.
