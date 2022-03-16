@@ -95,14 +95,14 @@ impl Cell {
 
     /// Write a new zerowidth character to this cell.
     #[inline]
-    pub(crate) fn push_zerowidth(&mut self, character: char) {
-        let extra = self.extra.get_or_insert(Arc::new(Default::default()));
+    pub fn push_zerowidth(&mut self, character: char) {
+        let extra = self.extra.get_or_insert(Default::default());
         Arc::make_mut(extra).zerowidth.push(character);
     }
 
     /// Remove all wide char data from a cell.
     #[inline(never)]
-    pub(crate) fn clear_wide(&mut self) {
+    pub fn clear_wide(&mut self) {
         self.flags.remove(Flags::WIDE_CHAR);
         if let Some(extra) = self.extra.as_mut() {
             Arc::make_mut(extra).zerowidth = Vec::new();
@@ -111,7 +111,7 @@ impl Cell {
     }
 
     /// Set underline color on the cell.
-    pub(crate) fn set_underline_color(&mut self, color: Option<Color>) {
+    pub fn set_underline_color(&mut self, color: Option<Color>) {
         // If we reset color and we don't have zerowidth we should drop extra storage.
         if color.is_none() && self.extra.as_ref().map_or(true, |extra| !extra.zerowidth.is_empty())
         {
@@ -119,7 +119,7 @@ impl Cell {
             return;
         }
 
-        let extra = self.extra.get_or_insert(Arc::new(Default::default()));
+        let extra = self.extra.get_or_insert(Default::default());
         Arc::make_mut(extra).underline_color = color;
     }
 
