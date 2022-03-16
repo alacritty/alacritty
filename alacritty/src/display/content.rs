@@ -186,6 +186,7 @@ pub struct RenderableCell {
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
+    pub underline: Rgb,
     pub flags: Flags,
 }
 
@@ -251,14 +252,20 @@ impl RenderableCell {
         let cell_point = cell.point;
         let point = display::point_to_viewport(display_offset, cell_point).unwrap();
 
+        let flags = cell.flags;
+        let underline = cell
+            .underline_color()
+            .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, flags));
+
         RenderableCell {
             zerowidth: cell.zerowidth().map(|zerowidth| zerowidth.to_vec()),
-            flags: cell.flags,
+            flags,
             character,
             bg_alpha,
             point,
             fg,
             bg,
+            underline,
         }
     }
 

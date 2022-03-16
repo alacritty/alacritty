@@ -1047,6 +1047,7 @@ impl<T> Term<T> {
         let fg = self.grid.cursor.template.fg;
         let bg = self.grid.cursor.template.bg;
         let flags = self.grid.cursor.template.flags;
+        let extra = self.grid.cursor.template.extra.clone();
 
         let mut cursor_cell = self.grid.cursor_cell();
 
@@ -1070,12 +1071,11 @@ impl<T> Term<T> {
             cursor_cell = self.grid.cursor_cell();
         }
 
-        cursor_cell.drop_extra();
-
         cursor_cell.c = c;
         cursor_cell.fg = fg;
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
+        cursor_cell.extra = extra;
     }
 
     #[inline]
@@ -1826,10 +1826,12 @@ impl<T: EventListener> Handler for Term<T> {
         match attr {
             Attr::Foreground(color) => cursor.template.fg = color,
             Attr::Background(color) => cursor.template.bg = color,
+            Attr::UnderlineColor(color) => cursor.template.set_underline_color(color),
             Attr::Reset => {
                 cursor.template.fg = Color::Named(NamedColor::Foreground);
                 cursor.template.bg = Color::Named(NamedColor::Background);
                 cursor.template.flags = Flags::empty();
+                cursor.template.set_underline_color(None);
             },
             Attr::Reverse => cursor.template.flags.insert(Flags::INVERSE),
             Attr::CancelReverse => cursor.template.flags.remove(Flags::INVERSE),
