@@ -125,14 +125,14 @@ impl Renderer {
         point: Point<usize>,
         fg: Rgb,
         bg: Rgb,
-        string: &str,
+        string_chars: impl Iterator<Item = char>,
         size_info: &SizeInfo,
         glyph_cache: &mut GlyphCache,
     ) {
-        let cells = string.chars().enumerate().map(|(i, character)| RenderableCell {
+        let cells = string_chars.enumerate().map(|(i, character)| RenderableCell {
             point: Point::new(point.line, point.column + i),
             character,
-            zerowidth: None,
+            extra: None,
             flags: Flags::empty(),
             bg_alpha: 1.0,
             fg,

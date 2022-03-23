@@ -159,7 +159,9 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
         self.add_render_item(&cell, &glyph, size_info);
 
         // Render visible zero-width characters.
-        if let Some(zerowidth) = cell.zerowidth.take().filter(|_| !hidden) {
+        if let Some(zerowidth) =
+            cell.extra.as_mut().and_then(|extra| extra.zerowidth.take().filter(|_| !hidden))
+        {
             for character in zerowidth {
                 glyph_key.character = character;
                 let glyph = glyph_cache.get(glyph_key, self, false);

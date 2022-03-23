@@ -16,7 +16,7 @@ use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange, SelectionType};
-use crate::term::cell::{Cell, Flags, LineLength};
+use crate::term::cell::{Cell, Flags, Hyperlink, LineLength};
 use crate::term::color::{Colors, Rgb};
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
@@ -1677,6 +1677,12 @@ impl<T: EventListener> Handler for Term<T> {
             self.grid.cursor.point.line = cmp::max(self.grid.cursor.point.line - 1, Line(0));
             self.damage_cursor();
         }
+    }
+
+    #[inline]
+    fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
+        trace!("Setting hyperlink: {:?}", hyperlink);
+        self.grid.cursor.template.set_hyperlink(hyperlink);
     }
 
     /// Set a terminal attribute.

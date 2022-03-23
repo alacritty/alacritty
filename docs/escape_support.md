@@ -90,6 +90,7 @@ brevity.
 | `OSC 1`   | REJECTED    | Icon names are not supported                       |
 | `OSC 2`   | IMPLEMENTED |                                                    |
 | `OSC 4`   | IMPLEMENTED |                                                    |
+| `OSC 8`   | IMPLEMENTED |                                                    |
 | `OSC 10`  | IMPLEMENTED |                                                    |
 | `OSC 11`  | IMPLEMENTED |                                                    |
 | `OSC 12`  | IMPLEMENTED |                                                    |
