@@ -39,7 +39,7 @@ pub enum Event {
     PtyWrite(String),
 
     /// Request to write the text area size.
-    TextAreaSize(Arc<dyn Fn(WinSize) -> String + Sync + Send + 'static>),
+    TextAreaSizeRequest(Arc<dyn Fn(WinSize) -> String + Sync + Send + 'static>),
 
     /// Cursor blinking state has changed.
     CursorBlinkingChange,
@@ -59,7 +59,7 @@ impl Debug for Event {
         match self {
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
-            Event::TextAreaSize(_) => write!(f, "TextAreaSize"),
+            Event::TextAreaSizeRequest(_) => write!(f, "TextAreaSizeRequest"),
             Event::ColorRequest(index, _) => write!(f, "ColorRequest({})", index),
             Event::PtyWrite(text) => write!(f, "PtyWrite({})", text),
             Event::Title(title) => write!(f, "Title({})", title),

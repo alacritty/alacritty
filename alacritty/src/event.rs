@@ -1093,7 +1093,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             .unwrap_or(self.ctx.display.colors[index]);
                         self.ctx.write_to_pty(format(color).into_bytes());
                     },
-                    TerminalEvent::TextAreaSize(format) => {
+                    TerminalEvent::TextAreaSizeRequest(format) => {
                         let text = format(self.ctx.size_info().into());
                         self.ctx.write_to_pty(text.into_bytes());
                     },

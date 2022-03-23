@@ -1918,7 +1918,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels(&mut self) {
-        self.event_proxy.send_event(Event::TextAreaSize(Arc::new(move |win_size| {
+        self.event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(move |win_size| {
             let height = win_size.num_lines * win_size.cell_height;
             let width = win_size.num_cols * win_size.cell_width;
             format!("\x1b[4;{};{}t", height, width)
