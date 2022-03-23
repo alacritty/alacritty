@@ -5,8 +5,7 @@ use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
 
 use crate::config::{Program, PtyConfig};
-use crate::event::OnResize;
-use crate::term::SizeInfo;
+use crate::event::{OnResize, WinSize};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
@@ -28,7 +27,7 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-pub fn new(config: &PtyConfig, size: &SizeInfo, _window_id: Option<usize>) -> Result<Pty> {
+pub fn new(config: &PtyConfig, size: WinSize, _window_id: Option<usize>) -> Result<Pty> {
     conpty::new(config, size).ok_or_else(|| Error::new(ErrorKind::Other, "failed to spawn conpty"))
 }
 
@@ -160,7 +159,7 @@ impl EventedPty for Pty {
 }
 
 impl OnResize for Pty {
-    fn on_resize(&mut self, size: &SizeInfo) {
+    fn on_resize(&mut self, size: WinSize) {
         self.backend.on_resize(size)
     }
 }
