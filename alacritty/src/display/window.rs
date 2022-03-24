@@ -27,7 +27,9 @@ use {
 
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicU8, Ordering};
 
+use bitflags::bitflags;
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
@@ -61,6 +63,17 @@ static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
 /// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
+
+/// Context creation flags from probing config.
+static GL_CONTEXT_CREATION_FLAGS: AtomicU8 = AtomicU8::new(GlContextFlags::SRGB.bits);
+
+bitflags! {
+    pub struct GlContextFlags: u8 {
+        const EMPTY      = 0b000000000;
+        const SRGB       = 0b0000_0001;
+        const DEEP_COLOR = 0b0000_0010;
+    }
+}
 
 /// Window errors.
 #[derive(Debug)]
@@ -119,7 +132,7 @@ impl From<crossfont::Error> for Error {
 fn create_gl_window<E>(
     mut window: WindowBuilder,
     event_loop: &EventLoopWindowTarget<E>,
-    srgb: bool,
+    flags: GlContextFlags,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
@@ -127,11 +140,16 @@ fn create_gl_window<E>(
         window = window.with_inner_size(dimensions);
     }
 
-    let windowed_context = ContextBuilder::new()
-        .with_srgb(srgb)
+    let mut windowed_context_builder = ContextBuilder::new()
+        .with_srgb(flags.contains(GlContextFlags::SRGB))
         .with_vsync(vsync)
-        .with_hardware_acceleration(None)
-        .build_windowed(window, event_loop)?;
+        .with_hardware_acceleration(None);
+
+    if flags.contains(GlContextFlags::DEEP_COLOR) {
+        windowed_context_builder = windowed_context_builder.with_pixel_format(30, 2);
+    }
+
+    let windowed_context = windowed_context_builder.build_windowed(window, event_loop)?;
 
     // Make the context current so OpenGL operations can run.
     let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
@@ -188,11 +206,28 @@ impl Window {
         #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let is_wayland = false;
 
-        let windowed_context =
-            create_gl_window(window_builder.clone(), event_loop, false, !is_wayland, size)
-                .or_else(|_| {
-                    create_gl_window(window_builder, event_loop, true, !is_wayland, size)
-                })?;
+        let mut windowed_context = None;
+        let current_flags =
+            GlContextFlags::from_bits_truncate(GL_CONTEXT_CREATION_FLAGS.load(Ordering::Relaxed));
+        for flags in [
+            current_flags,
+            GlContextFlags::EMPTY,
+            GlContextFlags::SRGB | GlContextFlags::DEEP_COLOR,
+            GlContextFlags::DEEP_COLOR,
+        ] {
+            windowed_context = Some(create_gl_window(
+                window_builder.clone(),
+                event_loop,
+                flags,
+                !is_wayland,
+                size,
+            ));
+            if windowed_context.as_ref().unwrap().is_ok() {
+                GL_CONTEXT_CREATION_FLAGS.store(flags.bits, Ordering::Relaxed);
+                break;
+            }
+        }
+        let windowed_context = windowed_context.unwrap()?;
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
