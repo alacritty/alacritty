@@ -181,6 +181,8 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.display().vi_highlighted_hint = hint;
             },
             Action::Vi(ViAction::SearchNext) => {
+                ctx.on_typing_start();
+
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction();
                 let vi_point = terminal.vi_mode_cursor.point;
@@ -195,6 +197,8 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::Vi(ViAction::SearchPrevious) => {
+                ctx.on_typing_start();
+
                 let terminal = ctx.terminal();
                 let direction = ctx.search_direction().opposite();
                 let vi_point = terminal.vi_mode_cursor.point;

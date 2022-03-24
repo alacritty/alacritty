@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `font.glyph_offset` not live reloading
 - Failure when running on 10-bit color system
 - The colors being slightly different when using srgb displays on macOS
+- Vi cursor blinking not reset when navigating in search
 
 ## 0.10.1
 
