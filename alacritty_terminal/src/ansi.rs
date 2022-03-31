@@ -430,8 +430,8 @@ pub trait Handler {
     /// Set an indexed color value.
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
-    /// Write a foreground/background color escape sequence with the current color.
-    fn dynamic_color_sequence(&mut self, _: u8, _: usize, _: &str) {}
+    /// Respond to a color query escape sequence.
+    fn dynamic_color_sequence(&mut self, _: String, _: usize, _: &str) {}
 
     /// Reset an indexed color to original value.
     fn reset_color(&mut self, _: usize) {}
@@ -997,7 +997,8 @@ where
                     if let Some(c) = xparse_color(chunk[1]) {
                         self.handler.set_color(index as usize, c);
                     } else if chunk[1] == b"?" {
-                        self.handler.dynamic_color_sequence(index, index as usize, terminator);
+                        let prefix = format!("4;{}", index);
+                        self.handler.dynamic_color_sequence(prefix, index as usize, terminator);
                     } else {
                         unhandled(params);
                     }
@@ -1023,7 +1024,7 @@ where
                                 self.handler.set_color(index, color);
                             } else if param == b"?" {
                                 self.handler.dynamic_color_sequence(
-                                    dynamic_code,
+                                    dynamic_code.to_string(),
                                     index,
                                     terminator,
                                 );
