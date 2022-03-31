@@ -1630,10 +1630,10 @@ impl<T: EventListener> Handler for Term<T> {
         self.colors[index] = Some(color);
     }
 
-    /// Write a foreground/background color escape sequence with the current color.
+    /// Respond to a color query escape sequence.
     #[inline]
-    fn dynamic_color_sequence(&mut self, code: u8, index: usize, terminator: &str) {
-        trace!("Requested write of escape sequence for color code {}: color[{}]", code, index);
+    fn dynamic_color_sequence(&mut self, prefix: String, index: usize, terminator: &str) {
+        trace!("Requested write of escape sequence for color code {}: color[{}]", prefix, index);
 
         let terminator = terminator.to_owned();
         self.event_proxy.send_event(Event::ColorRequest(
@@ -1641,7 +1641,7 @@ impl<T: EventListener> Handler for Term<T> {
             Arc::new(move |color| {
                 format!(
                     "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
-                    code, color.r, color.g, color.b, terminator
+                    prefix, color.r, color.g, color.b, terminator
                 )
             }),
         ));
