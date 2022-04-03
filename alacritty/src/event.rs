@@ -1078,11 +1078,15 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
-                        self.ctx.clipboard.store(clipboard_type, content);
+                        if self.ctx.terminal.is_focused {
+                            self.ctx.clipboard.store(clipboard_type, content);
+                        }
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
-                        let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
-                        self.ctx.write_to_pty(text.into_bytes());
+                        if self.ctx.terminal.is_focused {
+                            let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
+                            self.ctx.write_to_pty(text.into_bytes());
+                        }
                     },
                     TerminalEvent::ColorRequest(index, format) => {
                         let color = self.ctx.terminal().colors()[index]
