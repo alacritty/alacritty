@@ -25,7 +25,7 @@ use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::ansi::NamedColor;
 use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
-use alacritty_terminal::event::{EventListener, OnResize, WinSize};
+use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
 use alacritty_terminal::grid::Dimensions as TermDimensions;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::{Selection, SelectionRange};
@@ -177,7 +177,7 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
     }
 }
 
-impl From<SizeInfo<f32>> for WinSize {
+impl From<SizeInfo<f32>> for WindowSize {
     fn from(size_info: SizeInfo<f32>) -> Self {
         Self {
             num_cols: size_info.columns() as u16,

@@ -15,7 +15,7 @@ use mio::unix::UnixReady;
 use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
-use crate::event::{self, Event, EventListener, WinSize};
+use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
 use crate::term::Term;
 use crate::{ansi, thread, tty};
@@ -36,7 +36,7 @@ pub enum Msg {
     Shutdown,
 
     /// Instruction to resize the PTY.
-    Resize(WinSize),
+    Resize(WindowSize),
 }
 
 /// The main event!.. loop.
@@ -78,8 +78,8 @@ impl event::Notify for Notifier {
 }
 
 impl event::OnResize for Notifier {
-    fn on_resize(&mut self, win_size: WinSize) {
-        let _ = self.0.send(Msg::Resize(win_size));
+    fn on_resize(&mut self, window_size: WindowSize) {
+        let _ = self.0.send(Msg::Resize(window_size));
     }
 }
 
@@ -182,7 +182,7 @@ where
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Input(input) => state.write_list.push_back(input),
-                Msg::Resize(win_size) => self.pty.on_resize(win_size),
+                Msg::Resize(window_size) => self.pty.on_resize(window_size),
                 Msg::Shutdown => return false,
             }
         }

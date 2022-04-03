@@ -16,7 +16,7 @@ use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, ST
 use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::config::PtyConfig;
-use crate::event::{OnResize, WinSize};
+use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
 
@@ -38,7 +38,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new(config: &PtyConfig, size: WinSize) -> Option<Pty> {
+pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     let mut pty_handle = 0 as HPCON;
 
     // Passing 0 as the size parameter allows the "system default" buffer
@@ -51,7 +51,7 @@ pub fn new(config: &PtyConfig, size: WinSize) -> Option<Pty> {
     // Create the Pseudo Console, using the pipes.
     let result = unsafe {
         CreatePseudoConsole(
-            size.into(),
+            window_size.into(),
             conin_pty_handle.into_raw_handle(),
             conout_pty_handle.into_raw_handle(),
             0,
@@ -169,16 +169,16 @@ fn panic_shell_spawn() {
 }
 
 impl OnResize for Conpty {
-    fn on_resize(&mut self, size: WinSize) {
-        let result = unsafe { ResizePseudoConsole(self.handle, size.into()) };
+    fn on_resize(&mut self, window_size: WindowSize) {
+        let result = unsafe { ResizePseudoConsole(self.handle, window_size.into()) };
         assert_eq!(result, S_OK);
     }
 }
 
-impl From<WinSize> for COORD {
-    fn from(size: WinSize) -> Self {
-        let lines = size.num_lines;
-        let columns = size.num_cols;
+impl From<WindowSize> for COORD {
+    fn from(window_size: WindowSize) -> Self {
+        let lines = window_size.num_lines;
+        let columns = window_size.num_cols;
         COORD { X: columns as i16, Y: lines as i16 }
     }
 }

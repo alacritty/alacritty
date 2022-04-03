@@ -39,7 +39,7 @@ pub enum Event {
     PtyWrite(String),
 
     /// Request to write the text area size.
-    TextAreaSizeRequest(Arc<dyn Fn(WinSize) -> String + Sync + Send + 'static>),
+    TextAreaSizeRequest(Arc<dyn Fn(WindowSize) -> String + Sync + Send + 'static>),
 
     /// Cursor blinking state has changed.
     CursorBlinkingChange,
@@ -82,7 +82,7 @@ pub trait Notify {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct WinSize {
+pub struct WindowSize {
     pub num_lines: u16,
     pub num_cols: u16,
     pub cell_width: u16,
@@ -91,7 +91,7 @@ pub struct WinSize {
 
 /// Types that are interested in when the display is resized.
 pub trait OnResize {
-    fn on_resize(&mut self, win_size: WinSize);
+    fn on_resize(&mut self, window_size: WindowSize);
 }
 
 /// Event Loop for notifying the renderer about terminal events.

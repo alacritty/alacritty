@@ -22,7 +22,7 @@ use signal_hook::consts as sigconsts;
 use signal_hook_mio::v0_6::Signals;
 
 use crate::config::{Program, PtyConfig};
-use crate::event::{OnResize, WinSize};
+use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
 macro_rules! die {
@@ -34,11 +34,11 @@ macro_rules! die {
 
 /// Get raw fds for master/slave ends of a new PTY.
 fn make_pty(size: winsize) -> (RawFd, RawFd) {
-    let mut win_size = size;
-    win_size.ws_xpixel = 0;
-    win_size.ws_ypixel = 0;
+    let mut window_size = size;
+    window_size.ws_xpixel = 0;
+    window_size.ws_ypixel = 0;
 
-    let ends = openpty(Some(&win_size), None).expect("openpty failed");
+    let ends = openpty(Some(&window_size), None).expect("openpty failed");
 
     (ends.master, ends.slave)
 }
@@ -135,8 +135,8 @@ fn default_shell(pw: &Passwd<'_>) -> Program {
 }
 
 /// Create a new TTY and return a handle to interact with it.
-pub fn new(config: &PtyConfig, win_size: WinSize, window_id: Option<usize>) -> Result<Pty> {
-    let (master, slave) = make_pty(win_size.to_winsize());
+pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>) -> Result<Pty> {
+    let (master, slave) = make_pty(window_size.to_winsize());
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(mut termios) = termios::tcgetattr(master) {
@@ -227,7 +227,7 @@ pub fn new(config: &PtyConfig, win_size: WinSize, window_id: Option<usize>) -> R
                 signals,
                 signals_token: mio::Token::from(0),
             };
-            pty.on_resize(win_size);
+            pty.on_resize(window_size);
             Ok(pty)
         },
         Err(err) => Err(Error::new(
@@ -345,8 +345,8 @@ impl OnResize for Pty {
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.
-    fn on_resize(&mut self, win_size: WinSize) {
-        let win = win_size.to_winsize();
+    fn on_resize(&mut self, window_size: WindowSize) {
+        let win = window_size.to_winsize();
 
         let res = unsafe { libc::ioctl(self.file.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
@@ -362,7 +362,7 @@ pub trait ToWinsize {
     fn to_winsize(self) -> winsize;
 }
 
-impl ToWinsize for WinSize {
+impl ToWinsize for WindowSize {
     fn to_winsize(self) -> winsize {
         let ws_row = self.num_lines as libc::c_ushort;
         let ws_col = self.num_cols as libc::c_ushort;
