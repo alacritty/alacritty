@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
+- OSC 52 is now disabled on unfocused windows
 
 ### Fixed
 
