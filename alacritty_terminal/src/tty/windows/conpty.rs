@@ -1,6 +1,6 @@
 use std::io::Error;
 use std::os::windows::io::IntoRawHandle;
-use std::{i16, mem, ptr};
+use std::{mem, ptr};
 
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
@@ -16,9 +16,7 @@ use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, ST
 use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::config::PtyConfig;
-use crate::event::OnResize;
-use crate::grid::Dimensions;
-use crate::term::SizeInfo;
+use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
 
@@ -40,7 +38,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new(config: &PtyConfig, size: &SizeInfo) -> Option<Pty> {
+pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     let mut pty_handle = 0 as HPCON;
 
     // Passing 0 as the size parameter allows the "system default" buffer
@@ -50,13 +48,10 @@ pub fn new(config: &PtyConfig, size: &SizeInfo) -> Option<Pty> {
     let (conout, conout_pty_handle) = miow::pipe::anonymous(0).unwrap();
     let (conin_pty_handle, conin) = miow::pipe::anonymous(0).unwrap();
 
-    let coord =
-        coord_from_sizeinfo(size).expect("Overflow when creating initial size on pseudoconsole");
-
     // Create the Pseudo Console, using the pipes.
     let result = unsafe {
         CreatePseudoConsole(
-            coord,
+            window_size.into(),
             conin_pty_handle.into_raw_handle(),
             conout_pty_handle.into_raw_handle(),
             0,
@@ -174,22 +169,16 @@ fn panic_shell_spawn() {
 }
 
 impl OnResize for Conpty {
-    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
-            let result = unsafe { ResizePseudoConsole(self.handle, coord) };
-            assert_eq!(result, S_OK);
-        }
+    fn on_resize(&mut self, window_size: WindowSize) {
+        let result = unsafe { ResizePseudoConsole(self.handle, window_size.into()) };
+        assert_eq!(result, S_OK);
     }
 }
 
-/// Helper to build a COORD from a SizeInfo, returning None in overflow cases.
-fn coord_from_sizeinfo(size: &SizeInfo) -> Option<COORD> {
-    let lines = size.screen_lines();
-    let columns = size.columns();
-
-    if columns <= i16::MAX as usize && lines <= i16::MAX as usize {
-        Some(COORD { X: columns as i16, Y: lines as i16 })
-    } else {
-        None
+impl From<WindowSize> for COORD {
+    fn from(window_size: WindowSize) -> Self {
+        let lines = window_size.num_lines;
+        let columns = window_size.num_cols;
+        COORD { X: columns as i16, Y: lines as i16 }
     }
 }

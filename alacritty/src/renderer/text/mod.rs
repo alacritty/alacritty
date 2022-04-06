@@ -2,9 +2,9 @@ use bitflags::bitflags;
 use crossfont::{GlyphKey, RasterizedGlyph};
 
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::SizeInfo;
 
 use crate::display::content::RenderableCell;
+use crate::display::SizeInfo;
 use crate::gl;
 use crate::gl::types::*;
 

@@ -3,7 +3,9 @@ use std::iter::Peekable;
 
 use glutin::Rect;
 
-use alacritty_terminal::term::{LineDamageBounds, SizeInfo, TermDamageIterator};
+use alacritty_terminal::term::{LineDamageBounds, TermDamageIterator};
+
+use crate::display::SizeInfo;
 
 /// Iterator which converts `alacritty_terminal` damage information into renderer damaged rects.
 pub struct RenderDamageIterator<'a> {

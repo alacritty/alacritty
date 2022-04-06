@@ -6,7 +6,6 @@ use std::{cmp, mem, ptr, slice, str};
 
 use bitflags::bitflags;
 use log::{debug, trace};
-use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
 use crate::ansi::{
@@ -71,155 +70,6 @@ impl Default for TermMode {
             | TermMode::LINE_WRAP
             | TermMode::ALTERNATE_SCROLL
             | TermMode::URGENCY_HINTS
-    }
-}
-
-/// Terminal size info.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
-pub struct SizeInfo<T = f32> {
-    /// Terminal window width.
-    width: T,
-
-    /// Terminal window height.
-    height: T,
-
-    /// Width of individual cell.
-    cell_width: T,
-
-    /// Height of individual cell.
-    cell_height: T,
-
-    /// Horizontal window padding.
-    padding_x: T,
-
-    /// Vertical window padding.
-    padding_y: T,
-
-    /// Number of lines in the viewport.
-    screen_lines: usize,
-
-    /// Number of columns in the viewport.
-    columns: usize,
-}
-
-impl From<SizeInfo<f32>> for SizeInfo<u32> {
-    fn from(size_info: SizeInfo<f32>) -> Self {
-        Self {
-            width: size_info.width as u32,
-            height: size_info.height as u32,
-            cell_width: size_info.cell_width as u32,
-            cell_height: size_info.cell_height as u32,
-            padding_x: size_info.padding_x as u32,
-            padding_y: size_info.padding_y as u32,
-            screen_lines: size_info.screen_lines,
-            columns: size_info.screen_lines,
-        }
-    }
-}
-
-impl<T: Clone + Copy> SizeInfo<T> {
-    #[inline]
-    pub fn width(&self) -> T {
-        self.width
-    }
-
-    #[inline]
-    pub fn height(&self) -> T {
-        self.height
-    }
-
-    #[inline]
-    pub fn cell_width(&self) -> T {
-        self.cell_width
-    }
-
-    #[inline]
-    pub fn cell_height(&self) -> T {
-        self.cell_height
-    }
-
-    #[inline]
-    pub fn padding_x(&self) -> T {
-        self.padding_x
-    }
-
-    #[inline]
-    pub fn padding_y(&self) -> T {
-        self.padding_y
-    }
-}
-
-impl SizeInfo<f32> {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        width: f32,
-        height: f32,
-        cell_width: f32,
-        cell_height: f32,
-        mut padding_x: f32,
-        mut padding_y: f32,
-        dynamic_padding: bool,
-    ) -> SizeInfo {
-        if dynamic_padding {
-            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
-        }
-
-        let lines = (height - 2. * padding_y) / cell_height;
-        let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
-
-        let columns = (width - 2. * padding_x) / cell_width;
-        let columns = cmp::max(columns as usize, MIN_COLUMNS);
-
-        SizeInfo {
-            width,
-            height,
-            cell_width,
-            cell_height,
-            padding_x: padding_x.floor(),
-            padding_y: padding_y.floor(),
-            screen_lines,
-            columns,
-        }
-    }
-
-    #[inline]
-    pub fn reserve_lines(&mut self, count: usize) {
-        self.screen_lines = cmp::max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
-    }
-
-    /// Check if coordinates are inside the terminal grid.
-    ///
-    /// The padding, message bar or search are not counted as part of the grid.
-    #[inline]
-    pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
-            && x > self.padding_x as usize
-            && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
-            && y > self.padding_y as usize
-    }
-
-    /// Calculate padding to spread it evenly around the terminal content.
-    #[inline]
-    fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
-        padding + ((dimension - 2. * padding) % cell_dimension) / 2.
-    }
-}
-
-impl Dimensions for SizeInfo {
-    #[inline]
-    fn columns(&self) -> usize {
-        self.columns
-    }
-
-    #[inline]
-    fn screen_lines(&self) -> usize {
-        self.screen_lines
-    }
-
-    #[inline]
-    fn total_lines(&self) -> usize {
-        self.screen_lines()
     }
 }
 
@@ -431,10 +281,6 @@ pub struct Term<T> {
     /// term is set.
     title_stack: Vec<Option<String>>,
 
-    /// Information about cell dimensions.
-    cell_width: usize,
-    cell_height: usize,
-
     /// Information about damaged cells.
     damage: TermDamageState,
 }
@@ -462,9 +308,9 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn new(config: &Config, size: SizeInfo, event_proxy: T) -> Term<T> {
-        let num_cols = size.columns;
-        let num_lines = size.screen_lines;
+    pub fn new<D: Dimensions>(config: &Config, dimensions: &D, event_proxy: T) -> Term<T> {
+        let num_cols = dimensions.columns();
+        let num_lines = dimensions.screen_lines();
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size);
@@ -495,8 +341,6 @@ impl<T> Term<T> {
             title: None,
             title_stack: Vec::new(),
             selection: None,
-            cell_width: size.cell_width as usize,
-            cell_height: size.cell_height as usize,
             damage,
         }
     }
@@ -717,15 +561,12 @@ impl<T> Term<T> {
     }
 
     /// Resize terminal to new dimensions.
-    pub fn resize(&mut self, size: SizeInfo) {
-        self.cell_width = size.cell_width as usize;
-        self.cell_height = size.cell_height as usize;
-
+    pub fn resize<S: Dimensions>(&mut self, size: S) {
         let old_cols = self.columns();
         let old_lines = self.screen_lines();
 
-        let num_cols = size.columns;
-        let num_lines = size.screen_lines;
+        let num_cols = size.columns();
+        let num_lines = size.screen_lines();
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");
@@ -2077,10 +1918,11 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn text_area_size_pixels(&mut self) {
-        let width = self.cell_width * self.columns();
-        let height = self.cell_height * self.screen_lines();
-        let text = format!("\x1b[4;{};{}t", height, width);
-        self.event_proxy.send_event(Event::PtyWrite(text));
+        self.event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(move |window_size| {
+            let height = window_size.num_lines * window_size.cell_height;
+            let width = window_size.num_cols * window_size.cell_width;
+            format!("\x1b[4;{};{}t", height, width)
+        })));
     }
 
     #[inline]
@@ -2217,10 +2059,37 @@ impl<'a> RenderableContent<'a> {
 pub mod test {
     use super::*;
 
+    use serde::{Deserialize, Serialize};
     use unicode_width::UnicodeWidthChar;
 
     use crate::config::Config;
     use crate::index::Column;
+
+    #[derive(Serialize, Deserialize)]
+    pub struct TermSize {
+        pub columns: usize,
+        pub screen_lines: usize,
+    }
+
+    impl TermSize {
+        pub fn new(columns: usize, screen_lines: usize) -> Self {
+            Self { columns, screen_lines }
+        }
+    }
+
+    impl Dimensions for TermSize {
+        fn total_lines(&self) -> usize {
+            self.screen_lines()
+        }
+
+        fn screen_lines(&self) -> usize {
+            self.screen_lines
+        }
+
+        fn columns(&self) -> usize {
+            self.columns
+        }
+    }
 
     /// Construct a terminal from its content as string.
     ///
@@ -2250,8 +2119,8 @@ pub mod test {
             .unwrap_or(0);
 
         // Create terminal with the appropriate dimensions.
-        let size = SizeInfo::new(num_cols as f32, lines.len() as f32, 1., 1., 0., 0., false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(num_cols, lines.len());
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Fill terminal with content.
         for (line, text) in lines.iter().enumerate() {
@@ -2291,11 +2160,12 @@ mod tests {
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
+    use crate::term::test::TermSize;
 
     #[test]
     fn scroll_display_page_up() {
-        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2320,8 +2190,8 @@ mod tests {
 
     #[test]
     fn scroll_display_page_down() {
-        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2350,8 +2220,8 @@ mod tests {
 
     #[test]
     fn simple_selection_works() {
-        let size = SizeInfo::new(5., 5., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 5);
+        let mut term = Term::new(&Config::default(), &size, ());
         let grid = term.grid_mut();
         for i in 0..4 {
             if i == 1 {
@@ -2396,8 +2266,8 @@ mod tests {
 
     #[test]
     fn semantic_selection_works() {
-        let size = SizeInfo::new(5., 3., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 3);
+        let mut term = Term::new(&Config::default(), &size, ());
         let mut grid: Grid<Cell> = Grid::new(3, 5, 0);
         for i in 0..5 {
             for j in 0..2 {
@@ -2444,8 +2314,8 @@ mod tests {
 
     #[test]
     fn line_selection_works() {
-        let size = SizeInfo::new(5., 1., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 1);
+        let mut term = Term::new(&Config::default(), &size, ());
         let mut grid: Grid<Cell> = Grid::new(1, 5, 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2465,8 +2335,8 @@ mod tests {
 
     #[test]
     fn block_selection_works() {
-        let size = SizeInfo::new(5., 5., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 5);
+        let mut term = Term::new(&Config::default(), &size, ());
         let grid = term.grid_mut();
         for i in 1..4 {
             grid[Line(i)][Column(0)].c = '"';
@@ -2521,8 +2391,8 @@ mod tests {
 
     #[test]
     fn input_line_drawing_character() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(7, 17);
+        let mut term = Term::new(&Config::default(), &size, ());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2532,8 +2402,8 @@ mod tests {
 
     #[test]
     fn clearing_viewport_keeps_history_position() {
-        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 20);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2553,8 +2423,8 @@ mod tests {
 
     #[test]
     fn clearing_viewport_with_vi_mode_keeps_history_position() {
-        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 20);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2579,8 +2449,8 @@ mod tests {
 
     #[test]
     fn clearing_scrollback_resets_display_offset() {
-        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 20);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2600,8 +2470,8 @@ mod tests {
 
     #[test]
     fn clearing_scrollback_sets_vi_cursor_into_viewport() {
-        let size = SizeInfo::new(10.0, 20.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 20);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2626,8 +2496,8 @@ mod tests {
 
     #[test]
     fn clear_saved_lines() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(7, 17);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), 1);
@@ -2648,8 +2518,8 @@ mod tests {
 
     #[test]
     fn vi_cursor_keep_pos_on_scrollback_buffer() {
-        let size = SizeInfo::new(5., 10., 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(5, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2668,8 +2538,8 @@ mod tests {
 
     #[test]
     fn grow_lines_updates_active_cursor_pos() {
-        let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let mut size = TermSize::new(100, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2688,8 +2558,8 @@ mod tests {
 
     #[test]
     fn grow_lines_updates_inactive_cursor_pos() {
-        let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let mut size = TermSize::new(100, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2714,8 +2584,8 @@ mod tests {
 
     #[test]
     fn shrink_lines_updates_active_cursor_pos() {
-        let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let mut size = TermSize::new(100, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2734,8 +2604,8 @@ mod tests {
 
     #[test]
     fn shrink_lines_updates_inactive_cursor_pos() {
-        let mut size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let mut size = TermSize::new(100, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2760,8 +2630,8 @@ mod tests {
 
     #[test]
     fn damage_public_usage() {
-        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
 
@@ -2840,8 +2710,8 @@ mod tests {
 
     #[test]
     fn damage_cursor_movements() {
-        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
         let num_cols = term.columns();
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
@@ -2938,8 +2808,8 @@ mod tests {
 
     #[test]
     fn damage_vi_movements() {
-        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(10, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
         let num_cols = term.columns();
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
@@ -2970,8 +2840,8 @@ mod tests {
 
     #[test]
     fn full_damage() {
-        let size = SizeInfo::new(100.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(100, 10);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         assert!(term.damage.is_fully_damaged);
         for _ in 0..20 {
@@ -3049,15 +2919,15 @@ mod tests {
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
-        let size = SizeInfo::new(10.0, 10.0, 1.0, 1.0, 0.0, 0.0, false);
+        let size = TermSize::new(10, 10);
         term.resize(size);
         assert!(term.damage.is_fully_damaged);
     }
 
     #[test]
     fn window_title() {
-        let size = SizeInfo::new(21.0, 51.0, 3.0, 3.0, 0.0, 0.0, false);
-        let mut term = Term::new(&Config::default(), size, ());
+        let size = TermSize::new(7, 17);
+        let mut term = Term::new(&Config::default(), &size, ());
 
         // Title None by default.
         assert_eq!(term.title, None);

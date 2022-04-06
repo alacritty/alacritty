@@ -24,6 +24,7 @@ use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::Direction;
 use alacritty_terminal::sync::FairMutex;
+use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
@@ -98,7 +99,7 @@ impl WindowContext {
         // This object contains all of the state about what's being displayed. It's
         // wrapped in a clonable mutex since both the I/O loop and display need to
         // access it.
-        let terminal = Term::new(&config.terminal_config, display.size_info, event_proxy.clone());
+        let terminal = Term::new(&config.terminal_config, &display.size_info, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 
         // Create the PTY.
@@ -106,7 +107,7 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(&pty_config, &display.size_info, display.window.x11_window_id())?;
+        let pty = tty::new(&pty_config, display.size_info.into(), display.window.x11_window_id())?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
@@ -350,7 +351,9 @@ impl WindowContext {
 
         let serialized_grid = json::to_string(&grid).expect("serialize grid");
 
-        let serialized_size = json::to_string(&self.display.size_info).expect("serialize size");
+        let size_info = &self.display.size_info;
+        let size = TermSize::new(size_info.columns(), size_info.screen_lines());
+        let serialized_size = json::to_string(&size).expect("serialize size");
 
         let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
 

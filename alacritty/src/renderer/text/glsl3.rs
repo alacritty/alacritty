@@ -5,9 +5,9 @@ use crossfont::RasterizedGlyph;
 use log::info;
 
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::SizeInfo;
 
 use crate::display::content::RenderableCell;
+use crate::display::SizeInfo;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderProgram, ShaderVersion};
