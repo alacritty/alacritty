@@ -614,8 +614,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let timer_id = TimerId::new(Topic::SelectionScrolling, self.ctx.window().id());
         self.ctx.scheduler_mut().unschedule(timer_id);
 
-        // Copy selection on release, to prevent flooding the display server.
-        self.ctx.copy_selection(ClipboardType::Selection);
+        if let MouseButton::Left | MouseButton::Right = button {
+            // Copy selection on release, to prevent flooding the display server.
+            self.ctx.copy_selection(ClipboardType::Selection);
+        }
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
