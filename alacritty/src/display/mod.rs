@@ -775,6 +775,9 @@ impl Display {
         } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
             self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
+        } else if display_offset != 0 {
+            // Also show the current display offset if the user scrolled.
+            self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
         }
 
         // Draw cursor.
