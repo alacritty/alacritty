@@ -153,7 +153,13 @@ pkg install cmake freetype2 fontconfig pkgconf python3
 
 #### OpenBSD
 
-On OpenBSD 6.5, you need [Xenocara](https://xenocara.org) and Rust to build
+On [OpenBSD](https://openbsd.org) 7.1 Alacritty is available as a prebuilt package, to install run:
+
+```sh
+pkg_add alacritty
+```
+
+On previous versions of OpenBSD, you need [Xenocara](https://xenocara.org) and Rust to build
 Alacritty, plus Python 3 to build its XCB dependency. If something is still
 found to be missing, please open an issue.
 
