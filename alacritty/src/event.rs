@@ -1159,8 +1159,15 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         // This text is being composed, thus should be shown as inline input to
                         // the user.
                         Ime::Preedit(text, cursor_range) => {
+                            // If've got empty preedit we should start processing ordinary keyboard
+                            // input.
+                            if text.is_empty() && cursor_range.is_none() {
+                                self.ctx.display.ime_input.clear_preedit()
+                            } else {
+                                self.ctx.display.ime_input.set_preedit(text, cursor_range);
+                            }
+
                             *self.ctx.dirty = true;
-                            self.ctx.display.ime_input.set_preedit(text, cursor_range);
                         },
                         Ime::Disabled => {
                             self.ctx.display.ime_input.set_enabled(false);
