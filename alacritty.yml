@@ -750,9 +750,9 @@
   #- { key: Copy,                                        action: Copy           }
   #- { key: L,         mods: Control,                    action: ClearLogNotice }
   #- { key: L,         mods: Control, mode: ~Vi|~Search, chars: "\x0c"          }
-  #- { key: PageUp,    mods: Shift,   mode: ~Alt,        action: ScrollPageUp,  }
+  #- { key: PageUp,    mods: Shift,   mode: ~Alt,        action: ScrollPageUp   }
   #- { key: PageDown,  mods: Shift,   mode: ~Alt,        action: ScrollPageDown }
-  #- { key: Home,      mods: Shift,   mode: ~Alt,        action: ScrollToTop,   }
+  #- { key: Home,      mods: Shift,   mode: ~Alt,        action: ScrollToTop    }
   #- { key: End,       mods: Shift,   mode: ~Alt,        action: ScrollToBottom }
 
   # Vi Mode
