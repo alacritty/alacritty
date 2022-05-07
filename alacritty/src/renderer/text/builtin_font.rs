@@ -412,7 +412,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             };
 
             // Fix `y` coordinates.
-            y = height - y;
+            y = (height - y).round();
 
             // Ensure that resulted glyph will be visible and also round sizes instead of straight
             // flooring them.
