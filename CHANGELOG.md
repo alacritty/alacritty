@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The colors being slightly different when using srgb displays on macOS
 - Vi cursor blinking not reset when navigating in search
 - Scrolling and middle-clicking modifying the primary selection
+- Bottom gap for certain builtin box drawing characters
 
 ## 0.10.1
 
