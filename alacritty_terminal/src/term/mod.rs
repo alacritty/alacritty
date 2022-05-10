@@ -1592,6 +1592,7 @@ impl<T: EventListener> Handler for Term<T> {
                 }
 
                 self.selection = None;
+                self.event_proxy.send_event(Event::BlinkingChange(false));
             },
             ansi::ClearMode::Saved if self.history_size() > 0 => {
                 self.grid.clear_history();
@@ -1643,6 +1644,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode.insert(TermMode::default());
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
+        self.event_proxy.send_event(Event::BlinkingChange(false));
         self.mark_fully_damaged();
     }
 
@@ -1682,6 +1684,11 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::CancelBoldDim => cursor.template.flags.remove(Flags::BOLD | Flags::DIM),
             Attr::Italic => cursor.template.flags.insert(Flags::ITALIC),
             Attr::CancelItalic => cursor.template.flags.remove(Flags::ITALIC),
+            Attr::BlinkSlow => {
+                cursor.template.flags.insert(Flags::BLINK);
+                self.event_proxy.send_event(Event::BlinkingChange(true));
+            },
+            Attr::CancelBlink => cursor.template.flags.remove(Flags::BLINK),
             Attr::Underline => {
                 cursor.template.flags.remove(Flags::ALL_UNDERLINES);
                 cursor.template.flags.insert(Flags::UNDERLINE);

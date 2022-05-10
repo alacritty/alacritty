@@ -349,6 +349,12 @@ pub struct Display {
     /// UI cursor visibility for blinking.
     pub cursor_hidden: bool,
 
+    /// UI text visibility for blinking.
+    pub blinking_state: bool,
+    
+    /// UI has some blinking characters
+    pub blinking: bool,
+
     pub visual_bell: VisualBell,
 
     /// Mapped RGB values for each terminal color.
@@ -518,6 +524,8 @@ impl Display {
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
             cursor_hidden: false,
+            blinking_state: false,
+            blinking: false,
             visual_bell: VisualBell::from(&config.bell),
             colors: List::from(&config.colors),
             pending_update: Default::default(),
@@ -753,7 +761,9 @@ impl Display {
                     {
                         cell.flags.insert(Flags::UNDERLINE);
                     }
-
+                    if self.blinking_state && cell.flags.contains(Flags::BLINK) {
+                        cell.character = ' ';
+                    }
                     // Update underline/strikeout.
                     lines.update(&cell);
 

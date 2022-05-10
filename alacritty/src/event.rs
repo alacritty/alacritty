@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
+
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
@@ -90,6 +91,7 @@ pub enum EventType {
     Scroll(Scroll),
     CreateWindow(WindowOptions),
     BlinkCursor,
+    BlinkText,
     SearchNext,
 }
 
@@ -950,6 +952,17 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             *self.dirty = true;
         }
     }
+
+    fn update_blinking_timer(&mut self) {
+        let timer_id = TimerId::new(Topic::BlinkText, self.display.window.id());
+        self.scheduler.unschedule(timer_id);
+        if self.display.blinking {
+            let event = Event::new(EventType::BlinkText, self.display.window.id());
+            let interval = Duration::from_millis(400);
+            self.scheduler.schedule(event, interval, true, timer_id);
+        }
+    }
+
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1043,6 +1056,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     self.ctx.display.cursor_hidden ^= true;
                     *self.ctx.dirty = true;
                 },
+                EventType::BlinkText => {
+                    self.ctx.display.blinking_state ^= true;
+                    self.ctx.display.pending_update.dirty = true;
+                    *self.ctx.dirty = true;
+                },
                 EventType::Message(message) => {
                     self.ctx.message_buffer.push(message);
                     self.ctx.display.pending_update.dirty = true;
@@ -1099,6 +1117,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::PtyWrite(text) => self.ctx.write_to_pty(text.into_bytes()),
                     TerminalEvent::MouseCursorDirty => self.reset_mouse_cursor(),
                     TerminalEvent::Exit => (),
+                    TerminalEvent::BlinkingChange(stat) => {
+                        self.ctx.display.blinking = stat;
+                        self.ctx.update_blinking_timer();
+                    },
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
                 EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
@@ -1148,6 +1170,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
 
                         self.ctx.update_cursor_blinking();
+                        self.ctx.update_blinking_timer();
                         self.on_focus_change(is_focused);
                     },
                     WindowEvent::DroppedFile(path) => {

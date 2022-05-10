@@ -131,6 +131,7 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
 
         // Ignore hidden cells and render tabs as spaces to prevent font issues.
         let hidden = cell.flags.contains(Flags::HIDDEN);
+
         if cell.character == '\t' || hidden {
             cell.character = ' ';
         }
