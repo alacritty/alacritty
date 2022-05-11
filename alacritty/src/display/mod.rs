@@ -351,7 +351,7 @@ pub struct Display {
 
     /// UI text visibility for blinking.
     pub blinking_state: bool,
-    
+
     /// UI has some blinking characters
     pub blinking: bool,
 

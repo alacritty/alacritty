@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
-
 use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
@@ -962,7 +961,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
             self.scheduler.schedule(event, interval, true, timer_id);
         }
     }
-
 }
 
 #[derive(Debug, Eq, PartialEq)]
