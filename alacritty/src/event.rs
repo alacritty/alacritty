@@ -778,8 +778,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             if self.search_state.dfas.take().is_some() {
                 self.terminal.mark_fully_damaged();
             } else {
-                // Damage line indicator and Vi cursor.
-                self.terminal.damage_vi_cursor();
+                // Damage line indicator.
                 self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
             }
         } else {
