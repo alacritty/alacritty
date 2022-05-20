@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi cursor blinking not reset when navigating in search
 - Scrolling and middle-clicking modifying the primary selection
 - Bottom gap for certain builtin box drawing characters
+- Incorrect buili-in glyphs for `U+2567` and `U+2568`
 
 ## 0.10.1
 
