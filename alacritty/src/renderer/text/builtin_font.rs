@@ -274,7 +274,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 '\u{2561}'..='\u{2563}' | '\u{256a}' | '\u{256c}' => {
                     (v_left_bounds.1, v_left_bounds.1)
                 },
-                '\u{2564}'..='\u{2566}' => (canvas.x_center(), v_left_bounds.1),
+                '\u{2564}'..='\u{2568}' => (canvas.x_center(), v_left_bounds.1),
                 '\u{2569}'..='\u{2569}' => (v_left_bounds.1, canvas.x_center()),
                 _ => (0., 0.),
             };
@@ -297,13 +297,13 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             // Top vertical part.
             let (left_top_size, right_top_size) = match character {
                 '\u{2551}' | '\u{256a}' => (canvas.y_center(), canvas.y_center()),
-                '\u{2558}'..='\u{255c}' | '\u{2567}' | '\u{2568}' => {
-                    (h_bot_bounds.1, h_top_bounds.1)
-                },
+                '\u{2558}'..='\u{255c}' | '\u{2568}' => (h_bot_bounds.1, h_top_bounds.1),
                 '\u{255d}' => (h_top_bounds.1, h_bot_bounds.1),
                 '\u{255e}'..='\u{2560}' => (canvas.y_center(), h_top_bounds.1),
                 '\u{2561}'..='\u{2563}' => (h_top_bounds.1, canvas.y_center()),
-                '\u{2569}' | '\u{256b}' | '\u{256c}' => (h_top_bounds.1, h_top_bounds.1),
+                '\u{2567}' | '\u{2569}' | '\u{256b}' | '\u{256c}' => {
+                    (h_top_bounds.1, h_top_bounds.1)
+                },
                 _ => (0., 0.),
             };
 
