@@ -471,7 +471,23 @@ impl Window {
         self.windowed_context.swap_buffers_with_damage(damage).expect("swap buffes with damage");
     }
 
+    #[cfg(any(target_os = "macos", windows))]
     pub fn swap_buffers_with_damage_supported(&self) -> bool {
+        // Disable damage tracking on macOS/Windows since there's no observation of it working.
+        false
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn swap_buffers_with_damage_supported(&self) -> bool {
+        // On X11 damage tracking is behaving in unexpected ways on some NVIDIA systems. Since
+        // there's no compositor supporting it, damage tracking is disabled on X11.
+        //
+        // For more see https://github.com/alacritty/alacritty/issues/6051.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if self.window().xlib_window().is_some() {
+            return false;
+        }
+
         self.windowed_context.swap_buffers_with_damage_supported()
     }
 

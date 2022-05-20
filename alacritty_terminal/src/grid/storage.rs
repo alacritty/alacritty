@@ -175,7 +175,7 @@ impl<T> Storage<T> {
     /// Rotate the grid, moving all lines up/down in history.
     #[inline]
     pub fn rotate(&mut self, count: isize) {
-        debug_assert!(count.abs() as usize <= self.inner.len());
+        debug_assert!(count.unsigned_abs() <= self.inner.len());
 
         let len = self.inner.len();
         self.zero = (self.zero as isize + count + len as isize) as usize % len;
