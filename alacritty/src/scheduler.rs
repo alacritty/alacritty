@@ -78,8 +78,7 @@ impl Scheduler {
         let index = self
             .timers
             .iter()
-            .position(|timer| timer.deadline > deadline)
-            .unwrap_or_else(|| self.timers.len());
+            .position(|timer| timer.deadline > deadline).unwrap_or(self.timers.len());
 
         // Set the automatic event repeat rate.
         let interval = if repeat { Some(interval) } else { None };

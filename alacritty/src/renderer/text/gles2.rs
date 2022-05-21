@@ -1,3 +1,4 @@
+use std::ffi::CStr;
 use std::mem::size_of;
 use std::ptr;
 
@@ -20,6 +21,7 @@ use super::{
 
 // Shader source.
 static TEXT_SHADER_F: &str = include_str!("../../../res/gles2/text.f.glsl");
+static TEXT_SHADER_DUALSRC_BLEND_F: &str = include_str!("../../../res/glsl3/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../../res/gles2/text.v.glsl");
 
 #[derive(Debug)]
@@ -32,13 +34,40 @@ pub struct Gles2Renderer {
     batch: Batch,
     current_atlas: usize,
     active_tex: GLuint,
+    dualsrc_blend: bool,
 }
 
 impl Gles2Renderer {
     pub fn new() -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 
-        let program = TextShaderProgram::new(ShaderVersion::Gles2)?;
+        let dualsrc_blend = unsafe {
+            let extensions = gl::GetString(gl::EXTENSIONS);
+            if extensions.is_null() {
+                // We're on core context, query extensions one by one
+                let mut ext_num = 0;
+                gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut ext_num);
+                let mut found = false;
+                for i in 0..ext_num as gl::types::GLuint {
+                    let extension = CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
+                    if extension.to_string_lossy().contains("GL_EXT_blend_func_extended") ||
+                       extension.to_string_lossy().contains("GL_ARB_blend_func_extended") {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            } else {
+                let extensions = CStr::from_ptr(extensions as *mut _);
+                extensions.to_string_lossy().contains("GL_EXT_blend_func_extended") || extensions.to_string_lossy().contains("GL_ARB_blend_func_extended")
+            }
+        };
+
+        if dualsrc_blend {
+            info!("Using GL_EXT_blend_func_extended");
+        }
+
+        let program = TextShaderProgram::new(ShaderVersion::Gles2, dualsrc_blend)?;
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -139,6 +168,7 @@ impl Gles2Renderer {
             batch: Batch::new(),
             current_atlas: 0,
             active_tex: 0,
+            dualsrc_blend,
         })
     }
 }
@@ -180,6 +210,7 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
             atlas: &mut self.atlas,
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
+            dualsrc_blend: self.dualsrc_blend,
         });
 
         unsafe {
@@ -322,6 +353,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
+    dualsrc_blend: bool,
 }
 
 impl<'a> Drop for RenderApi<'a> {
@@ -375,19 +407,26 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
             gl::BlendFunc(gl::ONE, gl::ZERO);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // First text rendering pass.
             self.program.set_rendering_pass(RenderingPass::SubpixelPass1);
-            gl::BlendFuncSeparate(gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE);
-            gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
+            if self.dualsrc_blend {
+                // Text rendering pass.
+                gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+            }
+            else {
+                // First text rendering pass.
+                gl::BlendFuncSeparate(gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE);
+                gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // Second text rendering pass.
-            self.program.set_rendering_pass(RenderingPass::SubpixelPass2);
-            gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
-            gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
+                // Second text rendering pass.
+                self.program.set_rendering_pass(RenderingPass::SubpixelPass2);
+                gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
+                gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // Third pass.
-            self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
-            gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+                // Third pass.
+                self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
+                gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+                gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
+            }
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
         }
 
@@ -444,8 +483,11 @@ pub struct TextShaderProgram {
 
     /// Rendering pass.
     ///
-    /// The rendering is split into 4 passes. One is used for the background and the rest to
-    /// perform subpixel text rendering according to
+    /// For dual source blending, there're 2 passes, one for background, another for text,
+    /// similar to GLES3 renderer.
+    ///
+    /// If GL_EXT_blend_func_extended is not available, the rendering is split into 4 passes.
+    /// One is used for the background and the rest to perform subpixel text rendering according to
     /// https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md.
     ///
     /// Rendering is split into three passes.
@@ -453,8 +495,12 @@ pub struct TextShaderProgram {
 }
 
 impl TextShaderProgram {
-    pub fn new(shader_version: ShaderVersion) -> Result<Self, Error> {
-        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
+    pub fn new(shader_version: ShaderVersion, dualsrc_blend: bool) -> Result<Self, Error> {
+        let program = if dualsrc_blend {
+            ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_DUALSRC_BLEND_F)?
+        } else {
+            ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_F)?
+        };
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
