@@ -24,9 +24,30 @@ use glyph_cache::{Glyph, LoadGlyph};
 bitflags! {
     #[repr(C)]
     struct RenderingGlyphFlags: u8 {
-        const WIDE_CHAR = 0b0000_0001;
-        const COLORED   = 0b0000_0010;
+        const COLORED   = 0b0000_0001;
+        const WIDE_CHAR = 0b0000_0010;
     }
+}
+
+// NOTE: the passes are shared between gles2 and glsl3 renderers.
+#[repr(u8)]
+enum RenderingPass {
+    /// Rendering pass used to render background color in text shaders.
+    Background = 0,
+
+    /// The first pass to render text. This pass is shared between dual source blending and
+    /// gles2 rendering.
+    SubpixelPass1 = 1,
+
+    /// The second pass to render text.
+    ///
+    /// This pass isn't used for dual source blending.
+    SubpixelPass2 = 2,
+
+    /// The third pass to render text.
+    ///
+    /// This pass isn't used for dual source blending.
+    SubpixelPass3 = 3,
 }
 
 pub trait TextRenderer<'a> {

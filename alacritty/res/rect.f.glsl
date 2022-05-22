@@ -7,7 +7,6 @@ varying color_t color;
 
 #else
 #define float_t float
-#define int_t int
 #define color_t vec4
 
 out vec4 FragColor;

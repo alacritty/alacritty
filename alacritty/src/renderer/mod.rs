@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::fmt;
+use std::str::Utf8Error;
 
 use crossfont::Metrics;
 use log::info;
@@ -216,5 +217,57 @@ impl Renderer {
             TextRendererProvider::Gles2(renderer) => renderer.resize(size_info),
             TextRendererProvider::Glsl3(renderer) => renderer.resize(size_info),
         }
+    }
+}
+
+struct GlExtensions {
+    extensions: Box<dyn Iterator<Item = Result<&'static str, Utf8Error>>>,
+}
+
+impl GlExtensions {
+    fn new() -> Self {
+        unsafe {
+            let extensions = gl::GetString(gl::EXTENSIONS);
+            if extensions.is_null() {
+                // We're on the core profile, query extension one by one.
+                Self::from_core_profile()
+            } else {
+                Self::from_compatible_profile()
+            }
+        }
+    }
+
+    unsafe fn from_core_profile() -> Self {
+        let mut extensions_number = 0;
+        gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
+
+        let extensions = (0..extensions_number as gl::types::GLuint).map(|i| {
+            let extension = CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
+            extension.to_str()
+        });
+
+        GlExtensions { extensions: Box::new(extensions) }
+    }
+
+    unsafe fn from_compatible_profile() -> Self {
+        // SAFETY: OpenGL returns a pointer to a `static` string, so using static lifetime.
+        let extensions = gl::GetString(gl::EXTENSIONS);
+        let extensions: Box<dyn Iterator<Item = Result<&'static str, Utf8Error>>> =
+            match std::mem::transmute::<Result<&'_ str, Utf8Error>, Result<&'static str, Utf8Error>>(
+                CStr::from_ptr(extensions as *mut _).to_str(),
+            ) {
+                Ok(ext) => Box::new(ext.split_whitespace().map(Ok)),
+                Err(err) => Box::new(std::iter::once(Err(err))),
+            };
+
+        GlExtensions { extensions }
+    }
+}
+
+impl Iterator for GlExtensions {
+    type Item = Result<&'static str, Utf8Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.extensions.next()
     }
 }
