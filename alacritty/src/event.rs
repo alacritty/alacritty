@@ -1019,8 +1019,6 @@ impl Mouse {
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from glutin.
-    ///
-    /// Doesn't take self mutably due to borrow checking.
     pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
         match event {
             GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
