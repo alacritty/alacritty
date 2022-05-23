@@ -775,7 +775,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.terminal.mode().contains(TermMode::VI) {
             // If we had search running when leaving Vi mode we should mark terminal fully damaged
             // to cleanup highlighted results.
-            if self.search_state.dfas().is_some() {
+            if self.search_state.dfas.take().is_some() {
                 self.terminal.mark_fully_damaged();
             } else {
                 // Damage line indicator and Vi cursor.
@@ -786,7 +786,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.clear_selection();
         }
 
-        self.cancel_search();
+        if self.search_active() {
+            self.cancel_search();
+        }
+
         self.terminal.toggle_vi_mode();
 
         *self.dirty = true;
@@ -1024,8 +1027,6 @@ impl Mouse {
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from glutin.
-    ///
-    /// Doesn't take self mutably due to borrow checking.
     pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
         match event {
             GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
