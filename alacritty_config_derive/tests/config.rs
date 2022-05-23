@@ -105,7 +105,7 @@ fn config_deserialize() {
     assert_eq!(test.enom_small, TestEnum::One);
     assert_eq!(test.enom_big, TestEnum::Three);
     assert_eq!(test.enom_error, Test::default().enom_error);
-    assert_eq!(test.gone, false);
+    assert!(!test.gone);
     assert_eq!(test.nesting.field1, Test::default().nesting.field1);
     assert_eq!(test.nesting.field2, None);
     assert_eq!(test.nesting.field3, Test::default().nesting.field3);

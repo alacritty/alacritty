@@ -13,6 +13,7 @@ use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
     glutin::platform::unix::EventLoopWindowTargetExtUnix,
+    glutin::window::Theme,
 };
 
 #[rustfmt::skip]
@@ -60,7 +61,7 @@ use crate::gl;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
 
-/// This should match the definition of IDI_ICON from `windows.rc`.
+/// This should match the definition of IDI_ICON from `alacritty.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
 
@@ -233,6 +234,9 @@ impl Window {
         let current_mouse_cursor = CursorIcon::Text;
         windowed_context.window().set_cursor_icon(current_mouse_cursor);
 
+        // Enable IME.
+        windowed_context.window().set_ime_allowed(true);
+
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
@@ -323,14 +327,15 @@ impl Window {
         #[cfg(feature = "x11")]
         let icon = {
             let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
-            let (info, mut reader) = decoder.read_info().expect("invalid embedded icon");
-            let mut buf = vec![0; info.buffer_size()];
+            let mut reader = decoder.read_info().expect("invalid embedded icon");
+            let mut buf = vec![0; reader.output_buffer_size()];
             let _ = reader.next_frame(&mut buf);
-            Icon::from_rgba(buf, info.width, info.height)
+            Icon::from_rgba(buf, reader.info().width, reader.info().height)
         };
 
         let builder = WindowBuilder::new()
             .with_title(&identity.title)
+            .with_name(&identity.class.instance, &identity.class.general)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
@@ -340,17 +345,17 @@ impl Window {
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(icon.ok());
 
-        #[cfg(feature = "wayland")]
-        let builder = builder.with_app_id(identity.class.instance.to_owned());
-
         #[cfg(feature = "x11")]
-        let builder = builder
-            .with_class(identity.class.instance.to_owned(), identity.class.general.to_owned());
-
-        #[cfg(feature = "x11")]
-        let builder = match &window_config.gtk_theme_variant {
-            Some(val) => builder.with_gtk_theme_variant(val.clone()),
+        let builder = match window_config.decorations_theme_variant() {
+            Some(val) => builder.with_gtk_theme_variant(val.to_string()),
             None => builder,
+        };
+
+        #[cfg(feature = "wayland")]
+        let builder = match window_config.decorations_theme_variant() {
+            Some("light") => builder.with_wayland_csd_theme(Theme::Light),
+            // Prefer dark theme by default, since default alacritty theme is dark.
+            _ => builder.with_wayland_csd_theme(Theme::Dark),
         };
 
         builder

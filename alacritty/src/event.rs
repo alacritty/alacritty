@@ -13,8 +13,12 @@ use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
-use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
+use glutin::event::{
+    ElementState, Event as GlutinEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
+};
+use glutin::event_loop::{
+    ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
+};
 use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
@@ -1208,6 +1212,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
                     },
+                    WindowEvent::Ime(ime) => {
+                        if let Ime::Commit(text) = ime {
+                            for ch in text.chars() {
+                                self.received_char(ch)
+                            }
+                        }
+                    },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::ScaleFactorChanged { .. }
@@ -1218,6 +1229,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Touch(_)
+                    | WindowEvent::Occluded(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1289,9 +1301,16 @@ impl Processor {
     }
 
     /// Run the event loop.
-    pub fn run(&mut self, mut event_loop: EventLoop<Event>) {
+    ///
+    /// The result is exit code generate from the loop.
+    pub fn run(
+        &mut self,
+        mut event_loop: EventLoop<Event>,
+        initial_window_options: WindowOptions,
+    ) -> Result<(), Box<dyn Error>> {
         let proxy = event_loop.create_proxy();
         let mut scheduler = Scheduler::new(proxy.clone());
+        let mut initial_window_options = Some(initial_window_options);
 
         // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1299,7 +1318,10 @@ impl Processor {
         #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let mut clipboard = Clipboard::new();
 
-        event_loop.run_return(|event, event_loop, control_flow| {
+        // Disable all device events, since we don't care about them.
+        event_loop.set_device_event_filter(DeviceEventFilter::Always);
+
+        let exit_code = event_loop.run_return(move |event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
@@ -1310,6 +1332,27 @@ impl Processor {
             }
 
             match event {
+                // The event loop just got initialized. Create a window.
+                GlutinEvent::Resumed => {
+                    // Creating window inside event loop is required for platforms like macOS to
+                    // properly initialize state, like tab management. Othwerwise the first window
+                    // won't handle tabs.
+                    let initial_window_options = match initial_window_options.take() {
+                        Some(initial_window_options) => initial_window_options,
+                        None => return,
+                    };
+
+                    if let Err(err) =
+                        self.create_window(event_loop, proxy.clone(), initial_window_options)
+                    {
+                        // Log the error right away since we can't return it.
+                        eprintln!("Error: {}", err);
+                        *control_flow = ControlFlow::ExitWithCode(1);
+                        return;
+                    }
+
+                    info!("Initialisation complete");
+                },
                 // Check for shutdown.
                 GlutinEvent::UserEvent(Event {
                     window_id: Some(window_id),
@@ -1428,11 +1471,18 @@ impl Processor {
                 _ => (),
             }
         });
+
+        if exit_code == 0 {
+            Ok(())
+        } else {
+            Err(format!("Event loop terminated with code: {}", exit_code).into())
+        }
     }
 
     /// Check if an event is irrelevant and can be skipped.
     fn skip_event(event: &GlutinEvent<'_, Event>) -> bool {
         match event {
+            GlutinEvent::NewEvents(StartCause::Init) => false,
             GlutinEvent::WindowEvent { event, .. } => matches!(
                 event,
                 WindowEvent::KeyboardInput { is_synthetic: true, .. }
