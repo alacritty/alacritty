@@ -1,7 +1,6 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
-use std::convert::TryFrom;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
@@ -31,7 +30,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::{Selection, SelectionRange};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
+use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
 #[cfg(not(windows))]
@@ -747,7 +746,7 @@ impl Display {
                 glyph_cache,
                 grid_cells.into_iter().map(|mut cell| {
                     // Underline hints hovered by mouse or vi mode cursor.
-                    let point = viewport_to_point(display_offset, cell.point);
+                    let point = term::viewport_to_point(display_offset, cell.point);
                     if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
                         || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
                     {
@@ -1064,7 +1063,7 @@ impl Display {
         let display_offset = terminal.grid().display_offset();
         for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
             for point in (hint.bounds.start().line.0..=hint.bounds.end().line.0).flat_map(|line| {
-                point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
+                term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
             }) {
                 terminal.damage_line(point.line, 0, terminal.columns() - 1);
             }
@@ -1119,20 +1118,6 @@ impl Drop for Display {
         // contexts might be deleted.
         self.window.make_current()
     }
-}
-
-/// Convert a terminal point to a viewport relative point.
-#[inline]
-pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
-    let viewport_line = point.line.0 + display_offset as i32;
-    usize::try_from(viewport_line).ok().map(|line| Point::new(line, point.column))
-}
-
-/// Convert a viewport relative point to a terminal point.
-#[inline]
-pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
-    let line = Line(point.line as i32) - display_offset;
-    Point::new(line, point.column)
 }
 
 /// Calculate the cell dimensions based on font metrics.

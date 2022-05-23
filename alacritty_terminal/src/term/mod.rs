@@ -73,6 +73,20 @@ impl Default for TermMode {
     }
 }
 
+/// Convert a terminal point to a viewport relative point.
+#[inline]
+pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
+    let viewport_line = point.line.0 + display_offset as i32;
+    usize::try_from(viewport_line).ok().map(|line| Point::new(line, point.column))
+}
+
+/// Convert a viewport relative point to a terminal point.
+#[inline]
+pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
+    let line = Line(point.line as i32) - display_offset;
+    Point::new(line, point.column)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LineDamageBounds {
     /// Damaged line number.
@@ -378,21 +392,23 @@ impl<T> Term<T> {
         self.damage_cursor();
         self.damage.last_cursor = self.grid.cursor.point;
 
-        // Vi mode doesn't update the terminal content, thus only last vi cursor position and a
+        // Vi mode doesn't update the terminal content, thus only last vi cursor position and the
         // new one should be damaged.
         if let Some(last_vi_cursor_point) = self.damage.last_vi_cursor_point.take() {
             self.damage.damage_point(last_vi_cursor_point)
         }
 
+        let display_offset = self.grid().display_offset();
+
         // Damage Vi cursor if it's present.
         if self.mode.contains(TermMode::VI) {
-            let vi_cursor_point = self.grid_point_to_viewport(self.vi_mode_cursor.point);
+            let vi_cursor_point =
+                point_to_viewport(display_offset, self.vi_mode_cursor.point).unwrap();
             self.damage.last_vi_cursor_point = Some(vi_cursor_point);
             self.damage.damage_point(vi_cursor_point);
         }
 
         if self.damage.last_selection != selection {
-            let display_offset = self.grid().display_offset();
             for selection in self.damage.last_selection.into_iter().chain(selection) {
                 self.damage.damage_selection(selection, display_offset, self.columns());
             }
@@ -934,15 +950,6 @@ impl<T> Term<T> {
         let point =
             Point::new(self.grid.cursor.point.line.0 as usize, self.grid.cursor.point.column);
         self.damage.damage_point(point);
-    }
-
-    #[inline]
-    fn grid_point_to_viewport(&self, point: Point) -> Point<usize> {
-        let display_offset = self.grid.display_offset() as i32;
-        let lines = self.screen_lines() as i32 - 1;
-        let line = (display_offset + point.line.0).clamp(0, lines) as usize;
-
-        Point::new(line, point.column)
     }
 }
 
