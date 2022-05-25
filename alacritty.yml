@@ -420,23 +420,23 @@
   # from `0.0` to `1.0`.
   #thickness: 0.15
 
-# Live config reload (changes require restart)
-#live_config_reload: true
+  # Live config reload (changes require restart)
+  #live_config_reload: true
 
-# Shell
-#
-# You can set `shell.program` to the path of your favorite shell, e.g.
-# `/bin/fish`. Entries in `shell.args` are passed unmodified as arguments to the
-# shell.
-#
-# Default:
-#   - (macOS) /bin/bash --login
-#   - (Linux/BSD) user login shell
-#   - (Windows) powershell
-#shell:
-#  program: /bin/bash
-#  args:
-#    - --login
+  # Shell
+  #
+  # You can set `shell.program` to the path of your favorite shell, e.g.
+  # `/bin/fish`. Entries in `shell.args` are passed unmodified as arguments to the
+  # shell.
+  #
+  # Default:
+  #   - (macOS) /bin/bash --login
+  #   - (Linux/BSD) user login shell
+  #   - (Windows) powershell
+  #shell:
+  #  program: /bin/bash
+  #  args:
+  #    - --login
 
 # Startup directory
 #
