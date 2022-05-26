@@ -32,7 +32,7 @@ use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
-use alacritty_terminal::term::{ClipboardType, Term, TermMode};
+use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 
 use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
@@ -43,7 +43,7 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{self, Display, SizeInfo};
+use crate::display::{Display, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -778,8 +778,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             if self.search_state.dfas.take().is_some() {
                 self.terminal.mark_fully_damaged();
             } else {
-                // Damage line indicator and Vi cursor.
-                self.terminal.damage_vi_cursor();
+                // Damage line indicator.
                 self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
             }
         } else {
@@ -1021,7 +1020,7 @@ impl Mouse {
         let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
         let line = min(line, size.bottommost_line().0 as usize);
 
-        display::viewport_to_point(display_offset, Point::new(line, col))
+        term::viewport_to_point(display_offset, Point::new(line, col))
     }
 }
 

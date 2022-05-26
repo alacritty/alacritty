@@ -11,12 +11,12 @@ use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
-use alacritty_terminal::term::{RenderableContent as TerminalContent, Term, TermMode};
+use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term, TermMode};
 
 use crate::config::UiConfig;
 use crate::display::color::{List, DIM_FACTOR};
 use crate::display::hint::HintState;
-use crate::display::{self, Display, MAX_SEARCH_LINES};
+use crate::display::{Display, MAX_SEARCH_LINES};
 use crate::event::SearchState;
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
@@ -63,7 +63,7 @@ impl<'a> RenderableContent<'a> {
         // Convert terminal cursor point to viewport position.
         let cursor_point = terminal_content.cursor.point;
         let display_offset = terminal_content.display_offset;
-        let cursor_point = display::point_to_viewport(display_offset, cursor_point).unwrap();
+        let cursor_point = term::point_to_viewport(display_offset, cursor_point).unwrap();
 
         let hint = if display.hint_state.active() {
             display.hint_state.update_matches(term);
@@ -250,7 +250,7 @@ impl RenderableCell {
 
         // Convert cell point to viewport position.
         let cell_point = cell.point;
-        let point = display::point_to_viewport(display_offset, cell_point).unwrap();
+        let point = term::point_to_viewport(display_offset, cell_point).unwrap();
 
         let flags = cell.flags;
         let underline = cell

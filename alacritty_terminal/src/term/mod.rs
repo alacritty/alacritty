@@ -73,6 +73,20 @@ impl Default for TermMode {
     }
 }
 
+/// Convert a terminal point to a viewport relative point.
+#[inline]
+pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
+    let viewport_line = point.line.0 + display_offset as i32;
+    usize::try_from(viewport_line).ok().map(|line| Point::new(line, point.column))
+}
+
+/// Convert a viewport relative point to a terminal point.
+#[inline]
+pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
+    let line = Line(point.line as i32) - display_offset;
+    Point::new(line, point.column)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LineDamageBounds {
     /// Damaged line number.
@@ -149,6 +163,9 @@ struct TermDamageState {
     /// Old terminal cursor point.
     last_cursor: Point,
 
+    /// Last Vi cursor point.
+    last_vi_cursor_point: Option<Point<usize>>,
+
     /// Old selection range.
     last_selection: Option<SelectionRange>,
 }
@@ -162,6 +179,7 @@ impl TermDamageState {
             is_fully_damaged: true,
             lines,
             last_cursor: Default::default(),
+            last_vi_cursor_point: Default::default(),
             last_selection: Default::default(),
         }
     }
@@ -170,6 +188,7 @@ impl TermDamageState {
     fn resize(&mut self, num_cols: usize, num_lines: usize) {
         // Reset point, so old cursor won't end up outside of the viewport.
         self.last_cursor = Default::default();
+        self.last_vi_cursor_point = None;
         self.last_selection = None;
         self.is_fully_damaged = true;
 
@@ -373,13 +392,23 @@ impl<T> Term<T> {
         self.damage_cursor();
         self.damage.last_cursor = self.grid.cursor.point;
 
+        // Vi mode doesn't update the terminal content, thus only last vi cursor position and the
+        // new one should be damaged.
+        if let Some(last_vi_cursor_point) = self.damage.last_vi_cursor_point.take() {
+            self.damage.damage_point(last_vi_cursor_point)
+        }
+
+        let display_offset = self.grid().display_offset();
+
         // Damage Vi cursor if it's present.
         if self.mode.contains(TermMode::VI) {
-            self.damage_vi_cursor();
+            let vi_cursor_point =
+                point_to_viewport(display_offset, self.vi_mode_cursor.point).unwrap();
+            self.damage.last_vi_cursor_point = Some(vi_cursor_point);
+            self.damage.damage_point(vi_cursor_point);
         }
 
         if self.damage.last_selection != selection {
-            let display_offset = self.grid().display_offset();
             for selection in self.damage.last_selection.into_iter().chain(selection) {
                 self.damage.damage_selection(selection, display_offset, self.columns());
             }
@@ -749,9 +778,7 @@ impl<T> Term<T> {
         }
 
         // Move cursor.
-        self.damage_vi_cursor();
         self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
-        self.damage_vi_cursor();
         self.vi_mode_recompute_selection();
     }
 
@@ -761,7 +788,6 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
-        self.damage_vi_cursor();
         // Move viewport to make point visible.
         self.scroll_to_point(point);
 
@@ -769,7 +795,6 @@ impl<T> Term<T> {
         self.vi_mode_cursor.point = point;
 
         self.vi_mode_recompute_selection();
-        self.damage_vi_cursor();
     }
 
     /// Update the active selection to match the vi mode cursor position.
@@ -925,15 +950,6 @@ impl<T> Term<T> {
         let point =
             Point::new(self.grid.cursor.point.line.0 as usize, self.grid.cursor.point.column);
         self.damage.damage_point(point);
-    }
-
-    /// Damage `Vi` mode cursor.
-    #[inline]
-    pub fn damage_vi_cursor(&mut self) {
-        let line = (self.grid.display_offset() as i32 + self.vi_mode_cursor.point.line.0)
-            .clamp(0, self.screen_lines() as i32 - 1) as usize;
-        let vi_point = Point::new(line, self.vi_mode_cursor.point.column);
-        self.damage.damage_point(vi_point);
     }
 }
 
@@ -2698,6 +2714,19 @@ mod tests {
         let line = vi_cursor_point.line.0 as usize;
         let left = vi_cursor_point.column.0 as usize;
         let right = left;
+
+        let mut damaged_lines = match term.damage(None) {
+            TermDamage::Full => panic!("Expected partial damage, however got Full"),
+            TermDamage::Partial(damaged_lines) => damaged_lines,
+        };
+        // Skip cursor damage information, since we're just testing Vi cursor.
+        damaged_lines.next();
+        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
+        assert_eq!(damaged_lines.next(), None);
+
+        // Ensure that old Vi cursor got damaged as well.
+        term.reset_damage();
+        term.toggle_vi_mode();
         let mut damaged_lines = match term.damage(None) {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
@@ -2804,38 +2833,6 @@ mod tests {
         term.reverse_index();
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right: 8 });
         assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 8, right: 8 });
-    }
-
-    #[test]
-    fn damage_vi_movements() {
-        let size = TermSize::new(10, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
-        let num_cols = term.columns();
-        // Reset terminal for partial damage tests since it's initialized as fully damaged.
-        term.reset_damage();
-
-        // Enable Vi mode.
-        term.toggle_vi_mode();
-
-        // NOTE While we can use `[Term::damage]` to access terminal damage information, in the
-        // following tests we will be accessing `term.damage.lines` directly to avoid adding extra
-        // damage information (like cursor and Vi cursor), which we're not testing.
-
-        term.vi_goto_point(Point::new(Line(5), Column(5)));
-        assert_eq!(term.damage.lines[0], LineDamageBounds { line: 0, left: 0, right: 0 });
-        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 5, right: 5 });
-        term.damage.reset(num_cols);
-
-        term.vi_motion(ViMotion::Up);
-        term.vi_motion(ViMotion::Right);
-        term.vi_motion(ViMotion::Up);
-        term.vi_motion(ViMotion::Left);
-        assert_eq!(term.damage.lines[3], LineDamageBounds { line: 3, left: 5, right: 6 });
-        assert_eq!(term.damage.lines[4], LineDamageBounds { line: 4, left: 5, right: 6 });
-        assert_eq!(term.damage.lines[5], LineDamageBounds { line: 5, left: 5, right: 5 });
-
-        // Ensure that we haven't damaged entire terminal during the test.
-        assert!(!term.damage.is_fully_damaged);
     }
 
     #[test]
