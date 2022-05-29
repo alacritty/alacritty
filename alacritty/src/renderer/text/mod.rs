@@ -29,24 +29,19 @@ bitflags! {
     }
 }
 
-// NOTE: the passes are shared between gles2 and glsl3 renderers.
+// NOTE: the passes are shared between GLES2 and GLSL3 renderers.
 #[repr(u8)]
 enum RenderingPass {
     /// Rendering pass used to render background color in text shaders.
     Background = 0,
 
-    /// The first pass to render text. This pass is shared between dual source blending and
-    /// gles2 rendering.
+    /// The first pass to render text with both GLES2 and GLSL3 renderers.
     SubpixelPass1 = 1,
 
-    /// The second pass to render text.
-    ///
-    /// This pass isn't used for dual source blending.
+    /// The second pass to render text with GLES2 renderer.
     SubpixelPass2 = 2,
 
-    /// The third pass to render text.
-    ///
-    /// This pass isn't used for dual source blending.
+    /// The third pass to render text with GLES2 renderer.
     SubpixelPass3 = 3,
 }
 

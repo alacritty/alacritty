@@ -40,11 +40,12 @@ void main() {
     vec2 cellPosition = cellDim * gridCoords;
 
     fg = vec4(textColor.rgb / 255.0, textColor.a);
+    bg = backgroundColor / 255.0;
 
-    float occupiesCells = 1;
+    float occupiedCells = 1;
     if ((int(fg.a) >= HAS_WIDE_CHAR)) {
         // Update wide char x dimension so it'll cover the following spacer.
-        occupiesCells *= 2;
+        occupiedCells = 2;
 
         // Since we don't perform bitwise operations due to limitations of
         // other renderers we subtract wide char bits keeping only colored.
@@ -53,7 +54,7 @@ void main() {
 
     if (renderingPass == 0) {
         vec2 backgroundDim = cellDim;
-        backgroundDim.x *= occupiesCells;
+        backgroundDim.x *= occupiedCells;
 
         vec2 finalPosition = cellPosition + backgroundDim * position;
         gl_Position =
@@ -73,6 +74,4 @@ void main() {
         vec2 uvSize = uv.zw;
         TexCoords = uvOffset + position * uvSize;
     }
-
-    bg = backgroundColor / 255.0;
 }

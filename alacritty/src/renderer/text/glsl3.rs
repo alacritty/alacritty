@@ -443,7 +443,7 @@ impl TextShaderProgram {
     fn set_rendering_pass(&self, rendering_pass: RenderingPass) {
         let value = match rendering_pass {
             RenderingPass::Background | RenderingPass::SubpixelPass1 => rendering_pass as i32,
-            _ => unreachable!("provided pass is not supported in glsl3 renderer"),
+            _ => unreachable!("provided pass is not supported in GLSL3 renderer"),
         };
 
         unsafe {

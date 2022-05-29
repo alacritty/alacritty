@@ -15,7 +15,7 @@ use crate::renderer::{cstr, Error, GlExtensions};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
 use super::{
-    Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
+    glsl3, Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
     TextRenderBatch, TextRenderer, TextShader,
 };
 
@@ -218,7 +218,7 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
 /// Maximum items to be drawn in a batch.
 ///
 /// We use the closest number to `u16::MAX` dividable by 4 (amount of vertices we push for a glyph),
-/// since it's the maximum possible index in `glDrawElements` in gles2.
+/// since it's the maximum possible index in `glDrawElements` in GLES2.
 const BATCH_MAX: usize = (u16::MAX - u16::MAX % 4) as usize;
 
 #[derive(Debug)]
@@ -461,7 +461,7 @@ pub struct TextShaderProgram {
     /// Rendering pass.
     ///
     /// For dual source blending, there're 2 passes, one for background, another for text,
-    /// similar to GLES3 renderer.
+    /// similar to the GLSL3 renderer.
     ///
     /// If GL_EXT_blend_func_extended is not available, the rendering is split into 4 passes.
     /// One is used for the background and the rest to perform subpixel text rendering according to
@@ -474,7 +474,7 @@ pub struct TextShaderProgram {
 impl TextShaderProgram {
     pub fn new(shader_version: ShaderVersion, dual_source_blending: bool) -> Result<Self, Error> {
         let fragment_shader =
-            if dual_source_blending { &super::glsl3::TEXT_SHADER_F } else { &TEXT_SHADER_F };
+            if dual_source_blending { &glsl3::TEXT_SHADER_F } else { &TEXT_SHADER_F };
 
         let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, fragment_shader)?;
 
