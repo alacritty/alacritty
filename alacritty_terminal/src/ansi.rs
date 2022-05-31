@@ -848,6 +848,7 @@ impl StandardCharset {
         match self {
             StandardCharset::Ascii => c,
             StandardCharset::SpecialCharacterAndLineDrawing => match c {
+                '_' => ' ',
                 '`' => '◆',
                 'a' => '▒',
                 'b' => '\u{2409}', // Symbol for horizontal tabulation
