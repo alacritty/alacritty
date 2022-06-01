@@ -848,16 +848,17 @@ impl StandardCharset {
         match self {
             StandardCharset::Ascii => c,
             StandardCharset::SpecialCharacterAndLineDrawing => match c {
+                '_' => ' ',
                 '`' => '◆',
                 'a' => '▒',
-                'b' => '\t',
-                'c' => '\u{000c}',
-                'd' => '\r',
-                'e' => '\n',
+                'b' => '\u{2409}', // Symbol for horizontal tabulation
+                'c' => '\u{240c}', // Symbol for form feed
+                'd' => '\u{240d}', // Symbol for carriage return
+                'e' => '\u{240a}', // Symbol for line feed
                 'f' => '°',
                 'g' => '±',
-                'h' => '\u{2424}',
-                'i' => '\u{000b}',
+                'h' => '\u{2424}', // Symbol for newline
+                'i' => '\u{240b}', // Symbol for vertical tabulation
                 'j' => '┘',
                 'k' => '┐',
                 'l' => '┌',
