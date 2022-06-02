@@ -287,23 +287,21 @@ impl IndexMut<NamedColor> for Colors {
 mod tests {
     use super::*;
 
-    use std::f64::EPSILON;
-
     #[test]
     fn contrast() {
         let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
         let rgb2 = Rgb { r: 0x00, g: 0x00, b: 0x00 };
-        assert!((rgb1.contrast(rgb2) - 21.).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb2) - 21.).abs() < f64::EPSILON);
 
         let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
-        assert!((rgb1.contrast(rgb1) - 1.).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb1) - 1.).abs() < f64::EPSILON);
 
         let rgb1 = Rgb { r: 0xff, g: 0x00, b: 0xff };
         let rgb2 = Rgb { r: 0x00, g: 0xff, b: 0x00 };
-        assert!((rgb1.contrast(rgb2) - 2.285_543_608_124_253_3).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb2) - 2.285_543_608_124_253_3).abs() < f64::EPSILON);
 
         let rgb1 = Rgb { r: 0x12, g: 0x34, b: 0x56 };
         let rgb2 = Rgb { r: 0xfe, g: 0xdc, b: 0xba };
-        assert!((rgb1.contrast(rgb2) - 9.786_558_997_257_74).abs() < EPSILON);
+        assert!((rgb1.contrast(rgb2) - 9.786_558_997_257_74).abs() < f64::EPSILON);
     }
 }

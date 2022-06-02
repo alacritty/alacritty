@@ -33,7 +33,7 @@ pub struct Config {
     pub pty_config: PtyConfig,
 }
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Default)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct PtyConfig {
     /// Path to a shell program to run on startup.
     pub shell: Option<Program>,

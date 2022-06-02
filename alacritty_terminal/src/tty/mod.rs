@@ -39,7 +39,7 @@ pub trait EventedReadWrite {
 }
 
 /// Events concerning TTY child processes.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
     /// Indicates the child has exited.
     Exited,

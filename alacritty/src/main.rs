@@ -14,6 +14,7 @@ compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#
 
 #[cfg(target_os = "macos")]
 use std::env;
+use std::fmt::Write as _;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::string::ToString;
@@ -233,7 +234,7 @@ fn log_config_path(config: &UiConfig) {
 
     let mut msg = String::from("Configuration files loaded from:");
     for path in &config.config_paths {
-        msg.push_str(&format!("\n  {:?}", path.display()));
+        let _ = write!(msg, "\n  {:?}", path.display());
     }
 
     info!("{}", msg);

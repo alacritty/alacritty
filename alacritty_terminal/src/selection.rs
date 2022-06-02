@@ -16,7 +16,7 @@ use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
 
 /// A Point and side within that point.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Anchor {
     point: Point,
     side: Side,
@@ -89,7 +89,7 @@ impl SelectionRange {
 }
 
 /// Different kinds of selection.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SelectionType {
     Simple,
     Block,
@@ -115,7 +115,7 @@ pub enum SelectionType {
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
 /// [`update`]: enum.Selection.html#method.update
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub ty: SelectionType,
     region: Range<Anchor>,
@@ -236,13 +236,13 @@ impl Selection {
         let range_top = match range.start_bound() {
             Bound::Included(&range_start) => range_start,
             Bound::Excluded(&range_start) => range_start + 1,
-            Bound::Unbounded => Line(i32::min_value()),
+            Bound::Unbounded => Line(i32::MIN),
         };
 
         let range_bottom = match range.end_bound() {
             Bound::Included(&range_end) => range_end,
             Bound::Excluded(&range_end) => range_end - 1,
-            Bound::Unbounded => Line(i32::max_value()),
+            Bound::Unbounded => Line(i32::MAX),
         };
 
         range_bottom >= start && range_top <= end

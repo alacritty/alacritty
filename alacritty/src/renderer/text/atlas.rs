@@ -256,7 +256,7 @@ impl Atlas {
     }
 
     #[inline]
-    pub fn clear_atlas(atlas: &mut Vec<Atlas>, current_atlas: &mut usize) {
+    pub fn clear_atlas(atlas: &mut [Atlas], current_atlas: &mut usize) {
         for atlas in atlas.iter_mut() {
             atlas.clear();
         }
