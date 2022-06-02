@@ -317,6 +317,11 @@ impl EventedReadWrite for Pty {
 
 impl EventedPty for Pty {
     #[inline]
+    fn child_event_token(&self) -> mio::Token {
+        self.signals_token
+    }
+
+    #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
         self.signals.pending().next().and_then(|signal| {
             if signal != sigconsts::SIGCHLD {
@@ -332,11 +337,6 @@ impl EventedPty for Pty {
                 Ok(_) => Some(ChildEvent::Exited),
             }
         })
-    }
-
-    #[inline]
-    fn child_event_token(&self) -> mio::Token {
-        self.signals_token
     }
 }
 

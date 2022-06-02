@@ -158,8 +158,12 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
     type RenderBatch = Batch;
     type Shader = TextShaderProgram;
 
-    fn program(&self) -> &Self::Shader {
-        &self.program
+    fn loader_api(&mut self) -> LoaderApi<'_> {
+        LoaderApi {
+            active_tex: &mut self.active_tex,
+            atlas: &mut self.atlas,
+            current_atlas: &mut self.current_atlas,
+        }
     }
 
     fn with_api<'b: 'a, F, T>(&'b mut self, _: &'b SizeInfo, func: F) -> T
@@ -193,12 +197,8 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
         res
     }
 
-    fn loader_api(&mut self) -> LoaderApi<'_> {
-        LoaderApi {
-            active_tex: &mut self.active_tex,
-            atlas: &mut self.atlas,
-            current_atlas: &mut self.current_atlas,
-        }
+    fn program(&self) -> &Self::Shader {
+        &self.program
     }
 }
 
@@ -242,8 +242,8 @@ impl Batch {
 
 impl TextRenderBatch for Batch {
     #[inline]
-    fn tex(&self) -> GLuint {
-        self.tex
+    fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     #[inline]
@@ -252,8 +252,8 @@ impl TextRenderBatch for Batch {
     }
 
     #[inline]
-    fn is_empty(&self) -> bool {
-        self.len() == 0
+    fn tex(&self) -> GLuint {
+        self.tex
     }
 
     fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph, size_info: &SizeInfo) {

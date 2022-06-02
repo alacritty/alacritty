@@ -955,8 +955,8 @@ impl<T> Term<T> {
 
 impl<T> Dimensions for Term<T> {
     #[inline]
-    fn columns(&self) -> usize {
-        self.grid.columns()
+    fn total_lines(&self) -> usize {
+        self.grid.total_lines()
     }
 
     #[inline]
@@ -965,12 +965,43 @@ impl<T> Dimensions for Term<T> {
     }
 
     #[inline]
-    fn total_lines(&self) -> usize {
-        self.grid.total_lines()
+    fn columns(&self) -> usize {
+        self.grid.columns()
     }
 }
 
 impl<T: EventListener> Handler for Term<T> {
+    #[inline]
+    fn set_title(&mut self, title: Option<String>) {
+        trace!("Setting title to '{:?}'", title);
+
+        self.title = title.clone();
+
+        let title_event = match title {
+            Some(title) => Event::Title(title),
+            None => Event::ResetTitle,
+        };
+
+        self.event_proxy.send_event(title_event);
+    }
+
+    #[inline]
+    fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
+        trace!("Setting cursor style {:?}", style);
+        self.cursor_style = style;
+
+        // Notify UI about blinking changes.
+        self.event_proxy.send_event(Event::CursorBlinkingChange);
+    }
+
+    #[inline]
+    fn set_cursor_shape(&mut self, shape: CursorShape) {
+        trace!("Setting cursor shape {:?}", shape);
+
+        let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+        style.shape = shape;
+    }
+
     /// A character to be displayed.
     #[inline(never)]
     fn input(&mut self, c: char) {
@@ -1052,21 +1083,6 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn decaln(&mut self) {
-        trace!("Decalnning");
-
-        for line in (0..self.screen_lines()).map(Line::from) {
-            for column in 0..self.columns() {
-                let cell = &mut self.grid[line][Column(column)];
-                *cell = Cell::default();
-                cell.c = 'E';
-            }
-        }
-
-        self.mark_fully_damaged();
-    }
-
-    #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("Going to: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
@@ -1135,30 +1151,6 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_forward(&mut self, cols: Column) {
-        trace!("Moving forward: {}", cols);
-        let last_column = cmp::min(self.grid.cursor.point.column + cols, self.last_column());
-
-        let cursor_line = self.grid.cursor.point.line.0 as usize;
-        self.damage.damage_line(cursor_line, self.grid.cursor.point.column.0, last_column.0);
-
-        self.grid.cursor.point.column = last_column;
-        self.grid.cursor.input_needs_wrap = false;
-    }
-
-    #[inline]
-    fn move_backward(&mut self, cols: Column) {
-        trace!("Moving backward: {}", cols);
-        let column = self.grid.cursor.point.column.saturating_sub(cols.0);
-
-        let cursor_line = self.grid.cursor.point.line.0 as usize;
-        self.damage.damage_line(cursor_line, column, self.grid.cursor.point.column.0);
-
-        self.grid.cursor.point.column = Column(column);
-        self.grid.cursor.input_needs_wrap = false;
-    }
-
-    #[inline]
     fn identify_terminal(&mut self, intermediate: Option<char>) {
         match intermediate {
             None => {
@@ -1191,6 +1183,30 @@ impl<T: EventListener> Handler for Term<T> {
             },
             _ => debug!("unknown device status query: {}", arg),
         };
+    }
+
+    #[inline]
+    fn move_forward(&mut self, cols: Column) {
+        trace!("Moving forward: {}", cols);
+        let last_column = cmp::min(self.grid.cursor.point.column + cols, self.last_column());
+
+        let cursor_line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(cursor_line, self.grid.cursor.point.column.0, last_column.0);
+
+        self.grid.cursor.point.column = last_column;
+        self.grid.cursor.input_needs_wrap = false;
+    }
+
+    #[inline]
+    fn move_backward(&mut self, cols: Column) {
+        trace!("Moving backward: {}", cols);
+        let column = self.grid.cursor.point.column.saturating_sub(cols.0);
+
+        let cursor_line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(cursor_line, column, self.grid.cursor.point.column.0);
+
+        self.grid.cursor.point.column = Column(column);
+        self.grid.cursor.input_needs_wrap = false;
     }
 
     #[inline]
@@ -1472,85 +1488,6 @@ impl<T: EventListener> Handler for Term<T> {
 
         let range = self.grid.cursor.point.line..=self.grid.cursor.point.line;
         self.selection = self.selection.take().filter(|s| !s.intersects_range(range));
-    }
-
-    /// Set the indexed color value.
-    #[inline]
-    fn set_color(&mut self, index: usize, color: Rgb) {
-        trace!("Setting color[{}] = {:?}", index, color);
-
-        // Damage terminal if the color changed and it's not the cursor.
-        if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
-            self.mark_fully_damaged();
-        }
-
-        self.colors[index] = Some(color);
-    }
-
-    /// Respond to a color query escape sequence.
-    #[inline]
-    fn dynamic_color_sequence(&mut self, prefix: String, index: usize, terminator: &str) {
-        trace!("Requested write of escape sequence for color code {}: color[{}]", prefix, index);
-
-        let terminator = terminator.to_owned();
-        self.event_proxy.send_event(Event::ColorRequest(
-            index,
-            Arc::new(move |color| {
-                format!(
-                    "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
-                    prefix, color.r, color.g, color.b, terminator
-                )
-            }),
-        ));
-    }
-
-    /// Reset the indexed color to original value.
-    #[inline]
-    fn reset_color(&mut self, index: usize) {
-        trace!("Resetting color[{}]", index);
-
-        // Damage terminal if the color changed and it's not the cursor.
-        if index != NamedColor::Cursor as usize && self.colors[index].is_some() {
-            self.mark_fully_damaged();
-        }
-
-        self.colors[index] = None;
-    }
-
-    /// Store data into clipboard.
-    #[inline]
-    fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
-        let clipboard_type = match clipboard {
-            b'c' => ClipboardType::Clipboard,
-            b'p' | b's' => ClipboardType::Selection,
-            _ => return,
-        };
-
-        if let Ok(bytes) = base64::decode(base64) {
-            if let Ok(text) = String::from_utf8(bytes) {
-                self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
-            }
-        }
-    }
-
-    /// Load data from clipboard.
-    #[inline]
-    fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
-        let clipboard_type = match clipboard {
-            b'c' => ClipboardType::Clipboard,
-            b'p' | b's' => ClipboardType::Selection,
-            _ => return,
-        };
-
-        let terminator = terminator.to_owned();
-
-        self.event_proxy.send_event(Event::ClipboardLoad(
-            clipboard_type,
-            Arc::new(move |text| {
-                let base64 = base64::encode(&text);
-                format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
-            }),
-        ));
     }
 
     #[inline]
@@ -1865,46 +1802,109 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-        trace!("Configuring charset {:?} as {:?}", index, charset);
-        self.grid.cursor.charsets[index] = charset;
-    }
-
-    #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
         trace!("Setting active charset {:?}", index);
         self.active_charset = index;
     }
 
     #[inline]
-    fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
-        trace!("Setting cursor style {:?}", style);
-        self.cursor_style = style;
-
-        // Notify UI about blinking changes.
-        self.event_proxy.send_event(Event::CursorBlinkingChange);
+    fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
+        trace!("Configuring charset {:?} as {:?}", index, charset);
+        self.grid.cursor.charsets[index] = charset;
     }
 
+    /// Set the indexed color value.
     #[inline]
-    fn set_cursor_shape(&mut self, shape: CursorShape) {
-        trace!("Setting cursor shape {:?}", shape);
+    fn set_color(&mut self, index: usize, color: Rgb) {
+        trace!("Setting color[{}] = {:?}", index, color);
 
-        let style = self.cursor_style.get_or_insert(self.default_cursor_style);
-        style.shape = shape;
+        // Damage terminal if the color changed and it's not the cursor.
+        if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
+            self.mark_fully_damaged();
+        }
+
+        self.colors[index] = Some(color);
     }
 
+    /// Respond to a color query escape sequence.
     #[inline]
-    fn set_title(&mut self, title: Option<String>) {
-        trace!("Setting title to '{:?}'", title);
+    fn dynamic_color_sequence(&mut self, prefix: String, index: usize, terminator: &str) {
+        trace!("Requested write of escape sequence for color code {}: color[{}]", prefix, index);
 
-        self.title = title.clone();
+        let terminator = terminator.to_owned();
+        self.event_proxy.send_event(Event::ColorRequest(
+            index,
+            Arc::new(move |color| {
+                format!(
+                    "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}{4}",
+                    prefix, color.r, color.g, color.b, terminator
+                )
+            }),
+        ));
+    }
 
-        let title_event = match title {
-            Some(title) => Event::Title(title),
-            None => Event::ResetTitle,
+    /// Reset the indexed color to original value.
+    #[inline]
+    fn reset_color(&mut self, index: usize) {
+        trace!("Resetting color[{}]", index);
+
+        // Damage terminal if the color changed and it's not the cursor.
+        if index != NamedColor::Cursor as usize && self.colors[index].is_some() {
+            self.mark_fully_damaged();
+        }
+
+        self.colors[index] = None;
+    }
+
+    /// Store data into clipboard.
+    #[inline]
+    fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
+        let clipboard_type = match clipboard {
+            b'c' => ClipboardType::Clipboard,
+            b'p' | b's' => ClipboardType::Selection,
+            _ => return,
         };
 
-        self.event_proxy.send_event(title_event);
+        if let Ok(bytes) = base64::decode(base64) {
+            if let Ok(text) = String::from_utf8(bytes) {
+                self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
+            }
+        }
+    }
+
+    /// Load data from clipboard.
+    #[inline]
+    fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
+        let clipboard_type = match clipboard {
+            b'c' => ClipboardType::Clipboard,
+            b'p' | b's' => ClipboardType::Selection,
+            _ => return,
+        };
+
+        let terminator = terminator.to_owned();
+
+        self.event_proxy.send_event(Event::ClipboardLoad(
+            clipboard_type,
+            Arc::new(move |text| {
+                let base64 = base64::encode(&text);
+                format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
+            }),
+        ));
+    }
+
+    #[inline]
+    fn decaln(&mut self) {
+        trace!("Decalnning");
+
+        for line in (0..self.screen_lines()).map(Line::from) {
+            for column in 0..self.columns() {
+                let cell = &mut self.grid[line][Column(column)];
+                *cell = Cell::default();
+                cell.c = 'E';
+            }
+        }
+
+        self.mark_fully_damaged();
     }
 
     #[inline]

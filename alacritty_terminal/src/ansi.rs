@@ -1530,25 +1530,25 @@ mod tests {
     }
 
     impl Handler for MockHandler {
-        fn terminal_attribute(&mut self, attr: Attr) {
-            self.attr = Some(attr);
-        }
-
-        fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-            self.index = index;
-            self.charset = charset;
-        }
-
-        fn set_active_charset(&mut self, index: CharsetIndex) {
-            self.index = index;
-        }
-
         fn identify_terminal(&mut self, _intermediate: Option<char>) {
             self.identity_reported = true;
         }
 
         fn reset_state(&mut self) {
             *self = Self::default();
+        }
+
+        fn terminal_attribute(&mut self, attr: Attr) {
+            self.attr = Some(attr);
+        }
+
+        fn set_active_charset(&mut self, index: CharsetIndex) {
+            self.index = index;
+        }
+
+        fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
+            self.index = index;
+            self.charset = charset;
         }
 
         fn set_color(&mut self, _: usize, c: Rgb) {

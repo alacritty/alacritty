@@ -148,6 +148,11 @@ impl GridCell for Cell {
     }
 
     #[inline]
+    fn reset(&mut self, template: &Self) {
+        *self = Cell { bg: template.bg, ..Cell::default() };
+    }
+
+    #[inline]
     fn flags(&self) -> &Flags {
         &self.flags
     }
@@ -155,11 +160,6 @@ impl GridCell for Cell {
     #[inline]
     fn flags_mut(&mut self) -> &mut Flags {
         &mut self.flags
-    }
-
-    #[inline]
-    fn reset(&mut self, template: &Self) {
-        *self = Cell { bg: template.bg, ..Cell::default() };
     }
 }
 

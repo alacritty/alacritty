@@ -210,33 +210,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.display.size_info
     }
 
-    fn scroll(&mut self, scroll: Scroll) {
-        let old_offset = self.terminal.grid().display_offset() as i32;
-
-        self.terminal.scroll_display(scroll);
-
-        // Keep track of manual display offset changes during search.
-        if self.search_active() {
-            let display_offset = self.terminal.grid().display_offset();
-            self.search_state.display_offset_delta += old_offset - display_offset as i32;
-        }
-
-        // Update selection.
-        if self.terminal.mode().contains(TermMode::VI)
-            && self.terminal.selection.as_ref().map_or(true, |s| !s.is_empty())
-        {
-            self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
-        } else if self.mouse.left_button_state == ElementState::Pressed
-            || self.mouse.right_button_state == ElementState::Pressed
-        {
-            let display_offset = self.terminal.grid().display_offset();
-            let point = self.mouse.point(&self.size_info(), display_offset);
-            self.update_selection(point, self.mouse.cell_side);
-        }
-
-        *self.dirty = true;
-    }
-
     // Copy text selection.
     fn copy_selection(&mut self, ty: ClipboardType) {
         let text = match self.terminal.selection_to_string().filter(|s| !s.is_empty()) {
@@ -249,37 +222,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
         self.clipboard.store(ty, text);
-    }
-
-    fn selection_is_empty(&self) -> bool {
-        self.terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true)
-    }
-
-    fn clear_selection(&mut self) {
-        self.terminal.selection = None;
-        *self.dirty = true;
-    }
-
-    fn update_selection(&mut self, mut point: Point, side: Side) {
-        let mut selection = match self.terminal.selection.take() {
-            Some(selection) => selection,
-            None => return,
-        };
-
-        // Treat motion over message bar like motion over the last line.
-        point.line = min(point.line, self.terminal.bottommost_line());
-
-        // Update selection.
-        selection.update(point, side);
-
-        // Move vi cursor and expand selection.
-        if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
-            self.terminal.vi_mode_cursor.point = point;
-            selection.include_all();
-        }
-
-        self.terminal.selection = Some(selection);
-        *self.dirty = true;
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -304,10 +246,35 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    #[inline]
-    fn mouse_mode(&self) -> bool {
-        self.terminal.mode().intersects(TermMode::MOUSE_MODE)
-            && !self.terminal.mode().contains(TermMode::VI)
+    fn update_selection(&mut self, mut point: Point, side: Side) {
+        let mut selection = match self.terminal.selection.take() {
+            Some(selection) => selection,
+            None => return,
+        };
+
+        // Treat motion over message bar like motion over the last line.
+        point.line = min(point.line, self.terminal.bottommost_line());
+
+        // Update selection.
+        selection.update(point, side);
+
+        // Move vi cursor and expand selection.
+        if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
+            self.terminal.vi_mode_cursor.point = point;
+            selection.include_all();
+        }
+
+        self.terminal.selection = Some(selection);
+        *self.dirty = true;
+    }
+
+    fn clear_selection(&mut self) {
+        self.terminal.selection = None;
+        *self.dirty = true;
+    }
+
+    fn selection_is_empty(&self) -> bool {
+        self.terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true)
     }
 
     #[inline]
@@ -333,6 +300,33 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn modifiers(&mut self) -> &mut ModifiersState {
         self.modifiers
+    }
+
+    fn scroll(&mut self, scroll: Scroll) {
+        let old_offset = self.terminal.grid().display_offset() as i32;
+
+        self.terminal.scroll_display(scroll);
+
+        // Keep track of manual display offset changes during search.
+        if self.search_active() {
+            let display_offset = self.terminal.grid().display_offset();
+            self.search_state.display_offset_delta += old_offset - display_offset as i32;
+        }
+
+        // Update selection.
+        if self.terminal.mode().contains(TermMode::VI)
+            && self.terminal.selection.as_ref().map_or(true, |s| !s.is_empty())
+        {
+            self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
+        } else if self.mouse.left_button_state == ElementState::Pressed
+            || self.mouse.right_button_state == ElementState::Pressed
+        {
+            let display_offset = self.terminal.grid().display_offset();
+            let point = self.mouse.point(&self.size_info(), display_offset);
+            self.update_selection(point, self.mouse.cell_side);
+        }
+
+        *self.dirty = true;
     }
 
     #[inline]
@@ -399,22 +393,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             .send_event(Event::new(EventType::CreateWindow(WindowOptions::default()), None));
     }
 
-    fn spawn_daemon<I, S>(&self, program: &str, args: I)
-    where
-        I: IntoIterator<Item = S> + Debug + Copy,
-        S: AsRef<OsStr>,
-    {
-        #[cfg(not(windows))]
-        let result = spawn_daemon(program, args, self.master_fd, self.shell_pid);
-        #[cfg(windows)]
-        let result = spawn_daemon(program, args);
-
-        match result {
-            Ok(_) => debug!("Launched {} with args {:?}", program, args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
-        }
-    }
-
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
         let font = self.config.font.clone().with_size(*self.font_size);
@@ -435,6 +413,32 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.message_buffer.pop();
             *self.dirty = true;
         }
+    }
+
+    fn message(&self) -> Option<&Message> {
+        self.message_buffer.message()
+    }
+
+    fn config(&self) -> &UiConfig {
+        self.config
+    }
+
+    fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
+        self.event_loop
+    }
+
+    #[inline]
+    fn mouse_mode(&self) -> bool {
+        self.terminal.mode().intersects(TermMode::MOUSE_MODE)
+            && !self.terminal.mode().contains(TermMode::VI)
+    }
+
+    fn clipboard_mut(&mut self) -> &mut Clipboard {
+        self.clipboard
+    }
+
+    fn scheduler_mut(&mut self) -> &mut Scheduler {
+        self.scheduler
     }
 
     #[inline]
@@ -574,6 +578,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.update_search();
     }
 
+    /// Find the next search match.
+    fn search_next(&mut self, origin: Point, direction: Direction, side: Side) -> Option<Match> {
+        self.search_state
+            .dfas
+            .as_ref()
+            .and_then(|dfas| self.terminal.search_next(dfas, origin, direction, side, None))
+    }
+
     #[inline]
     fn advance_search_origin(&mut self, direction: Direction) {
         // Use focused match as new search origin if available.
@@ -619,14 +631,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.search_state.origin = new_origin;
     }
 
-    /// Find the next search match.
-    fn search_next(&mut self, origin: Point, direction: Direction, side: Side) -> Option<Match> {
-        self.search_state
-            .dfas
-            .as_ref()
-            .and_then(|dfas| self.terminal.search_next(dfas, origin, direction, side, None))
-    }
-
     #[inline]
     fn search_direction(&self) -> Direction {
         self.search_state.direction
@@ -659,6 +663,31 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.config.mouse.hide_when_typing {
             self.display.window.set_mouse_visible(false);
         }
+    }
+
+    /// Toggle the vi mode status.
+    #[inline]
+    fn toggle_vi_mode(&mut self) {
+        if self.terminal.mode().contains(TermMode::VI) {
+            // If we had search running when leaving Vi mode we should mark terminal fully damaged
+            // to cleanup highlighted results.
+            if self.search_state.dfas.take().is_some() {
+                self.terminal.mark_fully_damaged();
+            } else {
+                // Damage line indicator.
+                self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
+            }
+        } else {
+            self.clear_selection();
+        }
+
+        if self.search_active() {
+            self.cancel_search();
+        }
+
+        self.terminal.toggle_vi_mode();
+
+        *self.dirty = true;
     }
 
     /// Process a new character for keyboard hints.
@@ -769,49 +798,20 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    /// Toggle the vi mode status.
-    #[inline]
-    fn toggle_vi_mode(&mut self) {
-        if self.terminal.mode().contains(TermMode::VI) {
-            // If we had search running when leaving Vi mode we should mark terminal fully damaged
-            // to cleanup highlighted results.
-            if self.search_state.dfas.take().is_some() {
-                self.terminal.mark_fully_damaged();
-            } else {
-                // Damage line indicator.
-                self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
-            }
-        } else {
-            self.clear_selection();
+    fn spawn_daemon<I, S>(&self, program: &str, args: I)
+    where
+        I: IntoIterator<Item = S> + Debug + Copy,
+        S: AsRef<OsStr>,
+    {
+        #[cfg(not(windows))]
+        let result = spawn_daemon(program, args, self.master_fd, self.shell_pid);
+        #[cfg(windows)]
+        let result = spawn_daemon(program, args);
+
+        match result {
+            Ok(_) => debug!("Launched {} with args {:?}", program, args),
+            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
         }
-
-        if self.search_active() {
-            self.cancel_search();
-        }
-
-        self.terminal.toggle_vi_mode();
-
-        *self.dirty = true;
-    }
-
-    fn message(&self) -> Option<&Message> {
-        self.message_buffer.message()
-    }
-
-    fn config(&self) -> &UiConfig {
-        self.config
-    }
-
-    fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
-        self.event_loop
-    }
-
-    fn clipboard_mut(&mut self) -> &mut Clipboard {
-        self.clipboard
-    }
-
-    fn scheduler_mut(&mut self) -> &mut Scheduler {
-        self.scheduler
     }
 }
 

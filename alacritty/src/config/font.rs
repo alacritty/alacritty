@@ -150,11 +150,11 @@ impl<'de> Deserialize<'de> for Size {
                 f.write_str("f64 or u64")
             }
 
-            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
+            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
                 Ok(Size(FontSize::new(value as f32)))
             }
 
-            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
                 Ok(Size(FontSize::new(value as f32)))
             }
         }

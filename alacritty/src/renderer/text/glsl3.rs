@@ -151,6 +151,14 @@ impl<'a> TextRenderer<'a> for Glsl3Renderer {
     type RenderBatch = Batch;
     type Shader = TextShaderProgram;
 
+    fn loader_api(&mut self) -> LoaderApi<'_> {
+        LoaderApi {
+            active_tex: &mut self.active_tex,
+            atlas: &mut self.atlas,
+            current_atlas: &mut self.current_atlas,
+        }
+    }
+
     fn with_api<'b: 'a, F, T>(&'b mut self, size_info: &'b SizeInfo, func: F) -> T
     where
         F: FnOnce(Self::RenderApi) -> T,
@@ -186,14 +194,6 @@ impl<'a> TextRenderer<'a> for Glsl3Renderer {
 
     fn program(&self) -> &Self::Shader {
         &self.program
-    }
-
-    fn loader_api(&mut self) -> LoaderApi<'_> {
-        LoaderApi {
-            active_tex: &mut self.active_tex,
-            atlas: &mut self.atlas,
-            current_atlas: &mut self.current_atlas,
-        }
     }
 }
 
@@ -326,8 +326,8 @@ pub struct Batch {
 
 impl TextRenderBatch for Batch {
     #[inline]
-    fn tex(&self) -> GLuint {
-        self.tex
+    fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     #[inline]
@@ -336,8 +336,8 @@ impl TextRenderBatch for Batch {
     }
 
     #[inline]
-    fn is_empty(&self) -> bool {
-        self.len() == 0
+    fn tex(&self) -> GLuint {
+        self.tex
     }
 
     fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph, _: &SizeInfo) {

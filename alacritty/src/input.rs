@@ -994,45 +994,12 @@ mod tests {
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
-        fn search_next(
-            &mut self,
-            _origin: Point,
-            _direction: Direction,
-            _side: Side,
-        ) -> Option<Match> {
-            None
-        }
-
-        fn search_direction(&self) -> Direction {
-            Direction::Right
-        }
-
-        fn search_active(&self) -> bool {
-            false
-        }
-
-        fn terminal(&self) -> &Term<T> {
-            self.terminal
-        }
-
-        fn terminal_mut(&mut self) -> &mut Term<T> {
-            self.terminal
-        }
-
         fn size_info(&self) -> SizeInfo {
             *self.size_info
         }
 
         fn selection_is_empty(&self) -> bool {
             true
-        }
-
-        fn scroll(&mut self, scroll: Scroll) {
-            self.terminal.scroll_display(scroll);
-        }
-
-        fn mouse_mode(&self) -> bool {
-            false
         }
 
         #[inline]
@@ -1057,12 +1024,24 @@ mod tests {
             &mut self.modifiers
         }
 
+        fn scroll(&mut self, scroll: Scroll) {
+            self.terminal.scroll_display(scroll);
+        }
+
         fn window(&mut self) -> &mut Window {
             unimplemented!();
         }
 
         fn display(&mut self) -> &mut Display {
             unimplemented!();
+        }
+
+        fn terminal(&self) -> &Term<T> {
+            self.terminal
+        }
+
+        fn terminal_mut(&mut self) -> &mut Term<T> {
+            self.terminal
         }
 
         fn pop_message(&mut self) {
@@ -1077,16 +1056,37 @@ mod tests {
             self.config
         }
 
-        fn clipboard_mut(&mut self) -> &mut Clipboard {
-            self.clipboard
-        }
-
         fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
             unimplemented!();
         }
 
+        fn mouse_mode(&self) -> bool {
+            false
+        }
+
+        fn clipboard_mut(&mut self) -> &mut Clipboard {
+            self.clipboard
+        }
+
         fn scheduler_mut(&mut self) -> &mut Scheduler {
             unimplemented!();
+        }
+
+        fn search_next(
+            &mut self,
+            _origin: Point,
+            _direction: Direction,
+            _side: Side,
+        ) -> Option<Match> {
+            None
+        }
+
+        fn search_direction(&self) -> Direction {
+            Direction::Right
+        }
+
+        fn search_active(&self) -> bool {
+            false
         }
     }
 

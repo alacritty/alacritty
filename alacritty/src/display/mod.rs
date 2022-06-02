@@ -278,8 +278,8 @@ impl SizeInfo<f32> {
 
 impl TermDimensions for SizeInfo {
     #[inline]
-    fn columns(&self) -> usize {
-        self.columns
+    fn total_lines(&self) -> usize {
+        self.screen_lines()
     }
 
     #[inline]
@@ -288,8 +288,8 @@ impl TermDimensions for SizeInfo {
     }
 
     #[inline]
-    fn total_lines(&self) -> usize {
-        self.screen_lines()
+    fn columns(&self) -> usize {
+        self.columns
     }
 }
 

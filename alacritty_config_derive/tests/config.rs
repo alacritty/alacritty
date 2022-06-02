@@ -131,6 +131,10 @@ struct Logger {
 }
 
 impl Log for Logger {
+    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
+        true
+    }
+
     fn log(&self, record: &Record<'_>) {
         assert_eq!(record.target(), env!("CARGO_PKG_NAME"));
 
@@ -145,10 +149,6 @@ impl Log for Logger {
             },
             _ => unreachable!(),
         }
-    }
-
-    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
-        true
     }
 
     fn flush(&self) {}
