@@ -106,7 +106,7 @@ impl WindowConfig {
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Identity {
     /// Window title.
     pub title: String,

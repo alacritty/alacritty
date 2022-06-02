@@ -16,7 +16,7 @@ use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
 
 /// A Point and side within that point.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Anchor {
     point: Point,
     side: Side,
@@ -89,7 +89,7 @@ impl SelectionRange {
 }
 
 /// Different kinds of selection.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SelectionType {
     Simple,
     Block,
@@ -115,7 +115,7 @@ pub enum SelectionType {
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
 /// [`update`]: enum.Selection.html#method.update
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub ty: SelectionType,
     region: Range<Anchor>,

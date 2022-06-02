@@ -174,7 +174,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
 }
 
 /// Terminal specific cli options which can be passed to new windows via IPC.
-#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq, Eq)]
 pub struct TerminalOptions {
     /// Start the shell in the specified working directory.
     #[clap(long)]
@@ -225,7 +225,7 @@ impl From<TerminalOptions> for PtyConfig {
 }
 
 /// Window specific cli options which can be passed to new windows via IPC.
-#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq, Eq)]
 pub struct WindowIdentity {
     /// Defines the window title [default: Alacritty].
     #[clap(short, long)]
@@ -270,14 +270,14 @@ pub struct MessageOptions {
 
 /// Available socket messages.
 #[cfg(unix)]
-#[derive(Subcommand, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Subcommand, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
     CreateWindow(WindowOptions),
 }
 
 /// Subset of options that we pass to a 'create-window' subcommand.
-#[derive(Serialize, Deserialize, Args, Default, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Args, Default, Clone, Debug, PartialEq, Eq)]
 pub struct WindowOptions {
     /// Terminal options which can be passed via IPC.
     #[clap(flatten)]

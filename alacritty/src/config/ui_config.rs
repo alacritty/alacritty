@@ -144,7 +144,7 @@ impl UiConfig {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 struct KeyBindings(Vec<KeyBinding>);
 
 impl Default for KeyBindings {
@@ -162,7 +162,7 @@ impl<'de> Deserialize<'de> for KeyBindings {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 struct MouseBindings(Vec<MouseBinding>);
 
 impl Default for MouseBindings {
