@@ -293,7 +293,7 @@ impl TermDimensions for SizeInfo {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct DisplayUpdate {
     pub dirty: bool,
 
