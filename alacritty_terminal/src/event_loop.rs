@@ -24,7 +24,7 @@ use crate::{ansi, thread, tty};
 const READ_BUFFER_SIZE: usize = 0x10_0000;
 
 /// Max bytes to read from the PTY while the terminal is locked.
-const MAX_LOCKED_READ: usize = u16::max_value() as usize;
+const MAX_LOCKED_READ: usize = u16::MAX as usize;
 
 /// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]

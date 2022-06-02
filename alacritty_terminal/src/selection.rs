@@ -236,13 +236,13 @@ impl Selection {
         let range_top = match range.start_bound() {
             Bound::Included(&range_start) => range_start,
             Bound::Excluded(&range_start) => range_start + 1,
-            Bound::Unbounded => Line(i32::min_value()),
+            Bound::Unbounded => Line(i32::MIN),
         };
 
         let range_bottom = match range.end_bound() {
             Bound::Included(&range_end) => range_end,
             Bound::Excluded(&range_end) => range_end - 1,
-            Bound::Unbounded => Line(i32::max_value()),
+            Bound::Unbounded => Line(i32::MAX),
         };
 
         range_bottom >= start && range_top <= end

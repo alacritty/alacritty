@@ -75,6 +75,8 @@ impl Scheduler {
         let deadline = Instant::now() + interval;
 
         // Get insert position in the schedule.
+        // Clippy thinks len() is trivial for linked lists
+        #[allow(clippy::unnecessary_lazy_evaluations)]
         let index = self
             .timers
             .iter()
