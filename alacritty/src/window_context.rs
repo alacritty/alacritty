@@ -324,6 +324,9 @@ impl WindowContext {
             return;
         }
 
+        // Force the display to process any pending display update.
+        self.display.process_renderer_update();
+
         if self.dirty {
             self.dirty = false;
 

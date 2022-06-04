@@ -267,16 +267,18 @@ impl GlyphCache {
     /// Clear currently cached data in both GL and the registry.
     pub fn clear_glyph_cache<L: LoadGlyph>(&mut self, loader: &mut L) {
         loader.clear();
-        self.cache = HashMap::default();
+        self.cache = Default::default();
 
         self.load_common_glyphs(loader);
     }
 
-    pub fn update_font_size<L: LoadGlyph>(
+    /// Update the inner font size.
+    ///
+    /// NOTE: to reload renderers font [[`Self::clear_glyph_cache`]] should be called afterwards.
+    pub fn update_font_size(
         &mut self,
         font: &Font,
         scale_factor: f64,
-        loader: &mut L,
     ) -> Result<(), crossfont::Error> {
         // Update dpi scaling.
         self.rasterizer.update_dpr(scale_factor as f32);
@@ -303,8 +305,6 @@ impl GlyphCache {
         self.bold_italic_key = bold_italic;
         self.metrics = metrics;
         self.builtin_box_drawing = font.builtin_box_drawing;
-
-        self.clear_glyph_cache(loader);
 
         Ok(())
     }
