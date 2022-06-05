@@ -29,7 +29,7 @@ bitflags! {
     }
 }
 
-// NOTE: the passes are shared between GLES2 and GLSL3 renderers.
+/// Rendering passes, for both GLES2 and GLSL3 renderer.
 #[repr(u8)]
 enum RenderingPass {
     /// Rendering pass used to render background color in text shaders.

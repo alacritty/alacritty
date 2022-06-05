@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::fmt;
-use std::sync::Once;
+use std::sync::{Mutex, Once};
 
 use crossfont::Metrics;
 use log::info;
@@ -228,17 +228,18 @@ impl GlExtensions {
     ///
     /// This function will lazyly load OpenGL extensions.
     fn contains(extension: &str) -> bool {
-        static mut OPENGL_EXTENSIONS: Option<HashSet<&'static str>> = None;
+        static OPENGL_EXTENSIONS: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
         static EXTENSIONS_LOADED: Once = Once::new();
 
         EXTENSIONS_LOADED.call_once(|| unsafe {
             let extensions = gl::GetString(gl::EXTENSIONS);
+            let mut opengl_extensions = OPENGL_EXTENSIONS.lock().unwrap();
 
             if extensions.is_null() {
                 let mut extensions_number = 0;
                 gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
 
-                OPENGL_EXTENSIONS = Some(
+                *opengl_extensions = Some(
                     (0..extensions_number as gl::types::GLuint)
                         .flat_map(|i| {
                             let extension =
@@ -247,21 +248,14 @@ impl GlExtensions {
                         })
                         .collect(),
                 );
-
-                return;
+            } else {
+                *opengl_extensions = Some(match CStr::from_ptr(extensions as *mut _).to_str() {
+                    Ok(ext) => ext.split_whitespace().collect(),
+                    Err(_) => HashSet::new(),
+                });
             }
-
-            OPENGL_EXTENSIONS = match CStr::from_ptr(extensions as *mut _).to_str() {
-                Ok(ext) => Some(ext.split_whitespace().collect()),
-                Err(_) => Default::default(),
-            };
         });
 
-        unsafe {
-            OPENGL_EXTENSIONS
-                .as_mut()
-                .map(|extensions| extensions.contains(extension))
-                .unwrap_or_default()
-        }
+        OPENGL_EXTENSIONS.lock().unwrap().as_ref().unwrap().contains(extension)
     }
 }
