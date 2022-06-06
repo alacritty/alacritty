@@ -1061,9 +1061,11 @@ impl Display {
     #[inline]
     fn damage_highlighted_hints<T: EventListener>(&self, terminal: &mut Term<T>) {
         let display_offset = terminal.grid().display_offset();
+        let last_visible_line = terminal.screen_lines() - 1;
         for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
             for point in (hint.bounds.start().line.0..=hint.bounds.end().line.0).flat_map(|line| {
                 term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
+                    .filter(|point| point.line <= last_visible_line)
             }) {
                 terminal.damage_line(point.line, 0, terminal.columns() - 1);
             }
