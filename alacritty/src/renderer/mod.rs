@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::fmt;
-use std::sync::{Mutex, Once};
 
 use crossfont::Metrics;
 use log::info;
+use once_cell::sync::OnceCell;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
@@ -228,34 +228,30 @@ impl GlExtensions {
     ///
     /// This function will lazyly load OpenGL extensions.
     fn contains(extension: &str) -> bool {
-        static OPENGL_EXTENSIONS: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
-        static EXTENSIONS_LOADED: Once = Once::new();
+        static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str>> = OnceCell::new();
 
-        EXTENSIONS_LOADED.call_once(|| unsafe {
-            let extensions = gl::GetString(gl::EXTENSIONS);
-            let mut opengl_extensions = OPENGL_EXTENSIONS.lock().unwrap();
+        OPENGL_EXTENSIONS
+            .get_or_init(|| unsafe {
+                let extensions = gl::GetString(gl::EXTENSIONS);
 
-            if extensions.is_null() {
-                let mut extensions_number = 0;
-                gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
+                if extensions.is_null() {
+                    let mut extensions_number = 0;
+                    gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
 
-                *opengl_extensions = Some(
                     (0..extensions_number as gl::types::GLuint)
                         .flat_map(|i| {
                             let extension =
                                 CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
                             extension.to_str()
                         })
-                        .collect(),
-                );
-            } else {
-                *opengl_extensions = Some(match CStr::from_ptr(extensions as *mut _).to_str() {
-                    Ok(ext) => ext.split_whitespace().collect(),
-                    Err(_) => HashSet::new(),
-                });
-            }
-        });
-
-        OPENGL_EXTENSIONS.lock().unwrap().as_ref().unwrap().contains(extension)
+                        .collect()
+                } else {
+                    match CStr::from_ptr(extensions as *mut _).to_str() {
+                        Ok(ext) => ext.split_whitespace().collect(),
+                        Err(_) => HashSet::new(),
+                    }
+                }
+            })
+            .contains(extension)
     }
 }
