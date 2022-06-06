@@ -406,7 +406,7 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
                 gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
                 gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-                // Third pass.
+                // Third text rendering pass.
                 self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
                 gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
             }
@@ -458,7 +458,7 @@ pub struct TextShaderProgram {
 
     /// Rendering pass.
     ///
-    /// For dual source blending, there're 2 passes, one for background, another for text,
+    /// For dual source blending, there are 2 passes; one for background, another for text,
     /// similar to the GLSL3 renderer.
     ///
     /// If GL_EXT_blend_func_extended is not available, the rendering is split into 4 passes.

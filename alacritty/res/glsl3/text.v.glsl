@@ -25,7 +25,7 @@ uniform vec4 projection;
 
 uniform int renderingPass;
 
-#define HAS_WIDE_CHAR 2
+#define WIDE_CHAR 2
 
 void main() {
     vec2 projectionOffset = projection.xy;
@@ -43,13 +43,13 @@ void main() {
     bg = backgroundColor / 255.0;
 
     float occupiedCells = 1;
-    if ((int(fg.a) >= HAS_WIDE_CHAR)) {
+    if ((int(fg.a) >= WIDE_CHAR)) {
         // Update wide char x dimension so it'll cover the following spacer.
         occupiedCells = 2;
 
         // Since we don't perform bitwise operations due to limitations of
-        // other renderers we subtract wide char bits keeping only colored.
-        fg.a = round(fg.a - HAS_WIDE_CHAR);
+        // the GLES2 renderer,we subtract wide char bits keeping only colored.
+        fg.a = round(fg.a - WIDE_CHAR);
     }
 
     if (renderingPass == 0) {

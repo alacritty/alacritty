@@ -20,7 +20,7 @@ use super::{
 };
 
 // Shader source.
-pub(super) static TEXT_SHADER_F: &str = include_str!("../../../res/glsl3/text.f.glsl");
+pub static TEXT_SHADER_F: &str = include_str!("../../../res/glsl3/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../../res/glsl3/text.v.glsl");
 
 /// Maximum items to be drawn in a batch.
