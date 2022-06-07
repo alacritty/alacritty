@@ -376,9 +376,7 @@ impl<T> Term<T> {
 
         let display_offset = self.grid().display_offset();
         let vi_cursor_point = if self.mode.contains(TermMode::VI) {
-            let vi_cursor_point =
-                point_to_viewport(display_offset, self.vi_mode_cursor.point).unwrap();
-            Some(vi_cursor_point)
+            point_to_viewport(display_offset, self.vi_mode_cursor.point)
         } else {
             None
         };
