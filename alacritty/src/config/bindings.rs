@@ -158,6 +158,9 @@ pub enum Action {
     /// Scroll all the way to the bottom.
     ScrollToBottom,
 
+    /// Centers the screen around the cursor.
+    CenterAroundCursor,
+
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
@@ -477,6 +480,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             Action::ScrollHalfPageUp;
         D,      ModifiersState::CTRL,  +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ScrollHalfPageDown;
+        Z,                             +BindingMode::VI, ~BindingMode::SEARCH;
+            Action::CenterAroundCursor;
         Y,                             +BindingMode::VI, ~BindingMode::SEARCH; Action::Copy;
         Y,                             +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ClearSelection;
