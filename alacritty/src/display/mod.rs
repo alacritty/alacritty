@@ -370,6 +370,10 @@ pub struct Display {
     meter: Meter,
 }
 
+/// Pending renderer updates.
+///
+/// All renderer updates are cached to be applied just before rendering, to avoid platform-specific
+/// rendering issues.
 #[derive(Debug, Default, Copy, Clone)]
 pub struct RendererUpdate {
     /// Should resize the window.
@@ -445,7 +449,7 @@ impl Display {
         // Load font common glyphs to accelerate rendering.
         debug!("Filling glyph cache with common glyphs");
         renderer.with_loader(|mut api| {
-            glyph_cache.clear_glyph_cache(&mut api);
+            glyph_cache.reset_glyph_cache(&mut api);
         });
 
         if let Some(dimensions) = dimensions.filter(|_| should_resize) {
@@ -558,7 +562,7 @@ impl Display {
     fn clear_glyph_cache(&mut self) {
         let cache = &mut self.glyph_cache;
         self.renderer.with_loader(|mut api| {
-            cache.clear_glyph_cache(&mut api);
+            cache.reset_glyph_cache(&mut api);
         });
     }
 
@@ -583,9 +587,8 @@ impl Display {
             (self.size_info.cell_width(), self.size_info.cell_height());
 
         if pending_update.font().is_some() || pending_update.cursor_dirty() {
-            let pending_renderer_update =
-                self.pending_renderer_update.get_or_insert(Default::default());
-            pending_renderer_update.clear_font_cache = true
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.clear_font_cache = true
         }
 
         // Update font size and cell dimensions.
@@ -604,9 +607,8 @@ impl Display {
             width = dimensions.width as f32;
             height = dimensions.height as f32;
 
-            let pending_renderer_update =
-                self.pending_renderer_update.get_or_insert(Default::default());
-            pending_renderer_update.resize = true
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.resize = true
         }
 
         let padding = config.window.padding(self.window.scale_factor);
@@ -634,22 +636,22 @@ impl Display {
         terminal.resize(self.size_info);
     }
 
-    /// Update the state of the actual renderer.
+    /// Update the state of the renderer.
     ///
-    /// NOTE: the update to the renderer is split from the display update on purpose, since
+    /// NOTE: The update to the renderer is split from the display update on purpose, since
     /// on some platforms, like Wayland, resize and other OpenGL operations must be performed
     /// right before rendering, otherwise they could lock the back buffer resulting in
     /// rendering with the buffer of old size.
     ///
-    /// Also, this resolves any flickering, since the resize is now synced with frame callbacks.
+    /// This also resolves any flickering, since the resize is now synced with frame callbacks.
     pub fn process_renderer_update(&mut self) {
         let renderer_update = match self.pending_renderer_update.take() {
             Some(renderer_update) => renderer_update,
             _ => return,
         };
 
+        // Resize renderer.
         if renderer_update.resize {
-            // Resize renderer.
             let physical =
                 PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
             self.window.resize(physical);

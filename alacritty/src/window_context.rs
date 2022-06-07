@@ -324,10 +324,10 @@ impl WindowContext {
             return;
         }
 
-        // Force the display to process any pending display update.
-        self.display.process_renderer_update();
-
         if self.dirty {
+            // Force the display to process any pending display update.
+            self.display.process_renderer_update();
+
             self.dirty = false;
 
             // Request immediate re-draw if visual bell animation is not finished yet.
