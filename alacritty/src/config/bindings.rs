@@ -158,9 +158,6 @@ pub enum Action {
     /// Scroll all the way to the bottom.
     ScrollToBottom,
 
-    /// Centers the screen around the cursor.
-    CenterAroundCursor,
-
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
@@ -278,6 +275,8 @@ pub enum ViAction {
     SearchEnd,
     /// Launch the URL below the vi mode cursor.
     Open,
+    /// Centers the screen around the cursor.
+    CenterAroundCursor,
 }
 
 /// Search mode specific actions.
@@ -480,8 +479,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             Action::ScrollHalfPageUp;
         D,      ModifiersState::CTRL,  +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ScrollHalfPageDown;
-        Z,                             +BindingMode::VI, ~BindingMode::SEARCH;
-            Action::CenterAroundCursor;
         Y,                             +BindingMode::VI, ~BindingMode::SEARCH; Action::Copy;
         Y,                             +BindingMode::VI, ~BindingMode::SEARCH;
             Action::ClearSelection;
@@ -503,6 +500,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             ViAction::SearchPrevious;
         Return,                        +BindingMode::VI, ~BindingMode::SEARCH;
             ViAction::Open;
+        Z,                             +BindingMode::VI, ~BindingMode::SEARCH;
+            ViAction::CenterAroundCursor;
         K,                             +BindingMode::VI, ~BindingMode::SEARCH;
             ViMotion::Up;
         J,                             +BindingMode::VI, ~BindingMode::SEARCH;

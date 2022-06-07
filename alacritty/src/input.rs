@@ -230,6 +230,16 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
+            Action::Vi(ViAction::CenterAroundCursor) => {
+                // Center around vi mode cursor.
+                let term = ctx.terminal_mut();
+                let display_offset = term.grid().display_offset() as i32;
+                let target = -display_offset + term.screen_lines() as i32 / 2 - 1;
+                let line = term.vi_mode_cursor.point.line;
+                let scroll_lines = target - line.0;
+
+                ctx.scroll(Scroll::Delta(scroll_lines));
+            },
             Action::Search(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
             },
@@ -308,18 +318,6 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
-            },
-            Action::CenterAroundCursor => {
-                // Center around vi mode cursor.
-                let term = ctx.terminal_mut();
-                if term.mode().contains(TermMode::VI) {
-                    let display_offset = term.grid().display_offset() as i32;
-                    let target = -display_offset + term.screen_lines() as i32 / 2 - 1;
-                    let line = term.vi_mode_cursor.point.line;
-                    let scroll_lines = target - line.0;
-
-                    ctx.scroll(Scroll::Delta(scroll_lines));
-                }
             },
             Action::ScrollLineUp => ctx.scroll(Scroll::Delta(1)),
             Action::ScrollLineDown => ctx.scroll(Scroll::Delta(-1)),
