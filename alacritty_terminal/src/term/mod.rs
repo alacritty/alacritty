@@ -372,48 +372,52 @@ impl<T> Term<T> {
             self.mark_fully_damaged();
         }
 
+        // Update tracking of cursor, selection, and vi mode cursor.
+
+        let display_offset = self.grid().display_offset();
+        let vi_cursor_point = if self.mode.contains(TermMode::VI) {
+            point_to_viewport(display_offset, self.vi_mode_cursor.point)
+        } else {
+            None
+        };
+
+        let previous_cursor = mem::replace(&mut self.damage.last_cursor, self.grid.cursor.point);
+        let previous_selection = mem::replace(&mut self.damage.last_selection, selection);
+        let previous_vi_cursor_point =
+            mem::replace(&mut self.damage.last_vi_cursor_point, vi_cursor_point);
+
         // Early return if the entire terminal is damaged.
         if self.damage.is_fully_damaged {
-            self.damage.last_cursor = self.grid.cursor.point;
-            self.damage.last_selection = selection;
             return TermDamage::Full;
         }
 
         // Add information about old cursor position and new one if they are not the same, so we
         // cover everything that was produced by `Term::input`.
-        if self.damage.last_cursor != self.grid.cursor.point {
+        if self.damage.last_cursor != previous_cursor {
             // Cursor cooridanates are always inside viewport even if you have `display_offset`.
-            let point =
-                Point::new(self.damage.last_cursor.line.0 as usize, self.damage.last_cursor.column);
+            let point = Point::new(previous_cursor.line.0 as usize, previous_cursor.column);
             self.damage.damage_point(point);
         }
 
         // Always damage current cursor.
         self.damage_cursor();
-        self.damage.last_cursor = self.grid.cursor.point;
 
         // Vi mode doesn't update the terminal content, thus only last vi cursor position and the
         // new one should be damaged.
-        if let Some(last_vi_cursor_point) = self.damage.last_vi_cursor_point.take() {
-            self.damage.damage_point(last_vi_cursor_point)
+        if let Some(previous_vi_cursor_point) = previous_vi_cursor_point {
+            self.damage.damage_point(previous_vi_cursor_point)
         }
 
-        let display_offset = self.grid().display_offset();
-
         // Damage Vi cursor if it's present.
-        if self.mode.contains(TermMode::VI) {
-            let vi_cursor_point =
-                point_to_viewport(display_offset, self.vi_mode_cursor.point).unwrap();
-            self.damage.last_vi_cursor_point = Some(vi_cursor_point);
+        if let Some(vi_cursor_point) = self.damage.last_vi_cursor_point {
             self.damage.damage_point(vi_cursor_point);
         }
 
-        if self.damage.last_selection != selection {
-            for selection in self.damage.last_selection.into_iter().chain(selection) {
+        if self.damage.last_selection != previous_selection {
+            for selection in self.damage.last_selection.into_iter().chain(previous_selection) {
                 self.damage.damage_selection(selection, display_offset, self.columns());
             }
         }
-        self.damage.last_selection = selection;
 
         TermDamage::Partial(TermDamageIterator::new(&self.damage.lines))
     }
