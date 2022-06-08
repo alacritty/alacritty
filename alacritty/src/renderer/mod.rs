@@ -1,8 +1,10 @@
+use std::collections::HashSet;
 use std::ffi::CStr;
 use std::fmt;
 
 use crossfont::Metrics;
 use log::info;
+use once_cell::sync::OnceCell;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
@@ -215,6 +217,43 @@ impl Renderer {
         match &self.text_renderer {
             TextRendererProvider::Gles2(renderer) => renderer.resize(size_info),
             TextRendererProvider::Glsl3(renderer) => renderer.resize(size_info),
+        }
+    }
+}
+
+struct GlExtensions;
+
+impl GlExtensions {
+    /// Check if the given `extension` is supported.
+    ///
+    /// This function will lazyly load OpenGL extensions.
+    fn contains(extension: &str) -> bool {
+        static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str>> = OnceCell::new();
+
+        OPENGL_EXTENSIONS.get_or_init(Self::load_extensions).contains(extension)
+    }
+
+    /// Load available OpenGL extensions.
+    fn load_extensions() -> HashSet<&'static str> {
+        unsafe {
+            let extensions = gl::GetString(gl::EXTENSIONS);
+
+            if extensions.is_null() {
+                let mut extensions_number = 0;
+                gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
+
+                (0..extensions_number as gl::types::GLuint)
+                    .flat_map(|i| {
+                        let extension = CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
+                        extension.to_str()
+                    })
+                    .collect()
+            } else {
+                match CStr::from_ptr(extensions as *mut _).to_str() {
+                    Ok(ext) => ext.split_whitespace().collect(),
+                    Err(_) => HashSet::new(),
+                }
+            }
         }
     }
 }

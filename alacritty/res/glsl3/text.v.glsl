@@ -23,9 +23,9 @@ flat out vec4 bg;
 uniform vec2 cellDim;
 uniform vec4 projection;
 
-uniform int backgroundPass;
+uniform int renderingPass;
 
-#define WIDE_CHAR 1
+#define WIDE_CHAR 2
 
 void main() {
     vec2 projectionOffset = projection.xy;
@@ -39,12 +39,23 @@ void main() {
     // Position of cell from top-left
     vec2 cellPosition = cellDim * gridCoords;
 
-    if (backgroundPass != 0) {
+    fg = vec4(textColor.rgb / 255.0, textColor.a);
+    bg = backgroundColor / 255.0;
+
+    float occupiedCells = 1;
+    if ((int(fg.a) >= WIDE_CHAR)) {
+        // Update wide char x dimension so it'll cover the following spacer.
+        occupiedCells = 2;
+
+        // Since we don't perform bitwise operations due to limitations of
+        // the GLES2 renderer,we subtract wide char bits keeping only colored.
+        fg.a = round(fg.a - WIDE_CHAR);
+    }
+
+    if (renderingPass == 0) {
         vec2 backgroundDim = cellDim;
-        if ((int(textColor.a) & WIDE_CHAR) != 0) {
-            // Update wide char x dimension so it'll cover the following spacer.
-            backgroundDim.x *= 2;
-        }
+        backgroundDim.x *= occupiedCells;
+
         vec2 finalPosition = cellPosition + backgroundDim * position;
         gl_Position =
             vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
@@ -63,7 +74,4 @@ void main() {
         vec2 uvSize = uv.zw;
         TexCoords = uvOffset + position * uvSize;
     }
-
-    bg = backgroundColor / 255.0;
-    fg = vec4(textColor.rgb / 255.0, textColor.a);
 }

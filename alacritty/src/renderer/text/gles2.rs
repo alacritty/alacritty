@@ -11,11 +11,12 @@ use crate::display::SizeInfo;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderProgram, ShaderVersion};
-use crate::renderer::{cstr, Error};
+use crate::renderer::{cstr, Error, GlExtensions};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
 use super::{
-    Glyph, LoadGlyph, LoaderApi, TextRenderApi, TextRenderBatch, TextRenderer, TextShader,
+    glsl3, Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
+    TextRenderBatch, TextRenderer, TextShader,
 };
 
 // Shader source.
@@ -32,13 +33,21 @@ pub struct Gles2Renderer {
     batch: Batch,
     current_atlas: usize,
     active_tex: GLuint,
+    dual_source_blending: bool,
 }
 
 impl Gles2Renderer {
     pub fn new() -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 
-        let program = TextShaderProgram::new(ShaderVersion::Gles2)?;
+        let dual_source_blending = GlExtensions::contains("GL_EXT_blend_func_extended")
+            || GlExtensions::contains("GL_ARB_blend_func_extended");
+
+        if dual_source_blending {
+            info!("Using dual source blending");
+        }
+
+        let program = TextShaderProgram::new(ShaderVersion::Gles2, dual_source_blending)?;
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -139,6 +148,7 @@ impl Gles2Renderer {
             batch: Batch::new(),
             current_atlas: 0,
             active_tex: 0,
+            dual_source_blending,
         })
     }
 }
@@ -180,6 +190,7 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
             atlas: &mut self.atlas,
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
+            dual_source_blending: self.dual_source_blending,
         });
 
         unsafe {
@@ -205,7 +216,7 @@ impl<'a> TextRenderer<'a> for Gles2Renderer {
 /// Maximum items to be drawn in a batch.
 ///
 /// We use the closest number to `u16::MAX` dividable by 4 (amount of vertices we push for a glyph),
-/// since it's the maximum possible index in `glDrawElements` in gles2.
+/// since it's the maximum possible index in `glDrawElements` in GLES2.
 const BATCH_MAX: usize = (u16::MAX - u16::MAX % 4) as usize;
 
 #[derive(Debug)]
@@ -269,7 +280,12 @@ impl TextRenderBatch for Batch {
         let glyph_x = cell.point.column.0 as i16 * size_info.cell_width() as i16 + glyph.left;
         let glyph_y = (cell.point.line + 1) as i16 * size_info.cell_height() as i16 - glyph.top;
 
-        let colored = if glyph.multicolor { 1 } else { 0 };
+        let colored = if glyph.multicolor {
+            RenderingGlyphFlags::COLORED
+        } else {
+            RenderingGlyphFlags::empty()
+        };
+
         let is_wide = if cell.flags.contains(Flags::WIDE_CHAR) { 2 } else { 1 };
 
         let mut vertex = TextVertex {
@@ -322,6 +338,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut TextShaderProgram,
+    dual_source_blending: bool,
 }
 
 impl<'a> Drop for RenderApi<'a> {
@@ -375,19 +392,25 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
             gl::BlendFunc(gl::ONE, gl::ZERO);
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // First text rendering pass.
             self.program.set_rendering_pass(RenderingPass::SubpixelPass1);
-            gl::BlendFuncSeparate(gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE);
-            gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
+            if self.dual_source_blending {
+                // Text rendering pass.
+                gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+            } else {
+                // First text rendering pass.
+                gl::BlendFuncSeparate(gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE);
+                gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // Second text rendering pass.
-            self.program.set_rendering_pass(RenderingPass::SubpixelPass2);
-            gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
-            gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
+                // Second text rendering pass.
+                self.program.set_rendering_pass(RenderingPass::SubpixelPass2);
+                gl::BlendFuncSeparate(gl::ONE_MINUS_DST_ALPHA, gl::ONE, gl::ZERO, gl::ONE);
+                gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
 
-            // Third pass.
-            self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
-            gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+                // Third text rendering pass.
+                self.program.set_rendering_pass(RenderingPass::SubpixelPass3);
+                gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+            }
+
             gl::DrawElements(gl::TRIANGLES, num_indices, gl::UNSIGNED_SHORT, ptr::null());
         }
 
@@ -416,22 +439,13 @@ struct TextVertex {
     b: u8,
 
     // Whether the glyph is colored.
-    colored: u8,
+    colored: RenderingGlyphFlags,
 
     // Background color.
     bg_r: u8,
     bg_g: u8,
     bg_b: u8,
     bg_a: u8,
-}
-
-// NOTE: These flags must be in sync with their usage in the gles2/text.*.glsl shaders.
-#[repr(u8)]
-enum RenderingPass {
-    Background = 0,
-    SubpixelPass1 = 1,
-    SubpixelPass2 = 2,
-    SubpixelPass3 = 3,
 }
 
 #[derive(Debug)]
@@ -444,8 +458,11 @@ pub struct TextShaderProgram {
 
     /// Rendering pass.
     ///
-    /// The rendering is split into 4 passes. One is used for the background and the rest to
-    /// perform subpixel text rendering according to
+    /// For dual source blending, there are 2 passes; one for background, another for text,
+    /// similar to the GLSL3 renderer.
+    ///
+    /// If GL_EXT_blend_func_extended is not available, the rendering is split into 4 passes.
+    /// One is used for the background and the rest to perform subpixel text rendering according to
     /// https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md.
     ///
     /// Rendering is split into three passes.
@@ -453,8 +470,12 @@ pub struct TextShaderProgram {
 }
 
 impl TextShaderProgram {
-    pub fn new(shader_version: ShaderVersion) -> Result<Self, Error> {
-        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, TEXT_SHADER_F)?;
+    pub fn new(shader_version: ShaderVersion, dual_source_blending: bool) -> Result<Self, Error> {
+        let fragment_shader =
+            if dual_source_blending { &glsl3::TEXT_SHADER_F } else { &TEXT_SHADER_F };
+
+        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, fragment_shader)?;
+
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,

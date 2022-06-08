@@ -15,12 +15,12 @@ use crate::renderer::{cstr, Error};
 
 use super::atlas::{Atlas, ATLAS_SIZE};
 use super::{
-    Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, TextRenderApi, TextRenderBatch, TextRenderer,
-    TextShader,
+    Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
+    TextRenderBatch, TextRenderer, TextShader,
 };
 
 // Shader source.
-static TEXT_SHADER_F: &str = include_str!("../../../res/glsl3/text.f.glsl");
+pub static TEXT_SHADER_F: &str = include_str!("../../../res/glsl3/text.f.glsl");
 static TEXT_SHADER_V: &str = include_str!("../../../res/glsl3/text.v.glsl");
 
 /// Maximum items to be drawn in a batch.
@@ -240,7 +240,7 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
         }
 
         unsafe {
-            self.program.set_background_pass(true);
+            self.program.set_rendering_pass(RenderingPass::Background);
             gl::DrawElementsInstanced(
                 gl::TRIANGLES,
                 6,
@@ -248,7 +248,7 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
                 ptr::null(),
                 self.batch.len() as GLsizei,
             );
-            self.program.set_background_pass(false);
+            self.program.set_rendering_pass(RenderingPass::SubpixelPass1);
             gl::DrawElementsInstanced(
                 gl::TRIANGLES,
                 6,
@@ -419,8 +419,8 @@ pub struct TextShaderProgram {
 
     /// Background pass flag.
     ///
-    /// Rendering is split into two passes; 1 for backgrounds, and one for text.
-    u_background: GLint,
+    /// Rendering is split into two passes; one for backgrounds, and one for text.
+    u_rendering_pass: GLint,
 }
 
 impl TextShaderProgram {
@@ -429,7 +429,7 @@ impl TextShaderProgram {
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_cell_dim: program.get_uniform_location(cstr!("cellDim"))?,
-            u_background: program.get_uniform_location(cstr!("backgroundPass"))?,
+            u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
             program,
         })
     }
@@ -440,11 +440,14 @@ impl TextShaderProgram {
         }
     }
 
-    fn set_background_pass(&self, background_pass: bool) {
-        let value = if background_pass { 1 } else { 0 };
+    fn set_rendering_pass(&self, rendering_pass: RenderingPass) {
+        let value = match rendering_pass {
+            RenderingPass::Background | RenderingPass::SubpixelPass1 => rendering_pass as i32,
+            _ => unreachable!("provided pass is not supported in GLSL3 renderer"),
+        };
 
         unsafe {
-            gl::Uniform1i(self.u_background, value);
+            gl::Uniform1i(self.u_rendering_pass, value);
         }
     }
 }
