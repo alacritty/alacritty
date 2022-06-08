@@ -231,8 +231,7 @@ impl<T: EventListener> Execute<T> for Action {
                 }
             },
             Action::Vi(ViAction::CenterAroundCursor) => {
-                // Center around vi mode cursor.
-                let term = ctx.terminal_mut();
+                let term = ctx.terminal();
                 let display_offset = term.grid().display_offset() as i32;
                 let target = -display_offset + term.screen_lines() as i32 / 2 - 1;
                 let line = term.vi_mode_cursor.point.line;
