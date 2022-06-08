@@ -558,8 +558,8 @@ impl Display {
         compute_cell_size(config, &glyph_cache.font_metrics())
     }
 
-    /// Clear glyph cache.
-    fn clear_glyph_cache(&mut self) {
+    /// Reset glyph cache.
+    fn reset_glyph_cache(&mut self) {
         let cache = &mut self.glyph_cache;
         self.renderer.with_loader(|mut api| {
             cache.reset_glyph_cache(&mut api);
@@ -661,7 +661,7 @@ impl Display {
         self.window.make_current();
 
         if renderer_update.clear_font_cache {
-            self.clear_glyph_cache();
+            self.reset_glyph_cache();
         }
 
         self.renderer.resize(&self.size_info);

@@ -463,7 +463,7 @@ pub struct TextShaderProgram {
     ///
     /// If GL_EXT_blend_func_extended is not available, the rendering is split into 4 passes.
     /// One is used for the background and the rest to perform subpixel text rendering according to
-    /// https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md.
+    /// <https://github.com/servo/webrender/blob/master/webrender/doc/text-rendering.md>.
     ///
     /// Rendering is split into three passes.
     u_rendering_pass: GLint,

@@ -274,7 +274,7 @@ impl GlyphCache {
 
     /// Update the inner font size.
     ///
-    /// NOTE: To reload the renderers's fonts [[`Self::reset_glyph_cache`]] should be called
+    /// NOTE: To reload the renderers's fonts [`Self::reset_glyph_cache`] should be called
     /// afterwards.
     pub fn update_font_size(
         &mut self,
