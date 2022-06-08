@@ -230,7 +230,7 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-            Action::Vi(ViAction::CenterAroundCursor) => {
+            Action::Vi(ViAction::CenterAroundViCursor) => {
                 let term = ctx.terminal();
                 let display_offset = term.grid().display_offset() as i32;
                 let target = -display_offset + term.screen_lines() as i32 / 2 - 1;
