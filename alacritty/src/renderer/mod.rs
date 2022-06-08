@@ -230,28 +230,30 @@ impl GlExtensions {
     fn contains(extension: &str) -> bool {
         static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str>> = OnceCell::new();
 
-        OPENGL_EXTENSIONS
-            .get_or_init(|| unsafe {
-                let extensions = gl::GetString(gl::EXTENSIONS);
+        OPENGL_EXTENSIONS.get_or_init(Self::load_extensions).contains(extension)
+    }
 
-                if extensions.is_null() {
-                    let mut extensions_number = 0;
-                    gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
+    /// Load available OpenGL extensions.
+    fn load_extensions() -> HashSet<&'static str> {
+        unsafe {
+            let extensions = gl::GetString(gl::EXTENSIONS);
 
-                    (0..extensions_number as gl::types::GLuint)
-                        .flat_map(|i| {
-                            let extension =
-                                CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
-                            extension.to_str()
-                        })
-                        .collect()
-                } else {
-                    match CStr::from_ptr(extensions as *mut _).to_str() {
-                        Ok(ext) => ext.split_whitespace().collect(),
-                        Err(_) => HashSet::new(),
-                    }
+            if extensions.is_null() {
+                let mut extensions_number = 0;
+                gl::GetIntegerv(gl::NUM_EXTENSIONS, &mut extensions_number);
+
+                (0..extensions_number as gl::types::GLuint)
+                    .flat_map(|i| {
+                        let extension = CStr::from_ptr(gl::GetStringi(gl::EXTENSIONS, i) as *mut _);
+                        extension.to_str()
+                    })
+                    .collect()
+            } else {
+                match CStr::from_ptr(extensions as *mut _).to_str() {
+                    Ok(ext) => ext.split_whitespace().collect(),
+                    Err(_) => HashSet::new(),
                 }
-            })
-            .contains(extension)
+            }
+        }
     }
 }
