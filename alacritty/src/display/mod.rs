@@ -359,12 +359,28 @@ pub struct Display {
     /// Unprocessed display updates.
     pub pending_update: DisplayUpdate,
 
+    /// The renderer update that takes place only once before the actual rendering.
+    pub pending_renderer_update: Option<RendererUpdate>,
+
     is_damage_supported: bool,
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
     renderer: Renderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+}
+
+/// Pending renderer updates.
+///
+/// All renderer updates are cached to be applied just before rendering, to avoid platform-specific
+/// rendering issues.
+#[derive(Debug, Default, Copy, Clone)]
+pub struct RendererUpdate {
+    /// Should resize the window.
+    resize: bool,
+
+    /// Clear font caches.
+    clear_font_cache: bool,
 }
 
 impl Display {
@@ -425,7 +441,7 @@ impl Display {
         // If the scaling factor changed update the glyph cache and mark for resize.
         let should_resize = (estimated_scale_factor - window.scale_factor).abs() > f64::EPSILON;
         let (cell_width, cell_height) = if should_resize {
-            Self::update_glyph_cache(&mut renderer, &mut glyph_cache, scale_factor, config, font)
+            Self::update_font_size(&mut glyph_cache, scale_factor, config, font)
         } else {
             (cell_width, cell_height)
         };
@@ -433,7 +449,7 @@ impl Display {
         // Load font common glyphs to accelerate rendering.
         debug!("Filling glyph cache with common glyphs");
         renderer.with_loader(|mut api| {
-            glyph_cache.load_common_glyphs(&mut api);
+            glyph_cache.reset_glyph_cache(&mut api);
         });
 
         if let Some(dimensions) = dimensions.filter(|_| should_resize) {
@@ -520,6 +536,7 @@ impl Display {
             visual_bell: VisualBell::from(&config.bell),
             colors: List::from(&config.colors),
             pending_update: Default::default(),
+            pending_renderer_update: Default::default(),
             is_damage_supported,
             debug_damage,
             damage_rects,
@@ -529,30 +546,31 @@ impl Display {
     /// Update font size and cell dimensions.
     ///
     /// This will return a tuple of the cell width and height.
-    fn update_glyph_cache(
-        renderer: &mut Renderer,
+    fn update_font_size(
         glyph_cache: &mut GlyphCache,
         scale_factor: f64,
         config: &UiConfig,
         font: &Font,
     ) -> (f32, f32) {
-        renderer.with_loader(|mut api| {
-            let _ = glyph_cache.update_font_size(font, scale_factor, &mut api);
-        });
+        let _ = glyph_cache.update_font_size(font, scale_factor);
 
         // Compute new cell sizes.
         compute_cell_size(config, &glyph_cache.font_metrics())
     }
 
-    /// Clear glyph cache.
-    fn clear_glyph_cache(&mut self) {
+    /// Reset glyph cache.
+    fn reset_glyph_cache(&mut self) {
         let cache = &mut self.glyph_cache;
         self.renderer.with_loader(|mut api| {
-            cache.clear_glyph_cache(&mut api);
+            cache.reset_glyph_cache(&mut api);
         });
     }
 
     /// Process update events.
+    ///
+    /// XXX: this function must not call to any `OpenGL` related tasks. Only logical update
+    /// of the state is being performed here. Rendering update takes part right before the
+    /// actual rendering.
     pub fn handle_update<T>(
         &mut self,
         terminal: &mut Term<T>,
@@ -568,31 +586,29 @@ impl Display {
         let (mut cell_width, mut cell_height) =
             (self.size_info.cell_width(), self.size_info.cell_height());
 
-        // Ensure we're modifying the correct OpenGL context.
-        self.window.make_current();
+        if pending_update.font().is_some() || pending_update.cursor_dirty() {
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.clear_font_cache = true
+        }
 
         // Update font size and cell dimensions.
         if let Some(font) = pending_update.font() {
             let scale_factor = self.window.scale_factor;
-            let cell_dimensions = Self::update_glyph_cache(
-                &mut self.renderer,
-                &mut self.glyph_cache,
-                scale_factor,
-                config,
-                font,
-            );
+            let cell_dimensions =
+                Self::update_font_size(&mut self.glyph_cache, scale_factor, config, font);
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
             info!("Cell size: {} x {}", cell_width, cell_height);
-        } else if pending_update.cursor_dirty() {
-            self.clear_glyph_cache();
         }
 
         let (mut width, mut height) = (self.size_info.width(), self.size_info.height());
         if let Some(dimensions) = pending_update.dimensions() {
             width = dimensions.width as f32;
             height = dimensions.height as f32;
+
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.resize = true
         }
 
         let padding = config.window.padding(self.window.scale_factor);
@@ -618,10 +634,36 @@ impl Display {
 
         // Resize terminal.
         terminal.resize(self.size_info);
+    }
+
+    /// Update the state of the renderer.
+    ///
+    /// NOTE: The update to the renderer is split from the display update on purpose, since
+    /// on some platforms, like Wayland, resize and other OpenGL operations must be performed
+    /// right before rendering, otherwise they could lock the back buffer resulting in
+    /// rendering with the buffer of old size.
+    ///
+    /// This also resolves any flickering, since the resize is now synced with frame callbacks.
+    pub fn process_renderer_update(&mut self) {
+        let renderer_update = match self.pending_renderer_update.take() {
+            Some(renderer_update) => renderer_update,
+            _ => return,
+        };
 
         // Resize renderer.
-        let physical = PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
-        self.window.resize(physical);
+        if renderer_update.resize {
+            let physical =
+                PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
+            self.window.resize(physical);
+        }
+
+        // Ensure we're modifying the correct OpenGL context.
+        self.window.make_current();
+
+        if renderer_update.clear_font_cache {
+            self.reset_glyph_cache();
+        }
+
         self.renderer.resize(&self.size_info);
 
         if self.collect_damage() {

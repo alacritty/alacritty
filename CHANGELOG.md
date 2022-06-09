@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Bottom gap for certain builtin box drawing characters
 - Incorrect built-in glyphs for `U+2567` and `U+2568`
 - Character mappings in the DEC special graphics character set (line drawing)
+- Window flickering on resize on Wayland
 
 ## 0.10.1
 
