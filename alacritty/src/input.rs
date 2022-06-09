@@ -230,6 +230,15 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
+            Action::Vi(ViAction::CenterAroundViCursor) => {
+                let term = ctx.terminal();
+                let display_offset = term.grid().display_offset() as i32;
+                let target = -display_offset + term.screen_lines() as i32 / 2 - 1;
+                let line = term.vi_mode_cursor.point.line;
+                let scroll_lines = target - line.0;
+
+                ctx.scroll(Scroll::Delta(scroll_lines));
+            },
             Action::Search(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
             },

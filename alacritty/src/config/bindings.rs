@@ -275,6 +275,8 @@ pub enum ViAction {
     SearchEnd,
     /// Launch the URL below the vi mode cursor.
     Open,
+    /// Centers the screen around the vi mode cursor.
+    CenterAroundViCursor,
 }
 
 /// Search mode specific actions.
@@ -498,6 +500,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             ViAction::SearchPrevious;
         Return,                        +BindingMode::VI, ~BindingMode::SEARCH;
             ViAction::Open;
+        Z,                             +BindingMode::VI, ~BindingMode::SEARCH;
+            ViAction::CenterAroundViCursor;
         K,                             +BindingMode::VI, ~BindingMode::SEARCH;
             ViMotion::Up;
         J,                             +BindingMode::VI, ~BindingMode::SEARCH;
