@@ -787,6 +787,8 @@ pub enum Attr {
     Hidden,
     /// Strikeout text.
     Strike,
+    /// Overlined text.
+    Overline,
     /// Cancel bold.
     CancelBold,
     /// Cancel bold and dim.
@@ -803,6 +805,8 @@ pub enum Attr {
     CancelHidden,
     /// Cancel strikeout.
     CancelStrike,
+    /// Cancel overline.
+    CancelOverline,
     /// Set indexed foreground color.
     Foreground(Color),
     /// Set indexed background color.
@@ -1385,6 +1389,8 @@ fn attrs_from_sgr_parameters(params: &mut ParamsIter<'_>) -> Vec<Option<Attr>> {
             },
             [48, params @ ..] => handle_colon_rgb(params).map(Attr::Background),
             [49] => Some(Attr::Background(Color::Named(NamedColor::Background))),
+            [53] => Some(Attr::Overline),
+            [55] => Some(Attr::CancelOverline),
             [58] => {
                 let mut iter = params.map(|param| param[0]);
                 parse_sgr_color(&mut iter).map(|color| Attr::UnderlineColor(Some(color)))

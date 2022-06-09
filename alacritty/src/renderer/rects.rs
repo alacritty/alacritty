@@ -108,6 +108,11 @@ impl RenderLine {
             Flags::STRIKEOUT => {
                 (metrics.strikeout_position, metrics.strikeout_thickness, RectKind::Normal)
             },
+            Flags::OVERLINE => (
+                (size.cell_height() + metrics.descent).floor(),
+                metrics.underline_thickness,
+                RectKind::Normal,
+            ),
             _ => unimplemented!("Invalid flag for cell line drawing specified"),
         };
 

@@ -568,6 +568,8 @@ Oct Hex  *  	(* marks function used in DEC VT series or LA series terminals)
 	 *	[36m = Write with cyan,    [46m = Set background to cyan
 	 *	[37m = Write with white,   [47m = Set background to white
 		[38m, [39m, [48m, [49m are reserved
+		[53m = Overline
+		[55m = Cancel overline attribute only
 156 6E n * DSR - Device Status Report
 	 *	[0n = Terminal is ready, no malfunctions detected
 		[1n = Terminal is busy, retry later
