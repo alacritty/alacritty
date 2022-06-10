@@ -65,10 +65,10 @@ brevity.
 | `CSI l`    | PARTIAL     | See `CSI h` for supported modes                   |
 | `CSI ? l`  | PARTIAL     | See `CSI ? h` for supported modes                 |
 | `CSI M`    | IMPLEMENTED |                                                   |
-| `CSI m`    | PARTIAL     | Supported parameters:                             |
+| `CSI m`    | IMPLEMENTED | Supported parameters:                             |
 |            |             |   `0`-`9`, `21`-`25`, `27`-`49`, `58`, `59`       |
 |            |             |   `90`-`97`, `100`-`107`                          |
-|            | REJECTED    | `53`, `55`                                        |
+|            | REJECTED    | `11`-`19`, `53`, `55`                             |
 | `CSI n`    | IMPLEMENTED |                                                   |
 | `CSI P`    | IMPLEMENTED |                                                   |
 | `CSI SP q` | IMPLEMENTED |                                                   |
