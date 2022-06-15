@@ -1,5 +1,6 @@
 use std::cmp::{max, PartialEq};
 use std::mem;
+use std::mem::MaybeUninit;
 use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
@@ -157,13 +158,13 @@ impl<T> Storage<T> {
             // Cast to a qword array to opt out of copy restrictions and avoid
             // drop hazards. Byte array is no good here since for whatever
             // reason LLVM won't optimized it.
-            let a_ptr = self.inner.as_mut_ptr().add(a) as *mut usize;
-            let b_ptr = self.inner.as_mut_ptr().add(b) as *mut usize;
+            let a_ptr = self.inner.as_mut_ptr().add(a) as *mut MaybeUninit<usize>;
+            let b_ptr = self.inner.as_mut_ptr().add(b) as *mut MaybeUninit<usize>;
 
             // Copy 1 qword at a time.
             //
             // The optimizer unrolls this loop and vectorizes it.
-            let mut tmp: usize;
+            let mut tmp: MaybeUninit<usize>;
             for i in 0..4 {
                 tmp = *a_ptr.offset(i);
                 *a_ptr.offset(i) = *b_ptr.offset(i);
