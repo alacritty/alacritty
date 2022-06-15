@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for OpenGL ES 2.0
 - Escape sequence to set underline color (`CSI 58 : 2 : Ps : Ps : Ps m`/`CSI 58 : 5 : Ps m`)
 - Escape sequence to reset underline color (`CSI 59 m`)
-- Vi mode keybinding (z) to center view around vi mode cursor 
+- Vi mode keybinding (z) to center view around vi mode cursor
 
 ### Changed
 
@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Incorrect built-in glyphs for `U+2567` and `U+2568`
 - Character mappings in the DEC special graphics character set (line drawing)
 - Window flickering on resize on Wayland
+- Unnecessary config reload when using `/dev/null` as a config file
 
 ## 0.10.1
 
