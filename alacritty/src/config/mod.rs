@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
-use log::{error, info};
+use log::{debug, error, info};
 use serde::Deserialize;
 use serde_yaml::mapping::Mapping;
 use serde_yaml::Value;
@@ -125,6 +125,8 @@ pub fn load(options: &Options) -> UiConfig {
 
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
+    debug!("Reloading configuration file: {:?}", config_path);
+
     // Load config, propagating errors.
     let config_options = options.config_options.clone();
     let mut config = load_from(config_path, config_options)?;

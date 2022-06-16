@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Incorrect built-in glyphs for `U+2567` and `U+2568`
 - Character mappings in the DEC special graphics character set (line drawing)
 - Window flickering on resize on Wayland
+- Unnecessary config reload when using `/dev/null` as a config file
 
 ## 0.10.1
 
