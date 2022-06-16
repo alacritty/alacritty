@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[cfg(unix)]
 use clap::Subcommand;
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -31,22 +31,22 @@ pub struct Options {
 
     /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml].
     #[cfg(not(any(target_os = "macos", windows)))]
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
     /// Specify alternative configuration file [default: %APPDATA%\alacritty\alacritty.yml].
     #[cfg(windows)]
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
     /// Specify alternative configuration file [default: $HOME/.config/alacritty/alacritty.yml].
     #[cfg(target_os = "macos")]
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
     /// Path for IPC socket creation.
     #[cfg(unix)]
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub socket: Option<PathBuf>,
 
     /// Reduces the level of verbosity (the min level is -qq).
@@ -177,7 +177,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
 #[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq, Eq)]
 pub struct TerminalOptions {
     /// Start the shell in the specified working directory.
-    #[clap(long)]
+    #[clap(long, value_hint = ValueHint::FilePath)]
     pub working_directory: Option<PathBuf>,
 
     /// Remain open after child process exit.
@@ -260,7 +260,7 @@ pub enum Subcommands {
 #[derive(Args, Debug)]
 pub struct MessageOptions {
     /// IPC socket connection path override.
-    #[clap(long, short)]
+    #[clap(long, short, value_hint = ValueHint::FilePath)]
     pub socket: Option<PathBuf>,
 
     /// Message which should be sent.

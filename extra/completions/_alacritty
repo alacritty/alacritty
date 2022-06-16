@@ -16,11 +16,11 @@ _alacritty() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--embed=[Defines the X11 window ID (as a decimal integer) to embed Alacritty within]:EMBED: ' \
-'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]:CONFIG_FILE: ' \
-'--socket=[Path for IPC socket creation]:SOCKET: ' \
+'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.yml\]]:CONFIG_FILE:_files' \
+'--socket=[Path for IPC socket creation]:SOCKET:_files' \
 '*-o+[Override configuration file options \[example: cursor.style=Beam\]]:OPTION: ' \
 '*--option=[Override configuration file options \[example: cursor.style=Beam\]]:OPTION: ' \
-'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY: ' \
+'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
 '-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
@@ -46,8 +46,8 @@ _alacritty() {
         case $line[1] in
             (msg)
 _arguments "${_arguments_options[@]}" \
-'-s+[IPC socket connection path override]:SOCKET: ' \
-'--socket=[IPC socket connection path override]:SOCKET: ' \
+'-s+[IPC socket connection path override]:SOCKET:_files' \
+'--socket=[IPC socket connection path override]:SOCKET:_files' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 ":: :_alacritty__msg_commands" \
@@ -62,13 +62,12 @@ _arguments "${_arguments_options[@]}" \
         case $line[1] in
             (create-window)
 _arguments "${_arguments_options[@]}" \
-'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY: ' \
+'--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
 '-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:instance> | <instance>,<general: ' \
-'--version[Print version information]' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
@@ -76,9 +75,7 @@ _arguments "${_arguments_options[@]}" \
 ;;
 (help)
 _arguments "${_arguments_options[@]}" \
-'--version[Print version information]' \
-'-h[Print help information]' \
-'--help[Print help information]' \
+'*::subcommand -- The subcommand whose help message to display:' \
 && ret=0
 ;;
         esac
@@ -87,6 +84,7 @@ esac
 ;;
 (help)
 _arguments "${_arguments_options[@]}" \
+'*::subcommand -- The subcommand whose help message to display:' \
 && ret=0
 ;;
         esac
