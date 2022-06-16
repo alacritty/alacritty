@@ -125,7 +125,7 @@ pub fn load(options: &Options) -> UiConfig {
 
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
-    debug!("Reloading configuration file from: {:?}", config_path);
+    debug!("Reloading configuration file: {:?}", config_path);
 
     // Load config, propagating errors.
     let config_options = options.config_options.clone();
