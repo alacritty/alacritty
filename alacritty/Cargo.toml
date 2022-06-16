@@ -7,7 +7,7 @@ description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.56.0"
+rust-version = "1.57.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
@@ -29,7 +29,7 @@ glutin = { version = "0.28.0", default-features = false, features = ["serde"] }
 notify = "4"
 parking_lot = "0.11.0"
 crossfont = { version = "0.3.1", features = ["force_system_fontconfig"] }
-copypasta = { version = "0.7.0", default-features = false }
+copypasta = { version = "0.8.0", default-features = false }
 libc = "0.2"
 unicode-width = "0.1"
 bitflags = "1"

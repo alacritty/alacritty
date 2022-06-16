@@ -86,7 +86,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__help)
-            opts=""
+            opts="<SUBCOMMAND>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -122,7 +122,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__create__window)
-            opts="-e -t -h --version --working-directory --hold --command --title --class --help"
+            opts="-e -t -h --working-directory --hold --command --title --class --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -160,7 +160,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__help)
-            opts="-h --version --help"
+            opts="<SUBCOMMAND>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
