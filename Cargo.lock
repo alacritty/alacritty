@@ -20,7 +20,7 @@ dependencies = [
  "cocoa",
  "copypasta",
  "crossfont",
- "dirs 3.0.2",
+ "dirs",
  "embed-resource",
  "fnv",
  "gl_generator",
@@ -62,7 +62,7 @@ dependencies = [
  "alacritty_config_derive",
  "base64",
  "bitflags",
- "dirs 3.0.2",
+ "dirs",
  "libc",
  "log",
  "mio 0.6.23",
@@ -441,15 +441,6 @@ dependencies = [
  "darling_core",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "dirs"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
-dependencies = [
- "dirs-sys",
 ]
 
 [[package]]
@@ -2058,7 +2049,7 @@ version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4583db5cbd4c4c0303df2d15af80f0539db703fa1c68802d4cbbd2dd0f88f6"
 dependencies = [
- "dirs 4.0.0",
+ "dirs",
 ]
 
 [[package]]

@@ -26,7 +26,7 @@ log = "0.4"
 unicode-width = "0.1"
 base64 = "0.13.0"
 regex-automata = "0.1.9"
-dirs = "3.0.1"
+dirs = "4.0.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.22.0"

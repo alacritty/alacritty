@@ -33,7 +33,7 @@ copypasta = { version = "0.8.0", default-features = false }
 libc = "0.2"
 unicode-width = "0.1"
 bitflags = "1"
-dirs = "3.0.1"
+dirs = "4.0.0"
 once_cell = "1.12"
 
 [build-dependencies]
