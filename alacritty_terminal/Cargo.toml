@@ -13,6 +13,10 @@ rust-version = "1.57.0"
 path = "../alacritty_config_derive"
 version = "0.1.0"
 
+[dependencies.alacritty_config]
+path = "../alacritty_config"
+version = "0.1.0"
+
 [dependencies]
 libc = "0.2"
 bitflags = "1"

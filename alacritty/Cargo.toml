@@ -18,6 +18,10 @@ default-features = false
 path = "../alacritty_config_derive"
 version = "0.1.0"
 
+[dependencies.alacritty_config]
+path = "../alacritty_config"
+version = "0.1.0"
+
 [dependencies]
 clap = { version = "3.0.0", features = ["derive"] }
 log = { version = "0.4", features = ["std", "serde"] }

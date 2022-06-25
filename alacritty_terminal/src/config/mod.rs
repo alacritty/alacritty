@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
 mod scrolling;
 
@@ -17,7 +17,7 @@ pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const MIN_BLINK_INTERVAL: u64 = 10;
 
 /// Top-level config type.
-#[derive(ConfigDeserialize, Debug, PartialEq, Default)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Default)]
 pub struct Config {
     /// TERM env variable.
     pub env: HashMap<String, String>,
@@ -125,7 +125,7 @@ impl Cursor {
     }
 }
 
-#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(SerdeReplace, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum ConfigCursorStyle {
     Shape(CursorShape),
@@ -222,7 +222,7 @@ impl Program {
 }
 
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
-#[derive(Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(SerdeReplace, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Percentage(f32);
 
 impl Default for Percentage {

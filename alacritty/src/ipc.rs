@@ -62,6 +62,13 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
                     let event = Event::new(EventType::CreateWindow(options), None);
                     let _ = event_proxy.send_event(event);
                 },
+                SocketMessage::Config(ipc_config) => {
+                    // TODO: Waiting on window ID patch.
+                    // let window_id = ipc_config.window_id;
+                    let window_id = None;
+                    let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
+                    let _ = event_proxy.send_event(event);
+                },
             }
         }
     });

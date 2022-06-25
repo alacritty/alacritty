@@ -9,6 +9,7 @@ use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -38,7 +39,7 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 
-use crate::cli::{Options as CliOptions, WindowOptions};
+use crate::cli::{IpcConfig, Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
@@ -93,6 +94,7 @@ pub enum EventType {
     Message(Message),
     Scroll(Scroll),
     CreateWindow(WindowOptions),
+    IpcConfig(IpcConfig),
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
@@ -184,7 +186,7 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut ModifiersState,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
-    pub config: &'a mut UiConfig,
+    pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
@@ -1162,7 +1164,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
-                EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
+                EventType::IpcConfig(_)
+                | EventType::ConfigReload(_)
+                | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, .. } => {
@@ -1292,7 +1296,7 @@ pub struct Processor {
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext>,
     cli_options: CliOptions,
-    config: UiConfig,
+    config: Rc<UiConfig>,
 }
 
 impl Processor {
@@ -1313,8 +1317,8 @@ impl Processor {
 
         Processor {
             windows: HashMap::new(),
+            config: Rc::new(config),
             cli_options,
-            config,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
         }
@@ -1328,7 +1332,7 @@ impl Processor {
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::new(
-            &self.config,
+            self.config.clone(),
             &options,
             event_loop,
             proxy,
@@ -1436,7 +1440,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             GlutinEvent::RedrawEventsCleared,
@@ -1457,11 +1460,24 @@ impl Processor {
 
                     // Load config and update each terminal.
                     if let Ok(config) = config::reload(&path, &self.cli_options) {
-                        let old_config = mem::replace(&mut self.config, config);
+                        self.config = Rc::new(config);
 
                         for window_context in self.windows.values_mut() {
-                            window_context.update_config(&old_config, &self.config);
+                            window_context.update_config(self.config.clone());
                         }
+                    }
+                },
+                // Process IPC config update.
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::IpcConfig(ipc_config),
+                    window_id,
+                }) => {
+                    for (_, window_context) in self
+                        .windows
+                        .iter_mut()
+                        .filter(|(id, _)| window_id.is_none() || window_id == Some(**id))
+                    {
+                        window_context.update_ipc_config(ipc_config.clone());
                     }
                 },
                 // Create a new terminal window.
@@ -1485,7 +1501,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             event.clone().into(),
@@ -1500,7 +1515,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             event,
