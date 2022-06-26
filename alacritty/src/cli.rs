@@ -100,7 +100,16 @@ impl Options {
         }
 
         config.window.dynamic_title &= self.window_options.window_identity.title.is_none();
-        config.window.embed = self.embed.as_ref().and_then(|embed| embed.parse().ok());
+        config.window.embed = self.embed.as_ref().and_then(|embed| {
+            // convert hexadecimal to decimal if possible
+            if let (true, Ok(v)) =
+                (embed.starts_with("0x"), u64::from_str_radix(embed.trim_start_matches("0x"), 16))
+            {
+                return Some(v);
+            }
+
+            embed.parse().ok()
+        });
         config.debug.print_events |= self.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level());
         config.debug.ref_test |= self.ref_test;
