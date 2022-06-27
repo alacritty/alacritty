@@ -173,7 +173,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
     }
 }
 
-// Convert to hex if possible, else decimal
+/// Convert to hex if possible, else decimal
 fn parse_hex_or_decimal(input: &String) -> Option<u64> {
     input
         .starts_with("0x")
