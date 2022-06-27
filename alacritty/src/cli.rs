@@ -100,16 +100,7 @@ impl Options {
         }
 
         config.window.dynamic_title &= self.window_options.window_identity.title.is_none();
-        config.window.embed = self.embed.as_ref().and_then(|embed| {
-            // convert hexadecimal to decimal if possible
-            if let (true, Ok(v)) =
-                (embed.starts_with("0x"), u64::from_str_radix(embed.trim_start_matches("0x"), 16))
-            {
-                return Some(v);
-            }
-
-            embed.parse().ok()
-        });
+        config.window.embed = self.embed.as_ref().and_then(parse_hex_or_decimal);
         config.debug.print_events |= self.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level());
         config.debug.ref_test |= self.ref_test;
@@ -180,6 +171,14 @@ fn parse_class(input: &str) -> Result<Class, String> {
         },
         None => Ok(Class { instance: input.into(), general: DEFAULT_NAME.into() }),
     }
+}
+
+// Convert to hex if possible, else decimal
+fn parse_hex_or_decimal(input: &String) -> Option<u64> {
+    input
+        .starts_with("0x")
+        .then(|| u64::from_str_radix(&input[2..], 16).ok())
+        .unwrap_or_else(|| input.parse().ok())
 }
 
 /// Terminal specific cli options which can be passed to new windows via IPC.
@@ -400,6 +399,24 @@ mod tests {
     fn parse_invalid_class() {
         let class = parse_class("one,two,three");
         assert!(class.is_err());
+    }
+
+    #[test]
+    fn valid_decimal() {
+        let value = parse_hex_or_decimal(&String::from("10485773"));
+        assert_eq!(value, Some(10485773));
+    }
+
+    #[test]
+    fn valid_hex_to_decimal() {
+        let value = parse_hex_or_decimal(&String::from("0xa0000d"));
+        assert_eq!(value, Some(10485773));
+    }
+
+    #[test]
+    fn invalid_hex_to_decimal() {
+        let value = parse_hex_or_decimal(&String::from("0xa0xx0d"));
+        assert_eq!(value, None);
     }
 
     #[cfg(target_os = "linux")]
