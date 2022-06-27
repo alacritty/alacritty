@@ -1,0 +1,13 @@
+name: Publish to WinGet
+on:
+  release:
+    types: [released]
+jobs:
+  publish:
+    runs-on: windows-latest # action can only be run on windows
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@latest
+        with:
+          identifier: Alacritty.Alacritty
+          installers-regex: '\.msi$' # only .exe files
+          token: ${{ secrets.WINGET_TOKEN }}
