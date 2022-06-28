@@ -25,7 +25,7 @@ pub struct Options {
     #[clap(long)]
     pub ref_test: bool,
 
-    /// Defines the X11 window ID (as a decimal integer or hexadecimal starting with 0x) to embed Alacritty within.
+    /// X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix).
     #[clap(long)]
     pub embed: Option<String>,
 
