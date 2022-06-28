@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::os::raw::c_ulong;
 use std::path::PathBuf;
 
 #[cfg(unix)]
@@ -174,10 +175,10 @@ fn parse_class(input: &str) -> Result<Class, String> {
 }
 
 /// Convert to hex if possible, else decimal
-fn parse_hex_or_decimal(input: &str) -> Option<u64> {
+fn parse_hex_or_decimal(input: &str) -> Option<c_ulong> {
     input
         .strip_prefix("0x")
-        .and_then(|value| u64::from_str_radix(value, 16).ok())
+        .and_then(|value| c_ulong::from_str_radix(value, 16).ok())
         .or_else(|| input.parse().ok())
 }
 
