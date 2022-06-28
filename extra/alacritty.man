@@ -52,7 +52,7 @@ Alacritty looks for the configuration file at the following paths:
 On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
 .TP
 \fB\-\-embed\fR <parent>
-Defines the X11 window ID (as a decimal integer) to embed Alacritty within
+X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)
 .TP
 \fB\-o\fR, \fB\-\-option\fR <option>...
 Override configuration file options [example: cursor.style=Beam]
