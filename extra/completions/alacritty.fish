@@ -1,4 +1,4 @@
-complete -c alacritty -n "__fish_use_subcommand" -l embed -d 'Defines the X11 window ID (as a decimal integer) to embed Alacritty within' -r
+complete -c alacritty -n "__fish_use_subcommand" -l embed -d 'Defines the X11 window ID (as a decimal integer or hexadecimal starting with 0x) to embed Alacritty within' -r
 complete -c alacritty -n "__fish_use_subcommand" -l config-file -d 'Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]' -r -F
 complete -c alacritty -n "__fish_use_subcommand" -l socket -d 'Path for IPC socket creation' -r -F
 complete -c alacritty -n "__fish_use_subcommand" -s o -l option -d 'Override configuration file options [example: cursor.style=Beam]' -r
