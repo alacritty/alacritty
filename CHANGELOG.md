@@ -20,13 +20,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Escape sequence to set underline color (`CSI 58 : 2 : Ps : Ps : Ps m`/`CSI 58 : 5 : Ps m`)
 - Escape sequence to reset underline color (`CSI 59 m`)
 - Vi mode keybinding (z) to center view around vi mode cursor
+- Accept hexadecimal values starting with `0x` for `--embed`
 
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
 - OSC 52 is now disabled on unfocused windows
 - `SpawnNewInstance` no longer inherits initial `--command`
-- `--embed` could accept hexadecimal values starting with `0x`
 
 ### Fixed
 
