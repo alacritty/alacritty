@@ -1344,6 +1344,13 @@ impl Processor {
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
+                    // XXX Ensure that no context is current when creating a new window, otherwise
+                    // it may lock the backing buffer of the surface of current context when asking
+                    // e.g. EGL on Wayland to create a new context.
+                    for window_context in self.windows.values_mut() {
+                        window_context.display.window.make_not_current();
+                    }
+
                     if let Err(err) = self.create_window(event_loop, proxy.clone(), options) {
                         error!("Could not open window: {:?}", err);
                     }

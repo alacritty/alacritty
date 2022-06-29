@@ -495,6 +495,16 @@ impl Window {
         self.windowed_context.resize(size);
     }
 
+    pub fn make_not_current(&mut self) {
+        if self.windowed_context.is_current() {
+            self.windowed_context.replace_with(|context| unsafe {
+                // We do ensure that context is current before any rendering operation due to multi
+                // window support, so we don't need extra "type aid" from glutin here.
+                context.make_not_current().expect("context swap").treat_as_current()
+            });
+        }
+    }
+
     pub fn make_current(&mut self) {
         if !self.windowed_context.is_current() {
             self.windowed_context
