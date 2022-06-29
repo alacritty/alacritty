@@ -78,7 +78,7 @@ impl WindowConfig {
         let is_lines_set = self.dimensions.lines != 0;
 
         // Throw warning if only one of columns, lines is set
-        if (is_lines_set) ^ (is_columns_set) {
+        if is_lines_set ^ is_columns_set {
             warn!(
                 target: LOG_TARGET_CONFIG,
                 "Both lines and columns must be set for window.dimensions to take effect"
