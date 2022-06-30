@@ -2,8 +2,8 @@
 //! GPU drawing.
 
 use std::fmt::{self, Formatter};
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 use std::{cmp, mem};
 
 use glutin::dpi::PhysicalSize;
@@ -17,7 +17,7 @@ use log::{debug, info};
 use parking_lot::MutexGuard;
 use serde::{Deserialize, Serialize};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use wayland_client::EventQueue;
+use wayland_client::{protocol::wl_surface::WlSurface, Attached, EventQueue};
 
 use crossfont::{self, Rasterize, Rasterizer};
 
@@ -42,23 +42,24 @@ use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
 use crate::display::damage::RenderDamageIterator;
 use crate::display::hint::{HintMatch, HintState};
-use crate::display::meter::Meter;
+use crate::display::meter::{Meter, Sample};
 use crate::display::window::Window;
-use crate::event::{Mouse, SearchState};
+use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, Renderer};
+use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
 pub mod cursor;
 pub mod hint;
+pub mod meter;
 pub mod window;
 
 mod bell;
 mod color;
 mod damage;
-mod meter;
 
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
@@ -362,6 +363,10 @@ pub struct Display {
     /// The renderer update that takes place only once before the actual rendering.
     pub pending_renderer_update: Option<RendererUpdate>,
 
+    /// The error of time when the `Frame` event should be received and when it was actually
+    /// received.
+    pub frame_error: Meter,
+
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
@@ -527,6 +532,7 @@ impl Display {
             renderer,
             glyph_cache,
             hint_state,
+            frame_error: Meter::new(),
             meter: Meter::new(),
             size_info,
             highlighted_hint: None,
@@ -739,16 +745,21 @@ impl Display {
     pub fn draw<T: EventListener>(
         &mut self,
         mut terminal: MutexGuard<'_, Term<T>>,
+        scheduler: &mut Scheduler,
         message_buffer: &MessageBuffer,
         config: &UiConfig,
         search_state: &SearchState,
     ) {
+        let sample = self.meter.sample();
+
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
+
         let mut grid_cells = Vec::new();
         for cell in &mut content {
             grid_cells.push(cell);
         }
+
         let selection_range = content.selection_range();
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
@@ -780,45 +791,41 @@ impl Display {
             self.highlighted_hint.is_some() || self.vi_highlighted_hint.is_some();
 
         // Draw grid.
-        {
-            let _sampler = self.meter.sampler();
 
-            // Ensure macOS hasn't reset our viewport.
-            #[cfg(target_os = "macos")]
-            self.renderer.set_viewport(&size_info);
+        // Ensure macOS hasn't reset our viewport.
+        #[cfg(target_os = "macos")]
+        self.renderer.set_viewport(&size_info);
 
-            let glyph_cache = &mut self.glyph_cache;
-            let highlighted_hint = &self.highlighted_hint;
-            let vi_highlighted_hint = &self.vi_highlighted_hint;
+        let glyph_cache = &mut self.glyph_cache;
+        let highlighted_hint = &self.highlighted_hint;
+        let vi_highlighted_hint = &self.vi_highlighted_hint;
 
-            self.renderer.draw_cells(
-                &size_info,
-                glyph_cache,
-                grid_cells.into_iter().map(|mut cell| {
-                    // Underline hints hovered by mouse or vi mode cursor.
-                    let point = term::viewport_to_point(display_offset, cell.point);
+        self.renderer.draw_cells(
+            &size_info,
+            glyph_cache,
+            grid_cells.into_iter().map(|mut cell| {
+                // Underline hints hovered by mouse or vi mode cursor.
+                let point = term::viewport_to_point(display_offset, cell.point);
 
-                    if has_highlighted_hint {
-                        let hyperlink =
-                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
-                        if highlighted_hint
+                if has_highlighted_hint {
+                    let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
+                    if highlighted_hint
+                        .as_ref()
+                        .map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                        || vi_highlighted_hint
                             .as_ref()
                             .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                            || vi_highlighted_hint
-                                .as_ref()
-                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                        {
-                            cell.flags.insert(Flags::UNDERLINE);
-                        }
+                    {
+                        cell.flags.insert(Flags::UNDERLINE);
                     }
+                }
 
-                    // Update underline/strikeout.
-                    lines.update(&cell);
+                // Update underline/strikeout.
+                lines.update(&cell);
 
-                    cell
-                }),
-            );
-        }
+                cell
+            }),
+        );
 
         let mut rects = lines.rects(&metrics, &size_info);
 
@@ -898,8 +905,6 @@ impl Display {
             self.renderer.draw_rects(&size_info, &metrics, rects);
         }
 
-        self.draw_render_timer(config);
-
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
             Some(regex) => {
@@ -928,10 +933,15 @@ impl Display {
         // Update IME position.
         self.window.update_ime_position(ime_position, &self.size_info);
 
-        // Frame event should be requested before swaping buffers, since it requires surface
-        // `commit`, which is done by swap buffers under the hood.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        self.request_frame(&self.window);
+        self.meter.add_sample(sample);
+
+        self.draw_render_timer(config);
+
+        // Request the next frame for the given window.
+        //
+        // On Waylad frame event should be requested before swaping buffers, since it requires
+        // surface `commit`, which is done by swap buffers under the hood.
+        self.request_frame(scheduler);
 
         // Clearing debug highlights from the previous frame requires full redraw.
         if self.is_damage_supported && !self.debug_damage {
@@ -1246,23 +1256,48 @@ impl Display {
         }
     }
 
+    /// Request a new frame for the given window.
+    fn request_frame(&self, scheduler: &mut Scheduler) {
+        // Mark that we've used the frame.
+        self.window.has_frame.store(false, Ordering::Relaxed);
+
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        if let Some(wl_surface) = self.window.wayland_surface() {
+            self.request_frame_callback(wl_surface);
+            return;
+        }
+
+        // Get the refresh rate of the current monitor in Hz.
+        let refresh_rate = self
+            .window
+            .current_monitor()
+            .and_then(|monitor| monitor.refresh_rate_millihertz())
+            .unwrap_or(60000) as f64
+            / 1000.;
+
+        // Compute the interval in micro seconds and offset it by the average time to render and
+        // frame events error.
+        let interval = Duration::from_micros(
+            (1e6 / refresh_rate - self.meter.average() - self.frame_error.average()).max(0.) as u64,
+        );
+
+        let frame_sample =
+            Sample::with_base(std::time::Instant::now().checked_add(interval).unwrap());
+
+        let window_id = self.window.id();
+        let timer_id = TimerId::new(Topic::Frame, window_id);
+        let event = Event::new(EventType::Frame(frame_sample), window_id);
+        scheduler.schedule(event, interval, false, timer_id)
+    }
+
     /// Requst a new frame for a window on Wayland.
     #[inline]
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    fn request_frame(&self, window: &Window) {
-        let surface = match window.wayland_surface() {
-            Some(surface) => surface,
-            None => return,
-        };
-
-        let should_draw = self.window.should_draw.clone();
-
-        // Mark that window was drawn.
-        should_draw.store(false, Ordering::Relaxed);
-
+    fn request_frame_callback(&self, wl_surface: &Attached<WlSurface>) {
+        let has_frame = self.window.has_frame.clone();
         // Request a new frame.
-        surface.frame().quick_assign(move |_, _, _| {
-            should_draw.store(true, Ordering::Relaxed);
+        wl_surface.frame().quick_assign(move |_, _, _| {
+            has_frame.store(true, Ordering::Relaxed);
         });
     }
 }

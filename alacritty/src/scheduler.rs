@@ -28,6 +28,7 @@ pub enum Topic {
     DelayedSearch,
     BlinkCursor,
     BlinkTimeout,
+    Frame,
 }
 
 /// Event scheduled to be emitted at a specific time.

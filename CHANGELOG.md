@@ -66,6 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CPU usage spikes due to mouse movements for unfocused windows on X11/Windows
 - First window on macOS not tabbed with system prefer tabs setting
 - Window being treaten as focused by default on Wayland
+- Low frame rate when multiple windows render at the same time
+- Redraw hanging until a keypress on X11 in rare cases
 
 ### Removed
 

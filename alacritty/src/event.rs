@@ -9,6 +9,7 @@ use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -46,6 +47,7 @@ use crate::config::{self, UiConfig};
 use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::hint::HintMatch;
+use crate::display::meter::Sample;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
@@ -96,6 +98,7 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    Frame(Sample),
 }
 
 impl From<TerminalEvent> for EventType {
@@ -1079,6 +1082,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     self.ctx.window().scale_factor = scale_factor;
+                },
+                EventType::Frame(sample) => {
+                    self.ctx.display.frame_error.add_sample(sample);
+                    self.ctx.display.window.has_frame.store(true, Ordering::Relaxed)
                 },
                 EventType::SearchNext => self.ctx.goto_match(None),
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),

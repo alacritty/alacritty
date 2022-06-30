@@ -20,7 +20,7 @@
 
 use std::time::{Duration, Instant};
 
-const NUM_SAMPLES: usize = 10;
+const NUM_SAMPLES: usize = 30;
 
 /// The meter.
 #[derive(Default)]
@@ -37,29 +37,31 @@ pub struct Meter {
 
 /// Sampler.
 ///
-/// Samplers record how long they are "alive" for and update the meter on drop..
-pub struct Sampler<'a> {
-    /// Reference to meter that created the sampler.
-    meter: &'a mut Meter,
-
-    /// When the sampler was created.
-    created_at: Instant,
+/// Samplers record how long they are "alive" when being consumed by the `Meter`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sample {
+    /// The timestamp sample should use as a base.
+    base: Instant,
 }
 
-impl<'a> Sampler<'a> {
-    fn new(meter: &'a mut Meter) -> Sampler<'a> {
-        Sampler { meter, created_at: Instant::now() }
+impl Sample {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with_base(base: Instant) -> Self {
+        Self { base }
     }
 
     #[inline]
     fn alive_duration(&self) -> Duration {
-        self.created_at.elapsed()
+        self.base.elapsed()
     }
 }
 
-impl<'a> Drop for Sampler<'a> {
-    fn drop(&mut self) {
-        self.meter.add_sample(self.alive_duration());
+impl Default for Sample {
+    fn default() -> Self {
+        Self { base: Instant::now() }
     }
 }
 
@@ -69,9 +71,9 @@ impl Meter {
         Default::default()
     }
 
-    /// Get a sampler.
-    pub fn sampler(&mut self) -> Sampler<'_> {
-        Sampler::new(self)
+    /// Get a sample.
+    pub fn sample(&self) -> Sample {
+        Sample::new()
     }
 
     /// Get the current average sample duration in microseconds.
@@ -80,10 +82,10 @@ impl Meter {
     }
 
     /// Add a sample.
-    ///
-    /// Used by Sampler::drop.
-    fn add_sample(&mut self, sample: Duration) {
+    pub fn add_sample(&mut self, sample: Sample) {
         let mut usec = 0f64;
+
+        let sample = sample.alive_duration();
 
         usec += f64::from(sample.subsec_nanos()) / 1e3;
         usec += (sample.as_secs() as f64) * 1e6;
