@@ -90,6 +90,7 @@ pub enum EventType {
     Scroll(Scroll),
     CreateWindow(WindowOptions),
     BlinkCursor,
+    BlinkCursorTimeout,
     SearchNext,
 }
 
@@ -180,6 +181,7 @@ pub struct ActionContext<'a, N, T> {
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a mut UiConfig,
+    pub cursor_blink_timed_out: &'a mut bool,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
@@ -647,13 +649,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
-        if let Some(timer) = self.scheduler.unschedule(timer_id) {
-            let interval =
-                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
-            self.scheduler.schedule(timer.event, interval, true, timer.id);
+        if self.scheduler.unschedule(timer_id).is_some() {
+            self.schedule_blinking();
             self.display.cursor_hidden = false;
-            *self.dirty = true;
+        } else if *self.cursor_blink_timed_out {
+            self.update_cursor_blinking();
         }
+
+        *self.dirty = true;
 
         // Hide mouse cursor.
         if self.config.mouse.hide_when_typing {
@@ -945,17 +948,43 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         blinking &= vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR);
 
         // Update cursor blinking state.
-        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
-        self.scheduler.unschedule(timer_id);
+        let window_id = self.display.window.id();
+        self.scheduler.unschedule(TimerId::new(Topic::BlinkCursor, window_id));
+        self.scheduler.unschedule(TimerId::new(Topic::BlinkTimeout, window_id));
+
+        // Reset blinkinig timeout.
+        *self.cursor_blink_timed_out = false;
+
         if blinking && self.terminal.is_focused {
-            let event = Event::new(EventType::BlinkCursor, self.display.window.id());
-            let interval =
-                Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
-            self.scheduler.schedule(event, interval, true, timer_id);
+            self.schedule_blinking();
+            self.schedule_blinking_timeout();
         } else {
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
+    }
+
+    fn schedule_blinking(&mut self) {
+        let window_id = self.display.window.id();
+        let timer_id = TimerId::new(Topic::BlinkCursor, window_id);
+        let event = Event::new(EventType::BlinkCursor, window_id);
+        let blinking_interval =
+            Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
+        self.scheduler.schedule(event, blinking_interval, true, timer_id);
+    }
+
+    fn schedule_blinking_timeout(&mut self) {
+        let blinking_timeout = self.config.terminal_config.cursor.blink_timeout();
+        if blinking_timeout == 0 {
+            return;
+        }
+
+        let window_id = self.display.window.id();
+        let blinking_timeout_interval = Duration::from_secs(blinking_timeout);
+        let event = Event::new(EventType::BlinkCursorTimeout, window_id);
+        let timer_id = TimerId::new(Topic::BlinkTimeout, window_id);
+
+        self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
     }
 }
 
@@ -1046,6 +1075,14 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),
                 EventType::BlinkCursor => {
                     self.ctx.display.cursor_hidden ^= true;
+                    *self.ctx.dirty = true;
+                },
+                EventType::BlinkCursorTimeout => {
+                    // Disable blinking after timeout reached.
+                    let timer_id = TimerId::new(Topic::BlinkCursor, self.ctx.display.window.id());
+                    self.ctx.scheduler.unschedule(timer_id);
+                    self.ctx.display.cursor_hidden = false;
+                    *self.ctx.cursor_blink_timed_out = true;
                     *self.ctx.dirty = true;
                 },
                 EventType::Message(message) => {

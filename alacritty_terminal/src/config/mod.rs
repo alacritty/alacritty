@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -13,6 +13,7 @@ use crate::ansi::{CursorShape, CursorStyle};
 pub use crate::config::scrolling::{Scrolling, MAX_SCROLLBACK_LINES};
 
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
+
 const MIN_BLINK_INTERVAL: u64 = 10;
 
 /// Top-level config type.
@@ -75,6 +76,7 @@ pub struct Cursor {
 
     thickness: Percentage,
     blink_interval: u64,
+    blink_timeout: u8,
 }
 
 impl Default for Cursor {
@@ -83,6 +85,7 @@ impl Default for Cursor {
             thickness: Percentage(0.15),
             unfocused_hollow: true,
             blink_interval: 750,
+            blink_timeout: 5,
             style: Default::default(),
             vi_mode_style: Default::default(),
         }
@@ -107,7 +110,18 @@ impl Cursor {
 
     #[inline]
     pub fn blink_interval(self) -> u64 {
-        max(self.blink_interval, MIN_BLINK_INTERVAL)
+        cmp::max(self.blink_interval, MIN_BLINK_INTERVAL)
+    }
+
+    #[inline]
+    pub fn blink_timeout(self) -> u64 {
+        const MILLIS_IN_SECOND: u64 = 1000;
+        match self.blink_timeout {
+            0 => 0,
+            blink_timeout => {
+                cmp::max(self.blink_interval * 5 / MILLIS_IN_SECOND, blink_timeout as u64)
+            },
+        }
     }
 }
 

@@ -21,12 +21,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Escape sequence to reset underline color (`CSI 59 m`)
 - Vi mode keybinding (z) to center view around vi mode cursor
 - Accept hexadecimal values starting with `0x` for `--embed`
+- Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
 
 ### Changed
 
 - The `--help` output was reworked with a new colorful syntax
 - OSC 52 is now disabled on unfocused windows
 - `SpawnNewInstance` no longer inherits initial `--command`
+- Blinking cursor will timeout after `5` seconds by default
 
 ### Fixed
 

@@ -43,6 +43,7 @@ pub struct WindowContext {
     pub display: Display,
     event_queue: Vec<GlutinEvent<'static, Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
+    cursor_blink_timed_out: bool,
     modifiers: ModifiersState,
     search_state: SearchState,
     received_count: usize,
@@ -151,6 +152,7 @@ impl WindowContext {
             master_fd,
             #[cfg(not(windows))]
             shell_pid,
+            cursor_blink_timed_out: Default::default(),
             suppress_chars: Default::default(),
             message_buffer: Default::default(),
             received_count: Default::default(),
@@ -267,6 +269,7 @@ impl WindowContext {
         let old_is_searching = self.search_state.history_index.is_some();
 
         let context = ActionContext {
+            cursor_blink_timed_out: &mut self.cursor_blink_timed_out,
             message_buffer: &mut self.message_buffer,
             received_count: &mut self.received_count,
             suppress_chars: &mut self.suppress_chars,
