@@ -34,10 +34,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `SpawnNewInstance` no longer inherits initial `--command`
 - Blinking cursor will timeout after `5` seconds by default
 - Deprecated `colors.search.bar`, use `colors.footer_bar` instead
+- On macOS, Alacritty now reads `AppleFontSmoothing` from user defaults to control font smoothing
 
 ### Fixed
 
-- Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
+- Creating the IPC socket failing if `WAYLAND_DISPLAY` contains an absolute path
 - Crash when resetting the terminal while in vi mode
 - `font.glyph_offset` not live reloading
 - Failure when running on 10-bit color system
@@ -50,6 +51,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Window flickering on resize on Wayland
 - Unnecessary config reload when using `/dev/null` as a config file
 - Windows `Open Alacritty Here` on root of drive displaying error
+- On macOS, `font.use_thin_strokes` did not work since Big Sur
+- On macOS, trying to load a disabled font would crash
+
+### Removed
+
+- `font.use_thin_strokes` config field; to use thin strokes on macOS, set
+    `AppleFontSmoothing` to 0 with `$ defaults write -g AppleFontSmoothing -int 0`
 
 ## 0.10.1
 

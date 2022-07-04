@@ -411,7 +411,7 @@ impl Display {
         // Guess the target window dimensions.
         debug!("Loading \"{}\" font", &config.font.normal().family);
         let font = &config.font;
-        let rasterizer = Rasterizer::new(estimated_scale_factor as f32, font.use_thin_strokes)?;
+        let rasterizer = Rasterizer::new(estimated_scale_factor as f32)?;
         let mut glyph_cache = GlyphCache::new(rasterizer, font)?;
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
@@ -487,10 +487,6 @@ impl Display {
         // Clear screen.
         let background_color = config.colors.primary.background;
         renderer.clear(background_color, config.window_opacity());
-
-        // Set subpixel anti-aliasing.
-        #[cfg(target_os = "macos")]
-        crossfont::set_font_smoothing(config.font.use_thin_strokes);
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
