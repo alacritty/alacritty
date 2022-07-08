@@ -978,7 +978,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 mod tests {
     use super::*;
 
-    use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent};
+    use glutin::event::{DeviceId, Event as GlutinEvent, VirtualKeyCode, WindowEvent};
+    use glutin::window::WindowId;
 
     use alacritty_terminal::event::Event as TerminalEvent;
 
@@ -1190,10 +1191,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
     }
@@ -1206,10 +1207,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
     }
@@ -1222,10 +1223,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Middle,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
     }
@@ -1238,10 +1239,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::DoubleClick,
     }
@@ -1254,10 +1255,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::TripleClick,
     }
@@ -1270,10 +1271,10 @@ mod tests {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
-                device_id: unsafe { std::mem::transmute_copy(&0) },
+                device_id: unsafe { DeviceId::dummy() },
                 modifiers: ModifiersState::default(),
             },
-            window_id: unsafe { std::mem::transmute_copy(&0) },
+            window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
     }
