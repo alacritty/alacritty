@@ -27,7 +27,7 @@
   # Window dimensions (changes require restart)
   #
   # Number of lines/columns (not pixels) in the terminal. Both lines and columns
-  # must be set for this to take effect. The number of columns must be at least `2`,
+  # must be non-zero for this to take effect. The number of columns must be at least `2`,
   # while using a value of `0` for columns and lines will fall back to the
   # window manager's recommended size. 
   #dimensions:

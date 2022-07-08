@@ -74,18 +74,24 @@ impl Default for WindowConfig {
 impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
-        let is_columns_set = self.dimensions.columns.0 != 0;
-        let is_lines_set = self.dimensions.lines != 0;
+        // Warn if one of columns, lines is non-zero but not both
+        if (self.dimensions.lines != 0) ^ (self.dimensions.columns.0 != 0) {
+            let (zero_key, key, value) = match self.dimensions.lines != 0 {
+                true => ("columns", "lines", self.dimensions.lines),
+                false => ("lines", "columns", self.dimensions.columns.0),
+            };
 
-        // Throw warning if only one of columns, lines is set
-        if is_lines_set ^ is_columns_set {
             warn!(
                 target: LOG_TARGET_CONFIG,
-                "Both lines and columns must be set for window.dimensions to take effect"
+                "Both lines and columns must be non-zero for window.dimensions to take effect. \
+                Configured value of {} is 0 while that of {} is {}",
+                zero_key,
+                key,
+                value,
             );
         }
 
-        if is_columns_set && is_lines_set {
+        if (self.dimensions.lines != 0) && (self.dimensions.columns.0 != 0) {
             Some(self.dimensions)
         } else {
             None
