@@ -978,7 +978,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 mod tests {
     use super::*;
 
-    use glutin::event::{Event as GlutinEvent, VirtualKeyCode, WindowEvent, DeviceId};
+    use glutin::event::{DeviceId, Event as GlutinEvent, VirtualKeyCode, WindowEvent};
     use glutin::window::WindowId;
 
     use alacritty_terminal::event::Event as TerminalEvent;
