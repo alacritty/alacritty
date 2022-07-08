@@ -2,7 +2,7 @@ use std::fmt::{self, Formatter};
 use std::os::raw::c_ulong;
 
 use glutin::window::Fullscreen;
-use log::error;
+use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -74,10 +74,18 @@ impl Default for WindowConfig {
 impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
-        if self.dimensions.columns.0 != 0
-            && self.dimensions.lines != 0
-            && self.startup_mode != StartupMode::Maximized
-        {
+        let is_columns_set = self.dimensions.columns.0 != 0;
+        let is_lines_set = self.dimensions.lines != 0;
+
+        // Throw warning if only one of columns, lines is set
+        if (is_lines_set) ^ (is_columns_set) {
+            warn!(
+                target: LOG_TARGET_CONFIG,
+                "Both lines and columns must be set for window.dimensions to take effect"
+            );
+        }
+
+        if is_columns_set && is_lines_set && self.startup_mode != StartupMode::Maximized {
             Some(self.dimensions)
         } else {
             None
