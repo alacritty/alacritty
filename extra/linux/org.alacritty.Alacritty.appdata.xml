@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2016-2019 Joe Wilm, The Alacritty Project Contributors -->
+<!-- Copyright 2016-2022 Joe Wilm, The Alacritty Project Contributors -->
 <component type="desktop-application">
-  <id>io.alacritty.Alacritty</id>
+  <id>org.alacritty.Alacritty</id>
   <!-- Translators: The application name -->
   <name>Alacritty</name>
   <project_license>APACHE-2.0</project_license>
