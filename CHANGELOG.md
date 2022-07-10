@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.57.0
+- Renamed `io.alacritty.Alacritty.appdata.xml` to `org.alacritty.Alacritty.appdata.xml`
+- Renamed `io.alacritty` to `org.alacritty` for `Alacritty.app`
 
 ### Added
 
