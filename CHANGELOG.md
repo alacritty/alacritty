@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi mode keybinding (z) to center view around vi mode cursor
 - Accept hexadecimal values starting with `0x` for `--embed`
 - Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
+- Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
+- Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
 
 ### Changed
 
@@ -29,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - OSC 52 is now disabled on unfocused windows
 - `SpawnNewInstance` no longer inherits initial `--command`
 - Blinking cursor will timeout after `5` seconds by default
+- Deprecated `colors.search.bar`, use `colors.footer_bar` instead
 
 ### Fixed
 
