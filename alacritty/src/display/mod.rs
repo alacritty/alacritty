@@ -16,7 +16,6 @@ use glutin::Rect as DamageRect;
 use log::{debug, info};
 use parking_lot::MutexGuard;
 use serde::{Deserialize, Serialize};
-use unicode_width::UnicodeWidthChar;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
 
@@ -49,6 +48,7 @@ use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, Renderer};
+use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
 pub mod cursor;
@@ -60,14 +60,14 @@ mod color;
 mod damage;
 mod meter;
 
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-pub const MAX_SEARCH_LINES: usize = 100;
-
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 
 /// Label for the backward terminal search bar.
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
+
+/// The character used to shorten the visible text like uri preview or search regex.
+const SHORTENER: char = '…';
 
 /// Color which is used to highlight damaged rects when debugging.
 const DAMAGE_RECT_COLOR: Rgb = Rgb { r: 255, g: 0, b: 255 };
@@ -362,9 +362,13 @@ pub struct Display {
     /// The renderer update that takes place only once before the actual rendering.
     pub pending_renderer_update: Option<RendererUpdate>,
 
+    // Mouse point position when highlighting hints.
+    hint_mouse_point: Option<Point>,
+
     is_damage_supported: bool,
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
+    next_frame_damage_rects: Vec<DamageRect>,
     renderer: Renderer,
     glyph_cache: GlyphCache,
     meter: Meter,
@@ -515,10 +519,11 @@ impl Display {
         let hint_state = HintState::new(config.hints.alphabet());
         let is_damage_supported = window.swap_buffers_with_damage_supported();
         let debug_damage = config.debug.highlight_damage;
-        let damage_rects = if is_damage_supported || debug_damage {
-            Vec::with_capacity(size_info.screen_lines())
+        let (damage_rects, next_frame_damage_rects) = if is_damage_supported || debug_damage {
+            let vec = Vec::with_capacity(size_info.screen_lines());
+            (vec.clone(), vec)
         } else {
-            Vec::new()
+            (Vec::new(), Vec::new())
         };
 
         Ok(Self {
@@ -540,6 +545,8 @@ impl Display {
             is_damage_supported,
             debug_damage,
             damage_rects,
+            next_frame_damage_rects,
+            hint_mouse_point: None,
         })
     }
 
@@ -757,7 +764,7 @@ impl Display {
         let size_info = self.size_info;
 
         let vi_mode = terminal.mode().contains(TermMode::VI);
-        let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
+        let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
 
         if self.collect_damage() {
             self.update_damage(&mut terminal, selection_range, search_state);
@@ -772,6 +779,10 @@ impl Display {
         self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
 
+        // Optimize loop hint comparator.
+        let has_highlighted_hint =
+            self.highlighted_hint.is_some() || self.vi_highlighted_hint.is_some();
+
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
@@ -783,16 +794,26 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             let highlighted_hint = &self.highlighted_hint;
             let vi_highlighted_hint = &self.vi_highlighted_hint;
+
             self.renderer.draw_cells(
                 &size_info,
                 glyph_cache,
                 grid_cells.into_iter().map(|mut cell| {
                     // Underline hints hovered by mouse or vi mode cursor.
                     let point = term::viewport_to_point(display_offset, cell.point);
-                    if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                        || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                    {
-                        cell.flags.insert(Flags::UNDERLINE);
+
+                    if has_highlighted_hint {
+                        let hyperlink =
+                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
+                        if highlighted_hint
+                            .as_ref()
+                            .map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                            || vi_highlighted_hint
+                                .as_ref()
+                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                        {
+                            cell.flags.insert(Flags::UNDERLINE);
+                        }
                     }
 
                     // Update underline/strikeout.
@@ -805,18 +826,17 @@ impl Display {
 
         let mut rects = lines.rects(&metrics, &size_info);
 
-        if let Some(vi_mode_cursor) = vi_mode_cursor {
+        if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let vi_point = vi_mode_cursor.point;
-            let line = (-vi_point.line.0 + size_info.bottommost_line().0) as usize;
-            let obstructed_column = Some(vi_point)
+            let line = (-vi_cursor_point.line.0 + size_info.bottommost_line().0) as usize;
+            let obstructed_column = Some(vi_cursor_point)
                 .filter(|point| point.line == -(display_offset as i32))
                 .map(|point| point.column);
-            self.draw_line_indicator(config, &size_info, total_lines, obstructed_column, line);
+            self.draw_line_indicator(config, total_lines, obstructed_column, line);
         } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
-            self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
-        }
+            self.draw_line_indicator(config, total_lines, None, display_offset);
+        };
 
         // Draw cursor.
         for rect in cursor.rects(&size_info, config.terminal_config.cursor.thickness()) {
@@ -868,14 +888,21 @@ impl Display {
             let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
-                self.renderer.draw_string(point, fg, bg, message_text, &size_info, glyph_cache);
+                self.renderer.draw_string(
+                    point,
+                    fg,
+                    bg,
+                    message_text.chars(),
+                    &size_info,
+                    glyph_cache,
+                );
             }
         } else {
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, &metrics, rects);
         }
 
-        self.draw_render_timer(config, &size_info);
+        self.draw_render_timer(config);
 
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
@@ -885,10 +912,10 @@ impl Display {
                     Direction::Left => BACKWARD_SEARCH_LABEL,
                 };
 
-                let search_text = Self::format_search(&size_info, regex, search_label);
+                let search_text = Self::format_search(regex, search_label, size_info.columns());
 
                 // Render the search bar.
-                self.draw_search(config, &size_info, &search_text);
+                self.draw_search(config, &search_text);
 
                 // Compute IME position.
                 let line = Line(size_info.screen_lines() as i32 + 1);
@@ -896,6 +923,11 @@ impl Display {
             },
             None => cursor_point,
         };
+
+        // Draw hyperlink uri preview.
+        if has_highlighted_hint {
+            self.draw_hyperlink_preview(config, vi_cursor_point, display_offset);
+        }
 
         // Update IME position.
         self.window.update_ime_position(ime_position, &self.size_info);
@@ -921,6 +953,9 @@ impl Display {
         }
 
         self.damage_rects.clear();
+
+        // Append damage rects we've enqueued for the next frame.
+        mem::swap(&mut self.damage_rects, &mut self.next_frame_damage_rects);
     }
 
     /// Update to a new configuration.
@@ -964,8 +999,13 @@ impl Display {
 
         // Update cursor shape.
         if highlighted_hint.is_some() {
+            // If mouse changed the line, we should update the hyperlink preview, since the
+            // highlighted hint could be disrupted by the old preview.
+            dirty = self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
+            self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Hand);
         } else if self.highlighted_hint.is_some() {
+            self.hint_mouse_point = None;
             if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {
                 self.window.set_mouse_cursor(CursorIcon::Default);
             } else {
@@ -980,74 +1020,148 @@ impl Display {
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
-    fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
-        // Add spacers for wide chars.
-        let mut formatted_regex = String::with_capacity(search_regex.len());
-        for c in search_regex.chars() {
-            formatted_regex.push(c);
-            if c.width() == Some(2) {
-                formatted_regex.push(' ');
-            }
+    fn format_search(search_regex: &str, search_label: &str, max_width: usize) -> String {
+        let label_len = search_label.len();
+
+        // Skip `search_regex` formatting if only label is visible.
+        if label_len > max_width {
+            return search_label[..max_width].to_owned();
         }
 
-        // Add cursor to show whitespace.
-        formatted_regex.push('_');
+        // The search string consists of `search_label` + `search_regex` + `cursor`.
+        let mut bar_text = String::from(search_label);
+        bar_text.extend(StrShortener::new(
+            search_regex,
+            max_width.wrapping_sub(label_len + 1),
+            ShortenDirection::Left,
+            Some(SHORTENER),
+        ));
 
-        // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.columns();
-        let label_len = search_label.chars().count();
-        let regex_len = formatted_regex.chars().count();
-        let truncate_len = cmp::min((regex_len + label_len).saturating_sub(num_cols), regex_len);
-        let index = formatted_regex.char_indices().nth(truncate_len).map(|(i, _c)| i).unwrap_or(0);
-        let truncated_regex = &formatted_regex[index..];
-
-        // Add search label to the beginning of the search regex.
-        let mut bar_text = format!("{}{}", search_label, truncated_regex);
-
-        // Make sure the label alone doesn't exceed the viewport width.
-        bar_text.truncate(num_cols);
+        bar_text.push('_');
 
         bar_text
     }
 
-    /// Draw current search regex.
-    fn draw_search(&mut self, config: &UiConfig, size_info: &SizeInfo, text: &str) {
-        let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.columns();
+    /// Draw preview for the currently highlighted `Hyperlink`.
+    #[inline(never)]
+    fn draw_hyperlink_preview(
+        &mut self,
+        config: &UiConfig,
+        vi_cursor_point: Option<Point>,
+        display_offset: usize,
+    ) {
+        let num_cols = self.size_info.columns();
+        let uris: Vec<_> = self
+            .highlighted_hint
+            .iter()
+            .chain(&self.vi_highlighted_hint)
+            .filter_map(|hint| hint.hyperlink().map(|hyperlink| hyperlink.uri()))
+            .map(|uri| StrShortener::new(uri, num_cols, ShortenDirection::Right, Some(SHORTENER)))
+            .collect();
 
+        if uris.is_empty() {
+            return;
+        }
+
+        // The maximum amount of protected lines including the ones we'll show preview on.
+        let max_protected_lines = uris.len() * 2;
+
+        // Lines we shouldn't shouldn't show preview on, because it'll obscure the highlighted
+        // hint.
+        let mut protected_lines = Vec::with_capacity(max_protected_lines);
+        if self.size_info.screen_lines() >= max_protected_lines {
+            // Prefer to show preview even when it'll likely obscure the highlighted hint, when
+            // there's no place left for it.
+            protected_lines.push(self.hint_mouse_point.map(|point| point.line));
+            protected_lines.push(vi_cursor_point.map(|point| point.line));
+        }
+
+        // Find the line in viewport we can draw preview on without obscuring protected lines.
+        let viewport_bottom = self.size_info.bottommost_line() - Line(display_offset as i32);
+        let viewport_top = viewport_bottom - (self.size_info.screen_lines() - 1);
+        let uri_lines = (viewport_top.0..=viewport_bottom.0)
+            .rev()
+            .map(|line| Some(Line(line)))
+            .filter_map(|line| {
+                if protected_lines.contains(&line) {
+                    None
+                } else {
+                    protected_lines.push(line);
+                    line
+                }
+            })
+            .take(uris.len())
+            .flat_map(|line| term::point_to_viewport(display_offset, Point::new(line, Column(0))));
+
+        let fg = config.colors.footer_bar_foreground();
+        let bg = config.colors.footer_bar_background();
+        for (uri, point) in uris.into_iter().zip(uri_lines) {
+            // Damage the uri preview.
+            if self.collect_damage() {
+                let uri_preview_damage = self.damage_from_point(point, num_cols as u32);
+                self.damage_rects.push(uri_preview_damage);
+
+                // Damage the uri preview for the next frame as well.
+                self.next_frame_damage_rects.push(uri_preview_damage);
+            }
+
+            self.renderer.draw_string(point, fg, bg, uri, &self.size_info, &mut self.glyph_cache);
+        }
+    }
+
+    /// Draw current search regex.
+    #[inline(never)]
+    fn draw_search(&mut self, config: &UiConfig, text: &str) {
         // Assure text length is at least num_cols.
+        let num_cols = self.size_info.columns();
         let text = format!("{:<1$}", text, num_cols);
 
-        let point = Point::new(size_info.screen_lines(), Column(0));
-        let fg = config.colors.search_bar_foreground();
-        let bg = config.colors.search_bar_background();
+        let point = Point::new(self.size_info.screen_lines(), Column(0));
 
-        self.renderer.draw_string(point, fg, bg, &text, size_info, glyph_cache);
+        let fg = config.colors.footer_bar_foreground();
+        let bg = config.colors.footer_bar_background();
+
+        self.renderer.draw_string(
+            point,
+            fg,
+            bg,
+            text.chars(),
+            &self.size_info,
+            &mut self.glyph_cache,
+        );
     }
 
     /// Draw render timer.
-    fn draw_render_timer(&mut self, config: &UiConfig, size_info: &SizeInfo) {
+    #[inline(never)]
+    fn draw_render_timer(&mut self, config: &UiConfig) {
         if !config.debug.render_timer {
             return;
         }
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(size_info.screen_lines().saturating_sub(2), Column(0));
+        let point = Point::new(self.size_info.screen_lines().saturating_sub(2), Column(0));
         let fg = config.colors.primary.background;
         let bg = config.colors.normal.red;
 
-        // Damage the entire line.
-        self.damage_from_point(point, self.size_info.columns() as u32);
+        if self.collect_damage() {
+            // Damage the entire line.
+            let render_timer_damage =
+                self.damage_from_point(point, self.size_info.columns() as u32);
+            self.damage_rects.push(render_timer_damage);
+
+            // Damage the render timer for the next frame.
+            self.next_frame_damage_rects.push(render_timer_damage)
+        }
 
         let glyph_cache = &mut self.glyph_cache;
-        self.renderer.draw_string(point, fg, bg, &timing, size_info, glyph_cache);
+        self.renderer.draw_string(point, fg, bg, timing.chars(), &self.size_info, glyph_cache);
     }
 
     /// Draw an indicator for the position of a line in history.
+    #[inline(never)]
     fn draw_line_indicator(
         &mut self,
         config: &UiConfig,
-        size_info: &SizeInfo,
         total_lines: usize,
         obstructed_column: Option<Column>,
         line: usize,
@@ -1064,14 +1178,16 @@ impl Display {
         }
 
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(size_info.columns().saturating_sub(text.len()));
+        let column = Column(self.size_info.columns().saturating_sub(text.len()));
         let point = Point::new(0, column);
 
         // Damage the maximum possible length of the format text, which could be achieved when
         // using `MAX_SCROLLBACK_LINES` as current and total lines adding a `3` for formatting.
         const MAX_SIZE: usize = 2 * num_digits(MAX_SCROLLBACK_LINES) + 3;
-        let damage_point = Point::new(0, Column(size_info.columns().saturating_sub(MAX_SIZE)));
-        self.damage_from_point(damage_point, MAX_SIZE as u32);
+        let damage_point = Point::new(0, Column(self.size_info.columns().saturating_sub(MAX_SIZE)));
+        if self.collect_damage() {
+            self.damage_rects.push(self.damage_from_point(damage_point, MAX_SIZE as u32));
+        }
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
@@ -1080,23 +1196,20 @@ impl Display {
         // Do not render anything if it would obscure the vi mode cursor.
         if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
-            self.renderer.draw_string(point, fg, bg, &text, size_info, glyph_cache);
+            self.renderer.draw_string(point, fg, bg, text.chars(), &self.size_info, glyph_cache);
         }
     }
 
     /// Damage `len` starting from a `point`.
-    #[inline]
-    fn damage_from_point(&mut self, point: Point<usize>, len: u32) {
-        if !self.collect_damage() {
-            return;
-        }
-
+    ///
+    /// This method also enqueues damage for the next frame automatically.
+    fn damage_from_point(&self, point: Point<usize>, len: u32) -> DamageRect {
         let size_info: SizeInfo<u32> = self.size_info.into();
         let x = size_info.padding_x() + point.column.0 as u32 * size_info.cell_width();
         let y_top = size_info.height() - size_info.padding_y();
         let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
         let width = len as u32 * size_info.cell_width();
-        self.damage_rects.push(DamageRect { x, y, width, height: size_info.cell_height() })
+        DamageRect { x, y, width, height: size_info.cell_height() }
     }
 
     /// Damage currently highlighted `Display` hints.
@@ -1105,10 +1218,12 @@ impl Display {
         let display_offset = terminal.grid().display_offset();
         let last_visible_line = terminal.screen_lines() - 1;
         for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
-            for point in (hint.bounds.start().line.0..=hint.bounds.end().line.0).flat_map(|line| {
-                term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
-                    .filter(|point| point.line <= last_visible_line)
-            }) {
+            for point in
+                (hint.bounds().start().line.0..=hint.bounds().end().line.0).flat_map(|line| {
+                    term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
+                        .filter(|point| point.line <= last_visible_line)
+                })
+            {
                 terminal.damage_line(point.line, 0, terminal.columns() - 1);
             }
         }

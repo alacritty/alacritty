@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use bitflags::bitflags;
@@ -33,6 +34,53 @@ bitflags! {
     }
 }
 
+/// Counter for hyperlinks without explicit ID.
+static HYPERLINK_ID_SUFFIX: AtomicU32 = AtomicU32::new(0);
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Hyperlink {
+    inner: Arc<HyperlinkInner>,
+}
+
+impl Hyperlink {
+    pub fn new<T: ToString>(id: Option<T>, uri: T) -> Self {
+        let inner = Arc::new(HyperlinkInner::new(id, uri));
+        Self { inner }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.inner.id
+    }
+
+    pub fn uri(&self) -> &str {
+        &self.inner.uri
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+struct HyperlinkInner {
+    /// Identifier for the given hyperlink.
+    id: String,
+
+    /// Resource identifier of the hyperlink.
+    uri: String,
+}
+
+impl HyperlinkInner {
+    pub fn new<T: ToString>(id: Option<T>, uri: T) -> Self {
+        let id = match id {
+            Some(id) => id.to_string(),
+            None => {
+                let mut id = HYPERLINK_ID_SUFFIX.fetch_add(1, Ordering::Relaxed).to_string();
+                id.push_str("_alacritty");
+                id
+            },
+        };
+
+        Self { id, uri: uri.to_string() }
+    }
+}
+
 /// Trait for determining if a reset should be performed.
 pub trait ResetDiscriminant<T> {
     /// Value based on which equality for the reset will be determined.
@@ -61,6 +109,8 @@ pub struct CellExtra {
     zerowidth: Vec<char>,
 
     underline_color: Option<Color>,
+
+    hyperlink: Option<Hyperlink>,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -113,20 +163,44 @@ impl Cell {
     /// Set underline color on the cell.
     pub fn set_underline_color(&mut self, color: Option<Color>) {
         // If we reset color and we don't have zerowidth we should drop extra storage.
-        if color.is_none() && self.extra.as_ref().map_or(true, |extra| !extra.zerowidth.is_empty())
+        if color.is_none()
+            && self
+                .extra
+                .as_ref()
+                .map_or(true, |extra| !extra.zerowidth.is_empty() || extra.hyperlink.is_some())
         {
             self.extra = None;
-            return;
+        } else {
+            let extra = self.extra.get_or_insert(Default::default());
+            Arc::make_mut(extra).underline_color = color;
         }
-
-        let extra = self.extra.get_or_insert(Default::default());
-        Arc::make_mut(extra).underline_color = color;
     }
 
     /// Underline color stored in this cell.
     #[inline]
     pub fn underline_color(&self) -> Option<Color> {
         self.extra.as_ref()?.underline_color
+    }
+
+    /// Set hyperlink.
+    pub fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
+        let should_drop = hyperlink.is_none()
+            && self.extra.as_ref().map_or(true, |extra| {
+                !extra.zerowidth.is_empty() || extra.underline_color.is_some()
+            });
+
+        if should_drop {
+            self.extra = None;
+        } else {
+            let extra = self.extra.get_or_insert(Default::default());
+            Arc::make_mut(extra).hyperlink = hyperlink;
+        }
+    }
+
+    /// Hyperlink stored in this cell.
+    #[inline]
+    pub fn hyperlink(&self) -> Option<Hyperlink> {
+        self.extra.as_ref()?.hyperlink.clone()
     }
 }
 

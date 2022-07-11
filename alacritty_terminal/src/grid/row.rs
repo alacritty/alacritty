@@ -171,6 +171,16 @@ impl<T> Row<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a Row<T> {
+    type IntoIter = slice::Iter<'a, T>;
+    type Item = &'a T;
+
+    #[inline]
+    fn into_iter(self) -> slice::Iter<'a, T> {
+        self.inner.iter()
+    }
+}
+
 impl<'a, T> IntoIterator for &'a mut Row<T> {
     type IntoIter = slice::IterMut<'a, T>;
     type Item = &'a mut T;

@@ -28,15 +28,36 @@ macro_rules! ref_tests {
 }
 
 ref_tests! {
+    alt_reset
+    clear_underline
+    colored_reset
+    colored_underline
     csi_rep
+    decaln_reset
+    deccolm_reset
+    delete_chars_reset
+    delete_lines
+    erase_chars_reset
     fish_cc
+    grid_reset
+    history
+    hyperlinks
     indexed_256_colors
+    insert_blank_reset
     issue_855
     ll
     newline_with_cursor_beyond_scroll_region
+    region_scroll_down
+    row_reset
+    saved_cursor
+    saved_cursor_alt
+    scroll_up_reset
+    selective_erasure
+    sgr
     tab_rendering
     tmux_git_log
     tmux_htop
+    underline
     vim_24bitcolors_bce
     vim_large_window_scroll
     vim_simple_edit
@@ -46,29 +67,9 @@ ref_tests! {
     vttest_origin_mode_2
     vttest_scroll
     vttest_tab_clear_set
-    zsh_tab_completion
-    history
-    grid_reset
-    row_reset
-    zerowidth
-    selective_erasure
-    colored_reset
-    colored_underline
-    delete_lines
-    delete_chars_reset
-    alt_reset
-    deccolm_reset
-    decaln_reset
-    insert_blank_reset
-    erase_chars_reset
-    scroll_up_reset
-    clear_underline
-    region_scroll_down
     wrapline_alt_toggle
-    saved_cursor
-    saved_cursor_alt
-    sgr
-    underline
+    zerowidth
+    zsh_tab_completion
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

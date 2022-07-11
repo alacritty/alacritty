@@ -679,28 +679,31 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             return;
         }
 
-        match &hint.action {
+        let hint_bounds = hint.bounds();
+        let text = match hint.hyperlink() {
+            Some(hyperlink) => hyperlink.uri().to_owned(),
+            None => self.terminal.bounds_to_string(*hint_bounds.start(), *hint_bounds.end()),
+        };
+
+        match &hint.action() {
             // Launch an external program.
             HintAction::Command(command) => {
-                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 let mut args = command.args().to_vec();
                 args.push(text);
                 self.spawn_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.
             HintAction::Action(HintInternalAction::Copy) => {
-                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
             HintAction::Action(HintInternalAction::Paste) => {
-                let text = self.terminal.bounds_to_string(*hint.bounds.start(), *hint.bounds.end());
                 self.paste(&text);
             },
             // Select the text.
             HintAction::Action(HintInternalAction::Select) => {
-                self.start_selection(SelectionType::Simple, *hint.bounds.start(), Side::Left);
-                self.update_selection(*hint.bounds.end(), Side::Right);
+                self.start_selection(SelectionType::Simple, *hint_bounds.start(), Side::Left);
+                self.update_selection(*hint_bounds.end(), Side::Right);
                 self.copy_selection(ClipboardType::Selection);
             },
             // Move the vi mode cursor.
@@ -710,7 +713,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                     self.terminal.toggle_vi_mode();
                 }
 
-                self.terminal.vi_goto_point(*hint.bounds.start());
+                self.terminal.vi_goto_point(*hint_bounds.start());
             },
         }
     }
