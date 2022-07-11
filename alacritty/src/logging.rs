@@ -4,19 +4,19 @@
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
 
-use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
-use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
+use std::{env, process};
 
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level, LevelFilter};
 
 use crate::cli::Options;
-use crate::event::Event;
+use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 
 /// Name for the environment variable containing the log file's path.
@@ -42,6 +42,7 @@ pub struct Logger {
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
     event_proxy: Mutex<EventLoopProxy<Event>>,
+    start: Instant,
 }
 
 impl Logger {
@@ -49,7 +50,7 @@ impl Logger {
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
-        Logger { logfile, stdout, event_proxy: Mutex::new(event_proxy) }
+        Logger { logfile, stdout, event_proxy: Mutex::new(event_proxy), start: Instant::now() }
     }
 
     fn file_path(&self) -> Option<PathBuf> {
@@ -62,6 +63,12 @@ impl Logger {
 
     /// Log a record to the message bar.
     fn message_bar_log(&self, record: &log::Record<'_>, logfile_path: &str) {
+        let message_type = match record.level() {
+            Level::Error => MessageType::Error,
+            Level::Warn => MessageType::Warning,
+            _ => return,
+        };
+
         let event_proxy = match self.event_proxy.lock() {
             Ok(event_proxy) => event_proxy,
             Err(_) => return,
@@ -79,16 +86,11 @@ impl Logger {
             env_var,
             record.args(),
         );
-        let message_type = match record.level() {
-            Level::Error => MessageType::Error,
-            Level::Warn => MessageType::Warning,
-            _ => unreachable!(),
-        };
 
         let mut message = Message::new(message, message_type);
         message.set_target(record.target().to_owned());
 
-        let _ = event_proxy.send_event(Event::Message(message));
+        let _ = event_proxy.send_event(Event::new(EventType::Message(message), None));
     }
 }
 
@@ -108,16 +110,14 @@ impl log::Log for Logger {
         }
 
         // Create log message for the given `record` and `target`.
-        let message = create_log_message(record, target);
+        let message = create_log_message(record, target, self.start);
 
         if let Ok(mut logfile) = self.logfile.lock() {
             // Write to logfile.
             let _ = logfile.write_all(message.as_ref());
 
-            // Write to message bar.
-            if record.level() <= Level::Warn {
-                self.message_bar_log(record, &logfile.path.to_string_lossy());
-            }
+            // Log relevant entries to message bar.
+            self.message_bar_log(record, &logfile.path.to_string_lossy());
         }
 
         // Write to stdout.
@@ -129,9 +129,11 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
-fn create_log_message(record: &log::Record<'_>, target: &str) -> String {
-    let now = time::strftime("%F %T.%f", &time::now()).unwrap();
-    let mut message = format!("[{}] [{:<5}] [{}] ", now, record.level(), target);
+fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) -> String {
+    let runtime = start.elapsed();
+    let secs = runtime.as_secs();
+    let nanos = runtime.subsec_nanos();
+    let mut message = format!("[{}.{:0>9}s] [{:<5}] [{}] ", secs, nanos, record.level(), target);
 
     // Alignment for the lines after the first new line character in the payload. We don't deal
     // with fullwidth/unicode chars here, so just `message.len()` is sufficient.
@@ -182,7 +184,7 @@ impl OnDemandLogFile {
 
         // Create the file if it doesn't exist yet.
         if self.file.is_none() {
-            let file = OpenOptions::new().append(true).create(true).open(&self.path);
+            let file = OpenOptions::new().append(true).create_new(true).open(&self.path);
 
             match file {
                 Ok(file) => {

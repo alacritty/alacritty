@@ -36,7 +36,7 @@ Please refer to the [Dependencies](#dependencies) section.
         16. [Windows](#windows)
         17. [Other](#other)
 2. [Building](#building)
-    1. [Linux/Windows](#linux--windows)
+    1. [Linux/Windows/BSD](#linux--windows--bsd)
     2. [macOS](#macos)
 3. [Post Build](#post-build)
     1. [Terminfo](#terminfo)
@@ -125,7 +125,7 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-dev
+zypper install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel
 ```
 
 #### Slackware
@@ -236,10 +236,21 @@ filling in this section of the README.
 
 ## Building
 
-### Linux / Windows
+### Linux / Windows / BSD
 
 ```sh
 cargo build --release
+```
+
+On Linux/BSD, if it is desired to build Alacritty without support for either the
+X11 or Wayland rendering backend the following commands can be used.
+
+```sh
+# Force support for only Wayland
+cargo build --release --no-default-features --features=wayland
+
+# Force support for only X11
+cargo build --release --no-default-features --features=x11
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
@@ -310,6 +321,7 @@ Installing the manual page requires the additional dependency `gzip`.
 ```sh
 sudo mkdir -p /usr/local/share/man/man1
 gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+gzip -c extra/alacritty-msg.man | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
 ```
 
 ### Shell completions

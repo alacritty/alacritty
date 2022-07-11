@@ -1,5 +1,3 @@
-#version 330 core
-
 // Index in the textures[] uniform.
 flat in int texId;
 

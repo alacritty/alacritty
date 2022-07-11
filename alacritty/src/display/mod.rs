@@ -1,52 +1,54 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
-use std::cmp::min;
-use std::convert::TryFrom;
-use std::f64;
 use std::fmt::{self, Formatter};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
-use std::time::Instant;
+use std::{cmp, mem};
 
-use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::dpi::PhysicalSize;
 use glutin::event::ModifiersState;
-use glutin::event_loop::EventLoop;
-#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::event_loop::EventLoopWindowTarget;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
+use glutin::Rect as DamageRect;
 use log::{debug, info};
 use parking_lot::MutexGuard;
-use unicode_width::UnicodeWidthChar;
+use serde::{Deserialize, Serialize};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use wayland_client::{Display as WaylandDisplay, EventQueue};
+use wayland_client::EventQueue;
 
 use crossfont::{self, Rasterize, Rasterizer};
 
 use alacritty_terminal::ansi::NamedColor;
-use alacritty_terminal::event::{EventListener, OnResize};
-use alacritty_terminal::grid::Dimensions as _;
+use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
+use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
+use alacritty_terminal::grid::Dimensions as TermDimensions;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
-use alacritty_terminal::selection::Selection;
+use alacritty_terminal::selection::{Selection, SelectionRange};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::{SizeInfo, Term, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
-use crate::config::Config;
+use crate::config::window::{Dimensions, Identity};
+use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
 use crate::display::content::RenderableContent;
 use crate::display::cursor::IntoRects;
+use crate::display::damage::RenderDamageIterator;
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::renderer::{self, GlyphCache, Renderer};
+use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
 pub mod cursor;
@@ -55,18 +57,20 @@ pub mod window;
 
 mod bell;
 mod color;
+mod damage;
 mod meter;
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-mod wayland_theme;
-
-/// Maximum number of linewraps followed outside of the viewport during search highlighting.
-pub const MAX_SEARCH_LINES: usize = 100;
 
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
 
 /// Label for the backward terminal search bar.
 const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
+
+/// The character used to shorten the visible text like uri preview or search regex.
+const SHORTENER: char = '…';
+
+/// Color which is used to highlight damaged rects when debugging.
+const DAMAGE_RECT_COLOR: Rgb = Rgb { r: 255, g: 0, b: 255 };
 
 #[derive(Debug)]
 pub enum Error {
@@ -129,7 +133,177 @@ impl From<glutin::ContextError> for Error {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq)]
+/// Terminal size info.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
+pub struct SizeInfo<T = f32> {
+    /// Terminal window width.
+    width: T,
+
+    /// Terminal window height.
+    height: T,
+
+    /// Width of individual cell.
+    cell_width: T,
+
+    /// Height of individual cell.
+    cell_height: T,
+
+    /// Horizontal window padding.
+    padding_x: T,
+
+    /// Vertical window padding.
+    padding_y: T,
+
+    /// Number of lines in the viewport.
+    screen_lines: usize,
+
+    /// Number of columns in the viewport.
+    columns: usize,
+}
+
+impl From<SizeInfo<f32>> for SizeInfo<u32> {
+    fn from(size_info: SizeInfo<f32>) -> Self {
+        Self {
+            width: size_info.width as u32,
+            height: size_info.height as u32,
+            cell_width: size_info.cell_width as u32,
+            cell_height: size_info.cell_height as u32,
+            padding_x: size_info.padding_x as u32,
+            padding_y: size_info.padding_y as u32,
+            screen_lines: size_info.screen_lines,
+            columns: size_info.screen_lines,
+        }
+    }
+}
+
+impl From<SizeInfo<f32>> for WindowSize {
+    fn from(size_info: SizeInfo<f32>) -> Self {
+        Self {
+            num_cols: size_info.columns() as u16,
+            num_lines: size_info.screen_lines() as u16,
+            cell_width: size_info.cell_width() as u16,
+            cell_height: size_info.cell_height() as u16,
+        }
+    }
+}
+
+impl<T: Clone + Copy> SizeInfo<T> {
+    #[inline]
+    pub fn width(&self) -> T {
+        self.width
+    }
+
+    #[inline]
+    pub fn height(&self) -> T {
+        self.height
+    }
+
+    #[inline]
+    pub fn cell_width(&self) -> T {
+        self.cell_width
+    }
+
+    #[inline]
+    pub fn cell_height(&self) -> T {
+        self.cell_height
+    }
+
+    #[inline]
+    pub fn padding_x(&self) -> T {
+        self.padding_x
+    }
+
+    #[inline]
+    pub fn padding_y(&self) -> T {
+        self.padding_y
+    }
+}
+
+impl SizeInfo<f32> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        width: f32,
+        height: f32,
+        cell_width: f32,
+        cell_height: f32,
+        mut padding_x: f32,
+        mut padding_y: f32,
+        dynamic_padding: bool,
+    ) -> SizeInfo {
+        if dynamic_padding {
+            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
+            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
+        }
+
+        let lines = (height - 2. * padding_y) / cell_height;
+        let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
+
+        let columns = (width - 2. * padding_x) / cell_width;
+        let columns = cmp::max(columns as usize, MIN_COLUMNS);
+
+        SizeInfo {
+            width,
+            height,
+            cell_width,
+            cell_height,
+            padding_x: padding_x.floor(),
+            padding_y: padding_y.floor(),
+            screen_lines,
+            columns,
+        }
+    }
+
+    #[inline]
+    pub fn reserve_lines(&mut self, count: usize) {
+        self.screen_lines = cmp::max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
+    }
+
+    /// Check if coordinates are inside the terminal grid.
+    ///
+    /// The padding, message bar or search are not counted as part of the grid.
+    #[inline]
+    pub fn contains_point(&self, x: usize, y: usize) -> bool {
+        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
+            && x > self.padding_x as usize
+            && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
+            && y > self.padding_y as usize
+    }
+
+    /// Calculate padding to spread it evenly around the terminal content.
+    #[inline]
+    fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
+        padding + ((dimension - 2. * padding) % cell_dimension) / 2.
+    }
+}
+
+impl TermDimensions for SizeInfo {
+    #[inline]
+    fn columns(&self) -> usize {
+        self.columns
+    }
+
+    #[inline]
+    fn screen_lines(&self) -> usize {
+        self.screen_lines
+    }
+
+    #[inline]
+    fn total_lines(&self) -> usize {
+        self.screen_lines()
+    }
+
+    #[inline]
+    fn cell_height(&self) -> Option<usize> {
+        Some(self.cell_height() as usize)
+    }
+
+    #[inline]
+    fn cell_width(&self) -> Option<usize> {
+        Some(self.cell_width() as usize)
+    }
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct DisplayUpdate {
     pub dirty: bool,
 
@@ -178,9 +352,6 @@ pub struct Display {
     /// Hint highlighted by the vi mode cursor.
     pub vi_highlighted_hint: Option<HintMatch>,
 
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub wayland_event_queue: Option<EventQueue>,
-
     #[cfg(not(any(target_os = "macos", windows)))]
     pub is_x11: bool,
 
@@ -195,78 +366,114 @@ pub struct Display {
     /// State of the keyboard hints.
     pub hint_state: HintState,
 
-    renderer: QuadRenderer,
+    /// Unprocessed display updates.
+    pub pending_update: DisplayUpdate,
+
+    /// The renderer update that takes place only once before the actual rendering.
+    pub pending_renderer_update: Option<RendererUpdate>,
+
+    // Mouse point position when highlighting hints.
+    hint_mouse_point: Option<Point>,
+
+    is_damage_supported: bool,
+    debug_damage: bool,
+    damage_rects: Vec<DamageRect>,
+    next_frame_damage_rects: Vec<DamageRect>,
+    renderer: Renderer,
     glyph_cache: GlyphCache,
     meter: Meter,
 }
 
+/// Pending renderer updates.
+///
+/// All renderer updates are cached to be applied just before rendering, to avoid platform-specific
+/// rendering issues.
+#[derive(Debug, Default, Copy, Clone)]
+pub struct RendererUpdate {
+    /// Should resize the window.
+    resize: bool,
+
+    /// Clear font caches.
+    clear_font_cache: bool,
+}
+
 impl Display {
-    pub fn new<E>(config: &Config, event_loop: &EventLoop<E>) -> Result<Display, Error> {
+    pub fn new<E>(
+        config: &UiConfig,
+        event_loop: &EventLoopWindowTarget<E>,
+        identity: &Identity,
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        wayland_event_queue: Option<&EventQueue>,
+    ) -> Result<Display, Error> {
         #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
         let is_x11 = false;
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         let is_x11 = event_loop.is_x11();
 
-        // Guess DPR based on first monitor. On Wayland the initial frame always renders at a DPR
-        // of 1.
-        let estimated_dpr = if cfg!(any(target_os = "macos", windows)) || is_x11 {
+        // Guess scale_factor based on first monitor. On Wayland the initial frame always renders at
+        // a scale factor of 1.
+        let estimated_scale_factor = if cfg!(any(target_os = "macos", windows)) || is_x11 {
             event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.)
         } else {
             1.
         };
 
         // Guess the target window dimensions.
-        let metrics = GlyphCache::static_metrics(config.ui_config.font.clone(), estimated_dpr)?;
+        debug!("Loading \"{}\" font", &config.font.normal().family);
+        let font = &config.font;
+        let rasterizer = Rasterizer::new(estimated_scale_factor as f32, font.use_thin_strokes)?;
+        let mut glyph_cache = GlyphCache::new(rasterizer, font)?;
+        let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
 
         // Guess the target window size if the user has specified the number of lines/columns.
-        let dimensions = config.ui_config.window.dimensions();
+        let dimensions = config.window.dimensions();
         let estimated_size = dimensions.map(|dimensions| {
-            window_size(config, dimensions, cell_width, cell_height, estimated_dpr)
+            window_size(config, dimensions, cell_width, cell_height, estimated_scale_factor)
         });
 
-        debug!("Estimated DPR: {}", estimated_dpr);
+        debug!("Estimated scaling factor: {}", estimated_scale_factor);
         debug!("Estimated window size: {:?}", estimated_size);
         debug!("Estimated cell size: {} x {}", cell_width, cell_height);
 
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let mut wayland_event_queue = None;
-
-        // Initialize Wayland event queue, to handle Wayland callbacks.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        if let Some(display) = event_loop.wayland_display() {
-            let display = unsafe { WaylandDisplay::from_external_display(display as _) };
-            wayland_event_queue = Some(display.create_event_queue());
-        }
-
         // Spawn the Alacritty window.
-        let mut window = Window::new(
+        let window = Window::new(
             event_loop,
             config,
+            identity,
             estimated_size,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue.as_ref(),
+            wayland_event_queue,
         )?;
 
-        info!("Device pixel ratio: {}", window.dpr);
-
         // Create renderer.
-        let mut renderer = QuadRenderer::new()?;
+        let mut renderer = Renderer::new()?;
 
-        let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(window.dpr, &mut renderer, config)?;
+        let scale_factor = window.scale_factor;
+        info!("Display scale factor: {}", scale_factor);
 
-        if let Some(dimensions) = dimensions {
-            if (estimated_dpr - window.dpr).abs() < f64::EPSILON {
-                info!("Estimated DPR correctly, skipping resize");
-            } else {
-                // Resize the window again if the DPR was not estimated correctly.
-                let size = window_size(config, dimensions, cell_width, cell_height, window.dpr);
-                window.set_inner_size(size);
-            }
+        // If the scaling factor changed update the glyph cache and mark for resize.
+        let should_resize = (estimated_scale_factor - window.scale_factor).abs() > f64::EPSILON;
+        let (cell_width, cell_height) = if should_resize {
+            Self::update_font_size(&mut glyph_cache, scale_factor, config, font)
+        } else {
+            (cell_width, cell_height)
+        };
+
+        // Load font common glyphs to accelerate rendering.
+        debug!("Filling glyph cache with common glyphs");
+        renderer.with_loader(|mut api| {
+            glyph_cache.reset_glyph_cache(&mut api);
+        });
+
+        if let Some(dimensions) = dimensions.filter(|_| should_resize) {
+            // Resize the window again if the scale factor was not estimated correctly.
+            let size =
+                window_size(config, dimensions, cell_width, cell_height, window.scale_factor);
+            window.set_inner_size(size);
         }
 
-        let padding = config.ui_config.window.padding(window.dpr);
+        let padding = config.window.padding(window.scale_factor);
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
@@ -277,7 +484,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.ui_config.window.dynamic_padding && dimensions.is_none(),
+            config.window.dynamic_padding && dimensions.is_none(),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -288,42 +495,30 @@ impl Display {
         renderer.resize(&size_info);
 
         // Clear screen.
-        let background_color = config.ui_config.colors.primary.background;
-        renderer.with_api(&config.ui_config, &size_info, |api| {
-            api.clear(background_color);
-        });
+        let background_color = config.colors.primary.background;
+        renderer.clear(background_color, config.window_opacity());
 
         // Set subpixel anti-aliasing.
         #[cfg(target_os = "macos")]
-        crossfont::set_font_smoothing(config.ui_config.font.use_thin_strokes);
+        crossfont::set_font_smoothing(config.font.use_thin_strokes);
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        window.set_has_shadow(config.ui_config.window_opacity() >= 1.0);
+        window.set_has_shadow(config.window_opacity() >= 1.0);
 
         // On Wayland we can safely ignore this call, since the window isn't visible until you
         // actually draw something into it and commit those changes.
         #[cfg(not(any(target_os = "macos", windows)))]
         if is_x11 {
             window.swap_buffers();
-            renderer.with_api(&config.ui_config, &size_info, |api| {
-                api.finish();
-            });
+            renderer.finish();
         }
 
         window.set_visible(true);
 
-        // Set window position.
-        //
-        // TODO: replace `set_position` with `with_position` once available.
-        // Upstream issue: https://github.com/rust-windowing/winit/issues/806.
-        if let Some(position) = config.ui_config.window.position {
-            window.set_outer_position(PhysicalPosition::from((position.x, position.y)));
-        }
-
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
-        match config.ui_config.window.startup_mode {
+        match config.window.startup_mode {
             #[cfg(target_os = "macos")]
             StartupMode::SimpleFullscreen => window.set_simple_fullscreen(true),
             #[cfg(not(target_os = "macos"))]
@@ -331,7 +526,15 @@ impl Display {
             _ => (),
         }
 
-        let hint_state = HintState::new(config.ui_config.hints.alphabet());
+        let hint_state = HintState::new(config.hints.alphabet());
+        let is_damage_supported = window.swap_buffers_with_damage_supported();
+        let debug_damage = config.debug.highlight_damage;
+        let (damage_rects, next_frame_damage_rects) = if is_damage_supported || debug_damage {
+            let vec = Vec::with_capacity(size_info.screen_lines());
+            (vec.clone(), vec)
+        } else {
+            (Vec::new(), Vec::new())
+        };
 
         Ok(Self {
             window,
@@ -344,101 +547,88 @@ impl Display {
             vi_highlighted_hint: None,
             #[cfg(not(any(target_os = "macos", windows)))]
             is_x11,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
             cursor_hidden: false,
-            visual_bell: VisualBell::from(&config.ui_config.bell),
-            colors: List::from(&config.ui_config.colors),
+            visual_bell: VisualBell::from(&config.bell),
+            colors: List::from(&config.colors),
+            pending_update: Default::default(),
+            pending_renderer_update: Default::default(),
+            is_damage_supported,
+            debug_damage,
+            damage_rects,
+            next_frame_damage_rects,
+            hint_mouse_point: None,
         })
-    }
-
-    fn new_glyph_cache(
-        dpr: f64,
-        renderer: &mut QuadRenderer,
-        config: &Config,
-    ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config.ui_config.font.clone();
-        let rasterizer = Rasterizer::new(dpr as f32, config.ui_config.font.use_thin_strokes)?;
-
-        // Initialize glyph cache.
-        let glyph_cache = {
-            info!("Initializing glyph cache...");
-            let init_start = Instant::now();
-
-            let cache =
-                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
-
-            let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            info!("... finished initializing glyph cache in {}s", stop_f);
-
-            cache
-        };
-
-        // Need font metrics to resize the window properly. This suggests to me the
-        // font metrics should be computed before creating the window in the first
-        // place so that a resize is not needed.
-        let (cw, ch) = compute_cell_size(config, &glyph_cache.font_metrics());
-
-        Ok((glyph_cache, cw, ch))
     }
 
     /// Update font size and cell dimensions.
     ///
     /// This will return a tuple of the cell width and height.
-    fn update_glyph_cache(&mut self, config: &Config, font: &Font) -> (f32, f32) {
-        let cache = &mut self.glyph_cache;
-        let dpr = self.window.dpr;
-
-        self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(font, dpr, &mut api);
-        });
+    fn update_font_size(
+        glyph_cache: &mut GlyphCache,
+        scale_factor: f64,
+        config: &UiConfig,
+        font: &Font,
+    ) -> (f32, f32) {
+        let _ = glyph_cache.update_font_size(font, scale_factor);
 
         // Compute new cell sizes.
-        compute_cell_size(config, &self.glyph_cache.font_metrics())
+        compute_cell_size(config, &glyph_cache.font_metrics())
     }
 
-    /// Clear glyph cache.
-    fn clear_glyph_cache(&mut self) {
+    /// Reset glyph cache.
+    fn reset_glyph_cache(&mut self) {
         let cache = &mut self.glyph_cache;
         self.renderer.with_loader(|mut api| {
-            cache.clear_glyph_cache(&mut api);
+            cache.reset_glyph_cache(&mut api);
         });
     }
 
     /// Process update events.
+    ///
+    /// XXX: this function must not call to any `OpenGL` related tasks. Only logical update
+    /// of the state is being performed here. Rendering update takes part right before the
+    /// actual rendering.
     pub fn handle_update<T>(
         &mut self,
         terminal: &mut Term<T>,
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
         search_active: bool,
-        config: &Config,
-        update_pending: DisplayUpdate,
+        config: &UiConfig,
     ) where
         T: EventListener,
     {
+        let pending_update = mem::take(&mut self.pending_update);
+
         let (mut cell_width, mut cell_height) =
             (self.size_info.cell_width(), self.size_info.cell_height());
 
+        if pending_update.font().is_some() || pending_update.cursor_dirty() {
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.clear_font_cache = true
+        }
+
         // Update font size and cell dimensions.
-        if let Some(font) = update_pending.font() {
-            let cell_dimensions = self.update_glyph_cache(config, font);
+        if let Some(font) = pending_update.font() {
+            let scale_factor = self.window.scale_factor;
+            let cell_dimensions =
+                Self::update_font_size(&mut self.glyph_cache, scale_factor, config, font);
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
             info!("Cell size: {} x {}", cell_width, cell_height);
-        } else if update_pending.cursor_dirty() {
-            self.clear_glyph_cache();
         }
 
         let (mut width, mut height) = (self.size_info.width(), self.size_info.height());
-        if let Some(dimensions) = update_pending.dimensions() {
+        if let Some(dimensions) = pending_update.dimensions() {
             width = dimensions.width as f32;
             height = dimensions.height as f32;
+
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.resize = true
         }
 
-        let padding = config.ui_config.window.padding(self.window.dpr);
+        let padding = config.window.padding(self.window.scale_factor);
 
         self.size_info = SizeInfo::new(
             width,
@@ -447,7 +637,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.ui_config.window.dynamic_padding,
+            config.window.dynamic_padding,
         );
 
         // Update number of column/lines in the viewport.
@@ -457,19 +647,102 @@ impl Display {
         self.size_info.reserve_lines(message_bar_lines + search_lines);
 
         // Resize PTY.
-        pty_resize_handle.on_resize(&self.size_info);
+        pty_resize_handle.on_resize(self.size_info.into());
 
         // Resize terminal.
         terminal.resize(self.size_info);
+    }
+
+    /// Update the state of the renderer.
+    ///
+    /// NOTE: The update to the renderer is split from the display update on purpose, since
+    /// on some platforms, like Wayland, resize and other OpenGL operations must be performed
+    /// right before rendering, otherwise they could lock the back buffer resulting in
+    /// rendering with the buffer of old size.
+    ///
+    /// This also resolves any flickering, since the resize is now synced with frame callbacks.
+    pub fn process_renderer_update(&mut self) {
+        let renderer_update = match self.pending_renderer_update.take() {
+            Some(renderer_update) => renderer_update,
+            _ => return,
+        };
 
         // Resize renderer.
-        let physical =
-            PhysicalSize::new(self.size_info.width() as u32, self.size_info.height() as u32);
-        self.window.resize(physical);
+        if renderer_update.resize {
+            let physical =
+                PhysicalSize::new(self.size_info.width() as _, self.size_info.height() as _);
+            self.window.resize(physical);
+        }
+
+        // Ensure we're modifying the correct OpenGL context.
+        self.window.make_current();
+
+        if renderer_update.clear_font_cache {
+            self.reset_glyph_cache();
+        }
+
         self.renderer.resize(&self.size_info);
+
+        if self.collect_damage() {
+            let lines = self.size_info.screen_lines();
+            if lines > self.damage_rects.len() {
+                self.damage_rects.reserve(lines);
+            } else {
+                self.damage_rects.shrink_to(lines);
+            }
+        }
 
         info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
+
+        // Damage the entire screen after processing update.
+        self.fully_damage();
+    }
+
+    /// Damage the entire window.
+    fn fully_damage(&mut self) {
+        let screen_rect = DamageRect {
+            x: 0,
+            y: 0,
+            width: self.size_info.width() as u32,
+            height: self.size_info.height() as u32,
+        };
+
+        self.damage_rects.push(screen_rect);
+    }
+
+    fn update_damage<T: EventListener>(
+        &mut self,
+        terminal: &mut MutexGuard<'_, Term<T>>,
+        selection_range: Option<SelectionRange>,
+        search_state: &SearchState,
+    ) {
+        let requires_full_damage = self.visual_bell.intensity() != 0.
+            || self.hint_state.active()
+            || search_state.regex().is_some();
+        if requires_full_damage {
+            terminal.mark_fully_damaged();
+        }
+
+        self.damage_highlighted_hints(terminal);
+        match terminal.damage(selection_range) {
+            TermDamage::Full => self.fully_damage(),
+            TermDamage::Partial(damaged_lines) => {
+                let damaged_rects = RenderDamageIterator::new(damaged_lines, self.size_info.into());
+                for damaged_rect in damaged_rects {
+                    self.damage_rects.push(damaged_rect);
+                }
+            },
+        }
+        terminal.reset_damage();
+
+        // Ensure that the content requiring full damage is cleaned up again on the next frame.
+        if requires_full_damage {
+            terminal.mark_fully_damaged();
+        }
+
+        // Damage highlighted hints for the next frame as well, so we'll clear them.
+        self.damage_highlighted_hints(terminal);
     }
 
     /// Draw the screen.
@@ -481,7 +754,7 @@ impl Display {
         &mut self,
         mut terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
-        config: &Config,
+        config: &UiConfig,
         search_state: &SearchState,
     ) {
         // Collect renderable content before the terminal is dropped.
@@ -490,6 +763,7 @@ impl Display {
         for cell in &mut content {
             grid_cells.push(cell);
         }
+        let selection_range = content.selection_range();
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
@@ -500,40 +774,63 @@ impl Display {
         let size_info = self.size_info;
 
         let vi_mode = terminal.mode().contains(TermMode::VI);
-        let vi_mode_cursor = if vi_mode { Some(terminal.vi_mode_cursor) } else { None };
+        let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
+
+        if self.collect_damage() {
+            self.update_damage(&mut terminal, selection_range, search_state);
+        }
 
         let graphics_queues = terminal.graphics_take_queues();
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
-        self.renderer.with_api(&config.ui_config, &size_info, |api| {
-            api.clear(background_color);
-        });
+        // Make sure this window's OpenGL context is active.
+        self.window.make_current();
 
         if let Some(graphics_queues) = graphics_queues {
             self.renderer.graphics_run_updates(graphics_queues, &size_info);
         }
 
+        self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
         let mut graphics_list = renderer::graphics::RenderList::default();
+
+        // Optimize loop hint comparator.
+        let has_highlighted_hint =
+            self.highlighted_hint.is_some() || self.vi_highlighted_hint.is_some();
 
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
 
+            // Ensure macOS hasn't reset our viewport.
+            #[cfg(target_os = "macos")]
+            self.renderer.set_viewport(&size_info);
+
             let glyph_cache = &mut self.glyph_cache;
             let highlighted_hint = &self.highlighted_hint;
             let vi_highlighted_hint = &self.vi_highlighted_hint;
-            self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                // Iterate over all non-empty cells in the grid.
-                for mut cell in grid_cells {
+
+            self.renderer.draw_cells(
+                &size_info,
+                glyph_cache,
+                grid_cells.into_iter().map(|mut cell| {
                     // Underline hints hovered by mouse or vi mode cursor.
-                    let point = viewport_to_point(display_offset, cell.point);
-                    if highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                        || vi_highlighted_hint.as_ref().map_or(false, |h| h.bounds.contains(&point))
-                    {
-                        cell.flags.insert(Flags::UNDERLINE);
+                    let point = term::viewport_to_point(display_offset, cell.point);
+
+                    if has_highlighted_hint {
+                        let hyperlink =
+                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
+                        if highlighted_hint
+                            .as_ref()
+                            .map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                            || vi_highlighted_hint
+                                .as_ref()
+                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                        {
+                            cell.flags.insert(Flags::UNDERLINE);
+                        }
                     }
 
                     // Update underline/strikeout.
@@ -542,31 +839,30 @@ impl Display {
                     // Track any graphic present in the cell.
                     graphics_list.update(&cell);
 
-                    // Draw the cell.
-                    api.render_cell(cell, glyph_cache);
-                }
-            });
+                    cell
+                }),
+            );
         }
 
         self.renderer.graphics_draw(graphics_list, &size_info);
 
         let mut rects = lines.rects(&metrics, &size_info);
 
-        if let Some(vi_mode_cursor) = vi_mode_cursor {
+        if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
-            let vi_point = vi_mode_cursor.point;
-            let line = (-vi_point.line.0 + size_info.bottommost_line().0) as usize;
-            self.draw_line_indicator(config, &size_info, total_lines, Some(vi_point), line);
+            let line = (-vi_cursor_point.line.0 + size_info.bottommost_line().0) as usize;
+            let obstructed_column = Some(vi_cursor_point)
+                .filter(|point| point.line == -(display_offset as i32))
+                .map(|point| point.column);
+            self.draw_line_indicator(config, total_lines, obstructed_column, line);
         } else if search_state.regex().is_some() {
             // Show current display offset in vi-less search to indicate match position.
-            self.draw_line_indicator(config, &size_info, total_lines, None, display_offset);
-        }
+            self.draw_line_indicator(config, total_lines, None, display_offset);
+        };
 
-        // Push the cursor rects for rendering.
-        if let Some(cursor) = cursor {
-            for rect in cursor.rects(&size_info, config.cursor.thickness()) {
-                rects.push(rect);
-            }
+        // Draw cursor.
+        for rect in cursor.rects(&size_info, config.terminal_config.cursor.thickness()) {
+            rects.push(rect);
         }
 
         // Push visual bell after url/underline/strikeout rects.
@@ -577,10 +873,14 @@ impl Display {
                 0.,
                 size_info.width(),
                 size_info.height(),
-                config.ui_config.bell.color,
+                config.bell.color,
                 visual_bell_intensity as f32,
             );
             rects.push(visual_bell_rect);
+        }
+
+        if self.debug_damage {
+            self.highlight_damage(&mut rects);
         }
 
         if let Some(message) = message_buffer.message() {
@@ -592,8 +892,8 @@ impl Display {
             let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
 
             let bg = match message.ty() {
-                MessageType::Error => config.ui_config.colors.normal.red,
-                MessageType::Warning => config.ui_config.colors.normal.yellow,
+                MessageType::Error => config.colors.normal.red,
+                MessageType::Warning => config.colors.normal.yellow,
             };
 
             let message_bar_rect =
@@ -603,23 +903,28 @@ impl Display {
             rects.push(message_bar_rect);
 
             // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
+            self.renderer.draw_rects(&size_info, &metrics, rects);
 
             // Relay messages to the user.
             let glyph_cache = &mut self.glyph_cache;
-            let fg = config.ui_config.colors.primary.background;
+            let fg = config.colors.primary.background;
             for (i, message_text) in text.iter().enumerate() {
                 let point = Point::new(start_line + i, Column(0));
-                self.renderer.with_api(&config.ui_config, &size_info, |mut api| {
-                    api.render_string(glyph_cache, point, fg, bg, message_text);
-                });
+                self.renderer.draw_string(
+                    point,
+                    fg,
+                    bg,
+                    message_text.chars(),
+                    &size_info,
+                    glyph_cache,
+                );
             }
         } else {
             // Draw rectangles.
-            self.renderer.draw_rects(&size_info, rects);
+            self.renderer.draw_rects(&size_info, &metrics, rects);
         }
 
-        self.draw_render_timer(config, &size_info);
+        self.draw_render_timer(config);
 
         // Handle search and IME positioning.
         let ime_position = match search_state.regex() {
@@ -629,10 +934,10 @@ impl Display {
                     Direction::Left => BACKWARD_SEARCH_LABEL,
                 };
 
-                let search_text = Self::format_search(&size_info, regex, search_label);
+                let search_text = Self::format_search(regex, search_label, size_info.columns());
 
                 // Render the search bar.
-                self.draw_search(config, &size_info, &search_text);
+                self.draw_search(config, &search_text);
 
                 // Compute IME position.
                 let line = Line(size_info.screen_lines() as i32 + 1);
@@ -640,6 +945,11 @@ impl Display {
             },
             None => cursor_point,
         };
+
+        // Draw hyperlink uri preview.
+        if has_highlighted_hint {
+            self.draw_hyperlink_preview(config, vi_cursor_point, display_offset);
+        }
 
         // Update IME position.
         self.window.update_ime_position(ime_position, &self.size_info);
@@ -649,23 +959,32 @@ impl Display {
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         self.request_frame(&self.window);
 
-        self.window.swap_buffers();
+        // Clearing debug highlights from the previous frame requires full redraw.
+        if self.is_damage_supported && !self.debug_damage {
+            self.window.swap_buffers_with_damage(&self.damage_rects);
+        } else {
+            self.window.swap_buffers();
+        }
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if self.is_x11 {
             // On X11 `swap_buffers` does not block for vsync. However the next OpenGl command
             // will block to synchronize (this is `glClear` in Alacritty), which causes a
             // permanent one frame delay.
-            self.renderer.with_api(&config.ui_config, &size_info, |api| {
-                api.finish();
-            });
+            self.renderer.finish();
         }
+
+        self.damage_rects.clear();
+
+        // Append damage rects we've enqueued for the next frame.
+        mem::swap(&mut self.damage_rects, &mut self.next_frame_damage_rects);
     }
 
     /// Update to a new configuration.
-    pub fn update_config(&mut self, config: &Config) {
-        self.visual_bell.update_config(&config.ui_config.bell);
-        self.colors = List::from(&config.ui_config.colors);
+    pub fn update_config(&mut self, config: &UiConfig) {
+        self.debug_damage = config.debug.highlight_damage;
+        self.visual_bell.update_config(&config.bell);
+        self.colors = List::from(&config.colors);
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
@@ -674,7 +993,7 @@ impl Display {
     pub fn update_highlighted_hints<T>(
         &mut self,
         term: &Term<T>,
-        config: &Config,
+        config: &UiConfig,
         mouse: &Mouse,
         modifiers: ModifiersState,
     ) -> bool {
@@ -702,8 +1021,13 @@ impl Display {
 
         // Update cursor shape.
         if highlighted_hint.is_some() {
+            // If mouse changed the line, we should update the hyperlink preview, since the
+            // highlighted hint could be disrupted by the old preview.
+            dirty = self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
+            self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Hand);
         } else if self.highlighted_hint.is_some() {
+            self.hint_mouse_point = None;
             if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {
                 self.window.set_mouse_cursor(CursorIcon::Default);
             } else {
@@ -718,92 +1042,233 @@ impl Display {
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
-    fn format_search(size_info: &SizeInfo, search_regex: &str, search_label: &str) -> String {
-        // Add spacers for wide chars.
-        let mut formatted_regex = String::with_capacity(search_regex.len());
-        for c in search_regex.chars() {
-            formatted_regex.push(c);
-            if c.width() == Some(2) {
-                formatted_regex.push(' ');
-            }
+    fn format_search(search_regex: &str, search_label: &str, max_width: usize) -> String {
+        let label_len = search_label.len();
+
+        // Skip `search_regex` formatting if only label is visible.
+        if label_len > max_width {
+            return search_label[..max_width].to_owned();
         }
 
-        // Add cursor to show whitespace.
-        formatted_regex.push('_');
+        // The search string consists of `search_label` + `search_regex` + `cursor`.
+        let mut bar_text = String::from(search_label);
+        bar_text.extend(StrShortener::new(
+            search_regex,
+            max_width.wrapping_sub(label_len + 1),
+            ShortenDirection::Left,
+            Some(SHORTENER),
+        ));
 
-        // Truncate beginning of the search regex if it exceeds the viewport width.
-        let num_cols = size_info.columns();
-        let label_len = search_label.chars().count();
-        let regex_len = formatted_regex.chars().count();
-        let truncate_len = min((regex_len + label_len).saturating_sub(num_cols), regex_len);
-        let index = formatted_regex.char_indices().nth(truncate_len).map(|(i, _c)| i).unwrap_or(0);
-        let truncated_regex = &formatted_regex[index..];
-
-        // Add search label to the beginning of the search regex.
-        let mut bar_text = format!("{}{}", search_label, truncated_regex);
-
-        // Make sure the label alone doesn't exceed the viewport width.
-        bar_text.truncate(num_cols);
+        bar_text.push('_');
 
         bar_text
     }
 
-    /// Draw current search regex.
-    fn draw_search(&mut self, config: &Config, size_info: &SizeInfo, text: &str) {
-        let glyph_cache = &mut self.glyph_cache;
-        let num_cols = size_info.columns();
+    /// Draw preview for the currently highlighted `Hyperlink`.
+    #[inline(never)]
+    fn draw_hyperlink_preview(
+        &mut self,
+        config: &UiConfig,
+        vi_cursor_point: Option<Point>,
+        display_offset: usize,
+    ) {
+        let num_cols = self.size_info.columns();
+        let uris: Vec<_> = self
+            .highlighted_hint
+            .iter()
+            .chain(&self.vi_highlighted_hint)
+            .filter_map(|hint| hint.hyperlink().map(|hyperlink| hyperlink.uri()))
+            .map(|uri| StrShortener::new(uri, num_cols, ShortenDirection::Right, Some(SHORTENER)))
+            .collect();
 
-        // Assure text length is at least num_cols.
-        let text = format!("{:<1$}", text, num_cols);
-
-        let point = Point::new(size_info.screen_lines(), Column(0));
-        let fg = config.ui_config.colors.search_bar_foreground();
-        let bg = config.ui_config.colors.search_bar_background();
-
-        self.renderer.with_api(&config.ui_config, size_info, |mut api| {
-            api.render_string(glyph_cache, point, fg, bg, &text);
-        });
-    }
-
-    /// Draw render timer.
-    fn draw_render_timer(&mut self, config: &Config, size_info: &SizeInfo) {
-        if !config.ui_config.debug.render_timer {
+        if uris.is_empty() {
             return;
         }
 
-        let glyph_cache = &mut self.glyph_cache;
+        // The maximum amount of protected lines including the ones we'll show preview on.
+        let max_protected_lines = uris.len() * 2;
+
+        // Lines we shouldn't shouldn't show preview on, because it'll obscure the highlighted
+        // hint.
+        let mut protected_lines = Vec::with_capacity(max_protected_lines);
+        if self.size_info.screen_lines() >= max_protected_lines {
+            // Prefer to show preview even when it'll likely obscure the highlighted hint, when
+            // there's no place left for it.
+            protected_lines.push(self.hint_mouse_point.map(|point| point.line));
+            protected_lines.push(vi_cursor_point.map(|point| point.line));
+        }
+
+        // Find the line in viewport we can draw preview on without obscuring protected lines.
+        let viewport_bottom = self.size_info.bottommost_line() - Line(display_offset as i32);
+        let viewport_top = viewport_bottom - (self.size_info.screen_lines() - 1);
+        let uri_lines = (viewport_top.0..=viewport_bottom.0)
+            .rev()
+            .map(|line| Some(Line(line)))
+            .filter_map(|line| {
+                if protected_lines.contains(&line) {
+                    None
+                } else {
+                    protected_lines.push(line);
+                    line
+                }
+            })
+            .take(uris.len())
+            .flat_map(|line| term::point_to_viewport(display_offset, Point::new(line, Column(0))));
+
+        let fg = config.colors.footer_bar_foreground();
+        let bg = config.colors.footer_bar_background();
+        for (uri, point) in uris.into_iter().zip(uri_lines) {
+            // Damage the uri preview.
+            if self.collect_damage() {
+                let uri_preview_damage = self.damage_from_point(point, num_cols as u32);
+                self.damage_rects.push(uri_preview_damage);
+
+                // Damage the uri preview for the next frame as well.
+                self.next_frame_damage_rects.push(uri_preview_damage);
+            }
+
+            self.renderer.draw_string(point, fg, bg, uri, &self.size_info, &mut self.glyph_cache);
+        }
+    }
+
+    /// Draw current search regex.
+    #[inline(never)]
+    fn draw_search(&mut self, config: &UiConfig, text: &str) {
+        // Assure text length is at least num_cols.
+        let num_cols = self.size_info.columns();
+        let text = format!("{:<1$}", text, num_cols);
+
+        let point = Point::new(self.size_info.screen_lines(), Column(0));
+
+        let fg = config.colors.footer_bar_foreground();
+        let bg = config.colors.footer_bar_background();
+
+        self.renderer.draw_string(
+            point,
+            fg,
+            bg,
+            text.chars(),
+            &self.size_info,
+            &mut self.glyph_cache,
+        );
+    }
+
+    /// Draw render timer.
+    #[inline(never)]
+    fn draw_render_timer(&mut self, config: &UiConfig) {
+        if !config.debug.render_timer {
+            return;
+        }
 
         let timing = format!("{:.3} usec", self.meter.average());
-        let point = Point::new(size_info.screen_lines().saturating_sub(2), Column(0));
-        let fg = config.ui_config.colors.primary.background;
-        let bg = config.ui_config.colors.normal.red;
+        let point = Point::new(self.size_info.screen_lines().saturating_sub(2), Column(0));
+        let fg = config.colors.primary.background;
+        let bg = config.colors.normal.red;
 
-        self.renderer.with_api(&config.ui_config, size_info, |mut api| {
-            api.render_string(glyph_cache, point, fg, bg, &timing);
-        });
+        if self.collect_damage() {
+            // Damage the entire line.
+            let render_timer_damage =
+                self.damage_from_point(point, self.size_info.columns() as u32);
+            self.damage_rects.push(render_timer_damage);
+
+            // Damage the render timer for the next frame.
+            self.next_frame_damage_rects.push(render_timer_damage)
+        }
+
+        let glyph_cache = &mut self.glyph_cache;
+        self.renderer.draw_string(point, fg, bg, timing.chars(), &self.size_info, glyph_cache);
     }
 
     /// Draw an indicator for the position of a line in history.
+    #[inline(never)]
     fn draw_line_indicator(
         &mut self,
-        config: &Config,
-        size_info: &SizeInfo,
+        config: &UiConfig,
         total_lines: usize,
-        vi_mode_point: Option<Point>,
+        obstructed_column: Option<Column>,
         line: usize,
     ) {
+        const fn num_digits(mut number: u32) -> usize {
+            let mut res = 0;
+            loop {
+                number /= 10;
+                res += 1;
+                if number == 0 {
+                    break res;
+                }
+            }
+        }
+
         let text = format!("[{}/{}]", line, total_lines - 1);
-        let column = Column(size_info.columns().saturating_sub(text.len()));
-        let colors = &config.ui_config.colors;
+        let column = Column(self.size_info.columns().saturating_sub(text.len()));
+        let point = Point::new(0, column);
+
+        // Damage the maximum possible length of the format text, which could be achieved when
+        // using `MAX_SCROLLBACK_LINES` as current and total lines adding a `3` for formatting.
+        const MAX_SIZE: usize = 2 * num_digits(MAX_SCROLLBACK_LINES) + 3;
+        let damage_point = Point::new(0, Column(self.size_info.columns().saturating_sub(MAX_SIZE)));
+        if self.collect_damage() {
+            self.damage_rects.push(self.damage_from_point(damage_point, MAX_SIZE as u32));
+        }
+
+        let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if vi_mode_point.map_or(true, |point| point.line != 0 || point.column < column) {
+        if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
-            self.renderer.with_api(&config.ui_config, size_info, |mut api| {
-                api.render_string(glyph_cache, Point::new(0, column), fg, bg, &text);
-            });
+            self.renderer.draw_string(point, fg, bg, text.chars(), &self.size_info, glyph_cache);
+        }
+    }
+
+    /// Damage `len` starting from a `point`.
+    ///
+    /// This method also enqueues damage for the next frame automatically.
+    fn damage_from_point(&self, point: Point<usize>, len: u32) -> DamageRect {
+        let size_info: SizeInfo<u32> = self.size_info.into();
+        let x = size_info.padding_x() + point.column.0 as u32 * size_info.cell_width();
+        let y_top = size_info.height() - size_info.padding_y();
+        let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
+        let width = len as u32 * size_info.cell_width();
+        DamageRect { x, y, width, height: size_info.cell_height() }
+    }
+
+    /// Damage currently highlighted `Display` hints.
+    #[inline]
+    fn damage_highlighted_hints<T: EventListener>(&self, terminal: &mut Term<T>) {
+        let display_offset = terminal.grid().display_offset();
+        let last_visible_line = terminal.screen_lines() - 1;
+        for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
+            for point in
+                (hint.bounds().start().line.0..=hint.bounds().end().line.0).flat_map(|line| {
+                    term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
+                        .filter(|point| point.line <= last_visible_line)
+                })
+            {
+                terminal.damage_line(point.line, 0, terminal.columns() - 1);
+            }
+        }
+    }
+
+    /// Returns `true` if damage information should be collected, `false` otherwise.
+    #[inline]
+    fn collect_damage(&self) -> bool {
+        self.is_damage_supported || self.debug_damage
+    }
+
+    /// Highlight damaged rects.
+    ///
+    /// This function is for debug purposes only.
+    fn highlight_damage(&self, render_rects: &mut Vec<RenderRect>) {
+        for damage_rect in &self.damage_rects {
+            let x = damage_rect.x as f32;
+            let height = damage_rect.height as f32;
+            let width = damage_rect.width as f32;
+            let y = self.size_info.height() - damage_rect.y as f32 - height;
+            let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
+
+            render_rects.push(render_rect);
         }
     }
 
@@ -828,25 +1293,21 @@ impl Display {
     }
 }
 
-/// Convert a terminal point to a viewport relative point.
-pub fn point_to_viewport(display_offset: usize, point: Point) -> Option<Point<usize>> {
-    let viewport_line = point.line.0 + display_offset as i32;
-    usize::try_from(viewport_line).ok().map(|line| Point::new(line, point.column))
-}
-
-/// Convert a viewport relative point to a terminal point.
-pub fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
-    let line = Line(point.line as i32) - display_offset;
-    Point::new(line, point.column)
+impl Drop for Display {
+    fn drop(&mut self) {
+        // Switch OpenGL context before dropping, otherwise objects (like programs) from other
+        // contexts might be deleted.
+        self.window.make_current()
+    }
 }
 
 /// Calculate the cell dimensions based on font metrics.
 ///
 /// This will return a tuple of the cell width and height.
 #[inline]
-fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32) {
-    let offset_x = f64::from(config.ui_config.font.offset.x);
-    let offset_y = f64::from(config.ui_config.font.offset.y);
+fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f32) {
+    let offset_x = f64::from(config.font.offset.x);
+    let offset_y = f64::from(config.font.offset.y);
     (
         (metrics.average_advance + offset_x).floor().max(1.) as f32,
         (metrics.line_height + offset_y).floor().max(1.) as f32,
@@ -855,13 +1316,13 @@ fn compute_cell_size(config: &Config, metrics: &crossfont::Metrics) -> (f32, f32
 
 /// Calculate the size of the window given padding, terminal dimensions and cell size.
 fn window_size(
-    config: &Config,
+    config: &UiConfig,
     dimensions: Dimensions,
     cell_width: f32,
     cell_height: f32,
-    dpr: f64,
+    scale_factor: f64,
 ) -> PhysicalSize<u32> {
-    let padding = config.ui_config.window.padding(dpr);
+    let padding = config.window.padding(scale_factor);
 
     let grid_width = cell_width * dimensions.columns.0.max(MIN_COLUMNS) as f32;
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;

@@ -9,6 +9,7 @@ use std::sync::{Arc, Weak};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
+use crate::grid::Dimensions;
 use crate::term::color::Rgb;
 
 /// Max allowed dimensions (width, height) for the graphic, in pixels.
@@ -121,6 +122,12 @@ pub struct Graphics {
 
     /// Shared palette for Sixel graphics.
     pub sixel_shared_palette: Option<Vec<Rgb>>,
+
+    /// Cell height in pixels.
+    pub cell_height: usize,
+
+    /// Cell width in pixels.
+    pub cell_width: usize,
 }
 
 impl Graphics {
@@ -142,5 +149,11 @@ impl Graphics {
         let remove_queue = mem::take(&mut *remove_queue);
 
         Some(UpdateQueues { pending: mem::take(&mut self.pending), remove_queue })
+    }
+
+    /// Update cell dimensions.
+    pub fn resize<S: Dimensions>(&mut self, size: S) {
+        self.cell_height = size.cell_height().unwrap_or(1);
+        self.cell_width = size.cell_width().unwrap_or(1);
     }
 }

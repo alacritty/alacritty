@@ -3,6 +3,7 @@ TARGET = alacritty
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
 MANPAGE = $(ASSETS_DIR)/alacritty.man
+MANPAGE-MSG = $(ASSETS_DIR)/alacritty-msg.man
 TERMINFO = $(ASSETS_DIR)/alacritty.info
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
 COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
@@ -29,8 +30,8 @@ all: help
 help: ## Print this help message
 	@grep -E '^[a-zA-Z._-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-binary: $(TAGET)-native ## Build a release binary
-binary-universal: $(TAGET)-universal ## Build a universal release binary
+binary: $(TARGET)-native ## Build a release binary
+binary-universal: $(TARGET)-universal ## Build a universal release binary
 $(TARGET)-native:
 	MACOSX_DEPLOYMENT_TARGET="10.11" cargo build --release
 $(TARGET)-universal:
@@ -45,11 +46,14 @@ $(APP_NAME)-%: $(TARGET)-%
 	@mkdir -p $(APP_EXTRAS_DIR)
 	@mkdir -p $(APP_COMPLETIONS_DIR)
 	@gzip -c $(MANPAGE) > $(APP_EXTRAS_DIR)/alacritty.1.gz
+	@gzip -c $(MANPAGE-MSG) > $(APP_EXTRAS_DIR)/alacritty-msg.1.gz
 	@tic -xe alacritty,alacritty-direct -o $(APP_EXTRAS_DIR) $(TERMINFO)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
 	@cp -fp $(COMPLETIONS) $(APP_COMPLETIONS_DIR)
 	@touch -r "$(APP_BINARY)" "$(APP_DIR)/$(APP_NAME)"
+	@codesign --remove-signature "$(APP_DIR)/$(APP_NAME)"
+	@codesign --force --deep --sign - "$(APP_DIR)/$(APP_NAME)"
 	@echo "Created '$(APP_NAME)' in '$(APP_DIR)'"
 
 dmg: $(DMG_NAME)-native ## Create an Alacritty.dmg

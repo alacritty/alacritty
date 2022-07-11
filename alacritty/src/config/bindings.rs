@@ -5,8 +5,7 @@ use std::fmt::{self, Debug, Display};
 use bitflags::bitflags;
 use glutin::event::VirtualKeyCode::*;
 use glutin::event::{ModifiersState, MouseButton, VirtualKeyCode};
-use serde::de::Error as SerdeError;
-use serde::de::{self, MapAccess, Unexpected, Visitor};
+use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
@@ -181,8 +180,14 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Create a new Alacritty window.
+    CreateNewWindow,
+
     /// Toggle fullscreen.
     ToggleFullscreen,
+
+    /// Toggle maximized.
+    ToggleMaximized,
 
     /// Toggle simple fullscreen on macOS.
     #[cfg(target_os = "macos")]
@@ -270,6 +275,8 @@ pub enum ViAction {
     SearchEnd,
     /// Launch the URL below the vi mode cursor.
     Open,
+    /// Centers the screen around the vi mode cursor.
+    CenterAroundViCursor,
 }
 
 /// Search mode specific actions.
@@ -361,7 +368,8 @@ macro_rules! bindings {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
-        MouseButton::Right;                    MouseAction::ExpandSelection;
+        MouseButton::Right;                         MouseAction::ExpandSelection;
+        MouseButton::Right,   ModifiersState::CTRL; MouseAction::ExpandSelection;
         MouseButton::Middle, ~BindingMode::VI; Action::PasteSelection;
     )
 }
@@ -492,6 +500,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             ViAction::SearchPrevious;
         Return,                        +BindingMode::VI, ~BindingMode::SEARCH;
             ViAction::Open;
+        Z,                             +BindingMode::VI, ~BindingMode::SEARCH;
+            ViAction::CenterAroundViCursor;
         K,                             +BindingMode::VI, ~BindingMode::SEARCH;
             ViMotion::Up;
         J,                             +BindingMode::VI, ~BindingMode::SEARCH;
@@ -1003,7 +1013,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             let val = map.next_value::<SerdeValue>()?;
                             if val.is_u64() {
                                 let scancode = val.as_u64().unwrap();
-                                if scancode > u64::from(std::u32::MAX) {
+                                if scancode > u64::from(u32::MAX) {
                                     return Err(<V::Error as Error>::custom(format!(
                                         "Invalid key binding, scancode too big: {}",
                                         scancode
@@ -1100,7 +1110,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                 let mode = mode.unwrap_or_else(BindingMode::empty);
                 let not_mode = not_mode.unwrap_or_else(BindingMode::empty);
-                let mods = mods.unwrap_or_else(ModifiersState::default);
+                let mods = mods.unwrap_or_default();
 
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)
@@ -1139,7 +1149,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                     _ => {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",
-                        ))
+                        ));
                     },
                 };
 

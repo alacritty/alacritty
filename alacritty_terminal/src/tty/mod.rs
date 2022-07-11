@@ -39,7 +39,7 @@ pub trait EventedReadWrite {
 }
 
 /// Events concerning TTY child processes.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
     /// Indicates the child has exited.
     Exited,
@@ -60,7 +60,7 @@ pub trait EventedPty: EventedReadWrite {
 }
 
 /// Setup environment variables.
-pub fn setup_env<C>(config: &Config<C>) {
+pub fn setup_env(config: &Config) {
     // Default to 'alacritty' terminfo if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.

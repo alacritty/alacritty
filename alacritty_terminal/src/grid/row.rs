@@ -1,10 +1,8 @@
 //! Defines the Row type which makes up lines in the grid.
 
 use std::cmp::{max, min};
-use std::ops::{Index, IndexMut};
-use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
-use std::ptr;
-use std::slice;
+use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
+use std::{ptr, slice};
 
 use serde::{Deserialize, Serialize};
 
@@ -170,6 +168,16 @@ impl<T> Row<T> {
         let mut split = self.inner.split_off(at);
         std::mem::swap(&mut split, &mut self.inner);
         split
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Row<T> {
+    type IntoIter = slice::Iter<'a, T>;
+    type Item = &'a T;
+
+    #[inline]
+    fn into_iter(self) -> slice::Iter<'a, T> {
+        self.inner.iter()
     }
 }
 

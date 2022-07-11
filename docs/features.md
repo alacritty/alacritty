@@ -83,3 +83,9 @@ Graphics can be added to the terminal using the Sixel protocol. Every graphic ca
 have up to 1024 colors, and it is limited to 4096x4096 pixels.
 
 [configuration file]: ../alacritty.yml
+
+## Multi-Window
+
+Alacritty supports running multiple terminal emulators from the same Alacritty
+instance. New windows can be created either by using the `CreateNewWindow`
+keybinding action, or by executing the `alacritty msg create-window` subcommand.

@@ -15,18 +15,16 @@ use mio::unix::UnixReady;
 use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
-use crate::ansi;
-use crate::event::{self, Event, EventListener};
+use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
-use crate::term::{SizeInfo, Term};
-use crate::thread;
-use crate::tty;
+use crate::term::Term;
+use crate::{ansi, thread, tty};
 
 /// Max bytes to read from the PTY before forced terminal synchronization.
 const READ_BUFFER_SIZE: usize = 0x10_0000;
 
 /// Max bytes to read from the PTY while the terminal is locked.
-const MAX_LOCKED_READ: usize = u16::max_value() as usize;
+const MAX_LOCKED_READ: usize = u16::MAX as usize;
 
 /// Messages that may be sent to the `EventLoop`.
 #[derive(Debug)]
@@ -38,7 +36,7 @@ pub enum Msg {
     Shutdown,
 
     /// Instruction to resize the PTY.
-    Resize(SizeInfo),
+    Resize(WindowSize),
 }
 
 /// The main event!.. loop.
@@ -75,13 +73,13 @@ impl event::Notify for Notifier {
             return;
         }
 
-        self.0.send(Msg::Input(bytes)).expect("send event loop msg");
+        let _ = self.0.send(Msg::Input(bytes));
     }
 }
 
 impl event::OnResize for Notifier {
-    fn on_resize(&mut self, size: &SizeInfo) {
-        self.0.send(Msg::Resize(*size)).expect("expected send event loop msg");
+    fn on_resize(&mut self, window_size: WindowSize) {
+        let _ = self.0.send(Msg::Resize(window_size));
     }
 }
 
@@ -184,8 +182,8 @@ where
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Input(input) => state.write_list.push_back(input),
+                Msg::Resize(window_size) => self.pty.on_resize(window_size),
                 Msg::Shutdown => return false,
-                Msg::Resize(size) => self.pty.on_resize(&size),
             }
         }
 
@@ -409,7 +407,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        }
+                        },
                         _ => (),
                     }
                 }
@@ -429,34 +427,5 @@ where
 
             (self, state)
         })
-    }
-}
-
-trait OptionInsert {
-    type T;
-    fn insert(&mut self, value: Self::T) -> &mut Self::T;
-}
-
-// TODO: Remove when MSRV is >= 1.53.0.
-//
-/// Trait implementation to support Rust version < 1.53.0.
-///
-/// This is taken [from STD], further license information can be found in the [rust-lang/rust
-/// repository].
-///
-///
-/// [from STD]: https://github.com/rust-lang/rust/blob/6e0b554619a3bb7e75b3334e97f191af20ef5d76/library/core/src/option.rs#L829-L858
-/// [rust-lang/rust repository]: https://github.com/rust-lang/rust/blob/master/LICENSE-MIT
-impl<T> OptionInsert for Option<T> {
-    type T = T;
-
-    fn insert(&mut self, value: T) -> &mut T {
-        *self = Some(value);
-
-        match self {
-            Some(v) => v,
-            // SAFETY: the code above just filled the option
-            None => unsafe { std::hint::unreachable_unchecked() },
-        }
     }
 }

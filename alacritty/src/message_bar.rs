@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::grid::Dimensions;
-use alacritty_terminal::term::SizeInfo;
+
+use crate::display::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const CLOSE_BUTTON_PADDING: usize = 1;
@@ -141,11 +142,6 @@ pub struct MessageBuffer {
 }
 
 impl MessageBuffer {
-    /// Create new message buffer.
-    pub fn new() -> MessageBuffer {
-        MessageBuffer { messages: VecDeque::new() }
-    }
-
     /// Check if there are any messages queued.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -191,12 +187,12 @@ impl MessageBuffer {
 mod tests {
     use super::*;
 
-    use alacritty_terminal::term::SizeInfo;
+    use crate::display::SizeInfo;
 
     #[test]
     fn appends_close_button() {
         let input = "a";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
 
@@ -208,7 +204,7 @@ mod tests {
     #[test]
     fn multiline_close_button_first_line() {
         let input = "fo\nbar";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
 
@@ -220,7 +216,7 @@ mod tests {
     #[test]
     fn splits_on_newline() {
         let input = "a\nb";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
 
@@ -232,7 +228,7 @@ mod tests {
     #[test]
     fn splits_on_length() {
         let input = "foobar1";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
 
@@ -244,7 +240,7 @@ mod tests {
     #[test]
     fn empty_with_shortterm() {
         let input = "foobar";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(6., 0., 1., 1., 0., 0., false);
 
@@ -256,7 +252,7 @@ mod tests {
     #[test]
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(22., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., false);
 
@@ -271,7 +267,7 @@ mod tests {
     #[test]
     fn hide_button_when_too_narrow() {
         let input = "ha";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(2., 10., 1., 1., 0., 0., false);
 
@@ -283,7 +279,7 @@ mod tests {
     #[test]
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(2., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., false);
 
@@ -295,7 +291,7 @@ mod tests {
     #[test]
     fn add_newline_for_button() {
         let input = "test";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(5., 10., 1., 1., 0., 0., false);
 
@@ -306,7 +302,7 @@ mod tests {
 
     #[test]
     fn remove_target() {
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         for i in 0..10 {
             let mut msg = Message::new(i.to_string(), MessageType::Error);
             if i % 2 == 0 && i < 5 {
@@ -329,7 +325,7 @@ mod tests {
 
     #[test]
     fn pop() {
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         let one = Message::new(String::from("one"), MessageType::Error);
         message_buffer.push(one.clone());
         let two = Message::new(String::from("two"), MessageType::Warning);
@@ -345,7 +341,7 @@ mod tests {
     #[test]
     fn wrap_on_words() {
         let input = "a\nbc defg";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(5., 10., 1., 1., 0., 0., false);
 
@@ -361,7 +357,7 @@ mod tests {
     #[test]
     fn wrap_with_unicode() {
         let input = "ab\nc 👩d fgh";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
 
@@ -377,7 +373,7 @@ mod tests {
     #[test]
     fn strip_whitespace_at_linebreak() {
         let input = "\n0 1 2 3";
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
         let size = SizeInfo::new(3., 10., 1., 1., 0., 0., false);
 
@@ -388,7 +384,7 @@ mod tests {
 
     #[test]
     fn remove_duplicates() {
-        let mut message_buffer = MessageBuffer::new();
+        let mut message_buffer = MessageBuffer::default();
         for _ in 0..10 {
             let msg = Message::new(String::from("test"), MessageType::Error);
             message_buffer.push(msg);

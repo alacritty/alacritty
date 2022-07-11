@@ -2,15 +2,14 @@
 
 use std::mem;
 
+use crate::display::SizeInfo;
 use alacritty_terminal::graphics::{ColorType, GraphicData, GraphicId, UpdateQueues};
-use alacritty_terminal::term::SizeInfo;
 
 use log::trace;
 use serde::{Deserialize, Serialize};
 
-use crate::gl;
 use crate::gl::types::*;
-use crate::renderer;
+use crate::{gl, renderer};
 
 use std::collections::HashMap;
 
@@ -23,13 +22,13 @@ pub use draw::RenderList;
 #[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
 pub struct TextureName(GLuint);
 
-// In debug mode, check if the inner value was set to zero, so we can detect if
-// the associated texture was deleted from the GPU.
-#[cfg(debug_assertions)]
 impl Drop for TextureName {
     fn drop(&mut self) {
         if self.0 != 0 {
-            log::error!("Texture {} was not deleted.", self.0);
+            trace!("Delete texture {}.", self.0);
+            unsafe {
+                gl::DeleteTextures(1, &self.0);
+            }
         }
     }
 }

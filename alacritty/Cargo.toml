@@ -1,16 +1,17 @@
 [package]
 name = "alacritty"
-version = "0.10.0-dev"
+version = "0.11.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
-edition = "2018"
+edition = "2021"
+rust-version = "1.57.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.15.1-dev"
+version = "0.17.0-dev"
 default-features = false
 
 [dependencies.alacritty_config_derive]
@@ -18,41 +19,44 @@ path = "../alacritty_config_derive"
 version = "0.1.0"
 
 [dependencies]
-structopt = "0.3.22"
+clap = { version = "3.0.0", features = ["derive"] }
 log = { version = "0.4", features = ["std", "serde"] }
-time = "0.1.40"
 fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.26.0", default-features = false, features = ["serde"] }
+glutin = { version = "0.28.0", default-features = false, features = ["serde"] }
 notify = "4"
 parking_lot = "0.11.0"
 crossfont = { version = "0.3.1", features = ["force_system_fontconfig"] }
-copypasta = { version = "0.7.0", default-features = false }
+copypasta = { version = "0.8.0", default-features = false }
 libc = "0.2"
 unicode-width = "0.1"
 bitflags = "1"
-dirs = "3.0.1"
 memoffset = "0.6.4"
+dirs = "4.0.0"
+once_cell = "1.12"
 
 [build-dependencies]
 gl_generator = "0.14.0"
 
+[dev-dependencies]
+clap_complete = "3.0.0"
+
 [target.'cfg(not(windows))'.dependencies]
-xdg = "2"
+xdg = "2.4.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.16.8", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-raw-window-handle = "0.3.3"
+raw-window-handle = "0.4.0"
 cocoa = "0.24.0"
 objc = "0.2.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = { version = "2", optional = true }
-wayland-client = { version = "0.28.0", features = ["dlopen"], optional = true }
+wayland-client = { version = "0.29.0", features = ["dlopen"], optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "wincon"]}
@@ -63,5 +67,5 @@ embed-resource = "1.3"
 [features]
 default = ["wayland", "x11"]
 x11 = ["copypasta/x11", "glutin/x11", "x11-dl", "png"]
-wayland = ["copypasta/wayland", "glutin/wayland", "wayland-client"]
+wayland = ["copypasta/wayland", "glutin/wayland", "glutin/wayland-dlopen", "wayland-client"]
 nightly = []

@@ -5,17 +5,113 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.10.0-dev
+## 0.11.0-dev
+
+### Packaging
+
+- Minimum Rust version has been bumped to 1.57.0
+
+### Added
+
+- Support for Sixel protocol
+- Track and report surface damage information to Wayland compositors
+- Escape sequence for undercurl, dotted and dashed underlines (`CSI 4 : [3-5] m`)
+- `ToggleMaximized` key binding action to (un-)maximize the active window, not bound by default
+- Support for OpenGL ES 2.0
+- Escape sequence to set underline color (`CSI 58 : 2 : Ps : Ps : Ps m`/`CSI 58 : 5 : Ps m`)
+- Escape sequence to reset underline color (`CSI 59 m`)
+- Vi mode keybinding (z) to center view around vi mode cursor
+- Accept hexadecimal values starting with `0x` for `--embed`
+- Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
+- Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
+- Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
+
+### Changed
+
+- The `--help` output was reworked with a new colorful syntax
+- OSC 52 is now disabled on unfocused windows
+- `SpawnNewInstance` no longer inherits initial `--command`
+- Blinking cursor will timeout after `5` seconds by default
+- Deprecated `colors.search.bar`, use `colors.footer_bar` instead
+
+### Fixed
+
+- Creating the IPC socket failing if WAYLAND_DISPLAY contains an absolute path
+- Crash when resetting the terminal while in vi mode
+- `font.glyph_offset` not live reloading
+- Failure when running on 10-bit color system
+- The colors being slightly different when using srgb displays on macOS
+- Vi cursor blinking not reset when navigating in search
+- Scrolling and middle-clicking modifying the primary selection
+- Bottom gap for certain builtin box drawing characters
+- Incorrect built-in glyphs for `U+2567` and `U+2568`
+- Character mappings in the DEC special graphics character set (line drawing)
+- Window flickering on resize on Wayland
+- Unnecessary config reload when using `/dev/null` as a config file
+- Windows `Open Alacritty Here` on root of drive displaying error
+
+## 0.10.1
+
+### Added
+
+- Option `font.builtin_box_drawing` to disable the built-in font for drawing box characters
+
+### Changed
+
+- Builtin font thickness is now based on cell width instead of underline thickness
+
+### Fixed
+
+- OSC 4 not handling `?`
+- `?` in OSC strings reporting default colors instead of modified ones
+- OSC 104 not clearing colors when second parameter is empty
+- Builtin font lines not contiguous when `font.offset` is used
+- `font.glyph_offset` is no longer applied on builtin font
+- Buili-in font arcs alignment
+- Repeated permission prompts on M1 macs
+- Colors being slightly off when using `colors.transparent_background_colors`
+
+## 0.10.0
+
+### Packaging
+
+- New `extra/alacritty-msg.man` manpage for the `alacritty msg` subcommand
+- Minimum Rust version has been bumped to 1.53.0
 
 ### Added
 
 - Option `colors.transparent_background_colors` to allow applying opacity to all background colors
+- Support for running multiple windows from a single Alacritty instance (see docs/features.md)
+- Urgency support on Wayland via `xdg_activation_v1`
 
 ### Changed
 
 - `ExpandSelection` is now a configurable mouse binding action
 - Config option `background_opacity`, you should use `window.opacity` instead
 - Reload configuration files when their symbolic link is replaced
+- Strip trailing whitespaces when yanking from a block selection
+- Display area keeps history position when viewport is cleared
+- Commands spawn from the current directory of the foreground shell in Unix-like systems
+- Remove trailing newline from strings taken from hints or simple/semantic selections
+- Builtin font is now used for box drawing characters from `U+2500` to `U+259f`
+- Logs now print the time since startup instead of the local time
+
+### Fixed
+
+- Line indicator obstructing vi mode cursor when scrolled into history
+- Vi mode search starting in the line below the vi cursor
+- Invisible cursor with matching foreground/background colors
+- Crash when hovering over a match emptied by post-processing
+- Crash when the vi cursor is on the scrollback and viewport clear is invoked
+- Freeze when the vi cursor is on the scrollback and scrollback clear is invoked
+- Vi cursor on topmost of the display moving downward when scrolled into history with active output
+- Input lag on Wayland with Nvidia binary driver
+- Crash when hovering the mouse over fullwidth characters
+- Do not create logfile if the file already exists
+
+### Removed
+
+- Wayland client side decorations were simplified
 
 ## 0.9.0
 
@@ -63,7 +159,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME composition preview not appearing on Windows
 - Synchronized terminal updates using `DCS = 1 s ST`/`DCS = 2 s ST`
 - Regex terminal hints ([see features.md](./docs/features.md#hints))
-- Support for Sixel protocol
 - macOS keybinding (cmd+alt+H) hiding all windows other than Alacritty
 - Support for `magnet` URLs
 

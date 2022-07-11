@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use crate::term::color::Rgb;
-use crate::term::{ClipboardType, SizeInfo};
+use crate::term::ClipboardType;
 
 /// Terminal event.
 ///
@@ -38,8 +38,11 @@ pub enum Event {
     /// Write some text to the PTY.
     PtyWrite(String),
 
+    /// Request to write the text area size.
+    TextAreaSizeRequest(Arc<dyn Fn(WindowSize) -> String + Sync + Send + 'static>),
+
     /// Cursor blinking state has changed.
-    CursorBlinkingChange(bool),
+    CursorBlinkingChange,
 
     /// New terminal content available.
     Wakeup,
@@ -54,17 +57,18 @@ pub enum Event {
 impl Debug for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
-            Event::Title(title) => write!(f, "Title({})", title),
-            Event::ResetTitle => write!(f, "ResetTitle"),
             Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
             Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
+            Event::TextAreaSizeRequest(_) => write!(f, "TextAreaSizeRequest"),
             Event::ColorRequest(index, _) => write!(f, "ColorRequest({})", index),
             Event::PtyWrite(text) => write!(f, "PtyWrite({})", text),
+            Event::Title(title) => write!(f, "Title({})", title),
+            Event::CursorBlinkingChange => write!(f, "CursorBlinkingChange"),
+            Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
+            Event::ResetTitle => write!(f, "ResetTitle"),
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::CursorBlinkingChange(blinking) => write!(f, "CursorBlinking({})", blinking),
         }
     }
 }
@@ -77,9 +81,17 @@ pub trait Notify {
     fn notify<B: Into<Cow<'static, [u8]>>>(&self, _: B);
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct WindowSize {
+    pub num_lines: u16,
+    pub num_cols: u16,
+    pub cell_width: u16,
+    pub cell_height: u16,
+}
+
 /// Types that are interested in when the display is resized.
 pub trait OnResize {
-    fn on_resize(&mut self, size: &SizeInfo);
+    fn on_resize(&mut self, window_size: WindowSize);
 }
 
 /// Event Loop for notifying the renderer about terminal events.

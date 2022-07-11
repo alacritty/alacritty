@@ -9,12 +9,13 @@ use std::collections::BTreeMap;
 use std::mem::{self, MaybeUninit};
 
 use crate::display::content::RenderableCell;
-use crate::gl::{self, types::*};
+use crate::display::SizeInfo;
+use crate::gl::types::*;
+use crate::gl::{self};
 use crate::renderer::graphics::{shader, GraphicsRenderer};
 
 use alacritty_terminal::graphics::GraphicId;
 use alacritty_terminal::index::Column;
-use alacritty_terminal::term::SizeInfo;
 
 use log::trace;
 
@@ -38,7 +39,7 @@ impl RenderList {
     /// The graphic is added only the first time it is found in a cell.
     #[inline]
     pub fn update(&mut self, cell: &RenderableCell) {
-        if let Some(graphic) = &cell.graphic {
+        if let Some(graphic) = cell.extra.as_ref().and_then(|cell| cell.graphic.as_ref()) {
             let graphic_id = graphic.graphic_id();
             if self.items.contains_key(&graphic_id) {
                 return;
@@ -107,7 +108,7 @@ impl RenderList {
             gl::BindBuffer(gl::ARRAY_BUFFER, renderer.program.vbo);
             gl::BindVertexArray(renderer.program.vao);
 
-            gl::UseProgram(renderer.program.id);
+            gl::UseProgram(renderer.program.shader.id());
 
             gl::Uniform2f(
                 renderer.program.u_cell_dimensions,

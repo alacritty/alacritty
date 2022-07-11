@@ -19,8 +19,7 @@
 //!   aspect ratio, but multiple implementations always use 1:1, so these
 //!   parameters have no real effect.
 use std::cmp::max;
-use std::fmt;
-use std::mem;
+use std::{fmt, mem};
 
 use crate::graphics::{ColorType, GraphicData, GraphicId, MAX_GRAPHIC_DIMENSIONS};
 use crate::term::color::Rgb;

@@ -31,7 +31,7 @@ pub struct Meter {
     /// Average sample time in microseconds.
     avg: f64,
 
-    /// Index of next time to update..
+    /// Index of next time to update.
     index: usize,
 }
 

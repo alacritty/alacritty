@@ -13,9 +13,6 @@ use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
     glutin::platform::unix::EventLoopWindowTargetExtUnix,
-
-    crate::config::color::Colors,
-    crate::display::wayland_theme::AlacrittyWaylandTheme,
 };
 
 #[rustfmt::skip]
@@ -29,11 +26,14 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicU8, Ordering};
 
+use bitflags::bitflags;
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
-use glutin::event_loop::EventLoop;
+use glutin::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
@@ -41,7 +41,7 @@ use glutin::platform::windows::IconExtWindows;
 use glutin::window::{
     CursorIcon, Fullscreen, UserAttentionType, Window as GlutinWindow, WindowBuilder, WindowId,
 };
-use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
+use glutin::{self, ContextBuilder, PossiblyCurrent, Rect, WindowedContext};
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 #[cfg(target_os = "macos")]
@@ -50,23 +50,30 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::index::Point;
-use alacritty_terminal::term::SizeInfo;
 
-use crate::config::window::{Decorations, WindowConfig};
-use crate::config::Config;
+use crate::config::window::{Decorations, Identity, WindowConfig};
+use crate::config::UiConfig;
+use crate::display::SizeInfo;
 use crate::gl;
 
 /// Window icon for `_NET_WM_ICON` property.
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../alacritty.png");
 
-/// Maximum DPR on X11 before it is assumed that XRandr is reporting incorrect values.
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-const MAX_X11_DPR: f64 = 10.;
-
 /// This should match the definition of IDI_ICON from `windows.rc`.
 #[cfg(windows)]
 const IDI_ICON: WORD = 0x101;
+
+/// Context creation flags from probing config.
+static GL_CONTEXT_CREATION_FLAGS: AtomicU8 = AtomicU8::new(GlContextFlags::SRGB.bits);
+
+bitflags! {
+    pub struct GlContextFlags: u8 {
+        const EMPTY      = 0b000000000;
+        const SRGB       = 0b0000_0001;
+        const DEEP_COLOR = 0b0000_0010;
+    }
+}
 
 /// Window errors.
 #[derive(Debug)]
@@ -124,8 +131,8 @@ impl From<crossfont::Error> for Error {
 
 fn create_gl_window<E>(
     mut window: WindowBuilder,
-    event_loop: &EventLoop<E>,
-    srgb: bool,
+    event_loop: &EventLoopWindowTarget<E>,
+    flags: GlContextFlags,
     vsync: bool,
     dimensions: Option<PhysicalSize<u32>>,
 ) -> Result<WindowedContext<PossiblyCurrent>> {
@@ -133,11 +140,16 @@ fn create_gl_window<E>(
         window = window.with_inner_size(dimensions);
     }
 
-    let windowed_context = ContextBuilder::new()
-        .with_srgb(srgb)
+    let mut windowed_context_builder = ContextBuilder::new()
+        .with_srgb(flags.contains(GlContextFlags::SRGB))
         .with_vsync(vsync)
-        .with_hardware_acceleration(None)
-        .build_windowed(window, event_loop)?;
+        .with_hardware_acceleration(None);
+
+    if flags.contains(GlContextFlags::DEEP_COLOR) {
+        windowed_context_builder = windowed_context_builder.with_pixel_format(30, 2);
+    }
+
+    let windowed_context = windowed_context_builder.build_windowed(window, event_loop)?;
 
     // Make the context current so OpenGL operations can run.
     let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
@@ -157,10 +169,13 @@ pub struct Window {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     pub wayland_surface: Option<Attached<WlSurface>>,
 
-    /// Cached DPR for quickly scaling pixel sizes.
-    pub dpr: f64,
+    /// Cached scale factor for quickly scaling pixel sizes.
+    pub scale_factor: f64,
 
-    windowed_context: WindowedContext<PossiblyCurrent>,
+    /// Current window title.
+    title: String,
+
+    windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
 }
@@ -170,14 +185,20 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new<E>(
-        event_loop: &EventLoop<E>,
-        config: &Config,
+        event_loop: &EventLoopWindowTarget<E>,
+        config: &UiConfig,
+        identity: &Identity,
         size: Option<PhysicalSize<u32>>,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Window> {
-        let window_config = &config.ui_config.window;
-        let window_builder = Window::get_platform_window(&window_config.title, window_config);
+        let identity = identity.clone();
+        let mut window_builder = Window::get_platform_window(&identity, &config.window);
+
+        if let Some(position) = config.window.position {
+            window_builder = window_builder
+                .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
+        }
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -185,11 +206,28 @@ impl Window {
         #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let is_wayland = false;
 
-        let windowed_context =
-            create_gl_window(window_builder.clone(), event_loop, false, !is_wayland, size)
-                .or_else(|_| {
-                    create_gl_window(window_builder, event_loop, true, !is_wayland, size)
-                })?;
+        let mut windowed_context = None;
+        let current_flags =
+            GlContextFlags::from_bits_truncate(GL_CONTEXT_CREATION_FLAGS.load(Ordering::Relaxed));
+        for flags in [
+            current_flags,
+            GlContextFlags::EMPTY,
+            GlContextFlags::SRGB | GlContextFlags::DEEP_COLOR,
+            GlContextFlags::DEEP_COLOR,
+        ] {
+            windowed_context = Some(create_gl_window(
+                window_builder.clone(),
+                event_loop,
+                flags,
+                !is_wayland,
+                size,
+            ));
+            if windowed_context.as_ref().unwrap().is_ok() {
+                GL_CONTEXT_CREATION_FLAGS.store(flags.bits, Ordering::Relaxed);
+                break;
+            }
+        }
+        let windowed_context = windowed_context.unwrap()?;
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
@@ -201,17 +239,13 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
             // On X11, embed the window inside another if the parent ID has been set.
-            if let Some(parent_window_id) = window_config.embed {
+            if let Some(parent_window_id) = config.window.embed {
                 x_embed_window(windowed_context.window(), parent_window_id);
             }
         }
 
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         let wayland_surface = if is_wayland {
-            // Apply client side decorations theme.
-            let theme = AlacrittyWaylandTheme::new(&config.ui_config.colors);
-            windowed_context.window().set_wayland_theme(theme);
-
             // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
             let surface = windowed_context.window().wayland_surface().unwrap();
             let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
@@ -220,31 +254,27 @@ impl Window {
             None
         };
 
-        #[allow(unused_mut)]
-        let mut dpr = windowed_context.window().scale_factor();
-
-        // Handle winit reporting invalid values due to incorrect XRandr monitor metrics.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if !is_wayland && dpr > MAX_X11_DPR {
-            dpr = 1.;
-        }
+        let scale_factor = windowed_context.window().scale_factor();
 
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
-            windowed_context,
+            windowed_context: Replaceable::new(windowed_context),
+            title: identity.title,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
-            dpr,
+            scale_factor,
         })
     }
 
-    pub fn set_inner_size(&mut self, size: PhysicalSize<u32>) {
+    #[inline]
+    pub fn set_inner_size(&self, size: PhysicalSize<u32>) {
         self.window().set_inner_size(size);
     }
 
+    #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window().inner_size()
     }
@@ -256,8 +286,20 @@ impl Window {
 
     /// Set the window title.
     #[inline]
-    pub fn set_title(&self, title: &str) {
-        self.window().set_title(title);
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
+        self.window().set_title(&self.title);
+    }
+
+    /// Get the window title.
+    #[inline]
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    #[inline]
+    pub fn request_redraw(&self) {
+        self.window().request_redraw();
     }
 
     #[inline]
@@ -277,7 +319,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
             let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
@@ -288,7 +330,7 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
@@ -299,13 +341,11 @@ impl Window {
         let builder = builder.with_window_icon(icon.ok());
 
         #[cfg(feature = "wayland")]
-        let builder = builder.with_app_id(window_config.class.instance.to_owned());
+        let builder = builder.with_app_id(identity.class.instance.to_owned());
 
         #[cfg(feature = "x11")]
-        let builder = builder.with_class(
-            window_config.class.instance.to_owned(),
-            window_config.class.general.to_owned(),
-        );
+        let builder = builder
+            .with_class(identity.class.instance.to_owned(), identity.class.general.to_owned());
 
         #[cfg(feature = "x11")]
         let builder = match &window_config.gtk_theme_variant {
@@ -317,11 +357,11 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = glutin::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
@@ -331,9 +371,9 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&identity.title)
             .with_visible(false)
             .with_transparent(true)
             .with_maximized(window_config.maximized())
@@ -360,10 +400,6 @@ impl Window {
         self.window().request_user_attention(attention);
     }
 
-    pub fn set_outer_position(&self, pos: PhysicalPosition<i32>) {
-        self.window().set_outer_position(pos);
-    }
-
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     pub fn x11_window_id(&self) -> Option<usize> {
         self.window().xlib_window().map(|xlib_window| xlib_window as usize)
@@ -374,11 +410,10 @@ impl Window {
         None
     }
 
-    pub fn window_id(&self) -> WindowId {
+    pub fn id(&self) -> WindowId {
         self.window().id()
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn set_maximized(&self, maximized: bool) {
         self.window().set_maximized(maximized);
     }
@@ -388,16 +423,21 @@ impl Window {
     }
 
     /// Toggle the window's fullscreen state.
-    pub fn toggle_fullscreen(&mut self) {
+    pub fn toggle_fullscreen(&self) {
         self.set_fullscreen(self.window().fullscreen().is_none());
     }
 
+    /// Toggle the window's maximized state.
+    pub fn toggle_maximized(&self) {
+        self.set_maximized(!self.window().is_maximized());
+    }
+
     #[cfg(target_os = "macos")]
-    pub fn toggle_simple_fullscreen(&mut self) {
+    pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window().simple_fullscreen());
     }
 
-    pub fn set_fullscreen(&mut self, fullscreen: bool) {
+    pub fn set_fullscreen(&self, fullscreen: bool) {
         if fullscreen {
             self.window().set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
@@ -406,7 +446,7 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn set_simple_fullscreen(&mut self, simple_fullscreen: bool) {
+    pub fn set_simple_fullscreen(&self, simple_fullscreen: bool) {
         self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
@@ -415,13 +455,8 @@ impl Window {
         self.wayland_surface.as_ref()
     }
 
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub fn set_wayland_theme(&mut self, colors: &Colors) {
-        self.window().set_wayland_theme(AlacrittyWaylandTheme::new(colors));
-    }
-
     /// Adjust the IME editor position according to the new location of the cursor.
-    pub fn update_ime_position(&mut self, point: Point, size: &SizeInfo) {
+    pub fn update_ime_position(&self, point: Point, size: &SizeInfo) {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line.0 + 1) as f32 * size.cell_height());
 
@@ -432,8 +467,49 @@ impl Window {
         self.windowed_context.swap_buffers().expect("swap buffers");
     }
 
+    pub fn swap_buffers_with_damage(&self, damage: &[Rect]) {
+        self.windowed_context.swap_buffers_with_damage(damage).expect("swap buffes with damage");
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
+    pub fn swap_buffers_with_damage_supported(&self) -> bool {
+        // Disable damage tracking on macOS/Windows since there's no observation of it working.
+        false
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn swap_buffers_with_damage_supported(&self) -> bool {
+        // On X11 damage tracking is behaving in unexpected ways on some NVIDIA systems. Since
+        // there's no compositor supporting it, damage tracking is disabled on X11.
+        //
+        // For more see https://github.com/alacritty/alacritty/issues/6051.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if self.window().xlib_window().is_some() {
+            return false;
+        }
+
+        self.windowed_context.swap_buffers_with_damage_supported()
+    }
+
     pub fn resize(&self, size: PhysicalSize<u32>) {
         self.windowed_context.resize(size);
+    }
+
+    pub fn make_not_current(&mut self) {
+        if self.windowed_context.is_current() {
+            self.windowed_context.replace_with(|context| unsafe {
+                // We do ensure that context is current before any rendering operation due to multi
+                // window support, so we don't need extra "type aid" from glutin here.
+                context.make_not_current().expect("context swap").treat_as_current()
+            });
+        }
+    }
+
+    pub fn make_current(&mut self) {
+        if !self.windowed_context.is_current() {
+            self.windowed_context
+                .replace_with(|context| unsafe { context.make_current().expect("context swap") });
+        }
     }
 
     /// Disable macOS window shadows.
@@ -442,7 +518,7 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
         let raw_window = match self.window().raw_window_handle() {
-            RawWindowHandle::MacOS(handle) => handle.ns_window as id,
+            RawWindowHandle::AppKit(handle) => handle.ns_window as id,
             _ => return,
         };
 
@@ -495,4 +571,45 @@ fn x_embed_window(window: &GlutinWindow, parent_id: std::os::raw::c_ulong) {
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
     log::error!("Could not embed into specified window.");
     std::process::exit(1);
+}
+
+/// Struct for safe in-place replacement.
+///
+/// This struct allows easily replacing struct fields that provide `self -> Self` methods in-place,
+/// without having to deal with constantly unwrapping the underlying [`Option`].
+struct Replaceable<T>(Option<T>);
+
+impl<T> Replaceable<T> {
+    pub fn new(inner: T) -> Self {
+        Self(Some(inner))
+    }
+
+    /// Replace the contents of the container.
+    pub fn replace_with<F: FnMut(T) -> T>(&mut self, f: F) {
+        self.0 = self.0.take().map(f);
+    }
+
+    /// Get immutable access to the wrapped value.
+    pub fn get(&self) -> &T {
+        self.0.as_ref().unwrap()
+    }
+
+    /// Get mutable access to the wrapped value.
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.as_mut().unwrap()
+    }
+}
+
+impl<T> Deref for Replaceable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<T> DerefMut for Replaceable<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.get_mut()
+    }
 }

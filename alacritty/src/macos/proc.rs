@@ -150,8 +150,7 @@ mod sys {
 mod tests {
     use super::*;
 
-    use std::env;
-    use std::process;
+    use std::{env, process};
 
     #[test]
     fn cwd_matches_current_dir() {

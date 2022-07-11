@@ -65,7 +65,10 @@ brevity.
 | `CSI l`    | PARTIAL     | See `CSI h` for supported modes                   |
 | `CSI ? l`  | PARTIAL     | See `CSI ? h` for supported modes                 |
 | `CSI M`    | IMPLEMENTED |                                                   |
-| `CSI m`    | PARTIAL     | Only singular straight underlines are supported   |
+| `CSI m`    | IMPLEMENTED | Supported parameters:                             |
+|            |             |   `0`-`9`, `21`-`25`, `27`-`49`, `58`, `59`       |
+|            |             |   `90`-`97`, `100`-`107`                          |
+|            | REJECTED    | `11`-`19`, `51`-`55`                              |
 | `CSI n`    | IMPLEMENTED |                                                   |
 | `CSI P`    | IMPLEMENTED |                                                   |
 | `CSI SP q` | IMPLEMENTED |                                                   |
@@ -88,6 +91,7 @@ brevity.
 | `OSC 1`   | REJECTED    | Icon names are not supported                       |
 | `OSC 2`   | IMPLEMENTED |                                                    |
 | `OSC 4`   | IMPLEMENTED |                                                    |
+| `OSC 8`   | IMPLEMENTED |                                                    |
 | `OSC 10`  | IMPLEMENTED |                                                    |
 | `OSC 11`  | IMPLEMENTED |                                                    |
 | `OSC 12`  | IMPLEMENTED |                                                    |
