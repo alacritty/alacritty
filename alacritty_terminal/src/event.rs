@@ -99,7 +99,7 @@ pub trait EventListener {
     fn send_event(&self, _event: Event) {}
 }
 
-/// It listens to the void and tests.
+/// Null sink for events.
 pub struct VoidListener;
 
 impl EventListener for VoidListener {}
