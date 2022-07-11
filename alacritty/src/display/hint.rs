@@ -79,7 +79,7 @@ impl HintState {
 
         // Add escape sequence hyperlinks.
         if hint.content.hyperlinks {
-            self.matches.extend(visible_unique_hyperlink_iter(term));
+            self.matches.extend(visible_unique_hyperlinks_iter(term));
         }
 
         // Add visible regex matches.
@@ -298,7 +298,7 @@ pub fn visible_regex_match_iter<'a, T>(
 }
 
 /// Iterate over all visible hyperlinks, yanking only unique ones.
-pub fn visible_unique_hyperlink_iter<T>(term: &Term<T>) -> impl Iterator<Item = Match> + '_ {
+pub fn visible_unique_hyperlinks_iter<T>(term: &Term<T>) -> impl Iterator<Item = Match> + '_ {
     let mut display_iter = term.grid().display_iter().peekable();
 
     // Avoid creating hints for the same hyperlinks, but from a different places.
@@ -308,7 +308,7 @@ pub fn visible_unique_hyperlink_iter<T>(term: &Term<T>) -> impl Iterator<Item = 
         // Find the start of the next unique hyperlink.
         let (cell, hyperlink) = display_iter.find_map(|cell| {
             let hyperlink = cell.hyperlink()?;
-            unique_hyperlinks.contains(&hyperlink).then(|| {
+            (!unique_hyperlinks.contains(&hyperlink)).then(|| {
                 unique_hyperlinks.insert(hyperlink.clone());
                 (cell, hyperlink)
             })
@@ -582,6 +582,7 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use alacritty_terminal::ansi::Handler;
     use alacritty_terminal::index::{Column, Line};
     use alacritty_terminal::term::test::mock_term;
 
@@ -641,5 +642,42 @@ mod tests {
         .count();
 
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn collect_unique_hyperlinks() {
+        let mut term = mock_term("000\r\n111");
+        term.goto(Line(0), Column(0));
+
+        let hyperlink_foo = Hyperlink::new(Some("1"), "foo");
+        let hyperlink_bar = Hyperlink::new(Some("2"), "bar");
+
+        // Create 2 hyperlinks on the first line.
+        term.set_hyperlink(Some(hyperlink_foo.clone()));
+        term.input('b');
+        term.input('a');
+        term.set_hyperlink(Some(hyperlink_bar.clone()));
+        term.input('r');
+        term.set_hyperlink(Some(hyperlink_foo.clone()));
+        term.goto(Line(1), Column(0));
+
+        // Ditto for the second line.
+        term.set_hyperlink(Some(hyperlink_foo));
+        term.input('b');
+        term.input('a');
+        term.set_hyperlink(Some(hyperlink_bar));
+        term.input('r');
+        term.set_hyperlink(None);
+
+        let mut unique_hyperlinks = visible_unique_hyperlinks_iter(&term);
+        assert_eq!(
+            Some(Match::new(Point::new(Line(0), Column(0)), Point::new(Line(0), Column(1)))),
+            unique_hyperlinks.next()
+        );
+        assert_eq!(
+            Some(Match::new(Point::new(Line(0), Column(2)), Point::new(Line(0), Column(2)))),
+            unique_hyperlinks.next()
+        );
+        assert_eq!(None, unique_hyperlinks.next());
     }
 }
