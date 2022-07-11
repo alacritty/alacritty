@@ -46,6 +46,10 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
+    /// Show window shadow.
+    #[cfg(target_os = "macos")]
+    pub shadow: Option<bool>,
+
     /// Pixel padding.
     padding: Delta<u8>,
 
@@ -65,6 +69,8 @@ impl Default for WindowConfig {
             dynamic_padding: Default::default(),
             identity: Identity::default(),
             opacity: Default::default(),
+            #[cfg(target_os = "macos")]
+            shadow: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
         }

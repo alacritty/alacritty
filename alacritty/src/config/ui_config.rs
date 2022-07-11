@@ -133,6 +133,11 @@ impl UiConfig {
         self.background_opacity.unwrap_or(self.window.opacity).as_f32()
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn window_shadow(&self) -> Option<bool> {
+        self.window.shadow
+    }
+
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
         self.key_bindings.0.as_slice()

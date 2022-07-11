@@ -216,7 +216,9 @@ impl WindowContext {
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        self.display.window.set_has_shadow(config.window_opacity() >= 1.0);
+        self.display
+            .window
+            .set_has_shadow(config.window_shadow().unwrap_or(config.window_opacity() >= 1.0));
 
         // Update hint keys.
         self.display.hint_state.update_alphabet(config.hints.alphabet());
