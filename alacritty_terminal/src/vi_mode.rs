@@ -380,13 +380,14 @@ mod tests {
 
     use crate::ansi::Handler;
     use crate::config::Config;
+    use crate::event::VoidListener;
     use crate::index::{Column, Line};
     use crate::term::test::TermSize;
     use crate::term::Term;
 
-    fn term() -> Term<()> {
+    fn term() -> Term<VoidListener> {
         let size = TermSize::new(20, 20);
-        Term::new(&Config::default(), &size, ())
+        Term::new(&Config::default(), &size, VoidListener)
     }
 
     #[test]
@@ -493,7 +494,7 @@ mod tests {
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
-    fn motion_semantic_term() -> Term<()> {
+    fn motion_semantic_term() -> Term<VoidListener> {
         let mut term = term();
 
         term.grid_mut()[Line(0)][Column(0)].c = 'x';

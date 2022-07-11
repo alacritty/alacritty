@@ -99,6 +99,7 @@ pub trait EventListener {
     fn send_event(&self, _event: Event) {}
 }
 
-/// Placeholder implementation for tests.
-#[cfg(test)]
-impl EventListener for () {}
+/// Null sink for events.
+pub struct VoidListener;
+
+impl EventListener for VoidListener {}
