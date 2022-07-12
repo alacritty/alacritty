@@ -172,9 +172,9 @@ impl CommandParser {
 
                 if self.params_position >= 4 {
                     macro_rules! p {
-                        ($index:expr) => {
+                        ($index:expr, $limit:expr) => {
                             match self.params[$index] {
-                                x if x <= 100 => x,
+                                x if x <= $limit => x,
                                 x => {
                                     return Err(Error::InvalidColorComponent {
                                         register: register.0,
@@ -183,11 +183,15 @@ impl CommandParser {
                                 },
                             }
                         };
+
+                        ($index:expr) => {
+                            p!($index, 100)
+                        };
                     }
 
                     let (r, g, b) = match self.params[1] {
                         // HLS.
-                        1 => hls_to_rgb(p!(2), p!(3), p!(4)),
+                        1 => hls_to_rgb(p!(2, 360), p!(3), p!(4)),
 
                         // RGB.
                         2 => (p!(2), p!(3), p!(4)),
