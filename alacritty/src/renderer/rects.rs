@@ -179,6 +179,10 @@ impl RenderLines {
     /// Update the stored lines with the next cell info.
     #[inline]
     pub fn update(&mut self, cell: &RenderableCell) {
+        if cell.flags.contains(Flags::GRAPHICS) {
+            return;
+        }
+
         self.update_flag(cell, Flags::UNDERLINE);
         self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
         self.update_flag(cell, Flags::STRIKEOUT);

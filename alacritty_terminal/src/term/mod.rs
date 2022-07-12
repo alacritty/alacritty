@@ -2074,7 +2074,7 @@ impl<T: EventListener> Handler for Term<T> {
         // cells are not overwritten, allowing any text behind
         // transparent portions of the image to be visible.
 
-        let left = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
+        let leftmost = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
 
         let texture = Arc::new(TextureRef {
             id: graphic_id,
@@ -2094,8 +2094,12 @@ impl<T: EventListener> Handler for Term<T> {
             };
 
             // Store a reference to the graphic in the first column.
-            let graphic_cell = GraphicCell { texture: texture.clone(), offset_x: 0, offset_y };
-            self.grid[line][Column(left)].set_graphic(graphic_cell);
+            for (left, offset_x) in (leftmost..).zip((0..width).step_by(cell_width)) {
+                let graphic_cell = GraphicCell { texture: texture.clone(), offset_x, offset_y };
+                let mut cell = self.grid.cursor.template.clone();
+                cell.set_graphic(graphic_cell);
+                self.grid[line][Column(left)] = cell;
+            }
 
             if scrolling && offset_y < height - cell_height as u16 {
                 self.linefeed();
