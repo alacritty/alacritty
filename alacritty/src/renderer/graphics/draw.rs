@@ -44,8 +44,7 @@ impl RenderList {
             _ => return,
         };
 
-        let graphic_id = graphic.graphic_id();
-        if self.items.contains_key(&graphic_id) {
+        if self.items.contains_key(&graphic.id) {
             return;
         }
 
@@ -56,7 +55,7 @@ impl RenderList {
             offset_y: graphic.offset_y,
         };
 
-        self.items.insert(graphic_id, render_item);
+        self.items.insert(graphic.id, render_item);
     }
 
     /// Returns `true` if there are no items to render.

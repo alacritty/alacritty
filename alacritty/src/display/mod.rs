@@ -293,13 +293,13 @@ impl TermDimensions for SizeInfo {
     }
 
     #[inline]
-    fn cell_height(&self) -> Option<usize> {
-        Some(self.cell_height() as usize)
+    fn cell_height(&self) -> f32 {
+        self.cell_height()
     }
 
     #[inline]
-    fn cell_width(&self) -> Option<usize> {
-        Some(self.cell_width() as usize)
+    fn cell_width(&self) -> f32 {
+        self.cell_width()
     }
 }
 

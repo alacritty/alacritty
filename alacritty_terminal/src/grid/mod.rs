@@ -509,14 +509,14 @@ pub trait Dimensions {
 
     /// Cell height in pixels.
     #[inline]
-    fn cell_height(&self) -> Option<usize> {
-        None
+    fn cell_height(&self) -> f32 {
+        0.0
     }
 
     /// Cell width in pixels.
     #[inline]
-    fn cell_width(&self) -> Option<usize> {
-        None
+    fn cell_width(&self) -> f32 {
+        0.0
     }
 }
 

@@ -4,7 +4,7 @@ use std::{cmp, mem};
 
 use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::event::EventListener;
-use alacritty_terminal::graphics::GraphicCell;
+use alacritty_terminal::graphics::GraphicId;
 use alacritty_terminal::grid::Indexed;
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::selection::SelectionRange;
@@ -190,13 +190,26 @@ pub struct RenderableCell {
     pub extra: Option<Box<RenderableCellExtra>>,
 }
 
+/// Graphic data stored in a single cell.
+#[derive(Clone, Debug)]
+pub struct RenderableGraphicCell {
+    /// Texture to draw the graphic in this cell.
+    pub id: GraphicId,
+
+    /// Offset in the x direction.
+    pub offset_x: u16,
+
+    /// Offset in the y direction.
+    pub offset_y: u16,
+}
+
 /// Extra storage with rarely present fields for [`RenderableCell`], to reduce the cell size we
 /// pass around.
 #[derive(Clone, Debug)]
 pub struct RenderableCellExtra {
     pub zerowidth: Option<Vec<char>>,
     pub hyperlink: Option<Hyperlink>,
-    pub graphic: Option<GraphicCell>,
+    pub graphic: Option<RenderableGraphicCell>,
 }
 
 impl RenderableCell {
@@ -269,11 +282,17 @@ impl RenderableCell {
         let zerowidth = cell.zerowidth();
         let hyperlink = cell.hyperlink();
 
+        let graphic = cell.graphic().map(|graphic| RenderableGraphicCell {
+            id: graphic.texture.id,
+            offset_x: graphic.offset_x,
+            offset_y: graphic.offset_y,
+        });
+
         let extra = (zerowidth.is_some() || hyperlink.is_some()).then(|| {
             Box::new(RenderableCellExtra {
                 zerowidth: zerowidth.map(|zerowidth| zerowidth.to_vec()),
                 hyperlink,
-                graphic: cell.graphic().cloned(),
+                graphic,
             })
         });
 

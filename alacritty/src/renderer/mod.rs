@@ -229,7 +229,11 @@ impl Renderer {
     #[inline]
     pub fn graphics_run_updates(&mut self, update_queues: UpdateQueues, size_info: &SizeInfo) {
         if let Some(graphics_renderer) = self.graphics_renderer.as_mut() {
-            graphics_renderer.run_updates(update_queues, size_info);
+            let result = graphics_renderer.run_updates(update_queues, size_info);
+
+            if result.contains(graphics::UpdateResult::NEED_RESET_ACTIVE_TEX) {
+                self.reset_active_tex();
+            }
         }
     }
 
@@ -240,6 +244,11 @@ impl Renderer {
             graphics_renderer.draw(render_list, size_info);
         }
 
+        self.reset_active_tex();
+    }
+
+    /// Reset the cached value of the active texture.
+    pub fn reset_active_tex(&mut self) {
         match &mut self.text_renderer {
             TextRendererProvider::Gles2(renderer) => renderer.reset_active_tex(),
             TextRendererProvider::Glsl3(renderer) => renderer.reset_active_tex(),

@@ -29,12 +29,12 @@ pub struct TextureRef {
     pub id: GraphicId,
 
     /// Queue to track removed references.
-    pub remove_queue: Weak<Mutex<Vec<GraphicId>>>,
+    pub texture_operations: Weak<Mutex<Vec<TextureOperation>>>,
 }
 
 impl PartialEq for TextureRef {
     fn eq(&self, t: &Self) -> bool {
-        // Ignore remove_queue.
+        // Ignore texture_operations.
         self.id == t.id
     }
 }
@@ -43,14 +43,14 @@ impl Eq for TextureRef {}
 
 impl Drop for TextureRef {
     fn drop(&mut self) {
-        if let Some(remove_queue) = self.remove_queue.upgrade() {
-            remove_queue.lock().push(self.id);
+        if let Some(texture_operations) = self.texture_operations.upgrade() {
+            texture_operations.lock().push(TextureOperation::Remove(self.id));
         }
     }
 }
 
 /// Graphic data stored in a single cell.
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct GraphicCell {
     /// Texture to draw the graphic in this cell.
     pub texture: Arc<TextureRef>,
@@ -60,6 +60,32 @@ pub struct GraphicCell {
 
     /// Offset in the y direction.
     pub offset_y: u16,
+
+    /// Queue to track empty subregions.
+    pub texture_operations: Weak<Mutex<Vec<TextureOperation>>>,
+}
+
+impl PartialEq for GraphicCell {
+    fn eq(&self, c: &Self) -> bool {
+        // Ignore texture_operations.
+        self.texture == c.texture && self.offset_x == c.offset_x && self.offset_y == c.offset_y
+    }
+}
+
+impl Eq for GraphicCell {}
+
+impl Drop for GraphicCell {
+    fn drop(&mut self) {
+        if let Some(texture_operations) = self.texture_operations.upgrade() {
+            let tex_op = TextureOperation::ClearSubregion(ClearSubregion {
+                id: self.texture.id,
+                x: self.offset_x,
+                y: self.offset_y,
+            });
+
+            texture_operations.lock().push(tex_op);
+        }
+    }
 }
 
 impl GraphicCell {
@@ -99,13 +125,40 @@ pub struct GraphicData {
     pub pixels: Vec<u8>,
 }
 
+/// Operation to clear a subregion in an existing graphic.
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+pub struct ClearSubregion {
+    /// Graphics identifier.
+    pub id: GraphicId,
+
+    /// X coordinate.
+    pub x: u16,
+
+    /// Y coordinate.
+    pub y: u16,
+}
+
 /// Queues to add or to remove the textures in the display.
+#[derive(Default)]
 pub struct UpdateQueues {
     /// Graphics read from the PTY.
     pub pending: Vec<GraphicData>,
 
     /// Graphics removed from the grid.
     pub remove_queue: Vec<GraphicId>,
+
+    /// Subregions in a graphic to be clear.
+    pub clear_subregions: Vec<ClearSubregion>,
+}
+
+/// Operations on the existing textures.
+#[derive(Debug)]
+pub enum TextureOperation {
+    /// Remove a texture from the GPU.
+    Remove(GraphicId),
+
+    /// Clear a subregion.
+    ClearSubregion(ClearSubregion),
 }
 
 /// Track changes in the grid to add or to remove graphics.
@@ -118,16 +171,16 @@ pub struct Graphics {
     pub pending: Vec<GraphicData>,
 
     /// Graphics removed from the grid.
-    pub remove_queue: Arc<Mutex<Vec<GraphicId>>>,
+    pub texture_operations: Arc<Mutex<Vec<TextureOperation>>>,
 
     /// Shared palette for Sixel graphics.
     pub sixel_shared_palette: Option<Vec<Rgb>>,
 
     /// Cell height in pixels.
-    pub cell_height: usize,
+    pub cell_height: f32,
 
     /// Cell width in pixels.
-    pub cell_width: usize,
+    pub cell_width: f32,
 }
 
 impl Graphics {
@@ -141,19 +194,35 @@ impl Graphics {
     ///
     /// If all queues are empty, it returns `None`.
     pub fn take_queues(&mut self) -> Option<UpdateQueues> {
-        let mut remove_queue = self.remove_queue.lock();
-        if remove_queue.is_empty() && self.pending.is_empty() {
+        let texture_operations = {
+            let mut queue = self.texture_operations.lock();
+            if queue.is_empty() {
+                Vec::new()
+            } else {
+                mem::take(&mut *queue)
+            }
+        };
+
+        if texture_operations.is_empty() && self.pending.is_empty() {
             return None;
         }
 
-        let remove_queue = mem::take(&mut *remove_queue);
+        let mut remove_queue = Vec::new();
+        let mut clear_subregions = Vec::new();
 
-        Some(UpdateQueues { pending: mem::take(&mut self.pending), remove_queue })
+        for operation in texture_operations {
+            match operation {
+                TextureOperation::Remove(id) => remove_queue.push(id),
+                TextureOperation::ClearSubregion(cs) => clear_subregions.push(cs),
+            }
+        }
+
+        Some(UpdateQueues { pending: mem::take(&mut self.pending), remove_queue, clear_subregions })
     }
 
     /// Update cell dimensions.
     pub fn resize<S: Dimensions>(&mut self, size: S) {
-        self.cell_height = size.cell_height().unwrap_or(1);
-        self.cell_width = size.cell_width().unwrap_or(1);
+        self.cell_height = size.cell_height();
+        self.cell_width = size.cell_width();
     }
 }

@@ -2032,8 +2032,8 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     fn insert_graphic(&mut self, graphic: GraphicData, palette: Option<Vec<Rgb>>) {
-        let cell_width = self.graphics.cell_width;
-        let cell_height = self.graphics.cell_height;
+        let cell_width = self.graphics.cell_width as usize;
+        let cell_height = self.graphics.cell_height as usize;
 
         // Store last palette if we receive a new one, and it is shared.
         if let Some(palette) = palette {
@@ -2078,7 +2078,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         let texture = Arc::new(TextureRef {
             id: graphic_id,
-            remove_queue: Arc::downgrade(&self.graphics.remove_queue),
+            texture_operations: Arc::downgrade(&self.graphics.texture_operations),
         });
 
         for (top, offset_y) in (0..).zip((0..height).step_by(cell_height)) {
@@ -2094,8 +2094,19 @@ impl<T: EventListener> Handler for Term<T> {
             };
 
             // Store a reference to the graphic in the first column.
+            let row_len = self.grid[line].len();
             for (left, offset_x) in (leftmost..).zip((0..width).step_by(cell_width)) {
-                let graphic_cell = GraphicCell { texture: texture.clone(), offset_x, offset_y };
+                if left >= row_len {
+                    break;
+                }
+
+                let texture_operations = Arc::downgrade(&self.graphics.texture_operations);
+                let graphic_cell = GraphicCell {
+                    texture: texture.clone(),
+                    offset_x,
+                    offset_y,
+                    texture_operations,
+                };
                 let mut cell = self.grid.cursor.template.clone();
                 cell.set_graphic(graphic_cell);
                 self.grid[line][Column(left)] = cell;
