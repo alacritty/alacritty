@@ -3,10 +3,12 @@
 use std::mem;
 
 use crate::display::SizeInfo;
+use crate::renderer::RenderRect;
 use alacritty_terminal::graphics::{
     ClearSubregion, ColorType, GraphicData, GraphicId, UpdateQueues,
 };
 
+use crossfont::Metrics;
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -248,9 +250,15 @@ impl GraphicsRenderer {
 
     /// Draw graphics in the display.
     #[inline]
-    pub fn draw(&mut self, render_list: RenderList, size_info: &SizeInfo) {
+    pub fn draw(
+        &mut self,
+        render_list: RenderList,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+        metrics: &Metrics,
+    ) {
         if !render_list.is_empty() {
-            render_list.draw(self, size_info);
+            render_list.draw(self, size_info, rects, metrics);
         }
     }
 }

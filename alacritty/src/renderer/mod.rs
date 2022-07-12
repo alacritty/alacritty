@@ -239,9 +239,15 @@ impl Renderer {
 
     /// Draw graphics visible in the display.
     #[inline]
-    pub fn graphics_draw(&mut self, render_list: graphics::RenderList, size_info: &SizeInfo) {
+    pub fn graphics_draw(
+        &mut self,
+        render_list: graphics::RenderList,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+        metrics: &Metrics,
+    ) {
         if let Some(graphics_renderer) = self.graphics_renderer.as_mut() {
-            graphics_renderer.draw(render_list, size_info);
+            graphics_renderer.draw(render_list, size_info, rects, metrics);
         }
 
         self.reset_active_tex();

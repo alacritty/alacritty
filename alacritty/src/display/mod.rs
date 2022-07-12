@@ -819,6 +819,8 @@ impl Display {
                     // Underline hints hovered by mouse or vi mode cursor.
                     let point = term::viewport_to_point(display_offset, cell.point);
 
+                    let mut show_hint = false;
+
                     if has_highlighted_hint {
                         let hyperlink =
                             cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
@@ -829,6 +831,7 @@ impl Display {
                                 .as_ref()
                                 .map_or(false, |hint| hint.should_highlight(point, hyperlink))
                         {
+                            show_hint = true;
                             cell.flags.insert(Flags::UNDERLINE);
                         }
                     }
@@ -837,16 +840,16 @@ impl Display {
                     lines.update(&cell);
 
                     // Track any graphic present in the cell.
-                    graphics_list.update(&cell);
+                    graphics_list.update(&cell, show_hint);
 
                     cell
                 }),
             );
         }
 
-        self.renderer.graphics_draw(graphics_list, &size_info);
-
         let mut rects = lines.rects(&metrics, &size_info);
+
+        self.renderer.graphics_draw(graphics_list, &size_info, &mut rects, &metrics);
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.

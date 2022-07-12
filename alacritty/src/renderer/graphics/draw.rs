@@ -13,9 +13,12 @@ use crate::display::SizeInfo;
 use crate::gl::types::*;
 use crate::gl::{self};
 use crate::renderer::graphics::{shader, GraphicsRenderer};
+use crate::renderer::{RenderRect, Rgb};
 
 use alacritty_terminal::graphics::GraphicId;
 use alacritty_terminal::index::Column;
+
+use crossfont::Metrics;
 
 use log::trace;
 
@@ -25,6 +28,8 @@ struct RenderPosition {
     line: usize,
     offset_x: u16,
     offset_y: u16,
+    cell_color: Rgb,
+    show_hint: bool,
 }
 
 /// Track textures to be rendered in the display.
@@ -38,7 +43,7 @@ impl RenderList {
     ///
     /// The graphic is added only the first time it is found in a cell.
     #[inline]
-    pub fn update(&mut self, cell: &RenderableCell) {
+    pub fn update(&mut self, cell: &RenderableCell, show_hint: bool) {
         let graphic = match cell.extra.as_ref().and_then(|cell| cell.graphic.as_ref()) {
             Some(graphic) => graphic,
             _ => return,
@@ -53,6 +58,8 @@ impl RenderList {
             line: cell.point.line,
             offset_x: graphic.offset_x,
             offset_y: graphic.offset_y,
+            cell_color: cell.fg,
+            show_hint,
         };
 
         self.items.insert(graphic.id, render_item);
@@ -65,7 +72,13 @@ impl RenderList {
     }
 
     /// Builds a list of vertex for the shader program.
-    pub fn build_vertices(self, renderer: &GraphicsRenderer) -> Vec<shader::Vertex> {
+    fn build_vertices(
+        self,
+        renderer: &GraphicsRenderer,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+        line_thickness: f32,
+    ) -> Vec<shader::Vertex> {
         use shader::VertexSide::{BottomLeft, BottomRight, TopLeft, TopRight};
 
         let mut vertices = Vec::new();
@@ -95,6 +108,38 @@ impl RenderList {
             for &sides in &[TopRight, BottomLeft, TopRight, BottomRight, BottomLeft] {
                 vertices.push(shader::Vertex { sides, ..vertex });
             }
+
+            if render_item.show_hint {
+                let scale = size_info.cell_height() / graphic_texture.cell_height;
+
+                let x = render_item.column.0 as f32 * size_info.cell_width()
+                    - render_item.offset_x as f32 * scale;
+                let y = render_item.line as f32 * size_info.cell_height()
+                    - render_item.offset_y as f32 * scale;
+
+                let tex_width = graphic_texture.width as f32 * scale;
+                let tex_height = graphic_texture.height as f32 * scale;
+
+                let right = x + tex_width - line_thickness;
+                let bottom = y + tex_height - line_thickness;
+
+                let template = RenderRect {
+                    x,
+                    y,
+                    width: tex_width,
+                    height: line_thickness,
+                    color: render_item.cell_color,
+                    alpha: 1.,
+                    kind: crate::renderer::rects::RectKind::Normal,
+                };
+
+                rects.push(template);
+                rects.push(RenderRect { y: bottom, ..template });
+
+                let template = RenderRect { width: line_thickness, height: tex_height, ..template };
+                rects.push(template);
+                rects.push(RenderRect { x: right, ..template });
+            }
         }
 
         vertices
@@ -102,8 +147,15 @@ impl RenderList {
 
     /// Draw graphics in the display, using the graphics rendering shader
     /// program.
-    pub fn draw(self, renderer: &GraphicsRenderer, size_info: &SizeInfo) {
-        let vertices = self.build_vertices(renderer);
+    pub fn draw(
+        self,
+        renderer: &GraphicsRenderer,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+        metrics: &Metrics,
+    ) {
+        let vertices =
+            self.build_vertices(renderer, size_info, rects, metrics.underline_thickness.max(3.0));
 
         // Initialize the rendering program.
         unsafe {
