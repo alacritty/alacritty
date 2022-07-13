@@ -1,5 +1,6 @@
 //! Exports the `Term` type which is a high-level API for the Grid.
 
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
@@ -2065,6 +2066,43 @@ impl<T: EventListener> Handler for Term<T> {
 
         let scrolling = !self.mode.contains(TermMode::SIXEL_DISPLAY);
 
+        let leftmost = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
+
+        // A very simple optimization is to detect is a new graphic is replacing
+        // completely a previous one. This happens if the following conditions
+        // are met:
+        //
+        // - Both graphics are attached to the same top-left cell.
+        // - Both graphics have the same size.
+        // - The new graphic does not contain transparent pixels.
+        //
+        // In this case, we will ignore cells with a reference to the replaced
+        // graphic.
+
+        let skip_textures = {
+            if graphic.maybe_transparent() {
+                HashSet::new()
+            } else {
+                let mut set = HashSet::new();
+
+                let line = if scrolling { self.grid.cursor.point.line } else { Line(0) };
+
+                if let Some(old_graphics) = self.grid[line][Column(leftmost)].graphics() {
+                    for graphic in old_graphics {
+                        let tex = &*graphic.texture;
+                        if tex.width == width
+                            && tex.height == height
+                            && tex.cell_height == cell_height
+                        {
+                            set.insert(tex.id);
+                        }
+                    }
+                }
+
+                set
+            }
+        };
+
         // Fill the cells under the graphic.
         //
         // The cell in the first column contains a reference to the
@@ -2072,10 +2110,11 @@ impl<T: EventListener> Handler for Term<T> {
         // cells are not overwritten, allowing any text behind
         // transparent portions of the image to be visible.
 
-        let leftmost = if scrolling { self.grid.cursor.point.column.0 } else { 0 };
-
         let texture = Arc::new(TextureRef {
             id: graphic_id,
+            width,
+            height,
+            cell_height,
             texture_operations: Arc::downgrade(&self.graphics.texture_operations),
         });
 
@@ -2111,21 +2150,24 @@ impl<T: EventListener> Handler for Term<T> {
 
                 // If the cell contains any graphics, and the region of the cell
                 // is not fully filled by the new graphic, the old graphics are
-                // kept in the cell
-                let graphics = loop {
-                    if let Some(mut old_graphics) = cell_ref.take_graphics() {
-                        if !graphic.is_filled(
-                            offset_x as usize,
-                            offset_y as usize,
-                            cell_width as usize,
-                            cell_height as usize,
-                        ) {
-                            old_graphics.push(graphic_cell);
-                            break old_graphics;
-                        }
-                    }
+                // kept in the cell.
+                let graphics = match cell_ref.take_graphics() {
+                    Some(mut old_graphics)
+                        if old_graphics
+                            .iter()
+                            .any(|graphic| !skip_textures.contains(&graphic.texture.id))
+                            && !graphic.is_filled(
+                                offset_x as usize,
+                                offset_y as usize,
+                                cell_width as usize,
+                                cell_height as usize,
+                            ) =>
+                    {
+                        old_graphics.push(graphic_cell);
+                        old_graphics
+                    },
 
-                    break smallvec::smallvec![graphic_cell];
+                    _ => smallvec::smallvec![graphic_cell],
                 };
 
                 cell.set_graphics(graphics);

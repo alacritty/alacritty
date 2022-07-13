@@ -7,7 +7,7 @@ use std::mem;
 use std::sync::{Arc, Weak};
 
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::SmallVec;
 
 use crate::grid::Dimensions;
@@ -28,6 +28,15 @@ pub struct GraphicId(u64);
 pub struct TextureRef {
     /// Graphic identifier.
     pub id: GraphicId,
+
+    /// Width, in pixels, of the graphic.
+    pub width: u16,
+
+    /// Height, in pixels, of the graphic.
+    pub height: u16,
+
+    /// Height, in pixels, of the cell when the graphic was inserted.
+    pub cell_height: usize,
 
     /// Queue to track removed references.
     pub texture_operations: Weak<Mutex<Vec<TextureOperation>>>,
@@ -92,6 +101,62 @@ impl Drop for GraphicCell {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+struct GraphicCellSerde {
+    texture: GraphicId,
+    offset_x: u16,
+    offset_y: u16,
+    tex_width: u16,
+    tex_height: u16,
+    tex_cell_height: usize,
+}
+
+impl<'de> Deserialize<'de> for GraphicCell {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = GraphicCellSerde::deserialize(deserializer)?;
+
+        let dummy_queue = Arc::new(Mutex::new(Vec::new()));
+
+        let texture = TextureRef {
+            id: data.texture,
+            width: data.tex_width,
+            height: data.tex_height,
+            cell_height: data.tex_cell_height,
+            texture_operations: Arc::downgrade(&dummy_queue),
+        };
+
+        let graphic_cell = GraphicCell {
+            texture: Arc::new(texture),
+            offset_x: data.offset_x,
+            offset_y: data.offset_y,
+            texture_operations: Arc::downgrade(&dummy_queue),
+        };
+
+        Ok(graphic_cell)
+    }
+}
+
+impl Serialize for GraphicCell {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let data = GraphicCellSerde {
+            texture: self.texture.id,
+            offset_x: self.offset_x,
+            offset_y: self.offset_y,
+            tex_width: self.texture.width,
+            tex_height: self.texture.height,
+            tex_cell_height: self.texture.cell_height,
+        };
+
+        data.serialize(serializer)
+    }
+}
+
 impl GraphicCell {
     /// Graphic identifier of the texture in this cell.
     #[inline]
@@ -133,17 +198,27 @@ pub struct GraphicData {
 }
 
 impl GraphicData {
+    /// Check if the image may contain transparent pixels. If it returns
+    /// `false`, it is guaranteed that there are no transparent pixels.
+    #[inline]
+    pub fn maybe_transparent(&self) -> bool {
+        !self.is_opaque && self.color_type == ColorType::Rgba
+    }
+
     /// Check if all pixels under a region are opaque.
+    ///
+    /// If the region exceeds the boundaries of the image it is considered as
+    /// not filled.
     pub fn is_filled(&self, x: usize, y: usize, width: usize, height: usize) -> bool {
         // If there are pixels outside the picture we assume that the region is
         // not filled.
-        if x + width >= self.width || y + height > self.height {
+        if x + width >= self.width || y + height >= self.height {
             return false;
         }
 
         // Don't check actual pixels if the image does not contain an alpha
         // channel.
-        if self.is_opaque || self.color_type == ColorType::Rgb {
+        if !self.maybe_transparent() {
             return true;
         }
 
