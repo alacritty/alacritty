@@ -2323,6 +2323,7 @@ pub mod test {
     use unicode_width::UnicodeWidthChar;
 
     use crate::config::Config;
+    use crate::event::VoidListener;
     use crate::index::Column;
 
     #[derive(Serialize, Deserialize)]
@@ -2370,7 +2371,7 @@ pub mod test {
     ///     hello\n:)\r\ntest",
     /// );
     /// ```
-    pub fn mock_term(content: &str) -> Term<()> {
+    pub fn mock_term(content: &str) -> Term<VoidListener> {
         let lines: Vec<&str> = content.split('\n').collect();
         let num_cols = lines
             .iter()
@@ -2380,7 +2381,7 @@ pub mod test {
 
         // Create terminal with the appropriate dimensions.
         let size = TermSize::new(num_cols, lines.len());
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Fill terminal with content.
         for (line, text) in lines.iter().enumerate() {
@@ -2416,6 +2417,7 @@ mod tests {
 
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
     use crate::config::Config;
+    use crate::event::VoidListener;
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
@@ -2425,7 +2427,7 @@ mod tests {
     #[test]
     fn scroll_display_page_up() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2451,7 +2453,7 @@ mod tests {
     #[test]
     fn scroll_display_page_down() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2481,7 +2483,7 @@ mod tests {
     #[test]
     fn simple_selection_works() {
         let size = TermSize::new(5, 5);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let grid = term.grid_mut();
         for i in 0..4 {
             if i == 1 {
@@ -2527,7 +2529,7 @@ mod tests {
     #[test]
     fn semantic_selection_works() {
         let size = TermSize::new(5, 3);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let mut grid: Grid<Cell> = Grid::new(3, 5, 0);
         for i in 0..5 {
             for j in 0..2 {
@@ -2575,7 +2577,7 @@ mod tests {
     #[test]
     fn line_selection_works() {
         let size = TermSize::new(5, 1);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let mut grid: Grid<Cell> = Grid::new(1, 5, 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2596,7 +2598,7 @@ mod tests {
     #[test]
     fn block_selection_works() {
         let size = TermSize::new(5, 5);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let grid = term.grid_mut();
         for i in 1..4 {
             grid[Line(i)][Column(0)].c = '"';
@@ -2652,7 +2654,7 @@ mod tests {
     #[test]
     fn input_line_drawing_character() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2663,7 +2665,7 @@ mod tests {
     #[test]
     fn clearing_viewport_keeps_history_position() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2684,7 +2686,7 @@ mod tests {
     #[test]
     fn clearing_viewport_with_vi_mode_keeps_history_position() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2710,7 +2712,7 @@ mod tests {
     #[test]
     fn clearing_scrollback_resets_display_offset() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2731,7 +2733,7 @@ mod tests {
     #[test]
     fn clearing_scrollback_sets_vi_cursor_into_viewport() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2757,7 +2759,7 @@ mod tests {
     #[test]
     fn clear_saved_lines() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), 1);
@@ -2779,7 +2781,7 @@ mod tests {
     #[test]
     fn vi_cursor_keep_pos_on_scrollback_buffer() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2799,7 +2801,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_active_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2819,7 +2821,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_inactive_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2845,7 +2847,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_active_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2865,7 +2867,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_inactive_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2891,7 +2893,7 @@ mod tests {
     #[test]
     fn damage_public_usage() {
         let size = TermSize::new(10, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
 
@@ -2984,7 +2986,7 @@ mod tests {
     #[test]
     fn damage_cursor_movements() {
         let size = TermSize::new(10, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
         let num_cols = term.columns();
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
@@ -3082,7 +3084,7 @@ mod tests {
     #[test]
     fn full_damage() {
         let size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         assert!(term.damage.is_fully_damaged);
         for _ in 0..20 {
@@ -3168,7 +3170,7 @@ mod tests {
     #[test]
     fn window_title() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(&Config::default(), &size, VoidListener);
 
         // Title None by default.
         assert_eq!(term.title, None);
