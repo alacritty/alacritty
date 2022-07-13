@@ -19,6 +19,8 @@ use crate::display::hint::{self, HintState};
 use crate::display::Display;
 use crate::event::SearchState;
 
+use smallvec::SmallVec;
+
 /// Minimum contrast between a fixed cursor color and the cell's background.
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 
@@ -209,7 +211,7 @@ pub struct RenderableGraphicCell {
 pub struct RenderableCellExtra {
     pub zerowidth: Option<Vec<char>>,
     pub hyperlink: Option<Hyperlink>,
-    pub graphic: Option<RenderableGraphicCell>,
+    pub graphics: Option<SmallVec<[RenderableGraphicCell; 1]>>,
 }
 
 impl RenderableCell {
@@ -282,17 +284,22 @@ impl RenderableCell {
         let zerowidth = cell.zerowidth();
         let hyperlink = cell.hyperlink();
 
-        let graphic = cell.graphic().map(|graphic| RenderableGraphicCell {
-            id: graphic.texture.id,
-            offset_x: graphic.offset_x,
-            offset_y: graphic.offset_y,
+        let graphics = cell.graphics().map(|graphics| {
+            graphics
+                .iter()
+                .map(|graphic| RenderableGraphicCell {
+                    id: graphic.texture.id,
+                    offset_x: graphic.offset_x,
+                    offset_y: graphic.offset_y,
+                })
+                .collect::<_>()
         });
 
         let extra = (zerowidth.is_some() || hyperlink.is_some()).then(|| {
             Box::new(RenderableCellExtra {
                 zerowidth: zerowidth.map(|zerowidth| zerowidth.to_vec()),
                 hyperlink,
-                graphic,
+                graphics,
             })
         });
 

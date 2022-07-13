@@ -2053,9 +2053,7 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        // Add the graphic data to the pending queue.
         let graphic_id = self.graphics.next_id();
-        self.graphics.pending.push(GraphicData { id: graphic_id, ..graphic });
 
         // If SIXEL_DISPLAY is disabled, the start of the graphic is the
         // cursor position, and the grid can be scrolled if the graphic is
@@ -2107,12 +2105,34 @@ impl<T: EventListener> Handler for Term<T> {
                     offset_y,
                     texture_operations,
                 };
+
                 let mut cell = self.grid.cursor.template.clone();
-                cell.set_graphic(graphic_cell);
-                self.grid[line][Column(left)] = cell;
+                let cell_ref = &mut self.grid[line][Column(left)];
+
+                // If the cell contains any graphics, and the region of the cell
+                // is not fully filled by the new graphic, the old graphics are
+                // kept in the cell
+                let graphics = loop {
+                    if let Some(mut old_graphics) = cell_ref.take_graphics() {
+                        if !graphic.is_filled(
+                            offset_x as usize,
+                            offset_y as usize,
+                            cell_width as usize,
+                            cell_height as usize,
+                        ) {
+                            old_graphics.push(graphic_cell);
+                            break old_graphics;
+                        }
+                    }
+
+                    break smallvec::smallvec![graphic_cell];
+                };
+
+                cell.set_graphics(graphics);
+                *cell_ref = cell;
             }
 
-            if scrolling && offset_y < height - cell_height as u16 {
+            if scrolling && offset_y < height.saturating_sub(cell_height as u16) {
                 self.linefeed();
             }
         }
@@ -2124,6 +2144,9 @@ impl<T: EventListener> Handler for Term<T> {
             self.linefeed();
             self.carriage_return();
         }
+
+        // Add the graphic data to the pending queue.
+        self.graphics.pending.push(GraphicData { id: graphic_id, ..graphic });
     }
 }
 

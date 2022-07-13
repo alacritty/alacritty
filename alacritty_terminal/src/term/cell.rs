@@ -5,7 +5,7 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 use crate::ansi::{Color, NamedColor};
-use crate::graphics::GraphicCell;
+use crate::graphics::GraphicsCell;
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 
@@ -115,7 +115,7 @@ pub struct CellExtra {
     hyperlink: Option<Hyperlink>,
 
     #[serde(skip)]
-    graphic: Option<Box<GraphicCell>>,
+    graphics: Option<GraphicsCell>,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -157,15 +157,27 @@ impl Cell {
 
     /// Graphic present in the cell.
     #[inline]
-    pub fn graphic(&self) -> Option<&GraphicCell> {
-        self.extra.as_deref().and_then(|extra| extra.graphic.as_deref())
+    pub fn graphics(&self) -> Option<&GraphicsCell> {
+        self.extra.as_deref().and_then(|extra| extra.graphics.as_ref())
+    }
+
+    /// Extract the graphics value from the cell.
+    #[inline]
+    pub fn take_graphics(&mut self) -> Option<GraphicsCell> {
+        if let Some(extra) = &mut self.extra {
+            if extra.graphics.is_some() {
+                return Arc::make_mut(extra).graphics.take();
+            }
+        }
+
+        None
     }
 
     /// Write the graphic data in the cell.
     #[inline]
-    pub fn set_graphic(&mut self, graphic_cell: GraphicCell) {
+    pub fn set_graphics(&mut self, graphics_cell: GraphicsCell) {
         let extra = self.extra.get_or_insert_with(Default::default);
-        Arc::make_mut(extra).graphic = Some(Box::new(graphic_cell));
+        Arc::make_mut(extra).graphics = Some(graphics_cell);
 
         self.flags_mut().insert(Flags::GRAPHICS);
     }

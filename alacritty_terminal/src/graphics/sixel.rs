@@ -485,9 +485,12 @@ impl Parser {
 
         let mut rgba_pixels = Vec::with_capacity(self.pixels.len() * 4);
 
+        let mut is_opaque = true;
+
         for &register in &self.pixels {
             let pixel = {
                 if register == REG_TRANSPARENT {
+                    is_opaque = false;
                     [0; 4]
                 } else {
                     match self.color_registers.get(register.0 as usize) {
@@ -506,6 +509,7 @@ impl Parser {
             width: self.width,
             color_type: ColorType::Rgba,
             pixels: rgba_pixels,
+            is_opaque,
         };
 
         Ok((data, self.color_registers))
@@ -699,6 +703,9 @@ mod tests {
             }
         }
 
+        let graphics = parser.finish()?.0;
+        assert_eq!(graphics.is_opaque, false);
+
         Ok(())
     }
 
@@ -770,6 +777,7 @@ mod tests {
             };
 
             assert_eq!(graphics.pixels, expected_rgba);
+            assert_eq!(graphics.is_opaque, true);
         }
     }
 }

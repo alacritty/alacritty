@@ -8,6 +8,7 @@ use std::sync::{Arc, Weak};
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use crate::grid::Dimensions;
 use crate::term::color::Rgb;
@@ -48,6 +49,9 @@ impl Drop for TextureRef {
         }
     }
 }
+
+/// A list of graphics in a single cell.
+pub type GraphicsCell = SmallVec<[GraphicCell; 1]>;
 
 /// Graphic data stored in a single cell.
 #[derive(Clone, Debug)]
@@ -123,6 +127,39 @@ pub struct GraphicData {
 
     /// Pixels data.
     pub pixels: Vec<u8>,
+
+    /// Indicate if there are no transparent pixels.
+    pub is_opaque: bool,
+}
+
+impl GraphicData {
+    /// Check if all pixels under a region are opaque.
+    pub fn is_filled(&self, x: usize, y: usize, width: usize, height: usize) -> bool {
+        // If there are pixels outside the picture we assume that the region is
+        // not filled.
+        if x + width >= self.width || y + height > self.height {
+            return false;
+        }
+
+        // Don't check actual pixels if the image does not contain an alpha
+        // channel.
+        if self.is_opaque || self.color_type == ColorType::Rgb {
+            return true;
+        }
+
+        debug_assert!(self.color_type == ColorType::Rgba);
+
+        for offset_y in y..y + height {
+            let offset = offset_y * self.width * 4;
+            let row = &self.pixels[offset..offset + width * 4];
+
+            if row.chunks_exact(4).any(|pixel| pixel.last() != Some(&255)) {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 /// Operation to clear a subregion in an existing graphic.
@@ -225,4 +262,41 @@ impl Graphics {
         self.cell_height = size.cell_height();
         self.cell_width = size.cell_width();
     }
+}
+
+#[test]
+fn check_opaque_region() {
+    let graphic = GraphicData {
+        id: GraphicId(0),
+        width: 10,
+        height: 10,
+        color_type: ColorType::Rgb,
+        pixels: vec![255; 10 * 10 * 3],
+        is_opaque: true,
+    };
+
+    assert_eq!(graphic.is_filled(1, 1, 3, 3), true);
+    assert_eq!(graphic.is_filled(8, 8, 10, 10), false);
+
+    let pixels = {
+        // Put a transparent 3x3 box inside the picture.
+        let mut data = vec![255; 10 * 10 * 4];
+        for y in 3..6 {
+            let offset = y * 10 * 4;
+            data[offset..offset + 3 * 4].fill(0);
+        }
+        data
+    };
+
+    let graphic = GraphicData {
+        id: GraphicId(0),
+        pixels,
+        width: 10,
+        height: 10,
+        color_type: ColorType::Rgba,
+        is_opaque: false,
+    };
+
+    assert_eq!(graphic.is_filled(0, 0, 3, 3), true);
+    assert_eq!(graphic.is_filled(1, 1, 4, 4), false);
 }

@@ -44,25 +44,27 @@ impl RenderList {
     /// The graphic is added only the first time it is found in a cell.
     #[inline]
     pub fn update(&mut self, cell: &RenderableCell, show_hint: bool) {
-        let graphic = match cell.extra.as_ref().and_then(|cell| cell.graphic.as_ref()) {
-            Some(graphic) => graphic,
+        let graphics = match cell.extra.as_ref().and_then(|cell| cell.graphics.as_ref()) {
+            Some(graphics) => graphics,
             _ => return,
         };
 
-        if self.items.contains_key(&graphic.id) {
-            return;
+        for graphic in graphics {
+            if self.items.contains_key(&graphic.id) {
+                continue;
+            }
+
+            let render_item = RenderPosition {
+                column: cell.point.column,
+                line: cell.point.line,
+                offset_x: graphic.offset_x,
+                offset_y: graphic.offset_y,
+                cell_color: cell.fg,
+                show_hint,
+            };
+
+            self.items.insert(graphic.id, render_item);
         }
-
-        let render_item = RenderPosition {
-            column: cell.point.column,
-            line: cell.point.line,
-            offset_x: graphic.offset_x,
-            offset_y: graphic.offset_y,
-            cell_color: cell.fg,
-            show_hint,
-        };
-
-        self.items.insert(graphic.id, render_item);
     }
 
     /// Returns `true` if there are no items to render.

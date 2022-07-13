@@ -22,6 +22,9 @@ use std::ffi::CStr;
 mod draw;
 mod shader;
 
+/// Max. number of textures stored in the GPU.
+const MAX_TEXTURES_COUNT: usize = 100;
+
 pub use draw::RenderList;
 
 bitflags::bitflags! {
@@ -125,11 +128,9 @@ impl GraphicsRenderer {
         graphics: Vec<GraphicData>,
         size_info: &SizeInfo,
     ) -> UpdateResult {
-        let result = if graphics.is_empty() {
-            UpdateResult::SUCCESS
-        } else {
-            UpdateResult::NEED_RESET_ACTIVE_TEX
-        };
+        if graphics.is_empty() {
+            return UpdateResult::SUCCESS;
+        }
 
         for graphic in graphics {
             let mut texture = 0;
@@ -176,7 +177,15 @@ impl GraphicsRenderer {
             self.graphic_textures.insert(graphic.id, graphic_texture);
         }
 
-        result
+        // If we exceed the textures limit, discard the oldest ones.
+        while self.graphic_textures.len() > MAX_TEXTURES_COUNT {
+            match self.graphic_textures.keys().min().copied() {
+                Some(id) => self.graphic_textures.remove(&id),
+                None => unreachable!(),
+            };
+        }
+
+        UpdateResult::NEED_RESET_ACTIVE_TEX
     }
 
     /// Update textures in the GPU to clear specific subregions.
