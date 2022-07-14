@@ -223,9 +223,7 @@ impl RenderableCell {
         let colors = &content.config.colors;
         let mut character = cell.c;
         let mut flags = cell.flags;
-        // Checks if we are currently within a hint match
-        if content.hint.as_mut().map(|x| x.matches.advance(cell.point)).unwrap_or(false) {
-            //if content.hint.as_mut().map(|x| x.is_hint(cell.point)).unwrap_or(false) {
+        if content.hint.as_mut().map(|hint| hint.matches.advance(cell.point)).unwrap_or(false) {
             if let Some((c, is_first)) =
                 content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
             {
