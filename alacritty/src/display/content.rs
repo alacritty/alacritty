@@ -222,18 +222,18 @@ impl RenderableCell {
         let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
         let colors = &content.config.colors;
         let mut character = cell.c;
-
+        let mut flags = cell.flags;
         if let Some((c, is_first)) =
             content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
         {
             let (config_fg, config_bg) = if is_first {
+                character = c;
                 (colors.hints.start.foreground, colors.hints.start.background)
             } else {
+                flags |= Flags::UNDERLINE;
                 (colors.hints.end.foreground, colors.hints.end.background)
             };
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
-
-            character = c;
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
@@ -258,8 +258,6 @@ impl RenderableCell {
         // Convert cell point to viewport position.
         let cell_point = cell.point;
         let point = term::point_to_viewport(display_offset, cell_point).unwrap();
-
-        let flags = cell.flags;
         let underline = cell
             .underline_color()
             .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, flags));
@@ -443,9 +441,8 @@ impl<'a> Hint<'a> {
         // Position within the hint label.
         let label_position = point.column.0 - start.column.0;
         let is_first = label_position == 0;
-
         // Hint label character.
-        self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
+        self.labels[self.matches.index].get(0).copied().map(|c| (c, is_first))
     }
 }
 
