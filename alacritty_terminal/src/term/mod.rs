@@ -365,15 +365,20 @@ impl<T> Term<T> {
     }
 
     #[must_use]
+    pub fn has_damage(&self) -> bool {
+        self.damage.is_fully_damaged
+            || self.damage.lines.iter().any(|l| l.is_damaged())
+            || self.damage.last_cursor != self.grid.cursor.point
+            || self.damage.last_vi_cursor_point != self.vi_cursor_point()
+            || self.damage.last_selection != self.selection.as_ref().and_then(|s| s.to_range(self))
+    }
+
+    #[must_use]
     pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
         // Update tracking of cursor, selection, and vi mode cursor.
 
         let display_offset = self.grid().display_offset();
-        let vi_cursor_point = if self.mode.contains(TermMode::VI) {
-            point_to_viewport(display_offset, self.vi_mode_cursor.point)
-        } else {
-            None
-        };
+        let vi_cursor_point = self.vi_cursor_point();
 
         let previous_cursor = mem::replace(&mut self.damage.last_cursor, self.grid.cursor.point);
         let previous_selection = mem::replace(&mut self.damage.last_selection, selection);
@@ -948,6 +953,16 @@ impl<T> Term<T> {
         let point =
             Point::new(self.grid.cursor.point.line.0 as usize, self.grid.cursor.point.column);
         self.damage.damage_point(point);
+    }
+
+    #[inline]
+    fn vi_cursor_point(&self) -> Option<Point<usize>> {
+        if self.mode.contains(TermMode::VI) {
+            let display_offset = self.grid().display_offset();
+            point_to_viewport(display_offset, self.vi_mode_cursor.point)
+        } else {
+            None
+        }
     }
 }
 

@@ -327,7 +327,7 @@ impl WindowContext {
             return;
         }
 
-        if self.dirty {
+        if self.dirty || terminal.has_damage() {
             // Force the display to process any pending display update.
             self.display.process_renderer_update();
 
