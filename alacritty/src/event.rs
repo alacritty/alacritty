@@ -257,7 +257,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn clear_selection(&mut self) {
         self.terminal.selection = None;
-        *self.dirty = true;
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -279,12 +278,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.terminal.selection = Some(selection);
-        *self.dirty = true;
     }
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         self.terminal.selection = Some(Selection::new(ty, point, side));
-        *self.dirty = true;
 
         self.copy_selection(ClipboardType::Selection);
     }
@@ -296,7 +293,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             },
             Some(selection) if !selection.is_empty() => {
                 selection.ty = ty;
-                *self.dirty = true;
 
                 self.copy_selection(ClipboardType::Selection);
             },
