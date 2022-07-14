@@ -258,8 +258,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn clear_selection(&mut self) {
-        self.terminal.selection = None;
-        *self.dirty = true;
+        let old_selection = self.terminal.selection.take();
+        *self.dirty |= old_selection.map(|s| !s.is_empty()).unwrap_or(false);
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
