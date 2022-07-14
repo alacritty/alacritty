@@ -686,9 +686,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
-            let lines = self.ctx.mouse().scroll_px / height;
+            let lines = (self.ctx.mouse().scroll_px / height) as i32;
 
-            self.ctx.scroll(Scroll::Delta(lines as i32));
+            // Scroll only if we've actually scrolled.
+            if lines != 0 {
+                self.ctx.scroll(Scroll::Delta(lines));
+            }
         }
 
         self.ctx.mouse_mut().scroll_px %= height;
