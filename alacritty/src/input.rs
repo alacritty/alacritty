@@ -818,6 +818,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
+        // XXX when we're writing keyboard input to pty we must not mark the terminal as dirty
+        // unless there's a need for visual update, like clearing a selection. Or scrolling to
+        // the viewport to bottom.
+
         self.ctx.on_typing_start();
 
         if self.ctx.terminal().grid().display_offset() != 0 {
