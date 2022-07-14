@@ -651,12 +651,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
         if self.scheduler.unschedule(timer_id).is_some() {
             self.schedule_blinking();
-            self.display.cursor_hidden = false;
+            if self.display.cursor_hidden {
+                self.display.cursor_hidden = false;
+                *self.dirty = true;
+            }
         } else if *self.cursor_blink_timed_out {
             self.update_cursor_blinking();
         }
-
-        *self.dirty = true;
 
         // Hide mouse cursor.
         if self.config.mouse.hide_when_typing {
