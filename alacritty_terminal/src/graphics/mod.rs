@@ -350,8 +350,8 @@ fn check_opaque_region() {
         is_opaque: true,
     };
 
-    assert_eq!(graphic.is_filled(1, 1, 3, 3), true);
-    assert_eq!(graphic.is_filled(8, 8, 10, 10), false);
+    assert!(graphic.is_filled(1, 1, 3, 3));
+    assert!(!graphic.is_filled(8, 8, 10, 10));
 
     let pixels = {
         // Put a transparent 3x3 box inside the picture.
@@ -372,6 +372,6 @@ fn check_opaque_region() {
         is_opaque: false,
     };
 
-    assert_eq!(graphic.is_filled(0, 0, 3, 3), true);
-    assert_eq!(graphic.is_filled(1, 1, 4, 4), false);
+    assert!(graphic.is_filled(0, 0, 3, 3));
+    assert!(!graphic.is_filled(1, 1, 4, 4));
 }

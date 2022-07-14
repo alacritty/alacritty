@@ -704,7 +704,7 @@ mod tests {
         }
 
         let graphics = parser.finish()?.0;
-        assert_eq!(graphics.is_opaque, false);
+        assert!(!graphics.is_opaque);
 
         Ok(())
     }
@@ -777,7 +777,7 @@ mod tests {
             };
 
             assert_eq!(graphics.pixels, expected_rgba);
-            assert_eq!(graphics.is_opaque, true);
+            assert!(graphics.is_opaque);
         }
     }
 }
