@@ -223,17 +223,22 @@ impl RenderableCell {
         let colors = &content.config.colors;
         let mut character = cell.c;
         let mut flags = cell.flags;
-        if let Some((c, is_first)) =
-            content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
-        {
-            let (config_fg, config_bg) = if is_first {
+        // Checks if we are currently within a hint match
+        if content.hint.as_mut().map(|x| x.matches.advance(cell.point)).unwrap_or(false) {
+            //if content.hint.as_mut().map(|x| x.is_hint(cell.point)).unwrap_or(false) {
+            if let Some((c, is_first)) =
+                content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
+            {
+                let (config_fg, config_bg) = if is_first {
+                    (colors.hints.start.foreground, colors.hints.start.background)
+                } else {
+                    (colors.hints.end.foreground, colors.hints.end.background)
+                };
                 character = c;
-                (colors.hints.start.foreground, colors.hints.start.background)
+                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
             } else {
                 flags |= Flags::UNDERLINE;
-                (colors.hints.end.foreground, colors.hints.end.background)
-            };
-            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            }
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
@@ -426,11 +431,6 @@ impl<'a> Hint<'a> {
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
     fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
-        // Check if we're within a match at all.
-        if !self.matches.advance(point) {
-            return None;
-        }
-
         // Match starting position on this line; linebreaks interrupt the hint labels.
         let start = self
             .matches
@@ -442,7 +442,7 @@ impl<'a> Hint<'a> {
         let label_position = point.column.0 - start.column.0;
         let is_first = label_position == 0;
         // Hint label character.
-        self.labels[self.matches.index].get(0).copied().map(|c| (c, is_first))
+        self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
     }
 }
 
