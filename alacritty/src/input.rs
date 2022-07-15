@@ -193,7 +193,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                    ctx.mouse_mut().hint_highlight_dirty = true;
                 }
             },
             Action::Vi(ViAction::SearchPrevious) => {
@@ -209,7 +209,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 if let Some(regex_match) = ctx.search_next(origin, direction, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                    ctx.mouse_mut().hint_highlight_dirty = true;
                 }
             },
             Action::Vi(ViAction::SearchStart) => {
@@ -218,7 +218,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Left, Side::Left) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.start());
-                    ctx.mark_dirty();
+                    ctx.mouse_mut().hint_highlight_dirty = true;
                 }
             },
             Action::Vi(ViAction::SearchEnd) => {
@@ -227,7 +227,7 @@ impl<T: EventListener> Execute<T> for Action {
 
                 if let Some(regex_match) = ctx.search_next(origin, Direction::Right, Side::Right) {
                     ctx.terminal_mut().vi_goto_point(*regex_match.end());
-                    ctx.mark_dirty();
+                    ctx.mouse_mut().hint_highlight_dirty = true;
                 }
             },
             Action::Vi(ViAction::CenterAroundViCursor) => {
@@ -327,7 +327,7 @@ impl<T: EventListener> Execute<T> for Action {
                 let topmost_line = ctx.terminal().topmost_line();
                 ctx.terminal_mut().vi_mode_cursor.point.line = topmost_line;
                 ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
-                ctx.mark_dirty();
+                ctx.mouse_mut().hint_highlight_dirty = true;
             },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
@@ -339,7 +339,7 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move to beginning twice, to always jump across linewraps.
                 term.vi_motion(ViMotion::FirstOccupied);
                 term.vi_motion(ViMotion::FirstOccupied);
-                ctx.mark_dirty();
+                ctx.mouse_mut().hint_highlight_dirty = true;
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
