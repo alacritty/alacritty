@@ -708,6 +708,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 }
 
                 self.terminal.vi_goto_point(*hint_bounds.start());
+
+                // The vi cursor might have moved onto a hint.
+                self.mouse_mut().hint_highlight_dirty = true;
             },
         }
     }
@@ -1166,7 +1169,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::MouseInput { state, button, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_input(state, button);
-                        *self.ctx.dirty = true;
                     },
                     WindowEvent::CursorMoved { position, .. } => {
                         self.ctx.window().set_mouse_visible(true);
