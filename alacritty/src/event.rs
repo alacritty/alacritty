@@ -791,7 +791,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.toggle_vi_mode();
 
-        *self.dirty = true;
+        self.mouse_mut().hint_highlight_dirty = true;
     }
 
     fn message(&self) -> Option<&Message> {
