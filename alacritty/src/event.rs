@@ -642,15 +642,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn on_typing_start(&mut self) {
         // Disable cursor blinking.
-        let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
-        if self.scheduler.unschedule(timer_id).is_some() {
-            self.schedule_blinking();
-            self.display.cursor_hidden = false;
-        } else if *self.cursor_blink_timed_out {
-            self.update_cursor_blinking();
-        }
-
-        *self.dirty = true;
+        self.update_cursor_blinking();
 
         // Hide mouse cursor.
         if self.config.mouse.hide_when_typing {
@@ -958,7 +950,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         if blinking && self.terminal.is_focused {
             self.schedule_blinking();
             self.schedule_blinking_timeout();
-        } else {
+        }
+
+        if self.display.cursor_hidden {
             self.display.cursor_hidden = false;
             *self.dirty = true;
         }
