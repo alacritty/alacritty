@@ -296,6 +296,14 @@ pub struct Graphics {
 }
 
 impl Graphics {
+    /// Create a new instance, and initialize it with the dimensions of the
+    /// window.
+    pub fn new<S: Dimensions>(size: &S) -> Self {
+        let mut graphics = Graphics::default();
+        graphics.resize(size);
+        graphics
+    }
+
     /// Generate a new graphic identifier.
     pub fn next_id(&mut self) -> GraphicId {
         self.last_id += 1;
@@ -333,7 +341,7 @@ impl Graphics {
     }
 
     /// Update cell dimensions.
-    pub fn resize<S: Dimensions>(&mut self, size: S) {
+    pub fn resize<S: Dimensions>(&mut self, size: &S) {
         self.cell_height = size.cell_height();
         self.cell_width = size.cell_width();
     }

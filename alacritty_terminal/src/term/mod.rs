@@ -373,7 +373,7 @@ impl<T> Term<T> {
             title: None,
             title_stack: Vec::new(),
             selection: None,
-            graphics: Graphics::default(),
+            graphics: Graphics::new(dimensions),
             damage,
         }
     }
@@ -665,7 +665,7 @@ impl<T> Term<T> {
         self.damage.resize(num_cols, num_lines);
 
         // Update size information for graphics.
-        self.graphics.resize(size);
+        self.graphics.resize(&size);
     }
 
     /// Active terminal modes.
