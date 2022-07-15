@@ -232,8 +232,9 @@ impl RenderableCell {
                 } else {
                     (colors.hints.end.foreground, colors.hints.end.background)
                 };
-                character = c;
                 Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+                
+                character = c;
             } else {
                 flags |= Flags::UNDERLINE;
             }
