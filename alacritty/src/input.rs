@@ -158,7 +158,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(*motion);
-                ctx.mark_dirty();
+                ctx.mouse_mut().hint_highlight_dirty = true;
             },
             Action::Vi(ViAction::ToggleNormalSelection) => {
                 Self::toggle_selection(ctx, SelectionType::Simple);
