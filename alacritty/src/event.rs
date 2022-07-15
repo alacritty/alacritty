@@ -1195,10 +1195,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::CursorLeft { .. } => {
                         self.ctx.mouse.inside_text_area = false;
-
-                        if self.ctx.display().highlighted_hint.is_some() {
-                            *self.ctx.dirty = true;
-                        }
+                        self.ctx.mouse.hint_highlight_dirty = true;
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
