@@ -1173,6 +1173,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
+
+                        // The cursor shape can change with the focus state, see
+                        // RenderableContent::new.
                         *self.ctx.dirty = true;
 
                         if is_focused {
