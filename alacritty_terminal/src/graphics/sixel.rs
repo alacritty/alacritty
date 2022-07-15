@@ -189,12 +189,12 @@ impl CommandParser {
                         };
                     }
 
-                    let (r, g, b) = match self.params[1] {
+                    let rgb = match self.params[1] {
                         // HLS.
                         1 => hls_to_rgb(p!(2, 360), p!(3), p!(4)),
 
                         // RGB.
-                        2 => (p!(2), p!(3), p!(4)),
+                        2 => rgb(p!(2), p!(3), p!(4), 100),
 
                         // Invalid coordinate system.
                         x => {
@@ -205,7 +205,7 @@ impl CommandParser {
                         },
                     };
 
-                    parser.set_color_register(register, r, g, b);
+                    parser.set_color_register(register, rgb);
                 }
 
                 parser.selected_color_register = register;
@@ -369,7 +369,7 @@ impl Parser {
     /// Set the RGB color for a register.
     ///
     /// Color components are expected to be in the range of 0..=100.
-    fn set_color_register(&mut self, register: ColorRegister, r: u16, g: u16, b: u16) {
+    fn set_color_register(&mut self, register: ColorRegister, rgb: Rgb) {
         let register = register.0 as usize;
 
         if register >= MAX_COLOR_REGISTERS {
@@ -380,10 +380,7 @@ impl Parser {
             self.color_registers.resize(register + 1, Rgb { r: 0, g: 0, b: 0 })
         }
 
-        let r = ((r * 255 + 50) / 100) as u8;
-        let g = ((g * 255 + 50) / 100) as u8;
-        let b = ((b * 255 + 50) / 100) as u8;
-        self.color_registers[register] = Rgb { r, g, b };
+        self.color_registers[register] = rgb;
     }
 
     /// Check if the current picture is big enough for the given dimensions. If
@@ -521,46 +518,43 @@ impl Parser {
 /// Input and output values are in the range of `0..=100`.
 ///
 /// The implementation is a direct port of the same function in the
-/// xterm's code.
-#[allow(clippy::many_single_char_names)]
-fn hls_to_rgb(h: u16, l: u16, s: u16) -> (u16, u16, u16) {
-    if s == 0 {
-        return (l, l, l);
+/// libsixel's code.
+fn hls_to_rgb(hue: u16, lum: u16, sat: u16) -> Rgb {
+    if sat == 0 {
+        return rgb(lum, lum, lum, 100);
     }
 
-    let hs = ((h + 240) / 60) % 6;
-    let lv = l as f64 / 100.0;
+    let lum = lum as f64;
 
-    let c2 = f64::abs((2.0 * lv as f64) - 1.0);
-    let c = (1.0 - c2) * (s as f64 / 100.0);
-    let x = if hs & 1 == 1 { c } else { 0.0 };
+    let c0 = if lum > 50.0 { ((lum * 4.0) / 100.0) - 1.0 } else { -(2.0 * (lum / 100.0) - 1.0) };
+    let c = sat as f64 * (1.0 - c0) / 2.0;
 
-    let rgb = match hs {
-        0 => (c, x, 0.),
-        1 => (x, c, 0.),
-        2 => (0., c, x),
-        3 => (0., x, c),
-        4 => (x, 0., c),
-        _ => (c, 0., c),
+    let max = lum + c;
+    let min = lum - c;
+
+    let hue = (hue + 240) % 360;
+    let h = hue as f64;
+
+    let (r, g, b) = match hue / 60 {
+        0 => (max, min + (max - min) * (h / 60.0), min),
+        1 => (min + (max - min) * ((120.0 - h) / 60.0), max, min),
+        2 => (min, max, min + (max - min) * ((h - 120.0) / 60.0)),
+        3 => (min, min + (max - min) * ((240.0 - h) / 60.0), max),
+        4 => (min + (max - min) * ((h - 240.0) / 60.0), min, max),
+        5 => (max, min, min + (max - min) * ((360.0 - h) / 60.0)),
+        _ => (0., 0., 0.),
     };
 
-    fn clamp(x: f64) -> u16 {
-        let x = x * 100. + 0.5;
-        if x > 100. {
-            100
-        } else if x < 0. {
+    fn clamp(x: f64) -> u8 {
+        let x = f64::round(x * 255. / 100.) % 256.;
+        if x < 0. {
             0
         } else {
-            x as u16
+            x as u8
         }
     }
 
-    let m = lv - 0.5 * c;
-    let r = clamp(rgb.0 + m);
-    let g = clamp(rgb.1 + m);
-    let b = clamp(rgb.2 + m);
-
-    (r, g, b)
+    Rgb { r: clamp(r), g: clamp(g), b: clamp(b) }
 }
 
 /// Initialize the color registers using the colors from the VT-340 terminal.
@@ -568,22 +562,35 @@ fn hls_to_rgb(h: u16, l: u16, s: u16) -> (u16, u16, u16) {
 /// There is no official documentation about these colors, but multiple Sixel
 /// implementations assume this palette.
 fn init_color_registers(parser: &mut Parser) {
-    parser.set_color_register(ColorRegister(0), 0, 0, 0);
-    parser.set_color_register(ColorRegister(1), 20, 20, 80);
-    parser.set_color_register(ColorRegister(2), 80, 13, 13);
-    parser.set_color_register(ColorRegister(3), 20, 80, 20);
-    parser.set_color_register(ColorRegister(4), 80, 20, 80);
-    parser.set_color_register(ColorRegister(5), 20, 80, 80);
-    parser.set_color_register(ColorRegister(6), 80, 80, 20);
-    parser.set_color_register(ColorRegister(7), 53, 53, 53);
-    parser.set_color_register(ColorRegister(8), 26, 26, 26);
-    parser.set_color_register(ColorRegister(9), 33, 33, 60);
-    parser.set_color_register(ColorRegister(10), 60, 26, 26);
-    parser.set_color_register(ColorRegister(11), 33, 60, 33);
-    parser.set_color_register(ColorRegister(12), 60, 33, 60);
-    parser.set_color_register(ColorRegister(13), 33, 60, 60);
-    parser.set_color_register(ColorRegister(14), 60, 60, 33);
-    parser.set_color_register(ColorRegister(15), 80, 80, 80);
+    parser.set_color_register(ColorRegister(0), rgb(0, 0, 0, 100));
+    parser.set_color_register(ColorRegister(1), rgb(20, 20, 80, 100));
+    parser.set_color_register(ColorRegister(2), rgb(80, 13, 13, 100));
+    parser.set_color_register(ColorRegister(3), rgb(20, 80, 20, 100));
+    parser.set_color_register(ColorRegister(4), rgb(80, 20, 80, 100));
+    parser.set_color_register(ColorRegister(5), rgb(20, 80, 80, 100));
+    parser.set_color_register(ColorRegister(6), rgb(80, 80, 20, 100));
+    parser.set_color_register(ColorRegister(7), rgb(53, 53, 53, 100));
+    parser.set_color_register(ColorRegister(8), rgb(26, 26, 26, 100));
+    parser.set_color_register(ColorRegister(9), rgb(33, 33, 60, 100));
+    parser.set_color_register(ColorRegister(10), rgb(60, 26, 26, 100));
+    parser.set_color_register(ColorRegister(11), rgb(33, 60, 33, 100));
+    parser.set_color_register(ColorRegister(12), rgb(60, 33, 60, 100));
+    parser.set_color_register(ColorRegister(13), rgb(33, 60, 60, 100));
+    parser.set_color_register(ColorRegister(14), rgb(60, 60, 33, 100));
+    parser.set_color_register(ColorRegister(15), rgb(80, 80, 80, 100));
+}
+
+/// Create a `Rgb` instance, scaling the components when necessary.
+#[inline]
+fn rgb(r: u16, g: u16, b: u16, max: u16) -> Rgb {
+    if max == 255 {
+        Rgb { r: r as u8, b: b as u8, g: g as u8 }
+    } else {
+        let r = ((r * 255 + max / 2) / max) as u8;
+        let g = ((g * 255 + max / 2) / max) as u8;
+        let b = ((b * 255 + max / 2) / max) as u8;
+        Rgb { r, g, b }
+    }
 }
 
 #[cfg(test)]
@@ -622,32 +629,54 @@ mod tests {
         assert!(parser.color_registers.len() >= 200);
 
         assert_eq!(parser.color_registers[1], Rgb { r: 77, g: 255, b: 0 });
-        assert_eq!(parser.color_registers[200], Rgb { r: 161, g: 161, b: 224 });
+        assert_eq!(parser.color_registers[200], Rgb { r: 213, g: 255, b: 128 });
 
         assert_eq!(parser.selected_color_register.0, 200);
     }
 
     #[test]
     fn convert_hls_colors() {
-        // This test converts values from HLS to RBG, and compares those
-        // results with the values generated by the xterm implementation
+        // This test converts some values from HLS to RBG, and compares those
+        // results with the values generated by the libsixel implementation
         // of the same function.
+        //
+        // We allow some difference between each component to ignore rounding
+        // errors.
 
-        assert_eq!(hls_to_rgb(100, 60, 60), (84, 36, 84));
-        assert_eq!(hls_to_rgb(60, 100, 60), (100, 100, 100));
-        assert_eq!(hls_to_rgb(30, 30, 60), (12, 12, 48));
-        assert_eq!(hls_to_rgb(100, 90, 100), (100, 80, 100));
-        assert_eq!(hls_to_rgb(100, 0, 90), (0, 0, 0));
-        assert_eq!(hls_to_rgb(0, 90, 30), (87, 87, 93));
-        assert_eq!(hls_to_rgb(60, 0, 60), (0, 0, 0));
-        assert_eq!(hls_to_rgb(30, 0, 0), (0, 0, 0));
-        assert_eq!(hls_to_rgb(30, 90, 30), (87, 87, 93));
-        assert_eq!(hls_to_rgb(30, 30, 30), (21, 21, 39));
-        assert_eq!(hls_to_rgb(90, 100, 60), (100, 100, 100));
-        assert_eq!(hls_to_rgb(0, 0, 0), (0, 0, 0));
-        assert_eq!(hls_to_rgb(30, 0, 90), (0, 0, 0));
-        assert_eq!(hls_to_rgb(100, 60, 90), (96, 24, 96));
-        assert_eq!(hls_to_rgb(30, 30, 0), (30, 30, 30));
+        macro_rules! assert_color {
+            ($h:expr, $l:expr, $s:expr => $r:expr, $g:expr, $b:expr) => {
+                let left = hls_to_rgb($h, $l, $s);
+                let right = rgb($r, $g, $b, 255);
+
+                assert!(
+                    left.r.abs_diff(right.r) < 4
+                        && left.g.abs_diff(right.g) < 4
+                        && left.b.abs_diff(right.b) < 4,
+                    "Expected {right:?} Found {left:?}"
+                );
+            };
+        }
+
+        assert_color!(282 , 33 , 87 =>  10 , 156 , 112);
+        assert_color!( 45 , 36 , 78 => 128 ,  18 , 163);
+        assert_color!(279 ,  9 , 93 =>   0 ,  43 ,  28);
+        assert_color!(186 , 27 , 54 =>  97 , 105 ,  31);
+        assert_color!( 93 , 66 , 75 => 107 , 230 , 173);
+        assert_color!( 60 , 51 , 90 => 125 , 133 , 125);
+        assert_color!(141 , 39 , 78 => 176 ,  74 ,  20);
+        assert_color!(273 , 30 , 48 =>  38 , 112 ,  79);
+        assert_color!(270 , 15 , 57 =>  15 ,  59 ,  38);
+        assert_color!( 84 , 21 , 99 => 105 ,   0 ,  64);
+        assert_color!(162 , 81 , 93 =>  59 , 145 , 352);
+        assert_color!( 96 , 30 , 72 => 130 ,  20 ,  64);
+        assert_color!(222 , 21 , 90 =>  33 ,  99 ,   5);
+        assert_color!(306 , 33 , 39 =>  51 , 110 , 115);
+        assert_color!(144 , 30 , 72 => 130 ,  64 ,  20);
+        assert_color!( 27 ,  0 , 42 =>   0 ,   0 ,   0);
+        assert_color!(123 , 10 ,  0 =>  26 ,  26 ,  26);
+        assert_color!(279 ,  6 , 93 =>   0 ,  28 ,  18);
+        assert_color!(270 , 45 , 69 =>  33 , 194 , 115);
+        assert_color!(225 , 39 , 45 =>  77 , 143 ,  54);
     }
 
     #[test]
