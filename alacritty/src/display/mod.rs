@@ -686,19 +686,17 @@ impl Display {
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
 
         // Damage the entire screen after processing update.
-        self.fully_damage();
+        self.damage_rects.push(self.full_damage_rect());
     }
 
-    /// Damage the entire window.
-    fn fully_damage(&mut self) {
-        let screen_rect = DamageRect {
+    /// Returns a DamageRect spanning the entire window.
+    fn full_damage_rect(&self) -> DamageRect {
+        DamageRect {
             x: 0,
             y: 0,
             width: self.size_info.width() as u32,
             height: self.size_info.height() as u32,
-        };
-
-        self.damage_rects.push(screen_rect);
+        }
     }
 
     fn update_damage<T: EventListener>(
@@ -711,10 +709,11 @@ impl Display {
             || search_state.regex().is_some();
         if requires_full_damage {
             terminal.mark_fully_damaged();
+            self.next_frame_damage_rects.push(self.full_damage_rect());
         }
 
         match terminal.damage() {
-            TermDamage::Full => self.fully_damage(),
+            TermDamage::Full => self.damage_rects.push(self.full_damage_rect()),
             TermDamage::Partial(damaged_lines) => {
                 let damaged_rects = RenderDamageIterator::new(damaged_lines, self.size_info.into());
                 for damaged_rect in damaged_rects {
@@ -723,11 +722,6 @@ impl Display {
             },
         }
         terminal.reset_damage();
-
-        // Ensure that the content requiring full damage is cleaned up again on the next frame.
-        if requires_full_damage {
-            terminal.mark_fully_damaged();
-        }
     }
 
     /// Draw the screen.
