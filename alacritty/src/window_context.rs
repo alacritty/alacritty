@@ -312,8 +312,8 @@ impl WindowContext {
         }
 
         if self.mouse.hint_highlight_dirty {
-            self.dirty |= self.display.update_highlighted_hints(
-                &terminal,
+            self.display.update_highlighted_hints(
+                &mut terminal,
                 config,
                 &self.mouse,
                 self.modifiers,

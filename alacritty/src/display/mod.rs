@@ -713,7 +713,6 @@ impl Display {
             terminal.mark_fully_damaged();
         }
 
-        self.damage_highlighted_hints(terminal);
         match terminal.damage() {
             TermDamage::Full => self.fully_damage(),
             TermDamage::Partial(damaged_lines) => {
@@ -729,9 +728,6 @@ impl Display {
         if requires_full_damage {
             terminal.mark_fully_damaged();
         }
-
-        // Damage highlighted hints for the next frame as well, so we'll clear them.
-        self.damage_highlighted_hints(terminal);
     }
 
     /// Draw the screen.
@@ -964,15 +960,13 @@ impl Display {
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
-    ///
-    /// This will return whether the highlighted hints changed.
     pub fn update_highlighted_hints<T>(
         &mut self,
-        term: &Term<T>,
+        term: &mut Term<T>,
         config: &UiConfig,
         mouse: &Mouse,
         modifiers: ModifiersState,
-    ) -> bool {
+    ) {
         // Update vi mode cursor hint.
         let vi_highlighted_hint = if term.mode().contains(TermMode::VI) {
             let mods = ModifiersState::all();
@@ -981,14 +975,17 @@ impl Display {
         } else {
             None
         };
-        let mut dirty = vi_highlighted_hint != self.vi_highlighted_hint;
-        self.vi_highlighted_hint = vi_highlighted_hint;
+        if vi_highlighted_hint != self.vi_highlighted_hint {
+            Self::damage_highlighted_hint(term, &vi_highlighted_hint);
+            Self::damage_highlighted_hint(term, &self.vi_highlighted_hint);
+            self.vi_highlighted_hint = vi_highlighted_hint;
+        }
 
         // Abort if mouse highlighting conditions are not met.
         if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
-            dirty |= self.highlighted_hint.is_some();
+            Self::damage_highlighted_hint(term, &self.highlighted_hint);
             self.highlighted_hint = None;
-            return dirty;
+            return;
         }
 
         // Find highlighted hint at mouse position.
@@ -999,7 +996,9 @@ impl Display {
         if highlighted_hint.is_some() {
             // If mouse changed the line, we should update the hyperlink preview, since the
             // highlighted hint could be disrupted by the old preview.
-            dirty |= self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
+            if self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false) {
+                term.mark_fully_damaged();
+            }
             self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Hand);
         } else if self.highlighted_hint.is_some() {
@@ -1011,10 +1010,11 @@ impl Display {
             }
         }
 
-        dirty |= self.highlighted_hint != highlighted_hint;
-        self.highlighted_hint = highlighted_hint;
-
-        dirty
+        if highlighted_hint != self.highlighted_hint {
+            Self::damage_highlighted_hint(term, &highlighted_hint);
+            Self::damage_highlighted_hint(term, &self.highlighted_hint);
+            self.highlighted_hint = highlighted_hint;
+        }
     }
 
     /// Format search regex to account for the cursor and fullwidth characters.
@@ -1210,12 +1210,12 @@ impl Display {
         DamageRect { x, y, width, height: size_info.cell_height() }
     }
 
-    /// Damage currently highlighted `Display` hints.
+    /// Damage a highlighted hint.
     #[inline]
-    fn damage_highlighted_hints<T: EventListener>(&self, terminal: &mut Term<T>) {
+    fn damage_highlighted_hint<T>(terminal: &mut Term<T>, hint: &Option<HintMatch>) {
         let display_offset = terminal.grid().display_offset();
         let last_visible_line = terminal.screen_lines() - 1;
-        for hint in self.highlighted_hint.iter().chain(&self.vi_highlighted_hint) {
+        if let Some(hint) = hint {
             for point in
                 (hint.bounds().start().line.0..=hint.bounds().end().line.0).flat_map(|line| {
                     term::point_to_viewport(display_offset, Point::new(Line(line), Column(0)))
