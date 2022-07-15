@@ -999,7 +999,7 @@ impl Display {
         if highlighted_hint.is_some() {
             // If mouse changed the line, we should update the hyperlink preview, since the
             // highlighted hint could be disrupted by the old preview.
-            dirty = self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
+            dirty |= self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
             self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Hand);
         } else if self.highlighted_hint.is_some() {
