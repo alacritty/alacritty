@@ -26,7 +26,7 @@ use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
 use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
 use alacritty_terminal::grid::Dimensions as TermDimensions;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
-use alacritty_terminal::selection::{Selection, SelectionRange};
+use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
@@ -704,7 +704,6 @@ impl Display {
     fn update_damage<T: EventListener>(
         &mut self,
         terminal: &mut MutexGuard<'_, Term<T>>,
-        selection_range: Option<SelectionRange>,
         search_state: &SearchState,
     ) {
         let requires_full_damage = self.visual_bell.intensity() != 0.
@@ -715,7 +714,7 @@ impl Display {
         }
 
         self.damage_highlighted_hints(terminal);
-        match terminal.damage(selection_range) {
+        match terminal.damage() {
             TermDamage::Full => self.fully_damage(),
             TermDamage::Partial(damaged_lines) => {
                 let damaged_rects = RenderDamageIterator::new(damaged_lines, self.size_info.into());
@@ -753,7 +752,6 @@ impl Display {
         for cell in &mut content {
             grid_cells.push(cell);
         }
-        let selection_range = content.selection_range();
         let background_color = content.color(NamedColor::Background as usize);
         let display_offset = content.display_offset();
         let cursor = content.cursor();
@@ -767,7 +765,7 @@ impl Display {
         let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
 
         if self.collect_damage() {
-            self.update_damage(&mut terminal, selection_range, search_state);
+            self.update_damage(&mut terminal, search_state);
         }
 
         // Drop terminal as early as possible to free lock.

@@ -6,7 +6,6 @@ use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::Indexed;
 use alacritty_terminal::index::{Column, Line, Point};
-use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags, Hyperlink};
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -100,10 +99,6 @@ impl<'a> RenderableContent<'a> {
     /// Get the RGB value for a color index.
     pub fn color(&self, color: usize) -> Rgb {
         self.terminal_content.colors[color].unwrap_or(self.colors[color])
-    }
-
-    pub fn selection_range(&self) -> Option<SelectionRange> {
-        self.terminal_content.selection
     }
 
     /// Assemble the information required to render the terminal cursor.

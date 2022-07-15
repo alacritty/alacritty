@@ -374,16 +374,18 @@ impl<T> Term<T> {
     }
 
     #[must_use]
-    pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
+    pub fn damage(&mut self) -> TermDamage<'_> {
         // Update tracking of cursor, selection, and vi mode cursor.
 
         let display_offset = self.grid().display_offset();
         let vi_cursor_point = self.vi_cursor_point();
 
         let previous_cursor = mem::replace(&mut self.damage.last_cursor, self.grid.cursor.point);
-        let previous_selection = mem::replace(&mut self.damage.last_selection, selection);
         let previous_vi_cursor_point =
             mem::replace(&mut self.damage.last_vi_cursor_point, vi_cursor_point);
+
+        let selection_range = self.selection.as_ref().and_then(|s| s.to_range(self));
+        let previous_selection = mem::replace(&mut self.damage.last_selection, selection_range);
 
         // Early return if the entire terminal is damaged.
         if self.damage.is_fully_damaged {
@@ -2680,7 +2682,7 @@ mod tests {
         term.input('e');
         let right = term.grid.cursor.point.column.0;
 
-        let mut damaged_lines = match term.damage(None) {
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2696,9 +2698,9 @@ mod tests {
         let mut selection =
             Selection::new(SelectionType::Block, Point::new(Line(line), Column(3)), Side::Left);
         selection.update(Point::new(Line(line), Column(5)), Side::Left);
-        let selection_range = selection.to_range(&term);
+        term.selection = Some(selection);
 
-        let mut damaged_lines = match term.damage(selection_range) {
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2711,7 +2713,8 @@ mod tests {
 
         // Check that existing selection gets damaged when it is removed.
 
-        let mut damaged_lines = match term.damage(None) {
+        term.selection = None;
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2733,7 +2736,7 @@ mod tests {
         let left = vi_cursor_point.column.0 as usize;
         let right = left;
 
-        let mut damaged_lines = match term.damage(None) {
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2745,7 +2748,7 @@ mod tests {
         // Ensure that old Vi cursor got damaged as well.
         term.reset_damage();
         term.toggle_vi_mode();
-        let mut damaged_lines = match term.damage(None) {
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2921,7 +2924,7 @@ mod tests {
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`
         // mode.
-        let _ = term.damage(None);
+        let _ = term.damage();
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
