@@ -656,7 +656,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.mouse.block_hint_launcher = false;
             self.trigger_hint(&hint);
         }
-        *self.dirty = true;
     }
 
     /// Trigger a hint action.
