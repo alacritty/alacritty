@@ -217,6 +217,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.scroll_display(scroll);
 
+        // The cursor might have moved onto a hint.
+        self.mouse_mut().hint_highlight_dirty = true;
+
         // Keep track of manual display offset changes during search.
         if self.search_active() {
             let display_offset = self.terminal.grid().display_offset();
@@ -1062,6 +1065,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     self.ctx.window().scale_factor = scale_factor;
+                    // Possible layout change so the hint highlight must be updated.
+                    self.ctx.mouse_mut().hint_highlight_dirty = true;
                     *self.ctx.dirty = true;
                 },
                 EventType::SearchNext => self.ctx.goto_match(None),
@@ -1084,6 +1089,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     self.ctx.message_buffer.push(message);
                     self.ctx.display.pending_update.dirty = true;
                     *self.ctx.dirty = true;
+                    // Possible layout change so the hint highlight must be updated.
+                    self.ctx.mouse_mut().hint_highlight_dirty = true;
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
@@ -1155,6 +1162,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         self.ctx.display.pending_update.set_dimensions(size);
                         *self.ctx.dirty = true;
+                        // Possible layout change so the hint highlight must be updated.
+                        self.ctx.mouse_mut().hint_highlight_dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         self.key_input(input);

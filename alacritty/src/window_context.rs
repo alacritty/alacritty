@@ -311,7 +311,7 @@ impl WindowContext {
             );
         }
 
-        if self.dirty || self.mouse.hint_highlight_dirty {
+        if self.mouse.hint_highlight_dirty {
             self.dirty |= self.display.update_highlighted_hints(
                 &terminal,
                 config,
