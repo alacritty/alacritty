@@ -1074,9 +1074,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     // Disable blinking after timeout reached.
                     let timer_id = TimerId::new(Topic::BlinkCursor, self.ctx.display.window.id());
                     self.ctx.scheduler.unschedule(timer_id);
-                    self.ctx.display.cursor_hidden = false;
                     *self.ctx.cursor_blink_timed_out = true;
-                    *self.ctx.dirty = true;
+                    if self.ctx.display.cursor_hidden {
+                        self.ctx.display.cursor_hidden = false;
+                        *self.ctx.dirty = true;
+                    }
                 },
                 EventType::Message(message) => {
                     self.ctx.message_buffer.push(message);
