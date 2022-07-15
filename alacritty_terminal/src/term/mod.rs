@@ -366,12 +366,6 @@ impl<T> Term<T> {
 
     #[must_use]
     pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
-        // Ensure the entire terminal is damaged after entering insert mode.
-        // Leaving is handled in the ansi handler.
-        if self.mode.contains(TermMode::INSERT) {
-            self.mark_fully_damaged();
-        }
-
         // Update tracking of cursor, selection, and vi mode cursor.
 
         let display_offset = self.grid().display_offset();
@@ -1825,10 +1819,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::ColumnMode => self.deccolm(),
-            ansi::Mode::Insert => {
-                self.mode.remove(TermMode::INSERT);
-                self.mark_fully_damaged();
-            },
+            ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.default_cursor_style);
                 style.blinking = false;
