@@ -403,7 +403,7 @@ impl Display {
         // Guess scale_factor based on first monitor. On Wayland the initial frame always renders at
         // a scale factor of 1.
         let estimated_scale_factor = if cfg!(any(target_os = "macos", windows)) || is_x11 {
-            event_loop.available_monitors().next().map(|m| m.scale_factor()).unwrap_or(1.)
+            event_loop.available_monitors().next().map_or(1., |m| m.scale_factor())
         } else {
             1.
         };
@@ -628,7 +628,7 @@ impl Display {
 
         // Update number of column/lines in the viewport.
         let message_bar_lines =
-            message_buffer.message().map(|m| m.text(&self.size_info).len()).unwrap_or(0);
+            message_buffer.message().map_or(0, |m| m.text(&self.size_info).len());
         let search_lines = if search_active { 1 } else { 0 };
         self.size_info.reserve_lines(message_bar_lines + search_lines);
 
@@ -997,7 +997,7 @@ impl Display {
         if highlighted_hint.is_some() {
             // If mouse changed the line, we should update the hyperlink preview, since the
             // highlighted hint could be disrupted by the old preview.
-            dirty = self.hint_mouse_point.map(|p| p.line != point.line).unwrap_or(false);
+            dirty = self.hint_mouse_point.map_or(false, |p| p.line != point.line);
             self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Hand);
         } else if self.highlighted_hint.is_some() {

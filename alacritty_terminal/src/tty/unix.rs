@@ -173,7 +173,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
 
     // Set $SHELL environment variable on macOS, since login does not do it for us.
     #[cfg(target_os = "macos")]
-    builder.env("SHELL", config.shell.as_ref().map(|sh| sh.program()).unwrap_or(pw.shell));
+    builder.env("SHELL", config.shell.as_ref().map_or(pw.shell, Program::program));
 
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
