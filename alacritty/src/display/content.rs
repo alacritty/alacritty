@@ -223,20 +223,20 @@ impl RenderableCell {
         let colors = &content.config.colors;
         let mut character = cell.c;
         let mut flags = cell.flags;
-        if content.hint.as_mut().map_or(false, |hint| hint.matches.advance(cell.point)) {
-            if let Some((c, is_first)) =
-                content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
-            {
-                let (config_fg, config_bg) = if is_first {
-                    (colors.hints.start.foreground, colors.hints.start.background)
-                } else {
-                    (colors.hints.end.foreground, colors.hints.end.background)
-                };
-                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
-                
-                character = c;
-            } else {
-                flags |= Flags::UNDERLINE;
+        if let Some(hint_type) =
+            content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
+        {
+            match hint_type {
+                HintType::Label(c, is_first) => {
+                    let (config_fg, config_bg) = if is_first {
+                        (colors.hints.start.foreground, colors.hints.start.background)
+                    } else {
+                        (colors.hints.end.foreground, colors.hints.end.background)
+                    };
+                    Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+                    character = c;
+                },
+                HintType::AfterLabel => flags |= Flags::UNDERLINE,
             }
         } else if is_selected {
             let config_fg = colors.selection.foreground;
@@ -422,6 +422,11 @@ struct Hint<'a> {
     labels: &'a Vec<Vec<char>>,
 }
 
+enum HintType {
+    Label(char, bool),
+    AfterLabel,
+}
+
 impl<'a> Hint<'a> {
     /// Advance the hint iterator.
     ///
@@ -429,7 +434,12 @@ impl<'a> Hint<'a> {
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
-    fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
+    fn advance(&mut self, viewport_start: Point, point: Point) -> Option<HintType> {
+        // Check if we're within a match at all.
+        if !self.matches.advance(point) {
+            return None;
+        }
+
         // Match starting position on this line; linebreaks interrupt the hint labels.
         let start = self
             .matches
@@ -440,8 +450,15 @@ impl<'a> Hint<'a> {
         // Position within the hint label.
         let label_position = point.column.0 - start.column.0;
         let is_first = label_position == 0;
+
         // Hint label character.
-        self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
+        if let Some((c, is_first)) =
+            self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
+        {
+            Some(HintType::Label(c, is_first))
+        } else {
+            Some(HintType::AfterLabel)
+        }
     }
 }
 
