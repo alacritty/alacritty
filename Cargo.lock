@@ -383,9 +383,9 @@ dependencies = [
 
 [[package]]
 name = "crossfont"
-version = "0.3.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1299695a4c6417b7e4a6957bd963478406e148b7b0351e2f2ce31296b0518251"
+checksum = "f66b1c1979c4362323f03ab6bf7fb522902bfc418e0c37319ab347f9561d980f"
 dependencies = [
  "cocoa",
  "core-foundation 0.9.3",
@@ -397,6 +397,8 @@ dependencies = [
  "freetype-rs",
  "libc",
  "log",
+ "objc",
+ "once_cell",
  "pkg-config",
  "servo-fontconfig",
  "winapi 0.3.9",

@@ -35,6 +35,8 @@ struct Test {
     enom_big: TestEnum,
     #[config(deprecated)]
     enom_error: TestEnum,
+    #[config(removed = "it's gone")]
+    gone: bool,
 }
 
 impl Default for Test {
@@ -48,6 +50,7 @@ impl Default for Test {
             enom_small: TestEnum::default(),
             enom_big: TestEnum::default(),
             enom_error: TestEnum::default(),
+            gone: false,
         }
     }
 }
@@ -90,6 +93,7 @@ fn config_deserialize() {
         enom_small: "one"
         enom_big: "THREE"
         enom_error: "HugaBuga"
+        gone: false
     "#,
     )
     .unwrap();
@@ -101,6 +105,7 @@ fn config_deserialize() {
     assert_eq!(test.enom_small, TestEnum::One);
     assert_eq!(test.enom_big, TestEnum::Three);
     assert_eq!(test.enom_error, Test::default().enom_error);
+    assert_eq!(test.gone, false);
     assert_eq!(test.nesting.field1, Test::default().nesting.field1);
     assert_eq!(test.nesting.field2, None);
     assert_eq!(test.nesting.field3, Test::default().nesting.field3);
@@ -116,8 +121,9 @@ fn config_deserialize() {
     ]);
     let warn_logs = logger.warn_logs.lock().unwrap();
     assert_eq!(warn_logs.as_slice(), [
-        "Config warning: field1 is deprecated; use field2 instead",
-        "Config warning: enom_error is deprecated",
+        "Config warning: field1 has been deprecated; use field2 instead",
+        "Config warning: enom_error has been deprecated",
+        "Config warning: gone has been removed; it's gone",
     ]);
 }
 
