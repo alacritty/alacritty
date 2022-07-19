@@ -167,7 +167,7 @@ impl Cell {
             && self
                 .extra
                 .as_ref()
-                .map_or(true, |extra| !extra.zerowidth.is_empty() || extra.hyperlink.is_some())
+                .map_or(true, |extra| extra.zerowidth.is_empty() && extra.hyperlink.is_none())
         {
             self.extra = None;
         } else {
@@ -186,7 +186,7 @@ impl Cell {
     pub fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
         let should_drop = hyperlink.is_none()
             && self.extra.as_ref().map_or(true, |extra| {
-                !extra.zerowidth.is_empty() || extra.underline_color.is_some()
+                extra.zerowidth.is_empty() && extra.underline_color.is_none()
             });
 
         if should_drop {
