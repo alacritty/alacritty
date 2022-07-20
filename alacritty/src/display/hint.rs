@@ -412,7 +412,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
         // the hyperlink we've found at original `point`.
         let line_contains_hyperlink = grid[next_line]
             .into_iter()
-            .any(|cell| cell.hyperlink().map(|h| h == hyperlink).unwrap_or(false));
+            .any(|cell| cell.hyperlink().map_or(false, |h| h == hyperlink));
 
         // There's no hyperlink on the next line, break.
         if !line_contains_hyperlink {
@@ -428,7 +428,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
 
         let line_contains_hyperlink = grid[next_line]
             .into_iter()
-            .any(|cell| cell.hyperlink().map(|h| h == hyperlink).unwrap_or(false));
+            .any(|cell| cell.hyperlink().map_or(false, |h| h == hyperlink));
 
         if !line_contains_hyperlink {
             break;

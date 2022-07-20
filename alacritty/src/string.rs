@@ -90,7 +90,7 @@ impl<'a> StrShortener<'a> {
         }
 
         // Consume the iterator to count the number of characters in it.
-        let num_chars = iter.last().map(|(idx, _)| idx + 1).unwrap_or(offset);
+        let num_chars = iter.last().map_or(offset, |(idx, _)| idx + 1);
         let skip_chars = num_chars - offset;
 
         let text_action = if num_chars <= max_width || shortener.is_none() {
