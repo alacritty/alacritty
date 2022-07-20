@@ -1155,8 +1155,9 @@ where
         let mut params_iter = params.iter();
         let handler = &mut self.handler;
 
-        let mut next_param_or = |default: u16| {
-            params_iter.next().map(|param| param[0]).filter(|&param| param != 0).unwrap_or(default)
+        let mut next_param_or = |default: u16| match params_iter.next() {
+            Some(&[param, ..]) if param != 0 => param,
+            _ => default,
         };
 
         match (action, intermediates) {
