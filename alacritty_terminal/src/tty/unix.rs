@@ -33,14 +33,14 @@ macro_rules! die {
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
-fn make_pty(size: winsize) -> (RawFd, RawFd) {
+fn make_pty(size: winsize) -> Result<(RawFd, RawFd)> {
     let mut window_size = size;
     window_size.ws_xpixel = 0;
     window_size.ws_ypixel = 0;
 
-    let ends = openpty(Some(&window_size), None).expect("openpty failed");
+    let ends = openpty(Some(&window_size), None)?;
 
-    (ends.master, ends.slave)
+    Ok((ends.master, ends.slave))
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
@@ -71,7 +71,7 @@ struct Passwd<'a> {
 /// # Unsafety
 ///
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
-fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
+fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
     // Create zeroed passwd struct.
     let mut entry: MaybeUninit<libc::passwd> = MaybeUninit::uninit();
 
@@ -85,22 +85,22 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     let entry = unsafe { entry.assume_init() };
 
     if status < 0 {
-        die!("getpwuid_r failed");
+        return Err(Error::new(ErrorKind::Other, "getpwuid_r failed"));
     }
 
     if res.is_null() {
-        die!("pw not found");
+        return Err(Error::new(ErrorKind::Other, "pw not found"));
     }
 
     // Sanity check.
     assert_eq!(entry.pw_uid, uid);
 
     // Build a borrowed Passwd struct.
-    Passwd {
+    Ok(Passwd {
         name: unsafe { CStr::from_ptr(entry.pw_name).to_str().unwrap() },
         dir: unsafe { CStr::from_ptr(entry.pw_dir).to_str().unwrap() },
         shell: unsafe { CStr::from_ptr(entry.pw_shell).to_str().unwrap() },
-    }
+    })
 }
 
 pub struct Pty {
@@ -136,7 +136,7 @@ fn default_shell(pw: &Passwd<'_>) -> Program {
 
 /// Create a new TTY and return a handle to interact with it.
 pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>) -> Result<Pty> {
-    let (master, slave) = make_pty(window_size.to_winsize());
+    let (master, slave) = make_pty(window_size.to_winsize())?;
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(mut termios) = termios::tcgetattr(master) {
@@ -146,7 +146,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
     }
 
     let mut buf = [0; 1024];
-    let pw = get_pw_entry(&mut buf);
+    let pw = get_pw_entry(&mut buf)?;
 
     let shell = match config.shell.as_ref() {
         Some(shell) => Cow::Borrowed(shell),
@@ -383,5 +383,5 @@ unsafe fn set_nonblocking(fd: c_int) {
 #[test]
 fn test_get_pw_entry() {
     let mut buf: [i8; 1024] = [0; 1024];
-    let _pw = get_pw_entry(&mut buf);
+    let _pw = get_pw_entry(&mut buf).unwrap();
 }
