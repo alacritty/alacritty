@@ -1,8 +1,5 @@
 //! TTY related functionality.
 
-use std::borrow::Cow;
-#[cfg(not(target_os = "macos"))]
-use std::env;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Result};
@@ -10,7 +7,7 @@ use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
-use std::ptr;
+use std::{env, ptr};
 
 use libc::{self, c_int, winsize, TIOCSCTTY};
 use log::error;
@@ -21,7 +18,7 @@ use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::consts as sigconsts;
 use signal_hook_mio::v0_6::Signals;
 
-use crate::config::{Program, PtyConfig};
+use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
@@ -121,17 +118,33 @@ impl Pty {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn default_shell(pw: &Passwd<'_>) -> Program {
-    let shell_name = pw.shell.rsplit('/').next().unwrap();
-    let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
-
-    Program::WithArgs { program: "/bin/bash".to_owned(), args: argv }
+/// Look for a shell in the `$SHELL` environment variable, then in `passwd`.
+fn default_shell(pw: &Passwd<'_>) -> String {
+    env::var("SHELL").unwrap_or_else(|_| pw.shell.to_owned())
 }
 
 #[cfg(not(target_os = "macos"))]
-fn default_shell(pw: &Passwd<'_>) -> Program {
-    Program::Just(env::var("SHELL").unwrap_or_else(|_| pw.shell.to_owned()))
+fn default_shell_command(pw: &Passwd<'_>) -> Command {
+    Command::new(default_shell(pw))
+}
+
+#[cfg(target_os = "macos")]
+fn default_shell_command(pw: &Passwd<'_>) -> Command {
+    let shell = default_shell(pw);
+    let shell_name = shell.rsplit('/').next().unwrap();
+
+    // On macOS, use the `login` command so the shell will appear as a tty session.
+    let mut login_command = Command::new("/usr/bin/login");
+
+    // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
+    // `login` normally does this itself, but `-l` disables this.
+    let exec = format!("exec -a -{} {}", shell_name, shell);
+
+    // -f: Bypasses authentication for the already-logged-in user.
+    // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
+    // -p: Preserves the environment.
+    login_command.args(["-flp", pw.name, "/bin/sh", "-c", &exec]);
+    login_command
 }
 
 /// Create a new TTY and return a handle to interact with it.
@@ -148,15 +161,13 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf)?;
 
-    let shell = match config.shell.as_ref() {
-        Some(shell) => Cow::Borrowed(shell),
-        None => Cow::Owned(default_shell(&pw)),
+    let mut builder = if let Some(shell) = config.shell.as_ref() {
+        let mut cmd = Command::new(shell.program());
+        cmd.args(shell.args());
+        cmd
+    } else {
+        default_shell_command(&pw)
     };
-
-    let mut builder = Command::new(shell.program());
-    for arg in shell.args() {
-        builder.arg(arg);
-    }
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
@@ -170,10 +181,6 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
     builder.env("HOME", pw.dir);
-
-    // Set $SHELL environment variable on macOS, since login does not do it for us.
-    #[cfg(target_os = "macos")]
-    builder.env("SHELL", config.shell.as_ref().map_or(pw.shell, Program::program));
 
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
@@ -210,7 +217,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
     }
 
     // Prepare signal handling before spawning child.
-    let signals = Signals::new(&[sigconsts::SIGCHLD]).expect("error preparing signal handling");
+    let signals = Signals::new([sigconsts::SIGCHLD]).expect("error preparing signal handling");
 
     match builder.spawn() {
         Ok(child) => {
@@ -231,8 +238,12 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
             Ok(pty)
         },
         Err(err) => Err(Error::new(
-            ErrorKind::NotFound,
-            format!("Failed to spawn command '{}': {}", shell.program(), err),
+            err.kind(),
+            format!(
+                "Failed to spawn command '{}': {}",
+                builder.get_program().to_string_lossy(),
+                err
+            ),
         )),
     }
 }
