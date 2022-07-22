@@ -260,7 +260,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn clear_selection(&mut self) {
-        *self.dirty |= self.terminal.selection.take().map_or(false, |s| !s.is_empty());
+        // Clear the selection on the terminal.
+        let selection = self.terminal.selection.take();
+        // Mark the terminal as dirty when selection wasn't empty.
+        *self.dirty |= selection.map_or(false, |s| !s.is_empty());
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -287,8 +290,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn start_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
         self.terminal.selection = Some(Selection::new(ty, point, side));
-        self.copy_selection(ClipboardType::Selection);
         *self.dirty = true;
+
+        self.copy_selection(ClipboardType::Selection);
     }
 
     fn toggle_selection(&mut self, ty: SelectionType, point: Point, side: Side) {
@@ -647,7 +651,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
         if self.scheduler.unschedule(timer_id).is_some() {
             self.schedule_blinking();
-            if mem::replace(&mut self.display.cursor_hidden, false) {
+
+            // Mark the cursor as visible and queue redraw if the cursor was hidden.
+            if mem::take(&mut self.display.cursor_hidden) {
                 *self.dirty = true;
             }
         } else if *self.cursor_blink_timed_out {
@@ -710,10 +716,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 }
 
                 self.terminal.vi_goto_point(*hint_bounds.start());
+                self.mark_dirty();
             },
         }
-
-        self.mark_dirty();
     }
 
     /// Expand the selection to the current mouse cursor position.
@@ -1177,6 +1182,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
+
+                        // When the unfocused hollow is used we must redraw on focus change.
+                        if self.ctx.config.terminal_config.cursor.unfocused_hollow {
+                            *self.ctx.dirty = false;
+                        }
 
                         if is_focused {
                             self.ctx.window().set_urgent(false);
