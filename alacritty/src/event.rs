@@ -224,10 +224,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.display_offset_delta += lines_changed;
         }
 
-        let vi_mode = self.terminal.mode().contains(TermMode::VI);
-
         // Update selection.
-        if vi_mode && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty()) {
+        if self.terminal.mode().contains(TermMode::VI)
+            && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty())
+        {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
             || self.mouse.right_button_state == ElementState::Pressed
@@ -238,7 +238,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         // Update dirty if actually scrolled or we're in the Vi mode.
-        *self.dirty |= lines_changed != 0 || vi_mode;
+        *self.dirty |= lines_changed != 0;
     }
 
     // Copy text selection.
