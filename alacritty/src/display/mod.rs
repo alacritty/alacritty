@@ -134,7 +134,7 @@ impl From<glutin::ContextError> for Error {
 }
 
 /// Terminal size info.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SizeInfo<T = f32> {
     /// Terminal window width.
     width: T,

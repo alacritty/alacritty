@@ -1090,7 +1090,7 @@ where
                     return unhandled(params);
                 }
 
-                let clipboard = params[1].get(0).unwrap_or(&b'c');
+                let clipboard = params[1].first().unwrap_or(&b'c');
                 match params[2] {
                     b"?" => self.handler.clipboard_load(*clipboard, terminator),
                     base64 => self.handler.clipboard_store(*clipboard, base64),
@@ -1175,7 +1175,7 @@ where
             },
             ('C', []) | ('a', []) => handler.move_forward(Column(next_param_or(1) as usize)),
             ('c', intermediates) if next_param_or(0) == 0 => {
-                handler.identify_terminal(intermediates.get(0).map(|&i| i as char))
+                handler.identify_terminal(intermediates.first().map(|&i| i as char))
             },
             ('D', []) => handler.move_backward(Column(next_param_or(1) as usize)),
             ('d', []) => handler.goto_line(Line(next_param_or(1) as i32 - 1)),
@@ -1201,7 +1201,7 @@ where
             },
             ('h', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
-                    match Mode::from_primitive(intermediates.get(0), param) {
+                    match Mode::from_primitive(intermediates.first(), param) {
                         Some(mode) => handler.set_mode(mode),
                         None => unhandled!(),
                     }
@@ -1238,7 +1238,7 @@ where
             ('L', []) => handler.insert_blank_lines(next_param_or(1) as usize),
             ('l', intermediates) => {
                 for param in params_iter.map(|param| param[0]) {
-                    match Mode::from_primitive(intermediates.get(0), param) {
+                    match Mode::from_primitive(intermediates.first(), param) {
                         Some(mode) => handler.unset_mode(mode),
                         None => unhandled!(),
                     }
