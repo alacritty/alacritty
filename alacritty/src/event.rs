@@ -1185,7 +1185,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         // When the unfocused hollow is used we must redraw on focus change.
                         if self.ctx.config.terminal_config.cursor.unfocused_hollow {
-                            *self.ctx.dirty = false;
+                            *self.ctx.dirty = true;
                         }
 
                         if is_focused {
