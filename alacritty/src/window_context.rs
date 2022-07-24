@@ -305,6 +305,7 @@ impl WindowContext {
                 old_is_searching,
                 config,
             );
+            self.dirty = true;
         }
 
         if self.dirty || self.mouse.hint_highlight_dirty {

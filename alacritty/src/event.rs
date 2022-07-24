@@ -217,15 +217,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.terminal.scroll_display(scroll);
 
+        let lines_changed = old_offset - self.terminal.grid().display_offset() as i32;
+
         // Keep track of manual display offset changes during search.
         if self.search_active() {
-            let display_offset = self.terminal.grid().display_offset();
-            self.search_state.display_offset_delta += old_offset - display_offset as i32;
+            self.search_state.display_offset_delta += lines_changed;
         }
 
         // Update selection.
         if self.terminal.mode().contains(TermMode::VI)
-            && self.terminal.selection.as_ref().map_or(true, |s| !s.is_empty())
+            && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty())
         {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
@@ -236,7 +237,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.update_selection(point, self.mouse.cell_side);
         }
 
-        *self.dirty = true;
+        // Update dirty if actually scrolled or we're in the Vi mode.
+        *self.dirty |= lines_changed != 0;
     }
 
     // Copy text selection.
@@ -258,8 +260,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn clear_selection(&mut self) {
-        self.terminal.selection = None;
-        *self.dirty = true;
+        // Clear the selection on the terminal.
+        let selection = self.terminal.selection.take();
+        // Mark the terminal as dirty when selection wasn't empty.
+        *self.dirty |= selection.map_or(false, |s| !s.is_empty());
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -421,13 +425,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
         let font = self.config.font.clone().with_size(*self.font_size);
         self.display.pending_update.set_font(font);
-        *self.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
         *self.font_size = self.config.font.size();
         self.display.pending_update.set_font(self.config.font.clone());
-        *self.dirty = true;
     }
 
     #[inline]
@@ -435,7 +437,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if !self.message_buffer.is_empty() {
             self.display.pending_update.dirty = true;
             self.message_buffer.pop();
-            *self.dirty = true;
         }
     }
 
@@ -471,7 +472,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.display.pending_update.dirty = true;
-        *self.dirty = true;
     }
 
     #[inline]
@@ -651,12 +651,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let timer_id = TimerId::new(Topic::BlinkCursor, self.display.window.id());
         if self.scheduler.unschedule(timer_id).is_some() {
             self.schedule_blinking();
-            self.display.cursor_hidden = false;
+
+            // Mark the cursor as visible and queue redraw if the cursor was hidden.
+            if mem::take(&mut self.display.cursor_hidden) {
+                *self.dirty = true;
+            }
         } else if *self.cursor_blink_timed_out {
             self.update_cursor_blinking();
         }
-
-        *self.dirty = true;
 
         // Hide mouse cursor.
         if self.config.mouse.hide_when_typing {
@@ -714,6 +716,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 }
 
                 self.terminal.vi_goto_point(*hint_bounds.start());
+                self.mark_dirty();
             },
         }
     }
@@ -930,7 +933,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     fn exit_search(&mut self) {
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
-        *self.dirty = true;
 
         // Clear focused match.
         self.search_state.focused_match = None;
@@ -1072,7 +1074,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     self.ctx.window().scale_factor = scale_factor;
-                    *self.ctx.dirty = true;
                 },
                 EventType::SearchNext => self.ctx.goto_match(None),
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),
@@ -1084,14 +1085,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     // Disable blinking after timeout reached.
                     let timer_id = TimerId::new(Topic::BlinkCursor, self.ctx.display.window.id());
                     self.ctx.scheduler.unschedule(timer_id);
-                    self.ctx.display.cursor_hidden = false;
                     *self.ctx.cursor_blink_timed_out = true;
+                    self.ctx.display.cursor_hidden = false;
                     *self.ctx.dirty = true;
                 },
                 EventType::Message(message) => {
                     self.ctx.message_buffer.push(message);
                     self.ctx.display.pending_update.dirty = true;
-                    *self.ctx.dirty = true;
                 },
                 EventType::Terminal(event) => match event {
                     TerminalEvent::Title(title) => {
@@ -1162,7 +1162,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
 
                         self.ctx.display.pending_update.set_dimensions(size);
-                        *self.ctx.dirty = true;
                     },
                     WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
                         self.key_input(input);
@@ -1172,7 +1171,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::MouseInput { state, button, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_input(state, button);
-                        *self.ctx.dirty = true;
                     },
                     WindowEvent::CursorMoved { position, .. } => {
                         self.ctx.window().set_mouse_visible(true);
@@ -1184,7 +1182,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
-                        *self.ctx.dirty = true;
+
+                        // When the unfocused hollow is used we must redraw on focus change.
+                        if self.ctx.config.terminal_config.cursor.unfocused_hollow {
+                            *self.ctx.dirty = true;
+                        }
 
                         if is_focused {
                             self.ctx.window().set_urgent(false);

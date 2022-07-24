@@ -141,7 +141,6 @@ impl<T: EventListener> Execute<T> for Action {
         match self {
             Action::Esc(s) => {
                 ctx.on_typing_start();
-
                 ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
@@ -597,6 +596,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // Move vi mode cursor to mouse click position.
         if self.ctx.terminal().mode().contains(TermMode::VI) && !self.ctx.search_active() {
             self.ctx.terminal_mut().vi_mode_cursor.point = point;
+            self.ctx.mark_dirty();
         }
     }
 
@@ -686,9 +686,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
-            let lines = self.ctx.mouse().scroll_px / height;
+            let lines = (self.ctx.mouse().scroll_px / height) as i32;
 
-            self.ctx.scroll(Scroll::Delta(lines as i32));
+            if lines != 0 {
+                self.ctx.scroll(Scroll::Delta(lines));
+            }
         }
 
         self.ctx.mouse_mut().scroll_px %= height;
