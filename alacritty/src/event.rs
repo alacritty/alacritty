@@ -254,7 +254,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection.as_ref().map(Selection::is_empty).unwrap_or(true)
+        self.terminal.selection.as_ref().map_or(true, Selection::is_empty)
     }
 
     fn clear_selection(&mut self) {
@@ -546,7 +546,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn search_pop_word(&mut self) {
         if let Some(regex) = self.search_state.regex_mut() {
             *regex = regex.trim_end().to_owned();
-            regex.truncate(regex.rfind(' ').map(|i| i + 1).unwrap_or(0));
+            regex.truncate(regex.rfind(' ').map_or(0, |i| i + 1));
             self.update_search();
         }
     }

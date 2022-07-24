@@ -717,13 +717,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         {
             let size = self.ctx.size_info();
 
-            let current_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+            let current_lines = self.ctx.message().map_or(0, |m| m.text(&size).len());
 
             self.ctx.clear_selection();
             self.ctx.pop_message();
 
             // Reset cursor when message bar height changed or all messages are gone.
-            let new_lines = self.ctx.message().map(|m| m.text(&size).len()).unwrap_or(0);
+            let new_lines = self.ctx.message().map_or(0, |m| m.text(&size).len());
 
             let new_icon = match current_lines.cmp(&new_lines) {
                 Ordering::Less => CursorIcon::Default,

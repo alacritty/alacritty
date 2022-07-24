@@ -53,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Windows `Open Alacritty Here` on root of drive displaying error
 - On macOS, `font.use_thin_strokes` did not work since Big Sur
 - On macOS, trying to load a disabled font would crash
+- On macOS, Alacritty sessions did not appear in the list of tty sessions for `w` and `who`
 
 ### Removed
 
