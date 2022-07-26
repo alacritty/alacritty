@@ -74,25 +74,31 @@ impl Default for WindowConfig {
 impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
-        // Warn if one of columns, lines is non-zero but not both
-        if (self.dimensions.lines != 0) ^ (self.dimensions.columns.0 != 0) {
-            let (zero_key, key, value) = match self.dimensions.lines != 0 {
-                true => ("columns", "lines", self.dimensions.lines),
-                false => ("lines", "columns", self.dimensions.columns.0),
+        let (lines, columns) = (self.dimensions.lines, self.dimensions.columns.0);
+        let (lines_is_none_zero, columns_is_non_zero) = (lines != 0, columns != 0);
+
+        // return dimensions if both `lines` and `columns` is non-zero
+        if lines_is_none_zero && columns_is_non_zero {
+            Some(self.dimensions)
+        }
+        // Warn if either `columns` or `lines` is non-zero
+        else if lines_is_none_zero || columns_is_non_zero {
+            let (zero_key, key, value) = if lines_is_none_zero {
+                ("columns", "lines", lines)
+            } else {
+                ("lines", "columns", columns)
             };
 
             warn!(
                 target: LOG_TARGET_CONFIG,
-                "Both lines and columns must be non-zero for window.dimensions to take effect. \
-                Configured value of {} is 0 while that of {} is {}",
+                "Both `lines` and `columns` must be non-zero for `window.dimensions` to take effect. \
+                    Configured value of `{}` is 0 while that of `{}` is {}",
                 zero_key,
                 key,
                 value,
             );
-        }
 
-        if (self.dimensions.lines != 0) && (self.dimensions.columns.0 != 0) {
-            Some(self.dimensions)
+            None
         } else {
             None
         }
