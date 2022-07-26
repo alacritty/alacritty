@@ -290,7 +290,7 @@ pub fn visible_regex_match_iter<'a, T>(
     let mut start = term.line_search_left(Point::new(viewport_start, Column(0)));
     let mut end = term.line_search_right(Point::new(viewport_end, Column(0)));
     start.line = start.line.max(viewport_start - MAX_SEARCH_LINES);
-    end.line = end.line.min(viewport_start + MAX_SEARCH_LINES);
+    end.line = end.line.min(viewport_end + MAX_SEARCH_LINES);
 
     RegexIter::new(start, end, Direction::Right, term, regex)
         .skip_while(move |rm| rm.end().line < viewport_start)
@@ -679,5 +679,17 @@ mod tests {
             unique_hyperlinks.next()
         );
         assert_eq!(None, unique_hyperlinks.next());
+    }
+
+    #[test]
+    fn visible_regex_match_covers_entire_viewport() {
+        let content = "I'm a match!\r\n".repeat(4096);
+        // The Term returned from this call will have a viewport starting at 0 and ending at 4096.
+        // That's good enough for this test, since it only cares about visible content.
+        let term = mock_term(&content);
+        let regex = RegexSearch::new("match!").unwrap();
+
+        // The interator should match everything in the viewport.
+        assert_eq!(visible_regex_match_iter(&term, &regex).count(), 4096);
     }
 }
