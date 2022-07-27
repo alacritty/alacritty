@@ -587,8 +587,8 @@ impl<T> Term<T> {
         &self.grid
     }
 
-    /// Mutable access for swapping out the grid during tests.
-    #[cfg(test)]
+    /// Mutable access for swapping out the grid during tests or for other applications
+    ///which want to help manage the back buffer.
     pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
         &mut self.grid
     }
