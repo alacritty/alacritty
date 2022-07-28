@@ -75,15 +75,14 @@ impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
         let (lines, columns) = (self.dimensions.lines, self.dimensions.columns.0);
-        let (lines_is_none_zero, columns_is_non_zero) = (lines != 0, columns != 0);
+        let (lines_is_non_zero, columns_is_non_zero) = (lines != 0, columns != 0);
 
-        // return dimensions if both `lines` and `columns` is non-zero
-        if lines_is_none_zero && columns_is_non_zero {
+        if lines_is_non_zero && columns_is_non_zero {
+            // return dimensions if both `lines` and `columns` is non-zero
             Some(self.dimensions)
-        }
-        // Warn if either `columns` or `lines` is non-zero
-        else if lines_is_none_zero || columns_is_non_zero {
-            let (zero_key, key, value) = if lines_is_none_zero {
+        } else if lines_is_non_zero || columns_is_non_zero {
+            // Warn if either `columns` or `lines` is non-zero
+            let (zero_key, non_zero_key, non_zero_value) = if lines_is_non_zero {
                 ("columns", "lines", lines)
             } else {
                 ("lines", "columns", columns)
@@ -94,8 +93,8 @@ impl WindowConfig {
                 "Both `lines` and `columns` must be non-zero for `window.dimensions` to take effect. \
                     Configured value of `{}` is 0 while that of `{}` is {}",
                 zero_key,
-                key,
-                value,
+                non_zero_key,
+                non_zero_value,
             );
 
             None
