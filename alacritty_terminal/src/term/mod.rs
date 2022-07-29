@@ -580,15 +580,11 @@ impl<T> Term<T> {
     }
 
     /// Access to the raw grid data structure.
-    ///
-    /// This is a bit of a hack; when the window is closed, the event processor
-    /// serializes the grid state to a file.
     pub fn grid(&self) -> &Grid<Cell> {
         &self.grid
     }
 
-    /// Mutable access for swapping out the grid during tests.
-    #[cfg(test)]
+    /// Mutable access to the raw grid data structure.
     pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
         &mut self.grid
     }
