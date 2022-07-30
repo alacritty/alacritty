@@ -78,10 +78,11 @@ impl WindowConfig {
         let (lines_is_non_zero, columns_is_non_zero) = (lines != 0, columns != 0);
 
         if lines_is_non_zero && columns_is_non_zero {
-            // return dimensions if both `lines` and `columns` is non-zero
+            // Return dimensions if both `lines` and `columns` are non-zero.
             Some(self.dimensions)
         } else if lines_is_non_zero || columns_is_non_zero {
-            // Warn if either `columns` or `lines` is non-zero
+            // Warn if either `columns` or `lines` is non-zero.
+            
             let (zero_key, non_zero_key, non_zero_value) = if lines_is_non_zero {
                 ("columns", "lines", lines)
             } else {
