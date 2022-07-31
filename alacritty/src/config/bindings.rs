@@ -158,6 +158,12 @@ pub enum Action {
     /// Scroll all the way to the bottom.
     ScrollToBottom,
 
+    /// Act similarly to mouse wheel up.
+    WheelUp,
+
+    /// Act similarly to mouse wheel down.
+    WheelDown,
+
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 

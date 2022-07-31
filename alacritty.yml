@@ -104,7 +104,8 @@
   # Specifying '0' will disable scrolling.
   #history: 10000
 
-  # Scrolling distance multiplier.
+  # Scrolling distance multiplier for the mouse wheel rolls and for
+  # WheelUp / WheelDown.
   #multiplier: 3
 
 # Font configuration
@@ -604,6 +605,12 @@
 #   - ScrollLineDown
 #   - ScrollToTop
 #   - ScrollToBottom
+#   - WheelUp
+#       Scroll up a few lines as if the mouse wheel was rolled once.
+#       (Number of lines scrolled = value of the "multiplier" option, which see)
+#   - WheelDown
+#       Scroll down a few lines as if the mouse wheel was rolled once.
+#       (Number of lines scrolled = value of the "multiplier" option, which see)
 #   - ClearHistory
 #       Remove the terminal's scrollback history.
 #   - Hide

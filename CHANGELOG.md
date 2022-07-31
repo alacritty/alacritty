@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
 - Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
 - Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
+- Added WheelUp and WheelDown actions to scroll by multiple lines as if the mouse wheel was rolled
 
 ### Changed
 

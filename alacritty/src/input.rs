@@ -340,6 +340,14 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_motion(ViMotion::FirstOccupied);
                 ctx.mark_dirty();
             },
+            Action::WheelUp => {
+                let multiplier = ctx.config().terminal_config.scrolling.multiplier;
+                ctx.scroll(Scroll::Delta(multiplier as i32));
+            },
+            Action::WheelDown => {
+                let multiplier = ctx.config().terminal_config.scrolling.multiplier;
+                ctx.scroll(Scroll::Delta(-(multiplier as i32)));
+            },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
