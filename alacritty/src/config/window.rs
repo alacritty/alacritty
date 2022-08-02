@@ -82,7 +82,7 @@ impl WindowConfig {
             Some(self.dimensions)
         } else if lines_is_non_zero || columns_is_non_zero {
             // Warn if either `columns` or `lines` is non-zero.
-            
+
             let (zero_key, non_zero_key, non_zero_value) = if lines_is_non_zero {
                 ("columns", "lines", lines)
             } else {
@@ -91,8 +91,8 @@ impl WindowConfig {
 
             warn!(
                 target: LOG_TARGET_CONFIG,
-                "Both `lines` and `columns` must be non-zero for `window.dimensions` to take effect. \
-                    Configured value of `{}` is 0 while that of `{}` is {}",
+                "Both `lines` and `columns` must be non-zero for `window.dimensions` to take \
+                 effect. Configured value of `{}` is 0 while that of `{}` is {}",
                 zero_key,
                 non_zero_key,
                 non_zero_value,
