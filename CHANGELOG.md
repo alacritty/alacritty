@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Blinking cursor will timeout after `5` seconds by default
 - Deprecated `colors.search.bar`, use `colors.footer_bar` instead
 - On macOS, Alacritty now reads `AppleFontSmoothing` from user defaults to control font smoothing
+- Warn when either `columns` or `lines` is non-zero, but not both
 
 ### Fixed
 
