@@ -2,7 +2,7 @@ use std::fmt::{self, Formatter};
 use std::os::raw::c_ulong;
 
 use glutin::window::Fullscreen;
-use log::error;
+use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -74,11 +74,31 @@ impl Default for WindowConfig {
 impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
-        if self.dimensions.columns.0 != 0
-            && self.dimensions.lines != 0
-            && self.startup_mode != StartupMode::Maximized
-        {
+        let (lines, columns) = (self.dimensions.lines, self.dimensions.columns.0);
+        let (lines_is_non_zero, columns_is_non_zero) = (lines != 0, columns != 0);
+
+        if lines_is_non_zero && columns_is_non_zero {
+            // Return dimensions if both `lines` and `columns` are non-zero.
             Some(self.dimensions)
+        } else if lines_is_non_zero || columns_is_non_zero {
+            // Warn if either `columns` or `lines` is non-zero.
+
+            let (zero_key, non_zero_key, non_zero_value) = if lines_is_non_zero {
+                ("columns", "lines", lines)
+            } else {
+                ("lines", "columns", columns)
+            };
+
+            warn!(
+                target: LOG_TARGET_CONFIG,
+                "Both `lines` and `columns` must be non-zero for `window.dimensions` to take \
+                 effect. Configured value of `{}` is 0 while that of `{}` is {}",
+                zero_key,
+                non_zero_key,
+                non_zero_value,
+            );
+
+            None
         } else {
             None
         }

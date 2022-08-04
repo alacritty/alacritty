@@ -210,10 +210,6 @@ impl WindowContext {
             self.display.window.set_title(config.window.identity.title.clone());
         }
 
-        // Set subpixel anti-aliasing.
-        #[cfg(target_os = "macos")]
-        crossfont::set_font_smoothing(config.font.use_thin_strokes);
-
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
         self.display.window.set_has_shadow(config.window_opacity() >= 1.0);
@@ -309,6 +305,7 @@ impl WindowContext {
                 old_is_searching,
                 config,
             );
+            self.dirty = true;
         }
 
         if self.dirty || self.mouse.hint_highlight_dirty {

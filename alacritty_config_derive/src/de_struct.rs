@@ -135,14 +135,14 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
                     config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
                 });
             },
-            "deprecated" => {
-                // Construct deprecation message and append optional attribute override.
-                let mut message = format!("Config warning: {} is deprecated", literal);
+            "deprecated" | "removed" => {
+                // Construct deprecation/removal message with optional attribute override.
+                let mut message = format!("Config warning: {} has been {}", literal, parsed.ident);
                 if let Some(warning) = parsed.param {
                     message = format!("{}; {}", message, warning.value());
                 }
 
-                // Append stream to log deprecation warning.
+                // Append stream to log deprecation/removal warning.
                 match_assignment_stream.extend(quote! {
                     log::warn!(target: #LOG_TARGET, #message);
                 });

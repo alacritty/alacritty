@@ -524,7 +524,7 @@ impl Window {
 
         let value = if has_shadows { YES } else { NO };
         unsafe {
-            let _: () = msg_send![raw_window, setHasShadow: value];
+            let _: id = msg_send![raw_window, setHasShadow: value];
         }
     }
 
