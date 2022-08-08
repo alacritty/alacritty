@@ -626,6 +626,10 @@ impl Display {
             config.window.dynamic_padding,
         );
 
+        self.window.set_resize_increments(config.window.resize_increments.then(|| {
+            PhysicalSize::from((self.size_info.cell_width(), self.size_info.cell_height()))
+        }));
+
         // Update number of column/lines in the viewport.
         let message_bar_lines =
             message_buffer.message().map_or(0, |m| m.text(&self.size_info).len());

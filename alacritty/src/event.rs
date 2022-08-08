@@ -1218,7 +1218,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Touch(_)
-                    | WindowEvent::Moved(_) => (),
+                    | WindowEvent::Moved(_)
+                    | WindowEvent::Ime(_)
+                    | WindowEvent::Occluded(_) => (),
                 }
             },
             GlutinEvent::Suspended { .. }

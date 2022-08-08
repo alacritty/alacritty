@@ -94,6 +94,17 @@
     # General application class
     #general: Alacritty
 
+  # Resize increments (Linux/macOS only)
+  #
+  # Hints the WM that Alacritty window should be able to
+  # only be resized to dimensions which are multiples of the cell size.
+  # Only works in WMs that support it (Linux) and on macOS
+  #
+  # Note: on macOS with a Retina display, if the cell size is not a multiple of 2
+  #       this will produce skewed results, this is caused by a limitation of macOS.
+  #       You'll have to adjust the font and/or its size for this to work.
+  #resize_increments: false
+
   # GTK theme variant (Linux/BSD only)
   #
   # Override the variant of the GTK theme. Commonly supported values are `dark`

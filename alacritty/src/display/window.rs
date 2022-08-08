@@ -330,6 +330,7 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
+            .with_name(&identity.class.general, &identity.class.instance)
             .with_title(&identity.title)
             .with_visible(false)
             .with_transparent(true)
@@ -339,13 +340,6 @@ impl Window {
 
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(icon.ok());
-
-        #[cfg(feature = "wayland")]
-        let builder = builder.with_app_id(identity.class.instance.to_owned());
-
-        #[cfg(feature = "x11")]
-        let builder = builder
-            .with_class(identity.class.instance.to_owned(), identity.class.general.to_owned());
 
         #[cfg(feature = "x11")]
         let builder = match &window_config.gtk_theme_variant {
@@ -493,6 +487,10 @@ impl Window {
 
     pub fn resize(&self, size: PhysicalSize<u32>) {
         self.windowed_context.resize(size);
+    }
+
+    pub fn set_resize_increments(&self, increments: Option<PhysicalSize<u32>>) {
+        self.window().set_resize_increments(increments)
     }
 
     pub fn make_not_current(&mut self) {

@@ -51,6 +51,9 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// Enable window resize increments on X11/macOS.
+    pub resize_increments: bool,
 }
 
 impl Default for WindowConfig {
@@ -67,6 +70,7 @@ impl Default for WindowConfig {
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            resize_increments: Default::default(),
         }
     }
 }
