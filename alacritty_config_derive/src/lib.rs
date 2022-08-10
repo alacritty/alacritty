@@ -1,3 +1,6 @@
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use)]
+#![cfg_attr(feature = "cargo-clippy", deny(warnings))]
+
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Error, Fields, Path};
 

@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
 - Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
 - Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
+- `window.decorations_theme_variant` to control both Wayland CSD and GTK theme variant on X11
 
 ### Changed
 
@@ -36,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Deprecated `colors.search.bar`, use `colors.footer_bar` instead
 - On macOS, Alacritty now reads `AppleFontSmoothing` from user defaults to control font smoothing
 - Warn when either `columns` or `lines` is non-zero, but not both
+- Client side decorations should have proper text rendering now on Wayland
+- Config option `window.gtk_theme_variant`, you should use `window.decorations_theme_variant` instead
 
 ### Fixed
 
@@ -55,6 +58,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - On macOS, `font.use_thin_strokes` did not work since Big Sur
 - On macOS, trying to load a disabled font would crash
 - On macOS, Alacritty sessions did not appear in the list of tty sessions for `w` and `who`
+- Cursor not hiding on GNOME Wayland
+- Font having different scale factor after monitor powering off/on on X11
+- Viewport not updating after opening a new tabbed window on macOS
+- Terminal not exiting sometimes after closing all windows on macOS
+- CPU usage spikes due to mouse movements for unfocused windows on X11
+- First window on macOS not tabbed with system prefer tabs setting
+- Window being treaten as focused by default on Wayland
 
 ### Removed
 
