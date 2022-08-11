@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- No longer renders to macos and x11 windows that are fully occluded / not directly visible
 - The `--help` output was reworked with a new colorful syntax
 - OSC 52 is now disabled on unfocused windows
 - `SpawnNewInstance` no longer inherits initial `--command`

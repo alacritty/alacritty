@@ -52,6 +52,7 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     dirty: bool,
+    occluded: bool,
     preserve_title: bool,
     #[cfg(not(windows))]
     master_fd: RawFd,
@@ -161,6 +162,7 @@ impl WindowContext {
             modifiers: Default::default(),
             mouse: Default::default(),
             dirty: Default::default(),
+            occluded: Default::default(),
         })
     }
 
@@ -276,6 +278,7 @@ impl WindowContext {
             display: &mut self.display,
             mouse: &mut self.mouse,
             dirty: &mut self.dirty,
+            occluded: &mut self.occluded,
             terminal: &mut terminal,
             #[cfg(not(windows))]
             master_fd: self.master_fd,
@@ -324,7 +327,7 @@ impl WindowContext {
             return;
         }
 
-        if self.dirty {
+        if self.dirty && !self.occluded {
             // Force the display to process any pending display update.
             self.display.process_renderer_update();
 

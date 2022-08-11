@@ -192,6 +192,7 @@ pub struct ActionContext<'a, N, T> {
     pub search_state: &'a mut SearchState,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
+    pub occluded: &'a mut bool,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -1201,6 +1202,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
                     },
+                    WindowEvent::Occluded(occluded) => {
+                        *self.ctx.occluded = occluded;
+                    },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
                         self.ctx.write_to_pty((path + " ").into_bytes());
@@ -1229,7 +1233,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Touch(_)
-                    | WindowEvent::Occluded(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
