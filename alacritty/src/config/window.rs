@@ -116,7 +116,7 @@ impl WindowConfig {
     pub fn decorations_theme_variant(&self) -> Option<&str> {
         self.gtk_theme_variant
             .as_ref()
-            .or_else(|| self.decorations_theme_variant.as_ref())
+            .or(self.decorations_theme_variant.as_ref())
             .map(|theme| theme.as_str())
     }
 
