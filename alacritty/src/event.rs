@@ -1204,10 +1204,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Occluded(occluded) => {
                         *self.ctx.occluded = occluded;
-                        if !occluded {
-                            // Render as soon as the window is visible once again.
-                            *self.ctx.dirty = true;
-                        }
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
