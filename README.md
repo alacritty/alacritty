@@ -63,6 +63,8 @@ following locations:
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
 
+Alternatively, you can specify a custom config file with the `--config-file` option.
+
 ### Windows
 
 On Windows, the config file should be located at:
