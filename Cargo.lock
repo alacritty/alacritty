@@ -38,7 +38,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "png",
- "raw-window-handle",
+ "raw-window-handle 0.5.0",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -670,7 +670,7 @@ dependencies = [
  "once_cell",
  "osmesa-sys",
  "parking_lot 0.12.1",
- "raw-window-handle",
+ "raw-window-handle 0.5.0",
  "wayland-client",
  "wayland-egl",
  "winapi 0.3.9",
@@ -1037,7 +1037,7 @@ dependencies = [
  "jni-sys",
  "ndk-sys",
  "num_enum",
- "raw-window-handle",
+ "raw-window-handle 0.5.0",
  "thiserror",
 ]
 
@@ -1351,6 +1351,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1feb54ed693b93a84e14094943b84b7c4eae204c512b7ccb95ab0c66d278ad1"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "raw-window-handle"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b800beb9b6e7d2df1fe337c9e3d04e3af22a124460fb4c30fcc22c9117cefb41"
+dependencies = [
+ "cty",
 ]
 
 [[package]]
@@ -2018,9 +2027,9 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "winit"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9b91360f15eb89d0bfee05d3c5981408320fe709f84953d3d90b276fc5962c7"
+checksum = "83a8f3e9d742401efcfe833b8f84960397482ff049cb7bf59a112e14a4be97f7"
 dependencies = [
  "bitflags",
  "cocoa",
@@ -2037,7 +2046,8 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "percent-encoding",
- "raw-window-handle",
+ "raw-window-handle 0.4.3",
+ "raw-window-handle 0.5.0",
  "sctk-adwaita",
  "serde",
  "smithay-client-toolkit",
