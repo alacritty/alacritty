@@ -256,6 +256,7 @@ impl WindowContext {
     }
 
     /// Update the IPC config overrides.
+    #[cfg(unix)]
     pub fn update_ipc_config(&mut self, ipc_config: IpcConfig) {
         self.ipc_config.clear();
         for option in &ipc_config.options {
