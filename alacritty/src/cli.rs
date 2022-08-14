@@ -311,7 +311,7 @@ pub struct IpcConfig {
 
     /// Window ID for the new config
     #[clap(long, short)]
-    pub window_id: Option<u8>,
+    pub window_id: Option<u64>,
 }
 
 #[cfg(test)]

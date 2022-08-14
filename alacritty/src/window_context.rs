@@ -92,10 +92,8 @@ impl WindowContext {
             wayland_event_queue,
         )?;
 
-        // TODO: Waiting on window ID patch.
-        //
         // Export window ID environment variable.
-        env::set_var("ALACRITTY_WINDOW_ID", format!("{:?}", display.window.id()));
+        env::set_var("ALACRITTY_WINDOW_ID", format!("{:?}", u64::from(display.window.id())));
 
         info!(
             "PTY dimensions: {:?} x {:?}",

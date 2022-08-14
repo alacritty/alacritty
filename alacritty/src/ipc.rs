@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, Error as IoError, ErrorKind, Result as IoResul
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::{env, fs, process};
+use glutin::window::WindowId;
 
 use glutin::event_loop::EventLoopProxy;
 use log::warn;
@@ -63,9 +64,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
                     let _ = event_proxy.send_event(event);
                 },
                 SocketMessage::Config(ipc_config) => {
-                    // TODO: Waiting on window ID patch.
-                    // let window_id = ipc_config.window_id;
-                    let window_id = None;
+                    let window_id = ipc_config.window_id.map(|id| WindowId::from(id as u64));
                     let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
                     let _ = event_proxy.send_event(event);
                 },
