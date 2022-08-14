@@ -1,11 +1,11 @@
 //! Alacritty socket IPC.
 
+use glutin::window::WindowId;
 use std::ffi::OsStr;
 use std::io::{BufRead, BufReader, Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::{env, fs, process};
-use glutin::window::WindowId;
 
 use glutin::event_loop::EventLoopProxy;
 use log::warn;

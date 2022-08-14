@@ -5,7 +5,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Error, Field, Generics, Ident, Type};
 
-use crate::{serde_replace, GenericsStreams, Attr, MULTIPLE_FLATTEN_ERROR};
+use crate::{serde_replace, Attr, GenericsStreams, MULTIPLE_FLATTEN_ERROR};
 
 /// Use this crate's name as log target.
 const LOG_TARGET: &str = env!("CARGO_PKG_NAME");
