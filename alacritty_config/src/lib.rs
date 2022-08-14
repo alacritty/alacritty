@@ -37,7 +37,7 @@ where
     D: Deserialize<'de>,
 {
     if !key.is_empty() {
-        let error = format!("Fields \"{key}\" do not exist");
+        let error = format!("Fields \"{}\" do not exist", key);
         return Err(error.into());
     }
     *data = D::deserialize(value)?;

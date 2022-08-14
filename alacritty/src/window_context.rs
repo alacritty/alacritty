@@ -188,7 +188,7 @@ impl WindowContext {
             // Apply each option.
             for (key, value) in &self.ipc_config {
                 if let Err(err) = config.replace(key, value.clone()) {
-                    error!("Unable to override option '{key}': {}", err);
+                    error!("Unable to override option '{}': {}", key, err);
                 }
             }
 
@@ -261,7 +261,7 @@ impl WindowContext {
             let (key, value) = match option.split_once('=') {
                 Some(split) => split,
                 None => {
-                    error!("'{option}': IPC config option missing value");
+                    error!("'{}': IPC config option missing value", option);
                     continue;
                 },
             };
@@ -269,7 +269,7 @@ impl WindowContext {
             // Try and parse value as yaml.
             match serde_yaml::from_str(value) {
                 Ok(value) => self.ipc_config.push((key.to_owned(), value)),
-                Err(err) => error!("'{option}': Invalid IPC config value: {err:?}"),
+                Err(err) => error!("'{}': Invalid IPC config value: {:?}", option, err),
             }
         }
 
