@@ -96,6 +96,7 @@ pub enum EventType {
     Message(Message),
     Scroll(Scroll),
     CreateWindow(WindowOptions),
+    #[cfg(unix)]
     IpcConfig(IpcConfig),
     BlinkCursor,
     BlinkCursorTimeout,
@@ -1166,8 +1167,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
-                EventType::IpcConfig(_)
-                | EventType::ConfigReload(_)
+                #[cfg(unix)]
+                EventType::IpcConfig(_) => (),
+                EventType::ConfigReload(_)
                 | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
@@ -1470,6 +1472,7 @@ impl Processor {
                     }
                 },
                 // Process IPC config update.
+                #[cfg(unix)]
                 GlutinEvent::UserEvent(Event {
                     payload: EventType::IpcConfig(ipc_config),
                     window_id,

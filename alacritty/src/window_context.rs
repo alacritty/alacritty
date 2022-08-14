@@ -30,7 +30,9 @@ use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
-use crate::cli::{IpcConfig, WindowOptions};
+#[cfg(unix)]
+use crate::cli::IpcConfig;
+use crate::cli::WindowOptions;
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::Display;
