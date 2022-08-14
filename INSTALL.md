@@ -292,10 +292,12 @@ infocmp alacritty
 ```
 
 If it is not present already, you can install it globally with the following
-command:
+command. You can also use a local `extra/alacritty.info` instead of the `<(curl ...)`:
 
 ```
-sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
+sudo -i
+tic -xe alacritty,alacritty-direct <(curl https://raw.githubusercontent.com/alacritty/alacritty/master/extra/alacritty.info)
+exit
 ```
 
 ### Desktop Entry
