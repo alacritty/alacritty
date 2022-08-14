@@ -1169,8 +1169,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 #[cfg(unix)]
                 EventType::IpcConfig(_) => (),
-                EventType::ConfigReload(_)
-                | EventType::CreateWindow(_) => (),
+                EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             GlutinEvent::WindowEvent { event, .. } => {
