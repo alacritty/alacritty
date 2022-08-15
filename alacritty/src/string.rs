@@ -5,7 +5,7 @@ use std::str::Chars;
 use unicode_width::UnicodeWidthChar;
 
 /// The action performed by [`StrShortener`].
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextAction {
     /// Yield a spacer.
     Spacer,
@@ -93,7 +93,7 @@ impl<'a> StrShortener<'a> {
         let num_chars = iter.last().map_or(offset, |(idx, _)| idx + 1);
         let skip_chars = num_chars - offset;
 
-        let text_action = if num_chars <= max_width || shortener.is_none() {
+        let text_action = if current_len < max_width || shortener.is_none() {
             TextAction::Char
         } else {
             TextAction::Shortener
@@ -203,8 +203,8 @@ mod tests {
             &StrShortener::new(s, len * 2, ShortenDirection::Left, Some('.')).collect::<String>()
         );
 
-        let s = "こJんにちはP";
-        let len = 2 + 1 + 2 + 2 + 2 + 2 + 1;
+        let s = "ちはP";
+        let len = 2 + 2 + 1;
         assert_eq!(
             ".",
             &StrShortener::new(s, 1, ShortenDirection::Right, Some('.')).collect::<String>()
@@ -226,7 +226,7 @@ mod tests {
         );
 
         assert_eq!(
-            "こ .",
+            "ち .",
             &StrShortener::new(s, 3, ShortenDirection::Right, Some('.')).collect::<String>()
         );
 
@@ -236,12 +236,12 @@ mod tests {
         );
 
         assert_eq!(
-            "こ Jん に ち は P",
+            "ち は P",
             &StrShortener::new(s, len * 2, ShortenDirection::Left, Some('.')).collect::<String>()
         );
 
         assert_eq!(
-            "こ Jん に ち は P",
+            "ち は P",
             &StrShortener::new(s, len * 2, ShortenDirection::Right, Some('.')).collect::<String>()
         );
     }

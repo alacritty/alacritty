@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
 - Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
 - `window.decorations_theme_variant` to control both Wayland CSD and GTK theme variant on X11
+- Support for inline input method
 
 ### Changed
 
@@ -42,6 +43,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `window.gtk_theme_variant`, you should use `window.decorations_theme_variant` instead
 - `--class` now sets both class part of WM_CLASS property and instance
 - `--class`'s `general` and `instance` options were swapped
+- Search bar is now respecting cursor thickness
+- On X11 the IME popup window is stuck at the bottom of the window due to Xlib limitations
+- IME no longer works in Vi mode when moving around
 
 ### Fixed
 
