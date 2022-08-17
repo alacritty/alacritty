@@ -125,6 +125,9 @@ pub enum Action {
     /// Paste contents of selection buffer.
     PasteSelection,
 
+    /// Paste clipboard if nothing is selected, or copy selection to clipboard and clear selection.
+    CopySelectionOrPasteClipboard,
+
     /// Increase font size.
     IncreaseFontSize,
 

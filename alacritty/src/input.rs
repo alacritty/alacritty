@@ -270,6 +270,15 @@ impl<T: EventListener> Execute<T> for Action {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
                 ctx.paste(&text);
             },
+            Action::CopySelectionOrPasteClipboard => {
+                if ctx.selection_is_empty() {
+                    let clipboard = ctx.clipboard_mut().load(ClipboardType::Clipboard);
+                    ctx.paste(&clipboard);
+                } else {
+                    ctx.copy_selection(ClipboardType::Clipboard);
+                    ctx.clear_selection();
+                }
+            },
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             Action::ToggleMaximized => ctx.window().toggle_maximized(),
             #[cfg(target_os = "macos")]
