@@ -335,7 +335,7 @@ impl Window {
 
         let builder = WindowBuilder::new()
             .with_title(&identity.title)
-            .with_name(&identity.class.instance, &identity.class.general)
+            .with_name(&identity.class.general, &identity.class.instance)
             .with_visible(false)
             .with_transparent(true)
             .with_decorations(window_config.decorations != Decorations::None)
