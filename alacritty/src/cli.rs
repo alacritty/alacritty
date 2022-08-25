@@ -11,7 +11,7 @@ use serde_yaml::Value;
 
 use alacritty_terminal::config::{Program, PtyConfig};
 
-use crate::config::window::{Class, Identity, DEFAULT_NAME};
+use crate::config::window::{Class, Identity};
 use crate::config::{serde_utils, UiConfig};
 
 /// CLI options for the main Alacritty executable.
@@ -159,19 +159,16 @@ fn option_as_value(option: &str) -> Result<Value, serde_yaml::Error> {
 
 /// Parse the class CLI parameter.
 fn parse_class(input: &str) -> Result<Class, String> {
-    match input.find(',') {
-        Some(position) => {
-            let general = input[position + 1..].to_owned();
-
-            // Warn the user if they've passed too many values.
-            if general.contains(',') {
-                return Err(String::from("Too many parameters"));
-            }
-
-            Ok(Class { instance: input[..position].into(), general })
+    let (general, instance) = match input.split_once(',') {
+        // Warn the user if they've passed too many values.
+        Some((_, instance)) if instance.contains(',') => {
+            return Err(String::from("Too many parameters"))
         },
-        None => Ok(Class { instance: input.into(), general: DEFAULT_NAME.into() }),
-    }
+        Some((general, instance)) => (general, instance),
+        None => (input, input),
+    };
+
+    Ok(Class::new(general, instance))
 }
 
 /// Convert to hex if possible, else decimal
@@ -385,15 +382,15 @@ mod tests {
     #[test]
     fn parse_instance_class() {
         let class = parse_class("one").unwrap();
+        assert_eq!(class.general, "one");
         assert_eq!(class.instance, "one");
-        assert_eq!(class.general, DEFAULT_NAME);
     }
 
     #[test]
     fn parse_general_class() {
         let class = parse_class("one,two").unwrap();
-        assert_eq!(class.instance, "one");
-        assert_eq!(class.general, "two");
+        assert_eq!(class.general, "one");
+        assert_eq!(class.instance, "two");
     }
 
     #[test]

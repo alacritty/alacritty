@@ -40,6 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Warn when either `columns` or `lines` is non-zero, but not both
 - Client side decorations should have proper text rendering now on Wayland
 - Config option `window.gtk_theme_variant`, you should use `window.decorations_theme_variant` instead
+- `--class` now sets both class part of WM_CLASS property and instance
+- `--class`'s `general` and `instance` options were swapped
 
 ### Fixed
 

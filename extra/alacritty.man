@@ -32,10 +32,12 @@ Increases the level of verbosity (the max level is \fB\-vvv\fR)
 Prints version information
 .SH "OPTIONS"
 .TP
-\fB\-\-class\fR <instance> | <instance>,<general>
+\fB\-\-class\fR <general> | <general>,<instance>
 Defines the window class hint on Linux [default: Alacritty,Alacritty]
 
-On Wayland the instance class sets the `app_id`, while the general class is ignored.
+When only the general class is passed, instance will be set to the same value.
+
+On Wayland the general class sets the `app_id`, while the instance class is ignored.
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)

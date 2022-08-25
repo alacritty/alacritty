@@ -203,13 +203,19 @@ pub struct Dimensions {
 /// Window class hint.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {
-    pub instance: String,
     pub general: String,
+    pub instance: String,
+}
+
+impl Class {
+    pub fn new(general: impl ToString, instance: impl ToString) -> Self {
+        Self { general: general.to_string(), instance: instance.to_string() }
+    }
 }
 
 impl Default for Class {
     fn default() -> Self {
-        Self { instance: DEFAULT_NAME.into(), general: DEFAULT_NAME.into() }
+        Self::new(DEFAULT_NAME, DEFAULT_NAME)
     }
 }
 
