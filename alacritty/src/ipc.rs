@@ -66,8 +66,8 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
                 SocketMessage::Config(ipc_config) => {
                     let window_id = ipc_config
                         .window_id
-                        .filter(|id| id >= &0)
-                        .map(|id| WindowId::from(id as u64));
+                        .and_then(|id| u64::try_from(id).ok())
+                        .map(WindowId::from);
                     let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
                     let _ = event_proxy.send_event(event);
                 },

@@ -313,7 +313,7 @@ pub struct IpcConfig {
     ///
     /// Use `-1` to apply this change to all windows.
     #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
-    pub window_id: Option<i64>,
+    pub window_id: Option<i128>,
 
     /// Clear all runtime configuration changes.
     #[clap(short, long, conflicts_with = "options")]
