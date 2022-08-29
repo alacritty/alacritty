@@ -41,7 +41,11 @@ Configuration file options [example: cursor.style=Beam]
 .RS 12
 .TP
 \fB\-w\fR, \fB\-\-window\-id\fR <WINDOW_ID>
-Window ID for the new config
+Window ID for the new config.
+
+Use `-1` to apply this change to all windows.
+
+[default: \fB$ALACRITTY_WINDOW_ID\fR]
 .RE
 .SH "SEE ALSO"
 See the alacritty github repository at https://github.com/alacritty/alacritty for the full documentation.

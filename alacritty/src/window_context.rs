@@ -3,13 +3,13 @@
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
+use std::mem;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::{env, mem};
 
 use crossfont::Size;
 use glutin::event::{Event as GlutinEvent, ModifiersState, WindowEvent};
@@ -94,9 +94,6 @@ impl WindowContext {
             wayland_event_queue,
         )?;
 
-        // Export window ID environment variable.
-        env::set_var("ALACRITTY_WINDOW_ID", format!("{:?}", u64::from(display.window.id())));
-
         info!(
             "PTY dimensions: {:?} x {:?}",
             display.size_info.screen_lines(),
@@ -118,7 +115,12 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(&pty_config, display.size_info.into(), display.window.x11_window_id())?;
+        let pty = tty::new(
+            &pty_config,
+            display.size_info.into(),
+            u64::from(display.window.id()),
+            display.window.x11_window_id(),
+        )?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
@@ -257,27 +259,30 @@ impl WindowContext {
 
     /// Update the IPC config overrides.
     #[cfg(unix)]
-    pub fn update_ipc_config(&mut self, ipc_config: IpcConfig) {
+    pub fn update_ipc_config(&mut self, config: Rc<UiConfig>, ipc_config: IpcConfig) {
         self.ipc_config.clear();
-        for option in &ipc_config.options {
-            // Separate config key/value.
-            let (key, value) = match option.split_once('=') {
-                Some(split) => split,
-                None => {
-                    error!("'{}': IPC config option missing value", option);
-                    continue;
-                },
-            };
 
-            // Try and parse value as yaml.
-            match serde_yaml::from_str(value) {
-                Ok(value) => self.ipc_config.push((key.to_owned(), value)),
-                Err(err) => error!("'{}': Invalid IPC config value: {:?}", option, err),
+        if !ipc_config.reset {
+            for option in &ipc_config.options {
+                // Separate config key/value.
+                let (key, value) = match option.split_once('=') {
+                    Some(split) => split,
+                    None => {
+                        error!("'{}': IPC config option missing value", option);
+                        continue;
+                    },
+                };
+
+                // Try and parse value as yaml.
+                match serde_yaml::from_str(value) {
+                    Ok(value) => self.ipc_config.push((key.to_owned(), value)),
+                    Err(err) => error!("'{}': Invalid IPC config value: {:?}", option, err),
+                }
             }
         }
 
         // Reload current config to pull new IPC config.
-        self.update_config(self.config.clone());
+        self.update_config(config);
     }
 
     /// Process events for this terminal window.
@@ -299,13 +304,11 @@ impl WindowContext {
             // Remap scale_factor change event to remove the lifetime.
             GlutinEvent::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
-                ..
+                window_id,
             } => {
                 let size = (new_inner_size.width, new_inner_size.height);
-                let event = Event::new(
-                    EventType::ScaleFactorChanged(scale_factor, size),
-                    self.display.window.id(),
-                );
+                let event =
+                    Event::new(EventType::ScaleFactorChanged(scale_factor, size), window_id);
                 self.event_queue.push(event.into());
                 return;
             },

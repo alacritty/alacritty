@@ -1481,7 +1481,7 @@ impl Processor {
                         .iter_mut()
                         .filter(|(id, _)| window_id.is_none() || window_id == Some(**id))
                     {
-                        window_context.update_ipc_config(ipc_config.clone());
+                        window_context.update_ipc_config(self.config.clone(), ipc_config.clone());
                     }
                 },
                 // Create a new terminal window.

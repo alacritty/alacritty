@@ -125,7 +125,7 @@ impl Options {
     }
 }
 
-/// Combine multiple options inta a [`serde_yaml::Value`].
+/// Combine multiple options into a [`serde_yaml::Value`].
 pub fn options_as_value(options: &[String]) -> Value {
     options.iter().fold(Value::default(), |value, option| match option_as_value(option) {
         Ok(new_value) => serde_utils::merge(value, new_value),
@@ -270,7 +270,7 @@ pub enum Subcommands {
 #[derive(Args, Debug)]
 pub struct MessageOptions {
     /// IPC socket connection path override.
-    #[clap(long, short, value_hint = ValueHint::FilePath)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub socket: Option<PathBuf>,
 
     /// Message which should be sent.
@@ -309,9 +309,15 @@ pub struct IpcConfig {
     #[clap(required = true, value_name = "CONFIG_OPTIONS")]
     pub options: Vec<String>,
 
-    /// Window ID for the new config
-    #[clap(long, short)]
-    pub window_id: Option<u64>,
+    /// Window ID for the new config.
+    ///
+    /// Use `-1` to apply this change to all windows.
+    #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
+    pub window_id: Option<i64>,
+
+    /// Clear all runtime configuration changes.
+    #[clap(short, long, conflicts_with = "options")]
+    pub reset: bool,
 }
 
 #[cfg(test)]
