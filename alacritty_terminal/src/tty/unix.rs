@@ -178,10 +178,14 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 
     // Setup shell environment.
-    builder.env("ALACRITTY_WINDOW_ID", window_id.to_string());
+    let window_id = window_id.to_string();
+    builder.env("ALACRITTY_WINDOW_ID", &window_id);
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
     builder.env("HOME", pw.dir);
+
+    // Set Window ID for clients relying on X11 hacks.
+    builder.env("WINDOWID", window_id);
 
     unsafe {
         builder.pre_exec(move || {
