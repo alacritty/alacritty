@@ -125,7 +125,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__config)
-            opts="-w -h --window-id --help <CONFIG_OPTIONS>..."
+            opts="-w -r -h --window-id --reset --help <CONFIG_OPTIONS>..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

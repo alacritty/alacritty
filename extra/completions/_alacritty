@@ -77,6 +77,8 @@ _arguments "${_arguments_options[@]}" \
 _arguments "${_arguments_options[@]}" \
 '-w+[Window ID for the new config]:WINDOW_ID: ' \
 '--window-id=[Window ID for the new config]:WINDOW_ID: ' \
+'()-r[Clear all runtime configuration changes]' \
+'()--reset[Clear all runtime configuration changes]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 '*::options -- Configuration file options \[example\: cursor.style=Beam\]:' \
