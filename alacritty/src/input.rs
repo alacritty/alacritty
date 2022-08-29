@@ -754,6 +754,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Process key input.
     pub fn key_input(&mut self, input: KeyboardInput) {
+        // IME input will be applied on commit and shouldn't trigger key bindings.
+        if self.ctx.display().ime.preedit().is_some() {
+            return;
+        }
+
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
             *self.ctx.suppress_chars() = false;
@@ -800,6 +805,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         let suppress_chars = *self.ctx.suppress_chars();
+
+        // Don't insert chars when we have IME running.
+        if self.ctx.display().ime.preedit().is_some() {
+            return;
+        }
 
         // Handle hint selection over anything else.
         if self.ctx.display().hint_state.active() && !suppress_chars {

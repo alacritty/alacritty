@@ -460,10 +460,14 @@ impl Window {
         self.wayland_surface.as_ref()
     }
 
+    pub fn set_ime_allowed(&self, allowed: bool) {
+        self.windowed_context.window().set_ime_allowed(allowed);
+    }
+
     /// Adjust the IME editor position according to the new location of the cursor.
-    pub fn update_ime_position(&self, point: Point, size: &SizeInfo) {
+    pub fn update_ime_position(&self, point: Point<usize>, size: &SizeInfo) {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
-        let nspot_y = f64::from(size.padding_y() + (point.line.0 + 1) as f32 * size.cell_height());
+        let nspot_y = f64::from(size.padding_y() + (point.line + 1) as f32 * size.cell_height());
 
         self.window().set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
     }

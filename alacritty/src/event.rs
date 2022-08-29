@@ -47,7 +47,7 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{Display, SizeInfo};
+use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -476,6 +476,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             };
         }
 
+        // Enable IME so we can input into the search bar with it if we were in Vi mode.
+        self.window().set_ime_allowed(true);
+
         self.display.pending_update.dirty = true;
     }
 
@@ -786,7 +789,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
-        if self.terminal.mode().contains(TermMode::VI) {
+        let was_in_vi_mode = self.terminal.mode().contains(TermMode::VI);
+        if was_in_vi_mode {
             // If we had search running when leaving Vi mode we should mark terminal fully damaged
             // to cleanup highlighted results.
             if self.search_state.dfas.take().is_some() {
@@ -802,6 +806,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.search_active() {
             self.cancel_search();
         }
+
+        // We don't want IME in Vi mode.
+        self.window().set_ime_allowed(was_in_vi_mode);
 
         self.terminal.toggle_vi_mode();
 
@@ -936,6 +943,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Cleanup the search state.
     fn exit_search(&mut self) {
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+        self.window().set_ime_allowed(!vi_mode);
+
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
 
@@ -955,7 +965,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Check terminal cursor style.
         let terminal_blinking = self.terminal.cursor_style().blinking;
         let mut blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
-        blinking &= vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR);
+        blinking &= (vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR))
+            && self.display().ime.preedit().is_none();
 
         // Update cursor blinking state.
         let window_id = self.display.window.id();
@@ -1216,12 +1227,37 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
                     },
-                    WindowEvent::Ime(ime) => {
-                        if let Ime::Commit(text) = ime {
+                    WindowEvent::Ime(ime) => match ime {
+                        Ime::Commit(text) => {
+                            // Clear preedit.
+                            self.ctx.display.ime.set_preedit(None);
+                            *self.ctx.dirty = true;
+
                             for ch in text.chars() {
-                                self.received_char(ch)
+                                self.received_char(ch);
                             }
-                        }
+
+                            self.ctx.update_cursor_blinking();
+                        },
+                        Ime::Preedit(text, cursor_offset) => {
+                            let preedit = if text.is_empty() {
+                                None
+                            } else {
+                                Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
+                            };
+
+                            self.ctx.display.ime.set_preedit(preedit);
+                            self.ctx.update_cursor_blinking();
+                            *self.ctx.dirty = true;
+                        },
+                        Ime::Enabled => {
+                            self.ctx.display.ime.set_enabled(true);
+                            *self.ctx.dirty = true;
+                        },
+                        Ime::Disabled => {
+                            self.ctx.display.ime.set_enabled(false);
+                            *self.ctx.dirty = true;
+                        },
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
