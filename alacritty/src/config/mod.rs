@@ -201,7 +201,7 @@ fn parse_config(
 
     // Merge config with imports.
     let imports = load_imports(&config, config_paths, recursion_limit);
-    Ok(serde_utils::merge(imports, config))
+    Ok(serde_utils::merge(config, imports))
 }
 
 /// Load all referenced configuration files.
