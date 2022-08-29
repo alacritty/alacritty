@@ -115,12 +115,7 @@ impl WindowContext {
         // The PTY forks a process to run the shell on the slave side of the
         // pseudoterminal. A file descriptor for the master side is retained for
         // reading/writing to the shell.
-        let pty = tty::new(
-            &pty_config,
-            display.size_info.into(),
-            u64::from(display.window.id()),
-            display.window.x11_window_id(),
-        )?;
+        let pty = tty::new(&pty_config, display.size_info.into(), display.window.id().into())?;
 
         #[cfg(not(windows))]
         let master_fd = pty.file().as_raw_fd();
@@ -185,7 +180,7 @@ impl WindowContext {
     pub fn update_config(&mut self, new_config: Rc<UiConfig>) {
         let old_config = mem::replace(&mut self.config, new_config);
 
-        // Apply ipc config if there are any overrides.
+        // Apply ipc config if there are overrides.
         if !self.ipc_config.is_empty() {
             let mut config = (*self.config).clone();
 
