@@ -18,6 +18,7 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 name = "alacritty"
 version = "0.11.0-dev"
 dependencies = [
+ "alacritty_config",
  "alacritty_config_derive",
  "alacritty_terminal",
  "bitflags",
@@ -50,9 +51,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "alacritty_config"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
 name = "alacritty_config_derive"
 version = "0.1.0"
 dependencies = [
+ "alacritty_config",
  "log",
  "proc-macro2",
  "quote",
@@ -65,6 +76,7 @@ dependencies = [
 name = "alacritty_terminal"
 version = "0.17.0-dev"
 dependencies = [
+ "alacritty_config",
  "alacritty_config_derive",
  "base64",
  "bitflags",

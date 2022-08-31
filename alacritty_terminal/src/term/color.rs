@@ -7,12 +7,14 @@ use serde::de::{Error as _, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml::Value;
 
+use alacritty_config_derive::SerdeReplace;
+
 use crate::ansi::NamedColor;
 
 /// Number of terminal colors.
 pub const COUNT: usize = 269;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize)]
+#[derive(SerdeReplace, Debug, Eq, PartialEq, Copy, Clone, Default, Serialize)]
 pub struct Rgb {
     pub r: u8,
     pub g: u8,
@@ -170,7 +172,7 @@ impl FromStr for Rgb {
 }
 
 /// RGB color optionally referencing the cell's foreground or background.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CellRgb {
     CellForeground,
     CellBackground,

@@ -81,14 +81,7 @@ impl Options {
         let mut options = Self::parse();
 
         // Convert `--option` flags into serde `Value`.
-        for option in &options.option {
-            match option_as_value(option) {
-                Ok(value) => {
-                    options.config_options = serde_utils::merge(options.config_options, value);
-                },
-                Err(_) => eprintln!("Invalid CLI config option: {:?}", option),
-            }
-        }
+        options.config_options = options_as_value(&options.option);
 
         options
     }
@@ -132,7 +125,18 @@ impl Options {
     }
 }
 
-/// Format an option in the format of `parent.field=value` to a serde Value.
+/// Combine multiple options into a [`serde_yaml::Value`].
+pub fn options_as_value(options: &[String]) -> Value {
+    options.iter().fold(Value::default(), |value, option| match option_as_value(option) {
+        Ok(new_value) => serde_utils::merge(value, new_value),
+        Err(_) => {
+            eprintln!("Ignoring invalid option: {:?}", option);
+            value
+        },
+    })
+}
+
+/// Parse an option in the format of `parent.field=value` as a serde Value.
 fn option_as_value(option: &str) -> Result<Value, serde_yaml::Error> {
     let mut yaml_text = String::with_capacity(option.len());
     let mut closing_brackets = String::new();
@@ -266,7 +270,7 @@ pub enum Subcommands {
 #[derive(Args, Debug)]
 pub struct MessageOptions {
     /// IPC socket connection path override.
-    #[clap(long, short, value_hint = ValueHint::FilePath)]
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub socket: Option<PathBuf>,
 
     /// Message which should be sent.
@@ -280,9 +284,12 @@ pub struct MessageOptions {
 pub enum SocketMessage {
     /// Create a new window in the same Alacritty process.
     CreateWindow(WindowOptions),
+
+    /// Update the Alacritty configuration.
+    Config(IpcConfig),
 }
 
-/// Subset of options that we pass to a 'create-window' subcommand.
+/// Subset of options that we pass to 'create-window' IPC subcommand.
 #[derive(Serialize, Deserialize, Args, Default, Clone, Debug, PartialEq, Eq)]
 pub struct WindowOptions {
     /// Terminal options which can be passed via IPC.
@@ -292,6 +299,25 @@ pub struct WindowOptions {
     #[clap(flatten)]
     /// Window options which could be passed via IPC.
     pub window_identity: WindowIdentity,
+}
+
+/// Parameters to the `config` IPC subcommand.
+#[cfg(unix)]
+#[derive(Args, Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+pub struct IpcConfig {
+    /// Configuration file options [example: cursor.style=Beam].
+    #[clap(required = true, value_name = "CONFIG_OPTIONS")]
+    pub options: Vec<String>,
+
+    /// Window ID for the new config.
+    ///
+    /// Use `-1` to apply this change to all windows.
+    #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
+    pub window_id: Option<i128>,
+
+    /// Clear all runtime configuration changes.
+    #[clap(short, long, conflicts_with = "options")]
+    pub reset: bool,
 }
 
 #[cfg(test)]
