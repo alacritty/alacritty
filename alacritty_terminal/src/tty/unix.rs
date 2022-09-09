@@ -148,7 +148,7 @@ fn default_shell_command(pw: &Passwd<'_>) -> Command {
 }
 
 /// Create a new TTY and return a handle to interact with it.
-pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>) -> Result<Pty> {
+pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let (master, slave) = make_pty(window_size.to_winsize())?;
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -178,13 +178,14 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: Option<usize>
     builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 
     // Setup shell environment.
+    let window_id = window_id.to_string();
+    builder.env("ALACRITTY_WINDOW_ID", &window_id);
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
     builder.env("HOME", pw.dir);
 
-    if let Some(window_id) = window_id {
-        builder.env("WINDOWID", format!("{}", window_id));
-    }
+    // Set Window ID for clients relying on X11 hacks.
+    builder.env("WINDOWID", window_id);
 
     unsafe {
         builder.pre_exec(move || {

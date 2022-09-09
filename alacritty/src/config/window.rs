@@ -6,7 +6,7 @@ use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 use alacritty_terminal::index::Column;
 
@@ -201,7 +201,7 @@ pub struct Dimensions {
 }
 
 /// Window class hint.
-#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     pub general: String,
     pub instance: String,

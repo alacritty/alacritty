@@ -9,7 +9,7 @@ use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{
     Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
 };
@@ -30,7 +30,7 @@ use crate::config::window::WindowConfig;
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
-#[derive(ConfigDeserialize, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct UiConfig {
     /// Font configuration.
     pub font: Font,
@@ -145,7 +145,7 @@ impl UiConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
 struct KeyBindings(Vec<KeyBinding>);
 
 impl Default for KeyBindings {
@@ -163,7 +163,7 @@ impl<'de> Deserialize<'de> for KeyBindings {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
 struct MouseBindings(Vec<MouseBinding>);
 
 impl Default for MouseBindings {
@@ -223,7 +223,7 @@ pub struct Delta<T: Default> {
 }
 
 /// Regex terminal hints.
-#[derive(ConfigDeserialize, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hints {
     /// Characters for the hint labels.
     alphabet: HintsAlphabet,
@@ -273,7 +273,7 @@ impl Hints {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
 struct HintsAlphabet(String);
 
 impl Default for HintsAlphabet {

@@ -1,7 +1,7 @@
 use serde::de::Error as SerdeError;
 use serde::{Deserialize, Deserializer};
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
 /// Maximum scrollback amount configurable.
 pub const MAX_SCROLLBACK_LINES: u32 = 100_000;
@@ -31,7 +31,7 @@ impl Scrolling {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]
 struct ScrollingHistory(u32);
 
 impl Default for ScrollingHistory {

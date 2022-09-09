@@ -9,7 +9,7 @@ use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value as SerdeValue;
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
 use alacritty_terminal::config::Program;
 use alacritty_terminal::term::TermMode;
@@ -1191,7 +1191,7 @@ impl<'a> Deserialize<'a> for KeyBinding {
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.
-#[derive(Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
+#[derive(SerdeReplace, Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
 pub struct ModsWrapper(pub ModifiersState);
 
 impl ModsWrapper {

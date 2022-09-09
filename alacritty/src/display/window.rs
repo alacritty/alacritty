@@ -405,16 +405,6 @@ impl Window {
         self.window().request_user_attention(attention);
     }
 
-    #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    pub fn x11_window_id(&self) -> Option<usize> {
-        self.window().xlib_window().map(|xlib_window| xlib_window as usize)
-    }
-
-    #[cfg(any(not(feature = "x11"), target_os = "macos", windows))]
-    pub fn x11_window_id(&self) -> Option<usize> {
-        None
-    }
-
     pub fn id(&self) -> WindowId {
         self.window().id()
     }
