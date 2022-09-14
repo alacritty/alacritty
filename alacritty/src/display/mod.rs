@@ -1026,7 +1026,8 @@ impl Display {
 
         // Draw hyperlink uri preview.
         if has_highlighted_hint {
-            self.draw_hyperlink_preview(config, vi_cursor_point, display_offset);
+            let cursor_point = vi_cursor_point.or(Some(cursor_point));
+            self.draw_hyperlink_preview(config, cursor_point, display_offset);
         }
 
         // Frame event should be requested before swaping buffers, since it requires surface
@@ -1234,7 +1235,7 @@ impl Display {
     fn draw_hyperlink_preview(
         &mut self,
         config: &UiConfig,
-        vi_cursor_point: Option<Point>,
+        cursor_point: Option<Point>,
         display_offset: usize,
     ) {
         let num_cols = self.size_info.columns();
@@ -1260,7 +1261,7 @@ impl Display {
             // Prefer to show preview even when it'll likely obscure the highlighted hint, when
             // there's no place left for it.
             protected_lines.push(self.hint_mouse_point.map(|point| point.line));
-            protected_lines.push(vi_cursor_point.map(|point| point.line));
+            protected_lines.push(cursor_point.map(|point| point.line));
         }
 
         // Find the line in viewport we can draw preview on without obscuring protected lines.
