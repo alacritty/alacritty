@@ -1236,8 +1236,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
-                            // Clear preedit.
-                            self.ctx.display.ime.set_preedit(None);
                             *self.ctx.dirty = true;
 
                             for ch in text.chars() {
@@ -1253,9 +1251,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                                 Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
                             };
 
-                            self.ctx.display.ime.set_preedit(preedit);
-                            self.ctx.update_cursor_blinking();
-                            *self.ctx.dirty = true;
+                            if self.ctx.display.ime.preedit() != preedit.as_ref() {
+                                self.ctx.display.ime.set_preedit(preedit);
+                                self.ctx.update_cursor_blinking();
+                                *self.ctx.dirty = true;
+                            }
                         },
                         Ime::Enabled => {
                             self.ctx.display.ime.set_enabled(true);
