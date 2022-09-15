@@ -419,7 +419,7 @@ impl Ime {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Preedit {
     /// The preedit text.
     text: String,
