@@ -12,6 +12,7 @@ use crate::ansi::{CursorShape, CursorStyle};
 
 pub use crate::config::scrolling::{Scrolling, MAX_SCROLLBACK_LINES};
 
+/// Logging target for config error messages.
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 
 const MIN_BLINK_INTERVAL: u64 = 10;
