@@ -38,6 +38,7 @@ use crate::config::UiConfig;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
 use crate::input;
+use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
 
@@ -184,10 +185,20 @@ impl WindowContext {
         if !self.ipc_config.is_empty() {
             let mut config = (*self.config).clone();
 
-            // Apply each option.
-            for (key, value) in &self.ipc_config {
-                if let Err(err) = config.replace(key, value.clone()) {
-                    error!("Unable to override option '{}': {}", key, err);
+            // Apply each option, removing broken ones.
+            let mut i = 0;
+            while i < self.ipc_config.len() {
+                let (key, value) = &self.ipc_config[i];
+
+                match config.replace(key, value.clone()) {
+                    Err(err) => {
+                        error!(
+                            target: LOG_TARGET_IPC_CONFIG,
+                            "Unable to override option '{}': {}", key, err
+                        );
+                        self.ipc_config.swap_remove(i);
+                    },
+                    Ok(_) => i += 1,
                 }
             }
 
@@ -255,15 +266,21 @@ impl WindowContext {
     /// Update the IPC config overrides.
     #[cfg(unix)]
     pub fn update_ipc_config(&mut self, config: Rc<UiConfig>, ipc_config: IpcConfig) {
-        self.ipc_config.clear();
+        // Clear previous IPC errors.
+        self.message_buffer.remove_target(LOG_TARGET_IPC_CONFIG);
 
-        if !ipc_config.reset {
+        if ipc_config.reset {
+            self.ipc_config.clear();
+        } else {
             for option in &ipc_config.options {
                 // Separate config key/value.
                 let (key, value) = match option.split_once('=') {
                     Some(split) => split,
                     None => {
-                        error!("'{}': IPC config option missing value", option);
+                        error!(
+                            target: LOG_TARGET_IPC_CONFIG,
+                            "'{}': IPC config option missing value", option
+                        );
                         continue;
                     },
                 };
@@ -271,7 +288,10 @@ impl WindowContext {
                 // Try and parse value as yaml.
                 match serde_yaml::from_str(value) {
                     Ok(value) => self.ipc_config.push((key.to_owned(), value)),
-                    Err(err) => error!("'{}': Invalid IPC config value: {:?}", option, err),
+                    Err(err) => error!(
+                        target: LOG_TARGET_IPC_CONFIG,
+                        "'{}': Invalid IPC config value: {:?}", option, err
+                    ),
                 }
             }
         }

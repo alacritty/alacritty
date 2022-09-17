@@ -15,15 +15,27 @@ use std::{env, process};
 use glutin::event_loop::EventLoopProxy;
 use log::{self, Level, LevelFilter};
 
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
+
 use crate::cli::Options;
 use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 
+/// Logging target for IPC config error messages.
+pub const LOG_TARGET_IPC_CONFIG: &str = "alacritty_log_ipc_config";
+
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
+
 /// List of targets which will be logged by Alacritty.
-const ALLOWED_TARGETS: [&str; 4] =
-    ["alacritty_terminal", "alacritty_config_derive", "alacritty", "crossfont"];
+const ALLOWED_TARGETS: &[&str] = &[
+    LOG_TARGET_IPC_CONFIG,
+    LOG_TARGET_CONFIG,
+    "alacritty_config_derive",
+    "alacritty_terminal",
+    "alacritty",
+    "crossfont",
+];
 
 pub fn initialize(
     options: &Options,
