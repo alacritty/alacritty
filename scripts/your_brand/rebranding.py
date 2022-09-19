@@ -114,17 +114,21 @@ def revert_changes():
     replace_in_files("../../alacritty/Cargo.toml", brand_name, "alacritty")
 
 def main():
-    parser = argparse.ArgumentParser(description='Rebranding script')
-    parser.add_argument('--help', help='Place files from your brand folder here with the" + \
-         " same names as they appear in alacritty, put logo and log/compat files separately." + \
-            " You can use --brand for custom folder. And finnaly specify --new brand_name." + \
-                " Optionally create LICENSE file and WELCOME_MESSAGE' + \
-                    "revert changes with --revert" + \
-                        "it's important to run this script from 'your_brand' directory"
-                    " Example: python3 rebranding.py --brand my_brand --new my_brand")
-    parser.add_argument('--new', required=True, help='New name')
+    """"
+    
+    """
+    parser = argparse.ArgumentParser(description='''Place files from your brand folder here with the
+    same names as they appear in alacritty, put logo and log/compat files separately.\n
+    You can use --brand for custom folder. And finnaly specify --new brand_name.\n
+    Optionally create LICENSE file and WELCOME_MESSAGE\n
+    Revert changes with --revert\n
+    It's important to run this script from 'scripts/your_brand' directory\n
+    Example: python3 rebranding.py --brand my_brand --new my_brand''')
+    # parser.add_argument('--help', help=)
+    parser.add_argument('--new', help='New name')
     parser.add_argument('--revert', action=argparse.BooleanOptionalAction, help='Revert changes')
     parser.add_argument('--brand', help='Absolute path to your brand folder [default .]')
+    parser.print_help()
     args = parser.parse_args()
 
     if not args.brand:
