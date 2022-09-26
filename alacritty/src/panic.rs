@@ -16,7 +16,7 @@ pub fn attach_handler() {
         let msg = format!("{}\n\nPress Ctrl-C to Copy", panic_info);
         unsafe {
             MessageBoxW(
-                0 as HWND,
+                0isize,
                 win32_string(&msg).as_ptr(),
                 win32_string("Alacritty: Runtime Error").as_ptr(),
                 MB_ICONERROR | MB_OK | MB_SETFOREGROUND | MB_TASKMODAL,
