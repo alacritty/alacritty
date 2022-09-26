@@ -39,7 +39,7 @@ dependencies = [
  "serde_yaml",
  "unicode-width",
  "wayland-client",
- "winapi 0.3.9",
+ "windows-sys",
  "x11-dl",
  "xdg",
 ]
@@ -91,7 +91,7 @@ dependencies = [
  "signal-hook-mio",
  "unicode-width",
  "vte",
- "winapi 0.3.9",
+ "windows-sys",
 ]
 
 [[package]]

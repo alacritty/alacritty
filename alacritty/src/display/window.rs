@@ -47,8 +47,6 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, Rect, WindowedContext};
 use objc::{msg_send, sel, sel_impl};
 #[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-#[cfg(windows)]
-use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::index::Point;
 
@@ -63,7 +61,7 @@ static WINDOW_ICON: &[u8] = include_bytes!("../../extra/logo/compat/alacritty-te
 
 /// This should match the definition of IDI_ICON from `alacritty.rc`.
 #[cfg(windows)]
-const IDI_ICON: WORD = 0x101;
+const IDI_ICON: u16 = 0x101;
 
 /// Context creation flags from probing config.
 static GL_CONTEXT_CREATION_FLAGS: AtomicU8 = AtomicU8::new(GlContextFlags::SRGB.bits);
