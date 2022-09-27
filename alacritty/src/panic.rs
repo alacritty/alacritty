@@ -1,7 +1,6 @@
 use std::io::Write;
 use std::{io, panic};
 
-use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     MessageBoxW, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MB_TASKMODAL,
 };
