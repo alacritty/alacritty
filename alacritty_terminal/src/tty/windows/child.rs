@@ -31,7 +31,7 @@ impl ChildExitWatcher {
     pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
         let (event_tx, event_rx) = channel::<ChildEvent>();
 
-        let mut wait_handle = 0isize;
+        let mut wait_handle: HANDLE = 0;
         let sender_ref = Box::new(event_tx);
 
         let success = unsafe {
@@ -39,7 +39,7 @@ impl ChildExitWatcher {
                 &mut wait_handle,
                 child_handle,
                 Some(child_exit_callback),
-                Box::into_raw(sender_ref) as *mut c_void,
+                Box::into_raw(sender_ref).cast(),
                 INFINITE,
                 WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE,
             )

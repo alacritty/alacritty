@@ -39,7 +39,7 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 
 pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
-    let mut pty_handle = 0isize;
+    let mut pty_handle: HPCON = 0;
 
     // Passing 0 as the size parameter allows the "system default" buffer
     // size to be used. There may be small performance and memory advantages
