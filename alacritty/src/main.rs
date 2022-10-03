@@ -127,7 +127,7 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     // Setup glutin event loop.
     let window_event_loop = GlutinEventLoopBuilder::<Event>::with_user_event().build();
 
-    // Initialize the logger as soon as possible as to capture output from other subsystems.
+    // Initialize the logger as soon as possible to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
         .expect("Unable to initialize logger");
 
