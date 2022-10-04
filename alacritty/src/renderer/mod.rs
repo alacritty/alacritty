@@ -76,7 +76,7 @@ enum TextRendererProvider {
 pub struct Renderer {
     text_renderer: TextRendererProvider,
     rect_renderer: RectRenderer,
-    graphics_renderer: Option<GraphicsRenderer>,
+    graphics_renderer: GraphicsRenderer,
 }
 
 impl Renderer {
@@ -96,12 +96,13 @@ impl Renderer {
         let (text_renderer, rect_renderer, graphics_renderer) = if version.as_ref() >= "3.3" {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
-            let graphics_renderer = GraphicsRenderer::new()?;
-            (text_renderer, rect_renderer, Some(graphics_renderer))
+            let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Glsl3)?;
+            (text_renderer, rect_renderer, graphics_renderer)
         } else {
             let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
-            (text_renderer, rect_renderer, None)
+            let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Gles2)?;
+            (text_renderer, rect_renderer, graphics_renderer)
         };
 
         Ok(Self { text_renderer, rect_renderer, graphics_renderer })
@@ -228,12 +229,10 @@ impl Renderer {
     /// Run the required actions to apply changes for the graphics in the grid.
     #[inline]
     pub fn graphics_run_updates(&mut self, update_queues: UpdateQueues, size_info: &SizeInfo) {
-        if let Some(graphics_renderer) = self.graphics_renderer.as_mut() {
-            let result = graphics_renderer.run_updates(update_queues, size_info);
+        let result = self.graphics_renderer.run_updates(update_queues, size_info);
 
-            if result.contains(graphics::UpdateResult::NEED_RESET_ACTIVE_TEX) {
-                self.reset_active_tex();
-            }
+        if result.contains(graphics::UpdateResult::NEED_RESET_ACTIVE_TEX) {
+            self.reset_active_tex();
         }
     }
 
@@ -246,9 +245,7 @@ impl Renderer {
         rects: &mut Vec<RenderRect>,
         metrics: &Metrics,
     ) {
-        if let Some(graphics_renderer) = self.graphics_renderer.as_mut() {
-            graphics_renderer.draw(render_list, size_info, rects, metrics);
-        }
+        self.graphics_renderer.draw(render_list, size_info, rects, metrics);
 
         self.reset_active_tex();
     }
