@@ -330,6 +330,7 @@ impl Window {
             let mut buf = vec![0; reader.output_buffer_size()];
             let _ = reader.next_frame(&mut buf);
             Icon::from_rgba(buf, reader.info().width, reader.info().height)
+                .expect("invalid embedded icon format")
         };
 
         let builder = WindowBuilder::new()
@@ -342,7 +343,7 @@ impl Window {
             .with_fullscreen(window_config.fullscreen());
 
         #[cfg(feature = "x11")]
-        let builder = builder.with_window_icon(icon.ok());
+        let builder = builder.with_window_icon(Some(icon));
 
         #[cfg(feature = "x11")]
         let builder = match window_config.decorations_theme_variant() {
