@@ -326,11 +326,13 @@ impl Window {
     pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
-            let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            decoder.set_transformations(png::Transformations::normalize_to_color8());
             let mut reader = decoder.read_info().expect("invalid embedded icon");
             let mut buf = vec![0; reader.output_buffer_size()];
             let _ = reader.next_frame(&mut buf);
             Icon::from_rgba(buf, reader.info().width, reader.info().height)
+                .expect("invalid embedded icon format")
         };
 
         let builder = WindowBuilder::new()
@@ -343,7 +345,7 @@ impl Window {
             .with_fullscreen(window_config.fullscreen());
 
         #[cfg(feature = "x11")]
-        let builder = builder.with_window_icon(icon.ok());
+        let builder = builder.with_window_icon(Some(icon));
 
         #[cfg(feature = "x11")]
         let builder = match window_config.decorations_theme_variant() {
