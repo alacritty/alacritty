@@ -324,7 +324,8 @@ impl Window {
     pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
-            let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            decoder.set_transformations(png::Transformations::normalize_to_color8());
             let mut reader = decoder.read_info().expect("invalid embedded icon");
             let mut buf = vec![0; reader.output_buffer_size()];
             let _ = reader.next_frame(&mut buf);
