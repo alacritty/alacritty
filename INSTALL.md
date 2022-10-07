@@ -118,6 +118,16 @@ yum install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-deve
 yum group install "Development Tools"
 ```
 
+#### RHEL 8
+on RHEL 8, like RHEL 7, you need a few extra libraries to build Alacritty. Here's a `dnf`
+command that should install all of them. If something is still found to be
+missing, please open an issue. Notice that `xcb-util-devel` is not necessary on RHEL 8.
+
+```sh
+dnf install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel
+dnf group install "Development Tools"
+```
+
 #### openSUSE
 
 On openSUSE, you need a few extra libraries to build Alacritty. Here's
