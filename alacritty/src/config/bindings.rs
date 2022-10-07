@@ -674,6 +674,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
         C,        ModifiersState::CTRL | ModifiersState::SHIFT,
             +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~BindingMode::VI; Action::PasteSelection;
+        Insert,   ModifiersState::CTRL, ~BindingMode::VI; Action::Copy;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
         Plus,     ModifiersState::CTRL;  Action::IncreaseFontSize;

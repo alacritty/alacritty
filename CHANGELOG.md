@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
 - `window.decorations_theme_variant` to control both Wayland CSD and GTK theme variant on X11
 - Support for inline input method
+- Control+Insert is bound to Copy action on Windows/Linux by default
 
 ### Changed
 
