@@ -369,8 +369,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let display_offset = self.ctx.terminal().grid().display_offset();
         let old_point = self.ctx.mouse().point(&size_info, display_offset);
 
-        let x = min(max(x, 0), size_info.width() as i32 - 1) as usize;
-        let y = min(max(y, 0), size_info.height() as i32 - 1) as usize;
+        let x = x.clamp(0, size_info.width() as i32 - 1) as usize;
+        let y = y.clamp(0, size_info.height() as i32 - 1) as usize;
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -908,7 +908,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Check mouse icon state in relation to the message bar.
     fn message_bar_cursor_state(&self) -> Option<CursorIcon> {
         // Since search is above the message bar, the button is offset by search's height.
-        let search_height = if self.ctx.search_active() { 1 } else { 0 };
+        let search_height = usize::from(self.ctx.search_active());
 
         // Calculate Y position of the end of the last terminal line.
         let size = self.ctx.size_info();
@@ -977,8 +977,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         };
 
         // Scale number of lines scrolled based on distance to boundary.
-        let delta = delta as i32 / step as i32;
-        let event = Event::new(EventType::Scroll(Scroll::Delta(delta)), Some(window_id));
+        let event = Event::new(EventType::Scroll(Scroll::Delta(delta / step)), Some(window_id));
 
         // Schedule event.
         let timer_id = TimerId::new(Topic::SelectionScrolling, window_id);
