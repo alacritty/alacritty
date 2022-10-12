@@ -3,8 +3,8 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use glutin::event_loop::EventLoopProxy;
-use glutin::window::WindowId;
+use winit::event_loop::EventLoopProxy;
+use winit::window::WindowId;
 
 use crate::event::Event;
 

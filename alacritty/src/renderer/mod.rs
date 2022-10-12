@@ -1,8 +1,11 @@
 use std::collections::HashSet;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crossfont::Metrics;
+use glutin::context::PossiblyCurrentContext;
+use glutin::display::{GetGlDisplay, GlDisplay};
 use log::info;
 use once_cell::sync::OnceCell;
 
@@ -16,6 +19,7 @@ use crate::gl;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 use crate::renderer::shader::ShaderError;
 
+pub mod platform;
 pub mod rects;
 mod shader;
 mod text;
@@ -32,6 +36,9 @@ macro_rules! cstr {
     };
 }
 pub(crate) use cstr;
+
+/// Whether the OpenGL functions have been loaded.
+pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 pub enum Error {
@@ -80,7 +87,17 @@ impl Renderer {
     ///
     /// This will automatically pick between the GLES2 and GLSL3 renderer based on the GPU's
     /// supported OpenGL version.
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(context: &PossiblyCurrentContext) -> Result<Self, Error> {
+        // We need to load OpenGL functions once per instance, but only after we make our context
+        // current due to WGL limitations.
+        if !GL_FUNS_LOADED.swap(true, Ordering::Relaxed) {
+            let gl_display = context.display();
+            gl::load_with(|symbol| {
+                let symbol = CString::new(symbol).unwrap();
+                gl_display.get_proc_address(symbol.as_c_str()).cast()
+            });
+        }
+
         let (version, renderer) = unsafe {
             let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _);
             let version = CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _);
