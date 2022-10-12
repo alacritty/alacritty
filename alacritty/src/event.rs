@@ -13,20 +13,20 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
-use glutin::dpi::PhysicalSize;
-use glutin::event::{
-    ElementState, Event as GlutinEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
-};
-use glutin::event_loop::{
-    ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
-};
-use glutin::platform::run_return::EventLoopExtRunReturn;
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use glutin::platform::unix::EventLoopWindowTargetExtUnix;
-use glutin::window::WindowId;
 use log::{debug, error, info, warn};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
+use winit::dpi::PhysicalSize;
+use winit::event::{
+    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
+};
+use winit::event_loop::{
+    ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
+};
+use winit::platform::run_return::EventLoopExtRunReturn;
+#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+use winit::platform::unix::EventLoopWindowTargetExtUnix;
+use winit::window::WindowId;
 
 use crossfont::{self, Size};
 
@@ -81,9 +81,9 @@ impl Event {
     }
 }
 
-impl From<Event> for GlutinEvent<'_, Event> {
+impl From<Event> for WinitEvent<'_, Event> {
     fn from(event: Event) -> Self {
-        GlutinEvent::UserEvent(event)
+        WinitEvent::UserEvent(event)
     }
 }
 
@@ -1080,10 +1080,10 @@ impl Mouse {
 }
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
-    /// Handle events from glutin.
-    pub fn handle_event(&mut self, event: GlutinEvent<'_, Event>) {
+    /// Handle events from winit.
+    pub fn handle_event(&mut self, event: WinitEvent<'_, Event>) {
         match event {
-            GlutinEvent::UserEvent(Event { payload, .. }) => match payload {
+            WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::ScaleFactorChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
@@ -1171,8 +1171,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::IpcConfig(_) => (),
                 EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
             },
-            GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
-            GlutinEvent::WindowEvent { event, .. } => {
+            WinitEvent::RedrawRequested(_) => *self.ctx.dirty = true,
+            WinitEvent::WindowEvent { event, .. } => {
                 match event {
                     WindowEvent::CloseRequested => self.ctx.terminal.exit(),
                     WindowEvent::Resized(size) => {
@@ -1279,13 +1279,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Moved(_) => (),
                 }
             },
-            GlutinEvent::Suspended { .. }
-            | GlutinEvent::NewEvents { .. }
-            | GlutinEvent::DeviceEvent { .. }
-            | GlutinEvent::MainEventsCleared
-            | GlutinEvent::RedrawEventsCleared
-            | GlutinEvent::Resumed
-            | GlutinEvent::LoopDestroyed => (),
+            WinitEvent::Suspended { .. }
+            | WinitEvent::NewEvents { .. }
+            | WinitEvent::DeviceEvent { .. }
+            | WinitEvent::MainEventsCleared
+            | WinitEvent::RedrawEventsCleared
+            | WinitEvent::Resumed
+            | WinitEvent::LoopDestroyed => (),
         }
     }
 }
@@ -1327,6 +1327,30 @@ impl Processor {
         }
     }
 
+    /// Create initial window and load GL platform.
+    ///
+    /// This will initialize the OpenGL Api and pick a config that
+    /// will be used for the rest of the windows.
+    pub fn create_initial_window(
+        &mut self,
+        event_loop: &EventLoopWindowTarget<Event>,
+        proxy: EventLoopProxy<Event>,
+        options: WindowOptions,
+    ) -> Result<(), Box<dyn Error>> {
+        let window_context = WindowContext::initial(
+            event_loop,
+            proxy,
+            self.config.clone(),
+            options,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            self.wayland_event_queue.as_ref(),
+        )?;
+
+        self.windows.insert(window_context.id(), window_context);
+
+        Ok(())
+    }
+
     /// Create a new terminal window.
     pub fn create_window(
         &mut self,
@@ -1334,14 +1358,16 @@ impl Processor {
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let window_context = WindowContext::new(
-            self.config.clone(),
-            &options,
+        let window = self.windows.iter().next().as_ref().unwrap().1;
+        let window_context = window.additional(
             event_loop,
             proxy,
+            self.config.clone(),
+            options,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             self.wayland_event_queue.as_ref(),
         )?;
+
         self.windows.insert(window_context.id(), window_context);
         Ok(())
     }
@@ -1369,7 +1395,7 @@ impl Processor {
 
         let exit_code = event_loop.run_return(move |event, event_loop, control_flow| {
             if self.config.debug.print_events {
-                info!("glutin event: {:?}", event);
+                info!("winit event: {:?}", event);
             }
 
             // Ignore all events we do not care about.
@@ -1379,7 +1405,7 @@ impl Processor {
 
             match event {
                 // The event loop just got initialized. Create a window.
-                GlutinEvent::Resumed => {
+                WinitEvent::Resumed => {
                     // Creating window inside event loop is required for platforms like macOS to
                     // properly initialize state, like tab management. Othwerwise the first window
                     // won't handle tabs.
@@ -1388,9 +1414,11 @@ impl Processor {
                         None => return,
                     };
 
-                    if let Err(err) =
-                        self.create_window(event_loop, proxy.clone(), initial_window_options)
-                    {
+                    if let Err(err) = self.create_initial_window(
+                        event_loop,
+                        proxy.clone(),
+                        initial_window_options,
+                    ) {
                         // Log the error right away since we can't return it.
                         eprintln!("Error: {}", err);
                         *control_flow = ControlFlow::ExitWithCode(1);
@@ -1400,7 +1428,7 @@ impl Processor {
                     info!("Initialisation complete");
                 },
                 // Check for shutdown.
-                GlutinEvent::UserEvent(Event {
+                WinitEvent::UserEvent(Event {
                     window_id: Some(window_id),
                     payload: EventType::Terminal(TerminalEvent::Exit),
                 }) => {
@@ -1424,7 +1452,7 @@ impl Processor {
                     }
                 },
                 // Process all pending events.
-                GlutinEvent::RedrawEventsCleared => {
+                WinitEvent::RedrawEventsCleared => {
                     *control_flow = match scheduler.update() {
                         Some(instant) => ControlFlow::WaitUntil(instant),
                         None => ControlFlow::Wait,
@@ -1445,14 +1473,12 @@ impl Processor {
                             &proxy,
                             &mut clipboard,
                             &mut scheduler,
-                            GlutinEvent::RedrawEventsCleared,
+                            WinitEvent::RedrawEventsCleared,
                         );
                     }
                 },
                 // Process config update.
-                GlutinEvent::UserEvent(Event {
-                    payload: EventType::ConfigReload(path), ..
-                }) => {
+                WinitEvent::UserEvent(Event { payload: EventType::ConfigReload(path), .. }) => {
                     // Clear config logs from message bar for all terminals.
                     for window_context in self.windows.values_mut() {
                         if !window_context.message_buffer.is_empty() {
@@ -1472,7 +1498,7 @@ impl Processor {
                 },
                 // Process IPC config update.
                 #[cfg(unix)]
-                GlutinEvent::UserEvent(Event {
+                WinitEvent::UserEvent(Event {
                     payload: EventType::IpcConfig(ipc_config),
                     window_id,
                 }) => {
@@ -1485,14 +1511,14 @@ impl Processor {
                     }
                 },
                 // Create a new terminal window.
-                GlutinEvent::UserEvent(Event {
+                WinitEvent::UserEvent(Event {
                     payload: EventType::CreateWindow(options), ..
                 }) => {
                     // XXX Ensure that no context is current when creating a new window, otherwise
                     // it may lock the backing buffer of the surface of current context when asking
                     // e.g. EGL on Wayland to create a new context.
                     for window_context in self.windows.values_mut() {
-                        window_context.display.window.make_not_current();
+                        window_context.display.make_not_current();
                     }
 
                     if let Err(err) = self.create_window(event_loop, proxy.clone(), options) {
@@ -1500,7 +1526,7 @@ impl Processor {
                     }
                 },
                 // Process events affecting all windows.
-                GlutinEvent::UserEvent(event @ Event { window_id: None, .. }) => {
+                WinitEvent::UserEvent(event @ Event { window_id: None, .. }) => {
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
                             event_loop,
@@ -1512,9 +1538,9 @@ impl Processor {
                     }
                 },
                 // Process window-specific events.
-                GlutinEvent::WindowEvent { window_id, .. }
-                | GlutinEvent::UserEvent(Event { window_id: Some(window_id), .. })
-                | GlutinEvent::RedrawRequested(window_id) => {
+                WinitEvent::WindowEvent { window_id, .. }
+                | WinitEvent::UserEvent(Event { window_id: Some(window_id), .. })
+                | WinitEvent::RedrawRequested(window_id) => {
                     if let Some(window_context) = self.windows.get_mut(&window_id) {
                         window_context.handle_event(
                             event_loop,
@@ -1537,10 +1563,10 @@ impl Processor {
     }
 
     /// Check if an event is irrelevant and can be skipped.
-    fn skip_event(event: &GlutinEvent<'_, Event>) -> bool {
+    fn skip_event(event: &WinitEvent<'_, Event>) -> bool {
         match event {
-            GlutinEvent::NewEvents(StartCause::Init) => false,
-            GlutinEvent::WindowEvent { event, .. } => matches!(
+            WinitEvent::NewEvents(StartCause::Init) => false,
+            WinitEvent::WindowEvent { event, .. } => matches!(
                 event,
                 WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
@@ -1552,10 +1578,10 @@ impl Processor {
                     | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_)
             ),
-            GlutinEvent::Suspended { .. }
-            | GlutinEvent::NewEvents { .. }
-            | GlutinEvent::MainEventsCleared
-            | GlutinEvent::LoopDestroyed => true,
+            WinitEvent::Suspended { .. }
+            | WinitEvent::NewEvents { .. }
+            | WinitEvent::MainEventsCleared
+            | WinitEvent::LoopDestroyed => true,
             _ => false,
         }
     }

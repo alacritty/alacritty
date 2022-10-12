@@ -1,7 +1,7 @@
 use std::cmp;
 use std::iter::Peekable;
 
-use glutin::Rect;
+use glutin::surface::Rect;
 
 use alacritty_terminal::term::{LineDamageBounds, TermDamageIterator};
 
@@ -25,17 +25,23 @@ impl<'a> RenderDamageIterator<'a> {
         let x = size_info.padding_x() + line_damage.left as u32 * size_info.cell_width();
         let y = y_top - (line_damage.line + 1) as u32 * size_info.cell_height();
         let width = (line_damage.right - line_damage.left + 1) as u32 * size_info.cell_width();
-        Rect { x, y, height: size_info.cell_height(), width }
+        Rect::new(x as i32, y as i32, width as i32, size_info.cell_height() as i32)
     }
 
     // Make sure to damage near cells to include wide chars.
     #[inline]
     fn overdamage(&self, mut rect: Rect) -> Rect {
         let size_info = &self.size_info;
-        rect.x = rect.x.saturating_sub(size_info.cell_width());
-        rect.width = cmp::min(size_info.width() - rect.x, rect.width + 2 * size_info.cell_width());
-        rect.y = rect.y.saturating_sub(size_info.cell_height() / 2);
-        rect.height = cmp::min(size_info.height() - rect.y, rect.height + size_info.cell_height());
+        rect.x = rect.x.saturating_sub(size_info.cell_width() as i32);
+        rect.width = cmp::min(
+            size_info.width() as i32 - rect.x,
+            rect.width + 2 * size_info.cell_width() as i32,
+        );
+        rect.y = rect.y.saturating_sub(size_info.cell_height() as i32 / 2);
+        rect.height = cmp::min(
+            size_info.height() as i32 - rect.y,
+            rect.height + size_info.cell_height() as i32,
+        );
 
         rect
     }
@@ -63,7 +69,7 @@ impl<'a> Iterator for RenderDamageIterator<'a> {
     }
 }
 
-/// Check if two given [`glutin::Rect`] overlap.
+/// Check if two given [`glutin::surface::Rect`] overlap.
 fn rects_overlap(lhs: Rect, rhs: Rect) -> bool {
     !(
         // `lhs` is left of `rhs`.
@@ -77,12 +83,12 @@ fn rects_overlap(lhs: Rect, rhs: Rect) -> bool {
     )
 }
 
-/// Merge two [`glutin::Rect`] by producing the smallest rectangle that contains both.
+/// Merge two [`glutin::surface::Rect`] by producing the smallest rectangle that contains both.
 #[inline]
 fn merge_rects(lhs: Rect, rhs: Rect) -> Rect {
     let left_x = cmp::min(lhs.x, rhs.x);
     let right_x = cmp::max(lhs.x + lhs.width, rhs.x + rhs.width);
     let y_top = cmp::max(lhs.y + lhs.height, rhs.y + rhs.height);
     let y_bottom = cmp::min(lhs.y, rhs.y);
-    Rect { x: left_x, y: y_bottom, width: right_x - left_x, height: y_top - y_bottom }
+    Rect::new(left_x, y_bottom, right_x - left_x, y_top - y_bottom)
 }

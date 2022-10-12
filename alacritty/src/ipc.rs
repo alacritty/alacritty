@@ -6,9 +6,9 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::{env, fs, process};
 
-use glutin::event_loop::EventLoopProxy;
-use glutin::window::WindowId;
 use log::warn;
+use winit::event_loop::EventLoopProxy;
+use winit::window::WindowId;
 
 use alacritty_terminal::thread;
 
