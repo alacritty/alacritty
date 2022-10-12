@@ -71,14 +71,14 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             for stroke_size in 0..2 * stroke_size {
                 let stroke_size = stroke_size as f32 / 2.;
                 if character == '\u{2571}' || character == '\u{2573}' {
-                    let h = y_end - stroke_size as f32;
+                    let h = y_end - stroke_size;
                     let from_y = f_x(from_x, h);
                     let to_y = f_x(to_x, h);
                     canvas.draw_line(from_x, from_y, to_x, to_y);
                 }
                 if character == '\u{2572}' || character == '\u{2573}' {
-                    let from_y = g_x(from_x, stroke_size as f32);
-                    let to_y = g_x(to_x, stroke_size as f32);
+                    let from_y = g_x(from_x, stroke_size);
+                    let to_y = g_x(to_x, stroke_size);
                     canvas.draw_line(from_x, from_y, to_x, to_y);
                 }
             }
@@ -345,7 +345,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             if character == '\u{256d}' || character == '\u{2570}' {
                 let center = canvas.x_center() as usize;
 
-                let extra_offset = if stroke_size % 2 == width % 2 { 0 } else { 1 };
+                let extra_offset = usize::from(stroke_size % 2 != width % 2);
 
                 let buffer = canvas.buffer_mut();
                 for y in 1..height {
@@ -363,7 +363,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             if character == '\u{256d}' || character == '\u{256e}' {
                 let center = canvas.y_center() as usize;
 
-                let extra_offset = if stroke_size % 2 == height % 2 { 0 } else { 1 };
+                let extra_offset = usize::from(stroke_size % 2 != height % 2);
 
                 let buffer = canvas.buffer_mut();
                 if extra_offset != 0 {
@@ -422,7 +422,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
 
             let x = match character {
                 '\u{2590}' => canvas.x_center(),
-                '\u{2595}' => width as f32 - rect_width,
+                '\u{2595}' => width - rect_width,
                 _ => 0.,
             };
 
@@ -592,13 +592,13 @@ impl Canvas {
     /// Draws a horizontal straight line from (`x`, `y`) of `size` with the given `stroke_size`.
     fn draw_h_line(&mut self, x: f32, y: f32, size: f32, stroke_size: usize) {
         let (start_y, end_y) = self.h_line_bounds(y, stroke_size);
-        self.draw_rect(x, start_y as f32, size, (end_y - start_y) as f32, COLOR_FILL);
+        self.draw_rect(x, start_y, size, end_y - start_y, COLOR_FILL);
     }
 
     /// Draws a vertical straight line from (`x`, `y`) of `size` with the given `stroke_size`.
     fn draw_v_line(&mut self, x: f32, y: f32, size: f32, stroke_size: usize) {
         let (start_x, end_x) = self.v_line_bounds(x, stroke_size);
-        self.draw_rect(start_x as f32, y, (end_x - start_x) as f32, size, COLOR_FILL);
+        self.draw_rect(start_x, y, end_x - start_x, size, COLOR_FILL);
     }
 
     /// Draws a rect from the (`x`, `y`) of the given `width` and `height` using `color`.
@@ -750,7 +750,7 @@ impl Canvas {
 
                 let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.);
                 let x = x.clamp(0., v_line_bounds.1 as f32 - 1.);
-                let y = y.clamp(0., radius_y as f32);
+                let y = y.clamp(0., radius_y);
 
                 self.put_pixel(x, y, color_1);
                 self.put_pixel(x_next, y, color_2);

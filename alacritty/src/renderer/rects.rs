@@ -333,7 +333,7 @@ impl RectRenderer {
                     continue;
                 }
 
-                self.program.set_rect_kind(rect_kind as u8);
+                self.program.set_rect_kind(rect_kind);
 
                 // Upload accumulated undercurl vertices.
                 gl::BufferData(
