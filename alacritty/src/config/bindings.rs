@@ -899,7 +899,7 @@ struct RawBinding {
 }
 
 impl RawBinding {
-    fn into_mouse_binding(self) -> Result<MouseBinding, Self> {
+    fn into_mouse_binding(self) -> Result<MouseBinding, Box<Self>> {
         if let Some(mouse) = self.mouse {
             Ok(Binding {
                 trigger: mouse,
@@ -909,11 +909,11 @@ impl RawBinding {
                 notmode: self.notmode,
             })
         } else {
-            Err(self)
+            Err(Box::new(self))
         }
     }
 
-    fn into_key_binding(self) -> Result<KeyBinding, Self> {
+    fn into_key_binding(self) -> Result<KeyBinding, Box<Self>> {
         if let Some(key) = self.key {
             Ok(KeyBinding {
                 trigger: key,
@@ -923,7 +923,7 @@ impl RawBinding {
                 notmode: self.notmode,
             })
         } else {
-            Err(self)
+            Err(Box::new(self))
         }
     }
 }
