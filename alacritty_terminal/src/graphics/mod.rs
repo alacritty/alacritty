@@ -238,7 +238,7 @@ impl GraphicData {
 }
 
 /// Operation to clear a subregion in an existing graphic.
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
 pub struct ClearSubregion {
     /// Graphics identifier.
     pub id: GraphicId,
