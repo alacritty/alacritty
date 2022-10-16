@@ -80,9 +80,8 @@ pub struct GraphicsShaderProgram {
 }
 
 impl GraphicsShaderProgram {
-    pub fn new() -> Result<Self, ShaderError> {
-        let shader =
-            ShaderProgram::new(ShaderVersion::Glsl3, GRAPHICS_SHADER_V, GRAPHICS_SHADER_F)?;
+    pub fn new(shader_version: ShaderVersion) -> Result<Self, ShaderError> {
+        let shader = ShaderProgram::new(shader_version, GRAPHICS_SHADER_V, GRAPHICS_SHADER_F)?;
 
         let u_cell_dimensions;
         let u_view_dimensions;
@@ -119,7 +118,7 @@ impl GraphicsShaderProgram {
             gl::UseProgram(0);
         }
 
-        let (vao, vbo) = define_vertex_attributes();
+        let (vao, vbo) = define_vertex_attributes(shader_version);
 
         let shader = Self { shader, u_cell_dimensions, u_view_dimensions, u_textures, vao, vbo };
 
@@ -129,7 +128,7 @@ impl GraphicsShaderProgram {
 
 /// Build a Vertex Array Object (VAO) and a Vertex Buffer Object (VBO) for
 /// instances of the `Vertex` type.
-fn define_vertex_attributes() -> (GLuint, GLuint) {
+fn define_vertex_attributes(shader_version: ShaderVersion) -> (GLuint, GLuint) {
     let mut vao = 0;
     let mut vbo = 0;
 
@@ -171,8 +170,16 @@ fn define_vertex_attributes() -> (GLuint, GLuint) {
             };
         }
 
-        int_attr!(UNSIGNED_INT, texture_id);
-        int_attr!(UNSIGNED_BYTE, sides);
+        match shader_version {
+            ShaderVersion::Glsl3 => {
+                int_attr!(UNSIGNED_INT, texture_id);
+                int_attr!(UNSIGNED_BYTE, sides);
+            },
+            ShaderVersion::Gles2 => {
+                float_attr!(UNSIGNED_INT, texture_id);
+                float_attr!(UNSIGNED_BYTE, sides);
+            },
+        }
 
         float_attr!(UNSIGNED_INT, column);
         float_attr!(UNSIGNED_INT, line);

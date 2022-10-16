@@ -1,14 +1,41 @@
+#if defined(GLES2_RENDERER) ///////////////////////////////////////////
+
+precision highp float;
+
+#define FLAT
+#define IN                      varying
+
+#define INT                     float
+
+#define SWITCH(X)               int ind = int(X);
+#define CASE(N)                 if (ind == N) {gl_FragColor = texture2D(textures[N], texCoords); return;}
+#define DEFAULT(X)              X;
+#define END_SWITCH
+
+#else // GLSL3_RENDERER ///////////////////////////////////////////////
+
+#define FLAT                    flat
+#define IN                      in
+
+#define INT                     int
+
+#define SWITCH(X)               switch(X) {
+#define CASE(N)                 case N: color = texture(textures[N], texCoords); break;
+#define DEFAULT(X)              default: X;
+#define END_SWITCH              }
+
+out vec4 color;
+
+#endif ////////////////////////////////////////////////////////////////
+
 // Index in the textures[] uniform.
-flat in int texId;
+FLAT IN INT texId;
 
 // Texture coordinates.
-in vec2 texCoords;
+IN vec2 texCoords;
 
 // Array with graphics data.
 uniform sampler2D textures[16];
-
-// Computed color.
-out vec4 color;
 
 void main() {
     // The expression `textures[texId]` can't be used in OpenGL 3.3.
@@ -24,15 +51,23 @@ void main() {
     // or later (using `#version 400 core`). If Alacritty drops support
     // for OpenGL 3.3, this switch block can be replaced with it.
 
-
-#define TEX(N) case N: color = texture(textures[N], texCoords); break;
-
-    switch(texId) {
-        TEX( 0) TEX( 1) TEX( 2) TEX( 3)
-        TEX( 4) TEX( 5) TEX( 6) TEX( 7)
-        TEX( 8) TEX( 9) TEX(10) TEX(11)
-        TEX(12) TEX(13) TEX(14) TEX(15)
-        default:
-            discard;
-    }
+    SWITCH(texId)
+        CASE(0)
+        CASE(1)
+        CASE(2)
+        CASE(3)
+        CASE(4)
+        CASE(5)
+        CASE(6)
+        CASE(7)
+        CASE(8)
+        CASE(9)
+        CASE(10)
+        CASE(11)
+        CASE(12)
+        CASE(13)
+        CASE(14)
+        CASE(15)
+        DEFAULT(discard)
+    END_SWITCH
 }

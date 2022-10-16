@@ -3,7 +3,7 @@
 use std::mem;
 
 use crate::display::SizeInfo;
-use crate::renderer::RenderRect;
+use crate::renderer::{RenderRect, ShaderVersion};
 use alacritty_terminal::graphics::{
     ClearSubregion, ColorType, GraphicData, GraphicId, UpdateQueues,
 };
@@ -84,8 +84,8 @@ pub struct GraphicsRenderer {
 }
 
 impl GraphicsRenderer {
-    pub fn new() -> Result<GraphicsRenderer, renderer::Error> {
-        let program = shader::GraphicsShaderProgram::new()?;
+    pub fn new(shader_version: ShaderVersion) -> Result<GraphicsRenderer, renderer::Error> {
+        let program = shader::GraphicsShaderProgram::new(shader_version)?;
         let clear_texture_ext = check_opengl_extensions(&["GL_ARB_clear_texture"]);
         Ok(GraphicsRenderer { program, graphic_textures: HashMap::default(), clear_texture_ext })
     }
