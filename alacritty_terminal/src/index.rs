@@ -7,6 +7,8 @@ use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
+use alacritty_config_derive::SerdeReplace;
+
 use crate::grid::Dimensions;
 
 /// The side of a cell.
@@ -222,7 +224,19 @@ impl PartialEq<usize> for Line {
 /// A column.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(
+    SerdeReplace,
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Default,
+    Ord,
+    PartialOrd,
+)]
 pub struct Column(pub usize);
 
 impl fmt::Display for Column {

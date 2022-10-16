@@ -14,18 +14,18 @@ compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#
 
 #[cfg(target_os = "macos")]
 use std::env;
+use std::error::Error;
 use std::fmt::Write as _;
+use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::string::ToString;
-use std::{fs, process};
 
-use glutin::event_loop::EventLoop as GlutinEventLoop;
+use glutin::event_loop::EventLoopBuilder as GlutinEventLoopBuilder;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 #[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::tty;
 
@@ -62,7 +62,7 @@ use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
     panic::attach_handler();
 
@@ -78,25 +78,19 @@ fn main() {
     let options = Options::new();
 
     #[cfg(unix)]
-    let result = match options.subcommands {
+    match options.subcommands {
         Some(Subcommands::Msg(options)) => msg(options),
         None => alacritty(options),
-    };
+    }
 
     #[cfg(not(unix))]
-    let result = alacritty(options);
-
-    // Handle command failure.
-    if let Err(err) = result {
-        eprintln!("Error: {}", err);
-        process::exit(1);
-    }
+    alacritty(options)
 }
 
 /// `msg` subcommand entrypoint.
 #[cfg(unix)]
-fn msg(options: MessageOptions) -> Result<(), String> {
-    ipc::send_message(options.socket, options.message).map_err(|err| err.to_string())
+fn msg(options: MessageOptions) -> Result<(), Box<dyn Error>> {
+    ipc::send_message(options.socket, options.message).map_err(|err| err.into())
 }
 
 /// Temporary files stored for Alacritty.
@@ -129,9 +123,9 @@ impl Drop for TemporaryFiles {
 ///
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn alacritty(options: Options) -> Result<(), String> {
+fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     // Setup glutin event loop.
-    let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
+    let window_event_loop = GlutinEventLoopBuilder::<Event>::with_user_event().build();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
@@ -191,16 +185,8 @@ fn alacritty(options: Options) -> Result<(), String> {
     let window_options = options.window_options.clone();
     let mut processor = Processor::new(config, options, &window_event_loop);
 
-    // Create the first Alacritty window.
-    let proxy = window_event_loop.create_proxy();
-    processor
-        .create_window(&window_event_loop, proxy, window_options)
-        .map_err(|err| err.to_string())?;
-
-    info!("Initialisation complete");
-
     // Start event loop and block until shutdown.
-    processor.run(window_event_loop);
+    let result = processor.run(window_event_loop, window_options);
 
     // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
@@ -225,7 +211,8 @@ fn alacritty(options: Options) -> Result<(), String> {
     }
 
     info!("Goodbye");
-    Ok(())
+
+    result
 }
 
 fn log_config_path(config: &UiConfig) {

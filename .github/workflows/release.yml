@@ -50,7 +50,7 @@ jobs:
       - name: Crate msi installer
         run: |
           ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
-            -out "./alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+            -out "./alacritty.wixobj" "alacritty/windows/wix/alacritty.wxs"
           ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
             -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" -sice:ICE61 -sice:ICE91 \
             "./alacritty.wixobj"

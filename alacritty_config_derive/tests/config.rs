@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use log::{Level, Log, Metadata, Record};
+use serde::Deserialize;
 
-use alacritty_config_derive::ConfigDeserialize;
+use alacritty_config::SerdeReplace as _;
+use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
 #[derive(ConfigDeserialize, Debug, PartialEq, Eq)]
 enum TestEnum {
@@ -63,12 +65,16 @@ struct Test2<T: Default> {
     field3: usize,
     #[config(alias = "aliased")]
     field4: u8,
+    newtype: NewType,
 }
 
 #[derive(ConfigDeserialize, Default)]
 struct Test3 {
     flatty: usize,
 }
+
+#[derive(SerdeReplace, Deserialize, Default, PartialEq, Eq, Debug)]
+struct NewType(usize);
 
 #[test]
 fn config_deserialize() {
@@ -105,7 +111,7 @@ fn config_deserialize() {
     assert_eq!(test.enom_small, TestEnum::One);
     assert_eq!(test.enom_big, TestEnum::Three);
     assert_eq!(test.enom_error, Test::default().enom_error);
-    assert_eq!(test.gone, false);
+    assert!(!test.gone);
     assert_eq!(test.nesting.field1, Test::default().nesting.field1);
     assert_eq!(test.nesting.field2, None);
     assert_eq!(test.nesting.field3, Test::default().nesting.field3);
@@ -158,4 +164,34 @@ impl Log for Logger {
     }
 
     fn flush(&self) {}
+}
+
+#[test]
+fn field_replacement() {
+    let mut test = Test::default();
+
+    let value = serde_yaml::to_value(13).unwrap();
+    test.replace("nesting.field2", value).unwrap();
+
+    assert_eq!(test.nesting.field2, Some(13));
+}
+
+#[test]
+fn replace_derive() {
+    let mut test = Test::default();
+
+    let value = serde_yaml::to_value(9).unwrap();
+    test.replace("nesting.newtype", value).unwrap();
+
+    assert_eq!(test.nesting.newtype, NewType(9));
+}
+
+#[test]
+fn replace_flatten() {
+    let mut test = Test::default();
+
+    let value = serde_yaml::to_value(7).unwrap();
+    test.replace("flatty", value).unwrap();
+
+    assert_eq!(test.flatten.flatty, 7);
 }

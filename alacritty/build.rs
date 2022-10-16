@@ -13,7 +13,7 @@ fn main() {
     println!("cargo:rustc-env=VERSION={}", version);
 
     let dest = env::var("OUT_DIR").unwrap();
-    let mut file = File::create(&Path::new(&dest).join("gl_bindings.rs")).unwrap();
+    let mut file = File::create(Path::new(&dest).join("gl_bindings.rs")).unwrap();
 
     let extensions = ["GL_ARB_blend_func_extended", "GL_ARB_clear_texture"];
     Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, extensions)
@@ -21,12 +21,12 @@ fn main() {
         .unwrap();
 
     #[cfg(windows)]
-    embed_resource::compile("./windows/windows.rc");
+    embed_resource::compile("./windows/alacritty.rc");
 }
 
 fn commit_hash() -> Option<String> {
     Command::new("git")
-        .args(&["rev-parse", "--short", "HEAD"])
+        .args(["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
         .filter(|output| output.status.success())

@@ -54,6 +54,7 @@ impl<'a> RenderableContent<'a> {
         let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
             || search_state.regex().is_some()
+            || display.ime.preedit().is_some()
         {
             CursorShape::Hidden
         } else if !term.is_focused && config.terminal_config.cursor.unfocused_hollow {
@@ -423,6 +424,10 @@ impl RenderableCursor {
 }
 
 impl RenderableCursor {
+    pub fn new(point: Point<usize>, shape: CursorShape, cursor_color: Rgb, is_wide: bool) -> Self {
+        Self { shape, cursor_color, text_color: cursor_color, is_wide, point }
+    }
+
     pub fn color(&self) -> Rgb {
         self.cursor_color
     }

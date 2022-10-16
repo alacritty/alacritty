@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.17.0-dev"
+version = "0.17.1-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
@@ -11,12 +11,16 @@ rust-version = "1.57.0"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.1.0"
+version = "0.2.1-dev"
+
+[dependencies.alacritty_config]
+path = "../alacritty_config"
+version = "0.1.1-dev"
 
 [dependencies]
 libc = "0.2"
 bitflags = "1"
-parking_lot = "0.11.0"
+parking_lot = "0.12.0"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_yaml = "0.8"
 vte = { version = "0.10.0", default-features = false }
@@ -30,17 +34,20 @@ dirs = "4.0.0"
 smallvec = { version = "1.9.0", features = ["serde"] }
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.22.0"
+nix = "0.24.1"
 signal-hook = "0.3.10"
 signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 
 [target.'cfg(windows)'.dependencies]
 miow = "0.3"
-winapi = { version = "0.3.7", features = [
-    "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
-    "wincon", "wincontypes", "winerror", "winnt", "winuser", "consoleapi",
-]}
 mio-anonymous-pipes = "0.2"
+windows-sys = { version = "0.36", features = [
+    "Win32_System_Console",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+]}
 
 [dev-dependencies]
 serde_json = "1.0.0"

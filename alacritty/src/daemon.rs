@@ -18,7 +18,7 @@ use {
 #[cfg(not(windows))]
 use libc::pid_t;
 #[cfg(windows)]
-use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
+use windows_sys::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
 #[cfg(target_os = "macos")]
 use crate::macos;

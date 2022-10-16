@@ -27,7 +27,7 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-pub fn new(config: &PtyConfig, window_size: WindowSize, _window_id: Option<usize>) -> Result<Pty> {
+pub fn new(config: &PtyConfig, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
     conpty::new(config, window_size)
         .ok_or_else(|| Error::new(ErrorKind::Other, "failed to spawn conpty"))
 }

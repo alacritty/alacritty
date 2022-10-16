@@ -5,7 +5,9 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.11.0-dev
+## 0.12.0-dev
+
+## 0.11.0
 
 ### Packaging
 
@@ -27,9 +29,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `cursor.blink_timeout` to timeout cursor blinking after inactivity
 - Escape sequence to set hyperlinks (`OSC 8 ; params ; URI ST`)
 - Config `hints.enabled.hyperlinks` for hyperlink escape sequence hint highlight
+- `window.decorations_theme_variant` to control both Wayland CSD and GTK theme variant on X11
+- Support for inline input method
 
 ### Changed
 
+- No longer renders to macos and x11 windows that are fully occluded / not directly visible
 - The `--help` output was reworked with a new colorful syntax
 - OSC 52 is now disabled on unfocused windows
 - `SpawnNewInstance` no longer inherits initial `--command`
@@ -37,6 +42,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Deprecated `colors.search.bar`, use `colors.footer_bar` instead
 - On macOS, Alacritty now reads `AppleFontSmoothing` from user defaults to control font smoothing
 - Warn when either `columns` or `lines` is non-zero, but not both
+- Client side decorations should have proper text rendering now on Wayland
+- Config option `window.gtk_theme_variant`, you should use `window.decorations_theme_variant` instead
+- `--class` now sets both class part of WM_CLASS property and instance
+- `--class`'s `general` and `instance` options were swapped
+- Search bar is now respecting cursor thickness
+- On X11 the IME popup window is stuck at the bottom of the window due to Xlib limitations
+- IME no longer works in Vi mode when moving around
 
 ### Fixed
 
@@ -56,6 +68,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - On macOS, `font.use_thin_strokes` did not work since Big Sur
 - On macOS, trying to load a disabled font would crash
 - On macOS, Alacritty sessions did not appear in the list of tty sessions for `w` and `who`
+- Cursor not hiding on GNOME Wayland
+- Font having different scale factor after monitor powering off/on on X11
+- Viewport not updating after opening a new tabbed window on macOS
+- Terminal not exiting sometimes after closing all windows on macOS
+- CPU usage spikes due to mouse movements for unfocused windows on X11/Windows
+- First window on macOS not tabbed with system prefer tabs setting
+- Window being treaten as focused by default on Wayland
 
 ### Removed
 

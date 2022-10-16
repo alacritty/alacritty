@@ -1,27 +1,79 @@
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use)]
+#![cfg_attr(feature = "cargo-clippy", deny(warnings))]
+
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Error, Fields, Path};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use syn::parse::{self, Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::{GenericParam, Ident, LitStr, Path, Token, TypeParam};
 
-mod de_enum;
-mod de_struct;
+mod config_deserialize;
+mod serde_replace;
 
-/// Error if the derive was used on an unsupported type.
-const UNSUPPORTED_ERROR: &str = "ConfigDeserialize must be used on a struct with fields";
+/// Error message when attempting to flatten multiple fields.
+pub(crate) const MULTIPLE_FLATTEN_ERROR: &str =
+    "At most one instance of #[config(flatten)] is supported";
 
 #[proc_macro_derive(ConfigDeserialize, attributes(config))]
 pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    config_deserialize::derive(input)
+}
 
-    match input.data {
-        Data::Struct(DataStruct { fields: Fields::Named(fields), .. }) => {
-            de_struct::derive_deserialize(input.ident, input.generics, fields.named)
-        },
-        Data::Enum(data_enum) => de_enum::derive_deserialize(input.ident, data_enum),
-        _ => Error::new(input.ident.span(), UNSUPPORTED_ERROR).to_compile_error().into(),
-    }
+#[proc_macro_derive(SerdeReplace)]
+pub fn derive_serde_replace(input: TokenStream) -> TokenStream {
+    serde_replace::derive(input)
 }
 
 /// Verify that a token path ends with a specific segment.
 pub(crate) fn path_ends_with(path: &Path, segment: &str) -> bool {
     let segments = path.segments.iter();
     segments.last().map_or(false, |s| s.ident == segment)
+}
+
+/// Storage for all necessary generics information.
+#[derive(Default)]
+struct GenericsStreams {
+    unconstrained: TokenStream2,
+    constrained: TokenStream2,
+    phantoms: TokenStream2,
+}
+
+/// Create the necessary generics annotations.
+///
+/// This will create three different token streams, which might look like this:
+///  - unconstrained: `T`
+///  - constrained: `T: Default + Deserialize<'de>`
+///  - phantoms: `T: PhantomData<T>,`
+pub(crate) fn generics_streams<T>(params: &Punctuated<GenericParam, T>) -> GenericsStreams {
+    let mut generics = GenericsStreams::default();
+
+    for generic in params {
+        // NOTE: Lifetimes and const params are not supported.
+        if let GenericParam::Type(TypeParam { ident, .. }) = generic {
+            generics.unconstrained.extend(quote!( #ident , ));
+            generics.constrained.extend(quote! {
+                #ident : Default + serde::Deserialize<'de> + alacritty_config::SerdeReplace,
+            });
+            generics.phantoms.extend(quote! {
+                #ident : std::marker::PhantomData < #ident >,
+            });
+        }
+    }
+
+    generics
+}
+
+/// Field attribute.
+pub(crate) struct Attr {
+    ident: String,
+    param: Option<LitStr>,
+}
+
+impl Parse for Attr {
+    fn parse(input: ParseStream<'_>) -> parse::Result<Self> {
+        let ident = input.parse::<Ident>()?.to_string();
+        let param = input.parse::<Token![=]>().and_then(|_| input.parse()).ok();
+        Ok(Self { ident, param })
+    }
 }

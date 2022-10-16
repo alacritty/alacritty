@@ -1,7 +1,9 @@
 use std::io::Write;
-use std::{io, panic, ptr};
+use std::{io, panic};
 
-use winapi::um::winuser;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    MessageBoxW, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MB_TASKMODAL,
+};
 
 use alacritty_terminal::tty::windows::win32_string;
 
@@ -12,14 +14,11 @@ pub fn attach_handler() {
         let _ = writeln!(io::stderr(), "{}", panic_info);
         let msg = format!("{}\n\nPress Ctrl-C to Copy", panic_info);
         unsafe {
-            winuser::MessageBoxW(
-                ptr::null_mut(),
+            MessageBoxW(
+                0isize,
                 win32_string(&msg).as_ptr(),
                 win32_string("Alacritty: Runtime Error").as_ptr(),
-                winuser::MB_ICONERROR
-                    | winuser::MB_OK
-                    | winuser::MB_SETFOREGROUND
-                    | winuser::MB_TASKMODAL,
+                MB_ICONERROR | MB_OK | MB_SETFOREGROUND | MB_TASKMODAL,
             );
         }
     }));

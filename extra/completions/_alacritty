@@ -73,6 +73,17 @@ _arguments "${_arguments_options[@]}" \
 '--help[Print help information]' \
 && ret=0
 ;;
+(config)
+_arguments "${_arguments_options[@]}" \
+'-w+[Window ID for the new config]:WINDOW_ID: ' \
+'--window-id=[Window ID for the new config]:WINDOW_ID: ' \
+'()-r[Clear all runtime configuration changes]' \
+'()--reset[Clear all runtime configuration changes]' \
+'-h[Print help information]' \
+'--help[Print help information]' \
+'*::options -- Configuration file options \[example\: cursor.style=Beam\]:' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" \
 '*::subcommand -- The subcommand whose help message to display:' \
@@ -100,6 +111,11 @@ _alacritty_commands() {
     )
     _describe -t commands 'alacritty commands' commands "$@"
 }
+(( $+functions[_alacritty__msg__config_commands] )) ||
+_alacritty__msg__config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg config commands' commands "$@"
+}
 (( $+functions[_alacritty__msg__create-window_commands] )) ||
 _alacritty__msg__create-window_commands() {
     local commands; commands=()
@@ -119,6 +135,7 @@ _alacritty__msg__help_commands() {
 _alacritty__msg_commands() {
     local commands; commands=(
 'create-window:Create a new window in the same Alacritty process' \
+'config:Update the Alacritty configuration' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty msg commands' commands "$@"

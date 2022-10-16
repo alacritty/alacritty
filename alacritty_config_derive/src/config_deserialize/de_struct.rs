@@ -1,13 +1,12 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::parse::{self, Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Error, Field, GenericParam, Generics, Ident, LitStr, Token, Type, TypeParam};
+use syn::{Error, Field, Generics, Ident, Type};
 
-/// Error message when attempting to flatten multiple fields.
-const MULTIPLE_FLATTEN_ERROR: &str = "At most one instance of #[config(flatten)] is supported";
+use crate::{serde_replace, Attr, GenericsStreams, MULTIPLE_FLATTEN_ERROR};
+
 /// Use this crate's name as log target.
 const LOG_TARGET: &str = env!("CARGO_PKG_NAME");
 
@@ -18,20 +17,20 @@ pub fn derive_deserialize<T>(
 ) -> TokenStream {
     // Create all necessary tokens for the implementation.
     let GenericsStreams { unconstrained, constrained, phantoms } =
-        generics_streams(generics.params);
+        crate::generics_streams(&generics.params);
     let FieldStreams { flatten, match_assignments } = fields_deserializer(&fields);
     let visitor = format_ident!("{}Visitor", ident);
 
     // Generate deserialization impl.
-    let tokens = quote! {
+    let mut tokens = quote! {
         #[derive(Default)]
         #[allow(non_snake_case)]
-        struct #visitor < #unconstrained > {
+        struct #visitor <#unconstrained> {
             #phantoms
         }
 
-        impl<'de, #constrained> serde::de::Visitor<'de> for #visitor < #unconstrained > {
-            type Value = #ident < #unconstrained >;
+        impl <'de, #constrained> serde::de::Visitor<'de> for #visitor <#unconstrained> {
+            type Value = #ident <#unconstrained>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a mapping")
@@ -61,7 +60,7 @@ pub fn derive_deserialize<T>(
             }
         }
 
-        impl<'de, #constrained> serde::Deserialize<'de> for #ident < #unconstrained > {
+        impl <'de, #constrained> serde::Deserialize<'de> for #ident <#unconstrained> {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
                 D: serde::Deserializer<'de>,
@@ -70,6 +69,9 @@ pub fn derive_deserialize<T>(
             }
         }
     };
+
+    // Automatically implement [`alacritty_config::SerdeReplace`].
+    tokens.extend(serde_replace::derive_recursive(ident, generics, fields));
 
     tokens.into()
 }
@@ -176,51 +178,4 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
     });
 
     Ok(())
-}
-
-/// Field attribute.
-struct Attr {
-    ident: String,
-    param: Option<LitStr>,
-}
-
-impl Parse for Attr {
-    fn parse(input: ParseStream<'_>) -> parse::Result<Self> {
-        let ident = input.parse::<Ident>()?.to_string();
-        let param = input.parse::<Token![=]>().and_then(|_| input.parse()).ok();
-        Ok(Self { ident, param })
-    }
-}
-
-/// Storage for all necessary generics information.
-#[derive(Default)]
-struct GenericsStreams {
-    unconstrained: TokenStream2,
-    constrained: TokenStream2,
-    phantoms: TokenStream2,
-}
-
-/// Create the necessary generics annotations.
-///
-/// This will create three different token streams, which might look like this:
-///  - unconstrained: `T`
-///  - constrained: `T: Default + Deserialize<'de>`
-///  - phantoms: `T: PhantomData<T>,`
-fn generics_streams<T>(params: Punctuated<GenericParam, T>) -> GenericsStreams {
-    let mut generics = GenericsStreams::default();
-
-    for generic in params {
-        // NOTE: Lifetimes and const params are not supported.
-        if let GenericParam::Type(TypeParam { ident, .. }) = generic {
-            generics.unconstrained.extend(quote!( #ident , ));
-            generics.constrained.extend(quote! {
-                #ident : Default + serde::Deserialize<'de> ,
-            });
-            generics.phantoms.extend(quote! {
-                #ident : std::marker::PhantomData < #ident >,
-            });
-        }
-    }
-
-    generics
 }

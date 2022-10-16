@@ -63,7 +63,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
 
         // Watch all configuration file directories.
         for parent in &parents {
-            if let Err(err) = watcher.watch(&parent, RecursiveMode::NonRecursive) {
+            if let Err(err) = watcher.watch(parent, RecursiveMode::NonRecursive) {
                 debug!("Unable to watch config directory {:?}: {}", parent, err);
             }
         }

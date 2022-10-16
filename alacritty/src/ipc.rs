@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::{env, fs, process};
 
 use glutin::event_loop::EventLoopProxy;
+use glutin::window::WindowId;
 use log::warn;
 
 use alacritty_terminal::thread;
@@ -62,6 +63,14 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
                     let event = Event::new(EventType::CreateWindow(options), None);
                     let _ = event_proxy.send_event(event);
                 },
+                SocketMessage::Config(ipc_config) => {
+                    let window_id = ipc_config
+                        .window_id
+                        .and_then(|id| u64::try_from(id).ok())
+                        .map(WindowId::from);
+                    let event = Event::new(EventType::IpcConfig(ipc_config), window_id);
+                    let _ = event_proxy.send_event(event);
+                },
             }
         }
     });
@@ -110,7 +119,7 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
     // Handle environment variable.
     if let Ok(path) = env::var(ALACRITTY_SOCKET_ENV) {
         let socket_path = PathBuf::from(path);
-        if let Ok(socket) = UnixStream::connect(&socket_path) {
+        if let Ok(socket) = UnixStream::connect(socket_path) {
             return Ok(socket);
         }
     }

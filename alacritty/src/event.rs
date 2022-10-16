@@ -9,12 +9,17 @@ use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton, WindowEvent};
-use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget};
+use glutin::event::{
+    ElementState, Event as GlutinEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
+};
+use glutin::event_loop::{
+    ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
+};
 use glutin::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
@@ -34,6 +39,8 @@ use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 
+#[cfg(unix)]
+use crate::cli::IpcConfig;
 use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
@@ -43,7 +50,7 @@ use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
-use crate::display::{Display, SizeInfo};
+use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -89,6 +96,8 @@ pub enum EventType {
     Message(Message),
     Scroll(Scroll),
     CreateWindow(WindowOptions),
+    #[cfg(unix)]
+    IpcConfig(IpcConfig),
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
@@ -180,7 +189,7 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut ModifiersState,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
-    pub config: &'a mut UiConfig,
+    pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
@@ -188,6 +197,7 @@ pub struct ActionContext<'a, N, T> {
     pub search_state: &'a mut SearchState,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
+    pub occluded: &'a mut bool,
     pub preserve_title: bool,
     #[cfg(not(windows))]
     pub master_fd: RawFd,
@@ -470,6 +480,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 Direction::Left => Point::new(viewport_bottom, last_column),
             };
         }
+
+        // Enable IME so we can input into the search bar with it if we were in Vi mode.
+        self.window().set_ime_allowed(true);
 
         self.display.pending_update.dirty = true;
     }
@@ -781,7 +794,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Toggle the vi mode status.
     #[inline]
     fn toggle_vi_mode(&mut self) {
-        if self.terminal.mode().contains(TermMode::VI) {
+        let was_in_vi_mode = self.terminal.mode().contains(TermMode::VI);
+        if was_in_vi_mode {
             // If we had search running when leaving Vi mode we should mark terminal fully damaged
             // to cleanup highlighted results.
             if self.search_state.dfas.take().is_some() {
@@ -797,6 +811,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.search_active() {
             self.cancel_search();
         }
+
+        // We don't want IME in Vi mode.
+        self.window().set_ime_allowed(was_in_vi_mode);
 
         self.terminal.toggle_vi_mode();
 
@@ -931,6 +948,9 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Cleanup the search state.
     fn exit_search(&mut self) {
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+        self.window().set_ime_allowed(!vi_mode);
+
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
 
@@ -950,7 +970,8 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         // Check terminal cursor style.
         let terminal_blinking = self.terminal.cursor_style().blinking;
         let mut blinking = cursor_style.blinking_override().unwrap_or(terminal_blinking);
-        blinking &= vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR);
+        blinking &= (vi_mode || self.terminal().mode().contains(TermMode::SHOW_CURSOR))
+            && self.display().ime.preedit().is_none();
 
         // Update cursor blinking state.
         let window_id = self.display.window.id();
@@ -1146,6 +1167,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit => (),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),
                 },
+                #[cfg(unix)]
+                EventType::IpcConfig(_) => (),
                 EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
             },
             GlutinEvent::RedrawRequested(_) => *self.ctx.dirty = true,
@@ -1197,6 +1220,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.update_cursor_blinking();
                         self.on_focus_change(is_focused);
                     },
+                    WindowEvent::Occluded(occluded) => {
+                        *self.ctx.occluded = occluded;
+                    },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
                         self.ctx.write_to_pty((path + " ").into_bytes());
@@ -1207,6 +1233,38 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         if self.ctx.display().highlighted_hint.is_some() {
                             *self.ctx.dirty = true;
                         }
+                    },
+                    WindowEvent::Ime(ime) => match ime {
+                        Ime::Commit(text) => {
+                            *self.ctx.dirty = true;
+
+                            for ch in text.chars() {
+                                self.received_char(ch);
+                            }
+
+                            self.ctx.update_cursor_blinking();
+                        },
+                        Ime::Preedit(text, cursor_offset) => {
+                            let preedit = if text.is_empty() {
+                                None
+                            } else {
+                                Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
+                            };
+
+                            if self.ctx.display.ime.preedit() != preedit.as_ref() {
+                                self.ctx.display.ime.set_preedit(preedit);
+                                self.ctx.update_cursor_blinking();
+                                *self.ctx.dirty = true;
+                            }
+                        },
+                        Ime::Enabled => {
+                            self.ctx.display.ime.set_enabled(true);
+                            *self.ctx.dirty = true;
+                        },
+                        Ime::Disabled => {
+                            self.ctx.display.ime.set_enabled(false);
+                            *self.ctx.dirty = true;
+                        },
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
@@ -1241,7 +1299,7 @@ pub struct Processor {
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext>,
     cli_options: CliOptions,
-    config: UiConfig,
+    config: Rc<UiConfig>,
 }
 
 impl Processor {
@@ -1262,8 +1320,8 @@ impl Processor {
 
         Processor {
             windows: HashMap::new(),
+            config: Rc::new(config),
             cli_options,
-            config,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
         }
@@ -1277,7 +1335,7 @@ impl Processor {
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window_context = WindowContext::new(
-            &self.config,
+            self.config.clone(),
             &options,
             event_loop,
             proxy,
@@ -1289,9 +1347,16 @@ impl Processor {
     }
 
     /// Run the event loop.
-    pub fn run(&mut self, mut event_loop: EventLoop<Event>) {
+    ///
+    /// The result is exit code generate from the loop.
+    pub fn run(
+        &mut self,
+        mut event_loop: EventLoop<Event>,
+        initial_window_options: WindowOptions,
+    ) -> Result<(), Box<dyn Error>> {
         let proxy = event_loop.create_proxy();
         let mut scheduler = Scheduler::new(proxy.clone());
+        let mut initial_window_options = Some(initial_window_options);
 
         // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -1299,7 +1364,10 @@ impl Processor {
         #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
         let mut clipboard = Clipboard::new();
 
-        event_loop.run_return(|event, event_loop, control_flow| {
+        // Disable all device events, since we don't care about them.
+        event_loop.set_device_event_filter(DeviceEventFilter::Always);
+
+        let exit_code = event_loop.run_return(move |event, event_loop, control_flow| {
             if self.config.debug.print_events {
                 info!("glutin event: {:?}", event);
             }
@@ -1310,6 +1378,27 @@ impl Processor {
             }
 
             match event {
+                // The event loop just got initialized. Create a window.
+                GlutinEvent::Resumed => {
+                    // Creating window inside event loop is required for platforms like macOS to
+                    // properly initialize state, like tab management. Othwerwise the first window
+                    // won't handle tabs.
+                    let initial_window_options = match initial_window_options.take() {
+                        Some(initial_window_options) => initial_window_options,
+                        None => return,
+                    };
+
+                    if let Err(err) =
+                        self.create_window(event_loop, proxy.clone(), initial_window_options)
+                    {
+                        // Log the error right away since we can't return it.
+                        eprintln!("Error: {}", err);
+                        *control_flow = ControlFlow::ExitWithCode(1);
+                        return;
+                    }
+
+                    info!("Initialisation complete");
+                },
                 // Check for shutdown.
                 GlutinEvent::UserEvent(Event {
                     window_id: Some(window_id),
@@ -1354,7 +1443,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             GlutinEvent::RedrawEventsCleared,
@@ -1375,11 +1463,25 @@ impl Processor {
 
                     // Load config and update each terminal.
                     if let Ok(config) = config::reload(&path, &self.cli_options) {
-                        let old_config = mem::replace(&mut self.config, config);
+                        self.config = Rc::new(config);
 
                         for window_context in self.windows.values_mut() {
-                            window_context.update_config(&old_config, &self.config);
+                            window_context.update_config(self.config.clone());
                         }
+                    }
+                },
+                // Process IPC config update.
+                #[cfg(unix)]
+                GlutinEvent::UserEvent(Event {
+                    payload: EventType::IpcConfig(ipc_config),
+                    window_id,
+                }) => {
+                    for (_, window_context) in self
+                        .windows
+                        .iter_mut()
+                        .filter(|(id, _)| window_id.is_none() || window_id == Some(**id))
+                    {
+                        window_context.update_ipc_config(self.config.clone(), ipc_config.clone());
                     }
                 },
                 // Create a new terminal window.
@@ -1403,7 +1505,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             event.clone().into(),
@@ -1418,7 +1519,6 @@ impl Processor {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
-                            &mut self.config,
                             &mut clipboard,
                             &mut scheduler,
                             event,
@@ -1428,11 +1528,18 @@ impl Processor {
                 _ => (),
             }
         });
+
+        if exit_code == 0 {
+            Ok(())
+        } else {
+            Err(format!("Event loop terminated with code: {}", exit_code).into())
+        }
     }
 
     /// Check if an event is irrelevant and can be skipped.
     fn skip_event(event: &GlutinEvent<'_, Event>) -> bool {
         match event {
+            GlutinEvent::NewEvents(StartCause::Init) => false,
             GlutinEvent::WindowEvent { event, .. } => matches!(
                 event,
                 WindowEvent::KeyboardInput { is_synthetic: true, .. }
