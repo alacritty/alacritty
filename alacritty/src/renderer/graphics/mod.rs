@@ -23,7 +23,7 @@ mod draw;
 mod shader;
 
 /// Max. number of textures stored in the GPU.
-const MAX_TEXTURES_COUNT: usize = 100;
+const MAX_TEXTURES_COUNT: usize = 1000;
 
 pub use draw::RenderList;
 

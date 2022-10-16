@@ -44,6 +44,9 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
 
+/// Max. number of graphics stored in a single cell.
+const MAX_GRAPHICS_PER_CELL: usize = 20;
+
 bitflags! {
     pub struct TermMode: u32 {
         const NONE                = 0;
@@ -2159,6 +2162,11 @@ impl<T: EventListener> Handler for Term<T> {
                                 cell_height as usize,
                             ) =>
                     {
+                        // Ensure that we don't exceed the graphics limit per cell.
+                        while old_graphics.len() >= MAX_GRAPHICS_PER_CELL {
+                            drop(old_graphics.remove(0));
+                        }
+
                         old_graphics.push(graphic_cell);
                         old_graphics
                     },
