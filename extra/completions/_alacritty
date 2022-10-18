@@ -25,7 +25,7 @@ _alacritty() {
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
 '-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
-'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:instance> | <instance>,<general: ' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:general> | <general>,<instance: ' \
 '-h[Print help information]' \
 '--help[Print help information]' \
 '-V[Print version information]' \
@@ -67,7 +67,7 @@ _arguments "${_arguments_options[@]}" \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
 '-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
-'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:instance> | <instance>,<general: ' \
+'--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:general> | <general>,<instance: ' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help information]' \
 '--help[Print help information]' \
