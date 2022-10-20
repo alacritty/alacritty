@@ -426,7 +426,7 @@ pub struct RectShaderProgram {
 
 impl RectShaderProgram {
     pub fn new(shader_version: ShaderVersion, kind: RectKind) -> Result<Self, ShaderError> {
-        // XXX this should be in-sync with fragment shader defines.
+        // XXX: This must be in-sync with fragment shader defines.
         let header = match kind {
             RectKind::Undercurl => Some("#define DRAW_UNDERCURL\n"),
             RectKind::DottedUnderline => Some("#define DRAW_DOTTED\n"),
