@@ -2037,41 +2037,49 @@ impl<T: EventListener> Handler for Term<T> {
         let (ps, pv) = match pi {
             1 => {
                 match pa {
-                    1 => (0, &[sixel::MAX_COLOR_REGISTERS][..]), // current value is always the maximum
+                    1 => (0, &[sixel::MAX_COLOR_REGISTERS][..]), // current value is always the
+                    // maximum
                     2 => (3, &[][..]), // Report unsupported
                     3 => (3, &[][..]), // Report unsupported
                     4 => (0, &[sixel::MAX_COLOR_REGISTERS][..]),
                     _ => (2, &[][..]), // Report error in Pa
                 }
-            }
+            },
+
             2 => {
                 match pa {
                     1 => {
-                        self.event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(move |window_size| {
-                            let width = window_size.num_cols * window_size.cell_width;
-                            let height = window_size.num_lines * window_size.cell_height;
-                            let graphic_dimensions = [
-                                cmp::min(width as usize, MAX_GRAPHIC_DIMENSIONS[0]),
-                                cmp::min(height as usize, MAX_GRAPHIC_DIMENSIONS[1])];
+                        self.event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(
+                            move |window_size| {
+                                let width = window_size.num_cols * window_size.cell_width;
+                                let height = window_size.num_lines * window_size.cell_height;
+                                let graphic_dimensions = [
+                                    cmp::min(width as usize, MAX_GRAPHIC_DIMENSIONS[0]),
+                                    cmp::min(height as usize, MAX_GRAPHIC_DIMENSIONS[1]),
+                                ];
 
-                            let (ps, pv) = (0, &graphic_dimensions[..]);
-                            generate_response(pi, ps, pv)
-                        })));
+                                let (ps, pv) = (0, &graphic_dimensions[..]);
+                                generate_response(pi, ps, pv)
+                            },
+                        )));
                         return;
-                    }
+                    },
                     2 => (3, &[][..]), // Report unsupported
                     3 => (3, &[][..]), // Report unsupported
                     4 => (0, &MAX_GRAPHIC_DIMENSIONS[..]),
                     _ => (2, &[][..]), // Report error in Pa
                 }
-            }
+            },
+
             3 => {
                 (1, &[][..]) // Report error in Pi (ReGIS unknown)
-            }
+            },
+
             _ => {
                 (1, &[][..]) // Report error in Pi
-            }
+            },
         };
+
         self.event_proxy.send_event(Event::PtyWrite(generate_response(pi, ps, pv)));
     }
 
