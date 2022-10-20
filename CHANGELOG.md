@@ -21,7 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Support for Sixel protocol
 - Track and report surface damage information to Wayland compositors
 - Escape sequence for undercurl, dotted and dashed underlines (`CSI 4 : [3-5] m`)
 - `ToggleMaximized` key binding action to (un-)maximize the active window, not bound by default
