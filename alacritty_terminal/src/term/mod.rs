@@ -2225,6 +2225,8 @@ impl<T: EventListener> Handler for Term<T> {
 
                 cell.set_graphics(graphics);
                 *cell_ref = cell;
+
+                self.damage.damage_point(Point::new(line.0 as usize, Column(left)));
             }
 
             if scrolling && offset_y < height.saturating_sub(cell_height as u16) {
