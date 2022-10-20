@@ -26,10 +26,6 @@ uniform float_t underlineThickness;
 
 uniform float_t undercurlPosition;
 
-#define UNDERCURL 1
-#define DOTTED 2
-#define DASHED 3
-
 #define PI 3.1415926538
 
 #if defined(DRAW_UNDERCURL)
