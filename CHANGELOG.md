@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - `--help` output for `--class` does not match man pages
 - Cursor and underlines always being black on very old hardware
+- Crash when using very low negative `font.offset`
 
 ## 0.11.0
 
