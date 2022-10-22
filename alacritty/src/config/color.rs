@@ -227,14 +227,14 @@ pub struct BrightColors {
 impl Default for BrightColors {
     fn default() -> Self {
         BrightColors {
-            black: Rgb { r: 0x66, g: 0x66, b: 0x66 },
-            red: Rgb { r: 0xd5, g: 0x4e, b: 0x53 },
-            green: Rgb { r: 0xb9, g: 0xca, b: 0x4a },
-            yellow: Rgb { r: 0xe7, g: 0xc5, b: 0x47 },
-            blue: Rgb { r: 0x7a, g: 0xa6, b: 0xda },
-            magenta: Rgb { r: 0xc3, g: 0x97, b: 0xd8 },
-            cyan: Rgb { r: 0x70, g: 0xc0, b: 0xb1 },
-            white: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            black: Rgb { r: 0x5a, g: 0x60, b: 0x66 },
+            red: Rgb { r: 0xff, g: 0x80, b: 0x80 },
+            green: Rgb { r: 0xf2, g: 0xfd, b: 0x8b },
+            yellow: Rgb { r: 0xff, g: 0xdd, b: 0x99 },
+            blue: Rgb { r: 0xad, g: 0xd8, b: 0xff },
+            magenta: Rgb { r: 0xee, g: 0xc6, b: 0xfa },
+            cyan: Rgb { r: 0xb9, g: 0xff, b: 0xf5 },
+            white: Rgb { r: 0xfb, g: 0xff, b: 0xfc },
         }
     }
 }
