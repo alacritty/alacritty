@@ -293,14 +293,14 @@
 
   # Bright colors
   #bright:
-  #  black:   '#666666'
-  #  red:     '#d54e53'
-  #  green:   '#b9ca4a'
-  #  yellow:  '#e7c547'
-  #  blue:    '#7aa6da'
-  #  magenta: '#c397d8'
-  #  cyan:    '#70c0b1'
-  #  white:   '#eaeaea'
+  #  black:   '#5a6066'
+  #  red:     '#ff8080'
+  #  green:   '#f2fd8b'
+  #  yellow:  '#ffdd99'
+  #  blue:    '#add8ff'
+  #  magenta: '#eec6fa'
+  #  cyan:    '#b9fff5'
+  #  white:   '#fbfffc'
 
   # Dim colors
   #
