@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.12.0-dev
 
+### Changed
+
+- Default bright colors are now derived from `Tomorrow Night` rather than using `Tomorrow Night Bright`
+
 ### Fixed
 
 - `--help` output for `--class` does not match man pages
