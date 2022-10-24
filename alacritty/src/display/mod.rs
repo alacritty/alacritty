@@ -35,7 +35,7 @@ use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MI
 use crate::config::font::Font;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
-use crate::config::window::{Dimensions, Identity};
+use crate::config::window::{Dimensions, Identity, VerticalAlign, HorizontalAlign};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
@@ -271,19 +271,47 @@ impl SizeInfo<f32> {
         height: f32,
         cell_width: f32,
         cell_height: f32,
-        mut padding_x: f32,
-        mut padding_y: f32,
-        dynamic_padding: bool,
+        padding_x: f32,
+        padding_y: f32,
+        valign: VerticalAlign,
+        halign: HorizontalAlign,
     ) -> SizeInfo {
-        if dynamic_padding {
-            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
-        }
+        let (padding_top, padding_bottom) = match valign {
+            VerticalAlign::Top => (0., padding_y),
+            VerticalAlign::Middle => {
+                let padding = padding_y.floor();
+                let padding = padding + ((height - 2. * padding) % cell_height) / 2.;
 
-        let lines = (height - 2. * padding_y) / cell_height;
+                (padding, padding)
+            },
+            VerticalAlign::Bottom => {
+                let padding = padding_y.floor();
+                let padding = padding + ((height - padding) % cell_height);
+
+                (padding, 0.0)
+            },
+        };
+
+        let (padding_left, padding_right) = match halign {
+            HorizontalAlign::Left => (0., padding_x),
+            HorizontalAlign::Center => {
+                let padding = padding_x.floor();
+                let padding = padding + ((width - 2. * padding) % cell_width) / 2.;
+
+                (padding, padding)
+            },
+            HorizontalAlign::Right => {
+                let padding = padding_x.floor();
+                let padding = padding + ((width - padding) % cell_width);
+
+                (padding, 0.0)
+            },
+        };
+
+        let lines = (height - padding_top - padding_bottom) / cell_height;
         let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
 
-        let columns = (width - 2. * padding_x) / cell_width;
+        let columns = (width - padding_left - padding_right) / cell_width;
         let columns = cmp::max(columns as usize, MIN_COLUMNS);
 
         SizeInfo {
@@ -291,10 +319,10 @@ impl SizeInfo<f32> {
             height,
             cell_width,
             cell_height,
-            padding_left: padding_x.floor(),
-            padding_right: padding_x.floor(),
-            padding_top: padding_y.floor(),
-            padding_bottom: padding_y.floor(),
+            padding_left: padding_left.floor(),
+            padding_right: padding_right.floor(),
+            padding_top: padding_top.floor(),
+            padding_bottom: padding_bottom.floor(),
             screen_lines,
             columns,
         }
@@ -314,12 +342,6 @@ impl SizeInfo<f32> {
             && x > self.padding_left as usize
             && y <= (self.padding_top + self.screen_lines as f32 * self.cell_height) as usize
             && y > self.padding_top as usize
-    }
-
-    /// Calculate padding to spread it evenly around the terminal content.
-    #[inline]
-    fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
-        padding + ((dimension - 2. * padding) % cell_dimension) / 2.
     }
 }
 
@@ -585,6 +607,7 @@ impl Display {
         }
 
         let padding = config.window.padding(window.scale_factor);
+        let align = config.window.align();
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
@@ -595,7 +618,8 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.window.dynamic_padding && dimensions.is_none(),
+            align.0,
+            align.1,
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -743,6 +767,7 @@ impl Display {
         }
 
         let padding = config.window.padding(self.window.scale_factor);
+        let align = config.window.align();
 
         self.size_info = SizeInfo::new_with_padding(
             width,
@@ -751,7 +776,8 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.window.dynamic_padding,
+            align.0,
+            align.1,
         );
 
         // Update number of column/lines in the viewport.

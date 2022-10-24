@@ -40,7 +40,13 @@ pub struct WindowConfig {
     decorations_theme_variant: Option<String>,
 
     /// Spread out additional padding evenly.
+    #[config(deprecated = "use window.valign and window.halign instead")]
     pub dynamic_padding: bool,
+
+    /// Vertical align for terminal content.
+    pub valign: VerticalAlign,
+    /// Horizontal align for terminal content.
+    pub halign: HorizontalAlign,
 
     /// Use dynamic title.
     pub dynamic_title: bool,
@@ -70,6 +76,8 @@ impl Default for WindowConfig {
             decorations_theme_variant: Default::default(),
             gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
+            valign: Default::default(),
+            halign: Default::default(),
             identity: Identity::default(),
             opacity: Default::default(),
             padding: Default::default(),
@@ -125,6 +133,15 @@ impl WindowConfig {
         let padding_x = (f32::from(self.padding.x) * scale_factor as f32).floor();
         let padding_y = (f32::from(self.padding.y) * scale_factor as f32).floor();
         (padding_x, padding_y)
+    }
+
+    #[inline]
+    pub fn align(&self) -> (VerticalAlign, HorizontalAlign) {
+        if self.valign == Default::default() && self.halign == Default::default() && self.dynamic_padding {
+            return (VerticalAlign::Middle, HorizontalAlign::Center)
+        }
+
+        return (self.valign, self.halign)
     }
 
     #[inline]
@@ -185,6 +202,32 @@ pub enum Decorations {
 impl Default for Decorations {
     fn default() -> Decorations {
         Decorations::Full
+    }
+}
+
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VerticalAlign {
+    Top,
+    Middle,
+    Bottom,
+}
+
+impl Default for VerticalAlign {
+    fn default() -> VerticalAlign {
+        VerticalAlign::Top
+    }
+}
+
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum HorizontalAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl Default for HorizontalAlign {
+    fn default() -> HorizontalAlign {
+        HorizontalAlign::Left
     }
 }
 

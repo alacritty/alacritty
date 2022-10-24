@@ -50,8 +50,10 @@
   #  x: 0
   #  y: 0
 
-  # Spread additional padding evenly around the terminal content.
-  #dynamic_padding: false
+  # Vertical align for terminal content.
+  #valign: middle
+  # Horizontal align for terminal content.
+  #halign: center
 
   # Window decorations
   #
