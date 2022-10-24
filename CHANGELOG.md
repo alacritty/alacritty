@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Option for padding align (`window.valign`, `window.halign`)
+- Options for padding align (`window.valign`, `window.halign`)
 
 ### Fixed
 

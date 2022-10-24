@@ -138,10 +138,10 @@ impl WindowConfig {
     #[inline]
     pub fn align(&self) -> (VerticalAlign, HorizontalAlign) {
         if self.valign == Default::default() && self.halign == Default::default() && self.dynamic_padding {
-            return (VerticalAlign::Middle, HorizontalAlign::Center)
+            return (VerticalAlign::Middle, HorizontalAlign::Center);
         }
 
-        return (self.valign, self.halign)
+        (self.valign, self.halign)
     }
 
     #[inline]
