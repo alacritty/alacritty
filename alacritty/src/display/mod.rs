@@ -210,12 +210,22 @@ impl<T: Clone + Copy> SizeInfo<T> {
     }
 
     #[inline]
-    pub fn padding_x(&self) -> T {
+    pub fn padding_left(&self) -> T {
         self.padding_x
     }
 
     #[inline]
-    pub fn padding_y(&self) -> T {
+    pub fn padding_right(&self) -> T {
+        self.padding_x
+    }
+
+    #[inline]
+    pub fn padding_top(&self) -> T {
+        self.padding_y
+    }
+
+    #[inline]
+    pub fn padding_bottom(&self) -> T {
         self.padding_y
     }
 }
@@ -553,7 +563,13 @@ impl Display {
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
-        info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
+        info!(
+            "Padding: {} {} {} {}",
+            size_info.padding_top(),
+            size_info.padding_right(),
+            size_info.padding_bottom(),
+            size_info.padding_left()
+        );
         info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
         // Update OpenGL projection.
@@ -754,7 +770,13 @@ impl Display {
             }
         }
 
-        info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
+        info!(
+            "Padding: {} {} {} {}",
+            self.size_info.padding_top(),
+            self.size_info.padding_right(),
+            self.size_info.padding_bottom(),
+            self.size_info.padding_left()
+        );
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
 
         // Damage the entire screen after processing update.
@@ -987,7 +1009,7 @@ impl Display {
 
             // Create a new rectangle for the background.
             let start_line = size_info.screen_lines() + search_offset;
-            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_y());
+            let y = size_info.cell_height().mul_add(start_line as f32, size_info.padding_top());
 
             let bg = match message.ty() {
                 MessageType::Error => config.colors.normal.red,
@@ -1393,8 +1415,8 @@ impl Display {
     /// This method also enqueues damage for the next frame automatically.
     fn damage_from_point(&self, point: Point<usize>, len: u32) -> DamageRect {
         let size_info: SizeInfo<u32> = self.size_info.into();
-        let x = size_info.padding_x() + point.column.0 as u32 * size_info.cell_width();
-        let y_top = size_info.height() - size_info.padding_y();
+        let x = size_info.padding_left() + point.column.0 as u32 * size_info.cell_width();
+        let y_top = size_info.height() - size_info.padding_top();
         let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
         let width = len * size_info.cell_width();
         DamageRect { x, y, width, height: size_info.cell_height() }

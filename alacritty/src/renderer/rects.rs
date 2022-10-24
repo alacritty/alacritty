@@ -144,8 +144,8 @@ impl RenderLine {
         }
 
         RenderRect::new(
-            start_x + size.padding_x(),
-            y + size.padding_y(),
+            start_x + size.padding_left(),
+            y + size.padding_top(),
             width,
             thickness,
             color,
@@ -455,7 +455,7 @@ impl RectShaderProgram {
         let position = (0.5 * metrics.descent).abs();
         let underline_position = metrics.descent.abs() - metrics.underline_position.abs();
 
-        let viewport_height = size_info.height() - size_info.padding_y();
+        let viewport_height = size_info.height() - size_info.padding_top();
         let padding_y = viewport_height
             - (viewport_height / size_info.cell_height()).floor() * size_info.cell_height();
 
@@ -470,7 +470,7 @@ impl RectShaderProgram {
                 gl::Uniform1f(u_padding_y, padding_y);
             }
             if let Some(u_padding_x) = self.u_padding_x {
-                gl::Uniform1f(u_padding_x, size_info.padding_x());
+                gl::Uniform1f(u_padding_x, size_info.padding_left());
             }
             if let Some(u_underline_position) = self.u_underline_position {
                 gl::Uniform1f(u_underline_position, underline_position);

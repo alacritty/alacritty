@@ -21,8 +21,8 @@ impl<'a> RenderDamageIterator<'a> {
     #[inline]
     fn rect_for_line(&self, line_damage: LineDamageBounds) -> Rect {
         let size_info = &self.size_info;
-        let y_top = size_info.height() - size_info.padding_y();
-        let x = size_info.padding_x() + line_damage.left as u32 * size_info.cell_width();
+        let y_top = size_info.height() - size_info.padding_top();
+        let x = size_info.padding_left() + line_damage.left as u32 * size_info.cell_width();
         let y = y_top - (line_damage.line + 1) as u32 * size_info.cell_height();
         let width = (line_damage.right - line_damage.left + 1) as u32 * size_info.cell_width();
         Rect { x, y, height: size_info.cell_height(), width }

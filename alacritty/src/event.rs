@@ -1069,10 +1069,10 @@ impl Mouse {
     /// coordinates will be clamped to the closest grid coordinates.
     #[inline]
     pub fn point(&self, size: &SizeInfo, display_offset: usize) -> Point {
-        let col = self.x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
+        let col = self.x.saturating_sub(size.padding_left() as usize) / (size.cell_width() as usize);
         let col = min(Column(col), size.last_column());
 
-        let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
+        let line = self.y.saturating_sub(size.padding_top() as usize) / (size.cell_height() as usize);
         let line = min(line, size.bottommost_line().0 as usize);
 
         term::viewport_to_point(display_offset, Point::new(line, col))

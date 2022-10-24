@@ -16,8 +16,8 @@ pub trait IntoRects {
 impl IntoRects for RenderableCursor {
     fn rects(self, size_info: &SizeInfo, thickness: f32) -> CursorRects {
         let point = self.point();
-        let x = point.column.0 as f32 * size_info.cell_width() + size_info.padding_x();
-        let y = point.line as f32 * size_info.cell_height() + size_info.padding_y();
+        let x = point.column.0 as f32 * size_info.cell_width() + size_info.padding_left();
+        let y = point.line as f32 * size_info.cell_height() + size_info.padding_top();
 
         let mut width = size_info.cell_width();
         let height = size_info.cell_height();
