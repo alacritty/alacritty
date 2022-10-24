@@ -1129,9 +1129,6 @@ mod tests {
                     51.0,
                     3.0,
                     3.0,
-                    0.,
-                    0.,
-                    false,
                 );
 
                 let mut terminal = Term::new(&cfg.terminal_config, &size, MockEventProxy);
