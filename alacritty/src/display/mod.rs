@@ -149,11 +149,17 @@ pub struct SizeInfo<T = f32> {
     /// Height of individual cell.
     cell_height: T,
 
-    /// Horizontal window padding.
-    padding_x: T,
+    /// Left window padding.
+    padding_left: T,
 
-    /// Vertical window padding.
-    padding_y: T,
+    /// Right window padding.
+    padding_right: T,
+
+    /// Top window padding.
+    padding_top: T,
+
+    /// Bottom window padding.
+    padding_bottom: T,
 
     /// Number of lines in the viewport.
     screen_lines: usize,
@@ -169,8 +175,10 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             height: size_info.height as u32,
             cell_width: size_info.cell_width as u32,
             cell_height: size_info.cell_height as u32,
-            padding_x: size_info.padding_x as u32,
-            padding_y: size_info.padding_y as u32,
+            padding_left: size_info.padding_left as u32,
+            padding_right: size_info.padding_right as u32,
+            padding_top: size_info.padding_top as u32,
+            padding_bottom: size_info.padding_bottom as u32,
             screen_lines: size_info.screen_lines,
             columns: size_info.screen_lines,
         }
@@ -211,28 +219,54 @@ impl<T: Clone + Copy> SizeInfo<T> {
 
     #[inline]
     pub fn padding_left(&self) -> T {
-        self.padding_x
+        self.padding_left
     }
 
     #[inline]
     pub fn padding_right(&self) -> T {
-        self.padding_x
+        self.padding_right
     }
 
     #[inline]
     pub fn padding_top(&self) -> T {
-        self.padding_y
+        self.padding_top
     }
 
     #[inline]
     pub fn padding_bottom(&self) -> T {
-        self.padding_y
+        self.padding_bottom
     }
 }
 
 impl SizeInfo<f32> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        width: f32,
+        height: f32,
+        cell_width: f32,
+        cell_height: f32,
+    ) -> SizeInfo {
+        let lines = (height) / cell_height;
+        let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
+
+        let columns = (width) / cell_width;
+        let columns = cmp::max(columns as usize, MIN_COLUMNS);
+
+        SizeInfo {
+            width,
+            height,
+            cell_width,
+            cell_height,
+            padding_left: 0.,
+            padding_right: 0.,
+            padding_top: 0.,
+            padding_bottom: 0.,
+            screen_lines,
+            columns,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_padding(
         width: f32,
         height: f32,
         cell_width: f32,
@@ -257,8 +291,10 @@ impl SizeInfo<f32> {
             height,
             cell_width,
             cell_height,
-            padding_x: padding_x.floor(),
-            padding_y: padding_y.floor(),
+            padding_left: padding_x.floor(),
+            padding_right: padding_x.floor(),
+            padding_top: padding_y.floor(),
+            padding_bottom: padding_y.floor(),
             screen_lines,
             columns,
         }
@@ -274,10 +310,10 @@ impl SizeInfo<f32> {
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
-            && x > self.padding_x as usize
-            && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
-            && y > self.padding_y as usize
+        x <= (self.padding_left + self.columns as f32 * self.cell_width) as usize
+            && x > self.padding_left as usize
+            && y <= (self.padding_top + self.screen_lines as f32 * self.cell_height) as usize
+            && y > self.padding_top as usize
     }
 
     /// Calculate padding to spread it evenly around the terminal content.
@@ -552,7 +588,7 @@ impl Display {
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
-        let size_info = SizeInfo::new(
+        let size_info = SizeInfo::new_with_padding(
             viewport_size.width as f32,
             viewport_size.height as f32,
             cell_width,
@@ -708,7 +744,7 @@ impl Display {
 
         let padding = config.window.padding(self.window.scale_factor);
 
-        self.size_info = SizeInfo::new(
+        self.size_info = SizeInfo::new_with_padding(
             width,
             height,
             cell_width,
