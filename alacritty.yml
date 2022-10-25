@@ -87,6 +87,11 @@
   # Allow terminal applications to change Alacritty's window title.
   #dynamic_title: true
 
+  # Allow IME input into the window.
+  #
+  # On macOS this could control the text composing via `Alt` as well.
+  #ime_input: true
+
   # Window class (Linux/BSD only):
   #class:
     # Application instance name

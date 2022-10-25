@@ -174,6 +174,9 @@ pub struct Window {
     /// Current window title.
     title: String,
 
+    /// Ime input.
+    ime_input: bool,
+
     windowed_context: Replaceable<WindowedContext<PossiblyCurrent>>,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
@@ -233,7 +236,8 @@ impl Window {
         windowed_context.window().set_cursor_icon(current_mouse_cursor);
 
         // Enable IME.
-        windowed_context.window().set_ime_allowed(true);
+        let ime_input = config.window.ime_input;
+        windowed_context.window().set_ime_allowed(ime_input);
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
@@ -262,6 +266,7 @@ impl Window {
             current_mouse_cursor,
             mouse_visible: true,
             windowed_context: Replaceable::new(windowed_context),
+            ime_input,
             title: identity.title,
             #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
@@ -451,7 +456,11 @@ impl Window {
     }
 
     pub fn set_ime_allowed(&self, allowed: bool) {
-        self.windowed_context.window().set_ime_allowed(allowed);
+        self.windowed_context.window().set_ime_allowed(allowed && self.ime_input);
+    }
+
+    pub fn set_ime_input(&mut self, ime_input: bool) {
+        self.ime_input = ime_input;
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.

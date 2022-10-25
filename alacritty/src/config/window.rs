@@ -52,6 +52,9 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
+    /// Ime input on the window.
+    pub ime_input: bool,
+
     /// Pixel padding.
     padding: Delta<u8>,
 
@@ -63,6 +66,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             dynamic_title: true,
+            ime_input: true,
             position: Default::default(),
             decorations: Default::default(),
             startup_mode: Default::default(),

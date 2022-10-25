@@ -206,7 +206,11 @@ impl WindowContext {
         }
 
         self.display.update_config(&self.config);
-        self.terminal.lock().update_config(&self.config.terminal_config);
+        let vi_mode = {
+            let mut terminal = self.terminal.lock();
+            terminal.update_config(&self.config.terminal_config);
+            terminal.mode().contains(TermMode::VI)
+        };
 
         // Reload cursor if its thickness has changed.
         if (old_config.terminal_config.cursor.thickness()
@@ -248,6 +252,10 @@ impl WindowContext {
         {
             self.display.window.set_title(self.config.window.identity.title.clone());
         }
+
+        // Update IME input.
+        self.display.window.set_ime_input(self.config.window.ime_input);
+        self.display.window.set_ime_allowed(self.search_state.regex().is_some() || !vi_mode);
 
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]

@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.12.0-dev
 
+### Added
+
+- `window.ime_input` enabled by default to control IME input into the window
+
 ### Fixed
 
 - `--help` output for `--class` does not match man pages
