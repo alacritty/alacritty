@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cursor and underlines always being black on very old hardware
 - Crash when using very low negative `font.offset`
 - Startup failure on macOS with default config when system `/bin/sh` is `dash`
+- Crash during text compose on old GNOME under Wayland
 
 ## 0.11.0
 

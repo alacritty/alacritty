@@ -1248,7 +1248,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             let preedit = if text.is_empty() {
                                 None
                             } else {
-                                Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
+                                // TODO remove with winit update.
+                                let cursor_offset = cursor_offset.and_then(|offset| {
+                                    text.is_char_boundary(offset.0).then(|| offset.0)
+                                });
+                                Some(Preedit::new(text, cursor_offset))
                             };
 
                             if self.ctx.display.ime.preedit() != preedit.as_ref() {
