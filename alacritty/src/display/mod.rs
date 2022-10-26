@@ -335,7 +335,6 @@ impl DisplayUpdate {
 /// The display wraps a window, font rasterizer, and GPU renderer.
 pub struct Display {
     pub size_info: SizeInfo,
-    pub window: Window,
 
     /// Hint highlighted by the mouse.
     pub highlighted_hint: Option<HintMatch>,
@@ -365,23 +364,26 @@ pub struct Display {
     /// The ime on the given display.
     pub ime: Ime,
 
-    // OpenGL context.
-    context: Replaceable<PossiblyCurrentContext>,
-
-    // OpenGL surface.
-    surface: Surface<WindowSurface>,
-
     // Renderer.
     renderer: Renderer,
 
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
+    surface: Surface<WindowSurface>,
+
+    // XXX OpenGL context must be dropped after the renderer.
+    context: Replaceable<PossiblyCurrentContext>,
+
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
     next_frame_damage_rects: Vec<DamageRect>,
     glyph_cache: GlyphCache,
     meter: Meter,
+
+    // XXX window should be dropped in the end, otherwise `surface` and other GL operations could
+    // have issues during freeing resources.
+    pub window: Window,
 }
 impl Display {
     pub fn new(
