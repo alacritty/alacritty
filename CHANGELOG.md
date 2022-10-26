@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Dotted underline not shown on macOS
 - Underline on macOS always being at the bottom of the cell
 - Crash with `OT-SVG` fonts on Linux/BSD
+- Crash during text compose on old GNOME under Wayland
 
 ## 0.11.0
 
