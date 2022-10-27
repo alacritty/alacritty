@@ -490,13 +490,13 @@ impl Display {
         };
 
         // We use vsync everywhere except wayland.
-        if !is_wayland {
-            if let Err(err) =
-                surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
-            {
-                warn!("Error setting vsync: {:?}", err);
-            }
-        }
+        // if !is_wayland {
+        //     if let Err(err) =
+        //         surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
+        //     {
+        //         warn!("Error setting vsync: {:?}", err);
+        //     }
+        // }
 
         Ok(Self {
             window,
@@ -1373,7 +1373,10 @@ impl Display {
     fn request_frame(&self, window: &Window) {
         let surface = match window.wayland_surface() {
             Some(surface) => surface,
-            None => return,
+            None => {
+                window.request_frame();
+                return;
+            },
         };
 
         let should_draw = self.window.should_draw.clone();

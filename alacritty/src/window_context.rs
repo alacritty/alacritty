@@ -479,8 +479,7 @@ impl WindowContext {
         }
 
         // Skip rendering on Wayland until we get frame event from compositor.
-        #[cfg(not(any(target_os = "macos", windows)))]
-        if self.display.is_wayland && !self.display.window.should_draw.load(Ordering::Relaxed) {
+        if !self.display.window.should_draw.load(Ordering::Relaxed) {
             return;
         }
 

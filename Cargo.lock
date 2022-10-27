@@ -143,6 +143,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
+name = "block-sys"
+version = "0.1.0-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa55741ee90902547802152aaf3f8e5248aab7e21468089560d4c8840561146"
+dependencies = [
+ "objc-sys",
+]
+
+[[package]]
+name = "block2"
+version = "0.2.0-alpha.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dd9e63c1744f755c2f60332b88de39d341e5e86239014ad839bd71c106dec42"
+dependencies = [
+ "block-sys",
+ "objc2-encode",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1179,6 +1198,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc-sys"
+version = "0.2.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df3b9834c1e95694a05a828b59f55fa2afec6288359cda67146126b3f90a55d7"
+
+[[package]]
+name = "objc2"
+version = "0.3.0-beta.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe31e5425d3d0b89a15982c024392815da40689aceb34bad364d58732bcfd649"
+dependencies = [
+ "block2",
+ "objc-sys",
+ "objc2-encode",
+]
+
+[[package]]
+name = "objc2-encode"
+version = "2.0.0-pre.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abfcac41015b00a120608fdaa6938c44cb983fee294351cc4bac7638b4e50512"
+dependencies = [
+ "objc-sys",
+]
+
+[[package]]
 name = "objc_id"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1433,9 +1478,9 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sctk-adwaita"
-version = "0.4.2"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04b7c47a572f73de28bee5b5060d085b42b6ce1e4ee2b49c956ea7b25e94b6f0"
+checksum = "6be6d8911b40c5f91332ce27d2458d57fffc0b061816bf847df23a16f9d3615f"
 dependencies = [
  "crossfont",
  "log",
@@ -2013,12 +2058,10 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "winit"
-version = "0.27.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37f64802920c4c35d12a53dad5e0c55bbc3004d8dc4f2e4dd64ad02c5665d7aa"
+version = "0.27.5"
+source = "git+https://github.com/kchibisov/winit?branch=vsync-source#ffb4b2e2c93a55036723e82fd8ebfc56a6c71245"
 dependencies = [
  "bitflags",
- "cocoa",
  "core-foundation",
  "core-graphics",
  "dispatch",
@@ -2028,9 +2071,8 @@ dependencies = [
  "mio 0.8.4",
  "ndk",
  "ndk-glue",
- "objc",
+ "objc2",
  "once_cell",
- "parking_lot 0.12.1",
  "percent-encoding",
  "raw-window-handle 0.4.3",
  "raw-window-handle 0.5.0",

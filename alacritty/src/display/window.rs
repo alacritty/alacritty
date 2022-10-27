@@ -4,7 +4,6 @@ use {
     std::sync::atomic::AtomicBool,
     std::sync::Arc,
 
-    winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
 };
 
 #[rustfmt::skip]
@@ -12,8 +11,9 @@ use {
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
-    winit::platform::unix::EventLoopWindowTargetExtUnix,
+    winit::platform::wayland::EventLoopWindowTargetExtWayland,
     winit::window::Theme,
+    winit::platform::wayland::WindowExtWayland,
 };
 
 #[rustfmt::skip]
@@ -24,6 +24,7 @@ use {
     glutin::platform::x11::X11VisualInfo,
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
+    winit::platform::x11::{WindowBuilderExtX11, WindowExtX11},
     png::Decoder,
 };
 
@@ -107,7 +108,6 @@ impl From<crossfont::Error> for Error {
 /// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
     /// Flag tracking frame redraw requests from Wayland compositor.
-    #[cfg(not(any(target_os = "macos", windows)))]
     pub should_draw: Arc<AtomicBool>,
 
     /// Attached Wayland surface to request new frame events.
@@ -194,7 +194,6 @@ impl Window {
             mouse_visible: true,
             window,
             title: identity.title,
-            #[cfg(not(any(target_os = "macos", windows)))]
             should_draw: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
@@ -238,6 +237,16 @@ impl Window {
     #[inline]
     pub fn request_redraw(&self) {
         self.window.request_redraw();
+    }
+
+    #[inline]
+    pub fn request_frame(&self) {
+        if self.window.request_frame_throttling_hint().is_ok() {
+            self.should_draw.store(false, std::sync::atomic::Ordering::Relaxed);
+        } else if self.wayland_surface().is_none() {
+            log::warn!("Requesting frame throttling hint failed.");
+            self.should_draw.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     #[inline]
@@ -301,9 +310,9 @@ impl Window {
 
         #[cfg(feature = "wayland")]
         let builder = match window_config.decorations_theme_variant() {
-            Some("light") => builder.with_wayland_csd_theme(Theme::Light),
+            Some("light") => builder.with_theme(Some(Theme::Light)),
             // Prefer dark theme by default, since default alacritty theme is dark.
-            _ => builder.with_wayland_csd_theme(Theme::Dark),
+            _ => builder.with_theme(Some(Theme::Dark)),
         };
 
         builder

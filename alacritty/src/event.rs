@@ -11,6 +11,7 @@ use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
 use std::{env, f32, mem};
 
 use log::{debug, error, info, warn};
@@ -25,7 +26,7 @@ use winit::event_loop::{
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use winit::platform::unix::EventLoopWindowTargetExtUnix;
+use winit::platform::wayland::EventLoopWindowTargetExtWayland;
 use winit::window::WindowId;
 
 use crossfont::{self, Size};
@@ -1234,6 +1235,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
                     },
+                    WindowEvent::CanRedrawFrame => {
+                        self.ctx.display.window.should_draw.store(true, Ordering::Relaxed)
+                    }
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
@@ -1268,6 +1272,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
+                    | WindowEvent::TouchpadMagnify { .. }
+                    | WindowEvent::TouchpadRotate { .. }
                     | WindowEvent::ScaleFactorChanged { .. }
                     | WindowEvent::CursorEntered { .. }
                     | WindowEvent::AxisMotion { .. }
