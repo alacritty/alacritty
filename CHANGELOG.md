@@ -7,6 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.12.0-dev
 
+### Fixed
+
+- `--help` output for `--class` does not match man pages
+- Cursor and underlines always being black on very old hardware
+- Crash when using very low negative `font.offset`
+- Startup failure on macOS with default config when system `/bin/sh` is `dash`
+- Artifacts in corners for maximized window with CSD on Wayland
+- Dotted underline not shown on macOS
+- Underline on macOS always being at the bottom of the cell
+- Crash with `OT-SVG` fonts on Linux/BSD
+- Crash during text compose on old GNOME under Wayland
+
+## 0.11.0
+
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.57.0

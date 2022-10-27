@@ -47,8 +47,6 @@ use glutin::{self, ContextBuilder, PossiblyCurrent, Rect, WindowedContext};
 use objc::{msg_send, sel, sel_impl};
 #[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-#[cfg(windows)]
-use winapi::shared::minwindef::WORD;
 
 use alacritty_terminal::index::Point;
 
@@ -63,7 +61,7 @@ static WINDOW_ICON: &[u8] = include_bytes!("../../extra/logo/compat/alacritty-te
 
 /// This should match the definition of IDI_ICON from `alacritty.rc`.
 #[cfg(windows)]
-const IDI_ICON: WORD = 0x101;
+const IDI_ICON: u16 = 0x101;
 
 /// Context creation flags from probing config.
 static GL_CONTEXT_CREATION_FLAGS: AtomicU8 = AtomicU8::new(GlContextFlags::SRGB.bits);
@@ -326,11 +324,13 @@ impl Window {
     pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         #[cfg(feature = "x11")]
         let icon = {
-            let decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
+            decoder.set_transformations(png::Transformations::normalize_to_color8());
             let mut reader = decoder.read_info().expect("invalid embedded icon");
             let mut buf = vec![0; reader.output_buffer_size()];
             let _ = reader.next_frame(&mut buf);
             Icon::from_rgba(buf, reader.info().width, reader.info().height)
+                .expect("invalid embedded icon format")
         };
 
         let builder = WindowBuilder::new()
@@ -343,7 +343,7 @@ impl Window {
             .with_fullscreen(window_config.fullscreen());
 
         #[cfg(feature = "x11")]
-        let builder = builder.with_window_icon(icon.ok());
+        let builder = builder.with_window_icon(Some(icon));
 
         #[cfg(feature = "x11")]
         let builder = match window_config.decorations_theme_variant() {

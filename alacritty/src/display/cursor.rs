@@ -22,7 +22,7 @@ impl IntoRects for RenderableCursor {
         let mut width = size_info.cell_width();
         let height = size_info.cell_height();
 
-        let thickness = (thickness * width as f32).round().max(1.);
+        let thickness = (thickness * width).round().max(1.);
 
         if self.is_wide() {
             width *= 2.;

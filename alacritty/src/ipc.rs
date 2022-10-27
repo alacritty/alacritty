@@ -119,7 +119,7 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
     // Handle environment variable.
     if let Ok(path) = env::var(ALACRITTY_SOCKET_ENV) {
         let socket_path = PathBuf::from(path);
-        if let Ok(socket) = UnixStream::connect(&socket_path) {
+        if let Ok(socket) = UnixStream::connect(socket_path) {
             return Ok(socket);
         }
     }

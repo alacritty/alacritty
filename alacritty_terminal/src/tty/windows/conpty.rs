@@ -3,17 +3,17 @@ use std::os::windows::io::IntoRawHandle;
 use std::{mem, ptr};
 
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
-use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
-use winapi::shared::minwindef::BYTE;
-use winapi::shared::ntdef::LPWSTR;
-use winapi::shared::winerror::S_OK;
-use winapi::um::consoleapi::{ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole};
-use winapi::um::processthreadsapi::{
-    CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
-    PROCESS_INFORMATION, STARTUPINFOW,
+
+use windows_sys::core::PWSTR;
+use windows_sys::Win32::Foundation::{HANDLE, S_OK};
+use windows_sys::Win32::System::Console::{
+    ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole, COORD, HPCON,
 };
-use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
-use winapi::um::wincontypes::{COORD, HPCON};
+use windows_sys::Win32::System::Threading::{
+    CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
+    EXTENDED_STARTUPINFO_PRESENT, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
+};
 
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
@@ -39,7 +39,7 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 
 pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
-    let mut pty_handle = 0 as HPCON;
+    let mut pty_handle: HPCON = 0;
 
     // Passing 0 as the size parameter allows the "system default" buffer
     // size to be used. There may be small performance and memory advantages
@@ -52,10 +52,10 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     let result = unsafe {
         CreatePseudoConsole(
             window_size.into(),
-            conin_pty_handle.into_raw_handle(),
-            conout_pty_handle.into_raw_handle(),
+            conin_pty_handle.into_raw_handle() as HANDLE,
+            conout_pty_handle.into_raw_handle() as HANDLE,
             0,
-            &mut pty_handle as *mut HPCON,
+            &mut pty_handle as *mut _,
         )
     };
 
@@ -65,11 +65,11 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
 
     // Prepare child process startup info.
 
-    let mut size: SIZE_T = 0;
+    let mut size: usize = 0;
 
-    let mut startup_info_ex: STARTUPINFOEXW = Default::default();
+    let mut startup_info_ex: STARTUPINFOEXW = unsafe { mem::zeroed() };
 
-    startup_info_ex.StartupInfo.lpTitle = std::ptr::null_mut() as LPWSTR;
+    startup_info_ex.StartupInfo.lpTitle = std::ptr::null_mut() as PWSTR;
 
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 
@@ -80,7 +80,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     // Create the appropriately sized thread attribute list.
     unsafe {
         let failure =
-            InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size as PSIZE_T) > 0;
+            InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size as *mut usize) > 0;
 
         // This call was expected to return false.
         if failure {
@@ -88,7 +88,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
         }
     }
 
-    let mut attr_list: Box<[BYTE]> = vec![0; size].into_boxed_slice();
+    let mut attr_list: Box<[u8]> = vec![0; size].into_boxed_slice();
 
     // Set startup info's attribute list & initialize it
     //
@@ -106,7 +106,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
             startup_info_ex.lpAttributeList,
             1,
             0,
-            &mut size as PSIZE_T,
+            &mut size as *mut usize,
         ) > 0;
 
         if !success {
@@ -119,8 +119,8 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
         success = UpdateProcThreadAttribute(
             startup_info_ex.lpAttributeList,
             0,
-            22 | 0x0002_0000, // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE.
-            pty_handle,
+            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE as usize,
+            pty_handle as *mut std::ffi::c_void,
             mem::size_of::<HPCON>(),
             ptr::null_mut(),
             ptr::null_mut(),
@@ -134,11 +134,11 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     let cmdline = win32_string(&cmdline(config));
     let cwd = config.working_directory.as_ref().map(win32_string);
 
-    let mut proc_info: PROCESS_INFORMATION = Default::default();
+    let mut proc_info: PROCESS_INFORMATION = unsafe { mem::zeroed() };
     unsafe {
         success = CreateProcessW(
             ptr::null(),
-            cmdline.as_ptr() as LPWSTR,
+            cmdline.as_ptr() as PWSTR,
             ptr::null_mut(),
             ptr::null_mut(),
             false as i32,
@@ -158,7 +158,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
     let conout = EventedAnonRead::new(conout);
 
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
-    let conpty = Conpty { handle: pty_handle };
+    let conpty = Conpty { handle: pty_handle as HPCON };
 
     Some(Pty::new(conpty, conout, conin, child_watcher))
 }

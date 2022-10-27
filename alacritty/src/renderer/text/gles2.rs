@@ -474,7 +474,7 @@ impl TextShaderProgram {
         let fragment_shader =
             if dual_source_blending { &glsl3::TEXT_SHADER_F } else { &TEXT_SHADER_F };
 
-        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, fragment_shader)?;
+        let program = ShaderProgram::new(shader_version, None, TEXT_SHADER_V, fragment_shader)?;
 
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,

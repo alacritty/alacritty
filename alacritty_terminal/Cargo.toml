@@ -39,11 +39,14 @@ signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 
 [target.'cfg(windows)'.dependencies]
 miow = "0.3"
-winapi = { version = "0.3.7", features = [
-    "impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase",
-    "wincon", "wincontypes", "winerror", "winnt", "winuser", "consoleapi",
-]}
 mio-anonymous-pipes = "0.2"
+windows-sys = { version = "0.36", features = [
+    "Win32_System_Console",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+]}
 
 [dev-dependencies]
 serde_json = "1.0.0"

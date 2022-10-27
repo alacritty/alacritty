@@ -234,13 +234,7 @@ impl Default for Percentage {
 
 impl Percentage {
     pub fn new(value: f32) -> Self {
-        Percentage(if value < 0.0 {
-            0.0
-        } else if value > 1.0 {
-            1.0
-        } else {
-            value
-        })
+        Percentage(value.clamp(0., 1.))
     }
 
     pub fn as_f32(self) -> f32 {
