@@ -25,7 +25,7 @@ use glutin::event_loop::EventLoopBuilder as GlutinEventLoopBuilder;
 use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 #[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::tty;
 

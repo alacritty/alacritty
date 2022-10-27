@@ -202,7 +202,7 @@ impl TermDamageState {
     /// Damage point inside of the viewport.
     #[inline]
     fn damage_point(&mut self, point: Point<usize>) {
-        self.damage_line(point.line, point.column.0 as usize, point.column.0 as usize);
+        self.damage_line(point.line, point.column.0, point.column.0);
     }
 
     /// Expand `line`'s damage to span at least `left` to `right` column.
@@ -228,7 +228,7 @@ impl TermDamageState {
         };
 
         let start = cmp::max(selection.start.line.0 + display_offset, 0);
-        let end = cmp::min(cmp::max(selection.end.line.0 + display_offset, 0), last_visible_line);
+        let end = (selection.end.line.0 + display_offset).clamp(0, last_visible_line);
         for line in start as usize..=end as usize {
             self.damage_line(line, 0, num_cols - 1);
         }
@@ -1244,7 +1244,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         if self.grid.cursor.point.column > Column(0) {
             let line = self.grid.cursor.point.line.0 as usize;
-            let column = self.grid.cursor.point.column.0 as usize;
+            let column = self.grid.cursor.point.column.0;
             self.grid.cursor.point.column -= 1;
             self.grid.cursor.input_needs_wrap = false;
             self.damage.damage_line(line, column - 1, column);
@@ -1547,7 +1547,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.event_proxy.send_event(Event::ClipboardLoad(
             clipboard_type,
             Arc::new(move |text| {
-                let base64 = base64::encode(&text);
+                let base64 = base64::encode(text);
                 format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
             }),
         ));

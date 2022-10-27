@@ -705,7 +705,7 @@ impl Display {
         // Update number of column/lines in the viewport.
         let message_bar_lines =
             message_buffer.message().map_or(0, |m| m.text(&self.size_info).len());
-        let search_lines = if search_active { 1 } else { 0 };
+        let search_lines = usize::from(search_active);
         self.size_info.reserve_lines(message_bar_lines + search_lines);
 
         // Resize PTY.
@@ -982,7 +982,7 @@ impl Display {
         }
 
         if let Some(message) = message_buffer.message() {
-            let search_offset = if search_state.regex().is_some() { 1 } else { 0 };
+            let search_offset = usize::from(search_state.regex().is_some());
             let text = message.text(&size_info);
 
             // Create a new rectangle for the background.
@@ -1396,7 +1396,7 @@ impl Display {
         let x = size_info.padding_x() + point.column.0 as u32 * size_info.cell_width();
         let y_top = size_info.height() - size_info.padding_y();
         let y = y_top - (point.line as u32 + 1) * size_info.cell_height();
-        let width = len as u32 * size_info.cell_width();
+        let width = len * size_info.cell_width();
         DamageRect { x, y, width, height: size_info.cell_height() }
     }
 
