@@ -1,0 +1,472 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/AlacrittyConfig",
+    "definitions": {
+        "AlacrittyConfig": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "import": {
+                    "type": "array",
+                    "items": {},
+                    "title": "Import additional configuration files",
+                    "description": "Imports are loaded in order, skipping all missing files, with the importing file being loaded last. If a field is already present in a previous import, it will be replaced.\nAll imports must either be absolute paths starting with `/`, or paths relative to the user's home directory starting with `~/`."
+                },
+                "env": {
+                    "$ref": "#/definitions/Env"
+                },
+                "window": {
+                    "$ref": "#/definitions/Window"
+                },
+                "scrolling": {
+                    "$ref": "#/definitions/Scrolling"
+                },
+                "font": {
+                    "$ref": "#/definitions/Font"
+                },
+                "draw_bold_text_with_bright_colors": {
+                    "type": "boolean"
+                },
+                "colors": {
+                    "$ref": "#/definitions/Colors"
+                },
+                "bell": {
+                    "$ref": "#/definitions/Bell"
+                },
+                "selection": {
+                    "$ref": "#/definitions/Selection"
+                },
+                "cursor": {
+                    "$ref": "#/definitions/Cursor"
+                },
+                "live_config_reload": {
+                    "type": "boolean"
+                },
+                "shell": {
+                    "type": "null"
+                },
+                "working_directory": {
+                    "type": "string"
+                },
+                "alt_send_esc": {
+                    "type": "boolean"
+                },
+                "ipc_socket": {
+                    "type": "boolean"
+                },
+                "mouse": {
+                    "$ref": "#/definitions/Mouse"
+                },
+                "hints": {
+                    "$ref": "#/definitions/WelcomeHints"
+                },
+                "mouse_bindings": {
+                    "type": "null"
+                },
+                "key_bindings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/KeyBinding"
+                    }
+                },
+                "debug": {
+                    "$ref": "#/definitions/Debug"
+                }
+            },
+            "required": [],
+            "title": "Welcome"
+        },
+        "Bell": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "animation": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "command": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Bell"
+        },
+        "Colors": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "primary": {
+                    "$ref": "#/definitions/Primary"
+                },
+                "cursor": {
+                    "type": "null"
+                },
+                "vi_mode_cursor": {
+                    "type": "null"
+                },
+                "search": {
+                    "$ref": "#/definitions/Search"
+                },
+                "hints": {
+                    "$ref": "#/definitions/ColorsHints"
+                },
+                "line_indicator": {
+                    "type": "null"
+                },
+                "selection": {
+                    "type": "null"
+                },
+                "normal": {
+                    "type": "null"
+                },
+                "bright": {
+                    "type": "null"
+                },
+                "dim": {
+                    "type": "null"
+                },
+                "indexed_colors": {
+                    "type": "array",
+                    "items": {}
+                },
+                "transparent_background_colors": {
+                    "type": "boolean"
+                }
+            },
+            "required": [],
+            "title": "Colors"
+        },
+        "ColorsHints": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "start": {
+                    "type": "null"
+                },
+                "end": {
+                    "type": "null"
+                }
+            },
+            "required": [],
+            "title": "ColorsHints"
+        },
+        "Primary": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "dim_foreground": {
+                    "type": "string"
+                },
+                "bright_foreground": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Primary"
+        },
+        "Search": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "matches": {
+                    "type": "null"
+                },
+                "focused_match": {
+                    "type": "null"
+                },
+                "bar": {
+                    "type": "null"
+                }
+            },
+            "required": [],
+            "title": "Search"
+        },
+        "Cursor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "style": {
+                    "$ref": "#/definitions/Style"
+                },
+                "vi_mode_style": {
+                    "type": "string"
+                },
+                "blink_interval": {
+                    "type": "integer"
+                },
+                "unfocused_hollow": {
+                    "type": "boolean"
+                },
+                "thickness": {
+                    "type": "number"
+                }
+            },
+            "required": [],
+            "title": "Cursor"
+        },
+        "Style": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "shape": {
+                    "type": "string"
+                },
+                "blinking": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Style"
+        },
+        "Debug": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "render_timer": {
+                    "type": "boolean"
+                },
+                "persistent_logging": {
+                    "type": "boolean"
+                },
+                "log_level": {
+                    "type": "string"
+                },
+                "print_events": {
+                    "type": "boolean"
+                },
+                "highlight_damage": {
+                    "type": "boolean"
+                }
+            },
+            "required": [],
+            "title": "Debug"
+        },
+        "Env": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "TERM": {
+                    "type": "string",
+                    "title": "TERM Environment variable",
+                    "description": "This value is used to set the `$TERM` environment variable for each instance of Alacritty.\nIf it is not present, alacritty will check the local terminfo database and use `alacritty` if it is available, otherwise `xterm-256color` is used.\n(.bashrc will disable colors if it does not recognize $TERM)"
+                }
+            },
+            "required": [],
+            "title": "Env",
+            "description": "Any items in the `env` entry below will be added as environment variables. Some entries may override variables set by alacritty it self."
+        },
+        "Font": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "normal": {
+                    "$ref": "#/definitions/Bold"
+                },
+                "bold": {
+                    "$ref": "#/definitions/Bold"
+                },
+                "italic": {
+                    "$ref": "#/definitions/Bold"
+                },
+                "bold_italic": {
+                    "$ref": "#/definitions/Bold"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "null"
+                },
+                "glyph_offset": {
+                    "type": "null"
+                },
+                "use_thin_strokes": {
+                    "type": "boolean"
+                },
+                "builtin_box_drawing": {
+                    "type": "boolean"
+                }
+            },
+            "required": [],
+            "title": "Font"
+        },
+        "Bold": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "family": {
+                    "type": "string"
+                },
+                "style": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Bold"
+        },
+        "WelcomeHints": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "alphabet": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "null"
+                }
+            },
+            "required": [],
+            "title": "WelcomeHints"
+        },
+        "KeyBinding": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "mods": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "chars": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "KeyBinding"
+        },
+        "Mouse": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "double_click": {
+                    "$ref": "#/definitions/LEClick"
+                },
+                "triple_click": {
+                    "$ref": "#/definitions/LEClick"
+                },
+                "hide_when_typing": {
+                    "type": "boolean"
+                }
+            },
+            "required": [],
+            "title": "Mouse"
+        },
+        "LEClick": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "threshold": {
+                    "type": "integer"
+                }
+            },
+            "required": [],
+            "title": "LEClick"
+        },
+        "Scrolling": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "history": {
+                    "type": "integer"
+                },
+                "multiplier": {
+                    "type": "integer"
+                }
+            },
+            "required": [],
+            "title": "Scrolling"
+        },
+        "Selection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "semantic_escape_chars": {
+                    "type": "string"
+                },
+                "save_to_clipboard": {
+                    "type": "boolean"
+                }
+            },
+            "required": [],
+            "title": "Selection"
+        },
+        "Window": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "dimensions": {
+                    "$ref": "#/definitions/WindowDimensions"
+                },
+                "position": {
+                    "type": "null"
+                },
+                "padding": {
+                    "type": "null"
+                },
+                "dynamic_padding": {
+                    "type": "boolean"
+                },
+                "decorations": {
+                    "type": "string"
+                },
+                "opacity": {
+                    "type": "integer"
+                },
+                "startup_mode": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "dynamic_title": {
+                    "type": "boolean"
+                },
+                "class": {
+                    "$ref": "#/definitions/Class"
+                },
+                "gtk_theme_variant": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Window"
+        },
+        "WindowDimensions": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "columns": {
+                    "type": "integer"
+                },
+                "lines": {
+                    "type": "integer"
+                }
+            },
+            "required": [],
+            "title": "Window Dimensions"
+        },
+        "Class": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "instance": {
+                    "type": "string"
+                },
+                "general": {
+                    "type": "string"
+                }
+            },
+            "required": [],
+            "title": "Class"
+        }
+    }
+}
