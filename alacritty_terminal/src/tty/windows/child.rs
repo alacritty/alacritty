@@ -4,14 +4,16 @@ use std::sync::atomic::{AtomicPtr, Ordering};
 
 use mio_extras::channel::{channel, Receiver, Sender};
 
-use winapi::shared::ntdef::{BOOLEAN, HANDLE, PVOID};
-use winapi::um::winbase::{RegisterWaitForSingleObject, UnregisterWait, INFINITE};
-use winapi::um::winnt::{WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE};
+use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
+use windows_sys::Win32::System::Threading::{
+    RegisterWaitForSingleObject, UnregisterWait, WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
+};
+use windows_sys::Win32::System::WindowsProgramming::INFINITE;
 
 use crate::tty::ChildEvent;
 
 /// WinAPI callback to run when child process exits.
-extern "system" fn child_exit_callback(ctx: PVOID, timed_out: BOOLEAN) {
+extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     if timed_out != 0 {
         return;
     }
@@ -29,7 +31,7 @@ impl ChildExitWatcher {
     pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
         let (event_tx, event_rx) = channel::<ChildEvent>();
 
-        let mut wait_handle: HANDLE = 0 as HANDLE;
+        let mut wait_handle: HANDLE = 0;
         let sender_ref = Box::new(event_tx);
 
         let success = unsafe {
@@ -37,7 +39,7 @@ impl ChildExitWatcher {
                 &mut wait_handle,
                 child_handle,
                 Some(child_exit_callback),
-                Box::into_raw(sender_ref) as PVOID,
+                Box::into_raw(sender_ref).cast(),
                 INFINITE,
                 WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE,
             )
@@ -46,7 +48,10 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
-            Ok(ChildExitWatcher { wait_handle: AtomicPtr::from(wait_handle), event_rx })
+            Ok(ChildExitWatcher {
+                wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
+                event_rx,
+            })
         }
     }
 
@@ -58,7 +63,7 @@ impl ChildExitWatcher {
 impl Drop for ChildExitWatcher {
     fn drop(&mut self) {
         unsafe {
-            UnregisterWait(self.wait_handle.load(Ordering::Relaxed));
+            UnregisterWait(self.wait_handle.load(Ordering::Relaxed) as HANDLE);
         }
     }
 }
@@ -78,7 +83,7 @@ mod tests {
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
         let mut child = Command::new("cmd.exe").spawn().unwrap();
-        let child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle()).unwrap();
+        let child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle() as HANDLE).unwrap();
 
         let mut events = Events::with_capacity(1);
         let poll = Poll::new().unwrap();

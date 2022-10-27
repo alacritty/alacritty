@@ -64,9 +64,9 @@ impl Mul<f32> for Rgb {
 
     fn mul(self, rhs: f32) -> Rgb {
         let result = Rgb {
-            r: (f32::from(self.r) * rhs).max(0.0).min(255.0) as u8,
-            g: (f32::from(self.g) * rhs).max(0.0).min(255.0) as u8,
-            b: (f32::from(self.b) * rhs).max(0.0).min(255.0) as u8,
+            r: (f32::from(self.r) * rhs).clamp(0.0, 255.0) as u8,
+            g: (f32::from(self.g) * rhs).clamp(0.0, 255.0) as u8,
+            b: (f32::from(self.b) * rhs).clamp(0.0, 255.0) as u8,
         };
 
         trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);

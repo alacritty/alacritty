@@ -133,8 +133,8 @@ impl Atlas {
     fn insert_inner(&mut self, glyph: &RasterizedGlyph, active_tex: &mut u32) -> Glyph {
         let offset_y = self.row_baseline;
         let offset_x = self.row_extent;
-        let height = glyph.height as i32;
-        let width = glyph.width as i32;
+        let height = glyph.height;
+        let width = glyph.width;
         let multicolor;
 
         unsafe {
@@ -196,9 +196,9 @@ impl Atlas {
 
     /// Check if there's room in the current row for given glyph.
     pub fn room_in_row(&self, raw: &RasterizedGlyph) -> bool {
-        let next_extent = self.row_extent + raw.width as i32;
+        let next_extent = self.row_extent + raw.width;
         let enough_width = next_extent <= self.width;
-        let enough_height = (raw.height as i32) < (self.height - self.row_baseline);
+        let enough_height = raw.height < (self.height - self.row_baseline);
 
         enough_width && enough_height
     }
