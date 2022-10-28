@@ -364,16 +364,8 @@ pub struct Display {
     /// The ime on the given display.
     pub ime: Ime,
 
-    // Renderer.
-    renderer: Renderer,
-
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
-
-    surface: Surface<WindowSurface>,
-
-    // XXX OpenGL context must be dropped after the renderer.
-    context: Replaceable<PossiblyCurrentContext>,
 
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
@@ -381,8 +373,13 @@ pub struct Display {
     glyph_cache: GlyphCache,
     meter: Meter,
 
-    // XXX window should be dropped in the end, otherwise `surface` and other GL operations could
-    // have issues during freeing resources.
+    // XXX All fields below are ordered in the order they should be dropped.
+    renderer: Renderer,
+
+    surface: Surface<WindowSurface>,
+
+    context: Replaceable<PossiblyCurrentContext>,
+
     pub window: Window,
 }
 impl Display {
