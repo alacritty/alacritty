@@ -1,12 +1,13 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 
+use std::cmp;
 use std::fmt::{self, Formatter};
+use std::mem::{self, ManuallyDrop};
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
-use std::{cmp, mem};
 
 use glutin::context::{NotCurrentContext, PossiblyCurrentContext};
 use glutin::prelude::*;
@@ -334,6 +335,8 @@ impl DisplayUpdate {
 
 /// The display wraps a window, font rasterizer, and GPU renderer.
 pub struct Display {
+    pub window: Window,
+
     pub size_info: SizeInfo,
 
     /// Hint highlighted by the mouse.
@@ -367,20 +370,17 @@ pub struct Display {
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
+    renderer: ManuallyDrop<Renderer>,
+
+    surface: ManuallyDrop<Surface<WindowSurface>>,
+
+    context: ManuallyDrop<Replaceable<PossiblyCurrentContext>>,
+
     debug_damage: bool,
     damage_rects: Vec<DamageRect>,
     next_frame_damage_rects: Vec<DamageRect>,
     glyph_cache: GlyphCache,
     meter: Meter,
-
-    // XXX All fields below are ordered in the order they should be dropped.
-    renderer: Renderer,
-
-    surface: Surface<WindowSurface>,
-
-    context: Replaceable<PossiblyCurrentContext>,
-
-    pub window: Window,
 }
 impl Display {
     pub fn new(
@@ -497,9 +497,9 @@ impl Display {
 
         Ok(Self {
             window,
-            context: Replaceable::new(context),
-            surface,
-            renderer,
+            context: ManuallyDrop::new(Replaceable::new(context)),
+            surface: ManuallyDrop::new(surface),
+            renderer: ManuallyDrop::new(renderer),
             glyph_cache,
             hint_state,
             meter: Meter::new(),
@@ -544,7 +544,7 @@ impl Display {
 
     fn swap_buffers(&self) {
         #[allow(clippy::single_match)]
-        match (&self.surface, &self.context.get()) {
+        match (self.surface.deref(), &self.context.get()) {
             #[cfg(not(any(target_os = "macos", windows)))]
             (Surface::Egl(surface), PossiblyCurrentContext::Egl(context))
                 if self.is_wayland && !self.debug_damage =>
@@ -1388,8 +1388,13 @@ impl Display {
 impl Drop for Display {
     fn drop(&mut self) {
         // Switch OpenGL context before dropping, otherwise objects (like programs) from other
-        // contexts might be deleted.
+        // contexts might be deleted during droping renderer.
         self.make_current();
+        unsafe {
+            ManuallyDrop::drop(&mut self.renderer);
+            ManuallyDrop::drop(&mut self.context);
+            ManuallyDrop::drop(&mut self.surface);
+        }
     }
 }
 
