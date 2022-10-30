@@ -382,6 +382,7 @@ pub struct Display {
     glyph_cache: GlyphCache,
     meter: Meter,
 }
+
 impl Display {
     pub fn new(
         window: Window,
