@@ -3,7 +3,8 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use log::{debug, error};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use notify_debouncer_mini::new_debouncer;
+use notify_debouncer_mini::notify::RecursiveMode;
 use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::thread;
@@ -40,8 +41,8 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
 
     // The Duration argument is a debouncing period.
     let (tx, rx) = mpsc::channel();
-    let mut watcher = match watcher(tx, DEBOUNCE_DELAY) {
-        Ok(watcher) => watcher,
+    let mut debouncer = match new_debouncer(DEBOUNCE_DELAY, None, tx) {
+        Ok(debouncer) => debouncer,
         Err(err) => {
             error!("Unable to watch config file: {}", err);
             return;
@@ -61,6 +62,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
         parents.sort_unstable();
         parents.dedup();
 
+        let watcher = debouncer.watcher();
         // Watch all configuration file directories.
         for parent in &parents {
             if let Err(err) = watcher.watch(parent, RecursiveMode::NonRecursive) {
@@ -69,26 +71,27 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
         }
 
         loop {
-            let event = match rx.recv() {
-                Ok(event) => event,
+            let res = match rx.recv() {
+                Ok(res) => res,
                 Err(err) => {
                     debug!("Config watcher channel dropped unexpectedly: {}", err);
                     break;
                 },
             };
 
-            match event {
-                DebouncedEvent::Rename(_, path)
-                | DebouncedEvent::Write(path)
-                | DebouncedEvent::Create(path)
-                | DebouncedEvent::Chmod(path)
-                    if paths.contains(&path) =>
-                {
-                    // Always reload the primary configuration file.
-                    let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
-                    let _ = event_proxy.send_event(event);
+            match res {
+                Ok(events) => {
+                    if events.iter().any(|e| paths.contains(&e.path)) {
+                        // Always reload the primary configuration file.
+                        let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
+                        let _ = event_proxy.send_event(event);
+                    }
                 },
-                _ => (),
+                Err(errors) => {
+                    for err in errors {
+                        debug!("Config watcher notify error: {}", err);
+                    }
+                },
             }
         }
     });
