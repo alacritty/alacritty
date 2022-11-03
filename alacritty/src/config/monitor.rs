@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use glutin::event_loop::EventLoopProxy;
 use log::{debug, error};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::thread;
 

@@ -12,8 +12,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{env, process};
 
-use glutin::event_loop::EventLoopProxy;
 use log::{self, Level, LevelFilter};
+use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 

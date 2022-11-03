@@ -3,11 +3,11 @@ use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use glutin::event::{ModifiersState, VirtualKeyCode};
 use log::error;
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
+use winit::event::{ModifiersState, VirtualKeyCode};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{
