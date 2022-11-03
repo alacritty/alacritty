@@ -3,8 +3,8 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use glutin::event_loop::EventLoopProxy;
-use glutin::window::WindowId;
+use winit::event_loop::EventLoopProxy;
+use winit::window::WindowId;
 
 use crate::event::Event;
 
@@ -80,7 +80,7 @@ impl Scheduler {
             .timers
             .iter()
             .position(|timer| timer.deadline > deadline)
-            .unwrap_or_else(|| self.timers.len());
+            .unwrap_or(self.timers.len());
 
         // Set the automatic event repeat rate.
         let interval = if repeat { Some(interval) } else { None };

@@ -20,12 +20,12 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use glutin::event_loop::EventLoopBuilder as GlutinEventLoopBuilder;
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::info;
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+use winit::event_loop::EventLoopBuilder as WinitEventLoopBuilder;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use winit::platform::unix::EventLoopWindowTargetExtUnix;
 
 use alacritty_terminal::tty;
 
@@ -124,8 +124,8 @@ impl Drop for TemporaryFiles {
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
-    // Setup glutin event loop.
-    let window_event_loop = GlutinEventLoopBuilder::<Event>::with_user_event().build();
+    // Setup winit event loop.
+    let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())

@@ -1,10 +1,10 @@
 use std::fmt::{self, Formatter};
 use std::os::raw::c_ulong;
 
-use glutin::window::Fullscreen;
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use winit::window::Fullscreen;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -116,14 +116,14 @@ impl WindowConfig {
     pub fn decorations_theme_variant(&self) -> Option<&str> {
         self.gtk_theme_variant
             .as_ref()
-            .or_else(|| self.decorations_theme_variant.as_ref())
+            .or(self.decorations_theme_variant.as_ref())
             .map(|theme| theme.as_str())
     }
 
     #[inline]
-    pub fn padding(&self, scale_factor: f64) -> (f32, f32) {
-        let padding_x = (f32::from(self.padding.x) * scale_factor as f32).floor();
-        let padding_y = (f32::from(self.padding.y) * scale_factor as f32).floor();
+    pub fn padding(&self, scale_factor: f32) -> (f32, f32) {
+        let padding_x = (f32::from(self.padding.x) * scale_factor).floor();
+        let padding_y = (f32::from(self.padding.y) * scale_factor).floor();
         (padding_x, padding_y)
     }
 

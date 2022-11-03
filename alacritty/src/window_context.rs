@@ -12,13 +12,19 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use crossfont::Size;
-use glutin::event::{Event as GlutinEvent, ModifiersState, WindowEvent};
-use glutin::event_loop::{EventLoopProxy, EventLoopWindowTarget};
-use glutin::window::WindowId;
+use glutin::config::GetGlConfig;
+use glutin::context::NotCurrentContext;
+use glutin::display::GetGlDisplay;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use glutin::platform::x11::X11GlConfigExt;
 use log::{error, info};
+use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
+use winit::event::{Event as WinitEvent, ModifiersState, WindowEvent};
+use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+use winit::window::WindowId;
 
 use alacritty_config::SerdeReplace;
 use alacritty_terminal::event::Event as TerminalEvent;
@@ -35,18 +41,19 @@ use crate::cli::IpcConfig;
 use crate::cli::WindowOptions;
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
+use crate::display::window::Window;
 use crate::display::Display;
 use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
-use crate::input;
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
+use crate::{input, renderer};
 
 /// Event context for one individual Alacritty window.
 pub struct WindowContext {
     pub message_buffer: MessageBuffer,
     pub display: Display,
-    event_queue: Vec<GlutinEvent<'static, Event>>,
+    event_queue: Vec<WinitEvent<'static, Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
     modifiers: ModifiersState,
@@ -68,32 +75,109 @@ pub struct WindowContext {
 }
 
 impl WindowContext {
-    /// Create a new terminal window context.
-    pub fn new(
-        config: Rc<UiConfig>,
-        options: &WindowOptions,
-        window_event_loop: &EventLoopWindowTarget<Event>,
+    /// Create initial window context that dous bootstrapping the graphics Api we're going to use.
+    pub fn initial(
+        event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,
+        config: Rc<UiConfig>,
+        options: WindowOptions,
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
         wayland_event_queue: Option<&EventQueue>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let raw_display_handle = event_loop.raw_display_handle();
+
+        let mut identity = config.window.identity.clone();
+        options.window_identity.override_identity_config(&mut identity);
+
+        // Windows has different order of GL platform initialization compared to any other platform;
+        // it requires the window first.
+        #[cfg(windows)]
+        let window = Window::new(event_loop, &config, &identity)?;
+        #[cfg(windows)]
+        let raw_window_handle = Some(window.raw_window_handle());
+
+        #[cfg(not(windows))]
+        let raw_window_handle = None;
+
+        let gl_display =
+            renderer::platform::create_gl_display(raw_display_handle, raw_window_handle)?;
+        let gl_config = renderer::platform::pick_gl_config(&gl_display, raw_window_handle)?;
+
+        #[cfg(not(windows))]
+        let window = Window::new(
+            event_loop,
+            &config,
+            &identity,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            wayland_event_queue,
+            #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+            gl_config.x11_visual(),
+        )?;
+
+        // Create context.
+        let gl_context =
+            renderer::platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)?;
+
+        Self::new(window, gl_context, config, options, proxy)
+    }
+
+    /// Create additional context with the graphics platform other windows are using.
+    pub fn additional(
+        &self,
+        event_loop: &EventLoopWindowTarget<Event>,
+        proxy: EventLoopProxy<Event>,
+        config: Rc<UiConfig>,
+        options: WindowOptions,
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        wayland_event_queue: Option<&EventQueue>,
+    ) -> Result<Self, Box<dyn Error>> {
+        // Get any window and take its GL config and display to build a new context.
+        let (gl_display, gl_config) = {
+            let gl_context = self.display.gl_context();
+            (gl_context.display(), gl_context.config())
+        };
+
+        let mut identity = config.window.identity.clone();
+        options.window_identity.override_identity_config(&mut identity);
+
+        let window = Window::new(
+            event_loop,
+            &config,
+            &identity,
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            wayland_event_queue,
+            #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+            gl_config.x11_visual(),
+        )?;
+
+        // Create context.
+        let raw_window_handle = window.raw_window_handle();
+        let gl_context = renderer::platform::create_gl_context(
+            &gl_display,
+            &gl_config,
+            Some(raw_window_handle),
+        )?;
+
+        Self::new(window, gl_context, config, options, proxy)
+    }
+
+    /// Create a new terminal window context.
+    fn new(
+        window: Window,
+        context: NotCurrentContext,
+        config: Rc<UiConfig>,
+        options: WindowOptions,
+        proxy: EventLoopProxy<Event>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut pty_config = config.terminal_config.pty_config.clone();
         options.terminal_options.override_pty_config(&mut pty_config);
 
-        let mut identity = config.window.identity.clone();
         let preserve_title = options.window_identity.title.is_some();
-        options.window_identity.override_identity_config(&mut identity);
 
         // Create a display.
         //
         // The display manages a window and can draw the terminal.
-        let display = Display::new(
-            &config,
-            window_event_loop,
-            &identity,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
-        )?;
+        let display = Display::new(window, context, &config)?;
 
         info!(
             "PTY dimensions: {:?} x {:?}",
@@ -307,17 +391,17 @@ impl WindowContext {
         event_proxy: &EventLoopProxy<Event>,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
-        event: GlutinEvent<'_, Event>,
+        event: WinitEvent<'_, Event>,
     ) {
         match event {
             // Skip further event handling with no staged updates.
-            GlutinEvent::RedrawEventsCleared if self.event_queue.is_empty() && !self.dirty => {
+            WinitEvent::RedrawEventsCleared if self.event_queue.is_empty() && !self.dirty => {
                 return;
             },
             // Continue to process all pending events.
-            GlutinEvent::RedrawEventsCleared => (),
+            WinitEvent::RedrawEventsCleared => (),
             // Remap scale_factor change event to remove the lifetime.
-            GlutinEvent::WindowEvent {
+            WinitEvent::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                 window_id,
             } => {
@@ -396,7 +480,7 @@ impl WindowContext {
 
         // Skip rendering on Wayland until we get frame event from compositor.
         #[cfg(not(any(target_os = "macos", windows)))]
-        if !self.display.is_x11 && !self.display.window.should_draw.load(Ordering::Relaxed) {
+        if self.display.is_wayland && !self.display.window.should_draw.load(Ordering::Relaxed) {
             return;
         }
 
