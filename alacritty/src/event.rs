@@ -1213,8 +1213,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         if is_focused {
                             self.ctx.window().set_urgent(false);
-                        } else {
-                            self.ctx.window().set_mouse_visible(true);
                         }
 
                         self.ctx.update_cursor_blinking();
