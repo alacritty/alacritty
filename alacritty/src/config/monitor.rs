@@ -71,27 +71,22 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
         }
 
         loop {
-            let res = match rx.recv() {
-                Ok(res) => res,
+            let events = match rx.recv() {
+                Ok(Ok(events)) => events,
+                Ok(Err(err)) => {
+                    debug!("Config watcher errors: {:?}", err);
+                    continue;
+                },
                 Err(err) => {
                     debug!("Config watcher channel dropped unexpectedly: {}", err);
                     break;
                 },
             };
 
-            match res {
-                Ok(events) => {
-                    if events.iter().any(|e| paths.contains(&e.path)) {
-                        // Always reload the primary configuration file.
-                        let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
-                        let _ = event_proxy.send_event(event);
-                    }
-                },
-                Err(errors) => {
-                    for err in errors {
-                        debug!("Config watcher notify error: {}", err);
-                    }
-                },
+            if events.iter().any(|e| paths.contains(&e.path)) {
+                // Always reload the primary configuration file.
+                let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
+                let _ = event_proxy.send_event(event);
             }
         }
     });
