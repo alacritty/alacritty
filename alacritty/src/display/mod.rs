@@ -620,14 +620,11 @@ impl Display {
         if let Some(dimensions) = pending_update.dimensions() {
             width = dimensions.width as f32;
             height = dimensions.height as f32;
-
-            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
-            renderer_update.resize = true
         }
 
         let padding = config.window.padding(self.window.scale_factor as f32);
 
-        self.size_info = SizeInfo::new(
+        let new_size = SizeInfo::new(
             width,
             height,
             cell_width,
@@ -636,6 +633,14 @@ impl Display {
             padding.1,
             config.window.dynamic_padding,
         );
+
+        // Queue renderer update if terminal dimensions/padding changed.
+        if new_size != self.size_info {
+            let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
+            renderer_update.resize = true;
+        }
+
+        self.size_info = new_size;
 
         // Update number of column/lines in the viewport.
         let message_bar_lines =
