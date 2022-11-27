@@ -13,6 +13,7 @@ use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 
+use crate::config::debug::RendererPreference;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
@@ -87,7 +88,10 @@ impl Renderer {
     ///
     /// This will automatically pick between the GLES2 and GLSL3 renderer based on the GPU's
     /// supported OpenGL version.
-    pub fn new(context: &PossiblyCurrentContext) -> Result<Self, Error> {
+    pub fn new(
+        context: &PossiblyCurrentContext,
+        renderer_prefernce: Option<RendererPreference>,
+    ) -> Result<Self, Error> {
         // We need to load OpenGL functions once per instance, but only after we make our context
         // current due to WGL limitations.
         if !GL_FUNS_LOADED.swap(true, Ordering::Relaxed) {
@@ -106,12 +110,20 @@ impl Renderer {
 
         info!("Running on {}", renderer);
 
-        let (text_renderer, rect_renderer) = if version.as_ref() >= "3.3" {
+        // Use the config option to enforce a particular renderer configuration.
+        let (use_glsl3, allow_dsb) = match renderer_prefernce {
+            Some(RendererPreference::Glsl3) => (true, true),
+            Some(RendererPreference::Gles2) => (false, true),
+            Some(RendererPreference::Gles2Pure) => (false, false),
+            None => (version.as_ref() >= "3.3", true),
+        };
+
+        let (text_renderer, rect_renderer) = if use_glsl3 {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
             (text_renderer, rect_renderer)
         } else {
-            let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new()?);
+            let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb)?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
             (text_renderer, rect_renderer)
         };
