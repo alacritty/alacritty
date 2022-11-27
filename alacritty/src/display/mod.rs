@@ -624,7 +624,7 @@ impl Display {
 
         let padding = config.window.padding(self.window.scale_factor as f32);
 
-        let new_size = SizeInfo::new(
+        let mut new_size = SizeInfo::new(
             width,
             height,
             cell_width,
@@ -634,25 +634,23 @@ impl Display {
             config.window.dynamic_padding,
         );
 
+        // Update number of column/lines in the viewport.
+        let message_bar_lines = message_buffer.message().map_or(0, |m| m.text(&new_size).len());
+        let search_lines = usize::from(search_active);
+        new_size.reserve_lines(message_bar_lines + search_lines);
+
+        // Resize PTY.
+        pty_resize_handle.on_resize(new_size.into());
+
+        // Resize terminal.
+        terminal.resize(new_size);
+
         // Queue renderer update if terminal dimensions/padding changed.
         if new_size != self.size_info {
             let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
             renderer_update.resize = true;
         }
-
         self.size_info = new_size;
-
-        // Update number of column/lines in the viewport.
-        let message_bar_lines =
-            message_buffer.message().map_or(0, |m| m.text(&self.size_info).len());
-        let search_lines = usize::from(search_active);
-        self.size_info.reserve_lines(message_bar_lines + search_lines);
-
-        // Resize PTY.
-        pty_resize_handle.on_resize(self.size_info.into());
-
-        // Resize terminal.
-        terminal.resize(self.size_info);
     }
 
     /// Update the state of the renderer.
