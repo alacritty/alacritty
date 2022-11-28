@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash with `OT-SVG` fonts on Linux/BSD
 - Crash during text compose on old GNOME under Wayland
 - Mouse cursor staying hidden after window regains focus on macOS Ventura
+- Blurry fonts when changing padding size at runtime
 
 ## 0.11.0
 
