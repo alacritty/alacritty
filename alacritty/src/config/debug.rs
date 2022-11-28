@@ -20,7 +20,7 @@ pub struct Debug {
     /// Highlight damage information produced by alacritty.
     pub highlight_damage: bool,
 
-    /// The renderer alacritty should be using
+    /// The renderer alacritty should be using.
     pub renderer: Option<RendererPreference>,
 
     /// Record ref test.
