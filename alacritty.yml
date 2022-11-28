@@ -888,7 +888,7 @@
   #   - Trace
   #log_level: Warn
 
-  # Renderer to force
+  # Renderer override.
   #   - glsl3
   #   - gles2
   #   - gles2_pure
