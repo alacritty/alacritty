@@ -49,7 +49,7 @@ pub enum RendererPreference {
     #[serde(rename = "glsl3")]
     Glsl3,
 
-    /// GLES 2 renderer, but can use extensions like dual source blending.
+    /// GLES 2 renderer, with optional extensions like dual source blending.
     #[serde(rename = "gles2")]
     Gles2,
 
