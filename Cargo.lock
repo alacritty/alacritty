@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "glutin"
-version = "0.30.0"
+version = "0.30.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34acbf502536f1d125f0fc09b6ad8824e93e6da7b99e86d3383e6b8310ba3554"
+checksum = "0282c380a3adb52ae095e5847cc575c6bf79d296dcbf333e00be4a3fca07235e"
 dependencies = [
  "bitflags",
  "cfg_aliases",
@@ -692,16 +692,16 @@ dependencies = [
  "objc",
  "once_cell",
  "raw-window-handle 0.5.0",
- "wayland-sys 0.30.0-beta.12",
+ "wayland-sys 0.30.0",
  "windows-sys",
  "x11-dl",
 ]
 
 [[package]]
 name = "glutin_egl_sys"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c3c95a2d7a54bab0c74759794efb5cd63470d4504cbe85ed4114dc82c98bdc1"
+checksum = "3adbb8fec0e18e340f990c78f79f5f0e142d0d83f46b10909aaa7d251c00afdf"
 dependencies = [
  "gl_generator",
  "windows-sys",
@@ -1943,9 +1943,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-sys"
-version = "0.30.0-beta.12"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1117fe4570fe063122ba2b1b1e39e56fb1a73921d395f9288af06af0dd1c7f55"
+checksum = "8bcdbc325d8a78a9f49dcb77b39e92656e93b3f69eb4d60245f2116ec4bb0a97"
 dependencies = [
  "dlib",
  "lazy_static",
