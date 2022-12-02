@@ -554,8 +554,6 @@ impl Display {
             },
             (surface, context) => surface.swap_buffers(context),
         };
-        // We ignore the errors, but log them into `debug` so we can at least
-        // troubleshoot them in case they could be suspicious to real issues.
         if let Err(err) = res {
             debug!("error calling swap_buffers: {}", err);
         }
