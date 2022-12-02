@@ -545,7 +545,7 @@ impl Display {
 
     fn swap_buffers(&self) {
         #[allow(clippy::single_match)]
-        match (self.surface.deref(), &self.context.get()) {
+        let res = match (self.surface.deref(), &self.context.get()) {
             #[cfg(not(any(target_os = "macos", windows)))]
             (Surface::Egl(surface), PossiblyCurrentContext::Egl(context))
                 if self.is_wayland && !self.debug_damage =>
@@ -553,8 +553,10 @@ impl Display {
                 surface.swap_buffers_with_damage(context, &self.damage_rects)
             },
             (surface, context) => surface.swap_buffers(context),
+        };
+        if let Err(err) = res {
+            debug!("error calling swap_buffers: {}", err);
         }
-        .expect("failed to swap buffers.");
     }
 
     /// Update font size and cell dimensions.
