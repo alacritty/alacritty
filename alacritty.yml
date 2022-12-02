@@ -888,6 +888,12 @@
   #   - Trace
   #log_level: Warn
 
+  # Renderer override.
+  #   - glsl3
+  #   - gles2
+  #   - gles2_pure
+  #renderer: None
+
   # Print all received window events.
   #print_events: false
 

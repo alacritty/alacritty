@@ -1,8 +1,11 @@
 use std::collections::HashSet;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crossfont::Metrics;
+use glutin::context::PossiblyCurrentContext;
+use glutin::display::{GetGlDisplay, GlDisplay};
 use log::info;
 use once_cell::sync::OnceCell;
 
@@ -11,6 +14,7 @@ use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 
+use crate::config::debug::RendererPreference;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
@@ -19,6 +23,7 @@ use crate::renderer::rects::{RectRenderer, RenderRect};
 use crate::renderer::shader::ShaderError;
 
 pub mod graphics;
+pub mod platform;
 pub mod rects;
 mod shader;
 mod text;
@@ -35,6 +40,9 @@ macro_rules! cstr {
     };
 }
 pub(crate) use cstr;
+
+/// Whether the OpenGL functions have been loaded.
+pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 pub enum Error {
@@ -84,7 +92,20 @@ impl Renderer {
     ///
     /// This will automatically pick between the GLES2 and GLSL3 renderer based on the GPU's
     /// supported OpenGL version.
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(
+        context: &PossiblyCurrentContext,
+        renderer_prefernce: Option<RendererPreference>,
+    ) -> Result<Self, Error> {
+        // We need to load OpenGL functions once per instance, but only after we make our context
+        // current due to WGL limitations.
+        if !GL_FUNS_LOADED.swap(true, Ordering::Relaxed) {
+            let gl_display = context.display();
+            gl::load_with(|symbol| {
+                let symbol = CString::new(symbol).unwrap();
+                gl_display.get_proc_address(symbol.as_c_str()).cast()
+            });
+        }
+
         let (version, renderer) = unsafe {
             let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _);
             let version = CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _);
@@ -93,13 +114,21 @@ impl Renderer {
 
         info!("Running on {}", renderer);
 
-        let (text_renderer, rect_renderer, graphics_renderer) = if version.as_ref() >= "3.3" {
+        // Use the config option to enforce a particular renderer configuration.
+        let (use_glsl3, allow_dsb) = match renderer_prefernce {
+            Some(RendererPreference::Glsl3) => (true, true),
+            Some(RendererPreference::Gles2) => (false, true),
+            Some(RendererPreference::Gles2Pure) => (false, false),
+            None => (version.as_ref() >= "3.3", true),
+        };
+
+        let (text_renderer, rect_renderer, graphics_renderer) = if use_glsl3 {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
             let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Glsl3)?;
             (text_renderer, rect_renderer, graphics_renderer)
         } else {
-            let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new()?);
+            let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb)?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
             let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Gles2)?;
             (text_renderer, rect_renderer, graphics_renderer)

@@ -1,5 +1,7 @@
 use log::LevelFilter;
 
+use serde::Deserialize;
+
 use alacritty_config_derive::ConfigDeserialize;
 
 /// Debugging options.
@@ -18,6 +20,9 @@ pub struct Debug {
     /// Highlight damage information produced by alacritty.
     pub highlight_damage: bool,
 
+    /// The renderer alacritty should be using.
+    pub renderer: Option<RendererPreference>,
+
     /// Record ref test.
     #[config(skip)]
     pub ref_test: bool,
@@ -32,6 +37,23 @@ impl Default for Debug {
             render_timer: Default::default(),
             highlight_damage: Default::default(),
             ref_test: Default::default(),
+            renderer: Default::default(),
         }
     }
+}
+
+/// The renderer configuration options.
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RendererPreference {
+    /// OpenGL 3.3 renderer.
+    #[serde(rename = "glsl3")]
+    Glsl3,
+
+    /// GLES 2 renderer, with optional extensions like dual source blending.
+    #[serde(rename = "gles2")]
+    Gles2,
+
+    /// Pure GLES 2 renderer.
+    #[serde(rename = "gles2_pure")]
+    Gles2Pure,
 }

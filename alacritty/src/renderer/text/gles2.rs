@@ -37,11 +37,12 @@ pub struct Gles2Renderer {
 }
 
 impl Gles2Renderer {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(allow_dsb: bool) -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 
-        let dual_source_blending = GlExtensions::contains("GL_EXT_blend_func_extended")
-            || GlExtensions::contains("GL_ARB_blend_func_extended");
+        let dual_source_blending = allow_dsb
+            && (GlExtensions::contains("GL_EXT_blend_func_extended")
+                || GlExtensions::contains("GL_ARB_blend_func_extended"));
 
         if dual_source_blending {
             info!("Using dual source blending");
@@ -478,7 +479,7 @@ impl TextShaderProgram {
         let fragment_shader =
             if dual_source_blending { &glsl3::TEXT_SHADER_F } else { &TEXT_SHADER_F };
 
-        let program = ShaderProgram::new(shader_version, TEXT_SHADER_V, fragment_shader)?;
+        let program = ShaderProgram::new(shader_version, None, TEXT_SHADER_V, fragment_shader)?;
 
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
