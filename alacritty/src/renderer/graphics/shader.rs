@@ -13,7 +13,7 @@ pub(super) const TEXTURES_ARRAY_SIZE: usize = 16;
 ///
 /// * Bit 0 (LSB) is 0 for top and 1 for bottom.
 /// * Bit 1 is 0 for left and 1 for right.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum VertexSide {
     TopLeft = 0b00,
@@ -81,7 +81,8 @@ pub struct GraphicsShaderProgram {
 
 impl GraphicsShaderProgram {
     pub fn new(shader_version: ShaderVersion) -> Result<Self, ShaderError> {
-        let shader = ShaderProgram::new(shader_version, None, GRAPHICS_SHADER_V, GRAPHICS_SHADER_F)?;
+        let shader =
+            ShaderProgram::new(shader_version, None, GRAPHICS_SHADER_V, GRAPHICS_SHADER_F)?;
 
         let u_cell_dimensions;
         let u_view_dimensions;
