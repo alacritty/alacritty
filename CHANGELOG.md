@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash during text compose on old GNOME under Wayland
 - Mouse cursor staying hidden after window regains focus on macOS Ventura
 - Blurry fonts when changing padding size at runtime
+- Crash while typing on Wayland
 
 ## 0.11.0
 
