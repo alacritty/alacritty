@@ -30,14 +30,13 @@ impl<'a> RenderDamageIterator<'a> {
 
     // Make sure to damage near cells to include wide chars.
     #[inline]
-    fn overdamage(&self, mut rect: Rect) -> Rect {
-        let size_info = &self.size_info;
-        rect.x = rect.x.saturating_sub(size_info.cell_width() as i32);
+    fn overdamage(size_info: &SizeInfo<u32>, mut rect: Rect) -> Rect {
+        rect.x = (rect.x - size_info.cell_width() as i32).max(0);
         rect.width = cmp::min(
             size_info.width() as i32 - rect.x,
             rect.width + 2 * size_info.cell_width() as i32,
         );
-        rect.y = rect.y.saturating_sub(size_info.cell_height() as i32 / 2);
+        rect.y = (rect.y - size_info.cell_height() as i32 / 2).max(0);
         rect.height = cmp::min(
             size_info.height() as i32 - rect.y,
             rect.height + size_info.cell_height() as i32,
@@ -52,11 +51,12 @@ impl<'a> Iterator for RenderDamageIterator<'a> {
 
     fn next(&mut self) -> Option<Rect> {
         let line = self.damaged_lines.next()?;
-        let mut total_damage_rect = self.overdamage(self.rect_for_line(line));
+        let size_info = &self.size_info;
+        let mut total_damage_rect = Self::overdamage(size_info, self.rect_for_line(line));
 
         // Merge rectangles which overlap with each other.
         while let Some(line) = self.damaged_lines.peek().copied() {
-            let next_rect = self.overdamage(self.rect_for_line(line));
+            let next_rect = Self::overdamage(size_info, self.rect_for_line(line));
             if !rects_overlap(total_damage_rect, next_rect) {
                 break;
             }
@@ -91,4 +91,53 @@ fn merge_rects(lhs: Rect, rhs: Rect) -> Rect {
     let y_top = cmp::max(lhs.y + lhs.height, rhs.y + rhs.height);
     let y_bottom = cmp::min(lhs.y, rhs.y);
     Rect::new(left_x, y_bottom, right_x - left_x, y_top - y_bottom)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn damage_rect_math() {
+        let rect_side = 10;
+        let cell_size = 4;
+        let bound = 100;
+
+        let size_info: SizeInfo<u32> = SizeInfo::new(
+            bound as f32,
+            bound as f32,
+            cell_size as f32,
+            cell_size as f32,
+            2.,
+            2.,
+            true,
+        )
+        .into();
+
+        // Test min clamping.
+        let rect = Rect::new(0, 0, rect_side, rect_side);
+        let rect = RenderDamageIterator::overdamage(&size_info, rect);
+        assert_eq!(Rect::new(0, 0, rect_side + 2 * cell_size, 10 + cell_size), rect);
+
+        // Test max clamping.
+        let rect = Rect::new(bound, bound, rect_side, rect_side);
+        let rect = RenderDamageIterator::overdamage(&size_info, rect);
+        assert_eq!(
+            Rect::new(bound - cell_size, bound - cell_size / 2, cell_size, cell_size / 2),
+            rect
+        );
+
+        // Test no clamping.
+        let rect = Rect::new(bound / 2, bound / 2, rect_side, rect_side);
+        let rect = RenderDamageIterator::overdamage(&size_info, rect);
+        assert_eq!(
+            Rect::new(
+                bound / 2 - cell_size,
+                bound / 2 - cell_size / 2,
+                rect_side + 2 * cell_size,
+                rect_side + cell_size
+            ),
+            rect
+        );
+    }
 }
