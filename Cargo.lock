@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "glutin"
-version = "0.30.2"
+version = "0.30.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0282c380a3adb52ae095e5847cc575c6bf79d296dcbf333e00be4a3fca07235e"
+checksum = "524d807cd49a0c56a53ef9a6738cd15e7c8c4e9d37a3b7fdb3c250c1cd5bf7a3"
 dependencies = [
  "bitflags",
  "cfg_aliases",
