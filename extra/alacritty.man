@@ -62,7 +62,7 @@ Override configuration file options [example: cursor.style=Beam]
 \fB\-\-socket\fR <socket>
 Path for IPC socket creation
 .TP
-\fB\-t\fR, \fB\-\-title\fR <title>
+\fB\-T\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
 .TP
 \fB\-\-working\-directory\fR <working\-directory>
