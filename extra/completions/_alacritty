@@ -23,7 +23,7 @@ _alacritty() {
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
-'-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'-T+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:general> | <general>,<instance: ' \
 '-h[Print help information]' \
@@ -65,7 +65,7 @@ _arguments "${_arguments_options[@]}" \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
-'-t+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
+'-T+[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default: Alacritty\]]:TITLE: ' \
 '--class=[Defines window class/app_id on X11/Wayland \[default: Alacritty\]]:general> | <general>,<instance: ' \
 '--hold[Remain open after child process exit]' \
