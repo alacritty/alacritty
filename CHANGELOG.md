@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mouse cursor staying hidden after window regains focus on macOS Ventura
 - Blurry fonts when changing padding size at runtime
 - Crash while typing on Wayland
+- Multi-line semantic bracket selection
 
 ## 0.11.0
 
