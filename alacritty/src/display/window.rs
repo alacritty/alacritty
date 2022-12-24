@@ -1,11 +1,5 @@
-#[rustfmt::skip]
 #[cfg(not(any(target_os = "macos", windows)))]
-use {
-    std::sync::atomic::AtomicBool,
-    std::sync::Arc,
-
-    winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
-};
+use winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix};
 
 #[rustfmt::skip]
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -28,6 +22,8 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, NO, YES};
@@ -37,6 +33,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
+use winit::monitor::MonitorHandle;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
@@ -106,9 +103,8 @@ impl From<crossfont::Error> for Error {
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
-    /// Flag tracking frame redraw requests from Wayland compositor.
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub should_draw: Arc<AtomicBool>,
+    /// Flag tracking that we have a frame we can draw.
+    pub has_frame: Arc<AtomicBool>,
 
     /// Attached Wayland surface to request new frame events.
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -194,8 +190,7 @@ impl Window {
             mouse_visible: true,
             window,
             title: identity.title,
-            #[cfg(not(any(target_os = "macos", windows)))]
-            should_draw: Arc::new(AtomicBool::new(true)),
+            has_frame: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
             scale_factor,
@@ -386,6 +381,10 @@ impl Window {
         } else {
             self.window.set_fullscreen(None);
         }
+    }
+
+    pub fn current_monitor(&self) -> Option<MonitorHandle> {
+        self.window.current_monitor()
     }
 
     #[cfg(target_os = "macos")]
