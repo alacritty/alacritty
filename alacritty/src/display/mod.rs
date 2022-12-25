@@ -833,7 +833,7 @@ impl Display {
             );
         }
 
-        let mut rects = lines.rects(&metrics, &size_info);
+        let mut rects = lines.rects(&metrics, &size_info, config.font.glyph_offset);
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
@@ -1111,7 +1111,12 @@ impl Display {
 
         // Add underline for preedit text.
         let underline = RenderLine { start, end, color: fg };
-        rects.extend(underline.rects(Flags::UNDERLINE, &metrics, &self.size_info));
+        rects.extend(underline.rects(
+            Flags::UNDERLINE,
+            &metrics,
+            &self.size_info,
+            config.font.glyph_offset,
+        ));
 
         let ime_popup_point = match preedit.cursor_end_offset {
             Some(cursor_end_offset) if cursor_end_offset != 0 => {
