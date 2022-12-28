@@ -368,7 +368,7 @@ pub struct Display {
     /// The ime on the given display.
     pub ime: Ime,
 
-    /// The state of the timer based for frame scheduling.
+    /// The state of the timer for frame scheduling.
     pub frame_timer_info: FrameTimerInfo,
 
     // Mouse point position when highlighting hints.
@@ -492,7 +492,9 @@ impl Display {
         };
 
         // Disable vsync.
-        let _ = surface.set_swap_interval(&context, SwapInterval::DontWait);
+        if let Err(err) = surface.set_swap_interval(&context, SwapInterval::DontWait) {
+            info!("Failed to disable vsync: {}", err);
+        }
 
         Ok(Self {
             window,
@@ -966,9 +968,8 @@ impl Display {
             self.draw_hyperlink_preview(config, cursor_point, display_offset);
         }
 
-        // Frame event should be requested before swaping buffers, since it requires surface
-        // `commit`, which is done by swap buffers under the hood.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        // Frame event should be requested before swapping buffers on Wayland, since it requires
+        // surface `commit`, which is done by swap buffers under the hood.
         if self.is_wayland {
             self.request_frame(scheduler);
         }
@@ -1397,23 +1398,25 @@ impl Display {
             return;
         }
 
-        // Get the display vblank interval in micro seconds.
-        let monitor_vblank_interval = Duration::from_micros(
-            (1e6 / (self
+        // Get the display vblank interval.
+        let monitor_vblank_interval = 1_000_000.
+            / self
                 .window
                 .current_monitor()
                 .and_then(|monitor| monitor.refresh_rate_millihertz())
-                .unwrap_or(60_000) as f64
-                / 1e3)) as u64,
-        );
+                .unwrap_or(60_000) as f64;
 
-        let swap_delay = self.frame_timer_info.compute_delay(monitor_vblank_interval);
+        // Now convert it to micro seconds.
+        let monitor_vblank_interval =
+            Duration::from_micros((1000. * monitor_vblank_interval) as u64);
+
+        let swap_timeout = self.frame_timer_info.compute_timeout(monitor_vblank_interval);
 
         let window_id = self.window.id();
         let timer_id = TimerId::new(Topic::Frame, window_id);
         let event = Event::new(EventType::Frame, window_id);
 
-        scheduler.schedule(event, swap_delay, false, timer_id);
+        scheduler.schedule(event, swap_timeout, false, timer_id);
     }
 }
 
@@ -1561,7 +1564,7 @@ pub struct FrameTimerInfo {
     /// The optimal delay for the renderer.
     swap_delay: Option<Duration>,
 
-    /// The time stamp of the previous contiguos frame.
+    /// The timestamp of the previous frame.
     frame_timestamp: Option<Instant>,
 
     /// The refresh rate we've used to compute the `swap_delay`.
@@ -1571,35 +1574,36 @@ pub struct FrameTimerInfo {
 impl FrameTimerInfo {
     /// Compute the delay that we should use to achieve the target frame
     /// rate.
-    pub fn compute_delay(&mut self, refresh_interval: Duration) -> Duration {
-        // If the refresh rate has changed, reset the timings.
-        if self.refresh_interval != refresh_interval || self.swap_delay.is_none() {
-            self.refresh_interval = refresh_interval;
-            self.frame_timestamp = Some(Instant::now());
-            self.swap_delay = Some(refresh_interval);
-            return refresh_interval;
-        }
+    pub fn compute_timeout(&mut self, refresh_interval: Duration) -> Duration {
+        let swap_timeout =
+            match self.swap_delay.filter(|_| self.refresh_interval == refresh_interval) {
+                Some(swap_delay) => swap_delay,
+                None => {
+                    // If the refresh rate has changed, reset the timings.
+                    self.refresh_interval = refresh_interval;
+                    self.frame_timestamp = Some(Instant::now());
+                    self.swap_delay = Some(refresh_interval);
+                    return refresh_interval;
+                },
+            };
 
-        // At this point we know that `swap_delay` has some value.
-        let swap_delay = self.swap_delay.unwrap();
-
-        let new_swap_delay = match self.frame_timestamp {
+        let new_swap_timeout = match self.frame_timestamp {
             Some(last_frame_timestamp) => {
                 // Compute the error.
                 let error = self.refresh_interval.as_micros() as i64
                     - last_frame_timestamp.elapsed().as_micros() as i64;
-                let new_swap_delay = swap_delay.as_micros() as i64 + error;
+                let new_swap_delay = swap_timeout.as_micros() as i64 + error;
                 Duration::from_micros(u64::try_from(new_swap_delay).unwrap_or_default())
             },
             // If we don't have any information about the last frame, just return
             // previous target.
-            None => swap_delay,
+            None => swap_timeout,
         };
 
-        self.swap_delay = Some(new_swap_delay);
+        self.swap_delay = Some(new_swap_timeout);
         self.frame_timestamp = Some(Instant::now());
 
-        new_swap_delay
+        new_swap_timeout
     }
 }
 

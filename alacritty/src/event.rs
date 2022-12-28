@@ -1474,8 +1474,8 @@ impl Processor {
                         );
                     }
 
-                    // Update the scheduler after we've done everything, so
-                    // the deadline will be more correct.
+                    // Update the scheduler after event processing to ensure
+                    // the event loop deadline is as accurate as possible.
                     *control_flow = match scheduler.update() {
                         Some(instant) => ControlFlow::WaitUntil(instant),
                         None => ControlFlow::Wait,
