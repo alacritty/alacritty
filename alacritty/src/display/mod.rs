@@ -985,6 +985,8 @@ impl Display {
             self.renderer.finish();
         }
 
+        // XXX request for the rendering frame after swap buffers, so the time
+        // for finishing gl operations will be accounted in to the timeout.
         if !self.is_wayland {
             self.request_frame(scheduler);
         }
