@@ -42,7 +42,10 @@ pub fn pick_gl_config(
     gl_display: &Display,
     raw_window_handle: Option<RawWindowHandle>,
 ) -> Result<Config, String> {
-    let mut default_config = ConfigTemplateBuilder::new().with_transparency(true);
+    let mut default_config = ConfigTemplateBuilder::new()
+        .with_depth_size(0)
+        .with_stencil_size(0)
+        .with_transparency(true);
 
     if let Some(raw_window_handle) = raw_window_handle {
         default_config = default_config.compatible_with_native_window(raw_window_handle);
