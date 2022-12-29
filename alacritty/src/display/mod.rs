@@ -510,7 +510,7 @@ impl Display {
             vi_highlighted_hint: None,
             is_wayland,
             cursor_hidden: false,
-            frame_timer_info: Default::default(),
+            frame_timer_info: FrameTimerInfo::new(),
             visual_bell: VisualBell::from(&config.bell),
             colors: List::from(&config.colors),
             pending_update: Default::default(),
@@ -1561,51 +1561,59 @@ impl<T> DerefMut for Replaceable<T> {
 }
 
 /// The frame timer state.
-#[derive(Default)]
 pub struct FrameTimerInfo {
     /// The optimal delay for the renderer.
-    swap_delay: Option<Duration>,
+    swap_timeout: Duration,
+
+    /// The previous error that we've used to offset the `swap_delay`.
+    previous_error: i64,
 
     /// The timestamp of the previous frame.
-    frame_timestamp: Option<Instant>,
+    frame_timestamp: Instant,
 
     /// The refresh rate we've used to compute the `swap_delay`.
     refresh_interval: Duration,
 }
 
 impl FrameTimerInfo {
+    pub fn new() -> Self {
+        Self {
+            swap_timeout: Duration::ZERO,
+            previous_error: 0,
+            frame_timestamp: Instant::now(),
+            refresh_interval: Duration::ZERO,
+        }
+    }
+
     /// Compute the delay that we should use to achieve the target frame
     /// rate.
     pub fn compute_timeout(&mut self, refresh_interval: Duration) -> Duration {
-        let swap_timeout =
-            match self.swap_delay.filter(|_| self.refresh_interval == refresh_interval) {
-                Some(swap_delay) => swap_delay,
-                None => {
-                    // If the refresh rate has changed, reset the timings.
-                    self.refresh_interval = refresh_interval;
-                    self.frame_timestamp = Some(Instant::now());
-                    self.swap_delay = Some(refresh_interval);
-                    return refresh_interval;
-                },
-            };
+        // Handle refresh rate change.
+        if self.refresh_interval != refresh_interval {
+            self.refresh_interval = refresh_interval;
+            self.frame_timestamp = Instant::now();
+            self.swap_timeout = refresh_interval;
+            return refresh_interval;
+        }
 
-        let new_swap_timeout = match self.frame_timestamp {
-            Some(last_frame_timestamp) => {
-                // Compute the error.
-                let error = self.refresh_interval.as_micros() as i64
-                    - last_frame_timestamp.elapsed().as_micros() as i64;
-                let new_swap_delay = swap_timeout.as_micros() as i64 + error;
-                Duration::from_micros(u64::try_from(new_swap_delay).unwrap_or_default())
-            },
-            // If we don't have any information about the last frame, just return
-            // previous target.
-            None => swap_timeout,
-        };
+        // Compute the error.
+        let error = self.refresh_interval.as_micros() as i64
+            - self.frame_timestamp.elapsed().as_micros() as i64;
 
-        self.swap_delay = Some(new_swap_timeout);
-        self.frame_timestamp = Some(Instant::now());
+        // Don't update error and swap timeout if we've waited for too long.
+        if error < self.refresh_interval.as_micros() as i64 {
+            // Average previously used error with the current one to reduce momentum from the
+            // error sign changes.
+            self.previous_error = (self.previous_error + error) / 2;
 
-        new_swap_timeout
+            let new_swap_timeout = self.swap_timeout.as_micros() as i64 + self.previous_error;
+            let new_swap_timeout =
+                Duration::from_micros(u64::try_from(new_swap_timeout).unwrap_or_default());
+            self.swap_timeout = new_swap_timeout;
+        }
+
+        self.frame_timestamp = Instant::now();
+        self.swap_timeout
     }
 }
 
