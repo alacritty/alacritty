@@ -1176,13 +1176,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 match event {
                     WindowEvent::CloseRequested => self.ctx.terminal.exit(),
                     WindowEvent::Resized(size) => {
-                        // The user could also resize the window to have zero height
-                        // due to the window decorations and such, so ignore zero sizes.
-                        //
-                        // Also on Windows, minimizing the window sends a Resize event with zero
-                        // width and height. But there's no need to ever
-                        // actually resize to this. ConPTY has issues when
-                        // resizing down to zero size and back.
+                        // Ignore resize events to zero in any dimension, to avoid issues with Winit
+                        // and the ConPTY. A 0x0 resize will also occur when the window is minimized
+                        // on Windows.
                         if size.width == 0 || size.height == 0 {
                             return;
                         }
