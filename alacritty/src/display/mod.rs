@@ -1594,12 +1594,14 @@ impl FrameTimer {
         let next_frame = self.last_synced_timestamp + self.refresh_interval;
 
         if next_frame < now {
+            // Redraw immediately if we haven't drawn in over `refresh_interval` microseconds.
             let elapsed_micros = (now - self.base).as_micros() as u64;
             let refresh_micros = self.refresh_interval.as_micros() as u64;
             self.last_synced_timestamp =
                 now - Duration::from_micros(elapsed_micros % refresh_micros);
             Duration::ZERO
         } else {
+            // Redraw on the next `refresh_interval` clock tick.
             self.last_synced_timestamp = next_frame;
             next_frame - now
         }
