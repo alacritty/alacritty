@@ -7,7 +7,6 @@ use std::mem;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
-#[cfg(not(any(target_os = "macos", windows)))]
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -478,9 +477,8 @@ impl WindowContext {
             self.mouse.hint_highlight_dirty = false;
         }
 
-        // Skip rendering on Wayland until we get frame event from compositor.
-        #[cfg(not(any(target_os = "macos", windows)))]
-        if self.display.is_wayland && !self.display.window.should_draw.load(Ordering::Relaxed) {
+        // Skip rendering until we get a new frame.
+        if !self.display.window.has_frame.load(Ordering::Relaxed) {
             return;
         }
 
@@ -495,8 +493,14 @@ impl WindowContext {
                 self.display.window.request_redraw();
             }
 
-            // Redraw screen.
-            self.display.draw(terminal, &self.message_buffer, &self.config, &self.search_state);
+            // Redraw the window.
+            self.display.draw(
+                terminal,
+                scheduler,
+                &self.message_buffer,
+                &self.config,
+                &self.search_state,
+            );
         }
     }
 

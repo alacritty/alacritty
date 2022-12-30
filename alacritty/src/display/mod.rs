@@ -6,14 +6,14 @@ use std::fmt::{self, Formatter};
 use std::mem::{self, ManuallyDrop};
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 use glutin::context::{NotCurrentContext, PossiblyCurrentContext};
 use glutin::prelude::*;
 use glutin::surface::{Rect as DamageRect, Surface, SwapInterval, WindowSurface};
 
-use log::{debug, info, warn};
+use log::{debug, info};
 use parking_lot::MutexGuard;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
@@ -46,10 +46,11 @@ use crate::display::damage::RenderDamageIterator;
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
-use crate::event::{Mouse, SearchState};
+use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, Renderer};
+use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
@@ -367,6 +368,9 @@ pub struct Display {
     /// The ime on the given display.
     pub ime: Ime,
 
+    /// The state of the timer for frame scheduling.
+    pub frame_timer: FrameTimer,
+
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
@@ -487,13 +491,9 @@ impl Display {
             (Vec::new(), Vec::new())
         };
 
-        // We use vsync everywhere except wayland.
-        if !is_wayland {
-            if let Err(err) =
-                surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
-            {
-                warn!("Error setting vsync: {:?}", err);
-            }
+        // Disable vsync.
+        if let Err(err) = surface.set_swap_interval(&context, SwapInterval::DontWait) {
+            info!("Failed to disable vsync: {}", err);
         }
 
         Ok(Self {
@@ -510,6 +510,7 @@ impl Display {
             vi_highlighted_hint: None,
             is_wayland,
             cursor_hidden: false,
+            frame_timer: FrameTimer::new(),
             visual_bell: VisualBell::from(&config.bell),
             colors: List::from(&config.colors),
             pending_update: Default::default(),
@@ -751,6 +752,7 @@ impl Display {
     pub fn draw<T: EventListener>(
         &mut self,
         mut terminal: MutexGuard<'_, Term<T>>,
+        scheduler: &mut Scheduler,
         message_buffer: &MessageBuffer,
         config: &UiConfig,
         search_state: &SearchState,
@@ -966,10 +968,11 @@ impl Display {
             self.draw_hyperlink_preview(config, cursor_point, display_offset);
         }
 
-        // Frame event should be requested before swaping buffers, since it requires surface
-        // `commit`, which is done by swap buffers under the hood.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        self.request_frame(&self.window);
+        // Frame event should be requested before swapping buffers on Wayland, since it requires
+        // surface `commit`, which is done by swap buffers under the hood.
+        if self.is_wayland {
+            self.request_frame(scheduler);
+        }
 
         // Clearing debug highlights from the previous frame requires full redraw.
         self.swap_buffers();
@@ -980,6 +983,12 @@ impl Display {
             // will block to synchronize (this is `glClear` in Alacritty), which causes a
             // permanent one frame delay.
             self.renderer.finish();
+        }
+
+        // XXX: Request the new frame after swapping buffers, so the
+        // time to finish OpenGL operations is accounted for in the timeout.
+        if !self.is_wayland {
+            self.request_frame(scheduler);
         }
 
         self.damage_rects.clear();
@@ -1376,23 +1385,40 @@ impl Display {
     }
 
     /// Requst a new frame for a window on Wayland.
-    #[inline]
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    fn request_frame(&self, window: &Window) {
-        let surface = match window.wayland_surface() {
-            Some(surface) => surface,
-            None => return,
-        };
+    fn request_frame(&mut self, scheduler: &mut Scheduler) {
+        // Mark that we've used a frame.
+        self.window.has_frame.store(false, Ordering::Relaxed);
 
-        let should_draw = self.window.should_draw.clone();
+        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+        if let Some(surface) = self.window.wayland_surface() {
+            let has_frame = self.window.has_frame.clone();
+            // Request a new frame.
+            surface.frame().quick_assign(move |_, _, _| {
+                has_frame.store(true, Ordering::Relaxed);
+            });
 
-        // Mark that window was drawn.
-        should_draw.store(false, Ordering::Relaxed);
+            return;
+        }
 
-        // Request a new frame.
-        surface.frame().quick_assign(move |_, _, _| {
-            should_draw.store(true, Ordering::Relaxed);
-        });
+        // Get the display vblank interval.
+        let monitor_vblank_interval = 1_000_000.
+            / self
+                .window
+                .current_monitor()
+                .and_then(|monitor| monitor.refresh_rate_millihertz())
+                .unwrap_or(60_000) as f64;
+
+        // Now convert it to micro seconds.
+        let monitor_vblank_interval =
+            Duration::from_micros((1000. * monitor_vblank_interval) as u64);
+
+        let swap_timeout = self.frame_timer.compute_timeout(monitor_vblank_interval);
+
+        let window_id = self.window.id();
+        let timer_id = TimerId::new(Topic::Frame, window_id);
+        let event = Event::new(EventType::Frame, window_id);
+
+        scheduler.schedule(event, swap_timeout, false, timer_id);
     }
 }
 
@@ -1531,6 +1557,54 @@ impl<T> Deref for Replaceable<T> {
 impl<T> DerefMut for Replaceable<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.get_mut()
+    }
+}
+
+/// The frame timer state.
+pub struct FrameTimer {
+    /// Base timestamp used to compute sync points.
+    base: Instant,
+
+    /// The last timestamp we synced to.
+    last_synced_timestamp: Instant,
+
+    /// The refresh rate we've used to compute sync timestamps.
+    refresh_interval: Duration,
+}
+
+impl FrameTimer {
+    pub fn new() -> Self {
+        let now = Instant::now();
+        Self { base: now, last_synced_timestamp: now, refresh_interval: Duration::ZERO }
+    }
+
+    /// Compute the delay that we should use to achieve the target frame
+    /// rate.
+    pub fn compute_timeout(&mut self, refresh_interval: Duration) -> Duration {
+        let now = Instant::now();
+
+        // Handle refresh rate change.
+        if self.refresh_interval != refresh_interval {
+            self.base = now;
+            self.last_synced_timestamp = now;
+            self.refresh_interval = refresh_interval;
+            return refresh_interval;
+        }
+
+        let next_frame = self.last_synced_timestamp + self.refresh_interval;
+
+        if next_frame < now {
+            // Redraw immediately if we haven't drawn in over `refresh_interval` microseconds.
+            let elapsed_micros = (now - self.base).as_micros() as u64;
+            let refresh_micros = self.refresh_interval.as_micros() as u64;
+            self.last_synced_timestamp =
+                now - Duration::from_micros(elapsed_micros % refresh_micros);
+            Duration::ZERO
+        } else {
+            // Redraw on the next `refresh_interval` clock tick.
+            self.last_synced_timestamp = next_frame;
+            next_frame - now
+        }
     }
 }
 
