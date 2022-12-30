@@ -1562,58 +1562,47 @@ impl<T> DerefMut for Replaceable<T> {
 
 /// The frame timer state.
 pub struct FrameTimer {
-    /// The optimal delay for the renderer.
-    swap_timeout: Duration,
+    /// Base timestamp used to compute sync points.
+    base: Instant,
 
-    /// The previous error that we've used to offset the `swap_delay`.
-    previous_error: i64,
+    /// The last timestamp we synced to.
+    last_synced_timestamp: Instant,
 
-    /// The timestamp of the previous frame.
-    frame_timestamp: Instant,
-
-    /// The refresh rate we've used to compute the `swap_delay`.
+    /// The refresh rate we've used to compute sync timestamps.
     refresh_interval: Duration,
 }
 
 impl FrameTimer {
     pub fn new() -> Self {
-        Self {
-            swap_timeout: Duration::ZERO,
-            previous_error: 0,
-            frame_timestamp: Instant::now(),
-            refresh_interval: Duration::ZERO,
-        }
+        let now = Instant::now();
+        Self { base: now, last_synced_timestamp: now, refresh_interval: Duration::ZERO }
     }
 
     /// Compute the delay that we should use to achieve the target frame
     /// rate.
     pub fn compute_timeout(&mut self, refresh_interval: Duration) -> Duration {
+        let now = Instant::now();
+
         // Handle refresh rate change.
         if self.refresh_interval != refresh_interval {
+            self.base = now;
+            self.last_synced_timestamp = now;
             self.refresh_interval = refresh_interval;
-            self.frame_timestamp = Instant::now();
-            self.swap_timeout = refresh_interval;
             return refresh_interval;
         }
 
-        // Compute the error.
-        let error = self.refresh_interval.as_micros() as i64
-            - self.frame_timestamp.elapsed().as_micros() as i64;
+        let next_frame = self.last_synced_timestamp + self.refresh_interval;
 
-        // Don't update error and swap timeout if we've waited for too long.
-        if error < self.refresh_interval.as_micros() as i64 {
-            // Average previously used error with the current one to reduce momentum from the
-            // error sign changes.
-            self.previous_error = (self.previous_error + error) / 2;
-
-            let new_swap_timeout = self.swap_timeout.as_micros() as i64 + self.previous_error;
-            let new_swap_timeout =
-                Duration::from_micros(u64::try_from(new_swap_timeout).unwrap_or_default());
-            self.swap_timeout = new_swap_timeout;
+        if next_frame < now {
+            let elapsed_micros = (now - self.base).as_micros() as u64;
+            let refresh_micros = self.refresh_interval.as_micros() as u64;
+            self.last_synced_timestamp =
+                now - Duration::from_micros(elapsed_micros % refresh_micros);
+            Duration::ZERO
+        } else {
+            self.last_synced_timestamp = next_frame;
+            next_frame - now
         }
-
-        self.frame_timestamp = Instant::now();
-        self.swap_timeout
     }
 }
 
