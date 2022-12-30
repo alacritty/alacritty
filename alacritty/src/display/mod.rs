@@ -369,7 +369,7 @@ pub struct Display {
     pub ime: Ime,
 
     /// The state of the timer for frame scheduling.
-    pub frame_timer_info: FrameTimerInfo,
+    pub frame_timer: FrameTimer,
 
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
@@ -510,7 +510,7 @@ impl Display {
             vi_highlighted_hint: None,
             is_wayland,
             cursor_hidden: false,
-            frame_timer_info: FrameTimerInfo::new(),
+            frame_timer: FrameTimer::new(),
             visual_bell: VisualBell::from(&config.bell),
             colors: List::from(&config.colors),
             pending_update: Default::default(),
@@ -1412,7 +1412,7 @@ impl Display {
         let monitor_vblank_interval =
             Duration::from_micros((1000. * monitor_vblank_interval) as u64);
 
-        let swap_timeout = self.frame_timer_info.compute_timeout(monitor_vblank_interval);
+        let swap_timeout = self.frame_timer.compute_timeout(monitor_vblank_interval);
 
         let window_id = self.window.id();
         let timer_id = TimerId::new(Topic::Frame, window_id);
@@ -1561,7 +1561,7 @@ impl<T> DerefMut for Replaceable<T> {
 }
 
 /// The frame timer state.
-pub struct FrameTimerInfo {
+pub struct FrameTimer {
     /// The optimal delay for the renderer.
     swap_timeout: Duration,
 
@@ -1575,7 +1575,7 @@ pub struct FrameTimerInfo {
     refresh_interval: Duration,
 }
 
-impl FrameTimerInfo {
+impl FrameTimer {
     pub fn new() -> Self {
         Self {
             swap_timeout: Duration::ZERO,
