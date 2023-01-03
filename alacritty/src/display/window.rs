@@ -26,7 +26,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
-use cocoa::base::{id, NO, YES};
+use cocoa::base::{nil, id, NO, YES};
+#[cfg(target_os = "macos")]
+use cocoa::appkit::NSColorSpace;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -163,6 +165,9 @@ impl Window {
 
         // Enable IME.
         window.set_ime_allowed(true);
+
+        #[cfg(target_os = "macos")]
+        macos_use_srgb_color_space(&window);
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
@@ -457,6 +462,18 @@ fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
         // Drain errors and restore original error handler.
         (xlib.XSync)(xlib_display as _, 0);
         (xlib.XSetErrorHandler)(old_handler);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_use_srgb_color_space(window: &WinitWindow) {
+    let raw_window = match window.raw_window_handle() {
+        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        _ => return,
+    };
+
+    unsafe {
+        let _: () = msg_send![raw_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
     }
 }
 
