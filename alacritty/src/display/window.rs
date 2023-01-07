@@ -26,18 +26,18 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
-use cocoa::base::{nil, id, NO, YES};
-#[cfg(target_os = "macos")]
-use cocoa::appkit::NSColorSpace;
-#[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
+use {
+    cocoa::appkit::NSColorSpace,
+    cocoa::base::{id, nil, NO, YES},
+    objc::{msg_send, sel, sel_impl},
+    winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS},
+};
+
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
