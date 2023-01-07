@@ -167,7 +167,7 @@ impl Window {
         window.set_ime_allowed(true);
 
         #[cfg(target_os = "macos")]
-        macos_use_srgb_color_space(&window);
+        use_srgb_color_space(&window);
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
@@ -466,7 +466,7 @@ fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_use_srgb_color_space(window: &WinitWindow) {
+fn use_srgb_color_space(window: &WinitWindow) {
     let raw_window = match window.raw_window_handle() {
         RawWindowHandle::AppKit(handle) => handle.ns_window as id,
         _ => return,
