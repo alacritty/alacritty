@@ -180,6 +180,9 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Duplicate instance of Alacritty.
+    DuplicateInstance,
+
     /// Create a new Alacritty window.
     CreateNewWindow,
 
