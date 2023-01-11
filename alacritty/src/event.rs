@@ -409,13 +409,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Reuse the arguments passed to Alacritty for the new instance.
         #[allow(clippy::while_let_on_iterator)]
         while let Some(arg) = env_args.next() {
-            // On unix, the working directory of the foreground shell is used by `start_daemon`.
-            #[cfg(not(windows))]
-            if arg == "--working-directory" {
-                let _ = env_args.next();
-                continue;
-            }
-
             args.push(arg);
         }
 
