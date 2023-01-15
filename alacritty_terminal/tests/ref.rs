@@ -70,6 +70,7 @@ ref_tests! {
     wrapline_alt_toggle
     zerowidth
     zsh_tab_completion
+    erase_in_line
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
