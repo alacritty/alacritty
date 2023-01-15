@@ -1458,6 +1458,7 @@ impl<T: EventListener> Handler for Term<T> {
         let point = cursor.point;
 
         let (left, right) = match mode {
+            ansi::LineClearMode::Right if cursor.input_needs_wrap => return,
             ansi::LineClearMode::Right => (point.column, Column(self.columns())),
             ansi::LineClearMode::Left => (Column(0), point.column + 1),
             ansi::LineClearMode::All => (Column(0), Column(self.columns())),

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - `font.glyph_offset.y` is now applied to underline/strikeout
 - Always use sRGB color space on macOS
+- Erase in line after the last column will no longer clear the last column
 
 ### Fixed
 
