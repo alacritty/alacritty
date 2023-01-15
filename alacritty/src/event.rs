@@ -1033,7 +1033,7 @@ pub struct Mouse {
     pub last_click_timestamp: Instant,
     pub last_click_button: MouseButton,
     pub click_state: ClickState,
-    pub scroll_px: f64,
+    pub accumulated_scroll: AccumulatedScroll,
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_hint_launcher: bool,
@@ -1057,7 +1057,7 @@ impl Default for Mouse {
             block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
             lines_scrolled: Default::default(),
-            scroll_px: Default::default(),
+            accumulated_scroll: Default::default(),
             x: Default::default(),
             y: Default::default(),
         }
@@ -1079,6 +1079,16 @@ impl Mouse {
 
         term::viewport_to_point(display_offset, Point::new(line, col))
     }
+}
+
+/// The amount of scroll accumulated from the pointer events.
+#[derive(Default, Debug)]
+pub struct AccumulatedScroll {
+    /// Scroll we should perform along `x` axis.
+    pub x: f64,
+
+    /// Scroll we should perform along `y` axis.
+    pub y: f64,
 }
 
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
