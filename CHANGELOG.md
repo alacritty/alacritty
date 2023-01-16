@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Uppercase `-T` short form for `--title`
+- Support for horizontal scrolling in mouse mode and alternative scrolling modes
 
 ### Changed
 

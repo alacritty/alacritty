@@ -631,18 +631,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
-            MouseScrollDelta::LineDelta(_columns, lines) => {
-                let new_scroll_px = lines * self.ctx.size_info().cell_height();
-                self.scroll_terminal(f64::from(new_scroll_px));
+            MouseScrollDelta::LineDelta(columns, lines) => {
+                let new_scroll_px_x = columns * self.ctx.size_info().cell_width();
+                let new_scroll_px_y = lines * self.ctx.size_info().cell_height();
+                self.scroll_terminal(new_scroll_px_x as f64, new_scroll_px_y as f64);
             },
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero.
-                        self.ctx.mouse_mut().scroll_px = 0.;
+                        self.ctx.mouse_mut().accumulated_scroll = Default::default();
                     },
                     TouchPhase::Moved => {
-                        self.scroll_terminal(lpos.y);
+                        self.scroll_terminal(lpos.x, lpos.y);
                     },
                     _ => (),
                 }
@@ -650,16 +651,30 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, new_scroll_px: f64) {
+    fn scroll_terminal(&mut self, new_scroll_x_px: f64, new_scroll_y_px: f64) {
+        const MOUSE_WHEEL_UP: u8 = 64;
+        const MOUSE_WHEEL_DOWN: u8 = 65;
+        const MOUSE_WHEEL_LEFT: u8 = 66;
+        const MOUSE_WHEEL_RIGHT: u8 = 67;
+
+        let width = f64::from(self.ctx.size_info().cell_width());
         let height = f64::from(self.ctx.size_info().cell_height());
 
         if self.ctx.mouse_mode() {
-            self.ctx.mouse_mut().scroll_px += new_scroll_px;
+            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px;
 
-            let code = if new_scroll_px > 0. { 64 } else { 65 };
-            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
+            let code = if new_scroll_y_px > 0. { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as i32;
 
             for _ in 0..lines {
+                self.mouse_report(code, ElementState::Pressed);
+            }
+
+            let code = if new_scroll_x_px > 0. { MOUSE_WHEEL_LEFT } else { MOUSE_WHEEL_RIGHT };
+            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as i32;
+
+            for _ in 0..columns {
                 self.mouse_report(code, ElementState::Pressed);
             }
         } else if self
@@ -670,30 +685,45 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             && !self.ctx.modifiers().shift()
         {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
-            let cmd = if new_scroll_px > 0. { b'A' } else { b'B' };
-            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
+            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
-            let mut content = Vec::with_capacity(lines as usize * 3);
+            // The chars here are the same as for the respective arrow keys.
+            let line_cmd = if new_scroll_y_px > 0. { b'A' } else { b'B' };
+            let column_cmd = if new_scroll_x_px > 0. { b'D' } else { b'C' };
+
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as usize;
+            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as usize;
+
+            let mut content = Vec::with_capacity(3 * (lines + columns));
+
             for _ in 0..lines {
                 content.push(0x1b);
                 content.push(b'O');
-                content.push(cmd);
+                content.push(line_cmd);
             }
+
+            for _ in 0..columns {
+                content.push(0x1b);
+                content.push(b'O');
+                content.push(column_cmd);
+            }
+
             self.ctx.write_to_pty(content);
         } else {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
-            let lines = (self.ctx.mouse().scroll_px / height) as i32;
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
 
             if lines != 0 {
                 self.ctx.scroll(Scroll::Delta(lines));
             }
         }
 
-        self.ctx.mouse_mut().scroll_px %= height;
+        self.ctx.mouse_mut().accumulated_scroll.x %= width;
+        self.ctx.mouse_mut().accumulated_scroll.y %= height;
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
