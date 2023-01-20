@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Reduced GPU memory usage
 - Low frame rate when multiple windows render at the same time
 - Redraw hanging until a keypress on X11 in rare cases
+- Startup when only OpenGL ES 3.0 is available
 
 ## 0.11.0
 

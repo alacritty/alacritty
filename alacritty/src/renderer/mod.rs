@@ -105,7 +105,7 @@ impl Renderer {
         let (version, renderer) = unsafe {
             let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _);
             let version = CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _);
-            (version.to_string_lossy(), renderer.to_string_lossy())
+            (version.to_string_lossy().to_lowercase(), renderer.to_string_lossy())
         };
 
         info!("Running on {}", renderer);
@@ -115,7 +115,7 @@ impl Renderer {
             Some(RendererPreference::Glsl3) => (true, true),
             Some(RendererPreference::Gles2) => (false, true),
             Some(RendererPreference::Gles2Pure) => (false, false),
-            None => (version.as_ref() >= "3.3", true),
+            None => (version.as_str() >= "3.3" && !version.contains("es"), true),
         };
 
         let (text_renderer, rect_renderer) = if use_glsl3 {
