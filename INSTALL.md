@@ -376,6 +376,14 @@ cp extra/completions/alacritty.bash ~/.bash_completion/alacritty
 echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 ```
 
+Most Linux distributions consider that `~/.bash_completion` is a configuration file, not a configuration directory. To avoid name clashing, there is a convention for creating a configuration directory, and it is to add the suffix `.d` at the end of the directory `~/.bash_completion.d`. If you have any issue, you can run:
+
+```sh
+mkdir -p ~/.bash_completion.d
+cp extra/completions/alacritty.bash ~/.bash_completion.d/alacritty
+echo "source ~/.bash_completion.d/alacritty" >> ~/.bashrc
+```
+
 #### Fish
 
 To install the completions for fish, run
