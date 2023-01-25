@@ -137,7 +137,7 @@ impl Glsl3Renderer {
             vao,
             ebo,
             vbo_instance,
-            atlas: vec![Atlas::new(ATLAS_SIZE)],
+            atlas: vec![Atlas::new(ATLAS_SIZE, false)],
             current_atlas: 0,
             active_tex: 0,
             batch: Batch::new(),
