@@ -1,20 +1,19 @@
 use std::path::PathBuf;
-use std::sync::mpsc;
-use std::time::Duration;
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::time::{Duration, Instant};
 
 use log::{debug, error};
-use notify_debouncer_mini::new_debouncer;
-use notify_debouncer_mini::notify::RecursiveMode;
+use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::thread;
 
 use crate::event::{Event, EventType};
 
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(10);
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-const DEBOUNCE_DELAY: Duration = Duration::from_millis(1000);
+
+/// The fallback for `RecommendedWatcher` polling.
+const FALLBACK_POLLING_TIMEOUT: Duration = Duration::from_secs(1);
 
 pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
     // Don't monitor config if there is no path to watch.
@@ -41,8 +40,11 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
 
     // The Duration argument is a debouncing period.
     let (tx, rx) = mpsc::channel();
-    let mut debouncer = match new_debouncer(DEBOUNCE_DELAY, None, tx) {
-        Ok(debouncer) => debouncer,
+    let mut watcher = match RecommendedWatcher::new(
+        tx,
+        Config::default().with_poll_interval(FALLBACK_POLLING_TIMEOUT),
+    ) {
+        Ok(watcher) => watcher,
         Err(err) => {
             error!("Unable to watch config file: {}", err);
             return;
@@ -62,7 +64,6 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
         parents.sort_unstable();
         parents.dedup();
 
-        let watcher = debouncer.watcher();
         // Watch all configuration file directories.
         for parent in &parents {
             if let Err(err) = watcher.watch(parent, RecursiveMode::NonRecursive) {
@@ -70,24 +71,59 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
             }
         }
 
+        // The current debouncing time.
+        let mut debouncing_deadline: Option<Instant> = None;
+
+        // The events accumulated during the debounce period.
+        let mut received_events = Vec::new();
+
         loop {
-            let events = match rx.recv() {
-                Ok(Ok(events)) => events,
+            // We use `recv_timeout` to debounce the events coming from the watcher and reduce
+            // the amount of config reloads.
+            let event = match debouncing_deadline.as_ref() {
+                Some(debouncing_deadline) => {
+                    rx.recv_timeout(debouncing_deadline.saturating_duration_since(Instant::now()))
+                },
+                None => {
+                    let event = rx.recv().map_err(Into::into);
+                    // Set the debouncing deadline after receiving the event.
+                    debouncing_deadline = Some(Instant::now() + DEBOUNCE_DELAY);
+                    event
+                },
+            };
+
+            match event {
+                Ok(Ok(event)) => match event.kind {
+                    EventKind::Any
+                    | EventKind::Create(_)
+                    | EventKind::Modify(_)
+                    | EventKind::Other => {
+                        received_events.push(event);
+                    },
+                    _ => (),
+                },
+                Err(RecvTimeoutError::Timeout) => {
+                    // Go back to polling the events.
+                    debouncing_deadline = None;
+
+                    if received_events
+                        .drain(..)
+                        .flat_map(|event| event.paths.into_iter())
+                        .any(|path| paths.contains(&path))
+                    {
+                        // Always reload the primary configuration file.
+                        let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
+                        let _ = event_proxy.send_event(event);
+                    }
+                },
                 Ok(Err(err)) => {
                     debug!("Config watcher errors: {:?}", err);
-                    continue;
                 },
                 Err(err) => {
                     debug!("Config watcher channel dropped unexpectedly: {}", err);
                     break;
                 },
             };
-
-            if events.iter().any(|e| paths.contains(&e.path)) {
-                // Always reload the primary configuration file.
-                let event = Event::new(EventType::ConfigReload(paths[0].clone()), None);
-                let _ = event_proxy.send_event(event);
-            }
         }
     });
 }
