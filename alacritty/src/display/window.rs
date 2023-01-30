@@ -1,20 +1,20 @@
-#[cfg(not(any(target_os = "macos", windows)))]
-use winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix};
-
 #[rustfmt::skip]
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
-    winit::platform::unix::EventLoopWindowTargetExtUnix,
-    winit::window::Theme,
+    winit::platform::wayland::{EventLoopWindowTargetExtWayland, WindowExtWayland},
 };
+
+#[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
+use winit::platform::wayland::WindowBuilderExtWayland;
 
 #[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
 
+    winit::platform::x11::{WindowExtX11, WindowBuilderExtX11},
     glutin::platform::x11::X11VisualInfo,
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
@@ -41,7 +41,8 @@ use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
-    CursorIcon, Fullscreen, UserAttentionType, Window as WinitWindow, WindowBuilder, WindowId,
+    CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
+    WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -163,9 +164,6 @@ impl Window {
         let current_mouse_cursor = CursorIcon::Text;
         window.set_cursor_icon(current_mouse_cursor);
 
-        // Enable IME.
-        window.set_ime_allowed(true);
-
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
 
@@ -190,7 +188,7 @@ impl Window {
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
 
-        Ok(Self {
+        let window = Self {
             current_mouse_cursor,
             mouse_visible: true,
             window,
@@ -199,7 +197,15 @@ impl Window {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
             scale_factor,
-        })
+        };
+
+        // Enable IME.
+        window.set_ime_allowed(true);
+
+        // Set initial transparency hint.
+        window.set_transparent(config.window_opacity() < 1.);
+
+        Ok(window)
     }
 
     #[inline]
@@ -277,6 +283,7 @@ impl Window {
 
         let builder = WindowBuilder::new()
             .with_title(&identity.title)
+            .with_theme(window_config.decorations_theme_variant())
             .with_name(&identity.class.general, &identity.class.instance)
             .with_visible(false)
             .with_transparent(true)
@@ -288,22 +295,9 @@ impl Window {
         let builder = builder.with_window_icon(Some(icon));
 
         #[cfg(feature = "x11")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some(val) => builder.with_gtk_theme_variant(val.to_string()),
-            None => builder,
-        };
-
-        #[cfg(feature = "x11")]
         let builder = match x11_visual {
             Some(visual) => builder.with_x11_visual(visual.into_raw()),
             None => builder,
-        };
-
-        #[cfg(feature = "wayland")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some("light") => builder.with_wayland_csd_theme(Theme::Light),
-            // Prefer dark theme by default, since default alacritty theme is dark.
-            _ => builder.with_wayland_csd_theme(Theme::Dark),
         };
 
         builder
@@ -315,6 +309,7 @@ impl Window {
 
         WindowBuilder::new()
             .with_title(&identity.title)
+            .with_theme(window_config.decorations_theme_variant())
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
@@ -327,6 +322,7 @@ impl Window {
     pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
             .with_title(&identity.title)
+            .with_theme(window_config.decorations_theme_variant())
             .with_visible(false)
             .with_transparent(true)
             .with_maximized(window_config.maximized())
@@ -355,6 +351,10 @@ impl Window {
 
     pub fn id(&self) -> WindowId {
         self.window.id()
+    }
+
+    pub fn set_transparent(&self, transparent: bool) {
+        self.window.set_transparent(transparent);
     }
 
     pub fn set_maximized(&self, maximized: bool) {
@@ -404,6 +404,9 @@ impl Window {
 
     pub fn set_ime_allowed(&self, allowed: bool) {
         self.window.set_ime_allowed(allowed);
+        if allowed {
+            self.window.set_ime_purpose(ImePurpose::Terminal);
+        }
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.

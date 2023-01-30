@@ -4,7 +4,7 @@ use std::os::raw::c_ulong;
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use winit::window::Fullscreen;
+use winit::window::{Fullscreen, Theme};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -111,13 +111,15 @@ impl WindowConfig {
         }
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
     #[inline]
-    pub fn decorations_theme_variant(&self) -> Option<&str> {
-        self.gtk_theme_variant
-            .as_ref()
-            .or(self.decorations_theme_variant.as_ref())
-            .map(|theme| theme.as_str())
+    pub fn decorations_theme_variant(&self) -> Option<Theme> {
+        self.gtk_theme_variant.as_ref().or(self.decorations_theme_variant.as_ref()).and_then(
+            |theme| match theme.to_lowercase().as_str() {
+                "dark" => Some(Theme::Dark),
+                "light" => Some(Theme::Light),
+                _ => None,
+            },
+        )
     }
 
     #[inline]

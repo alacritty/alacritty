@@ -332,9 +332,14 @@ impl WindowContext {
             self.display.window.set_title(self.config.window.identity.title.clone());
         }
 
+        let opaque = self.config.window_opacity() >= 1.;
+
         // Disable shadows for transparent windows on macOS.
         #[cfg(target_os = "macos")]
-        self.display.window.set_has_shadow(self.config.window_opacity() >= 1.0);
+        self.display.window.set_has_shadow(opaque);
+
+        // Change opacity state.
+        self.display.window.set_transparent(!opaque);
 
         // Update hint keys.
         self.display.hint_state.update_alphabet(self.config.hints.alphabet());
