@@ -32,12 +32,12 @@ impl_replace!(
     LevelFilter,
 );
 
-fn replace_simple<'de, D>(data: &mut D, key: &str, value: Value) -> Result<(), Box<dyn Error>>
+pub fn replace_simple<'de, D>(data: &mut D, key: &str, value: Value) -> Result<(), Box<dyn Error>>
 where
     D: Deserialize<'de>,
 {
     if !key.is_empty() {
-        let error = format!("Fields \"{}\" do not exist", key);
+        let error = format!("Fields \"{key}\" do not exist");
         return Err(error.into());
     }
     *data = D::deserialize(value)?;

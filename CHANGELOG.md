@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 
 - `window.gtk_theme_variant` config field; use `window.decorations_theme_variant` instead
+- `alt_send_esc` is now always set to `true`
 
 ## 0.11.0
 

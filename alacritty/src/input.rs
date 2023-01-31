@@ -868,11 +868,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mut bytes = vec![0; utf8_len];
         c.encode_utf8(&mut bytes[..]);
 
-        if self.ctx.config().alt_send_esc
-            && *self.ctx.received_count() == 0
-            && self.ctx.modifiers().alt()
-            && utf8_len == 1
-        {
+        if *self.ctx.received_count() == 0 && self.ctx.modifiers().alt() && utf8_len == 1 {
             bytes.insert(0, b'\x1b');
         }
 

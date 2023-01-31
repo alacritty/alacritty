@@ -30,7 +30,7 @@ use {
     cocoa::appkit::NSColorSpace,
     cocoa::base::{id, nil, NO, YES},
     objc::{msg_send, sel, sel_impl},
-    winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS},
+    winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
 };
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -152,7 +152,14 @@ impl Window {
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
         }
 
-        let window = window_builder.build(event_loop)?;
+        let window = window_builder
+            .with_title(&identity.title)
+            .with_theme(config.window.decorations_theme_variant)
+            .with_visible(false)
+            .with_transparent(true)
+            .with_maximized(config.window.maximized())
+            .with_fullscreen(config.window.fullscreen())
+            .build(event_loop)?;
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -281,14 +288,8 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant)
             .with_name(&identity.class.general, &identity.class.instance)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_decorations(window_config.decorations != Decorations::None)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+            .with_decorations(window_config.decorations != Decorations::None);
 
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(Some(icon));
@@ -303,29 +304,17 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant)
-            .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let window = WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
 
         match window_config.decorations {
             Decorations::Full => window,
@@ -377,6 +366,11 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window.simple_fullscreen());
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_option_as_alt(&self, option_as_alt: OptionAsAlt) {
+        self.set_option_as_alt(option_as_alt);
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) {

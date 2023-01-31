@@ -6,6 +6,9 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use winit::window::{Fullscreen, Theme};
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::OptionAsAlt;
+
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
 use alacritty_terminal::index::Column;
@@ -46,6 +49,10 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
+    // XXX This wants SerdeReplace...
+    #[cfg(target_os = "macos")]
+    pub option_as_alt: OptionAsAlt,
+
     /// Pixel padding.
     padding: Delta<u8>,
 
@@ -67,6 +74,8 @@ impl Default for WindowConfig {
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            #[cfg(target_os = "macos")]
+            option_as_alt: Default::default(),
         }
     }
 }

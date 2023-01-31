@@ -338,6 +338,9 @@ impl WindowContext {
         #[cfg(target_os = "macos")]
         self.display.window.set_has_shadow(opaque);
 
+        #[cfg(target_os = "macos")]
+        self.display.window.set_option_as_alt(self.config.window.option_as_alt);
+
         // Change opacity state.
         self.display.window.set_transparent(!opaque);
 
