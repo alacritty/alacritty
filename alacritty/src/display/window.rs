@@ -164,6 +164,13 @@ impl Window {
         let current_mouse_cursor = CursorIcon::Text;
         window.set_cursor_icon(current_mouse_cursor);
 
+        // Enable IME.
+        window.set_ime_allowed(true);
+        window.set_ime_purpose(ImePurpose::Terminal);
+
+        // Set initial transparency hint.
+        window.set_transparent(config.window_opacity() < 1.);
+
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
 
@@ -188,7 +195,7 @@ impl Window {
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
 
-        let window = Self {
+        Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
             window,
@@ -197,15 +204,7 @@ impl Window {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
             scale_factor,
-        };
-
-        // Enable IME.
-        window.set_ime_allowed(true);
-
-        // Set initial transparency hint.
-        window.set_transparent(config.window_opacity() < 1.);
-
-        Ok(window)
+        })
     }
 
     #[inline]
@@ -283,7 +282,7 @@ impl Window {
 
         let builder = WindowBuilder::new()
             .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant())
+            .with_theme(window_config.decorations_theme_variant)
             .with_name(&identity.class.general, &identity.class.instance)
             .with_visible(false)
             .with_transparent(true)
@@ -309,7 +308,7 @@ impl Window {
 
         WindowBuilder::new()
             .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant())
+            .with_theme(window_config.decorations_theme_variant)
             .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
             .with_transparent(true)
@@ -322,7 +321,7 @@ impl Window {
     pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let window = WindowBuilder::new()
             .with_title(&identity.title)
-            .with_theme(window_config.decorations_theme_variant())
+            .with_theme(window_config.decorations_theme_variant)
             .with_visible(false)
             .with_transparent(true)
             .with_maximized(window_config.maximized())
@@ -404,9 +403,6 @@ impl Window {
 
     pub fn set_ime_allowed(&self, allowed: bool) {
         self.window.set_ime_allowed(allowed);
-        if allowed {
-            self.window.set_ime_purpose(ImePurpose::Terminal);
-        }
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.

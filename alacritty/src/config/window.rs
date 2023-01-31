@@ -30,14 +30,8 @@ pub struct WindowConfig {
     #[config(skip)]
     pub embed: Option<c_ulong>,
 
-    /// GTK theme variant.
-    #[config(deprecated = "use window.decorations_theme_variant instead")]
-    gtk_theme_variant: Option<String>,
-
     /// System decorations theme variant.
-    ///
-    /// Controls GTK theme variant on X11 and winit client side decorations on Wayland.
-    decorations_theme_variant: Option<String>,
+    pub decorations_theme_variant: Option<Theme>,
 
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
@@ -68,7 +62,6 @@ impl Default for WindowConfig {
             startup_mode: Default::default(),
             embed: Default::default(),
             decorations_theme_variant: Default::default(),
-            gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
             identity: Identity::default(),
             opacity: Default::default(),
@@ -109,17 +102,6 @@ impl WindowConfig {
         } else {
             None
         }
-    }
-
-    #[inline]
-    pub fn decorations_theme_variant(&self) -> Option<Theme> {
-        self.gtk_theme_variant.as_ref().or(self.decorations_theme_variant.as_ref()).and_then(
-            |theme| match theme.to_lowercase().as_str() {
-                "dark" => Some(Theme::Dark),
-                "light" => Some(Theme::Light),
-                _ => None,
-            },
-        )
     }
 
     #[inline]

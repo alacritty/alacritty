@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The hint about window transparency is now properly issued on Wayland and macOS
 - `window.decorations_theme_variant` could now control theme on macOS and Windows
 - The IME purpose is now set to `Terminal` which could help with OSK
+- `window.decorations_theme_variant` is now using `Dark`, `Light`, and `None` values
 
 ### Fixed
 
@@ -42,6 +43,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Low frame rate when multiple windows render at the same time
 - Redraw hanging until a keypress on X11 in rare cases
 - Window clipping when maximizing a window without decorations on Windows
+
+### Removed
+
+- `window.gtk_theme_variant` config field; use `window.decorations_theme_variant` instead
 
 ## 0.11.0
 
