@@ -32,7 +32,10 @@ impl_replace!(
     LevelFilter,
 );
 
-pub fn replace_simple<'de, D>(data: &mut D, key: &str, value: Value) -> Result<(), Box<dyn Error>>
+#[cfg(target_os = "macos")]
+impl_replace!(winit::platform::macos::OptionAsAlt,);
+
+fn replace_simple<'de, D>(data: &mut D, key: &str, value: Value) -> Result<(), Box<dyn Error>>
 where
     D: Deserialize<'de>,
 {

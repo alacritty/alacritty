@@ -49,7 +49,7 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
-    // XXX This wants SerdeReplace...
+    /// Controls which `Option` key should be treated as `Alt`.
     #[cfg(target_os = "macos")]
     pub option_as_alt: OptionAsAlt,
 

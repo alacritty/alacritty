@@ -370,7 +370,7 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_option_as_alt(&self, option_as_alt: OptionAsAlt) {
-        self.set_option_as_alt(option_as_alt);
+        self.window.set_option_as_alt(option_as_alt);
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
