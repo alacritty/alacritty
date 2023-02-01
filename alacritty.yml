@@ -155,7 +155,14 @@
     #family: monospace
 
     # The `style` can be specified to pick a specific face.
-    #style: Bold Italic
+# 
+  # Fallback font used for glphs that cannot be found in normal font
+  #fallback:
+    # Font family
+    #
+    # If the fallback family is not specified, it will fall back to the
+    # value specified for the normal font.
+    #family: Hasklug Nerd Font
 
   # Point size
   #size: 11.0
