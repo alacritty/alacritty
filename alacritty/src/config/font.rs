@@ -37,6 +37,9 @@ pub struct Font {
     /// Bold italic font face.
     bold_italic: SecondaryFontDescription,
 
+    /// Fallback symbol font face.
+    fallback: SecondaryFontDescription,
+
     /// Font size in points.
     size: Size,
 
@@ -74,6 +77,11 @@ impl Font {
     pub fn bold_italic(&self) -> FontDescription {
         self.bold_italic.desc(&self.normal)
     }
+
+    /// Get fallback font description.
+    pub fn fallback(&self) -> FontDescription {
+        self.fallback.desc(&self.normal)
+    }
 }
 
 impl Default for Font {
@@ -87,6 +95,7 @@ impl Default for Font {
             offset: Default::default(),
             normal: Default::default(),
             bold: Default::default(),
+            fallback: Default::default(),
             size: Default::default(),
         }
     }
