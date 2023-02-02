@@ -2154,8 +2154,9 @@ checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
 
 [[package]]
 name = "winit"
-version = "0.27.5"
-source = "git+https://github.com/rust-windowing/winit#180a4c7a16459cec8abc0890945bed7410c909d7"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "089b2f049a47946f11ea91838a832b303f65d6875d491df2952859eb18287ce8"
 dependencies = [
  "android-activity",
  "bitflags",
