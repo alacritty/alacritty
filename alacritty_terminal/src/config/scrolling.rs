@@ -49,8 +49,7 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
 
         if lines > MAX_SCROLLBACK_LINES {
             Err(SerdeError::custom(format!(
-                "exceeded maximum scrolling history ({}/{})",
-                lines, MAX_SCROLLBACK_LINES
+                "exceeded maximum scrolling history ({lines}/{MAX_SCROLLBACK_LINES})"
             )))
         } else {
             Ok(Self(lines))

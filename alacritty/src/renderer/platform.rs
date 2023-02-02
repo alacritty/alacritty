@@ -14,7 +14,7 @@ use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::dpi::PhysicalSize;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use winit::platform::unix;
+use winit::platform::x11;
 
 /// Create the GL display.
 pub fn create_gl_display(
@@ -28,7 +28,7 @@ pub fn create_gl_display(
     let preference = DisplayApiPreference::Wgl(Some(_raw_window_handle.unwrap()));
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    let preference = DisplayApiPreference::GlxThenEgl(Box::new(unix::register_xlib_error_hook));
+    let preference = DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook));
 
     #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
     let preference = DisplayApiPreference::Egl;

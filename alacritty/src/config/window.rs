@@ -4,7 +4,10 @@ use std::os::raw::c_ulong;
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use winit::window::Fullscreen;
+use winit::window::{Fullscreen, Theme};
+
+#[cfg(target_os = "macos")]
+use winit::platform::macos::OptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -30,14 +33,8 @@ pub struct WindowConfig {
     #[config(skip)]
     pub embed: Option<c_ulong>,
 
-    /// GTK theme variant.
-    #[config(deprecated = "use window.decorations_theme_variant instead")]
-    gtk_theme_variant: Option<String>,
-
     /// System decorations theme variant.
-    ///
-    /// Controls GTK theme variant on X11 and winit client side decorations on Wayland.
-    decorations_theme_variant: Option<String>,
+    pub decorations_theme_variant: Option<Theme>,
 
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
@@ -51,6 +48,10 @@ pub struct WindowConfig {
 
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
+
+    /// Controls which `Option` key should be treated as `Alt`.
+    #[cfg(target_os = "macos")]
+    pub option_as_alt: OptionAsAlt,
 
     /// Pixel padding.
     padding: Delta<u8>,
@@ -68,12 +69,13 @@ impl Default for WindowConfig {
             startup_mode: Default::default(),
             embed: Default::default(),
             decorations_theme_variant: Default::default(),
-            gtk_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
             identity: Identity::default(),
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            #[cfg(target_os = "macos")]
+            option_as_alt: Default::default(),
         }
     }
 }
@@ -109,15 +111,6 @@ impl WindowConfig {
         } else {
             None
         }
-    }
-
-    #[cfg(not(any(target_os = "macos", windows)))]
-    #[inline]
-    pub fn decorations_theme_variant(&self) -> Option<&str> {
-        self.gtk_theme_variant
-            .as_ref()
-            .or(self.decorations_theme_variant.as_ref())
-            .map(|theme| theme.as_str())
     }
 
     #[inline]

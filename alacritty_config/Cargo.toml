@@ -12,3 +12,6 @@ rust-version = "1.60.0"
 log = { version = "0.4.17", features = ["serde"] }
 serde_yaml = "0.8.24"
 serde = "1.0.137"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+winit = { version = "0.28.0", default-features = false, features = ["serde"] }

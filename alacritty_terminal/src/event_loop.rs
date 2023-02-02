@@ -339,7 +339,7 @@ where
                 if let Err(err) = self.poll.poll(&mut events, timeout) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
-                        _ => panic!("EventLoop polling error: {:?}", err),
+                        _ => panic!("EventLoop polling error: {err:?}"),
                     }
                 }
 

@@ -30,7 +30,7 @@ serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
 glutin = { version = "0.30.3", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.27.4", default-features = false, features = ["serde"] }
+winit = { version = "0.28.0", default-features = false, features = ["serde"] }
 notify-debouncer-mini = { version = "0.2.1", default-features = false }
 parking_lot = "0.12.0"
 crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
@@ -88,6 +88,6 @@ wayland = [
     "glutin/wayland",
     "winit/wayland",
     "winit/wayland-dlopen",
-    "winit/wayland-csd-adwaita",
+    "winit/wayland-csd-adwaita-crossfont",
     "wayland-client"]
 nightly = []

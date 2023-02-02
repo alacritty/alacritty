@@ -19,7 +19,7 @@ pub fn derive_deserialize(ident: Ident, generics: Generics, data_enum: DataEnum)
     }) {
         let variant_ident = &variant.ident;
         let variant_str = variant_ident.to_string();
-        available_values = format!("{}`{}`, ", available_values, variant_str);
+        available_values = format!("{available_values}`{variant_str}`, ");
 
         let literal = variant_str.to_lowercase();
 

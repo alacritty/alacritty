@@ -1,20 +1,20 @@
-#[cfg(not(any(target_os = "macos", windows)))]
-use winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix};
-
 #[rustfmt::skip]
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
-    winit::platform::unix::EventLoopWindowTargetExtUnix,
-    winit::window::Theme,
+    winit::platform::wayland::{EventLoopWindowTargetExtWayland, WindowExtWayland},
 };
+
+#[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
+use winit::platform::wayland::WindowBuilderExtWayland;
 
 #[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
 
+    winit::platform::x11::{WindowExtX11, WindowBuilderExtX11},
     glutin::platform::x11::X11VisualInfo,
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
@@ -30,7 +30,7 @@ use {
     cocoa::appkit::NSColorSpace,
     cocoa::base::{id, nil, NO, YES},
     objc::{msg_send, sel, sel_impl},
-    winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS},
+    winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
 };
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -41,7 +41,8 @@ use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
-    CursorIcon, Fullscreen, UserAttentionType, Window as WinitWindow, WindowBuilder, WindowId,
+    CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
+    WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -151,7 +152,14 @@ impl Window {
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
         }
 
-        let window = window_builder.build(event_loop)?;
+        let window = window_builder
+            .with_title(&identity.title)
+            .with_theme(config.window.decorations_theme_variant)
+            .with_visible(false)
+            .with_transparent(true)
+            .with_maximized(config.window.maximized())
+            .with_fullscreen(config.window.fullscreen())
+            .build(event_loop)?;
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -165,6 +173,10 @@ impl Window {
 
         // Enable IME.
         window.set_ime_allowed(true);
+        window.set_ime_purpose(ImePurpose::Terminal);
+
+        // Set initial transparency hint.
+        window.set_transparent(config.window_opacity() < 1.);
 
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
@@ -276,22 +288,11 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
-            .with_title(&identity.title)
             .with_name(&identity.class.general, &identity.class.instance)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_decorations(window_config.decorations != Decorations::None)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+            .with_decorations(window_config.decorations != Decorations::None);
 
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(Some(icon));
-
-        #[cfg(feature = "x11")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some(val) => builder.with_gtk_theme_variant(val.to_string()),
-            None => builder,
-        };
 
         #[cfg(feature = "x11")]
         let builder = match x11_visual {
@@ -299,38 +300,21 @@ impl Window {
             None => builder,
         };
 
-        #[cfg(feature = "wayland")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some("light") => builder.with_wayland_csd_theme(Theme::Light),
-            // Prefer dark theme by default, since default alacritty theme is dark.
-            _ => builder.with_wayland_csd_theme(Theme::Dark),
-        };
-
         builder
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let window = WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
 
         match window_config.decorations {
             Decorations::Full => window,
@@ -357,6 +341,10 @@ impl Window {
         self.window.id()
     }
 
+    pub fn set_transparent(&self, transparent: bool) {
+        self.window.set_transparent(transparent);
+    }
+
     pub fn set_maximized(&self, maximized: bool) {
         self.window.set_maximized(maximized);
     }
@@ -378,6 +366,11 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window.simple_fullscreen());
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_option_as_alt(&self, option_as_alt: OptionAsAlt) {
+        self.window.set_option_as_alt(option_as_alt);
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) {

@@ -25,7 +25,7 @@ use log::info;
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use winit::event_loop::EventLoopBuilder as WinitEventLoopBuilder;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use winit::platform::unix::EventLoopWindowTargetExtUnix;
+use winit::platform::x11::EventLoopWindowTargetExtX11;
 
 use alacritty_terminal::tty;
 
