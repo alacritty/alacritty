@@ -9,9 +9,9 @@
        src="https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png">
 </p>
 
-## About
-
 [English](README.md) | 简体中文
+
+## About
 
 Alacritty 是一个现代化的、有着实用默认设置的终端模拟器，同时也支持海量的[自定义配置](#配置)。通过与其他应用程序集成，而非重新实现其功能，它提供了一套灵活且具有很高性能的[特性](./docs/features_zh-CN.md)。
 目前支持的系统平台有 BSD、Linux、macOS 和 Windows。
