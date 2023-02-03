@@ -1,6 +1,6 @@
 # 特性
 
-本文档概述了 Alacritty 在终端模拟能力之外的特性。要获取关于支持的控件序列的列表 请参照 [Alacritty's escape sequence support](./escape_support.md).
+本文档概述了 Alacritty 在终端模拟能力之外的特性。要获取关于支持的控件序列的列表，请参照 [Alacritty's escape sequence support](./escape_support.md)。
 
 ## Vi Mode
 
