@@ -12,6 +12,8 @@
 
 ## About
 
+English | [简体中文](README_zh-CN.md)
+
 Alacritty is a modern terminal emulator that comes with sensible defaults, but
 allows for extensive [configuration](#configuration). By integrating with other
 applications, rather than reimplementing their functionality, it manages to
