@@ -212,6 +212,8 @@ impl GlyphCache {
             return *glyph;
         };
 
+        let fb_key = GlyphKey { font_key: self.fallback_key, ..glyph_key };
+
         // Rasterize the glyph using the built-in font for special characters or the user's font
         // for everything else.
         let rasterized = self
@@ -225,35 +227,24 @@ impl GlyphCache {
                 )
             })
             .flatten()
-            .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
+            .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok)
+            .ok()
+            .map_or_else(|| self.rasterizer.get_glyph(fb_key), Ok);
 
         let glyph = match rasterized {
             Ok(rasterized) => self.load_glyph(loader, rasterized),
-            // Load fallback glyph.
-            Err(RasterizerError::MissingGlyph(_)) if show_missing => {
-                // If the glph was not found, try the fallback font, allow it
-                // to be cached with the original glyph_key.
-                let fb_key = GlyphKey { font_key: self.fallback_key, ..glyph_key };
+            Err(RasterizerError::MissingGlyph(rasterized)) if show_missing => {
+                // Use `\0` as "missing" glyph to cache it only once.
+                let missing_key = GlyphKey { character: '\0', ..glyph_key };
+                if let Some(glyph) = self.cache.get(&missing_key) {
+                    *glyph
+                } else {
+                    // If no missing glyph was loaded yet, insert it as `\0`.
+                    let glyph = self.load_glyph(loader, rasterized);
+                    self.cache.insert(missing_key, glyph);
 
-                let rasterized = self.rasterizer.get_glyph(fb_key);
-                let glyph = match rasterized {
-                    Ok(rasterized) => self.load_glyph(loader, rasterized),
-                    Err(RasterizerError::MissingGlyph(rasterized)) => {
-                        // Use `\0` as "missing" glyph to cache it only once.
-                        let missing_key = GlyphKey { character: '\0', ..glyph_key };
-                        if let Some(glyph) = self.cache.get(&missing_key) {
-                            *glyph
-                        } else {
-                            // If no missing glyph was loaded yet, insert it as `\0`.
-                            let glyph = self.load_glyph(loader, rasterized);
-                            self.cache.insert(missing_key, glyph);
-
-                            glyph
-                        }
-                    },
-                    Err(_) => self.load_glyph(loader, Default::default()),
-                };
-                glyph
+                    glyph
+                }
             },
             Err(_) => self.load_glyph(loader, Default::default()),
         };
