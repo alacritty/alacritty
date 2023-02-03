@@ -1,7 +1,7 @@
 # 使用Cargo安装
 
 如果您只对使用 Alacritty 感兴趣，且不需要
-[终端信息文件](#terminfo)， [添加桌面快捷方式](#添加桌面快捷方式)，[手册(man)](#手册(man)) 或 [Shell 补全](#Shell-补全)， 您可以直接通过Cargo安装：
+[终端信息文件](#terminfo)， [添加桌面快捷方式](#添加桌面快捷方式)，[手册(man)](#手册) 或 [Shell 补全](#Shell-补全)， 您可以直接通过Cargo安装：
 
 ```sh
 cargo install alacritty
@@ -287,7 +287,7 @@ sudo update-desktop-database
 
 如果您在使用Alacritty的图标时遇到问题，可以将其替换为`extra/logo/compat` 目录中提供的预渲染 PNG 和简化的 SVG。
 
-### 手册(man)
+### 手册
 
 安装手册(man)需要额外的包 `gzip` 支持:
 
