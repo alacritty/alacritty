@@ -37,8 +37,11 @@ pub struct Font {
     /// Bold italic font face.
     bold_italic: SecondaryFontDescription,
 
-    /// Fallback symbol font face.
+    /// Fallback font face.
     fallback: SecondaryFontDescription,
+
+    /// Symbol font face.
+    symbol: FontDescription,
 
     /// Font size in points.
     size: Size,
@@ -82,6 +85,11 @@ impl Font {
     pub fn fallback(&self) -> FontDescription {
         self.fallback.desc(&self.normal)
     }
+
+    /// Get symbol font description.
+    pub fn symbol(&self) -> &FontDescription {
+        &self.symbol
+    }
 }
 
 impl Default for Font {
@@ -96,6 +104,7 @@ impl Default for Font {
             normal: Default::default(),
             bold: Default::default(),
             fallback: Default::default(),
+            symbol: Default::default(),
             size: Default::default(),
         }
     }
@@ -106,6 +115,7 @@ impl Default for Font {
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
+    pub ranges: Vec<std::ops::Range<u32>>,
 }
 
 impl Default for FontDescription {
@@ -118,6 +128,7 @@ impl Default for FontDescription {
             #[cfg(windows)]
             family: "Consolas".into(),
             style: None,
+            ranges: vec![(0x0..0x0),], // only used for symbol font
         }
     }
 }
@@ -127,6 +138,7 @@ impl Default for FontDescription {
 pub struct SecondaryFontDescription {
     family: Option<String>,
     style: Option<String>,
+    ranges: Vec<std::ops::Range<u32>>,
 }
 
 impl SecondaryFontDescription {
@@ -134,6 +146,7 @@ impl SecondaryFontDescription {
         FontDescription {
             family: self.family.clone().unwrap_or_else(|| fallback.family.clone()),
             style: self.style.clone(),
+            ranges: self.ranges.clone(),
         }
     }
 }
