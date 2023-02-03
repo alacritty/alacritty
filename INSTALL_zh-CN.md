@@ -1,7 +1,7 @@
 # 使用Cargo安装
 
 如果您只对使用 Alacritty 感兴趣，且不需要
-[终端信息文件](#terminfo)， [添加桌面快捷方式](#添加桌面快捷方式)，[手册(man)](#手册) 或 [Shell 补全](#Shell-补全)， 您可以直接通过Cargo安装：
+[terminfo](#terminfo)， [添加桌面快捷方式](#添加桌面快捷方式)，[手册(man)](#手册) 或 [Shell 补全](#Shell-补全)， 您可以直接通过Cargo安装：
 
 ```sh
 cargo install alacritty
