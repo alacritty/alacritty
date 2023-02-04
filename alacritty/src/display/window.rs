@@ -353,6 +353,10 @@ impl Window {
         self.window.set_minimized(minimized);
     }
 
+    pub fn set_resize_increments(&self, increments: PhysicalSize<f32>) {
+        self.window.set_resize_increments(Some(increments));
+    }
+
     /// Toggle the window's fullscreen state.
     pub fn toggle_fullscreen(&self) {
         self.set_fullscreen(self.window.fullscreen().is_none());
