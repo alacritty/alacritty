@@ -128,7 +128,7 @@ impl Default for FontDescription {
             #[cfg(windows)]
             family: "Consolas".into(),
             style: None,
-            ranges: vec![(0x0..0x0),], // only used for symbol font
+            ranges: vec![(0x0..0x0)], // only used for symbol font
         }
     }
 }
