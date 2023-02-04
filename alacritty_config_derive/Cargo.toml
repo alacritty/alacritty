@@ -22,5 +22,5 @@ version = "0.1.2-dev"
 
 [dev-dependencies]
 serde = { version = "1.0.117", features = ["derive"] }
-serde_yaml = "0.8.14"
+toml = "0.7.1"
 log = "0.4.11"

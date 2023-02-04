@@ -87,7 +87,7 @@ Code should be documented where appropriate. The existing code can be used as a 
 the general `rustfmt` rules can be followed for formatting.
 
 If any change has been made to the `config.rs` file, these changes should also be documented in the
-example configuration file `alacritty.yml`.
+example configuration file `alacritty.toml`.
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to
 things like code refactorings or documentation/tests) additionally need to be documented in the

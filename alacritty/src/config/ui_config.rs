@@ -192,7 +192,7 @@ where
     T: Copy + Eq,
     Binding<T>: Deserialize<'a>,
 {
-    let values = Vec::<serde_yaml::Value>::deserialize(deserializer)?;
+    let values = Vec::<toml::Value>::deserialize(deserializer)?;
 
     // Skip all invalid values.
     let mut bindings = Vec::with_capacity(values.len());
@@ -388,7 +388,7 @@ impl<'de> Deserialize<'de> for HintContent {
             {
                 let mut content = Self::Value::default();
 
-                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
+                while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
                     match key.as_str() {
                         "regex" => match Option::<LazyRegex>::deserialize(value) {
                             Ok(regex) => content.regex = regex,

@@ -3,7 +3,7 @@ use std::error::Error;
 
 use log::LevelFilter;
 use serde::Deserialize;
-use serde_yaml::Value;
+use toml::Value;
 
 pub trait SerdeReplace {
     fn replace(&mut self, key: &str, value: Value) -> Result<(), Box<dyn Error>>;

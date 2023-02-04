@@ -55,7 +55,7 @@ impl alacritty_config::SerdeReplace for CursorShapeShim {
     fn replace(
         &mut self,
         key: &str,
-        value: serde_yaml::Value,
+        value: toml::Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if !key.is_empty() {
             return Err(format!("Fields \"{0}\" do not exist", key).into());

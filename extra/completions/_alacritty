@@ -16,7 +16,7 @@ _alacritty() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
 '--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED: ' \
-'--config-file=[Specify alternative configuration file \[default\: \$XDG_CONFIG_HOME/alacritty/alacritty.yml\]]:CONFIG_FILE:_files' \
+'--config-file=[Specify alternative configuration file \[default: $XDG_CONFIG_HOME/alacritty/alacritty.toml\]]:CONFIG_FILE:_files' \
 '--socket=[Path for IPC socket creation]:SOCKET:_files' \
 '*-o+[Override configuration file options \[example\: cursor.style=Beam\]]:OPTION: ' \
 '*--option=[Override configuration file options \[example\: cursor.style=Beam\]]:OPTION: ' \

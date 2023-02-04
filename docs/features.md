@@ -77,7 +77,7 @@ file. If an application captures your mouse clicks, which is indicated by a
 change in mouse cursor shape, you're required to hold <kbd>Shift</kbd> to bypass
 that.
 
-[configuration file]: ../alacritty.yml
+[configuration file]: ../alacritty.toml
 
 ## Multi-Window
 
