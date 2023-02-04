@@ -169,7 +169,7 @@ impl GlyphCache {
         let fallback = load_or_regular(fallback_desc);
 
         // Load symbol font.
-        let symbol_desc = Self::make_desc(&font.symbol(), Slant::Normal, Weight::Normal);
+        let symbol_desc = Self::make_desc(font.symbol(), Slant::Normal, Weight::Normal);
 
         let symbol = load_or_regular(symbol_desc);
 
