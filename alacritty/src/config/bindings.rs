@@ -1013,14 +1013,14 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             let value = map.next_value::<SerdeValue>()?;
                             match value.as_integer() {
-                                Some(scancode) => {
-                                    if scancode > i64::from(u32::MAX) {
+                                Some(scancode) => match u32::try_from(scancode) {
+                                    Ok(scancode) => key = Some(Key::Scancode(scancode as u32)),
+                                    Err(_) => {
                                         return Err(<V::Error as Error>::custom(format!(
                                             "Invalid key binding, scancode too big: {}",
                                             scancode
                                         )));
-                                    }
-                                    key = Some(Key::Scancode(scancode as u32));
+                                    },
                                 },
                                 None => {
                                     key = Some(Key::deserialize(value).map_err(V::Error::custom)?);
