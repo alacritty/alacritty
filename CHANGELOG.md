@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `window.decorations_theme_variant` could now control theme on macOS and Windows
 - The IME purpose is now set to `Terminal` which could help with OSK
 - `window.decorations_theme_variant` is now using `Dark`, `Light`, and `None` values
+- Resize increments are now set on macOS and X11 to resize by cell sizes
 
 ### Fixed
 

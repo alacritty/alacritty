@@ -469,6 +469,9 @@ impl Display {
             renderer.finish();
         }
 
+        // Set resize increments for the newly created window.
+        window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
+
         window.set_visible(true);
 
         #[allow(clippy::single_match)]
@@ -641,6 +644,9 @@ impl Display {
         let message_bar_lines = message_buffer.message().map_or(0, |m| m.text(&new_size).len());
         let search_lines = usize::from(search_active);
         new_size.reserve_lines(message_bar_lines + search_lines);
+
+        // Update resize increments.
+        self.window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
 
         // Resize PTY.
         pty_resize_handle.on_resize(new_size.into());
