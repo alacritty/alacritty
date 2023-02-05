@@ -418,8 +418,8 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
 
             // Ensure that resulted glyph will be visible and also round sizes instead of straight
             // flooring them.
-            rect_width = cmp::max(rect_width.round() as i32, 1) as f32;
-            rect_height = cmp::max(rect_height.round() as i32, 1) as f32;
+            rect_width = rect_width.round().max(1.);
+            rect_height = rect_height.round().max(1.);
 
             let x = match character {
                 '\u{2590}' => canvas.x_center(),
@@ -442,27 +442,30 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
         },
         // Quadrants: '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟'.
         '\u{2596}'..='\u{259F}' => {
+            let x_center = canvas.x_center().round().max(1.);
+            let y_center = canvas.y_center().round().max(1.);
+
             let (w_second, h_second) = match character {
                 '\u{2598}' | '\u{2599}' | '\u{259a}' | '\u{259b}' | '\u{259c}' => {
-                    (canvas.x_center(), canvas.y_center())
+                    (x_center, y_center)
                 },
                 _ => (0., 0.),
             };
             let (w_first, h_first) = match character {
                 '\u{259b}' | '\u{259c}' | '\u{259d}' | '\u{259e}' | '\u{259f}' => {
-                    (canvas.x_center(), canvas.y_center())
+                    (x_center, y_center)
                 },
                 _ => (0., 0.),
             };
             let (w_third, h_third) = match character {
                 '\u{2596}' | '\u{2599}' | '\u{259b}' | '\u{259e}' | '\u{259f}' => {
-                    (canvas.x_center(), canvas.y_center())
+                    (x_center, y_center)
                 },
                 _ => (0., 0.),
             };
             let (w_fourth, h_fourth) = match character {
                 '\u{2597}' | '\u{2599}' | '\u{259a}' | '\u{259c}' | '\u{259f}' => {
-                    (canvas.x_center(), canvas.y_center())
+                    (x_center, y_center)
                 },
                 _ => (0., 0.),
             };
@@ -470,11 +473,11 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             // Second quadrant.
             canvas.draw_rect(0., 0., w_second, h_second, COLOR_FILL);
             // First quadrant.
-            canvas.draw_rect(canvas.x_center(), 0., w_first, h_first, COLOR_FILL);
+            canvas.draw_rect(x_center, 0., w_first, h_first, COLOR_FILL);
             // Third quadrant.
-            canvas.draw_rect(0., canvas.y_center(), w_third, h_third, COLOR_FILL);
+            canvas.draw_rect(0., y_center, w_third, h_third, COLOR_FILL);
             // Fourth quadrant.
-            canvas.draw_rect(canvas.x_center(), canvas.y_center(), w_fourth, h_fourth, COLOR_FILL);
+            canvas.draw_rect(x_center, y_center, w_fourth, h_fourth, COLOR_FILL);
         },
         _ => unreachable!(),
     }
