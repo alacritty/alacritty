@@ -42,7 +42,7 @@ pub fn derive_deserialize<T>(
             {
                 let mut config = Self::Value::default();
 
-                // NOTE: This could be used to print unused keys.
+                // Unused keys for flattening and warning.
                 let mut unused = toml::Table::new();
 
                 while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
@@ -55,6 +55,11 @@ pub fn derive_deserialize<T>(
                 }
 
                 #flatten
+
+                // Warn about unused keys.
+                for key in unused.keys() {
+                    log::warn!(target: #LOG_TARGET, "Unused config key: {}", key);
+                }
 
                 Ok(config)
             }
@@ -138,8 +143,10 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
 
                 // Create the tokens to deserialize the flattened struct from the unused fields.
                 field_streams.flatten.extend(quote! {
-                    let unused = toml::Value::Table(unused);
-                    config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
+                    // Drain unused fields since they will be used for flattening.
+                    let flattened = std::mem::replace(&mut unused, toml::Table::new());
+
+                    config.#ident = serde::Deserialize::deserialize(flattened).unwrap_or_default();
                 });
             },
             "deprecated" | "removed" => {

@@ -3,7 +3,7 @@ use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use log::error;
+use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
@@ -408,7 +408,8 @@ impl<'de> Deserialize<'de> for HintContent {
                                 );
                             },
                         },
-                        _ => (),
+                        "command" | "action" => (),
+                        key => warn!(target: LOG_TARGET_CONFIG, "Unrecognized hint field: {key}"),
                     }
                 }
 

@@ -252,7 +252,7 @@ impl<'de> Deserialize<'de> for Class {
                                 );
                             },
                         },
-                        _ => (),
+                        key => warn!(target: LOG_TARGET_CONFIG, "Unrecognized class field: {key}"),
                     }
                 }
 
