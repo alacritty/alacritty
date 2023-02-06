@@ -22,7 +22,7 @@ use crate::config::bindings::{
 use crate::config::color::Colors;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
-use crate::config::mouse::Mouse;
+use crate::config::mouse::{Mouse, MouseBindings};
 use crate::config::window::WindowConfig;
 
 /// Regex used for the default URL hint.
@@ -38,6 +38,7 @@ pub struct UiConfig {
     /// Window configuration.
     pub window: WindowConfig,
 
+    /// Mouse configuration.
     pub mouse: Mouse,
 
     /// Debug options.
@@ -75,10 +76,15 @@ pub struct UiConfig {
     #[config(flatten)]
     pub terminal_config: TerminalConfig,
 
+    /// Keyboard configuration.
+    keyboard: Keyboard,
+
     /// Keybindings.
+    #[config(deprecated = "use keyboard.bindings instead")]
     key_bindings: KeyBindings,
 
     /// Bindings for the mouse.
+    #[config(deprecated = "use mouse.bindings instead")]
     mouse_bindings: MouseBindings,
 
     /// Background opacity from 0.0 to 1.0.
@@ -90,22 +96,23 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             live_config_reload: true,
-            alt_send_esc: Default::default(),
             #[cfg(unix)]
             ipc_socket: true,
-            font: Default::default(),
-            window: Default::default(),
-            mouse: Default::default(),
-            debug: Default::default(),
+            draw_bold_text_with_bright_colors: Default::default(),
+            background_opacity: Default::default(),
+            terminal_config: Default::default(),
+            mouse_bindings: Default::default(),
             config_paths: Default::default(),
             key_bindings: Default::default(),
-            mouse_bindings: Default::default(),
-            terminal_config: Default::default(),
-            background_opacity: Default::default(),
-            bell: Default::default(),
+            alt_send_esc: Default::default(),
+            keyboard: Default::default(),
+            window: Default::default(),
             colors: Default::default(),
-            draw_bold_text_with_bright_colors: Default::default(),
+            mouse: Default::default(),
+            debug: Default::default(),
             hints: Default::default(),
+            font: Default::default(),
+            bell: Default::default(),
         }
     }
 }
@@ -138,13 +145,28 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        self.key_bindings.0.as_slice()
+        if self.keyboard.bindings.0.is_empty() {
+            self.key_bindings.0.as_slice()
+        } else {
+            self.keyboard.bindings.0.as_slice()
+        }
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        self.mouse_bindings.0.as_slice()
+        if self.mouse.bindings.0.is_empty() {
+            self.mouse_bindings.0.as_slice()
+        } else {
+            self.mouse.bindings.0.as_slice()
+        }
     }
+}
+
+/// Keyboard configuration.
+#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
+struct Keyboard {
+    /// Keybindings.
+    bindings: KeyBindings,
 }
 
 #[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
@@ -165,25 +187,7 @@ impl<'de> Deserialize<'de> for KeyBindings {
     }
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
-struct MouseBindings(Vec<MouseBinding>);
-
-impl Default for MouseBindings {
-    fn default() -> Self {
-        Self(bindings::default_mouse_bindings())
-    }
-}
-
-impl<'de> Deserialize<'de> for MouseBindings {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
-    }
-}
-
-fn deserialize_bindings<'a, D, T>(
+pub fn deserialize_bindings<'a, D, T>(
     deserializer: D,
     mut default: Vec<Binding<T>>,
 ) -> Result<Vec<Binding<T>>, D::Error>
