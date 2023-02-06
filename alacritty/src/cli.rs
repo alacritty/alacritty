@@ -30,7 +30,8 @@ pub struct Options {
     #[clap(long)]
     pub embed: Option<String>,
 
-    /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.toml].
+    /// Specify alternative configuration file [default:
+    /// $XDG_CONFIG_HOME/alacritty/alacritty.toml].
     #[cfg(not(any(target_os = "macos", windows)))]
     #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
@@ -71,7 +72,6 @@ pub struct Options {
     pub window_options: WindowOptions,
 
     /// Subcommand passed to the CLI.
-    #[cfg(unix)]
     #[clap(subcommand)]
     pub subcommands: Option<Subcommands>,
 }
@@ -234,10 +234,10 @@ impl WindowIdentity {
 }
 
 /// Available CLI subcommands.
-#[cfg(unix)]
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
     Msg(MessageOptions),
+    Migrate(MigrateOptions),
 }
 
 /// Send a message to the Alacritty socket.
@@ -262,6 +262,26 @@ pub enum SocketMessage {
 
     /// Update the Alacritty configuration.
     Config(IpcConfig),
+}
+
+/// Migrate the configuration file.
+#[derive(Args, Clone, Debug)]
+pub struct MigrateOptions {
+    /// Path to the configuration file.
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
+    pub config_file: Option<PathBuf>,
+
+    /// Only output TOML config to stdout.
+    #[clap(short, long)]
+    pub dry_run: bool,
+
+    /// Do not recurse over imports.
+    #[clap(short = 'i', long)]
+    pub skip_imports: bool,
+
+    #[clap(short, long)]
+    /// Do not output to STDOUT.
+    pub silent: bool,
 }
 
 /// Subset of options that we pass to 'create-window' IPC subcommand.

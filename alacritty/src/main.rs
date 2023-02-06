@@ -42,6 +42,7 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
 mod message_bar;
+mod migrate;
 #[cfg(windows)]
 mod panic;
 mod renderer;
@@ -77,14 +78,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Load command line options.
     let options = Options::new();
 
-    #[cfg(unix)]
     match options.subcommands {
+        #[cfg(unix)]
         Some(Subcommands::Msg(options)) => msg(options),
+        Some(Subcommands::Migrate(options)) => Ok(migrate::migrate(options)),
         None => alacritty(options),
     }
-
-    #[cfg(not(unix))]
-    alacritty(options)
 }
 
 /// `msg` subcommand entrypoint.

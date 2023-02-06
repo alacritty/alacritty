@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::{Path, PathBuf};
+use std::result::Result as StdResult;
 use std::{env, fs, io};
 
 use log::{debug, error, info, warn};
@@ -32,7 +33,7 @@ pub use crate::config::mouse::{ClickHandler, Mouse};
 pub use crate::config::ui_config::UiConfig;
 
 /// Maximum number of depth for the configuration file imports.
-const IMPORT_RECURSION_LIMIT: usize = 5;
+pub const IMPORT_RECURSION_LIMIT: usize = 5;
 
 /// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -207,6 +208,16 @@ fn parse_config(
 ) -> Result<Value> {
     config_paths.push(path.to_owned());
 
+    // Deserialize the configuration file.
+    let config = deserialize_config(path)?;
+
+    // Merge config with imports.
+    let imports = load_imports(&config, config_paths, recursion_limit);
+    Ok(serde_utils::merge(imports, config))
+}
+
+/// Deserialize a configuration file.
+pub fn deserialize_config(path: &Path) -> Result<Value> {
     let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM.
@@ -226,46 +237,30 @@ fn parse_config(
     // Load configuration file as Value.
     let config: Value = toml::from_str(&contents)?;
 
-    // Merge config with imports.
-    let imports = load_imports(&config, config_paths, recursion_limit);
-    Ok(serde_utils::merge(imports, config))
+    Ok(config)
 }
 
 /// Load all referenced configuration files.
 fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
-    let imports = match config.get("import") {
-        Some(Value::Array(imports)) => imports,
-        Some(_) => {
-            error!(target: LOG_TARGET_CONFIG, "Invalid import type: expected a sequence");
+    // Get paths for all imports.
+    let import_paths = match imports(config, recursion_limit) {
+        Ok(import_paths) => import_paths,
+        Err(err) => {
+            error!(target: LOG_TARGET_CONFIG, "{err}");
             return Value::Table(Table::new());
         },
-        None => return Value::Table(Table::new()),
     };
 
-    // Limit recursion to prevent infinite loops.
-    if !imports.is_empty() && recursion_limit == 0 {
-        error!(target: LOG_TARGET_CONFIG, "Exceeded maximum configuration import depth");
-        return Value::Table(Table::new());
-    }
-
+    // Parse configs for all imports recursively.
     let mut merged = Value::Table(Table::new());
-
-    for import in imports {
-        let mut path = match import {
-            Value::String(path) => PathBuf::from(path),
-            _ => {
-                error!(
-                    target: LOG_TARGET_CONFIG,
-                    "Invalid import element type: expected path string"
-                );
+    for import_path in import_paths {
+        let path = match import_path {
+            Ok(path) => path,
+            Err(err) => {
+                error!(target: LOG_TARGET_CONFIG, "{err}");
                 continue;
             },
         };
-
-        // Resolve paths relative to user's home directory.
-        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
-            path = home_dir.join(stripped);
-        }
 
         if !path.exists() {
             info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
@@ -283,6 +278,46 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
     merged
 }
 
+// TODO: Merge back with `load_imports` once `alacritty migrate` is dropped.
+//
+/// Get all import paths for a configuration.
+pub fn imports(
+    config: &Value,
+    recursion_limit: usize,
+) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
+    let imports = match config.get("import") {
+        Some(Value::Array(imports)) => imports,
+        Some(_) => return Err("Invalid import type: expected a sequence".into()),
+        None => return Ok(Vec::new()),
+    };
+
+    // Limit recursion to prevent infinite loops.
+    if !imports.is_empty() && recursion_limit == 0 {
+        return Err("Exceeded maximum configuration import depth".into());
+    }
+
+    let mut import_paths = Vec::new();
+
+    for import in imports {
+        let mut path = match import {
+            Value::String(path) => PathBuf::from(path),
+            _ => {
+                import_paths.push(Err("Invalid import element type: expected path string".into()));
+                continue;
+            },
+        };
+
+        // Resolve paths relative to user's home directory.
+        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
+            path = home_dir.join(stripped);
+        }
+
+        import_paths.push(Ok(path));
+    }
+
+    Ok(import_paths)
+}
+
 /// Get the location of the first found default config file paths
 /// according to the following order:
 ///
@@ -291,7 +326,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
 /// 3. $HOME/.config/alacritty/alacritty.toml
 /// 4. $HOME/.alacritty.toml
 #[cfg(not(windows))]
-fn installed_config(suffix: &str) -> Option<PathBuf> {
+pub fn installed_config(suffix: &str) -> Option<PathBuf> {
     let file_name = format!("alacritty.{suffix}");
 
     // Try using XDG location by default.
@@ -322,7 +357,7 @@ fn installed_config(suffix: &str) -> Option<PathBuf> {
 }
 
 #[cfg(windows)]
-fn installed_config(suffix: &str) -> Option<PathBuf> {
+pub fn installed_config(suffix: &str) -> Option<PathBuf> {
     let file_name = format!("alacritty.{suffix}");
     dirs::config_dir().map(|path| path.join("alacritty").join(file_name)).filter(|new| new.exists())
 }
