@@ -127,8 +127,8 @@ pub fn load(options: &Options) -> UiConfig {
     let config_path = options
         .config_file
         .clone()
-        .or_else(|| installed_config("yml"))
-        .or_else(|| installed_config("toml"));
+        .or_else(|| installed_config("toml"))
+        .or_else(|| installed_config("yml"));
 
     // Load the config using the following fallback behavior:
     //  - Config path + CLI overrides
