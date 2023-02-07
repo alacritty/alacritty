@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Uppercase `-T` short form for `--title`
 - Support for horizontal scrolling in mouse mode and alternative scrolling modes
 - Support for fractional scaling on Wayland with wp-fractional-scale protocol
+- Support for running on GLES context
 
 ### Changed
 

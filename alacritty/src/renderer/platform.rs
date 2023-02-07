@@ -81,21 +81,31 @@ pub fn create_gl_context(
     gl_config: &Config,
     raw_window_handle: Option<RawWindowHandle>,
 ) -> GlutinResult<NotCurrentContext> {
-    let context_attributes = ContextAttributesBuilder::new()
-        .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
-        .build(raw_window_handle);
+    let mut profiles = [
+        ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
+            .build(raw_window_handle),
+        // Try gles before OpenGL 2.1 as it tends to be more stable.
+        ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(Version::new(2, 0))))
+            .build(raw_window_handle),
+        ContextAttributesBuilder::new()
+            .with_profile(GlProfile::Compatibility)
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(2, 1))))
+            .build(raw_window_handle),
+    ]
+    .into_iter();
 
-    unsafe {
-        if let Ok(gl_context) = gl_display.create_context(gl_config, &context_attributes) {
-            Ok(gl_context)
-        } else {
-            let context_attributes = ContextAttributesBuilder::new()
-                .with_profile(GlProfile::Compatibility)
-                .with_context_api(ContextApi::OpenGl(Some(Version::new(2, 1))))
-                .build(raw_window_handle);
-            gl_display.create_context(gl_config, &context_attributes)
-        }
+    // Try the optimal config first.
+    let mut picked_context =
+        unsafe { gl_display.create_context(gl_config, &profiles.next().unwrap()) };
+
+    // Try the fallback ones.
+    while let (Err(_), Some(profile)) = (picked_context.as_ref(), profiles.next()) {
+        picked_context = unsafe { gl_display.create_context(gl_config, &profile) };
     }
+
+    picked_context
 }
 
 pub fn create_gl_surface(
