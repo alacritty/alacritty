@@ -58,9 +58,6 @@ pub struct UiConfig {
     /// RGB values for colors.
     pub colors: Colors,
 
-    /// Should draw bold text with brighter colors instead of bold font.
-    pub draw_bold_text_with_bright_colors: bool,
-
     /// Path where config was loaded from.
     #[config(skip)]
     pub config_paths: Vec<PathBuf>,
@@ -78,6 +75,10 @@ pub struct UiConfig {
 
     /// Keyboard configuration.
     keyboard: Keyboard,
+
+    /// Should draw bold text with brighter colors instead of bold font.
+    #[config(deprecated = "use colors.draw_bold_text_with_bright_colors instead")]
+    draw_bold_text_with_bright_colors: bool,
 
     /// Keybindings.
     #[config(deprecated = "use keyboard.bindings instead")]
@@ -165,6 +166,11 @@ impl UiConfig {
         } else {
             self.mouse_bindings.0.as_slice()
         }
+    }
+
+    #[inline]
+    pub fn draw_bold_text_with_bright_colors(&self) -> bool {
+        self.colors.draw_bold_text_with_bright_colors || self.draw_bold_text_with_bright_colors
     }
 }
 

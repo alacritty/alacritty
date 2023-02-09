@@ -1,4 +1,16 @@
-# Configuration for Alacritty, the GPU enhanced terminal emulator.
+# Configuration for Alacritty, the the cross-platform, OpenGL terminal emulator.
+
+# Live config reload (changes require restart)
+#live_config_reload = true
+
+# Offer IPC using `alacritty msg` (unix only)
+#ipc_socket = true
+
+# Startup directory
+#
+# Directory the shell is started in. If this is unset, or `None`, the working
+# directory of the parent process will be used.
+#working_directory = "None"
 
 # Import additional configuration files
 #
@@ -8,128 +20,131 @@
 #
 # All imports must either be absolute paths starting with `/`, or paths relative
 # to the user's home directory starting with `~/`.
-#import:
-#  - /path/to/alacritty.yml
+#import = ["/path/to/alacritty.yml"]
 
-# Any items in the `env` entry below will be added as
-# environment variables. Some entries may override variables
-# set by alacritty itself.
-#env:
-  # TERM variable
-  #
-  # This value is used to set the `$TERM` environment variable for
-  # each instance of Alacritty. If it is not present, alacritty will
-  # check the local terminfo database and use `alacritty` if it is
-  # available, otherwise `xterm-256color` is used.
-  #TERM: alacritty
+# TERM variable
+#
+# This value is used to set the `$TERM` environment variable for
+# each instance of Alacritty. If it is not present, alacritty will
+# check the local terminfo database and use `alacritty` if it is
+# available, otherwise `xterm-256color` is used.
+#env.TERM = "alacritty"
 
-#window:
-  # Window dimensions (changes require restart)
-  #
-  # Number of lines/columns (not pixels) in the terminal. Both lines and columns
-  # must be non-zero for this to take effect. The number of columns must be at
-  # least `2`, while using a value of `0` for columns and lines will fall back
-  # to the window manager's recommended size
-  #dimensions:
-  #  columns: 0
-  #  lines: 0
+# Spread additional padding evenly around the terminal content.
+#window.dynamic_padding = false
 
-  # Window position (changes require restart)
-  #
-  # Specified in number of pixels.
-  # If the position is not set, the window manager will handle the placement.
-  #position:
-  #  x: 0
-  #  y: 0
+# Window decorations
+#
+# Values for `decorations`:
+#     - full: Borders and title bar
+#     - none: Neither borders nor title bar
+#
+# Values for `decorations` (macOS only):
+#     - transparent: Title bar, transparent background and title bar buttons
+#     - buttonless: Title bar, transparent background and no title bar buttons
+#window.decorations = "full"
 
-  # Window padding (changes require restart)
-  #
-  # Blank space added around the window in pixels. This padding is scaled
-  # by DPI and the specified value is always added at both opposing sides.
-  #padding:
-  #  x: 0
-  #  y: 0
+# Background opacity
+#
+# Window opacity as a floating point number from `0.0` to `1.0`.
+# The value `0.0` is completely transparent and `1.0` is opaque.
+#window.opacity = 1.0
 
-  # Spread additional padding evenly around the terminal content.
-  #dynamic_padding: false
+# Startup Mode (changes require restart)
+#
+# Values for `startup_mode`:
+#   - Windowed
+#   - Maximized
+#   - Fullscreen
+#
+# Values for `startup_mode` (macOS only):
+#   - SimpleFullscreen
+#window.startup_mode = "Windowed"
 
-  # Window decorations
-  #
-  # Values for `decorations`:
-  #     - full: Borders and title bar
-  #     - none: Neither borders nor title bar
-  #
-  # Values for `decorations` (macOS only):
-  #     - transparent: Title bar, transparent background and title bar buttons
-  #     - buttonless: Title bar, transparent background and no title bar buttons
-  #decorations: full
+# Window title
+#window.title: "Alacritty"
 
-  # Background opacity
-  #
-  # Window opacity as a floating point number from `0.0` to `1.0`.
-  # The value `0.0` is completely transparent and `1.0` is opaque.
-  #opacity: 1.0
+# Allow terminal applications to change Alacritty's window title.
+#window.dynamic_title = true
 
-  # Startup Mode (changes require restart)
-  #
-  # Values for `startup_mode`:
-  #   - Windowed
-  #   - Maximized
-  #   - Fullscreen
-  #
-  # Values for `startup_mode` (macOS only):
-  #   - SimpleFullscreen
-  #startup_mode: Windowed
+# Decorations theme variant
+#
+# Override the variant of the System theme/GTK theme/Wayland client side
+# decorations. Commonly supported values are `Dark`, `Light`, and `None` for
+# auto pick-up. Set this to `None` to use the default theme variant.
+#window.decorations_theme_variant = "None"
 
-  # Window title
-  #title: Alacritty
+# Make `Option` key behave as `Alt` (macOS only):
+#   - OnlyLeft
+#   - OnlyRight
+#   - Both
+#   - None (default)
+#window.option_as_alt = "None"
 
-  # Allow terminal applications to change Alacritty's window title.
-  #dynamic_title: true
+# Window dimensions (changes require restart)
+#
+# Number of lines/columns (not pixels) in the terminal. Both lines and columns
+# must be non-zero for this to take effect. The number of columns must be at
+# least `2`, while using a value of `0` for columns and lines will fall back
+# to the window manager's recommended size
+#[window.dimensions]
+#columns = 0
+#lines = 0
 
-  # Window class (Linux/BSD only):
-  #class:
-    # Application instance name
-    #instance: Alacritty
-    # General application class
-    #general: Alacritty
+# Window position (changes require restart)
+#
+# Specified in number of pixels.
+# If the position is not set, the window manager will handle the placement.
+#[window.position]
+#x = 0
+#y = 0
 
-  # Decorations theme variant
-  #
-  # Override the variant of the System theme/GTK theme/Wayland client side
-  # decorations. Commonly supported values are `Dark`, `Light`, and `None` for
-  # auto pick-up. Set this to `None` to use the default theme variant.
-  #decorations_theme_variant: None
+# Window padding (changes require restart)
+#
+# Blank space added around the window in pixels. This padding is scaled
+# by DPI and the specified value is always added at both opposing sides.
+#[window.padding]
+#x = 0
+#y = 0
 
-  # Make `Option` key behave as `Alt` (macOS only):
-  #   - OnlyLeft
-  #   - OnlyRight
-  #   - Both
-  #   - None (default)
-  #option_as_alt: None
+# Window class (Linux/BSD only):
+#[window.class]:
+# Application instance name
+#instance = "Alacritty"
+# General application class
+#general = "Alacritty"
 
-#scrolling:
-  # Maximum number of lines in the scrollback buffer.
-  # Specifying '0' will disable scrolling.
-  #history: 10000
+#[scrolling]
+# Maximum number of lines in the scrollback buffer.
+# Specifying '0' will disable scrolling.
+#history = 10000
 
-  # Scrolling distance multiplier.
-  #multiplier: 3
+# Scrolling distance multiplier.
+#multiplier = 3
 
-# Font configuration
-#font:
-  # Normal (roman) font face
-  #normal:
-    # Font family
-    #
-    # Default:
-    #   - (macOS) Menlo
-    #   - (Linux/BSD) monospace
-    #   - (Windows) Consolas
-    #family: monospace
+# Point size
+#font.size: 11.0
 
-    # The `style` can be specified to pick a specific face.
-    #style: Regular
+# Use built-in font for box drawing characters.
+#
+# If `true`, Alacritty will use a custom built-in font for box drawing
+# characters (Unicode points 2500 - 259f).
+#
+#font.builtin_box_drawing: true
+
+# Normal (roman) font face
+#[font.normal]
+#
+# Font family
+#
+# Default:
+#   - (macOS) Menlo
+#   - (Linux/BSD) monospace
+#   - (Windows) Consolas
+#family = "monospace"
+#
+# The `style` can be specified to pick a specific face.
+#style = "Regular"
 
   # Bold font face
   #bold:
@@ -164,9 +179,6 @@
     # The `style` can be specified to pick a specific face.
     #style: Bold Italic
 
-  # Point size
-  #size: 11.0
-
   # Offset is the extra space around each character. `offset.y` can be thought
   # of as modifying the line spacing, and `offset.x` as modifying the letter
   # spacing.
@@ -181,51 +193,42 @@
   #  x: 0
   #  y: 0
 
-  # Use built-in font for box drawing characters.
-  #
-  # If `true`, Alacritty will use a custom built-in font for box drawing
-  # characters (Unicode points 2500 - 259f).
-  #
-  #builtin_box_drawing: true
-
 # If `true`, bold text is drawn using the bright color variants.
-#draw_bold_text_with_bright_colors: false
+#colors.draw_bold_text_with_bright_colors = false
 
-# Colors (Tomorrow Night)
-#colors:
-  # Default colors
-  #primary:
-  #  background: '#1d1f21'
-  #  foreground: '#c5c8c6'
+# Default colors
+#[colors.primary]
+#background = "#1d1f21"
+#foreground = "#c5c8c6"
 
-    # Bright and dim foreground colors
-    #
-    # The dimmed foreground color is calculated automatically if it is not
-    # present. If the bright foreground color is not set, or
-    # `draw_bold_text_with_bright_colors` is `false`, the normal foreground
-    # color will be used.
-    #dim_foreground: '#828482'
-    #bright_foreground: '#eaeaea'
+# Bright and dim foreground colors
+#
+# The dimmed foreground color is calculated automatically if it is not
+# present. If the bright foreground color is not set, or
+# `draw_bold_text_with_bright_colors` is `false`, the normal foreground
+# color will be used.
+#dim_foreground = "#828482"
+#bright_foreground = "#eaeaea"
 
-  # Cursor colors
-  #
-  # Colors which should be used to draw the terminal cursor.
-  #
-  # Allowed values are CellForeground/CellBackground, which reference the
-  # affected cell, or hexadecimal colors like #ff00ff.
-  #cursor:
-  #  text: CellBackground
-  #  cursor: CellForeground
+# Cursor colors
+#
+# Colors which should be used to draw the terminal cursor.
+#
+# Allowed values are CellForeground/CellBackground, which reference the
+# affected cell, or hexadecimal colors like #ff00ff.
+#[colors.cursor]
+#text = "CellBackground"
+#cursor = "CellForeground"
 
-  # Vi mode cursor colors
-  #
-  # Colors for the cursor when the vi mode is active.
-  #
-  # Allowed values are CellForeground/CellBackground, which reference the
-  # affected cell, or hexadecimal colors like #ff00ff.
-  #vi_mode_cursor:
-  #  text: CellBackground
-  #  cursor: CellForeground
+# Vi mode cursor colors
+#
+# Colors for the cursor when the vi mode is active.
+#
+# Allowed values are CellForeground/CellBackground, which reference the
+# affected cell, or hexadecimal colors like #ff00ff.
+#[colors.vi_mode_cursor]
+#text = "CellBackground"
+#cursor = "CellForeground"
 
   # Search colors
   #
@@ -240,154 +243,147 @@
     #  foreground: '#ffffff'
     #  background: '#000000'
 
-  # Keyboard hints
-  #hints:
-    # First character in the hint label
-    #
-    # Allowed values are CellForeground/CellBackground, which reference the
-    # affected cell, or hexadecimal colors like #ff00ff.
-    #start:
-    #  foreground: '#1d1f21'
-    #  background: '#e9ff5e'
-
-    # All characters after the first one in the hint label
-    #
-    # Allowed values are CellForeground/CellBackground, which reference the
-    # affected cell, or hexadecimal colors like #ff00ff.
-    #end:
-    #  foreground: '#e9ff5e'
-    #  background: '#1d1f21'
-
-  # Line indicator
-  #
-  # Color used for the indicator displaying the position in history during
-  # search and vi mode.
-  #
-  # By default, these will use the opposing primary color.
-  #line_indicator:
-  #  foreground: None
-  #  background: None
-
-  # Footer bar
-  #
-  # Color used for the footer bar on the bottom, used by search regex input,
-  # hyperlink URI preview, etc.
-  #
-  #footer_bar:
-  #  background: '#c5c8c6'
-  #  foreground: '#1d1f21'
-
-  # Selection colors
-  #
-  # Colors which should be used to draw the selection area.
-  #
-  # Allowed values are CellForeground/CellBackground, which reference the
-  # affected cell, or hexadecimal colors like #ff00ff.
-  #selection:
-  #  text: CellBackground
-  #  background: CellForeground
-
-  # Normal colors
-  #normal:
-  #  black:   '#1d1f21'
-  #  red:     '#cc6666'
-  #  green:   '#b5bd68'
-  #  yellow:  '#f0c674'
-  #  blue:    '#81a2be'
-  #  magenta: '#b294bb'
-  #  cyan:    '#8abeb7'
-  #  white:   '#c5c8c6'
-
-  # Bright colors
-  #bright:
-  #  black:   '#666666'
-  #  red:     '#d54e53'
-  #  green:   '#b9ca4a'
-  #  yellow:  '#e7c547'
-  #  blue:    '#7aa6da'
-  #  magenta: '#c397d8'
-  #  cyan:    '#70c0b1'
-  #  white:   '#eaeaea'
-
-  # Dim colors
-  #
-  # If the dim colors are not set, they will be calculated automatically based
-  # on the `normal` colors.
-  #dim:
-  #  black:   '#131415'
-  #  red:     '#864343'
-  #  green:   '#777c44'
-  #  yellow:  '#9e824c'
-  #  blue:    '#556a7d'
-  #  magenta: '#75617b'
-  #  cyan:    '#5b7d78'
-  #  white:   '#828482'
-
-  # Indexed Colors
-  #
-  # The indexed colors include all colors from 16 to 256.
-  # When these are not set, they're filled with sensible defaults.
-  #
-  # Example:
-  #   `- { index: 16, color: '#ff00ff' }`
-  #
-  #indexed_colors: []
-
-  # Transparent cell backgrounds
-  #
-  # Whether or not `window.opacity` applies to all cell backgrounds or only to
-  # the default background. When set to `true` all cells will be transparent
-  # regardless of their background color.
-  #transparent_background_colors: false
-
-# Bell
+# First character in the hint label
 #
-# The bell is rung every time the BEL control character is received.
-#bell:
-  # Visual Bell Animation
-  #
-  # Animation effect for flashing the screen when the visual bell is rung.
-  #
-  # Values for `animation`:
-  #   - Ease
-  #   - EaseOut
-  #   - EaseOutSine
-  #   - EaseOutQuad
-  #   - EaseOutCubic
-  #   - EaseOutQuart
-  #   - EaseOutQuint
-  #   - EaseOutExpo
-  #   - EaseOutCirc
-  #   - Linear
-  #animation: EaseOutExpo
+# Allowed values are CellForeground/CellBackground, which reference the
+# affected cell, or hexadecimal colors like #ff00ff.
+#[hints.start]
+#foreground = "#1d1f21"
+#background = "#e9ff5e"
 
-  # Duration of the visual bell flash in milliseconds. A `duration` of `0` will
-  # disable the visual bell animation.
-  #duration: 0
+# All characters after the first one in the hint label
+#
+# Allowed values are CellForeground/CellBackground, which reference the
+# affected cell, or hexadecimal colors like #ff00ff.
+#[hints.end]
+#foreground = "#e9ff5e"
+#background = "#1d1f21"
 
-  # Visual bell animation color.
-  #color: '#ffffff'
+# Line indicator
+#
+# Color used for the indicator displaying the position in history during
+# search and vi mode.
+#
+# By default, these will use the opposing primary color.
+#[colors.line_indicator]
+#foreground = "None"
+#background = "None"
 
-  # Bell Command
-  #
-  # This program is executed whenever the bell is rung.
-  #
-  # When set to `command: None`, no command will be executed.
-  #
-  # Example:
-  #   command:
-  #     program: notify-send
-  #     args: ["Hello, World!"]
-  #
-  #command: None
+# Footer bar
+#
+# Color used for the footer bar on the bottom, used by search regex input,
+# hyperlink URI preview, etc.
+#
+#[colors.footer_bar]
+#background = "#c5c8c6"
+#foreground = "#1d1f21"
 
-#selection:
-  # This string contains all characters that are used as separators for
-  # "semantic words" in Alacritty.
-  #semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
+# Selection colors
+#
+# Colors which should be used to draw the selection area.
+#
+# Allowed values are CellForeground/CellBackground, which reference the
+# affected cell, or hexadecimal colors like #ff00ff.
+#[colors.selection]
+#text = "CellBackground"
+#background = "CellForeground"
 
-  # When set to `true`, selected text will be copied to the primary clipboard.
-  #save_to_clipboard: false
+# Normal colors
+#[colors.normal]
+#black =   "#1d1f21"
+#red =     "#cc6666"
+#green =   "#b5bd68"
+#yellow =  "#f0c674"
+#blue =    "#81a2be"
+#magenta = "#b294bb"
+#cyan =    "#8abeb7"
+#white =   "#c5c8c6"
+
+# Bright colors
+#[colors.bright]
+#black =   "#666666"
+#red =     "#d54e53"
+#green =   "#b9ca4a"
+#yellow =  "#e7c547"
+#blue =    "#7aa6da"
+#magenta = "#c397d8"
+#cyan =    "#70c0b1"
+#white =   "#eaeaea"
+
+# Dim colors
+#
+# If the dim colors are not set, they will be calculated automatically based
+# on the `normal` colors.
+#[colors.dim]
+#black =   "#131415"
+#red =     "#864343"
+#green =   "#777c44"
+#yellow =  "#9e824c"
+#blue =    "#556a7d"
+#magenta = "#75617b"
+#cyan =    "#5b7d78"
+#white =   "#828482"
+
+# Indexed Colors
+#
+# The indexed colors include all colors from 16 to 256.
+# When these are not set, they're filled with sensible defaults.
+#
+# Example:
+#   `{ index = 16, color = "#ff00ff" }`
+#
+#colors.indexed_colors = []
+
+# Transparent cell backgrounds
+#
+# Whether or not `window.opacity` applies to all cell backgrounds or only to
+# the default background. When set to `true` all cells will be transparent
+# regardless of their background color.
+#transparent_background_colors = false
+
+# Visual Bell Animation
+#
+# Animation effect for flashing the screen when the visual bell is rung.
+#
+# Values for `animation`:
+#   - Ease
+#   - EaseOut
+#   - EaseOutSine
+#   - EaseOutQuad
+#   - EaseOutCubic
+#   - EaseOutQuart
+#   - EaseOutQuint
+#   - EaseOutExpo
+#   - EaseOutCirc
+#   - Linear
+#bell.animation = "EaseOutExpo"
+
+# Duration of the visual bell flash in milliseconds. A `duration` of `0` will
+# disable the visual bell animation.
+#duration: 0
+
+# Visual bell animation color.
+#bell.color = "#ffffff"
+
+# Bell Command
+#
+# This program is executed whenever the bell is rung.
+#
+# When set to `command = "None"`, no command will be executed.
+#
+# Example:
+#   [command]
+#   program = "notify-send"
+#   args = ["Hello, World!"]
+#
+#bell.command = "None"
+
+# This string contains all characters that are used as separators for
+# "semantic words" in Alacritty.
+#selection.semantic_escape_chars = ",│`|:\"' ()[]{}<>\t"
+
+# When set to `true`, selected text will be copied to the primary clipboard.
+#selection.save_to_clipboard = false
 
 #cursor:
   # Cursor style
@@ -433,9 +429,6 @@
   # from `0.0` to `1.0`.
   #thickness: 0.15
 
-# Live config reload (changes require restart)
-#live_config_reload: true
-
 # Shell
 #
 # You can set `shell.program` to the path of your favorite shell, e.g.
@@ -449,15 +442,6 @@
 #  program: /bin/bash
 #  args:
 #    - --login
-
-# Startup directory
-#
-# Directory the shell is started in. If this is unset, or `None`, the working
-# directory of the parent process will be used.
-#working_directory: None
-
-# Offer IPC using `alacritty msg` (unix only)
-#ipc_socket: true
 
 #mouse:
   # Click settings
@@ -874,32 +858,31 @@
   #- { key: F,              mods: Command, mode: ~Search,     action: SearchForward         }
   #- { key: B,              mods: Command, mode: ~Search,     action: SearchBackward        }
 
-#debug:
-  # Display the time it takes to redraw each frame.
-  #render_timer: false
+# Display the time it takes to redraw each frame.
+#debug.render_timer = false
 
-  # Keep the log file after quitting Alacritty.
-  #persistent_logging: false
+# Keep the log file after quitting Alacritty.
+#debug.persistent_logging = false
 
-  # Log level
-  #
-  # Values for `log_level`:
-  #   - Off
-  #   - Error
-  #   - Warn
-  #   - Info
-  #   - Debug
-  #   - Trace
-  #log_level: Warn
+# Log level
+#
+# Values for `log_level`:
+#   - Off
+#   - Error
+#   - Warn
+#   - Info
+#   - Debug
+#   - Trace
+#debug.log_level = "Warn"
 
-  # Renderer override.
-  #   - glsl3
-  #   - gles2
-  #   - gles2_pure
-  #renderer: None
+# Renderer override.
+#   - glsl3
+#   - gles2
+#   - gles2_pure
+#renderer = "None"
 
-  # Print all received window events.
-  #print_events: false
+# Print all received window events.
+#print_events = false
 
-  # Highlight window damage information.
-  #highlight_damage: false
+# Highlight window damage information.
+#highlight_damage = false
