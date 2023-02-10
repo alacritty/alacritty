@@ -120,6 +120,12 @@ impl Default for UiConfig {
 impl UiConfig {
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
+        let key_bindings = if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
+            &mut self.keyboard.bindings.0
+        } else {
+            &mut self.key_bindings.0
+        };
+
         for hint in &self.hints.enabled {
             let binding = match hint.binding {
                 Some(binding) => binding,
@@ -134,7 +140,7 @@ impl UiConfig {
                 action: Action::Hint(hint.clone()),
             };
 
-            self.key_bindings.0.push(binding);
+            key_bindings.push(binding);
         }
     }
 
@@ -145,19 +151,19 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        if self.keyboard.bindings.0.is_empty() {
-            self.key_bindings.0.as_slice()
-        } else {
+        if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
             self.keyboard.bindings.0.as_slice()
+        } else {
+            self.key_bindings.0.as_slice()
         }
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        if self.mouse.bindings.0.is_empty() {
-            self.mouse_bindings.0.as_slice()
-        } else {
+        if self.mouse.bindings.0.len() >= self.mouse_bindings.0.len() {
             self.mouse.bindings.0.as_slice()
+        } else {
+            self.mouse_bindings.0.as_slice()
         }
     }
 }
