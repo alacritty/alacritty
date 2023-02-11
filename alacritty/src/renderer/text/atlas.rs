@@ -259,9 +259,13 @@ impl Atlas {
         match atlas[*current_atlas].insert(rasterized, active_tex) {
             Ok(glyph) => glyph,
             Err(AtlasInsertError::Full) => {
+                // Get the context type before adding a new Atlas.
+                let is_gles_context = atlas[*current_atlas].is_gles_context;
+
+                // Advance the current Atlas index.
                 *current_atlas += 1;
                 if *current_atlas == atlas.len() {
-                    let new = Atlas::new(ATLAS_SIZE, atlas[*current_atlas].is_gles_context);
+                    let new = Atlas::new(ATLAS_SIZE, is_gles_context);
                     *active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
                     atlas.push(new);
                 }
