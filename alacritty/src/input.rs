@@ -18,7 +18,7 @@ use winit::event::{
 };
 use winit::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopWindowTargetExtMacOS;
+use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
@@ -868,7 +868,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mut bytes = vec![0; utf8_len];
         c.encode_utf8(&mut bytes[..]);
 
-        if *self.ctx.received_count() == 0 && self.ctx.modifiers().alt() && utf8_len == 1 {
+        #[cfg(not(target_os = "macos"))]
+        let alt_send_esc = true;
+
+        // Don't send ESC when `OptionAsAlt` is used. This doesn't handle
+        // `Only{Left,Right}` variants due to inability to distinguish them.
+        #[cfg(target_os = "macos")]
+        let alt_send_esc = self.ctx.config().window.option_as_alt != OptionAsAlt::None;
+
+        if alt_send_esc
+            && *self.ctx.received_count() == 0
+            && self.ctx.modifiers().alt()
+            && utf8_len == 1
+        {
             bytes.insert(0, b'\x1b');
         }
 
