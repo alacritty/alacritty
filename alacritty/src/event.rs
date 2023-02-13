@@ -190,7 +190,7 @@ pub struct ActionContext<'a, N, T> {
     pub terminal: &'a mut Term<T>,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
-    pub touch: &'a mut Touch,
+    pub touch: &'a mut TouchPurpose,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub modifiers: &'a mut ModifiersState,
@@ -344,7 +344,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
-    fn touch(&mut self) -> &mut Touch {
+    fn touch_purpose(&mut self) -> &mut TouchPurpose {
         self.touch
     }
 
@@ -1028,7 +1028,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
 /// Identified purpose of the touch input.
 #[derive(Default, Debug)]
-pub enum Touch {
+pub enum TouchPurpose {
     #[default]
     None,
     Select(TouchEvent),
