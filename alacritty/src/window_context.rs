@@ -42,7 +42,7 @@ use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState};
+use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState, TouchPurpose};
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
@@ -62,6 +62,7 @@ pub struct WindowContext {
     notifier: Notifier,
     font_size: Size,
     mouse: Mouse,
+    touch: TouchPurpose,
     dirty: bool,
     occluded: bool,
     preserve_title: bool,
@@ -255,6 +256,7 @@ impl WindowContext {
             ipc_config: Default::default(),
             modifiers: Default::default(),
             mouse: Default::default(),
+            touch: Default::default(),
             dirty: Default::default(),
             occluded: Default::default(),
         })
@@ -441,6 +443,7 @@ impl WindowContext {
             notifier: &mut self.notifier,
             display: &mut self.display,
             mouse: &mut self.mouse,
+            touch: &mut self.touch,
             dirty: &mut self.dirty,
             occluded: &mut self.occluded,
             terminal: &mut terminal,

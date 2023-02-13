@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -19,7 +19,8 @@ use log::{debug, error, info, warn};
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 use winit::dpi::PhysicalSize;
 use winit::event::{
-    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
+    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause,
+    Touch as TouchEvent, WindowEvent,
 };
 use winit::event_loop::{
     ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
@@ -65,6 +66,9 @@ const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 
 /// Maximum number of search terms stored in the history.
 const MAX_SEARCH_HISTORY_SIZE: usize = 255;
+
+/// Touch zoom speed.
+const TOUCH_ZOOM_FACTOR: f32 = 0.01;
 
 /// Alacritty events.
 #[derive(Debug, Clone)]
@@ -186,6 +190,7 @@ pub struct ActionContext<'a, N, T> {
     pub terminal: &'a mut Term<T>,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
+    pub touch: &'a mut TouchPurpose,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub modifiers: &'a mut ModifiersState,
@@ -336,6 +341,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn mouse(&self) -> &Mouse {
         self.mouse
+    }
+
+    #[inline]
+    fn touch_purpose(&mut self) -> &mut TouchPurpose {
+        self.touch
     }
 
     #[inline]
@@ -1016,12 +1026,68 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum ClickState {
+/// Identified purpose of the touch input.
+#[derive(Debug)]
+pub enum TouchPurpose {
     None,
-    Click,
-    DoubleClick,
-    TripleClick,
+    Select(TouchEvent),
+    Scroll(TouchEvent),
+    Zoom(TouchZoom),
+    Tap(TouchEvent),
+    Invalid(HashSet<u64>),
+}
+
+impl Default for TouchPurpose {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+/// Touch zooming state.
+#[derive(Debug)]
+pub struct TouchZoom {
+    slots: (TouchEvent, TouchEvent),
+    fractions: f32,
+}
+
+impl TouchZoom {
+    pub fn new(slots: (TouchEvent, TouchEvent)) -> Self {
+        Self { slots, fractions: Default::default() }
+    }
+
+    /// Get slot distance change since last update.
+    pub fn font_delta(&mut self, slot: TouchEvent) -> f32 {
+        let old_distance = self.distance();
+
+        // Update touch slots.
+        if slot.id == self.slots.0.id {
+            self.slots.0 = slot;
+        } else {
+            self.slots.1 = slot;
+        }
+
+        // Calculate font change in `FONT_SIZE_STEP` increments.
+        let delta = (self.distance() - old_distance) * TOUCH_ZOOM_FACTOR + self.fractions;
+        let font_delta = (delta.abs() / FONT_SIZE_STEP).floor() * FONT_SIZE_STEP * delta.signum();
+        self.fractions = delta - font_delta;
+
+        font_delta
+    }
+
+    /// Get active touch slots.
+    pub fn slots(&self) -> HashSet<u64> {
+        let mut set = HashSet::new();
+        set.insert(self.slots.0.id);
+        set.insert(self.slots.1.id);
+        set
+    }
+
+    /// Calculate distance between slots.
+    fn distance(&self) -> f32 {
+        let delta_x = self.slots.0.location.x - self.slots.1.location.x;
+        let delta_y = self.slots.0.location.y - self.slots.1.location.y;
+        delta_x.hypot(delta_y) as f32
+    }
 }
 
 /// State of the mouse.
@@ -1079,6 +1145,14 @@ impl Mouse {
 
         term::viewport_to_point(display_offset, Point::new(line, col))
     }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ClickState {
+    None,
+    Click,
+    DoubleClick,
+    TripleClick,
 }
 
 /// The amount of scroll accumulated from the pointer events.
@@ -1217,6 +1291,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_wheel_input(delta, phase);
                     },
+                    WindowEvent::Touch(touch) => self.touch(touch),
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
 
@@ -1290,7 +1365,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1592,7 +1666,6 @@ impl Processor {
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_)
             ),
             WinitEvent::Suspended { .. }

@@ -7,14 +7,17 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::mem;
 use std::time::{Duration, Instant};
 
 use winit::dpi::PhysicalPosition;
 use winit::event::{
-    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta,
+    Touch as TouchEvent, TouchPhase,
 };
 use winit::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
@@ -35,7 +38,9 @@ use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfi
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
-use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{
+    ClickState, Event, EventType, Mouse, TouchPurpose, TouchZoom, TYPING_SEARCH_DELAY,
+};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 
@@ -50,6 +55,12 @@ const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
 
 /// Number of pixels for increasing the selection scrolling speed factor by one.
 const SELECTION_SCROLLING_STEP: f64 = 20.;
+
+/// Touch scroll speed.
+const TOUCH_SCROLL_FACTOR: f64 = 0.35;
+
+/// Distance before a touch input is considered a drag.
+const MAX_TAP_DISTANCE: f64 = 20.;
 
 /// Processes input from winit.
 ///
@@ -72,6 +83,7 @@ pub trait ActionContext<T: EventListener> {
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
+    fn touch_purpose(&mut self) -> &mut TouchPurpose;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
@@ -735,6 +747,118 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
+    /// Handle touch input.
+    pub fn touch(&mut self, touch: TouchEvent) {
+        match touch.phase {
+            TouchPhase::Started => self.on_touch_start(touch),
+            TouchPhase::Moved => self.on_touch_motion(touch),
+            TouchPhase::Ended | TouchPhase::Cancelled => self.on_touch_end(touch),
+        }
+    }
+
+    /// Handle beginning of touch input.
+    pub fn on_touch_start(&mut self, touch: TouchEvent) {
+        let touch_purpose = self.ctx.touch_purpose();
+        *touch_purpose = match mem::take(touch_purpose) {
+            TouchPurpose::None => TouchPurpose::Tap(touch),
+            TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
+            TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
+            TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
+                let mut set = HashSet::new();
+                set.insert(event.id);
+                TouchPurpose::Invalid(set)
+            },
+            TouchPurpose::Invalid(mut slots) => {
+                slots.insert(touch.id);
+                TouchPurpose::Invalid(slots)
+            },
+        };
+    }
+
+    /// Handle touch input movement.
+    pub fn on_touch_motion(&mut self, touch: TouchEvent) {
+        let touch_purpose = self.ctx.touch_purpose();
+        match touch_purpose {
+            TouchPurpose::None => (),
+            // Handle transition from tap to scroll/select.
+            TouchPurpose::Tap(start) => {
+                let delta_x = touch.location.x - start.location.x;
+                let delta_y = touch.location.y - start.location.y;
+                if delta_x.abs() > MAX_TAP_DISTANCE {
+                    // Update gesture state.
+                    let start_location = start.location;
+                    *touch_purpose = TouchPurpose::Select(*start);
+
+                    // Start simulated mouse input.
+                    self.mouse_moved(start_location);
+                    self.mouse_input(ElementState::Pressed, MouseButton::Left);
+
+                    // Apply motion since touch start.
+                    self.on_touch_motion(touch);
+                } else if delta_y.abs() > MAX_TAP_DISTANCE {
+                    // Update gesture state.
+                    *touch_purpose = TouchPurpose::Scroll(*start);
+
+                    // Apply motion since touch start.
+                    self.on_touch_motion(touch);
+                }
+            },
+            TouchPurpose::Zoom(zoom) => {
+                let font_delta = zoom.font_delta(touch);
+                self.ctx.change_font_size(font_delta);
+            },
+            TouchPurpose::Scroll(last_touch) => {
+                // Calculate delta and update last touch position.
+                let delta_y = touch.location.y - last_touch.location.y;
+                *touch_purpose = TouchPurpose::Scroll(touch);
+
+                self.scroll_terminal(0., delta_y * TOUCH_SCROLL_FACTOR);
+            },
+            TouchPurpose::Select(_) => self.mouse_moved(touch.location),
+            TouchPurpose::Invalid(_) => (),
+        }
+    }
+
+    /// Handle end of touch input.
+    pub fn on_touch_end(&mut self, touch: TouchEvent) {
+        // Finalize the touch motion up to the release point.
+        self.on_touch_motion(touch);
+
+        let touch_purpose = self.ctx.touch_purpose();
+        match touch_purpose {
+            // Simulate LMB clicks.
+            TouchPurpose::Tap(start) => {
+                let start_location = start.location;
+                *touch_purpose = Default::default();
+
+                self.mouse_moved(start_location);
+                self.mouse_input(ElementState::Pressed, MouseButton::Left);
+                self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            // Invalidate zoom once a finger was released.
+            TouchPurpose::Zoom(zoom) => {
+                let mut slots = zoom.slots();
+                slots.remove(&touch.id);
+                *touch_purpose = TouchPurpose::Invalid(slots);
+            },
+            // Reset touch state once all slots were released.
+            TouchPurpose::Invalid(slots) => {
+                slots.remove(&touch.id);
+                if slots.is_empty() {
+                    *touch_purpose = Default::default();
+                }
+            },
+            // Release simulated LMB.
+            TouchPurpose::Select(_) => {
+                *touch_purpose = Default::default();
+                self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            // Reset touch state on scroll finish.
+            TouchPurpose::Scroll(_) => *touch_purpose = Default::default(),
+            TouchPurpose::None => (),
+        }
+    }
+
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
@@ -1103,6 +1227,11 @@ mod tests {
         #[inline]
         fn mouse(&self) -> &Mouse {
             self.mouse
+        }
+
+        #[inline]
+        fn touch_purpose(&mut self) -> &mut TouchPurpose {
+            unimplemented!();
         }
 
         fn received_count(&mut self) -> &mut usize {
