@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_config_derive"
-version = "0.2.1-dev"
+version = "0.2.2-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT/Apache-2.0"
 description = "Failure resistant deserialization derive"
@@ -18,7 +18,7 @@ quote = "1.0.7"
 
 [dev-dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 
 [dev-dependencies]
 serde = { version = "1.0.117", features = ["derive"] }
