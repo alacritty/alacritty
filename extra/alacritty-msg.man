@@ -1,4 +1,4 @@
-.TH ALACRITTY-MSG "1" "October 2021" "alacritty 0.12.0-dev" "User Commands"
+.TH ALACRITTY-MSG "1" "October 2021" "alacritty 0.13.0-dev" "User Commands"
 .SH NAME
 alacritty-msg \- Send messages to Alacritty
 .SH "SYNOPSIS"
