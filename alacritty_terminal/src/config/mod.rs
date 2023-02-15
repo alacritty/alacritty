@@ -78,6 +78,7 @@ pub struct Cursor {
     thickness: Percentage,
     blink_interval: u64,
     blink_timeout: u8,
+    smooth_factor: f32
 }
 
 impl Default for Cursor {
@@ -87,6 +88,7 @@ impl Default for Cursor {
             unfocused_hollow: true,
             blink_interval: 750,
             blink_timeout: 5,
+            smooth_factor: 0.0,
             style: Default::default(),
             vi_mode_style: Default::default(),
         }
@@ -123,6 +125,11 @@ impl Cursor {
                 cmp::max(self.blink_interval * 5 / MILLIS_IN_SECOND, blink_timeout as u64)
             },
         }
+    }
+
+    #[inline]
+    pub fn smooth_factor(self) -> f32 {
+        if self.smooth_factor > 0.0 { self.smooth_factor } else { 0.0 }
     }
 }
 

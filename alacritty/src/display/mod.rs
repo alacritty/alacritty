@@ -385,6 +385,9 @@ pub struct Display {
     next_frame_damage_rects: Vec<DamageRect>,
     glyph_cache: GlyphCache,
     meter: Meter,
+
+    cur_x: f32,
+    cur_y: f32
 }
 
 impl Display {
@@ -522,6 +525,8 @@ impl Display {
             damage_rects,
             next_frame_damage_rects,
             hint_mouse_point: None,
+            cur_x: 0.0,
+            cur_y: 0.0
         })
     }
 
@@ -856,7 +861,7 @@ impl Display {
         };
 
         // Draw cursor.
-        rects.extend(cursor.rects(&size_info, config.terminal_config.cursor.thickness()));
+        rects.extend(cursor.rects(&size_info, config.terminal_config.cursor.thickness(), config.terminal_config.cursor.smooth_factor(), &mut self.cur_x, &mut self.cur_y));
 
         // Push visual bell after url/underline/strikeout rects.
         let visual_bell_intensity = self.visual_bell.intensity();
@@ -895,7 +900,7 @@ impl Display {
                     let shape = CursorShape::Underline;
                     let cursor = RenderableCursor::new(Point::new(line, column), shape, fg, false);
                     rects.extend(
-                        cursor.rects(&size_info, config.terminal_config.cursor.thickness()),
+                        cursor.rects(&size_info, config.terminal_config.cursor.thickness(), config.terminal_config.cursor.smooth_factor(), &mut self.cur_x, &mut self.cur_y),
                     );
                 }
 
@@ -1143,7 +1148,7 @@ impl Display {
                 let cursor =
                     RenderableCursor::new(cursor_point, CursorShape::HollowBlock, fg, is_wide);
                 rects.extend(
-                    cursor.rects(&self.size_info, config.terminal_config.cursor.thickness()),
+                    cursor.rects(&self.size_info, config.terminal_config.cursor.thickness(), config.terminal_config.cursor.smooth_factor(), &mut self.cur_x, &mut self.cur_y),
                 );
                 cursor_point
             },

@@ -425,6 +425,12 @@
   # Specifying '0' will disable timeout for blinking.
   #blink_timeout: 5
 
+  # Cursor movement smoothing factor
+  # Cursor position each frame is determined via `old_pos + (new_pos - old_pos) / factor`
+  # The more the factor - the slower the cursor movement. 0.0 turns smoothing off
+  # 'Block' cursor shape gets replaced with 'Undeline' if this is on
+  #smooth_factor: 0.0
+
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.
   #unfocused_hollow: true

@@ -493,6 +493,10 @@ impl WindowContext {
             return;
         }
 
+        if self.config.terminal_config.cursor.smooth_factor() > 0.0 {
+            self.dirty = true;
+        }
+
         if self.dirty && !self.occluded {
             // Force the display to process any pending display update.
             self.display.process_renderer_update();

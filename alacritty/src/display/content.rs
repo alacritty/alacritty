@@ -159,7 +159,7 @@ impl<'a> Iterator for RenderableContent<'a> {
             if self.cursor_point == cell.point {
                 // Store the cursor which should be rendered.
                 self.cursor = self.renderable_cursor(&cell);
-                if self.cursor.shape == CursorShape::Block {
+                if self.cursor.shape == CursorShape::Block && self.config.terminal_config.cursor.smooth_factor() == 0.0 {
                     cell.fg = self.cursor.text_color;
                     cell.bg = self.cursor.cursor_color;
 
