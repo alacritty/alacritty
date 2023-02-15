@@ -78,7 +78,7 @@ pub struct Cursor {
     thickness: Percentage,
     blink_interval: u64,
     blink_timeout: u8,
-    smooth_factor: f32
+    smooth_factor: f32,
 }
 
 impl Default for Cursor {
@@ -129,7 +129,11 @@ impl Cursor {
 
     #[inline]
     pub fn smooth_factor(self) -> f32 {
-        if self.smooth_factor > 0.0 { self.smooth_factor } else { 0.0 }
+        if self.smooth_factor > 0.0 {
+            self.smooth_factor
+        } else {
+            0.0
+        }
     }
 }
 

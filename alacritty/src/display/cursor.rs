@@ -10,11 +10,25 @@ use crate::renderer::rects::RenderRect;
 /// Trait for conversion into the iterator.
 pub trait IntoRects {
     /// Consume the cursor for an iterator of rects.
-    fn rects(self, size_info: &SizeInfo, thickness: f32, smooth: f32, cx: &mut f32, cy: &mut f32) -> CursorRects;
+    fn rects(
+        self,
+        size_info: &SizeInfo,
+        thickness: f32,
+        smooth: f32,
+        cx: &mut f32,
+        cy: &mut f32,
+    ) -> CursorRects;
 }
 
 impl IntoRects for RenderableCursor {
-    fn rects(self, size_info: &SizeInfo, thickness: f32, smooth: f32, cx: &mut f32, cy: &mut f32) -> CursorRects {
+    fn rects(
+        self,
+        size_info: &SizeInfo,
+        thickness: f32,
+        smooth: f32,
+        cx: &mut f32,
+        cy: &mut f32,
+    ) -> CursorRects {
         let point = self.point();
         let mut x = point.column.0 as f32 * size_info.cell_width() + size_info.padding_x();
         let mut y = point.line as f32 * size_info.cell_height() + size_info.padding_y();
@@ -40,11 +54,13 @@ impl IntoRects for RenderableCursor {
             CursorShape::Beam => beam(x, y, height, thickness, self.color()),
             CursorShape::Underline => underline(x, y, width, height, thickness, self.color()),
             CursorShape::HollowBlock => hollow(x, y, width, height, thickness, self.color()),
-            _ => if smooth > 0.0 {
+            _ => {
+                if smooth > 0.0 {
                     underline(x, y, width, height, thickness, self.color())
                 } else {
                     CursorRects::default()
                 }
+            },
         }
     }
 }
