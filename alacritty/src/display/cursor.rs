@@ -37,8 +37,8 @@ impl IntoRects for RenderableCursor {
             *cx += (x - *cx) / smooth;
             *cy += (y - *cy) / smooth;
 
-            x = cx.clone();
-            y = cy.clone();
+            x = *cx;
+            y = *cy;
         }
 
         let mut width = size_info.cell_width();
