@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.12.0-dev"
+version = "0.13.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -11,16 +11,16 @@ rust-version = "1.60.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.17.1-dev"
+version = "0.18.1-dev"
 default-features = false
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.1-dev"
+version = "0.2.2-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 
 [dependencies]
 clap = { version = "3.0.0", features = ["derive", "env"] }

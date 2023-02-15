@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT/Apache-2.0"
 description = "Alacritty configuration abstractions"
