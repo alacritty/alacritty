@@ -53,6 +53,9 @@ pub struct WindowConfig {
     #[cfg(target_os = "macos")]
     pub option_as_alt: OptionAsAlt,
 
+    /// Resize increments.
+    pub resize_increments: bool,
+
     /// Pixel padding.
     padding: Delta<u8>,
 
@@ -74,6 +77,7 @@ impl Default for WindowConfig {
             opacity: Default::default(),
             padding: Default::default(),
             dimensions: Default::default(),
+            resize_increments: Default::default(),
             #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
         }
