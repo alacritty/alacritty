@@ -101,6 +101,11 @@
   # auto pick-up. Set this to `None` to use the default theme variant.
   #decorations_theme_variant: None
 
+  # Resize increments
+  #
+  # Prefer resizing window by discrete steps equal to cell dimensions.
+  #resize_increments: false
+
   # Make `Option` key behave as `Alt` (macOS only):
   #   - OnlyLeft
   #   - OnlyRight
