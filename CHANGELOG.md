@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for fractional scaling on Wayland with wp-fractional-scale protocol
 - Support for running on GLES context
 - Touchscreen input for click/scroll/select/zoom
+- `window.resize_increments` config option, disabled by default
 
 ### Changed
 
