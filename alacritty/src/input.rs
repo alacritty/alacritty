@@ -648,13 +648,21 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 let new_scroll_px_y = lines * self.ctx.size_info().cell_height();
                 self.scroll_terminal(new_scroll_px_x as f64, new_scroll_px_y as f64);
             },
-            MouseScrollDelta::PixelDelta(lpos) => {
+            MouseScrollDelta::PixelDelta(mut lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero.
                         self.ctx.mouse_mut().accumulated_scroll = Default::default();
                     },
                     TouchPhase::Moved => {
+                        // When the angle between (x, 0) and (x, y) is lower than ~25 degrees
+                        // (cosine is larger that 0.9) we consider this scrolling as horizontal.
+                        if lpos.x.abs() / lpos.x.hypot(lpos.y) > 0.9 {
+                            lpos.y = 0.;
+                        } else {
+                            lpos.x = 0.;
+                        }
+
                         self.scroll_terminal(lpos.x, lpos.y);
                     },
                     _ => (),
