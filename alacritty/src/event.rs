@@ -790,7 +790,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             }
         } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             self.write_to_pty(&b"\x1b[200~"[..]);
-            self.write_to_pty(text.replace('\x1b', "").into_bytes());
+
+            // Write filtered escape sequences.
+            //
+            // We remove `\x1b` to ensure it's impossible for the pasted text to write the bracketed
+            // paste end escape `\x1b[201~` and `\x03` since some shells incorrectly terminate
+            // bracketed paste on its receival.
+            let filtered = text.replace('\x1b', "").replace('\x03', "");
+            self.write_to_pty(filtered.into_bytes());
+
             self.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
