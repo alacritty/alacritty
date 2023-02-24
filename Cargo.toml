@@ -10,3 +10,7 @@ members = [
 lto = "thin"
 debug = 1
 incremental = false
+panic = "abort"
+
+[patch.crates-io]
+winit = { git = "https://github.com/rust-windowing/winit", branch = "master" }
