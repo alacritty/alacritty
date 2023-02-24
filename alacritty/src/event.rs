@@ -1207,7 +1207,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     self.ctx.display.cursor_hidden = false;
                     *self.ctx.dirty = true;
                 },
-                // Add message only in case it's not already queued.
+                // Add message only if it's not already queued.
                 EventType::Message(message) if !self.ctx.message_buffer.is_queued(&message) => {
                     self.ctx.message_buffer.push(message);
                     self.ctx.display.pending_update.dirty = true;
