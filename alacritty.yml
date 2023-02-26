@@ -8,8 +8,10 @@
 #
 # All imports must either be absolute paths starting with `/`, or paths relative
 # to the user's home directory starting with `~/`.
+# Globbing is also supported.
 #import:
 #  - /path/to/alacritty.yml
+#  - ~/.config/alacritty/config.d/*.yml
 
 # Any items in the `env` entry below will be added as
 # environment variables. Some entries may override variables

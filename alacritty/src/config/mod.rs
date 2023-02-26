@@ -2,6 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
+use glob::glob;
 use log::{debug, error, info};
 use serde::Deserialize;
 use serde_yaml::mapping::Mapping;
@@ -204,6 +205,48 @@ fn parse_config(
     Ok(serde_utils::merge(imports, config))
 }
 
+/// Resolve imports to absolute paths
+fn resolve_imports(imports: &Vec<Value>) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    for import in imports {
+        let mut path = match import {
+            Value::String(path) => PathBuf::from(path),
+            _ => {
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Invalid import element type: expected path string"
+                );
+                continue;
+            },
+        };
+
+        // Resolve paths relative to user's home directory.
+        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), dirs::home_dir()) {
+            path = home_dir.join(stripped);
+        }
+
+        let entries = match glob(&path.to_string_lossy()) {
+            Ok(entires) => entires,
+            Err(err) => {
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Invalid pattern: {:?}, {}",
+                    path,
+                    err.to_string()
+                );
+                continue;
+            },
+        };
+        for entry in entries {
+            match entry {
+                Ok(resolved_path) => paths.push(resolved_path),
+                Err(err) => error!(target: LOG_TARGET_CONFIG, "{}", err),
+            }
+        }
+    }
+    paths
+}
+
 /// Load all referenced configuration files.
 fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
     let imports = match config.get("import") {
@@ -223,28 +266,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
 
     let mut merged = Value::Null;
 
-    for import in imports {
-        let mut path = match import {
-            Value::String(path) => PathBuf::from(path),
-            _ => {
-                error!(
-                    target: LOG_TARGET_CONFIG,
-                    "Invalid import element type: expected path string"
-                );
-                continue;
-            },
-        };
-
-        // Resolve paths relative to user's home directory.
-        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), dirs::home_dir()) {
-            path = home_dir.join(stripped);
-        }
-
-        if !path.exists() {
-            info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
-            continue;
-        }
-
+    for path in resolve_imports(imports) {
         match parse_config(&path, config_paths, recursion_limit - 1) {
             Ok(config) => merged = serde_utils::merge(merged, config),
             Err(err) => {
