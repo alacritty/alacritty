@@ -70,6 +70,7 @@ ref_tests! {
     wrapline_alt_toggle
     zerowidth
     zsh_tab_completion
+    erase_in_line
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
@@ -125,13 +126,7 @@ fn ref_test(dir: &Path) {
                 let cell = &term_grid[Line(i as i32)][Column(j)];
                 let original_cell = &grid[Line(i as i32)][Column(j)];
                 if original_cell != cell {
-                    println!(
-                        "[{i}][{j}] {original:?} => {now:?}",
-                        i = i,
-                        j = j,
-                        original = original_cell,
-                        now = cell,
-                    );
+                    println!("[{i}][{j}] {original_cell:?} => {cell:?}",);
                 }
             }
         }

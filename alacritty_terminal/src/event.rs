@@ -57,12 +57,12 @@ pub enum Event {
 impl Debug for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({:?}, {})", ty, text),
-            Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({:?})", ty),
+            Event::ClipboardStore(ty, text) => write!(f, "ClipboardStore({ty:?}, {text})"),
+            Event::ClipboardLoad(ty, _) => write!(f, "ClipboardLoad({ty:?})"),
             Event::TextAreaSizeRequest(_) => write!(f, "TextAreaSizeRequest"),
-            Event::ColorRequest(index, _) => write!(f, "ColorRequest({})", index),
-            Event::PtyWrite(text) => write!(f, "PtyWrite({})", text),
-            Event::Title(title) => write!(f, "Title({})", title),
+            Event::ColorRequest(index, _) => write!(f, "ColorRequest({index})"),
+            Event::PtyWrite(text) => write!(f, "PtyWrite({text})"),
+            Event::Title(title) => write!(f, "Title({title})"),
             Event::CursorBlinkingChange => write!(f, "CursorBlinkingChange"),
             Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
             Event::ResetTitle => write!(f, "ResetTitle"),

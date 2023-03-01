@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.17.1-dev"
+version = "0.18.1-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
@@ -11,11 +11,11 @@ rust-version = "1.60.0"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.1-dev"
+version = "0.2.2-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 
 [dependencies]
 libc = "0.2"

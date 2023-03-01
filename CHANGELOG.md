@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.12.0-dev
 
+### Added
+
+- Uppercase `-T` short form for `--title`
+- Support for horizontal scrolling in mouse mode and alternative scrolling modes
+- Support for fractional scaling on Wayland with wp-fractional-scale protocol
+- Support for running on GLES context
+- Touchscreen input for click/scroll/select/zoom
+- `window.resize_increments` config option, disabled by default
+
+### Changed
+
+- Always use sRGB color space on macOS
+- Erase in line after the last column will no longer clear the last column
+- Open new windows by default with macOS `Cmd`+`N` binding
+- The hint about window transparency is now properly issued on Wayland and macOS
+- `window.decorations_theme_variant` could now control theme on macOS and Windows
+- The IME purpose is now set to `Terminal` which could help with OSK
+- `window.decorations_theme_variant` is now using `Dark`, `Light`, and `None` values
+- Resize increments are now set on macOS and X11 to resize by cell sizes
+
 ### Fixed
 
 - `--help` output for `--class` does not match man pages
@@ -20,6 +40,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash during text compose on old GNOME under Wayland
 - Mouse cursor staying hidden after window regains focus on macOS Ventura
 - Blurry fonts when changing padding size at runtime
+- Crash while typing on Wayland
+- Multi-line semantic bracket selection
+- Reduced GPU memory usage
+- Low frame rate when multiple windows render at the same time
+- Redraw hanging until a keypress on X11 in rare cases
+- Window clipping when maximizing a window without decorations on Windows
+- Quadrants not aligned with half blocks with built-in font
+- EOT (`\x03`) escaping bracketed paste mode
+- Drag & Drop not working for the search bar
+
+### Removed
+
+- `window.gtk_theme_variant` config field; use `window.decorations_theme_variant` instead
+- `alt_send_esc` is now always set to `true`
 
 ## 0.11.0
 

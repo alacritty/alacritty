@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -10,6 +10,7 @@ use std::fmt::Debug;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -18,14 +19,15 @@ use log::{debug, error, info, warn};
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 use winit::dpi::PhysicalSize;
 use winit::event::{
-    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause, WindowEvent,
+    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause,
+    Touch as TouchEvent, WindowEvent,
 };
 use winit::event_loop::{
     ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use winit::platform::unix::EventLoopWindowTargetExtUnix;
+use winit::platform::wayland::EventLoopWindowTargetExtWayland;
 use winit::window::WindowId;
 
 use crossfont::{self, Size};
@@ -65,6 +67,9 @@ const MAX_SEARCH_WHILE_TYPING: Option<usize> = Some(1000);
 /// Maximum number of search terms stored in the history.
 const MAX_SEARCH_HISTORY_SIZE: usize = 255;
 
+/// Touch zoom speed.
+const TOUCH_ZOOM_FACTOR: f32 = 0.01;
+
 /// Alacritty events.
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -101,6 +106,7 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    Frame,
 }
 
 impl From<TerminalEvent> for EventType {
@@ -184,6 +190,7 @@ pub struct ActionContext<'a, N, T> {
     pub terminal: &'a mut Term<T>,
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
+    pub touch: &'a mut TouchPurpose,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub modifiers: &'a mut ModifiersState,
@@ -334,6 +341,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn mouse(&self) -> &Mouse {
         self.mouse
+    }
+
+    #[inline]
+    fn touch_purpose(&mut self) -> &mut TouchPurpose {
+        self.touch
     }
 
     #[inline]
@@ -778,7 +790,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             }
         } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             self.write_to_pty(&b"\x1b[200~"[..]);
-            self.write_to_pty(text.replace('\x1b', "").into_bytes());
+
+            // Write filtered escape sequences.
+            //
+            // We remove `\x1b` to ensure it's impossible for the pasted text to write the bracketed
+            // paste end escape `\x1b[201~` and `\x03` since some shells incorrectly terminate
+            // bracketed paste on its receival.
+            let filtered = text.replace('\x1b', "").replace('\x03', "");
+            self.write_to_pty(filtered.into_bytes());
+
             self.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
@@ -1014,12 +1034,68 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum ClickState {
+/// Identified purpose of the touch input.
+#[derive(Debug)]
+pub enum TouchPurpose {
     None,
-    Click,
-    DoubleClick,
-    TripleClick,
+    Select(TouchEvent),
+    Scroll(TouchEvent),
+    Zoom(TouchZoom),
+    Tap(TouchEvent),
+    Invalid(HashSet<u64>),
+}
+
+impl Default for TouchPurpose {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+/// Touch zooming state.
+#[derive(Debug)]
+pub struct TouchZoom {
+    slots: (TouchEvent, TouchEvent),
+    fractions: f32,
+}
+
+impl TouchZoom {
+    pub fn new(slots: (TouchEvent, TouchEvent)) -> Self {
+        Self { slots, fractions: Default::default() }
+    }
+
+    /// Get slot distance change since last update.
+    pub fn font_delta(&mut self, slot: TouchEvent) -> f32 {
+        let old_distance = self.distance();
+
+        // Update touch slots.
+        if slot.id == self.slots.0.id {
+            self.slots.0 = slot;
+        } else {
+            self.slots.1 = slot;
+        }
+
+        // Calculate font change in `FONT_SIZE_STEP` increments.
+        let delta = (self.distance() - old_distance) * TOUCH_ZOOM_FACTOR + self.fractions;
+        let font_delta = (delta.abs() / FONT_SIZE_STEP).floor() * FONT_SIZE_STEP * delta.signum();
+        self.fractions = delta - font_delta;
+
+        font_delta
+    }
+
+    /// Get active touch slots.
+    pub fn slots(&self) -> HashSet<u64> {
+        let mut set = HashSet::new();
+        set.insert(self.slots.0.id);
+        set.insert(self.slots.1.id);
+        set
+    }
+
+    /// Calculate distance between slots.
+    fn distance(&self) -> f32 {
+        let delta_x = self.slots.0.location.x - self.slots.1.location.x;
+        let delta_y = self.slots.0.location.y - self.slots.1.location.y;
+        delta_x.hypot(delta_y) as f32
+    }
 }
 
 /// State of the mouse.
@@ -1031,7 +1107,7 @@ pub struct Mouse {
     pub last_click_timestamp: Instant,
     pub last_click_button: MouseButton,
     pub click_state: ClickState,
-    pub scroll_px: f64,
+    pub accumulated_scroll: AccumulatedScroll,
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_hint_launcher: bool,
@@ -1055,7 +1131,7 @@ impl Default for Mouse {
             block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
             lines_scrolled: Default::default(),
-            scroll_px: Default::default(),
+            accumulated_scroll: Default::default(),
             x: Default::default(),
             y: Default::default(),
         }
@@ -1079,6 +1155,24 @@ impl Mouse {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum ClickState {
+    None,
+    Click,
+    DoubleClick,
+    TripleClick,
+}
+
+/// The amount of scroll accumulated from the pointer events.
+#[derive(Default, Debug)]
+pub struct AccumulatedScroll {
+    /// Scroll we should perform along `x` axis.
+    pub x: f64,
+
+    /// Scroll we should perform along `y` axis.
+    pub y: f64,
+}
+
 impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     /// Handle events from winit.
     pub fn handle_event(&mut self, event: WinitEvent<'_, Event>) {
@@ -1095,6 +1189,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     display_update_pending.set_dimensions(PhysicalSize::new(width, height));
 
                     self.ctx.window().scale_factor = scale_factor;
+                },
+                EventType::Frame => {
+                    self.ctx.display.window.has_frame.store(true, Ordering::Relaxed);
                 },
                 EventType::SearchNext => self.ctx.goto_match(None),
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),
@@ -1176,11 +1273,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 match event {
                     WindowEvent::CloseRequested => self.ctx.terminal.exit(),
                     WindowEvent::Resized(size) => {
-                        // Minimizing the window sends a Resize event with zero width and
-                        // height. But there's no need to ever actually resize to this.
-                        // ConPTY has issues when resizing down to zero size and back.
-                        #[cfg(windows)]
-                        if size.width == 0 && size.height == 0 {
+                        // Ignore resize events to zero in any dimension, to avoid issues with Winit
+                        // and the ConPTY. A 0x0 resize will also occur when the window is minimized
+                        // on Windows.
+                        if size.width == 0 || size.height == 0 {
                             return;
                         }
 
@@ -1203,6 +1299,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_wheel_input(delta, phase);
                     },
+                    WindowEvent::Touch(touch) => self.touch(touch),
                     WindowEvent::Focused(is_focused) => {
                         self.ctx.terminal.is_focused = is_focused;
 
@@ -1223,7 +1320,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        self.ctx.write_to_pty((path + " ").into_bytes());
+                        self.ctx.paste(&(path + " "));
                     },
                     WindowEvent::CursorLeft { .. } => {
                         self.ctx.mouse.inside_text_area = false;
@@ -1266,6 +1363,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
+                    | WindowEvent::TouchpadMagnify { .. }
+                    | WindowEvent::TouchpadRotate { .. }
+                    | WindowEvent::SmartMagnify { .. }
                     | WindowEvent::ScaleFactorChanged { .. }
                     | WindowEvent::CursorEntered { .. }
                     | WindowEvent::AxisMotion { .. }
@@ -1273,7 +1373,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1451,11 +1550,6 @@ impl Processor {
                 },
                 // Process all pending events.
                 WinitEvent::RedrawEventsCleared => {
-                    *control_flow = match scheduler.update() {
-                        Some(instant) => ControlFlow::WaitUntil(instant),
-                        None => ControlFlow::Wait,
-                    };
-
                     // Check for pending frame callbacks on Wayland.
                     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
                     if let Some(wayland_event_queue) = self.wayland_event_queue.as_mut() {
@@ -1474,6 +1568,13 @@ impl Processor {
                             WinitEvent::RedrawEventsCleared,
                         );
                     }
+
+                    // Update the scheduler after event processing to ensure
+                    // the event loop deadline is as accurate as possible.
+                    *control_flow = match scheduler.update() {
+                        Some(instant) => ControlFlow::WaitUntil(instant),
+                        None => ControlFlow::Wait,
+                    };
                 },
                 // Process config update.
                 WinitEvent::UserEvent(Event { payload: EventType::ConfigReload(path), .. }) => {
@@ -1573,7 +1674,6 @@ impl Processor {
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
                     | WindowEvent::HoveredFile(_)
-                    | WindowEvent::Touch(_)
                     | WindowEvent::Moved(_)
             ),
             WinitEvent::Suspended { .. }

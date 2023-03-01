@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT/Apache-2.0"
 description = "Alacritty configuration abstractions"
@@ -12,3 +12,6 @@ rust-version = "1.60.0"
 log = { version = "0.4.17", features = ["serde"] }
 serde_yaml = "0.8.24"
 serde = "1.0.137"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+winit = { version = "0.28.1", default-features = false, features = ["serde"] }

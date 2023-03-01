@@ -14,7 +14,7 @@ use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::dpi::PhysicalSize;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use winit::platform::unix;
+use winit::platform::x11;
 
 /// Create the GL display.
 pub fn create_gl_display(
@@ -28,7 +28,7 @@ pub fn create_gl_display(
     let preference = DisplayApiPreference::Wgl(Some(_raw_window_handle.unwrap()));
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    let preference = DisplayApiPreference::GlxThenEgl(Box::new(unix::register_xlib_error_hook));
+    let preference = DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook));
 
     #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
     let preference = DisplayApiPreference::Egl;
@@ -42,7 +42,10 @@ pub fn pick_gl_config(
     gl_display: &Display,
     raw_window_handle: Option<RawWindowHandle>,
 ) -> Result<Config, String> {
-    let mut default_config = ConfigTemplateBuilder::new().with_transparency(true);
+    let mut default_config = ConfigTemplateBuilder::new()
+        .with_depth_size(0)
+        .with_stencil_size(0)
+        .with_transparency(true);
 
     if let Some(raw_window_handle) = raw_window_handle {
         default_config = default_config.compatible_with_native_window(raw_window_handle);
@@ -78,21 +81,31 @@ pub fn create_gl_context(
     gl_config: &Config,
     raw_window_handle: Option<RawWindowHandle>,
 ) -> GlutinResult<NotCurrentContext> {
-    let context_attributes = ContextAttributesBuilder::new()
-        .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
-        .build(raw_window_handle);
+    let mut profiles = [
+        ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
+            .build(raw_window_handle),
+        // Try gles before OpenGL 2.1 as it tends to be more stable.
+        ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(Version::new(2, 0))))
+            .build(raw_window_handle),
+        ContextAttributesBuilder::new()
+            .with_profile(GlProfile::Compatibility)
+            .with_context_api(ContextApi::OpenGl(Some(Version::new(2, 1))))
+            .build(raw_window_handle),
+    ]
+    .into_iter();
 
-    unsafe {
-        if let Ok(gl_context) = gl_display.create_context(gl_config, &context_attributes) {
-            Ok(gl_context)
-        } else {
-            let context_attributes = ContextAttributesBuilder::new()
-                .with_profile(GlProfile::Compatibility)
-                .with_context_api(ContextApi::OpenGl(Some(Version::new(2, 1))))
-                .build(raw_window_handle);
-            gl_display.create_context(gl_config, &context_attributes)
-        }
+    // Try the optimal config first.
+    let mut picked_context =
+        unsafe { gl_display.create_context(gl_config, &profiles.next().unwrap()) };
+
+    // Try the fallback ones.
+    while let (Err(_), Some(profile)) = (picked_context.as_ref(), profiles.next()) {
+        picked_context = unsafe { gl_display.create_context(gl_config, &profile) };
     }
+
+    picked_context
 }
 
 pub fn create_gl_surface(

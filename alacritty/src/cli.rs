@@ -238,7 +238,7 @@ impl From<TerminalOptions> for PtyConfig {
 #[derive(Serialize, Deserialize, Args, Default, Debug, Clone, PartialEq, Eq)]
 pub struct WindowIdentity {
     /// Defines the window title [default: Alacritty].
-    #[clap(short, long)]
+    #[clap(short = 'T', short_alias('t'), long)]
     pub title: Option<String>,
 
     /// Defines window class/app_id on X11/Wayland [default: Alacritty].

@@ -119,8 +119,7 @@ impl<'de> Deserialize<'de> for Rgb {
             {
                 Rgb::from_str(value).map_err(|_| {
                     E::custom(format!(
-                        "failed to parse rgb color {}; expected hex color like #ff00ff",
-                        value
+                        "failed to parse rgb color {value}; expected hex color like #ff00ff"
                     ))
                 })
             }
@@ -222,7 +221,7 @@ impl<'de> Deserialize<'de> for CellRgb {
                 }
 
                 Rgb::from_str(value).map(CellRgb::Rgb).map_err(|_| {
-                    E::custom(format!("failed to parse color {}; expected {}", value, EXPECTING))
+                    E::custom(format!("failed to parse color {value}; expected {EXPECTING}"))
                 })
             }
         }

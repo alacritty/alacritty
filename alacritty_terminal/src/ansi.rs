@@ -1045,7 +1045,7 @@ where
                     if let Some(c) = xparse_color(chunk[1]) {
                         self.handler.set_color(index as usize, c);
                     } else if chunk[1] == b"?" {
-                        let prefix = format!("4;{}", index);
+                        let prefix = format!("4;{index}");
                         self.handler.dynamic_color_sequence(prefix, index as usize, terminator);
                     } else {
                         unhandled(params);

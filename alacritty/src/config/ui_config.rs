@@ -44,7 +44,9 @@ pub struct UiConfig {
     pub debug: Debug,
 
     /// Send escape sequences using the alt key.
-    pub alt_send_esc: bool,
+    #[config(removed = "It's now always set to 'true'. If you're on macOS use \
+                        'window.option_as_alt' to alter behavior of Option")]
+    pub alt_send_esc: Option<bool>,
 
     /// Live config reload.
     pub live_config_reload: bool,
@@ -88,7 +90,7 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             live_config_reload: true,
-            alt_send_esc: true,
+            alt_send_esc: Default::default(),
             #[cfg(unix)]
             ipc_socket: true,
             font: Default::default(),

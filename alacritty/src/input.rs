@@ -7,18 +7,21 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min, Ordering};
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::mem;
 use std::time::{Duration, Instant};
 
 use winit::dpi::PhysicalPosition;
 use winit::event::{
-    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta,
+    Touch as TouchEvent, TouchPhase,
 };
 use winit::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopWindowTargetExtMacOS;
+use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::window::CursorIcon;
 
 use alacritty_terminal::ansi::{ClearMode, Handler};
@@ -35,7 +38,9 @@ use crate::config::{Action, BindingMode, Key, MouseAction, SearchAction, UiConfi
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
-use crate::event::{ClickState, Event, EventType, Mouse, TYPING_SEARCH_DELAY};
+use crate::event::{
+    ClickState, Event, EventType, Mouse, TouchPurpose, TouchZoom, TYPING_SEARCH_DELAY,
+};
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 
@@ -50,6 +55,12 @@ const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
 
 /// Number of pixels for increasing the selection scrolling speed factor by one.
 const SELECTION_SCROLLING_STEP: f64 = 20.;
+
+/// Touch scroll speed.
+const TOUCH_SCROLL_FACTOR: f64 = 0.35;
+
+/// Distance before a touch input is considered a drag.
+const MAX_TAP_DISTANCE: f64 = 20.;
 
 /// Processes input from winit.
 ///
@@ -72,6 +83,7 @@ pub trait ActionContext<T: EventListener> {
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
+    fn touch_purpose(&mut self) -> &mut TouchPurpose;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn modifiers(&mut self) -> &mut ModifiersState;
@@ -631,18 +643,27 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
-            MouseScrollDelta::LineDelta(_columns, lines) => {
-                let new_scroll_px = lines * self.ctx.size_info().cell_height();
-                self.scroll_terminal(f64::from(new_scroll_px));
+            MouseScrollDelta::LineDelta(columns, lines) => {
+                let new_scroll_px_x = columns * self.ctx.size_info().cell_width();
+                let new_scroll_px_y = lines * self.ctx.size_info().cell_height();
+                self.scroll_terminal(new_scroll_px_x as f64, new_scroll_px_y as f64);
             },
-            MouseScrollDelta::PixelDelta(lpos) => {
+            MouseScrollDelta::PixelDelta(mut lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero.
-                        self.ctx.mouse_mut().scroll_px = 0.;
+                        self.ctx.mouse_mut().accumulated_scroll = Default::default();
                     },
                     TouchPhase::Moved => {
-                        self.scroll_terminal(lpos.y);
+                        // When the angle between (x, 0) and (x, y) is lower than ~25 degrees
+                        // (cosine is larger that 0.9) we consider this scrolling as horizontal.
+                        if lpos.x.abs() / lpos.x.hypot(lpos.y) > 0.9 {
+                            lpos.y = 0.;
+                        } else {
+                            lpos.x = 0.;
+                        }
+
+                        self.scroll_terminal(lpos.x, lpos.y);
                     },
                     _ => (),
                 }
@@ -650,16 +671,30 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, new_scroll_px: f64) {
+    fn scroll_terminal(&mut self, new_scroll_x_px: f64, new_scroll_y_px: f64) {
+        const MOUSE_WHEEL_UP: u8 = 64;
+        const MOUSE_WHEEL_DOWN: u8 = 65;
+        const MOUSE_WHEEL_LEFT: u8 = 66;
+        const MOUSE_WHEEL_RIGHT: u8 = 67;
+
+        let width = f64::from(self.ctx.size_info().cell_width());
         let height = f64::from(self.ctx.size_info().cell_height());
 
         if self.ctx.mouse_mode() {
-            self.ctx.mouse_mut().scroll_px += new_scroll_px;
+            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px;
 
-            let code = if new_scroll_px > 0. { 64 } else { 65 };
-            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
+            let code = if new_scroll_y_px > 0. { MOUSE_WHEEL_UP } else { MOUSE_WHEEL_DOWN };
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as i32;
 
             for _ in 0..lines {
+                self.mouse_report(code, ElementState::Pressed);
+            }
+
+            let code = if new_scroll_x_px > 0. { MOUSE_WHEEL_LEFT } else { MOUSE_WHEEL_RIGHT };
+            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as i32;
+
+            for _ in 0..columns {
                 self.mouse_report(code, ElementState::Pressed);
             }
         } else if self
@@ -670,30 +705,45 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             && !self.ctx.modifiers().shift()
         {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
-            let cmd = if new_scroll_px > 0. { b'A' } else { b'B' };
-            let lines = (self.ctx.mouse().scroll_px / height).abs() as i32;
+            self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
-            let mut content = Vec::with_capacity(lines as usize * 3);
+            // The chars here are the same as for the respective arrow keys.
+            let line_cmd = if new_scroll_y_px > 0. { b'A' } else { b'B' };
+            let column_cmd = if new_scroll_x_px > 0. { b'D' } else { b'C' };
+
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height).abs() as usize;
+            let columns = (self.ctx.mouse().accumulated_scroll.x / width).abs() as usize;
+
+            let mut content = Vec::with_capacity(3 * (lines + columns));
+
             for _ in 0..lines {
                 content.push(0x1b);
                 content.push(b'O');
-                content.push(cmd);
+                content.push(line_cmd);
             }
+
+            for _ in 0..columns {
+                content.push(0x1b);
+                content.push(b'O');
+                content.push(column_cmd);
+            }
+
             self.ctx.write_to_pty(content);
         } else {
             let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
+            self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
-            let lines = (self.ctx.mouse().scroll_px / height) as i32;
+            let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
 
             if lines != 0 {
                 self.ctx.scroll(Scroll::Delta(lines));
             }
         }
 
-        self.ctx.mouse_mut().scroll_px %= height;
+        self.ctx.mouse_mut().accumulated_scroll.x %= width;
+        self.ctx.mouse_mut().accumulated_scroll.y %= height;
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
@@ -702,6 +752,118 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             let msg = format!("\x1b[{}", chr);
             self.ctx.write_to_pty(msg.into_bytes());
+        }
+    }
+
+    /// Handle touch input.
+    pub fn touch(&mut self, touch: TouchEvent) {
+        match touch.phase {
+            TouchPhase::Started => self.on_touch_start(touch),
+            TouchPhase::Moved => self.on_touch_motion(touch),
+            TouchPhase::Ended | TouchPhase::Cancelled => self.on_touch_end(touch),
+        }
+    }
+
+    /// Handle beginning of touch input.
+    pub fn on_touch_start(&mut self, touch: TouchEvent) {
+        let touch_purpose = self.ctx.touch_purpose();
+        *touch_purpose = match mem::take(touch_purpose) {
+            TouchPurpose::None => TouchPurpose::Tap(touch),
+            TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
+            TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
+            TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
+                let mut set = HashSet::new();
+                set.insert(event.id);
+                TouchPurpose::Invalid(set)
+            },
+            TouchPurpose::Invalid(mut slots) => {
+                slots.insert(touch.id);
+                TouchPurpose::Invalid(slots)
+            },
+        };
+    }
+
+    /// Handle touch input movement.
+    pub fn on_touch_motion(&mut self, touch: TouchEvent) {
+        let touch_purpose = self.ctx.touch_purpose();
+        match touch_purpose {
+            TouchPurpose::None => (),
+            // Handle transition from tap to scroll/select.
+            TouchPurpose::Tap(start) => {
+                let delta_x = touch.location.x - start.location.x;
+                let delta_y = touch.location.y - start.location.y;
+                if delta_x.abs() > MAX_TAP_DISTANCE {
+                    // Update gesture state.
+                    let start_location = start.location;
+                    *touch_purpose = TouchPurpose::Select(*start);
+
+                    // Start simulated mouse input.
+                    self.mouse_moved(start_location);
+                    self.mouse_input(ElementState::Pressed, MouseButton::Left);
+
+                    // Apply motion since touch start.
+                    self.on_touch_motion(touch);
+                } else if delta_y.abs() > MAX_TAP_DISTANCE {
+                    // Update gesture state.
+                    *touch_purpose = TouchPurpose::Scroll(*start);
+
+                    // Apply motion since touch start.
+                    self.on_touch_motion(touch);
+                }
+            },
+            TouchPurpose::Zoom(zoom) => {
+                let font_delta = zoom.font_delta(touch);
+                self.ctx.change_font_size(font_delta);
+            },
+            TouchPurpose::Scroll(last_touch) => {
+                // Calculate delta and update last touch position.
+                let delta_y = touch.location.y - last_touch.location.y;
+                *touch_purpose = TouchPurpose::Scroll(touch);
+
+                self.scroll_terminal(0., delta_y * TOUCH_SCROLL_FACTOR);
+            },
+            TouchPurpose::Select(_) => self.mouse_moved(touch.location),
+            TouchPurpose::Invalid(_) => (),
+        }
+    }
+
+    /// Handle end of touch input.
+    pub fn on_touch_end(&mut self, touch: TouchEvent) {
+        // Finalize the touch motion up to the release point.
+        self.on_touch_motion(touch);
+
+        let touch_purpose = self.ctx.touch_purpose();
+        match touch_purpose {
+            // Simulate LMB clicks.
+            TouchPurpose::Tap(start) => {
+                let start_location = start.location;
+                *touch_purpose = Default::default();
+
+                self.mouse_moved(start_location);
+                self.mouse_input(ElementState::Pressed, MouseButton::Left);
+                self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            // Invalidate zoom once a finger was released.
+            TouchPurpose::Zoom(zoom) => {
+                let mut slots = zoom.slots();
+                slots.remove(&touch.id);
+                *touch_purpose = TouchPurpose::Invalid(slots);
+            },
+            // Reset touch state once all slots were released.
+            TouchPurpose::Invalid(slots) => {
+                slots.remove(&touch.id);
+                if slots.is_empty() {
+                    *touch_purpose = Default::default();
+                }
+            },
+            // Release simulated LMB.
+            TouchPurpose::Select(_) => {
+                *touch_purpose = Default::default();
+                self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            // Reset touch state on scroll finish.
+            TouchPurpose::Scroll(_) => *touch_purpose = Default::default(),
+            TouchPurpose::None => (),
         }
     }
 
@@ -838,7 +1000,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mut bytes = vec![0; utf8_len];
         c.encode_utf8(&mut bytes[..]);
 
-        if self.ctx.config().alt_send_esc
+        #[cfg(not(target_os = "macos"))]
+        let alt_send_esc = true;
+
+        // Don't send ESC when `OptionAsAlt` is used. This doesn't handle
+        // `Only{Left,Right}` variants due to inability to distinguish them.
+        #[cfg(target_os = "macos")]
+        let alt_send_esc = self.ctx.config().window.option_as_alt != OptionAsAlt::None;
+
+        if alt_send_esc
             && *self.ctx.received_count() == 0
             && self.ctx.modifiers().alt()
             && utf8_len == 1
@@ -1065,6 +1235,11 @@ mod tests {
         #[inline]
         fn mouse(&self) -> &Mouse {
             self.mouse
+        }
+
+        #[inline]
+        fn touch_purpose(&mut self) -> &mut TouchPurpose {
+            unimplemented!();
         }
 
         fn received_count(&mut self) -> &mut usize {

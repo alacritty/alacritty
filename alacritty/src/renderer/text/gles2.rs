@@ -37,12 +37,16 @@ pub struct Gles2Renderer {
 }
 
 impl Gles2Renderer {
-    pub fn new(allow_dsb: bool) -> Result<Self, Error> {
+    pub fn new(allow_dsb: bool, is_gles_context: bool) -> Result<Self, Error> {
         info!("Using OpenGL ES 2.0 renderer");
 
         let dual_source_blending = allow_dsb
             && (GlExtensions::contains("GL_EXT_blend_func_extended")
                 || GlExtensions::contains("GL_ARB_blend_func_extended"));
+
+        if is_gles_context {
+            info!("Running on OpenGL ES context");
+        }
 
         if dual_source_blending {
             info!("Using dual source blending");
@@ -145,7 +149,7 @@ impl Gles2Renderer {
             vao,
             vbo,
             ebo,
-            atlas: vec![Atlas::new(ATLAS_SIZE)],
+            atlas: vec![Atlas::new(ATLAS_SIZE, is_gles_context)],
             batch: Batch::new(),
             current_atlas: 0,
             active_tex: 0,

@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crossfont::Metrics;
-use glutin::context::PossiblyCurrentContext;
+use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
 use log::info;
 use once_cell::sync::OnceCell;
@@ -114,12 +114,14 @@ impl Renderer {
 
         info!("Running on {}", renderer);
 
+        let is_gles_context = matches!(context.context_api(), ContextApi::Gles(_));
+
         // Use the config option to enforce a particular renderer configuration.
         let (use_glsl3, allow_dsb) = match renderer_prefernce {
             Some(RendererPreference::Glsl3) => (true, true),
             Some(RendererPreference::Gles2) => (false, true),
             Some(RendererPreference::Gles2Pure) => (false, false),
-            None => (version.as_ref() >= "3.3", true),
+            None => (version.as_ref() >= "3.3" && !is_gles_context, true),
         };
 
         let (text_renderer, rect_renderer, graphics_renderer) = if use_glsl3 {
@@ -128,7 +130,8 @@ impl Renderer {
             let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Glsl3)?;
             (text_renderer, rect_renderer, graphics_renderer)
         } else {
-            let text_renderer = TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb)?);
+            let text_renderer =
+                TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb, is_gles_context)?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
             let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Gles2)?;
             (text_renderer, rect_renderer, graphics_renderer)

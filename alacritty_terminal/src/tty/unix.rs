@@ -118,19 +118,55 @@ impl Pty {
     }
 }
 
-/// Look for a shell in the `$SHELL` environment variable, then in `passwd`.
-fn default_shell(pw: &Passwd<'_>) -> String {
-    env::var("SHELL").unwrap_or_else(|_| pw.shell.to_owned())
+/// User information that is required for a new shell session.
+struct ShellUser {
+    user: String,
+    home: String,
+    shell: String,
+}
+
+impl ShellUser {
+    /// look for shell, username, longname, and home dir in the respective environment variables
+    /// before falling back on looking in to `passwd`.
+    fn from_env() -> Result<Self> {
+        let mut buf = [0; 1024];
+        let pw = get_pw_entry(&mut buf);
+
+        let user = match env::var("USER") {
+            Ok(user) => user,
+            Err(_) => match pw {
+                Ok(ref pw) => pw.name.to_owned(),
+                Err(err) => return Err(err),
+            },
+        };
+
+        let home = match env::var("HOME") {
+            Ok(home) => home,
+            Err(_) => match pw {
+                Ok(ref pw) => pw.dir.to_owned(),
+                Err(err) => return Err(err),
+            },
+        };
+
+        let shell = match env::var("SHELL") {
+            Ok(shell) => shell,
+            Err(_) => match pw {
+                Ok(ref pw) => pw.shell.to_owned(),
+                Err(err) => return Err(err),
+            },
+        };
+
+        Ok(Self { user, home, shell })
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
-fn default_shell_command(pw: &Passwd<'_>) -> Command {
-    Command::new(default_shell(pw))
+fn default_shell_command(shell: &str, _user: &str) -> Command {
+    Command::new(shell)
 }
 
 #[cfg(target_os = "macos")]
-fn default_shell_command(pw: &Passwd<'_>) -> Command {
-    let shell = default_shell(pw);
+fn default_shell_command(shell: &str, user: &str) -> Command {
     let shell_name = shell.rsplit('/').next().unwrap();
 
     // On macOS, use the `login` command so the shell will appear as a tty session.
@@ -145,7 +181,7 @@ fn default_shell_command(pw: &Passwd<'_>) -> Command {
     // -p: Preserves the environment.
     //
     // XXX: we use zsh here over sh due to `exec -a`.
-    login_command.args(["-flp", pw.name, "/bin/zsh", "-c", &exec]);
+    login_command.args(["-flp", user, "/bin/zsh", "-c", &exec]);
     login_command
 }
 
@@ -160,15 +196,14 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
         let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
     }
 
-    let mut buf = [0; 1024];
-    let pw = get_pw_entry(&mut buf)?;
+    let user = ShellUser::from_env()?;
 
     let mut builder = if let Some(shell) = config.shell.as_ref() {
         let mut cmd = Command::new(shell.program());
         cmd.args(shell.args());
         cmd
     } else {
-        default_shell_command(&pw)
+        default_shell_command(&user.shell, &user.user)
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
@@ -182,9 +217,8 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     // Setup shell environment.
     let window_id = window_id.to_string();
     builder.env("ALACRITTY_WINDOW_ID", &window_id);
-    builder.env("LOGNAME", pw.name);
-    builder.env("USER", pw.name);
-    builder.env("HOME", pw.dir);
+    builder.env("USER", user.user);
+    builder.env("HOME", user.home);
 
     // Set Window ID for clients relying on X11 hacks.
     builder.env("WINDOWID", window_id);

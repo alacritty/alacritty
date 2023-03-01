@@ -298,7 +298,7 @@ impl Selection {
         if start == end {
             if let Some(matching) = term.bracket_search(start) {
                 if (matching.line == start.line && matching.column < start.column)
-                    || (matching.line > start.line)
+                    || (matching.line < start.line)
                 {
                     start = matching;
                 } else {

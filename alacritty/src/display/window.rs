@@ -1,26 +1,20 @@
 #[rustfmt::skip]
-#[cfg(not(any(target_os = "macos", windows)))]
-use {
-    std::sync::atomic::AtomicBool,
-    std::sync::Arc,
-
-    winit::platform::unix::{WindowBuilderExtUnix, WindowExtUnix},
-};
-
-#[rustfmt::skip]
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use {
     wayland_client::protocol::wl_surface::WlSurface,
     wayland_client::{Attached, EventQueue, Proxy},
-    winit::platform::unix::EventLoopWindowTargetExtUnix,
-    winit::window::Theme,
+    winit::platform::wayland::{EventLoopWindowTargetExtWayland, WindowExtWayland},
 };
+
+#[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
+use winit::platform::wayland::WindowBuilderExtWayland;
 
 #[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
 
+    winit::platform::x11::{WindowExtX11, WindowBuilderExtX11},
     glutin::platform::x11::X11VisualInfo,
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
@@ -28,21 +22,27 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
-use cocoa::base::{id, NO, YES};
-#[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
+use {
+    cocoa::appkit::NSColorSpace,
+    cocoa::base::{id, nil, NO, YES},
+    objc::{msg_send, sel, sel_impl},
+    winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
+};
+
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
+use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
-    CursorIcon, Fullscreen, UserAttentionType, Window as WinitWindow, WindowBuilder, WindowId,
+    CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
+    WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -106,9 +106,8 @@ impl From<crossfont::Error> for Error {
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
-    /// Flag tracking frame redraw requests from Wayland compositor.
-    #[cfg(not(any(target_os = "macos", windows)))]
-    pub should_draw: Arc<AtomicBool>,
+    /// Flag tracking that we have a frame we can draw.
+    pub has_frame: Arc<AtomicBool>,
 
     /// Attached Wayland surface to request new frame events.
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -153,7 +152,14 @@ impl Window {
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
         }
 
-        let window = window_builder.build(event_loop)?;
+        let window = window_builder
+            .with_title(&identity.title)
+            .with_theme(config.window.decorations_theme_variant)
+            .with_visible(false)
+            .with_transparent(true)
+            .with_maximized(config.window.maximized())
+            .with_fullscreen(config.window.fullscreen())
+            .build(event_loop)?;
 
         // Check if we're running Wayland to disable vsync.
         #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -167,6 +173,13 @@ impl Window {
 
         // Enable IME.
         window.set_ime_allowed(true);
+        window.set_ime_purpose(ImePurpose::Terminal);
+
+        // Set initial transparency hint.
+        window.set_transparent(config.window_opacity() < 1.);
+
+        #[cfg(target_os = "macos")]
+        use_srgb_color_space(&window);
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
@@ -194,8 +207,7 @@ impl Window {
             mouse_visible: true,
             window,
             title: identity.title,
-            #[cfg(not(any(target_os = "macos", windows)))]
-            should_draw: Arc::new(AtomicBool::new(true)),
+            has_frame: Arc::new(AtomicBool::new(true)),
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
             scale_factor,
@@ -276,22 +288,11 @@ impl Window {
         };
 
         let builder = WindowBuilder::new()
-            .with_title(&identity.title)
             .with_name(&identity.class.general, &identity.class.instance)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_decorations(window_config.decorations != Decorations::None)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+            .with_decorations(window_config.decorations != Decorations::None);
 
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(Some(icon));
-
-        #[cfg(feature = "x11")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some(val) => builder.with_gtk_theme_variant(val.to_string()),
-            None => builder,
-        };
 
         #[cfg(feature = "x11")]
         let builder = match x11_visual {
@@ -299,38 +300,21 @@ impl Window {
             None => builder,
         };
 
-        #[cfg(feature = "wayland")]
-        let builder = match window_config.decorations_theme_variant() {
-            Some("light") => builder.with_wayland_csd_theme(Theme::Light),
-            // Prefer dark theme by default, since default alacritty theme is dark.
-            _ => builder.with_wayland_csd_theme(Theme::Dark),
-        };
-
         builder
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
         let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_visible(false)
             .with_decorations(window_config.decorations != Decorations::None)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen())
             .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(identity: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let window = WindowBuilder::new()
-            .with_title(&identity.title)
-            .with_visible(false)
-            .with_transparent(true)
-            .with_maximized(window_config.maximized())
-            .with_fullscreen(window_config.fullscreen());
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
 
         match window_config.decorations {
             Decorations::Full => window,
@@ -357,12 +341,20 @@ impl Window {
         self.window.id()
     }
 
+    pub fn set_transparent(&self, transparent: bool) {
+        self.window.set_transparent(transparent);
+    }
+
     pub fn set_maximized(&self, maximized: bool) {
         self.window.set_maximized(maximized);
     }
 
     pub fn set_minimized(&self, minimized: bool) {
         self.window.set_minimized(minimized);
+    }
+
+    pub fn set_resize_increments(&self, increments: PhysicalSize<f32>) {
+        self.window.set_resize_increments(Some(increments));
     }
 
     /// Toggle the window's fullscreen state.
@@ -380,12 +372,21 @@ impl Window {
         self.set_simple_fullscreen(!self.window.simple_fullscreen());
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn set_option_as_alt(&self, option_as_alt: OptionAsAlt) {
+        self.window.set_option_as_alt(option_as_alt);
+    }
+
     pub fn set_fullscreen(&self, fullscreen: bool) {
         if fullscreen {
             self.window.set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
             self.window.set_fullscreen(None);
         }
+    }
+
+    pub fn current_monitor(&self) -> Option<MonitorHandle> {
+        self.window.current_monitor()
     }
 
     #[cfg(target_os = "macos")]
@@ -458,6 +459,18 @@ fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
         // Drain errors and restore original error handler.
         (xlib.XSync)(xlib_display as _, 0);
         (xlib.XSetErrorHandler)(old_handler);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn use_srgb_color_space(window: &WinitWindow) {
+    let raw_window = match window.raw_window_handle() {
+        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        _ => return,
+    };
+
+    unsafe {
+        let _: () = msg_send![raw_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
     }
 }
 

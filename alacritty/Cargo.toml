@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.12.0-dev"
+version = "0.13.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -11,16 +11,16 @@ rust-version = "1.60.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.17.1-dev"
+version = "0.18.1-dev"
 default-features = false
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.1-dev"
+version = "0.2.2-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.1-dev"
+version = "0.1.2-dev"
 
 [dependencies]
 clap = { version = "3.0.0", features = ["derive", "env"] }
@@ -29,9 +29,9 @@ fnv = "1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
-glutin = { version = "0.30.0", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.27.4", default-features = false, features = ["serde"] }
-notify-debouncer-mini = { version = "0.2.1", default-features = false }
+glutin = { version = "0.30.4", default-features = false, features = ["egl", "wgl"] }
+winit = { version = "0.28.1", default-features = false, features = ["serde"] }
+notify = "5.1.0"
 parking_lot = "0.12.0"
 crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
 copypasta = { version = "0.8.1", default-features = false }
@@ -90,6 +90,6 @@ wayland = [
     "glutin/wayland",
     "winit/wayland",
     "winit/wayland-dlopen",
-    "winit/wayland-csd-adwaita",
+    "winit/wayland-csd-adwaita-crossfont",
     "wayland-client"]
 nightly = []

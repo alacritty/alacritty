@@ -1195,7 +1195,7 @@ impl<T: EventListener> Handler for Term<T> {
             Some('>') => {
                 trace!("Reporting secondary device attributes");
                 let version = version_number(env!("CARGO_PKG_VERSION"));
-                let text = format!("\x1b[>0;{};1c", version);
+                let text = format!("\x1b[>0;{version};1c");
                 self.event_proxy.send_event(Event::PtyWrite(text));
             },
             _ => debug!("Unsupported device attributes intermediate"),
@@ -1484,6 +1484,7 @@ impl<T: EventListener> Handler for Term<T> {
         let point = cursor.point;
 
         let (left, right) = match mode {
+            ansi::LineClearMode::Right if cursor.input_needs_wrap => return,
             ansi::LineClearMode::Right => (point.column, Column(self.columns())),
             ansi::LineClearMode::Left => (Column(0), point.column + 1),
             ansi::LineClearMode::All => (Column(0), Column(self.columns())),
@@ -1984,7 +1985,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(move |window_size| {
             let height = window_size.num_lines * window_size.cell_height;
             let width = window_size.num_cols * window_size.cell_width;
-            format!("\x1b[4;{};{}t", height, width)
+            format!("\x1b[4;{height};{width}t")
         })));
     }
 
@@ -3021,7 +3022,7 @@ mod tests {
         term.reset_damage();
         let vi_cursor_point = term.vi_mode_cursor.point;
         let line = vi_cursor_point.line.0 as usize;
-        let left = vi_cursor_point.column.0 as usize;
+        let left = vi_cursor_point.column.0;
         let right = left;
 
         let mut damaged_lines = match term.damage(None) {
