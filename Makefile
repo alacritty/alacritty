@@ -70,7 +70,7 @@ $(DMG_NAME)-%: $(APP_NAME)-%
 		-ov -format UDZO
 	@printf "Packed '$(APP_NAME)' in '$(APP_DIR)'\n"
 
-unmount:
+unmount: ## Detach universal disk image
 	@hdiutil detach $$(diskutil info Alacritty | awk -F ':' '/Mount Point/ {print $$2}' | awk '{print $$(NF)}')
 
 install: $(INSTALL)-native ## Mount disk image
