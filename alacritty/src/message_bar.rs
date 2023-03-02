@@ -181,6 +181,12 @@ impl MessageBuffer {
     pub fn push(&mut self, message: Message) {
         self.messages.push_back(message);
     }
+
+    /// Check whether the message is already queued in the message bar.
+    #[inline]
+    pub fn is_queued(&self, message: &Message) -> bool {
+        self.messages.contains(message)
+    }
 }
 
 #[cfg(test)]
