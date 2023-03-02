@@ -1207,7 +1207,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     self.ctx.display.cursor_hidden = false;
                     *self.ctx.dirty = true;
                 },
-                EventType::Message(message) => {
+                // Add message only if it's not already queued.
+                EventType::Message(message) if !self.ctx.message_buffer.is_queued(&message) => {
                     self.ctx.message_buffer.push(message);
                     self.ctx.display.pending_update.dirty = true;
                 },
@@ -1266,7 +1267,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 #[cfg(unix)]
                 EventType::IpcConfig(_) => (),
-                EventType::ConfigReload(_) | EventType::CreateWindow(_) => (),
+                EventType::ConfigReload(_) | EventType::CreateWindow(_) | EventType::Message(_) => {
+                },
             },
             WinitEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             WinitEvent::WindowEvent { event, .. } => {
