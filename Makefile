@@ -56,7 +56,7 @@ $(APP_NAME)-%: $(TARGET)-%
 	@touch -r "$(APP_BINARY)" "$(APP_DIR)/$(APP_NAME)"
 	@codesign --remove-signature "$(APP_DIR)/$(APP_NAME)"
 	@codesign --force --deep --sign - "$(APP_DIR)/$(APP_NAME)"
-	@echo "Created '$(APP_NAME)' in '$(APP_DIR)'"
+	@printf "Created '$(APP_NAME)' in '$(APP_DIR)'\n"
 
 dmg: $(DMG_NAME)-native ## Create an Alacritty.dmg
 dmg-universal: $(DMG_NAME)-universal ## Create a universal Alacritty.dmg
@@ -68,14 +68,17 @@ $(DMG_NAME)-%: $(APP_NAME)-%
 		-fs HFS+ \
 		-srcfolder $(APP_DIR) \
 		-ov -format UDZO
-	@echo "Packed '$(APP_NAME)' in '$(APP_DIR)'"
+	@printf "Packed '$(APP_NAME)' in '$(APP_DIR)'\n"
+
+unmount:
+	@hdiutil detach $$(diskutil info Alacritty | awk -F ':' '/Mount Point/ {print $$2}' | awk '{print $$(NF)}')
 
 install: $(INSTALL)-native ## Mount disk image
 install-universal: $(INSTALL)-native ## Mount universal disk image
 $(INSTALL)-%: $(DMG_NAME)-%
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: app binary clean dmg install $(TARGET) $(TARGET)-universal
+.PHONY: all app binary clean dmg install test unmount $(TARGET) $(TARGET)-universal
 
 clean: ## Remove all build artifacts
 	@cargo clean
