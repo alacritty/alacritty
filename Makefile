@@ -70,13 +70,10 @@ $(DMG_NAME)-%: $(APP_NAME)-%
 		-ov -format UDZO
 	@printf "Packed '$(APP_NAME)' in '$(APP_DIR)'\n"
 
-unmount: ## Detach universal disk image
-	@hdiutil detach $$(diskutil info Alacritty | awk -F ':' '/Mount Point/ {print $$2}' | awk '{print $$(NF)}')
-
 $(INSTALL)-%: $(DMG_NAME)-%
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: all app binary clean dmg unmount $(TARGET) $(TARGET)-universal
+.PHONY: all app binary clean dmg $(TARGET) $(TARGET)-universal
 
 clean: ## Remove all build artifacts
 	@cargo clean
