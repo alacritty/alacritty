@@ -73,12 +73,10 @@ $(DMG_NAME)-%: $(APP_NAME)-%
 unmount: ## Detach universal disk image
 	@hdiutil detach $$(diskutil info Alacritty | awk -F ':' '/Mount Point/ {print $$2}' | awk '{print $$(NF)}')
 
-install: $(INSTALL)-native ## Mount disk image
-install-universal: $(INSTALL)-native ## Mount universal disk image
 $(INSTALL)-%: $(DMG_NAME)-%
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: all app binary clean dmg install test unmount $(TARGET) $(TARGET)-universal
+.PHONY: all app binary clean dmg unmount $(TARGET) $(TARGET)-universal
 
 clean: ## Remove all build artifacts
 	@cargo clean
