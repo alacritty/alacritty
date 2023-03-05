@@ -14,4 +14,4 @@ serde_yaml = "0.8.24"
 serde = "1.0.137"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-winit = { version = "0.28.1", default-features = false, features = ["serde"] }
+winit = { version = "0.28.2", default-features = false, features = ["serde"] }

@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Quadrants not aligned with half blocks with built-in font
 - EOT (`\x03`) escaping bracketed paste mode
 - Drag & Drop not working for the search bar
+- Simple-fullscreened window not resized when moving between monitors on macOS
 
 ### Removed
 
