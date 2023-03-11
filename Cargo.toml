@@ -7,6 +7,6 @@ members = [
 ]
 
 [profile.release]
-lto = true
+lto = "thin"
 debug = 1
 incremental = false
