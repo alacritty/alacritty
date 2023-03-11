@@ -5,15 +5,13 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
+use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
 use log::error;
-#[cfg(not(windows))]
-use mio::unix::UnixReady;
-use mio::{self, Events, PollOpt, Ready};
-use mio_extras::channel::{self, Receiver, Sender};
+use polling::Poller;
 
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
@@ -44,10 +42,10 @@ pub enum Msg {
 /// Handles all the PTY I/O and runs the PTY parser which updates terminal
 /// state.
 pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
-    poll: mio::Poll,
+    poll: Arc<Poller>,
     pty: T,
     rx: Receiver<Msg>,
-    tx: Sender<Msg>,
+    tx: mpsc::Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
     hold: bool,
@@ -60,7 +58,21 @@ struct Writing {
     written: usize,
 }
 
-pub struct Notifier(pub Sender<Msg>);
+/// The channel for sending messages to the event loop.
+pub struct Sender {
+    sender: mpsc::Sender<Msg>,
+    poller: Arc<Poller>,
+}
+
+impl Sender {
+    /// Send a message to the event loop.
+    pub fn send(&self, msg: Msg) {
+        let _ = self.sender.send(msg);
+        self.poller.notify().ok();
+    }
+}
+
+pub struct Notifier(pub Sender);
 
 impl event::Notify for Notifier {
     fn notify<B>(&self, bytes: B)
@@ -73,13 +85,13 @@ impl event::Notify for Notifier {
             return;
         }
 
-        let _ = self.0.send(Msg::Input(bytes));
+        self.0.send(Msg::Input(bytes));
     }
 }
 
 impl event::OnResize for Notifier {
     fn on_resize(&mut self, window_size: WindowSize) {
-        let _ = self.0.send(Msg::Resize(window_size));
+        self.0.send(Msg::Resize(window_size));
     }
 }
 
@@ -158,9 +170,9 @@ where
         hold: bool,
         ref_test: bool,
     ) -> EventLoop<T, U> {
-        let (tx, rx) = channel::channel();
+        let (tx, rx) = mpsc::channel();
         EventLoop {
-            poll: mio::Poll::new().expect("create mio Poll"),
+            poll: Arc::new(Poller::new().expect("unable to create poll instance")),
             pty,
             tx,
             rx,
@@ -171,8 +183,8 @@ where
         }
     }
 
-    pub fn channel(&self) -> Sender<Msg> {
-        self.tx.clone()
+    pub fn channel(&self) -> Sender {
+        Sender { sender: self.tx.clone(), poller: self.poll.clone() }
     }
 
     /// Drain the channel.
@@ -186,20 +198,6 @@ where
                 Msg::Shutdown => return false,
             }
         }
-
-        true
-    }
-
-    /// Returns a `bool` indicating whether or not the event loop should continue running.
-    #[inline]
-    fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
-        if !self.drain_recv_channel(state) {
-            return false;
-        }
-
-        self.poll
-            .reregister(&self.rx, token, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
-            .unwrap();
 
         true
     }
@@ -313,17 +311,12 @@ where
             let mut state = State::default();
             let mut buf = [0u8; READ_BUFFER_SIZE];
 
-            let mut tokens = (0..).map(Into::into);
-
-            let poll_opts = PollOpt::edge() | PollOpt::oneshot();
-
-            let channel_token = tokens.next().unwrap();
-            self.poll.register(&self.rx, channel_token, Ready::readable(), poll_opts).unwrap();
+            let mut tokens = 0..;
 
             // Register TTY through EventedRW interface.
-            self.pty.register(&self.poll, &mut tokens, Ready::readable(), poll_opts).unwrap();
+            self.pty.register(&self.poll, &mut tokens, polling::Event::readable(0)).unwrap();
 
-            let mut events = Events::with_capacity(1024);
+            let mut events = Vec::with_capacity(1024);
 
             let mut pipe = if self.ref_test {
                 Some(File::create("./alacritty.recording").expect("create alacritty recording"))
@@ -336,11 +329,17 @@ where
                 let sync_timeout = state.parser.sync_timeout();
                 let timeout = sync_timeout.map(|st| st.saturating_duration_since(Instant::now()));
 
-                if let Err(err) = self.poll.poll(&mut events, timeout) {
+                events.clear();
+                if let Err(err) = self.poll.wait(&mut events, timeout) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
                         _ => panic!("EventLoop polling error: {err:?}"),
                     }
+                }
+
+                // Drain the channel.
+                if !self.drain_recv_channel(&mut state) {
+                    break 'event_loop;
                 }
 
                 // Handle synchronized update timeout.
@@ -350,14 +349,8 @@ where
                     continue;
                 }
 
-                for event in events.iter() {
-                    match event.token() {
-                        token if token == channel_token => {
-                            if !self.channel_event(channel_token, &mut state) {
-                                break 'event_loop;
-                            }
-                        },
-
+                for event in events.drain(..) {
+                    match event.key {
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
                                 if self.hold {
@@ -377,13 +370,7 @@ where
                             if token == self.pty.read_token()
                                 || token == self.pty.write_token() =>
                         {
-                            #[cfg(unix)]
-                            if UnixReady::from(event.readiness()).is_hup() {
-                                // Don't try to do I/O on a dead PTY.
-                                continue;
-                            }
-
-                            if event.readiness().is_readable() {
+                            if event.readable {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
                                 {
                                     // On Linux, a `read` on the master side of a PTY can fail
@@ -401,7 +388,7 @@ where
                                 }
                             }
 
-                            if event.readiness().is_writable() {
+                            if event.writable {
                                 if let Err(err) = self.pty_write(&mut state) {
                                     error!("Error writing to PTY in event loop: {}", err);
                                     break 'event_loop;
@@ -413,16 +400,15 @@ where
                 }
 
                 // Register write interest if necessary.
-                let mut interest = Ready::readable();
+                let mut interest = polling::Event::readable(0);
                 if state.needs_write() {
-                    interest.insert(Ready::writable());
+                    interest.writable = true;
                 }
                 // Reregister with new interest.
-                self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
+                self.pty.reregister(&self.poll, interest).unwrap();
             }
 
             // The evented instances are not dropped here so deregister them explicitly.
-            let _ = self.poll.deregister(&self.rx);
             let _ = self.pty.deregister(&self.poll);
 
             (self, state)

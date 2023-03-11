@@ -5,18 +5,19 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Result};
 use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::{env, ptr};
 
 use libc::{self, c_int, winsize, TIOCSCTTY};
 use log::error;
-use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
+
 use signal_hook::consts as sigconsts;
-use signal_hook_mio::v0_6::Signals;
+use signal_hook::low_level::pipe;
 
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
@@ -103,9 +104,9 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
 pub struct Pty {
     child: Child,
     file: File,
-    token: mio::Token,
-    signals: Signals,
-    signals_token: mio::Token,
+    token: usize,
+    signals: UnixStream,
+    signals_token: usize,
 }
 
 impl Pty {
@@ -254,7 +255,13 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     }
 
     // Prepare signal handling before spawning child.
-    let signals = Signals::new([sigconsts::SIGCHLD]).expect("error preparing signal handling");
+    let signals = {
+        let (reader, writer) = UnixStream::pair()?;
+        pipe::register(sigconsts::SIGCHLD, writer)?;
+
+        reader.set_nonblocking(true)?;
+        reader
+    };
 
     match builder.spawn() {
         Ok(child) => {
@@ -267,9 +274,9 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
             let mut pty = Pty {
                 child,
                 file: unsafe { File::from_raw_fd(master) },
-                token: mio::Token::from(0),
+                token: 0,
                 signals,
-                signals_token: mio::Token::from(0),
+                signals_token: 0,
             };
             pty.on_resize(window_size);
             Ok(pty)
@@ -302,44 +309,28 @@ impl EventedReadWrite for Pty {
     #[inline]
     fn register(
         &mut self,
-        poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = mio::Token>,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &polling::Poller,
+        token: &mut dyn Iterator<Item = usize>,
+        event: polling::Event,
     ) -> Result<()> {
         self.token = token.next().unwrap();
-        poll.register(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+        poll.add(&self.file, polling::Event { key: self.token, ..event })?;
 
         self.signals_token = token.next().unwrap();
-        poll.register(
-            &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
-        )
+        poll.add(&self.signals, polling::Event { key: self.signals_token, ..event })
     }
 
     #[inline]
-    fn reregister(
-        &mut self,
-        poll: &mio::Poll,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
-    ) -> Result<()> {
-        poll.reregister(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+    fn reregister(&mut self, poll: &polling::Poller, event: polling::Event) -> Result<()> {
+        poll.modify(&self.file, polling::Event { key: self.token, ..event })?;
 
-        poll.reregister(
-            &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
-        )
+        poll.modify(&self.signals, polling::Event { key: self.signals_token, ..event })
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
-        poll.deregister(&EventedFd(&self.file.as_raw_fd()))?;
-        poll.deregister(&self.signals)
+    fn deregister(&mut self, poll: &polling::Poller) -> Result<()> {
+        poll.delete(&self.file)?;
+        poll.delete(&self.signals)
     }
 
     #[inline]
@@ -348,7 +339,7 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn read_token(&self) -> mio::Token {
+    fn read_token(&self) -> usize {
         self.token
     }
 
@@ -358,7 +349,7 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn write_token(&self) -> mio::Token {
+    fn write_token(&self) -> usize {
         self.token
     }
 }
@@ -366,24 +357,24 @@ impl EventedReadWrite for Pty {
 impl EventedPty for Pty {
     #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        self.signals.pending().next().and_then(|signal| {
-            if signal != sigconsts::SIGCHLD {
-                return None;
-            }
+        use std::io::Read;
 
-            match self.child.try_wait() {
-                Err(e) => {
-                    error!("Error checking child process termination: {}", e);
-                    None
-                },
-                Ok(None) => None,
-                Ok(_) => Some(ChildEvent::Exited),
-            }
-        })
+        // Read an incoming SIGCHLD signal.
+        let mut buf = [0; 1];
+        let _ = self.signals.read(&mut buf).ok()?;
+
+        match self.child.try_wait() {
+            Err(e) => {
+                error!("Error checking child process termination: {}", e);
+                None
+            },
+            Ok(None) => None,
+            Ok(_) => Some(ChildEvent::Exited),
+        }
     }
 
     #[inline]
-    fn child_event_token(&self) -> mio::Token {
+    fn child_event_token(&self) -> usize {
         self.signals_token
     }
 }
