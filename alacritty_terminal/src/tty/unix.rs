@@ -19,6 +19,8 @@ use nix::sys::termios::{self, InputFlags, SetArg};
 use signal_hook::consts as sigconsts;
 use signal_hook::low_level::pipe;
 
+use polling::{Event, PollMode};
+
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
@@ -311,20 +313,28 @@ impl EventedReadWrite for Pty {
         &mut self,
         poll: &polling::Poller,
         token: &mut dyn Iterator<Item = usize>,
-        event: polling::Event,
+        event: Event,
     ) -> Result<()> {
         self.token = token.next().unwrap();
-        poll.add(&self.file, polling::Event { key: self.token, ..event })?;
+        poll.add_with_mode(&self.file, Event { key: self.token, ..event }, PollMode::Edge)?;
 
         self.signals_token = token.next().unwrap();
-        poll.add(&self.signals, polling::Event { key: self.signals_token, ..event })
+        poll.add_with_mode(
+            &self.signals,
+            Event { key: self.signals_token, ..event },
+            PollMode::Edge,
+        )
     }
 
     #[inline]
-    fn reregister(&mut self, poll: &polling::Poller, event: polling::Event) -> Result<()> {
-        poll.modify(&self.file, polling::Event { key: self.token, ..event })?;
+    fn reregister(&mut self, poll: &polling::Poller, event: Event) -> Result<()> {
+        poll.modify_with_mode(&self.file, Event { key: self.token, ..event }, PollMode::Edge)?;
 
-        poll.modify(&self.signals, polling::Event { key: self.signals_token, ..event })
+        poll.modify_with_mode(
+            &self.signals,
+            Event { key: self.signals_token, ..event },
+            PollMode::Edge,
+        )
     }
 
     #[inline]
