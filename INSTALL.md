@@ -378,9 +378,10 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 
 #### Fish
 
-To install the completions for fish, run
+To install the completions for fish, run (First make sure you have fish installed)
 
 ```
+fish
 mkdir -p $fish_complete_path[1]
 cp extra/completions/alacritty.fish $fish_complete_path[1]/alacritty.fish
 ```
