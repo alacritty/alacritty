@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(unix)]
     match options.subcommands {
         Some(Subcommands::Msg(options)) => msg(options),
-        None => alacritty(options),
+        Some(Subcommands::Daemon) | None => alacritty(options),
     }
 
     #[cfg(not(unix))]
@@ -183,10 +183,11 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
 
     // Event processor.
     let window_options = options.window_options.clone();
+    let daemon = matches!(&options.subcommands, Some(Subcommands::Daemon));
     let mut processor = Processor::new(config, options, &window_event_loop);
 
     // Start event loop and block until shutdown.
-    let result = processor.run(window_event_loop, window_options);
+    let result = processor.run(window_event_loop, daemon, window_options);
 
     // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
     // The cause:

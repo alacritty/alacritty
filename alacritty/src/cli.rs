@@ -263,6 +263,7 @@ impl WindowIdentity {
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
     Msg(MessageOptions),
+    Daemon,
 }
 
 /// Send a message to the Alacritty socket.

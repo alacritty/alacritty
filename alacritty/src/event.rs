@@ -1426,30 +1426,6 @@ impl Processor {
         }
     }
 
-    /// Create initial window and load GL platform.
-    ///
-    /// This will initialize the OpenGL Api and pick a config that
-    /// will be used for the rest of the windows.
-    pub fn create_initial_window(
-        &mut self,
-        event_loop: &EventLoopWindowTarget<Event>,
-        proxy: EventLoopProxy<Event>,
-        options: WindowOptions,
-    ) -> Result<(), Box<dyn Error>> {
-        let window_context = WindowContext::initial(
-            event_loop,
-            proxy,
-            self.config.clone(),
-            options,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            self.wayland_event_queue.as_ref(),
-        )?;
-
-        self.windows.insert(window_context.id(), window_context);
-
-        Ok(())
-    }
-
     /// Create a new terminal window.
     pub fn create_window(
         &mut self,
@@ -1457,15 +1433,26 @@ impl Processor {
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let window = self.windows.iter().next().as_ref().unwrap().1;
-        let window_context = window.additional(
-            event_loop,
-            proxy,
-            self.config.clone(),
-            options,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            self.wayland_event_queue.as_ref(),
-        )?;
+        let window_context = if let Some(window) = self.windows.iter().next().as_ref() {
+            let window = window.1;
+            window.additional(
+                event_loop,
+                proxy,
+                self.config.clone(),
+                options,
+                #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                self.wayland_event_queue.as_ref(),
+            )?
+        } else {
+            WindowContext::initial(
+                event_loop,
+                proxy,
+                self.config.clone(),
+                options,
+                #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+                self.wayland_event_queue.as_ref(),
+            )?
+        };
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
@@ -1477,6 +1464,7 @@ impl Processor {
     pub fn run(
         &mut self,
         mut event_loop: EventLoop<Event>,
+        daemon: bool,
         initial_window_options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let proxy = event_loop.create_proxy();
@@ -1504,7 +1492,7 @@ impl Processor {
 
             match event {
                 // The event loop just got initialized. Create a window.
-                WinitEvent::Resumed => {
+                WinitEvent::Resumed if !daemon => {
                     // Creating window inside event loop is required for platforms like macOS to
                     // properly initialize state, like tab management. Othwerwise the first window
                     // won't handle tabs.
@@ -1513,11 +1501,9 @@ impl Processor {
                         None => return,
                     };
 
-                    if let Err(err) = self.create_initial_window(
-                        event_loop,
-                        proxy.clone(),
-                        initial_window_options,
-                    ) {
+                    if let Err(err) =
+                        self.create_window(event_loop, proxy.clone(), initial_window_options)
+                    {
                         // Log the error right away since we can't return it.
                         eprintln!("Error: {}", err);
                         *control_flow = ControlFlow::ExitWithCode(1);
@@ -1541,7 +1527,7 @@ impl Processor {
                     scheduler.unschedule_window(window_context.id());
 
                     // Shutdown if no more terminals are open.
-                    if self.windows.is_empty() {
+                    if self.windows.is_empty() && !daemon {
                         // Write ref tests of last window to disk.
                         if self.config.debug.ref_test {
                             window_context.write_ref_test_results();
