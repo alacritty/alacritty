@@ -186,6 +186,8 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     let daemon = if cfg!(unix) {
         #[cfg(unix)]
         matches!(&options.subcommands, Some(Subcommands::Daemon))
+        #[cfg(not(unix))]
+        false
     } else {
         false
     };
