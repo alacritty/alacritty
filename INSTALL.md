@@ -378,13 +378,7 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 
 #### Fish
 
-Make sure you are in fish shell or run
-
-```
-fish
-```
-
-Once you are in fish shell, to install the completions for fish, run
+To install the completions for fish, from inside the fish shell, run
 
 ```
 mkdir -p $fish_complete_path[1]
