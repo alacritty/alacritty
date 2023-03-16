@@ -185,9 +185,13 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     let window_options = options.window_options.clone();
     let daemon = if cfg!(unix) {
         #[cfg(unix)]
-        matches!(&options.subcommands, Some(Subcommands::Daemon))
+        {
+            matches!(&options.subcommands, Some(Subcommands::Daemon))
+        }
         #[cfg(not(unix))]
-        false
+        {
+            false
+        }
     } else {
         false
     };
