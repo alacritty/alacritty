@@ -649,8 +649,8 @@ mod tests {
         let mut term = mock_term("000\r\n111");
         term.goto(Line(0), Column(0));
 
-        let hyperlink_foo = Hyperlink::new(Some("1"), "foo");
-        let hyperlink_bar = Hyperlink::new(Some("2"), "bar");
+        let hyperlink_foo = Hyperlink::new(Some("1"), String::from("foo"));
+        let hyperlink_bar = Hyperlink::new(Some("2"), String::from("bar"));
 
         // Create 2 hyperlinks on the first line.
         term.set_hyperlink(Some(hyperlink_foo.clone()));

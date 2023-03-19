@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - EOT (`\x03`) escaping bracketed paste mode
 - Drag & Drop not working for the search bar
 - Simple-fullscreened window not resized when moving between monitors on macOS
+- Character `;` inside the `URI` in `OSC 8` sequence breaking the URI
 
 ### Removed
 
