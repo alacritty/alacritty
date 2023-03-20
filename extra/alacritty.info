@@ -22,6 +22,7 @@ alacritty-direct|alacritty with direct color indexing,
 	setaf=\E[%?%p1%{8}%<%t3%p1%d%e38\:2\:\:%p1%{65536}%/%d\:%p1%{256}
           %/%{255}%&%d\:%p1%{255}%&%d%;m,
     setb@, setf@,
+    Setulc=\E[58\:2\:\:%p1%{65536}%/%d\:%p1%{256}%/%{255}%&%d\:%p1%{255}%&%d%;m,
 
 alacritty+common|base fragment for alacritty,
     OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
