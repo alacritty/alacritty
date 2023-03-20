@@ -61,10 +61,16 @@ pub trait EventedPty: EventedReadWrite {
 
 /// Setup environment variables.
 pub fn setup_env(config: &Config) {
-    // Default to 'alacritty' terminfo if it is available, otherwise
+    // Default to 'alacritty-direct' or 'alacritty' terminfo in order of presence, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.
-    let terminfo = if terminfo_exists("alacritty") { "alacritty" } else { "xterm-256color" };
+    let terminfo = if terminfo_exists("alacritty-direct") {
+        "alacritty-direct"
+    } else if terminfo_exists("alacritty") {
+        "alacritty"
+    } else {
+        "xterm-256color"
+    };
     env::set_var("TERM", terminfo);
 
     // Advertise 24-bit color support.
