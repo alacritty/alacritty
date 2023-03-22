@@ -611,6 +611,10 @@ impl<T> Term<T> {
         delta = cmp::min(cmp::max(delta, min_delta), history_size as i32);
         self.vi_mode_cursor.point.line += delta;
 
+        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
+        self.grid.resize(!is_alt, num_lines, num_cols);
+        self.inactive_grid.resize(is_alt, num_lines, num_cols);
+
         // Invalidate selection and tabs only when necessary.
         if old_cols != num_cols {
             self.selection = None;
@@ -618,13 +622,10 @@ impl<T> Term<T> {
             // Recreate tabs list.
             self.tabs.resize(num_cols);
         } else if let Some(selection) = self.selection.take() {
-            let range = Line(0)..Line(num_lines as i32);
+            let max_lines = cmp::max(num_lines, old_lines) as i32;
+            let range = Line(0)..Line(max_lines);
             self.selection = selection.rotate(self, &range, -delta);
         }
-
-        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
-        self.grid.resize(!is_alt, num_lines, num_cols);
-        self.inactive_grid.resize(is_alt, num_lines, num_cols);
 
         // Clamp vi cursor to viewport.
         let vi_point = self.vi_mode_cursor.point;
