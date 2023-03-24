@@ -287,11 +287,13 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window().toggle_simple_fullscreen(),
             #[cfg(target_os = "macos")]
-            Action::Hide => ctx.event_loop().hide_application(),
+            // TODO keep track of visibility when using hide_application
+            // Action::Hide => ctx.event_loop().hide_application(),
+            Action::Hide => ctx.window().toggle_visible(),
             #[cfg(target_os = "macos")]
             Action::HideOtherApplications => ctx.event_loop().hide_other_applications(),
             #[cfg(not(target_os = "macos"))]
-            Action::Hide => ctx.window().set_visible(false),
+            Action::Hide => ctx.window().toggle_visible(),
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),

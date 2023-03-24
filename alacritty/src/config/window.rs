@@ -61,6 +61,9 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// AutoHide on focus lost.
+    pub auto_hide: bool,
 }
 
 impl Default for WindowConfig {
@@ -78,6 +81,7 @@ impl Default for WindowConfig {
             padding: Default::default(),
             dimensions: Default::default(),
             resize_increments: Default::default(),
+            auto_hide: false,
             #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
         }
@@ -181,7 +185,7 @@ pub enum Decorations {
 
 impl Default for Decorations {
     fn default() -> Decorations {
-        Decorations::Full
+        Decorations::None
     }
 }
 

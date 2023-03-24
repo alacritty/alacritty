@@ -47,6 +47,7 @@ mod panic;
 mod renderer;
 mod scheduler;
 mod string;
+mod visor;
 mod window_context;
 
 mod gl {
@@ -184,6 +185,10 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     // Event processor.
     let window_options = options.window_options.clone();
     let mut processor = Processor::new(config, options, &window_event_loop);
+
+    let _tray = crate::visor::setup_tray().map_err(|e| Box::new(e))?;
+
+    crate::visor::setup_keyboard_hook(window_event_loop.create_proxy()).map_err(|e| Box::new(e))?;
 
     // Start event loop and block until shutdown.
     let result = processor.run(window_event_loop, window_options);

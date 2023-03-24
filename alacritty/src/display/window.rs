@@ -123,6 +123,7 @@ pub struct Window {
 
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
+    visible: bool,
 }
 
 impl Window {
@@ -211,6 +212,7 @@ impl Window {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_surface,
             scale_factor,
+            visible: true,
         })
     }
 
@@ -232,6 +234,30 @@ impl Window {
     #[inline]
     pub fn set_visible(&self, visibility: bool) {
         self.window.set_visible(visibility);
+    }
+
+    #[inline]
+    pub fn toggle_visible(&mut self) {
+        self.visible = !self.visible;
+        self.window.set_visible(self.visible);
+        if self.visible {
+            self.window.focus_window();
+        }
+    }
+
+    #[inline]
+    pub fn is_visible(&self) -> bool {
+        self.visible
+    }
+
+    #[inline]
+    pub fn is_minimized(&self) -> Option<bool> {
+        self.window.is_minimized()
+    }
+
+    #[inline]
+    pub fn focus_window(&self) {
+        self.window.focus_window()
     }
 
     /// Set the window title.
@@ -314,7 +340,7 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
+        let mut window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
 
         match window_config.decorations {
             Decorations::Full => window,

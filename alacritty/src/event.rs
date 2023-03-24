@@ -107,6 +107,7 @@ pub enum EventType {
     BlinkCursorTimeout,
     SearchNext,
     Frame,
+    GlobalShortcut,
 }
 
 impl From<TerminalEvent> for EventType {
@@ -1178,6 +1179,23 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
     pub fn handle_event(&mut self, event: WinitEvent<'_, Event>) {
         match event {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
+                // NEW: handle global event
+                EventType::GlobalShortcut => {
+                    let is_focused = self.ctx.terminal.is_focused;
+                    let is_visible = self.ctx.window().is_visible();
+                    let is_minimized = match self.ctx.window().is_minimized() {
+                        Some(minimized) => minimized,
+                        None => false,
+                    };
+
+                    if (!is_focused) && (!is_minimized) && is_visible {
+                        self.ctx.window().focus_window();
+                    } else if is_minimized {
+                        self.ctx.window().set_minimized(false);
+                    } else {
+                        self.ctx.window().toggle_visible();
+                    }
+                },
                 EventType::ScaleFactorChanged(scale_factor, (width, height)) => {
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
@@ -1310,8 +1328,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
+                        let is_visible = self.ctx.window().is_visible();
+
                         if is_focused {
                             self.ctx.window().set_urgent(false);
+                        } else if self.ctx.config.window.auto_hide && is_visible {
+                            self.ctx.window().toggle_visible();
                         }
 
                         self.ctx.update_cursor_blinking();

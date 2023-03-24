@@ -104,7 +104,7 @@ impl WindowContext {
         let gl_config = renderer::platform::pick_gl_config(&gl_display, raw_window_handle)?;
 
         #[cfg(not(windows))]
-        let window = Window::new(
+        let mut window = Window::new(
             event_loop,
             &config,
             &identity,
