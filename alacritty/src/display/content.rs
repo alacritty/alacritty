@@ -199,7 +199,7 @@ pub struct RenderableCellExtra {
 }
 
 impl RenderableCell {
-    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
+    fn new(content: &mut RenderableContent<'_>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
         let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg = Self::compute_bg_rgb(content, cell.bg);
