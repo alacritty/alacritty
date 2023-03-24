@@ -719,9 +719,8 @@ impl Canvas {
         let v_line_bounds = (v_line_bounds.0 as usize, v_line_bounds.1 as usize);
         let max_transparancy = 0.5;
 
-        for (radius_y, radius_x) in (h_line_bounds.0..h_line_bounds.1)
-            .into_iter()
-            .zip((v_line_bounds.0..v_line_bounds.1).into_iter())
+        for (radius_y, radius_x) in
+            (h_line_bounds.0..h_line_bounds.1).zip(v_line_bounds.0..v_line_bounds.1)
         {
             let radius_x = radius_x as f32;
             let radius_y = radius_y as f32;
