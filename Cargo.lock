@@ -10,7 +10,7 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "alacritty"
-version = "0.12.0-rc3"
+version = "0.12.0"
 dependencies = [
  "alacritty_config",
  "alacritty_config_derive",
@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config"
-version = "0.1.1-rc3"
+version = "0.1.1"
 dependencies = [
  "log",
  "serde",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config_derive"
-version = "0.2.1-rc3"
+version = "0.2.1"
 dependencies = [
  "alacritty_config",
  "log",
@@ -70,7 +70,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.18.0-rc3"
+version = "0.18.0"
 dependencies = [
  "alacritty_config",
  "alacritty_config_derive",
