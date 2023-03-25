@@ -113,6 +113,11 @@
   #   - None (default)
   #option_as_alt: None
 
+  # Use sRGB color space (macOS only) (changes require restart)
+  #
+  # Set this to false to enable "vivid" colors.
+  #use_srgb: true
+
 #scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.

@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Character `;` inside the `URI` in `OSC 8` sequence breaking the URI
 - Selection on last line not updating correctly on resize
+- Added `use_srgb` option for macOS (default true)
 
 ## 0.12.0
 

@@ -61,6 +61,10 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// Use sRGB color space.
+    #[cfg(target_os = "macos")]
+    pub use_srgb: bool,
 }
 
 impl Default for WindowConfig {
@@ -80,6 +84,8 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
+            #[cfg(target_os = "macos")]
+            use_srgb: true,
         }
     }
 }

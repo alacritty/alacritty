@@ -179,7 +179,9 @@ impl Window {
         window.set_transparent(config.window_opacity() < 1.);
 
         #[cfg(target_os = "macos")]
-        use_srgb_color_space(&window);
+        if config.window.use_srgb {
+            use_srgb_color_space(&window);
+        }
 
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if !is_wayland {
