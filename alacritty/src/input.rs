@@ -126,6 +126,7 @@ pub trait ActionContext<T: EventListener> {
         S: AsRef<OsStr>,
     {
     }
+    fn switch_window(&mut self) {}
 }
 
 impl Action {
@@ -287,15 +288,7 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window().toggle_simple_fullscreen(),
             #[cfg(target_os = "macos")]
-            // TODO keep track of visibility when using hide_application
-            // Action::Hide => ctx.event_loop().hide_application(),
-            Action::Hide => ctx.window().toggle_visible(),
-            #[cfg(target_os = "macos")]
             Action::HideOtherApplications => ctx.event_loop().hide_other_applications(),
-            #[cfg(not(target_os = "macos"))]
-            Action::Hide => ctx.window().toggle_visible(),
-            Action::Minimize => ctx.window().set_minimized(true),
-            Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
@@ -356,9 +349,9 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
             Action::ClearLogNotice => ctx.pop_message(),
-            Action::SpawnNewInstance => ctx.spawn_new_instance(),
             Action::CreateNewWindow => ctx.create_new_window(),
-            Action::ReceiveChar | Action::None => (),
+            Action::SwitchWindow => ctx.switch_window(),
+            Action::ReceiveChar | Action::None => {},
         }
     }
 }

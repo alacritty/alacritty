@@ -4,7 +4,7 @@ use std::os::raw::c_ulong;
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use winit::window::{Fullscreen, Theme};
+use winit::window::Theme;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt;
@@ -20,15 +20,6 @@ pub const DEFAULT_NAME: &str = "Alacritty";
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
 pub struct WindowConfig {
-    /// Initial position.
-    pub position: Option<Delta<i32>>,
-
-    /// Draw the window with title bar / borders.
-    pub decorations: Decorations,
-
-    /// Startup mode.
-    pub startup_mode: StartupMode,
-
     /// XEmbed parent.
     #[config(skip)]
     pub embed: Option<c_ulong>,
@@ -64,15 +55,15 @@ pub struct WindowConfig {
 
     /// AutoHide on focus lost.
     pub auto_hide: bool,
+
+    /// window placement
+    pub placement: WindowPlacement,
 }
 
 impl Default for WindowConfig {
     fn default() -> Self {
         Self {
             dynamic_title: true,
-            position: Default::default(),
-            decorations: Default::default(),
-            startup_mode: Default::default(),
             embed: Default::default(),
             decorations_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
@@ -82,6 +73,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             resize_increments: Default::default(),
             auto_hide: false,
+            placement: Default::default(),
             #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
         }
@@ -127,20 +119,6 @@ impl WindowConfig {
         let padding_y = (f32::from(self.padding.y) * scale_factor).floor();
         (padding_x, padding_y)
     }
-
-    #[inline]
-    pub fn fullscreen(&self) -> Option<Fullscreen> {
-        if self.startup_mode == StartupMode::Fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    pub fn maximized(&self) -> bool {
-        self.startup_mode == StartupMode::Maximized
-    }
 }
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
@@ -159,46 +137,33 @@ impl Default for Identity {
 }
 
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum StartupMode {
-    Windowed,
-    Maximized,
-    Fullscreen,
-    #[cfg(target_os = "macos")]
-    SimpleFullscreen,
+pub enum WindowPlacement {
+    Center,
+    Top,
 }
 
-impl Default for StartupMode {
-    fn default() -> StartupMode {
-        StartupMode::Windowed
-    }
-}
-
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Decorations {
-    Full,
-    #[cfg(target_os = "macos")]
-    Transparent,
-    #[cfg(target_os = "macos")]
-    Buttonless,
-    None,
-}
-
-impl Default for Decorations {
-    fn default() -> Decorations {
-        Decorations::None
+impl Default for WindowPlacement {
+    fn default() -> Self {
+        WindowPlacement::Center
     }
 }
 
 /// Window Dimensions.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dimensions {
     /// Window width in character columns.
     pub columns: Column,
 
     /// Window Height in character lines.
     pub lines: usize,
+}
+
+impl Default for Dimensions {
+    fn default() -> Self {
+        Dimensions { columns: Column(80), lines: 15 }
+    }
 }
 
 /// Window class hint.

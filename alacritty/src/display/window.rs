@@ -35,19 +35,22 @@ use {
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
-use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
-    WindowId,
+    WindowButtons, WindowId,
+};
+use winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
+    platform::windows::WindowBuilderExtWindows,
 };
 
 use alacritty_terminal::index::Point;
 
-use crate::config::window::{Decorations, Identity, WindowConfig};
+use crate::config::window::{Identity, WindowPlacement};
 use crate::config::UiConfig;
 use crate::display::SizeInfo;
 
@@ -141,25 +144,17 @@ impl Window {
         x11_visual: Option<X11VisualInfo>,
     ) -> Result<Window> {
         let identity = identity.clone();
-        let mut window_builder = Window::get_platform_window(
+        let window_builder = Window::get_platform_window(
             &identity,
-            &config.window,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             x11_visual,
         );
-
-        if let Some(position) = config.window.position {
-            window_builder = window_builder
-                .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
-        }
 
         let window = window_builder
             .with_title(&identity.title)
             .with_theme(config.window.decorations_theme_variant)
             .with_visible(false)
             .with_transparent(true)
-            .with_maximized(config.window.maximized())
-            .with_fullscreen(config.window.fullscreen())
             .build(event_loop)?;
 
         // Check if we're running Wayland to disable vsync.
@@ -260,6 +255,26 @@ impl Window {
         self.window.focus_window()
     }
 
+    #[inline]
+    pub fn place_window(&self, position: WindowPlacement) -> Option<()> {
+        let monitor = self.window.current_monitor()?;
+        let monitor_size = monitor.size();
+        let monitor_position = monitor.position();
+        let window_size = self.window.outer_size();
+
+        let x = monitor_position.x + ((monitor_size.width - window_size.width) as i32 / 2);
+
+        let y = match position {
+            WindowPlacement::Center => {
+                monitor_position.y + ((monitor_size.height - window_size.height) as i32 / 2)
+            },
+            WindowPlacement::Top => monitor_position.y,
+        };
+        self.window.set_outer_position(PhysicalPosition::new(x, y));
+
+        Some(())
+    }
+
     /// Set the window title.
     #[inline]
     pub fn set_title(&mut self, title: String) {
@@ -297,7 +312,6 @@ impl Window {
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(
         identity: &Identity,
-        window_config: &WindowConfig,
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))] x11_visual: Option<
             X11VisualInfo,
         >,
@@ -315,7 +329,8 @@ impl Window {
 
         let builder = WindowBuilder::new()
             .with_name(&identity.class.general, &identity.class.instance)
-            .with_decorations(window_config.decorations != Decorations::None);
+            .with_decorations(false)
+            .with_resizable(false);
 
         #[cfg(feature = "x11")]
         let builder = builder.with_window_icon(Some(icon));
@@ -330,31 +345,23 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(_: &Identity) -> WindowBuilder {
         let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WindowBuilder::new()
-            .with_decorations(window_config.decorations != Decorations::None)
+            .with_decorations(true)
             .with_window_icon(icon.ok())
+            .with_resizable(false)
+            .with_enabled_buttons(WindowButtons::empty())
+            .with_skip_taskbar(true)
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let mut window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
-
-        match window_config.decorations {
-            Decorations::Full => window,
-            Decorations::Transparent => window
-                .with_title_hidden(true)
-                .with_titlebar_transparent(true)
-                .with_fullsize_content_view(true),
-            Decorations::Buttonless => window
-                .with_title_hidden(true)
-                .with_titlebar_buttons_hidden(true)
-                .with_titlebar_transparent(true)
-                .with_fullsize_content_view(true),
-            Decorations::None => window.with_titlebar_hidden(true),
-        }
+    pub fn get_platform_window(_: &Identity) -> WindowBuilder {
+        WindowBuilder::new()
+            .with_option_as_alt(window_config.option_as_alt)
+            .with_resizable(false)
+            .with_titlebar_hidden(true) // decorationless
     }
 
     pub fn set_urgent(&self, is_urgent: bool) {

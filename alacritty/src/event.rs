@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -108,6 +108,7 @@ pub enum EventType {
     SearchNext,
     Frame,
     GlobalShortcut,
+    SwitchWindow,
 }
 
 impl From<TerminalEvent> for EventType {
@@ -860,6 +861,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn scheduler_mut(&mut self) -> &mut Scheduler {
         self.scheduler
     }
+
+    fn switch_window(&mut self) {
+        let _ = self.event_proxy.send_event(Event::new(EventType::SwitchWindow, None));
+    }
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
@@ -1181,12 +1186,17 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 // NEW: handle global event
                 EventType::GlobalShortcut => {
+                    let window_config = &self.ctx.config.window;
                     let is_focused = self.ctx.terminal.is_focused;
                     let is_visible = self.ctx.window().is_visible();
                     let is_minimized = match self.ctx.window().is_minimized() {
                         Some(minimized) => minimized,
                         None => false,
                     };
+
+                    if !is_visible {
+                        self.ctx.window().place_window(window_config.placement);
+                    }
 
                     if (!is_focused) && (!is_minimized) && is_visible {
                         self.ctx.window().focus_window();
@@ -1285,8 +1295,14 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 },
                 #[cfg(unix)]
                 EventType::IpcConfig(_) => (),
-                EventType::ConfigReload(_) | EventType::CreateWindow(_) | EventType::Message(_) => {
-                },
+                EventType::ConfigReload(_)
+                | EventType::CreateWindow(_)
+                | EventType::Message(_)
+                | EventType::SwitchWindow => {},
+            },
+            WinitEvent::Resumed => {
+                let window_config = &self.ctx.config.window;
+                self.ctx.window().place_window(window_config.placement);
             },
             WinitEvent::RedrawRequested(_) => *self.ctx.dirty = true,
             WinitEvent::WindowEvent { event, .. } => {
@@ -1405,7 +1421,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             | WinitEvent::DeviceEvent { .. }
             | WinitEvent::MainEventsCleared
             | WinitEvent::RedrawEventsCleared
-            | WinitEvent::Resumed
             | WinitEvent::LoopDestroyed => (),
         }
     }
@@ -1418,7 +1433,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 pub struct Processor {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     wayland_event_queue: Option<EventQueue>,
-    windows: HashMap<WindowId, WindowContext>,
+    windows: Vec<(WindowId, WindowContext)>,
+    current_window_idx: usize,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
 }
@@ -1440,8 +1456,9 @@ impl Processor {
         });
 
         Processor {
-            windows: HashMap::new(),
+            windows: Vec::new(),
             config: Rc::new(config),
+            current_window_idx: 0,
             cli_options,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
@@ -1467,7 +1484,9 @@ impl Processor {
             self.wayland_event_queue.as_ref(),
         )?;
 
-        self.windows.insert(window_context.id(), window_context);
+        let window_id = window_context.id();
+        self.windows.push((window_id.to_owned(), window_context));
+        self.current_window_idx = self.windows.len() - 1;
 
         Ok(())
     }
@@ -1479,7 +1498,7 @@ impl Processor {
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let window = self.windows.iter().next().as_ref().unwrap().1;
+        let window = &self.windows.iter().next().as_ref().unwrap().1;
         let window_context = window.additional(
             event_loop,
             proxy,
@@ -1489,7 +1508,9 @@ impl Processor {
             self.wayland_event_queue.as_ref(),
         )?;
 
-        self.windows.insert(window_context.id(), window_context);
+        let window_id = window_context.id();
+        self.windows.push((window_id.to_owned(), window_context));
+        self.current_window_idx = self.windows.len() - 1;
         Ok(())
     }
 
@@ -1524,6 +1545,8 @@ impl Processor {
                 return;
             }
 
+            //let mut window = self.window.as_mut();
+
             match event {
                 // The event loop just got initialized. Create a window.
                 WinitEvent::Resumed => {
@@ -1544,7 +1567,15 @@ impl Processor {
                         eprintln!("Error: {}", err);
                         *control_flow = ControlFlow::ExitWithCode(1);
                         return;
-                    }
+                    };
+
+                    self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        WinitEvent::Resumed,
+                    );
 
                     info!("Initialisation complete");
                 },
@@ -1554,22 +1585,37 @@ impl Processor {
                     payload: EventType::Terminal(TerminalEvent::Exit),
                 }) => {
                     // Remove the closed terminal.
-                    let window_context = match self.windows.remove(&window_id) {
-                        Some(window_context) => window_context,
-                        None => return,
-                    };
+                    let idx = self.windows.iter().position(move |x| x.0 == window_id);
+
+                    if idx.is_none() {
+                        return;
+                    }
+                    let window_context = &self.windows.get(idx.unwrap()).unwrap().1;
 
                     // Unschedule pending events.
                     scheduler.unschedule_window(window_context.id());
 
-                    // Shutdown if no more terminals are open.
-                    if self.windows.is_empty() {
+                    // Shutdown if the deleted terminal is the last one.
+                    if self.windows.len() == 1 {
                         // Write ref tests of last window to disk.
                         if self.config.debug.ref_test {
                             window_context.write_ref_test_results();
                         }
 
                         *control_flow = ControlFlow::Exit;
+                    } else {
+                        self.windows.remove(idx.unwrap());
+
+                        if idx.unwrap() != 0 {
+                            self.current_window_idx = self.current_window_idx - 1;
+                        }
+                        self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                            event_loop,
+                            &proxy,
+                            &mut clipboard,
+                            &mut scheduler,
+                            WinitEvent::UserEvent(Event::new(EventType::GlobalShortcut, None)),
+                        );
                     }
                 },
                 // Process all pending events.
@@ -1583,7 +1629,7 @@ impl Processor {
                     }
 
                     // Dispatch event to all windows.
-                    for window_context in self.windows.values_mut() {
+                    for (_, window_context) in self.windows.iter_mut() {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
@@ -1603,7 +1649,7 @@ impl Processor {
                 // Process config update.
                 WinitEvent::UserEvent(Event { payload: EventType::ConfigReload(path), .. }) => {
                     // Clear config logs from message bar for all terminals.
-                    for window_context in self.windows.values_mut() {
+                    for (_, window_context) in self.windows.iter_mut() {
                         if !window_context.message_buffer.is_empty() {
                             window_context.message_buffer.remove_target(LOG_TARGET_CONFIG);
                             window_context.display.pending_update.dirty = true;
@@ -1614,7 +1660,7 @@ impl Processor {
                     if let Ok(config) = config::reload(&path, &self.cli_options) {
                         self.config = Rc::new(config);
 
-                        for window_context in self.windows.values_mut() {
+                        for (_, window_context) in self.windows.iter_mut() {
                             window_context.update_config(self.config.clone());
                         }
                     }
@@ -1640,17 +1686,64 @@ impl Processor {
                     // XXX Ensure that no context is current when creating a new window, otherwise
                     // it may lock the backing buffer of the surface of current context when asking
                     // e.g. EGL on Wayland to create a new context.
-                    for window_context in self.windows.values_mut() {
+                    for (_, window_context) in self.windows.iter_mut() {
                         window_context.display.make_not_current();
                     }
 
                     if let Err(err) = self.create_window(event_loop, proxy.clone(), options) {
                         error!("Could not open window: {:?}", err);
                     }
+
+                    self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        WinitEvent::Resumed,
+                    );
+                },
+                WinitEvent::UserEvent(Event { payload: EventType::SwitchWindow, .. }) => {
+                    if self.windows.len() == 1 {
+                        return;
+                    }
+
+                    self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        WinitEvent::UserEvent(Event::new(EventType::GlobalShortcut, None)),
+                    );
+
+                    if self.current_window_idx == self.windows.len() - 1 {
+                        self.current_window_idx = 0;
+                    } else {
+                        self.current_window_idx = self.current_window_idx + 1
+                    }
+
+                    self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        WinitEvent::UserEvent(Event::new(EventType::GlobalShortcut, None)),
+                    );
+                },
+                WinitEvent::UserEvent(Event {
+                    window_id: None,
+                    payload: EventType::GlobalShortcut,
+                }) => {
+                    self.windows.get_mut(self.current_window_idx).unwrap().1.handle_event(
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        event,
+                    );
                 },
                 // Process events affecting all windows.
                 WinitEvent::UserEvent(event @ Event { window_id: None, .. }) => {
-                    for window_context in self.windows.values_mut() {
+                    for (_, window_context) in self.windows.iter_mut() {
                         window_context.handle_event(
                             event_loop,
                             &proxy,
@@ -1664,7 +1757,17 @@ impl Processor {
                 WinitEvent::WindowEvent { window_id, .. }
                 | WinitEvent::UserEvent(Event { window_id: Some(window_id), .. })
                 | WinitEvent::RedrawRequested(window_id) => {
-                    if let Some(window_context) = self.windows.get_mut(&window_id) {
+                    let mut idx = None;
+                    let mut i = 0;
+                    for (id, _) in self.windows.iter() {
+                        if id.to_owned() == window_id {
+                            idx = Some(i);
+                        }
+                        i = i + 1;
+                    }
+
+                    if idx.is_some() {
+                        let (_, window_context) = self.windows.get_mut(idx.unwrap()).unwrap();
                         window_context.handle_event(
                             event_loop,
                             &proxy,

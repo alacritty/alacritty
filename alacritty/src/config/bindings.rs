@@ -161,24 +161,12 @@ pub enum Action {
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
-    /// Hide the Alacritty window.
-    Hide,
-
     /// Hide all windows other than Alacritty on macOS.
     #[cfg(target_os = "macos")]
     HideOtherApplications,
 
-    /// Minimize the Alacritty window.
-    Minimize,
-
-    /// Quit Alacritty.
-    Quit,
-
     /// Clear warning and error notices.
     ClearLogNotice,
-
-    /// Spawn a new instance of Alacritty.
-    SpawnNewInstance,
 
     /// Create a new Alacritty window.
     CreateNewWindow,
@@ -207,6 +195,9 @@ pub enum Action {
 
     /// Start a backward buffer search.
     SearchBackward,
+
+    /// Switch to next Window
+    SwitchWindow,
 
     /// No action.
     None,
@@ -558,6 +549,9 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             SearchAction::SearchFocusNext;
         Return, ModifiersState::SHIFT, +BindingMode::SEARCH, ~BindingMode::VI;
             SearchAction::SearchFocusPrevious;
+
+        N, ModifiersState::ALT; Action::CreateNewWindow;
+        Tab, ModifiersState::CTRL; Action::SwitchWindow;
     );
 
     //   Code     Modifiers
