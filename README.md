@@ -6,11 +6,8 @@
 Fork of [Alacritty](https://github.com/alacritty/alacritty) modified to:
 - Register a global key shortcut to call terminal and hide it
 - AutoHide (opt-in) window on focus lost
-
-Also, there is [this branch]() which contains more changes, there are:
-- Run one and only one terminal window
-- Always spawn on center of screen with a predefined size
 - Run terminal with none decorators (with decorators but without buttons in Windows due to a bug in `wininit`)
+- Always spawn on center of screen with a predefined size
 
 Currently tested and working on a Windows 10 machine
 
