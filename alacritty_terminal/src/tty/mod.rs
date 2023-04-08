@@ -1,6 +1,7 @@
 //! TTY related functionality.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::{env, io};
 
 use crate::config::Config;
@@ -15,6 +16,8 @@ pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
 
+use polling::{Event, PollMode, Poller};
+
 /// This trait defines the behaviour needed to read and/or write to a stream.
 /// It defines an abstraction over mio's interface in order to allow either one
 /// read/write object or a separate read and write object.
@@ -22,20 +25,12 @@ pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;
 
-    fn register(
-        &mut self,
-        _: &mio::Poll,
-        _: &mut dyn Iterator<Item = mio::Token>,
-        _: mio::Ready,
-        _: mio::PollOpt,
-    ) -> io::Result<()>;
-    fn reregister(&mut self, _: &mio::Poll, _: mio::Ready, _: mio::PollOpt) -> io::Result<()>;
-    fn deregister(&mut self, _: &mio::Poll) -> io::Result<()>;
+    fn register(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
+    fn reregister(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
+    fn deregister(&mut self, _: &Arc<Poller>) -> io::Result<()>;
 
     fn reader(&mut self) -> &mut Self::Reader;
-    fn read_token(&self) -> mio::Token;
     fn writer(&mut self) -> &mut Self::Writer;
-    fn write_token(&self) -> mio::Token;
 }
 
 /// Events concerning TTY child processes.
@@ -51,8 +46,6 @@ pub enum ChildEvent {
 /// notified if the PTY child process does something we care about (other than writing to the TTY).
 /// In particular, this allows for race-free child exit notification on UNIX (cf. `SIGCHLD`).
 pub trait EventedPty: EventedReadWrite {
-    fn child_event_token(&self) -> mio::Token;
-
     /// Tries to retrieve an event.
     ///
     /// Returns `Some(event)` on success, or `None` if there are no events to retrieve.

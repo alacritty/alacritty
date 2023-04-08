@@ -23,9 +23,8 @@ bitflags = { version = "2.2.1", features = ["serde"] }
 home = "0.5.5"
 libc = "0.2"
 log = "0.4"
-mio = "0.6.20"
-mio-extras = "2"
 parking_lot = "0.12.0"
+polling = "2.8.0"
 regex-automata = "0.3.6"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_yaml = "0.8"
@@ -36,10 +35,8 @@ vte = { version = "0.12.0", default-features = false, features = ["ansi", "serde
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.26.2", default-features = false, features = ["term"] }
 signal-hook = "0.3.10"
-signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 
 [target.'cfg(windows)'.dependencies]
-mio-anonymous-pipes = "0.2"
 miow = "0.3"
 windows-sys = { version = "0.48", features = [
     "Win32_System_Console",
