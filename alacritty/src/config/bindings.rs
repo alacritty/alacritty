@@ -1114,26 +1114,8 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                 let action = match (action, chars, command) {
                     (Some(action @ Action::ViMotion(_)), None, None)
-                    | (Some(action @ Action::Vi(_)), None, None) => {
-                        if !mode.intersects(BindingMode::VI) || not_mode.intersects(BindingMode::VI)
-                        {
-                            return Err(V::Error::custom(format!(
-                                "action `{}` is only available in vi mode, try adding `mode: Vi`",
-                                action,
-                            )));
-                        }
-                        action
-                    },
-                    (Some(action @ Action::Search(_)), None, None) => {
-                        if !mode.intersects(BindingMode::SEARCH) {
-                            return Err(V::Error::custom(format!(
-                                "action `{}` is only available in search mode, try adding `mode: \
-                                 Search`",
-                                action,
-                            )));
-                        }
-                        action
-                    },
+                    | (Some(action @ Action::Vi(_)), None, None) => action,
+                    (Some(action @ Action::Search(_)), None, None) => action,
                     (Some(action @ Action::Mouse(_)), None, None) => {
                         if mouse.is_none() {
                             return Err(V::Error::custom(format!(
