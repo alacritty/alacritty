@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::time::{Duration, Instant};
 
+use log::debug;
 use winit::dpi::PhysicalPosition;
 use winit::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta,
@@ -162,6 +163,11 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.on_typing_start();
                 ctx.toggle_vi_mode()
             },
+            action @ (Action::ViMotion(_) | Action::Vi(_))
+                if !ctx.terminal().mode().contains(TermMode::VI) =>
+            {
+                debug!("Ignoring {action:?}: Vi mode inactive");
+            },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
                 ctx.terminal_mut().vi_motion(*motion);
@@ -245,6 +251,9 @@ impl<T: EventListener> Execute<T> for Action {
                 let scroll_lines = target - line.0;
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
+            },
+            action @ Action::Search(_) if !ctx.search_active() => {
+                debug!("Ignoring {action:?}: Search mode inactive");
             },
             Action::Search(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
