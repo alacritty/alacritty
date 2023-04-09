@@ -73,6 +73,7 @@ pub struct Processor<T: EventListener, A: ActionContext<T>> {
 
 pub trait ActionContext<T: EventListener> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&self, _data: B) {}
+    fn received_char(&mut self, _c: char) {}
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
@@ -152,10 +153,9 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match self {
             Action::Esc(s) => {
-                ctx.on_typing_start();
-                ctx.clear_selection();
-                ctx.scroll(Scroll::Bottom);
-                ctx.write_to_pty(s.clone().into_bytes())
+                for c in s.chars() {
+                    ctx.received_char(c);
+                }
             },
             Action::Command(program) => ctx.spawn_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
@@ -936,12 +936,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
         }
 
-        match input.state {
-            ElementState::Pressed => {
-                *self.ctx.received_count() = 0;
-                self.process_key_bindings(input);
-            },
-            ElementState::Released => *self.ctx.suppress_chars() = false,
+        // Reset character suppression.
+        *self.ctx.suppress_chars() = false;
+
+        if let ElementState::Pressed = input.state {
+            *self.ctx.received_count() = 0;
+            self.process_key_bindings(input);
         }
     }
 
@@ -962,63 +962,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     pub fn reset_mouse_cursor(&mut self) {
         let mouse_state = self.cursor_state();
         self.ctx.window().set_mouse_cursor(mouse_state);
-    }
-
-    /// Process a received character.
-    pub fn received_char(&mut self, c: char) {
-        let suppress_chars = *self.ctx.suppress_chars();
-
-        // Don't insert chars when we have IME running.
-        if self.ctx.display().ime.preedit().is_some() {
-            return;
-        }
-
-        // Handle hint selection over anything else.
-        if self.ctx.display().hint_state.active() && !suppress_chars {
-            self.ctx.hint_input(c);
-            return;
-        }
-
-        // Pass keys to search and ignore them during `suppress_chars`.
-        let search_active = self.ctx.search_active();
-        if suppress_chars || search_active || self.ctx.terminal().mode().contains(TermMode::VI) {
-            if search_active && !suppress_chars {
-                self.ctx.search_input(c);
-            }
-
-            return;
-        }
-
-        self.ctx.on_typing_start();
-
-        if self.ctx.terminal().grid().display_offset() != 0 {
-            self.ctx.scroll(Scroll::Bottom);
-        }
-        self.ctx.clear_selection();
-
-        let utf8_len = c.len_utf8();
-        let mut bytes = vec![0; utf8_len];
-        c.encode_utf8(&mut bytes[..]);
-
-        #[cfg(not(target_os = "macos"))]
-        let alt_send_esc = true;
-
-        // Don't send ESC when `OptionAsAlt` is used. This doesn't handle
-        // `Only{Left,Right}` variants due to inability to distinguish them.
-        #[cfg(target_os = "macos")]
-        let alt_send_esc = self.ctx.config().window.option_as_alt != OptionAsAlt::None;
-
-        if alt_send_esc
-            && *self.ctx.received_count() == 0
-            && self.ctx.modifiers().alt()
-            && utf8_len == 1
-        {
-            bytes.insert(0, b'\x1b');
-        }
-
-        self.ctx.write_to_pty(bytes);
-
-        *self.ctx.received_count() += 1;
     }
 
     /// Attempt to find a binding and execute its action.
