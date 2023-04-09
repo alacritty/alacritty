@@ -73,7 +73,6 @@ pub struct Processor<T: EventListener, A: ActionContext<T>> {
 
 pub trait ActionContext<T: EventListener> {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&self, _data: B) {}
-    fn received_char(&mut self, _c: char) {}
     fn mark_dirty(&mut self) {}
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _ty: ClipboardType) {}
@@ -120,7 +119,8 @@ pub trait ActionContext<T: EventListener> {
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
-    fn paste(&mut self, _text: &str) {}
+    fn on_terminal_input_start(&mut self) {}
+    fn paste(&mut self, _text: &str, _bracketed: bool) {}
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
@@ -152,11 +152,7 @@ impl<T: EventListener> Execute<T> for Action {
     #[inline]
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match self {
-            Action::Esc(s) => {
-                for c in s.chars() {
-                    ctx.received_char(c);
-                }
-            },
+            Action::Esc(s) => ctx.paste(s, false),
             Action::Command(program) => ctx.spawn_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
@@ -276,11 +272,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearSelection => ctx.clear_selection(),
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                ctx.paste(&text);
+                ctx.paste(&text, true);
             },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                ctx.paste(&text);
+                ctx.paste(&text, true);
             },
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             Action::ToggleMaximized => ctx.window().toggle_maximized(),
@@ -962,6 +958,58 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     pub fn reset_mouse_cursor(&mut self) {
         let mouse_state = self.cursor_state();
         self.ctx.window().set_mouse_cursor(mouse_state);
+    }
+
+    /// Process a received character.
+    pub fn received_char(&mut self, c: char) {
+        let suppress_chars = *self.ctx.suppress_chars();
+
+        // Don't insert chars when we have IME running.
+        if self.ctx.display().ime.preedit().is_some() {
+            return;
+        }
+
+        // Handle hint selection over anything else.
+        if self.ctx.display().hint_state.active() && !suppress_chars {
+            self.ctx.hint_input(c);
+            return;
+        }
+
+        // Pass keys to search and ignore them during `suppress_chars`.
+        let search_active = self.ctx.search_active();
+        if suppress_chars || search_active || self.ctx.terminal().mode().contains(TermMode::VI) {
+            if search_active && !suppress_chars {
+                self.ctx.search_input(c);
+            }
+
+            return;
+        }
+
+        self.ctx.on_terminal_input_start();
+
+        let utf8_len = c.len_utf8();
+        let mut bytes = vec![0; utf8_len];
+        c.encode_utf8(&mut bytes[..]);
+
+        #[cfg(not(target_os = "macos"))]
+        let alt_send_esc = true;
+
+        // Don't send ESC when `OptionAsAlt` is used. This doesn't handle
+        // `Only{Left,Right}` variants due to inability to distinguish them.
+        #[cfg(target_os = "macos")]
+        let alt_send_esc = self.ctx.config().window.option_as_alt != OptionAsAlt::None;
+
+        if alt_send_esc
+            && *self.ctx.received_count() == 0
+            && self.ctx.modifiers().alt()
+            && utf8_len == 1
+        {
+            bytes.insert(0, b'\x1b');
+        }
+
+        self.ctx.write_to_pty(bytes);
+
+        *self.ctx.received_count() += 1;
     }
 
     /// Attempt to find a binding and execute its action.
