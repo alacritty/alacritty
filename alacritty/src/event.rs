@@ -218,56 +218,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.notifier.notify(val);
     }
 
-    fn received_char(&mut self, c: char) {
-        // Don't insert chars when we have IME running.
-        if self.display().ime.preedit().is_some() {
-            return;
-        }
-
-        // Handle hint selection over anything else.
-        if self.display().hint_state.active() && !*self.suppress_chars {
-            self.hint_input(c);
-            return;
-        }
-
-        // Pass keys to search and ignore them during `suppress_chars`.
-        let search_active = self.search_active();
-        if *self.suppress_chars || search_active || self.terminal().mode().contains(TermMode::VI) {
-            if search_active && !*self.suppress_chars {
-                self.search_input(c);
-            }
-
-            return;
-        }
-
-        self.on_typing_start();
-
-        if self.terminal().grid().display_offset() != 0 {
-            self.scroll(Scroll::Bottom);
-        }
-        self.clear_selection();
-
-        let utf8_len = c.len_utf8();
-        let mut bytes = vec![0; utf8_len];
-        c.encode_utf8(&mut bytes[..]);
-
-        #[cfg(not(target_os = "macos"))]
-        let alt_send_esc = true;
-
-        // Don't send ESC when `OptionAsAlt` is used. This doesn't handle
-        // `Only{Left,Right}` variants due to inability to distinguish them.
-        #[cfg(target_os = "macos")]
-        let alt_send_esc = self.config().window.option_as_alt != OptionAsAlt::None;
-
-        if alt_send_esc && *self.received_count() == 0 && self.modifiers().alt() && utf8_len == 1 {
-            bytes.insert(0, b'\x1b');
-        }
-
-        self.write_to_pty(bytes);
-
-        *self.received_count() += 1;
-    }
-
     /// Request a redraw.
     #[inline]
     fn mark_dirty(&mut self) {
@@ -774,9 +724,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
-            HintAction::Action(HintInternalAction::Paste) => {
-                self.paste(&text);
-            },
+            HintAction::Action(HintInternalAction::Paste) => self.paste(&text, true),
             // Select the text.
             HintAction::Action(HintInternalAction::Select) => {
                 self.start_selection(SelectionType::Simple, *hint_bounds.start(), Side::Left);
@@ -832,13 +780,25 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Handle beginning of terminal text input.
+    fn on_terminal_input_start(&mut self) {
+        self.on_typing_start();
+        self.clear_selection();
+
+        if self.terminal().grid().display_offset() != 0 {
+            self.scroll(Scroll::Bottom);
+        }
+    }
+
     /// Paste a text into the terminal.
-    fn paste(&mut self, text: &str) {
+    fn paste(&mut self, text: &str, bracketed: bool) {
         if self.search_active() {
             for c in text.chars() {
                 self.search_input(c);
             }
-        } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+        } else if bracketed && self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+            self.on_terminal_input_start();
+
             self.write_to_pty(&b"\x1b[200~"[..]);
 
             // Write filtered escape sequences.
@@ -851,6 +811,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
             self.write_to_pty(&b"\x1b[201~"[..]);
         } else {
+            self.on_terminal_input_start();
+
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
             // pasted data from keystrokes.
             // In theory, we should construct the keystrokes needed to produce the data we are
@@ -1338,7 +1300,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.key_input(input);
                     },
                     WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
-                    WindowEvent::ReceivedCharacter(c) => self.ctx.received_char(c),
+                    WindowEvent::ReceivedCharacter(c) => self.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_input(state, button);
@@ -1372,7 +1334,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        self.ctx.paste(&(path + " "));
+                        self.ctx.paste(&(path + " "), true);
                     },
                     WindowEvent::CursorLeft { .. } => {
                         self.ctx.mouse.inside_text_area = false;
@@ -1384,11 +1346,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
-
-                            for ch in text.chars() {
-                                self.ctx.received_char(ch);
-                            }
-
+                            self.ctx.paste(&text, true);
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {
