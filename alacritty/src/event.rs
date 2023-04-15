@@ -1240,10 +1240,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
                     TerminalEvent::Bell => {
-                        // Set window urgency.
-                        if self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
-                            let focused = self.ctx.terminal.is_focused;
-                            self.ctx.window().set_urgent(!focused);
+                        // Set window urgency hint when window is not focused.
+                        let focused = self.ctx.terminal.is_focused;
+                        if !focused && self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
+                            self.ctx.window().set_urgent(true);
                         }
 
                         // Ring visual bell.
@@ -1324,6 +1324,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
+                        // Reset the urgency hint when gaining focus.
                         if is_focused {
                             self.ctx.window().set_urgent(false);
                         }
