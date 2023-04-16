@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.13.0-dev
 
+### Changed
+
+- Mode-specific bindings can now be bound in any mode for easier macros
+
 ### Fixed
 
 - Character `;` inside the `URI` in `OSC 8` sequence breaking the URI

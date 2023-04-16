@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::time::{Duration, Instant};
 
+use log::debug;
 use winit::dpi::PhysicalPosition;
 use winit::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta,
@@ -119,7 +120,8 @@ pub trait ActionContext<T: EventListener> {
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
-    fn paste(&mut self, _text: &str) {}
+    fn on_terminal_input_start(&mut self) {}
+    fn paste(&mut self, _text: &str, _bracketed: bool) {}
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
     where
         I: IntoIterator<Item = S> + Debug + Copy,
@@ -151,12 +153,7 @@ impl<T: EventListener> Execute<T> for Action {
     #[inline]
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A) {
         match self {
-            Action::Esc(s) => {
-                ctx.on_typing_start();
-                ctx.clear_selection();
-                ctx.scroll(Scroll::Bottom);
-                ctx.write_to_pty(s.clone().into_bytes())
-            },
+            Action::Esc(s) => ctx.paste(s, false),
             Action::Command(program) => ctx.spawn_daemon(program.program(), program.args()),
             Action::Hint(hint) => {
                 ctx.display().hint_state.start(hint.clone());
@@ -165,6 +162,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ToggleViMode => {
                 ctx.on_typing_start();
                 ctx.toggle_vi_mode()
+            },
+            action @ (Action::ViMotion(_) | Action::Vi(_))
+                if !ctx.terminal().mode().contains(TermMode::VI) =>
+            {
+                debug!("Ignoring {action:?}: Vi mode inactive");
             },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
@@ -250,6 +252,9 @@ impl<T: EventListener> Execute<T> for Action {
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
             },
+            action @ Action::Search(_) if !ctx.search_active() => {
+                debug!("Ignoring {action:?}: Search mode inactive");
+            },
             Action::Search(SearchAction::SearchFocusNext) => {
                 ctx.advance_search_origin(ctx.search_direction());
             },
@@ -276,11 +281,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ClearSelection => ctx.clear_selection(),
             Action::Paste => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Clipboard);
-                ctx.paste(&text);
+                ctx.paste(&text, true);
             },
             Action::PasteSelection => {
                 let text = ctx.clipboard_mut().load(ClipboardType::Selection);
-                ctx.paste(&text);
+                ctx.paste(&text, true);
             },
             Action::ToggleFullscreen => ctx.window().toggle_fullscreen(),
             Action::ToggleMaximized => ctx.window().toggle_maximized(),
@@ -936,12 +941,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             }
         }
 
-        match input.state {
-            ElementState::Pressed => {
-                *self.ctx.received_count() = 0;
-                self.process_key_bindings(input);
-            },
-            ElementState::Released => *self.ctx.suppress_chars() = false,
+        // Reset character suppression.
+        *self.ctx.suppress_chars() = false;
+
+        if let ElementState::Pressed = input.state {
+            *self.ctx.received_count() = 0;
+            self.process_key_bindings(input);
         }
     }
 
@@ -989,12 +994,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
-        self.ctx.on_typing_start();
-
-        if self.ctx.terminal().grid().display_offset() != 0 {
-            self.ctx.scroll(Scroll::Bottom);
-        }
-        self.ctx.clear_selection();
+        self.ctx.on_terminal_input_start();
 
         let utf8_len = c.len_utf8();
         let mut bytes = vec![0; utf8_len];

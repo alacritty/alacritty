@@ -496,6 +496,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Enable IME so we can input into the search bar with it if we were in Vi mode.
         self.window().set_ime_allowed(true);
 
+        self.terminal.mark_fully_damaged();
         self.display.pending_update.dirty = true;
     }
 
@@ -724,9 +725,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
                 self.clipboard.store(ClipboardType::Clipboard, text);
             },
             // Write the text to the PTY/search.
-            HintAction::Action(HintInternalAction::Paste) => {
-                self.paste(&text);
-            },
+            HintAction::Action(HintInternalAction::Paste) => self.paste(&text, true),
             // Select the text.
             HintAction::Action(HintInternalAction::Select) => {
                 self.start_selection(SelectionType::Simple, *hint_bounds.start(), Side::Left);
@@ -782,13 +781,25 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
+    /// Handle beginning of terminal text input.
+    fn on_terminal_input_start(&mut self) {
+        self.on_typing_start();
+        self.clear_selection();
+
+        if self.terminal().grid().display_offset() != 0 {
+            self.scroll(Scroll::Bottom);
+        }
+    }
+
     /// Paste a text into the terminal.
-    fn paste(&mut self, text: &str) {
+    fn paste(&mut self, text: &str, bracketed: bool) {
         if self.search_active() {
             for c in text.chars() {
                 self.search_input(c);
             }
-        } else if self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+        } else if bracketed && self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
+            self.on_terminal_input_start();
+
             self.write_to_pty(&b"\x1b[200~"[..]);
 
             // Write filtered escape sequences.
@@ -801,6 +812,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
             self.write_to_pty(&b"\x1b[201~"[..]);
         } else {
+            self.on_terminal_input_start();
+
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
             // pasted data from keystrokes.
             // In theory, we should construct the keystrokes needed to produce the data we are
@@ -971,6 +984,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
         self.window().set_ime_allowed(!vi_mode);
 
+        self.terminal.mark_fully_damaged();
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
 
@@ -1226,10 +1240,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::Wakeup => *self.ctx.dirty = true,
                     TerminalEvent::Bell => {
-                        // Set window urgency.
-                        if self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
-                            let focused = self.ctx.terminal.is_focused;
-                            self.ctx.window().set_urgent(!focused);
+                        // Set window urgency hint when window is not focused.
+                        let focused = self.ctx.terminal.is_focused;
+                        if !focused && self.ctx.terminal.mode().contains(TermMode::URGENCY_HINTS) {
+                            self.ctx.window().set_urgent(true);
                         }
 
                         // Ring visual bell.
@@ -1310,6 +1324,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         }
 
+                        // Reset the urgency hint when gaining focus.
                         if is_focused {
                             self.ctx.window().set_urgent(false);
                         }
@@ -1322,7 +1337,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();
-                        self.ctx.paste(&(path + " "));
+                        self.ctx.paste(&(path + " "), true);
                     },
                     WindowEvent::CursorLeft { .. } => {
                         self.ctx.mouse.inside_text_area = false;
@@ -1334,11 +1349,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     WindowEvent::Ime(ime) => match ime {
                         Ime::Commit(text) => {
                             *self.ctx.dirty = true;
-
-                            for ch in text.chars() {
-                                self.received_char(ch);
-                            }
-
+                            self.ctx.paste(&text, true);
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {

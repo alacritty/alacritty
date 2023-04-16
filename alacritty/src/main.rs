@@ -61,6 +61,7 @@ use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
+use crate::macos::dock;
 
 fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
@@ -156,6 +157,10 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     // Set macOS locale.
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
+
+    // Configure macOS dock.
+    #[cfg(target_os = "macos")]
+    dock::init();
 
     // Create a config monitor when config was loaded from path.
     //
