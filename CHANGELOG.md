@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Mode-specific bindings can now be bound in any mode for easier macros
+- Update default macOS bindings for `Cmd`+`N` and `Cmd`+`T` to open windows as expected
 
 ### Fixed
 
