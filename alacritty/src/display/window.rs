@@ -23,6 +23,7 @@ use {
     cocoa::appkit::NSColorSpace,
     cocoa::base::{id, nil, NO, YES},
     objc::{msg_send, sel, sel_impl},
+    objc::runtime::{Class, Object},
     winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
 };
 
@@ -167,7 +168,7 @@ impl Window {
             .with_title(&identity.title)
             .with_theme(config.window.theme())
             .with_visible(false)
-            .with_transparent(true)
+            .with_transparent(config.window_opacity() < 1.)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
             .with_fullscreen(config.window.fullscreen())
@@ -343,6 +344,9 @@ impl Window {
 
     pub fn set_transparent(&self, transparent: bool) {
         self.window.set_transparent(transparent);
+
+        #[cfg(target_os = "macos")]
+        set_transparent_macos(&self.window, transparent);
     }
 
     pub fn set_blur(&self, blur: bool) {
@@ -494,3 +498,25 @@ fn use_srgb_color_space(window: &WinitWindow) {
         let _: () = msg_send![raw_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
     }
 }
+
+#[cfg(target_os = "macos")]
+fn set_transparent_macos(window: &WinitWindow, transparent: bool) {
+    let raw_window = match window.raw_window_handle() {
+        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        _ => return,
+    };
+
+    // If transparent, fill background with NSColor.clearColor,
+    // otherwise fill with NSColor.windowBackgroundColor so that MacOS
+    // properly draws the window's border and opaque title bar.
+    unsafe {
+        let color_class = Class::get("NSColor").unwrap();
+        let bg_color: *const Object = if transparent {
+            msg_send![color_class, clearColor]
+        } else {
+            msg_send![color_class, windowBackgroundColor]
+        };
+        let _: () = msg_send![raw_window, setBackgroundColor: bg_color];
+    }
+}
+
