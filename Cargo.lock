@@ -2169,8 +2169,7 @@ checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
 [[package]]
 name = "winit"
 version = "0.28.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f504e8c117b9015f618774f8d58cd4781f5a479bc41079c064f974cbb253874"
+source = "git+https://github.com/kchibisov/winit?branch=test-macos-legacy#0b3b0676a27e47658d2839c7d4e052eb435efb99"
 dependencies = [
  "android-activity",
  "bitflags",
