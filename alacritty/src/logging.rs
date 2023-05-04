@@ -13,6 +13,7 @@ use std::time::Instant;
 use std::{env, process};
 
 use log::{self, Level, LevelFilter};
+use once_cell::sync::Lazy;
 use winit::event_loop::EventLoopProxy;
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
@@ -26,6 +27,17 @@ pub const LOG_TARGET_IPC_CONFIG: &str = "alacritty_log_ipc_config";
 
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
+
+/// Name for the environment varibale containing extra logging targets.
+///
+/// The targets are semicolon separated.
+const ALACRITTY_EXTRA_LOG_TARGETS_ENV: &str = "ALACRITTY_EXTRA_LOG_TARGETS";
+
+/// User configurable extra log targets to include.
+static EXTRA_LOG_TARGETS: Lazy<Vec<String>> = Lazy::new(|| {
+    env::var(ALACRITTY_EXTRA_LOG_TARGETS_ENV)
+        .map_or(Vec::new(), |targets| targets.split(';').map(ToString::to_string).collect())
+});
 
 /// List of targets which will be logged by Alacritty.
 const ALLOWED_TARGETS: &[&str] = &[
@@ -167,7 +179,7 @@ fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) ->
 fn is_allowed_target(level: Level, target: &str) -> bool {
     match (level, log::max_level()) {
         (Level::Error, LevelFilter::Trace) | (Level::Warn, LevelFilter::Trace) => true,
-        _ => ALLOWED_TARGETS.contains(&target),
+        _ => ALLOWED_TARGETS.contains(&target) || EXTRA_LOG_TARGETS.iter().any(|t| t == target),
     }
 }
 
