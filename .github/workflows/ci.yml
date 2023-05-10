@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Stable
         run: cargo test
       - name: Oldstable
@@ -28,7 +28,7 @@ jobs:
   check-macos-arm:
     runs-on: macos-11
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install target
         run: rustup update && rustup target add aarch64-apple-darwin
       - name: Build
