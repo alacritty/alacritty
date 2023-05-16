@@ -151,7 +151,7 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
 
     // Switch to home directory.
     #[cfg(target_os = "macos")]
-    env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
+    env::set_current_dir(home::home_dir().unwrap()).unwrap();
 
     // Set macOS locale.
     #[cfg(target_os = "macos")]

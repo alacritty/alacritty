@@ -18,19 +18,19 @@ path = "../alacritty_config"
 version = "0.1.2-dev"
 
 [dependencies]
-libc = "0.2"
+base64 = "0.13.0"
 bitflags = { version = "2.2.1", features = ["serde"] }
-parking_lot = "0.12.0"
-serde = { version = "1", features = ["derive", "rc"] }
-serde_yaml = "0.8"
-vte = { version = "0.10.0", default-features = false }
+home = "0.5.5"
+libc = "0.2"
+log = "0.4"
 mio = "0.6.20"
 mio-extras = "2"
-log = "0.4"
-unicode-width = "0.1"
-base64 = "0.13.0"
+parking_lot = "0.12.0"
 regex-automata = "0.1.9"
-dirs = "4.0.0"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_yaml = "0.8"
+unicode-width = "0.1"
+vte = { version = "0.10.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.24.1"
@@ -38,8 +38,8 @@ signal-hook = "0.3.10"
 signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 
 [target.'cfg(windows)'.dependencies]
-miow = "0.3"
 mio-anonymous-pipes = "0.2"
+miow = "0.3"
 windows-sys = { version = "0.36", features = [
     "Win32_System_Console",
     "Win32_Foundation",

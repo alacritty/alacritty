@@ -23,24 +23,24 @@ path = "../alacritty_config"
 version = "0.1.2-dev"
 
 [dependencies]
-clap = { version = "3.0.0", features = ["derive", "env"] }
-log = { version = "0.4", features = ["std", "serde"] }
-fnv = "1"
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.8"
-serde_json = "1"
-glutin = { version = "0.30.4", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.28.2", default-features = false, features = ["serde"] }
-notify = "5.1.0"
-parking_lot = "0.12.0"
-crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
-copypasta = { version = "0.8.1", default-features = false }
-raw-window-handle = "0.5.0"
-libc = "0.2"
-unicode-width = "0.1"
 bitflags = "2.2.1"
-dirs = "4.0.0"
+clap = { version = "3.0.0", features = ["derive", "env"] }
+copypasta = { version = "0.8.1", default-features = false }
+crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
+fnv = "1"
+glutin = { version = "0.30.4", default-features = false, features = ["egl", "wgl"] }
+home = "0.5.5"
+libc = "0.2"
+log = { version = "0.4", features = ["std", "serde"] }
+notify = "5.1.0"
 once_cell = "1.12"
+parking_lot = "0.12.0"
+raw-window-handle = "0.5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.8"
+unicode-width = "0.1"
+winit = { version = "0.28.2", default-features = false, features = ["serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"
@@ -49,13 +49,12 @@ gl_generator = "0.14.0"
 clap_complete = "3.0.0"
 
 [target.'cfg(not(windows))'.dependencies]
-xdg = "2.4.0"
+xdg = "2.5.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-raw-window-handle = "0.5.0"
 cocoa = "0.24.0"
 objc = "0.2.2"
 
@@ -64,7 +63,8 @@ x11-dl = { version = "2", optional = true }
 wayland-client = { version = "0.29.0", features = ["dlopen"], optional = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.36", features = [
+dirs = "5.0.1"
+windows-sys = { version = "0.45", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
     "Win32_System_Console",
