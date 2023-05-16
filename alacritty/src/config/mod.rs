@@ -236,7 +236,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
         };
 
         // Resolve paths relative to user's home directory.
-        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), dirs::home_dir()) {
+        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
             path = home_dir.join(stripped);
         }
 
