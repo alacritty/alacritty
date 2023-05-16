@@ -6,7 +6,7 @@ license = "MIT/Apache-2.0"
 description = "Alacritty configuration abstractions"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.65.0"
 
 [dependencies]
 log = { version = "0.4.17", features = ["serde"] }
