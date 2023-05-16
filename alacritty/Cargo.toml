@@ -24,7 +24,7 @@ version = "0.1.2-dev"
 
 [dependencies]
 bitflags = "2.2.1"
-clap = { version = "3.0.0", features = ["derive", "env"] }
+clap = { version = "4.2.7", features = ["derive", "env"] }
 copypasta = { version = "0.8.1", default-features = false }
 crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
 fnv = "1"
@@ -46,7 +46,7 @@ winit = { version = "0.28.2", default-features = false, features = ["serde"] }
 gl_generator = "0.14.0"
 
 [dev-dependencies]
-clap_complete = "3.0.0"
+clap_complete = "4.2.3"
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2.5.0"

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 #[cfg(unix)]
 use clap::Subcommand;
-use clap::{Args, Parser, ValueHint};
+use clap::{ArgAction, Args, Parser, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -51,15 +51,15 @@ pub struct Options {
     pub socket: Option<PathBuf>,
 
     /// Reduces the level of verbosity (the min level is -qq).
-    #[clap(short, conflicts_with("verbose"), parse(from_occurrences))]
+    #[clap(short, conflicts_with("verbose"), action = ArgAction::Count)]
     quiet: u8,
 
     /// Increases the level of verbosity (the max level is -vvv).
-    #[clap(short, conflicts_with("quiet"), parse(from_occurrences))]
+    #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     verbose: u8,
 
     /// Override configuration file options [example: cursor.style=Beam].
-    #[clap(short = 'o', long, multiple_values = true)]
+    #[clap(short = 'o', long, num_args = 1..)]
     option: Vec<String>,
 
     /// CLI options for config overrides.
@@ -195,7 +195,7 @@ pub struct TerminalOptions {
     pub hold: bool,
 
     /// Command and args to execute (must be last argument).
-    #[clap(short = 'e', long, allow_hyphen_values = true, multiple_values = true)]
+    #[clap(short = 'e', long, allow_hyphen_values = true, num_args = 1..)]
     command: Vec<String>,
 }
 
@@ -242,7 +242,7 @@ pub struct WindowIdentity {
     pub title: Option<String>,
 
     /// Defines window class/app_id on X11/Wayland [default: Alacritty].
-    #[clap(long, value_name = "general> | <general>,<instance", parse(try_from_str = parse_class))]
+    #[clap(long, value_name = "general> | <general>,<instance", value_parser = parse_class)]
     pub class: Option<Class>,
 }
 
@@ -330,7 +330,7 @@ mod tests {
     use std::io::Read;
 
     #[cfg(target_os = "linux")]
-    use clap::IntoApp;
+    use clap::CommandFactory;
     #[cfg(target_os = "linux")]
     use clap_complete::Shell;
     use serde_yaml::mapping::Mapping;
@@ -446,7 +446,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn completions() {
-        let mut clap = Options::into_app();
+        let mut clap = Options::command();
 
         for (shell, file) in &[
             (Shell::Bash, "alacritty.bash"),

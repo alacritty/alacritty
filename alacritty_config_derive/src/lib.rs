@@ -6,7 +6,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse::{self, Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{GenericParam, Ident, LitStr, Path, Token, TypeParam};
+use syn::{GenericParam, Ident, LitStr, Token, TypeParam};
 
 mod config_deserialize;
 mod serde_replace;
@@ -23,12 +23,6 @@ pub fn derive_config_deserialize(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SerdeReplace)]
 pub fn derive_serde_replace(input: TokenStream) -> TokenStream {
     serde_replace::derive(input)
-}
-
-/// Verify that a token path ends with a specific segment.
-pub(crate) fn path_ends_with(path: &Path, segment: &str) -> bool {
-    let segments = path.segments.iter();
-    segments.last().map_or(false, |s| s.ident == segment)
 }
 
 /// Storage for all necessary generics information.
