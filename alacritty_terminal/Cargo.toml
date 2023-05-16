@@ -7,7 +7,7 @@ description = "Library for writing terminal emulators"
 readme = "../README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.65.0"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
@@ -33,7 +33,7 @@ unicode-width = "0.1"
 vte = { version = "0.10.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.24.1"
+nix = { version = "0.26.2", default-features = false, features = ["term"] }
 signal-hook = "0.3.10"
 signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 
