@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
-use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::{fmt, ptr};
 
 use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
-use log::info;
+use log::{debug, error, info, warn, LevelFilter};
 use once_cell::sync::OnceCell;
 
 use alacritty_terminal::index::Point;
@@ -102,13 +102,17 @@ impl Renderer {
             });
         }
 
-        let (version, renderer) = unsafe {
-            let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _);
-            let version = CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _);
-            (version.to_string_lossy(), renderer.to_string_lossy())
+        let (shader_version, gl_version, renderer) = unsafe {
+            let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _).to_string_lossy();
+            let shader_version =
+                CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _)
+                    .to_string_lossy();
+            let gl_version = CStr::from_ptr(gl::GetString(gl::VERSION) as *mut _).to_string_lossy();
+            (shader_version, gl_version, renderer)
         };
 
-        info!("Running on {}", renderer);
+        info!("Running on {renderer}");
+        info!("OpenGL version {gl_version}, shader_version {shader_version}");
 
         let is_gles_context = matches!(context.context_api(), ContextApi::Gles(_));
 
@@ -117,7 +121,7 @@ impl Renderer {
             Some(RendererPreference::Glsl3) => (true, true),
             Some(RendererPreference::Gles2) => (false, true),
             Some(RendererPreference::Gles2Pure) => (false, false),
-            None => (version.as_ref() >= "3.3" && !is_gles_context, true),
+            None => (shader_version.as_ref() >= "3.3" && !is_gles_context, true),
         };
 
         let (text_renderer, rect_renderer) = if use_glsl3 {
@@ -130,6 +134,16 @@ impl Renderer {
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
             (text_renderer, rect_renderer)
         };
+
+        // Enable debug logging for OpenGL as well.
+        if log::max_level() >= LevelFilter::Debug && GlExtensions::contains("GL_KHR_debug") {
+            debug!("Enabled debug logging for OpenGL");
+            unsafe {
+                gl::Enable(gl::DEBUG_OUTPUT);
+                gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+                gl::DebugMessageCallback(Some(gl_debug_log), ptr::null_mut());
+            }
+        }
 
         Ok(Self { text_renderer, rect_renderer })
     }
@@ -287,5 +301,24 @@ impl GlExtensions {
                 }
             }
         }
+    }
+}
+
+extern "system" fn gl_debug_log(
+    _: gl::types::GLenum,
+    kind: gl::types::GLenum,
+    _: gl::types::GLuint,
+    _: gl::types::GLenum,
+    _: gl::types::GLsizei,
+    msg: *const gl::types::GLchar,
+    _: *mut std::os::raw::c_void,
+) {
+    let msg = unsafe { CStr::from_ptr(msg).to_string_lossy() };
+    match kind {
+        gl::DEBUG_TYPE_ERROR | gl::DEBUG_TYPE_UNDEFINED_BEHAVIOR => {
+            error!("[gl_render] {}", msg)
+        },
+        gl::DEBUG_TYPE_DEPRECATED_BEHAVIOR => warn!("[gl_render] {}", msg),
+        _ => debug!("[gl_render] {}", msg),
     }
 }
