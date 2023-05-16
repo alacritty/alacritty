@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
+use syn::meta::ParseNestedMeta;
 use syn::{DataEnum, Generics, Ident};
 
 use crate::serde_replace;
@@ -14,7 +15,14 @@ pub fn derive_deserialize(ident: Ident, generics: Generics, data_enum: DataEnum)
     for variant in data_enum.variants.iter().filter(|variant| {
         // Skip deserialization for `#[config(skip)]` fields.
         variant.attrs.iter().all(|attr| {
-            !crate::path_ends_with(&attr.path, "config") || attr.tokens.to_string() != "(skip)"
+            let is_skip = |meta: ParseNestedMeta| {
+                if meta.path.is_ident("skip") {
+                    Ok(())
+                } else {
+                    Err(meta.error("not skip"))
+                }
+            };
+            !attr.path().is_ident("config") || attr.parse_nested_meta(is_skip).is_err()
         })
     }) {
         let variant_ident = &variant.ident;

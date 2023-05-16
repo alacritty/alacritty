@@ -115,7 +115,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
     };
 
     // Iterate over all #[config(...)] attributes.
-    for attr in field.attrs.iter().filter(|attr| crate::path_ends_with(&attr.path, "config")) {
+    for attr in field.attrs.iter().filter(|attr| attr.path().is_ident("config")) {
         let parsed = match attr.parse_args::<Attr>() {
             Ok(parsed) => parsed,
             Err(_) => continue,
@@ -161,7 +161,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
 
     // Create token stream for deserializing "none" string into `Option<T>`.
     if let Type::Path(type_path) = &field.ty {
-        if crate::path_ends_with(&type_path.path, "Option") {
+        if type_path.path.segments.iter().last().map_or(false, |s| s.ident == "Option") {
             match_assignment_stream = quote! {
                 if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
                     config.#ident = None;
