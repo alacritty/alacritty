@@ -39,6 +39,7 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 const INITIAL_TABSTOPS: usize = 8;
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct TermMode: u32 {
         const NONE                = 0;
         const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;

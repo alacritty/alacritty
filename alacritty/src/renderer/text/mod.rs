@@ -23,6 +23,7 @@ use glyph_cache::{Glyph, LoadGlyph};
 // NOTE: These flags must be in sync with their usage in the text.*.glsl shaders.
 bitflags! {
     #[repr(C)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     struct RenderingGlyphFlags: u8 {
         const COLORED   = 0b0000_0001;
         const WIDE_CHAR = 0b0000_0010;

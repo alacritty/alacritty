@@ -764,6 +764,7 @@ pub struct ModeWrapper {
 
 bitflags! {
     /// Modes available for key bindings.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct BindingMode: u8 {
         const APP_CURSOR          = 0b0000_0001;
         const APP_KEYPAD          = 0b0000_0010;
