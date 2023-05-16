@@ -30,6 +30,7 @@ echo "Git tag: $tag"
 echo "Checking for existing release..."
 upload_url=$(\
     curl \
+        --http1.1 \
         -H "Authorization: Bearer $bearer" \
         "https://api.github.com/repos/$repo/releases" \
         2> /dev/null \
@@ -48,6 +49,7 @@ if [ -z "$upload_url" ]; then
     # Create new release.
     response=$(
         curl -f \
+            --http1.1 \
             -X POST \
             -H "Authorization: Bearer $bearer" \
             -d "{\"tag_name\":\"$tag\",\"draft\":true}" \
@@ -79,6 +81,7 @@ fi
 file_name=${file_path##*/}
 echo "Uploading asset $file_name to $upload_url..."
 curl -f \
+    --http1.1 \
     -X POST \
     -H "Authorization: Bearer $bearer" \
     -H "Content-Type: application/octet-stream" \
