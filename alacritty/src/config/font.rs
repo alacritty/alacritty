@@ -40,7 +40,7 @@ pub struct Font {
     /// Font size in points.
     size: Size,
 
-    /// Font size in points, when zoomed int.
+    /// Font size in points, when zoomed in.
     zoom_size: Size,
 
     /// Whether to use the built-in font for box drawing characters.
