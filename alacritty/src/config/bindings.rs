@@ -134,6 +134,9 @@ pub enum Action {
     /// Reset font size to the config value.
     ResetFontSize,
 
+    /// Set font size to specific value
+    ZoomFont,
+
     /// Scroll exactly one page up.
     ScrollPageUp,
 
@@ -675,6 +678,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
             +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~BindingMode::VI; Action::PasteSelection;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
+        Key9,     ModifiersState::CTRL;  Action::ZoomFont;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
         Plus,     ModifiersState::CTRL;  Action::IncreaseFontSize;
         NumpadAdd,      ModifiersState::CTRL;  Action::IncreaseFontSize;

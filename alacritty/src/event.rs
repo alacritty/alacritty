@@ -454,6 +454,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.display.pending_update.set_font(self.config.font.clone());
     }
 
+    fn zoom_font(&mut self) {
+        *self.font_size = self.config.font.zoom_size();
+        let font = self.config.font.clone().with_size(*self.font_size);
+        self.display.pending_update.set_font(font);
+    }
+
     #[inline]
     fn pop_message(&mut self) {
         if !self.message_buffer.is_empty() {

@@ -40,6 +40,9 @@ pub struct Font {
     /// Font size in points.
     size: Size,
 
+    /// Font size in points, when zoomed int.
+    zoom_size: Size,
+
     /// Whether to use the built-in font for box drawing characters.
     pub builtin_box_drawing: bool,
 }
@@ -53,6 +56,11 @@ impl Font {
     #[inline]
     pub fn size(&self) -> FontSize {
         self.size.0
+    }
+
+    #[inline]
+    pub fn zoom_size(&self) -> FontSize {
+        self.zoom_size.0
     }
 
     /// Get normal font description.
@@ -88,6 +96,7 @@ impl Default for Font {
             normal: Default::default(),
             bold: Default::default(),
             size: Default::default(),
+            zoom_size: Size(FontSize::from(Size::default().0 * 2.)),
         }
     }
 }

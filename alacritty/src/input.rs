@@ -97,6 +97,7 @@ pub trait ActionContext<T: EventListener> {
     fn create_new_window(&mut self) {}
     fn change_font_size(&mut self, _delta: f32) {}
     fn reset_font_size(&mut self) {}
+    fn zoom_font(&mut self) {}
     fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &UiConfig;
@@ -301,6 +302,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
+            Action::ZoomFont => ctx.zoom_font(),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp => {
                 // Move vi mode cursor.
