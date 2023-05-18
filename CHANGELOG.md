@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     `colors.draw_bold_text_with_bright_colors`
 - Deprecated config option `key_bindings`, use `keyboard.bindings`
 - Deprecated config option `mouse_bindings`, use `mouse.bindings`
+- The default colorscheme is now based on base16 classic dark
 
 ### Fixed
 
