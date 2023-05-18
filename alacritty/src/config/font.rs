@@ -96,7 +96,7 @@ impl Default for Font {
             normal: Default::default(),
             bold: Default::default(),
             size: Default::default(),
-            zoom_size: Size(FontSize::from(Size::default().0 * 2.)),
+            zoom_size: Size(Size::default().0 * 2.),
         }
     }
 }
