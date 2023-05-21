@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mode-specific bindings can now be bound in any mode for easier macros
 - `--help` output is more compact now and uses more neutral palette
 
+## 0.12.1
+
 ### Fixed
 
 - Character `;` inside the `URI` in `OSC 8` sequence breaking the URI
