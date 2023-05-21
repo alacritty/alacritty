@@ -5,15 +5,12 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.12.1-rc2
-
-- Very long startup times on Wayland systems with broken xdg-portal setup.
-- Error on startup with `GLX` when using old mesa platforms
-
-## 0.12.1-rc1
+## 0.12.1
 
 ### Fixed
 
+- Very long startup times on Wayland systems with broken xdg-portal setup.
+- Error on startup with `GLX` when using old mesa platforms
 - Character `;` inside the `URI` in `OSC 8` sequence breaking the URI
 - Selection on last line not updating correctly on resize
 - Keyboard input not working on macOS with some IMEs like Fig.io
