@@ -7,6 +7,7 @@ use std::{cmp, mem, ptr, slice, str};
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
+use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
@@ -16,8 +17,8 @@ use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
 use crate::selection::{Selection, SelectionRange, SelectionType};
-use crate::term::cell::{Cell, Flags, Hyperlink, LineLength};
-use crate::term::color::{Colors, Rgb};
+use crate::term::cell::{Cell, Flags, LineLength};
+use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 
 pub mod cell;
@@ -1069,7 +1070,10 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn goto(&mut self, line: Line, col: Column) {
+    fn goto(&mut self, line: i32, col: usize) {
+        let line = Line(line);
+        let col = Column(col);
+
         trace!("Going to: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
             (self.scroll_region.start, self.scroll_region.end - 1)
@@ -1085,15 +1089,15 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn goto_line(&mut self, line: Line) {
+    fn goto_line(&mut self, line: i32) {
         trace!("Going to line: {}", line);
-        self.goto(line, self.grid.cursor.point.column)
+        self.goto(line, self.grid.cursor.point.column.0)
     }
 
     #[inline]
-    fn goto_col(&mut self, col: Column) {
+    fn goto_col(&mut self, col: usize) {
         trace!("Going to column: {}", col);
-        self.goto(self.grid.cursor.point.line, col)
+        self.goto(self.grid.cursor.point.line.0, col)
     }
 
     #[inline]
@@ -1127,17 +1131,23 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_up(&mut self, lines: usize) {
         trace!("Moving up: {}", lines);
-        self.goto(self.grid.cursor.point.line - lines, self.grid.cursor.point.column)
+
+        let line = self.grid.cursor.point.line - lines;
+        let column = self.grid.cursor.point.column;
+        self.goto(line.0, column.0)
     }
 
     #[inline]
     fn move_down(&mut self, lines: usize) {
         trace!("Moving down: {}", lines);
-        self.goto(self.grid.cursor.point.line + lines, self.grid.cursor.point.column)
+
+        let line = self.grid.cursor.point.line + lines;
+        let column = self.grid.cursor.point.column;
+        self.goto(line.0, column.0)
     }
 
     #[inline]
-    fn move_forward(&mut self, cols: Column) {
+    fn move_forward(&mut self, cols: usize) {
         trace!("Moving forward: {}", cols);
         let last_column = cmp::min(self.grid.cursor.point.column + cols, self.last_column());
 
@@ -1149,9 +1159,9 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn move_backward(&mut self, cols: Column) {
+    fn move_backward(&mut self, cols: usize) {
         trace!("Moving backward: {}", cols);
-        let column = self.grid.cursor.point.column.saturating_sub(cols.0);
+        let column = self.grid.cursor.point.column.saturating_sub(cols);
 
         let cursor_line = self.grid.cursor.point.line.0 as usize;
         self.damage.damage_line(cursor_line, column, self.grid.cursor.point.column.0);
@@ -1198,13 +1208,17 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_down_and_cr(&mut self, lines: usize) {
         trace!("Moving down and cr: {}", lines);
-        self.goto(self.grid.cursor.point.line + lines, Column(0))
+
+        let line = self.grid.cursor.point.line + lines;
+        self.goto(line.0, 0)
     }
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: usize) {
         trace!("Moving up and cr: {}", lines);
-        self.goto(self.grid.cursor.point.line - lines, Column(0))
+
+        let line = self.grid.cursor.point.line - lines;
+        self.goto(line.0, 0)
     }
 
     /// Insert tab at cursor position.
@@ -1362,7 +1376,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn erase_chars(&mut self, count: Column) {
+    fn erase_chars(&mut self, count: usize) {
         let cursor = &self.grid.cursor;
 
         trace!("Erasing chars: count={}, col={}", count, cursor.point.column);
@@ -1479,8 +1493,10 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Set the indexed color value.
     #[inline]
-    fn set_color(&mut self, index: usize, color: Rgb) {
+    fn set_color(&mut self, index: usize, color: VteRgb) {
         trace!("Setting color[{}] = {:?}", index, color);
+
+        let color = color.into();
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
@@ -1679,9 +1695,9 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
+    fn set_hyperlink(&mut self, hyperlink: Option<VteHyperlink>) {
         trace!("Setting hyperlink: {:?}", hyperlink);
-        self.grid.cursor.template.set_hyperlink(hyperlink);
+        self.grid.cursor.template.set_hyperlink(hyperlink.map(|e| e.into()));
     }
 
     /// Set a terminal attribute.
@@ -1858,7 +1874,7 @@ impl<T: EventListener> Handler for Term<T> {
         let screen_lines = Line(self.screen_lines() as i32);
         self.scroll_region.start = cmp::min(start, screen_lines);
         self.scroll_region.end = cmp::min(end, screen_lines);
-        self.goto(Line(0), Column(0));
+        self.goto(0, 0);
     }
 
     #[inline]
@@ -2756,7 +2772,7 @@ mod tests {
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
 
-        term.goto(Line(1), Column(1));
+        term.goto(1, 1);
 
         // NOTE While we can use `[Term::damage]` to access terminal damage information, in the
         // following tests we will be accessing `term.damage.lines` directly to avoid adding extra
@@ -2766,13 +2782,13 @@ mod tests {
         assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 1, right: 1 });
         term.damage.reset(num_cols);
 
-        term.move_forward(Column(3));
+        term.move_forward(3);
         assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 1, right: 4 });
         term.damage.reset(num_cols);
 
-        term.move_backward(Column(8));
+        term.move_backward(8);
         assert_eq!(term.damage.lines[1], LineDamageBounds { line: 1, left: 0, right: 4 });
-        term.goto(Line(5), Column(5));
+        term.goto(5, 5);
         term.damage.reset(num_cols);
 
         term.backspace();
@@ -2795,7 +2811,7 @@ mod tests {
         term.wrapline();
         assert_eq!(term.damage.lines[6], LineDamageBounds { line: 6, left: 3, right: 3 });
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 0 });
-        term.move_forward(Column(3));
+        term.move_forward(3);
         term.move_up(1);
         term.damage.reset(num_cols);
 
@@ -2808,20 +2824,20 @@ mod tests {
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 3 });
         term.damage.reset(num_cols);
 
-        term.erase_chars(Column(5));
+        term.erase_chars(5);
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right: 5 });
         term.damage.reset(num_cols);
 
         term.delete_chars(3);
         let right = term.columns() - 1;
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 0, right });
-        term.move_forward(Column(term.columns()));
+        term.move_forward(term.columns());
         term.damage.reset(num_cols);
 
         term.move_backward_tabs(1);
         assert_eq!(term.damage.lines[7], LineDamageBounds { line: 7, left: 8, right });
         term.save_cursor_position();
-        term.goto(Line(1), Column(1));
+        term.goto(1, 1);
         term.damage.reset(num_cols);
 
         term.restore_cursor_position();
@@ -2896,12 +2912,12 @@ mod tests {
         term.reset_damage();
 
         let color_index = 257;
-        term.set_color(color_index, Rgb::default());
+        term.set_color(color_index, VteRgb::default());
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
         // Setting the same color once again shouldn't trigger full damage.
-        term.set_color(color_index, Rgb::default());
+        term.set_color(color_index, VteRgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         term.reset_color(color_index);
@@ -2909,7 +2925,7 @@ mod tests {
         term.reset_damage();
 
         // We shouldn't trigger fully damage when cursor gets update.
-        term.set_color(NamedColor::Cursor as usize, Rgb::default());
+        term.set_color(NamedColor::Cursor as usize, VteRgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`

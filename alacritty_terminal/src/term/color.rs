@@ -1,13 +1,14 @@
 use std::fmt::{self, Display, Formatter};
-use std::ops::{Add, Index, IndexMut, Mul};
+use std::ops::{Add, Deref, Index, IndexMut, Mul};
 use std::str::FromStr;
 
-use log::trace;
 use serde::de::{Error as _, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml::Value;
 
 use alacritty_config_derive::SerdeReplace;
+
+use vte::ansi::Rgb as VteRgb;
 
 use crate::ansi::NamedColor;
 
@@ -15,75 +16,47 @@ use crate::ansi::NamedColor;
 pub const COUNT: usize = 269;
 
 #[derive(SerdeReplace, Debug, Eq, PartialEq, Copy, Clone, Default, Serialize)]
-pub struct Rgb {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
+pub struct Rgb(VteRgb);
 
 impl Rgb {
-    /// Implementation of W3C's luminance
-    /// [algorithm](https://www.w3.org/TR/WCAG20/#relativeluminancedef)
-    fn luminance(self) -> f64 {
-        let channel_luminance = |channel| {
-            let channel = channel as f64 / 255.;
-            if channel <= 0.03928 {
-                channel / 12.92
-            } else {
-                f64::powf((channel + 0.055) / 1.055, 2.4)
-            }
-        };
-
-        let r_luminance = channel_luminance(self.r);
-        let g_luminance = channel_luminance(self.g);
-        let b_luminance = channel_luminance(self.b);
-
-        0.2126 * r_luminance + 0.7152 * g_luminance + 0.0722 * b_luminance
+    #[inline]
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
+        Self(VteRgb { r, g, b })
     }
 
-    /// Implementation of [W3C's contrast algorithm].
-    ///
-    /// [W3C's contrast algorithm]: https://www.w3.org/TR/WCAG20/#contrast-ratiodef
-    pub fn contrast(self, other: Rgb) -> f64 {
-        let self_luminance = self.luminance();
-        let other_luminance = other.luminance();
-
-        let (darker, lighter) = if self_luminance > other_luminance {
-            (other_luminance, self_luminance)
-        } else {
-            (self_luminance, other_luminance)
-        };
-
-        (lighter + 0.05) / (darker + 0.05)
+    #[inline]
+    pub fn as_tuple(self) -> (u8, u8, u8) {
+        (self.0.r, self.0.g, self.0.b)
     }
 }
 
-// A multiply function for Rgb, as the default dim is just *2/3.
+impl From<VteRgb> for Rgb {
+    fn from(value: VteRgb) -> Self {
+        Self(value)
+    }
+}
+
+impl Deref for Rgb {
+    type Target = VteRgb;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl Mul<f32> for Rgb {
     type Output = Rgb;
 
-    fn mul(self, rhs: f32) -> Rgb {
-        let result = Rgb {
-            r: (f32::from(self.r) * rhs).clamp(0.0, 255.0) as u8,
-            g: (f32::from(self.g) * rhs).clamp(0.0, 255.0) as u8,
-            b: (f32::from(self.b) * rhs).clamp(0.0, 255.0) as u8,
-        };
-
-        trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);
-
-        result
+    fn mul(self, rhs: f32) -> Self::Output {
+        Rgb(self.0 * rhs)
     }
 }
 
 impl Add<Rgb> for Rgb {
     type Output = Rgb;
 
-    fn add(self, rhs: Rgb) -> Rgb {
-        Rgb {
-            r: self.r.saturating_add(rhs.r),
-            g: self.g.saturating_add(rhs.g),
-            b: self.b.saturating_add(rhs.b),
-        }
+    fn add(self, rhs: Rgb) -> Self::Output {
+        Rgb(self.0 + rhs.0)
     }
 }
 
@@ -130,7 +103,7 @@ impl<'de> Deserialize<'de> for Rgb {
 
         // Attempt to deserialize from struct form.
         if let Ok(RgbDerivedDeser { r, g, b }) = RgbDerivedDeser::deserialize(value.clone()) {
-            return Ok(Rgb { r, g, b });
+            return Ok(Rgb::new(r, g, b));
         }
 
         // Deserialize from hex notation (either 0xff00ff or #ff00ff).
@@ -163,7 +136,7 @@ impl FromStr for Rgb {
                 let g = (color & 0xff) as u8;
                 color >>= 8;
                 let r = color as u8;
-                Ok(Rgb { r, g, b })
+                Ok(Rgb::new(r, g, b))
             },
             Err(_) => Err(()),
         }
@@ -281,28 +254,5 @@ impl IndexMut<NamedColor> for Colors {
     #[inline]
     fn index_mut(&mut self, index: NamedColor) -> &mut Self::Output {
         &mut self.0[index as usize]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn contrast() {
-        let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
-        let rgb2 = Rgb { r: 0x00, g: 0x00, b: 0x00 };
-        assert!((rgb1.contrast(rgb2) - 21.).abs() < f64::EPSILON);
-
-        let rgb1 = Rgb { r: 0xff, g: 0xff, b: 0xff };
-        assert!((rgb1.contrast(rgb1) - 1.).abs() < f64::EPSILON);
-
-        let rgb1 = Rgb { r: 0xff, g: 0x00, b: 0xff };
-        let rgb2 = Rgb { r: 0x00, g: 0xff, b: 0x00 };
-        assert!((rgb1.contrast(rgb2) - 2.285_543_608_124_253_3).abs() < f64::EPSILON);
-
-        let rgb1 = Rgb { r: 0x12, g: 0x34, b: 0x56 };
-        let rgb2 = Rgb { r: 0xfe, g: 0xdc, b: 0xba };
-        assert!((rgb1.contrast(rgb2) - 9.786_558_997_257_74).abs() < f64::EPSILON);
     }
 }

@@ -121,7 +121,7 @@ impl<'a> RenderableContent<'a> {
 
         let insufficient_contrast = (!matches!(cursor_color, CellRgb::Rgb(_))
             || !matches!(text_color, CellRgb::Rgb(_)))
-            && cell.fg.contrast(cell.bg) < MIN_CURSOR_CONTRAST;
+            && cell.fg.contrast(*cell.bg) < MIN_CURSOR_CONTRAST;
 
         // Convert from cell colors to RGB.
         let mut text_color = text_color.color(cell.fg, cell.bg);
@@ -307,8 +307,11 @@ impl RenderableCell {
         let config = &content.config;
         match fg {
             Color::Spec(rgb) => match flags & Flags::DIM {
-                Flags::DIM => rgb * DIM_FACTOR,
-                _ => rgb,
+                Flags::DIM => {
+                    let rgb: Rgb = rgb.into();
+                    rgb * DIM_FACTOR
+                },
+                _ => rgb.into(),
             },
             Color::Named(ansi) => {
                 match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
@@ -350,7 +353,7 @@ impl RenderableCell {
     #[inline]
     fn compute_bg_rgb(content: &mut RenderableContent<'_>, bg: Color) -> Rgb {
         match bg {
-            Color::Spec(rgb) => rgb,
+            Color::Spec(rgb) => rgb.into(),
             Color::Named(ansi) => content.color(ansi as usize),
             Color::Indexed(idx) => content.color(idx as usize),
         }

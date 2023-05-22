@@ -366,7 +366,7 @@ impl RectRenderer {
         let y = -rect.y / half_height + 1.0;
         let width = rect.width / half_width;
         let height = rect.height / half_height;
-        let Rgb { r, g, b } = rect.color;
+        let (r, g, b) = rect.color.as_tuple();
         let a = (rect.alpha * 255.) as u8;
 
         // Make quad vertices.

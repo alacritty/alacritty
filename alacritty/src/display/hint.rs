@@ -647,25 +647,25 @@ mod tests {
     #[test]
     fn collect_unique_hyperlinks() {
         let mut term = mock_term("000\r\n111");
-        term.goto(Line(0), Column(0));
+        term.goto(0, 0);
 
         let hyperlink_foo = Hyperlink::new(Some("1"), String::from("foo"));
         let hyperlink_bar = Hyperlink::new(Some("2"), String::from("bar"));
 
         // Create 2 hyperlinks on the first line.
-        term.set_hyperlink(Some(hyperlink_foo.clone()));
+        term.set_hyperlink(Some(hyperlink_foo.clone().into()));
         term.input('b');
         term.input('a');
-        term.set_hyperlink(Some(hyperlink_bar.clone()));
+        term.set_hyperlink(Some(hyperlink_bar.clone().into()));
         term.input('r');
-        term.set_hyperlink(Some(hyperlink_foo.clone()));
-        term.goto(Line(1), Column(0));
+        term.set_hyperlink(Some(hyperlink_foo.clone().into()));
+        term.goto(1, 0);
 
         // Ditto for the second line.
-        term.set_hyperlink(Some(hyperlink_foo));
+        term.set_hyperlink(Some(hyperlink_foo.into()));
         term.input('b');
         term.input('a');
-        term.set_hyperlink(Some(hyperlink_bar));
+        term.set_hyperlink(Some(hyperlink_bar.into()));
         term.input('r');
         term.set_hyperlink(None);
 

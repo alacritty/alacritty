@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use vte::ansi::Hyperlink as VteHyperlink;
 
 use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
@@ -54,6 +55,18 @@ impl Hyperlink {
 
     pub fn uri(&self) -> &str {
         &self.inner.uri
+    }
+}
+
+impl From<VteHyperlink> for Hyperlink {
+    fn from(value: VteHyperlink) -> Self {
+        Self::new(value.id, value.uri)
+    }
+}
+
+impl From<Hyperlink> for VteHyperlink {
+    fn from(val: Hyperlink) -> Self {
+        VteHyperlink { id: Some(val.id().to_owned()), uri: val.uri().to_owned() }
     }
 }
 

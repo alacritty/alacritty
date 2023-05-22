@@ -109,7 +109,7 @@ fn ref_test(dir: &Path) {
     config.scrolling.set_history(ref_config.history_size);
 
     let mut terminal = Term::new(&config, &size, Mock);
-    let mut parser = ansi::Processor::new();
+    let mut parser: ansi::Processor = ansi::Processor::new();
 
     for byte in recording {
         parser.advance(&mut terminal, byte);

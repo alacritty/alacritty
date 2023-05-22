@@ -73,7 +73,7 @@ const BACKWARD_SEARCH_LABEL: &str = "Backward Search: ";
 const SHORTENER: char = '…';
 
 /// Color which is used to highlight damaged rects when debugging.
-const DAMAGE_RECT_COLOR: Rgb = Rgb { r: 255, g: 0, b: 255 };
+const DAMAGE_RECT_COLOR: Rgb = Rgb::new(255, 0, 255);
 
 #[derive(Debug)]
 pub enum Error {

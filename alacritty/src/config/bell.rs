@@ -23,7 +23,7 @@ pub struct BellConfig {
 impl Default for BellConfig {
     fn default() -> Self {
         Self {
-            color: Rgb { r: 255, g: 255, b: 255 },
+            color: Rgb::new(255, 255, 255),
             animation: Default::default(),
             command: Default::default(),
             duration: Default::default(),
