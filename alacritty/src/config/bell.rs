@@ -39,7 +39,7 @@ impl BellConfig {
 
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(ConfigDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BellAnimation {
     // CSS animation.
     Ease,
@@ -56,15 +56,10 @@ pub enum BellAnimation {
     // Penner animation.
     EaseOutQuint,
     // Penner animation.
+    #[default]
     EaseOutExpo,
     // Penner animation.
     EaseOutCirc,
     // Penner animation.
     Linear,
-}
-
-impl Default for BellAnimation {
-    fn default() -> Self {
-        BellAnimation::EaseOutExpo
-    }
 }

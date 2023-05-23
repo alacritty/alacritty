@@ -165,18 +165,13 @@ impl From<ConfigCursorStyle> for CursorStyle {
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorBlinking {
     Never,
+    #[default]
     Off,
     On,
     Always,
-}
-
-impl Default for CursorBlinking {
-    fn default() -> Self {
-        CursorBlinking::Off
-    }
 }
 
 impl CursorBlinking {

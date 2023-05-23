@@ -154,8 +154,9 @@ impl Default for Identity {
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum StartupMode {
+    #[default]
     Windowed,
     Maximized,
     Fullscreen,
@@ -163,26 +164,15 @@ pub enum StartupMode {
     SimpleFullscreen,
 }
 
-impl Default for StartupMode {
-    fn default() -> StartupMode {
-        StartupMode::Windowed
-    }
-}
-
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Decorations {
+    #[default]
     Full,
     #[cfg(target_os = "macos")]
     Transparent,
     #[cfg(target_os = "macos")]
     Buttonless,
     None,
-}
-
-impl Default for Decorations {
-    fn default() -> Decorations {
-        Decorations::Full
-    }
 }
 
 /// Window Dimensions.
