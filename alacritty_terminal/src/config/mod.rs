@@ -8,7 +8,7 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
 mod scrolling;
 
-use crate::ansi::{CursorShape, CursorStyle};
+use crate::ansi::{CursorShapeShim, CursorStyle};
 
 pub use crate::config::scrolling::{Scrolling, MAX_SCROLLBACK_LINES};
 
@@ -129,10 +129,10 @@ impl Cursor {
 #[derive(SerdeReplace, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum ConfigCursorStyle {
-    Shape(CursorShape),
+    Shape(CursorShapeShim),
     WithBlinking {
         #[serde(default)]
-        shape: CursorShape,
+        shape: CursorShapeShim,
         #[serde(default)]
         blinking: CursorBlinking,
     },
@@ -140,7 +140,7 @@ pub enum ConfigCursorStyle {
 
 impl Default for ConfigCursorStyle {
     fn default() -> Self {
-        Self::Shape(CursorShape::default())
+        Self::Shape(CursorShapeShim::default())
     }
 }
 
@@ -157,26 +157,21 @@ impl ConfigCursorStyle {
 impl From<ConfigCursorStyle> for CursorStyle {
     fn from(config_style: ConfigCursorStyle) -> Self {
         match config_style {
-            ConfigCursorStyle::Shape(shape) => Self { shape, blinking: false },
+            ConfigCursorStyle::Shape(shape) => Self { shape: shape.into(), blinking: false },
             ConfigCursorStyle::WithBlinking { shape, blinking } => {
-                Self { shape, blinking: blinking.into() }
+                Self { shape: shape.into(), blinking: blinking.into() }
             },
         }
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorBlinking {
     Never,
+    #[default]
     Off,
     On,
     Always,
-}
-
-impl Default for CursorBlinking {
-    fn default() -> Self {
-        CursorBlinking::Off
-    }
 }
 
 impl CursorBlinking {

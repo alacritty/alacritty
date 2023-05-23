@@ -30,7 +30,7 @@ regex-automata = "0.1.9"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_yaml = "0.8"
 unicode-width = "0.1"
-vte = { version = "0.10.0", default-features = false }
+vte = { version = "0.11.1", default-features = false, features = ["ansi", "serde"] }
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.26.2", default-features = false, features = ["term"] }

@@ -95,11 +95,11 @@ impl List {
                     {
                         self[index] = indexed_color.color;
                     } else {
-                        self[index] = Rgb {
-                            r: if r == 0 { 0 } else { r * 40 + 55 },
-                            b: if b == 0 { 0 } else { b * 40 + 55 },
-                            g: if g == 0 { 0 } else { g * 40 + 55 },
-                        };
+                        self[index] = Rgb::new(
+                            if r == 0 { 0 } else { r * 40 + 55 },
+                            if b == 0 { 0 } else { b * 40 + 55 },
+                            if g == 0 { 0 } else { g * 40 + 55 },
+                        );
                     }
                     index += 1;
                 }
@@ -126,7 +126,7 @@ impl List {
             }
 
             let value = i * 10 + 8;
-            self[index] = Rgb { r: value, g: value, b: value };
+            self[index] = Rgb::new(value, value, value);
             index += 1;
         }
 

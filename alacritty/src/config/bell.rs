@@ -23,7 +23,7 @@ pub struct BellConfig {
 impl Default for BellConfig {
     fn default() -> Self {
         Self {
-            color: Rgb { r: 255, g: 255, b: 255 },
+            color: Rgb::new(255, 255, 255),
             animation: Default::default(),
             command: Default::default(),
             duration: Default::default(),
@@ -39,7 +39,7 @@ impl BellConfig {
 
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(ConfigDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BellAnimation {
     // CSS animation.
     Ease,
@@ -56,15 +56,10 @@ pub enum BellAnimation {
     // Penner animation.
     EaseOutQuint,
     // Penner animation.
+    #[default]
     EaseOutExpo,
     // Penner animation.
     EaseOutCirc,
     // Penner animation.
     Linear,
-}
-
-impl Default for BellAnimation {
-    fn default() -> Self {
-        BellAnimation::EaseOutExpo
-    }
 }
