@@ -97,8 +97,8 @@ impl List {
                     } else {
                         self[index] = Rgb::new(
                             if r == 0 { 0 } else { r * 40 + 55 },
-                            if b == 0 { 0 } else { b * 40 + 55 },
                             if g == 0 { 0 } else { g * 40 + 55 },
+                            if b == 0 { 0 } else { b * 40 + 55 },
                         );
                     }
                     index += 1;
