@@ -5,6 +5,12 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 0.13.0-dev
+
+### Fixed
+
+- Hyperlink preview not being shown when the terminal has exactly 2 lines
+
 ## 0.12.1
 
 ### Fixed
