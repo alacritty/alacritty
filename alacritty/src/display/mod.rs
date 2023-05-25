@@ -1201,10 +1201,9 @@ impl Display {
         // The maximum amount of protected lines including the ones we'll show preview on.
         let max_protected_lines = uris.len() * 2;
 
-        // Lines we shouldn't shouldn't show preview on, because it'll obscure the highlighted
-        // hint.
+        // Lines we shouldn't show preview on, because it'll obscure the highlighted hint.
         let mut protected_lines = Vec::with_capacity(max_protected_lines);
-        if self.size_info.screen_lines() >= max_protected_lines {
+        if self.size_info.screen_lines() > max_protected_lines {
             // Prefer to show preview even when it'll likely obscure the highlighted hint, when
             // there's no place left for it.
             protected_lines.push(self.hint_mouse_point.map(|point| point.line));
