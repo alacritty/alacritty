@@ -543,8 +543,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
                 MouseButton::Right => 2,
-                // Can't properly report more than three buttons..
-                MouseButton::Other(_) => return,
+                MouseButton::Other(x) => x.try_into().unwrap(),
             };
 
             self.mouse_report(code, ElementState::Pressed);
@@ -623,8 +622,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
                 MouseButton::Right => 2,
-                // Can't properly report more than three buttons.
-                MouseButton::Other(_) => return,
+                MouseButton::Other(x) => x.try_into().unwrap(),
             };
             self.mouse_report(code, ElementState::Released);
             return;
@@ -877,7 +875,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
             MouseButton::Middle => self.ctx.mouse_mut().middle_button_state = state,
             MouseButton::Right => self.ctx.mouse_mut().right_button_state = state,
-            _ => (),
+            _ => self.ctx.mouse_mut().other_button_state = state,
         }
 
         // Skip normal mouse events if the message bar has been clicked.
