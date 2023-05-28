@@ -55,7 +55,7 @@ set of features with high performance.
 		. $HOME/.config/alacritty/alacritty.yml
 		. $HOME/.alacritty.yml
 
-	On Windows, the configuration file is located at %APPDATA%\alacritty\alacritty.yml.
+	On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
 
 *--embed* <parent>
 	X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)
