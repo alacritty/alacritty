@@ -19,15 +19,15 @@ making it possible to control Alacritty without directly accessing it.
 *create-window*
 	Create a new window in the same Alacritty process
 
-		*OPTIONS*
-			*--hold*
-				Remain open after child process exits
+	*OPTIONS*
+		*--hold*
+			Remain open after child process exits
 
-			*--working-directory* <working-directory>
-				Start the shell in the specified working directory
+		*--working-directory* <working-directory>
+			Start the shell in the specified working directory
 
-			*command* <command>...
-				Command and args to execute (must be last argument)
+		*command* <command>...
+			Command and args to execute (must be last argument)
 
 *config*
 	Update the Alacritty configuration
