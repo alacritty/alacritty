@@ -40,7 +40,7 @@ making it possible to control Alacritty without directly accessing it.
 		*-w, --window-id* <WINDOW_ID>
 			Window ID for the new config.
 
-			Use `-1` to apply this change to all windows.
+			Use _-1_ to apply this change to all windows.
 
 			\[default: *$ALACRITTY_WINDOW_ID*]
 

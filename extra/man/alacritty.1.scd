@@ -41,7 +41,7 @@ set of features with high performance.
 
 	When only the general class is passed, instance will be set to the same value.
 
-	On Wayland the general class sets the `app_id`, while the instance class is ignored.
+	On Wayland the general class sets the _app\_id_, while the instance class is ignored.
 
 *-e, --command* <command>...
 	Command and args to execute (must be last argument)
