@@ -58,7 +58,7 @@ set of features with high performance.
 	On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
 
 *--embed* <parent>
-	X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)
+	X11 window ID to embed Alacritty within (decimal or hexadecimal with _0x_ prefix)
 
 *-o, --option* <option>...
 	Override configuration file options [example: cursor.style=Beam]

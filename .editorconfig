@@ -17,5 +17,6 @@ indent_size = 2
 [Makefile]
 indent_style = tab
 
-[*.sdc]
+[*.scd]
 indent_style = tab
+tab_width = 4
