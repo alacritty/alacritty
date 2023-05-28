@@ -327,12 +327,12 @@ directory.
 
 ### Manual Page
 
-Installing the manual page requires the additional dependency `gzip`.
+Installing the manual page requires the additional dependencies `gzip` and `scdoc`.
 
 ```sh
 sudo mkdir -p /usr/local/share/man/man1
-gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
-gzip -c extra/alacritty-msg.man | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
+scdoc < extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+scdoc < extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
 ```
 
 ### Shell completions
