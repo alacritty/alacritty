@@ -543,7 +543,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
                 MouseButton::Right => 2,
-                MouseButton::Other(x) => x.try_into().unwrap(),
+                MouseButton::Other(x) => match x {
+                    6 | 7 => (x + 64) as u8,
+                    8..=11 => (x + 128) as u8,
+                    _ => return,
+                },
             };
 
             self.mouse_report(code, ElementState::Pressed);
@@ -622,7 +626,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
                 MouseButton::Right => 2,
-                MouseButton::Other(x) => x.try_into().unwrap(),
+                MouseButton::Other(x) => match x {
+                    6 | 7 => (x + 64) as u8,
+                    8..=11 => (x + 128) as u8,
+                    _ => return,
+                },
             };
             self.mouse_report(code, ElementState::Released);
             return;
