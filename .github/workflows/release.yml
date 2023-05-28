@@ -72,8 +72,8 @@ jobs:
         run: cargo test --release
       - name: Generate manpages
         run: |
-          scdoc < extra/man/alacritty.scd | gzip -c > "./alacritty.1.gz"
-          scdoc < extra/man/alacritty-msg.scd | gzip -c > "./alacritty-msg.1.gz"
+          scdoc < extra/man/alacritty.1.scd | gzip -c > "./alacritty.1.gz"
+          scdoc < extra/man/alacritty-msg.1.scd | gzip -c > "./alacritty-msg.1.gz"
       - name: Upload Assets
         run: |
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
