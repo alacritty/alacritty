@@ -46,8 +46,8 @@ $(APP_NAME)-%: $(TARGET)-%
 	@mkdir -p $(APP_BINARY_DIR)
 	@mkdir -p $(APP_EXTRAS_DIR)
 	@mkdir -p $(APP_COMPLETIONS_DIR)
-	@gzip -c $(MANPAGE) > $(APP_EXTRAS_DIR)/alacritty.1.gz
-	@gzip -c $(MANPAGE-MSG) > $(APP_EXTRAS_DIR)/alacritty-msg.1.gz
+	@scdoc < $(MANPAGE) | gzip -c > $(APP_EXTRAS_DIR)/alacritty.1.gz
+	@scdoc < $(MANPAGE-MSG) | gzip -c > $(APP_EXTRAS_DIR)/alacritty-msg.1.gz
 	@tic -xe alacritty,alacritty-direct -o $(APP_EXTRAS_DIR) $(TERMINFO)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
