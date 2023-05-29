@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: brew install scdoc
       - name: Install ARM target
         run: rustup update && rustup target add aarch64-apple-darwin
       - name: Test
