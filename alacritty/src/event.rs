@@ -1193,16 +1193,22 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
         match event {
             WinitEvent::UserEvent(Event { payload, .. }) => match payload {
                 EventType::ScaleFactorChanged(scale_factor, (width, height)) => {
+                    self.ctx.window().scale_factor = scale_factor;
+
                     let display_update_pending = &mut self.ctx.display.pending_update;
 
                     // Push current font to update its scale factor.
                     let font = self.ctx.config.font.clone();
                     display_update_pending.set_font(font.with_size(*self.ctx.font_size));
 
-                    // Resize to event's dimensions, since no resize event is emitted on Wayland.
-                    display_update_pending.set_dimensions(PhysicalSize::new(width, height));
-
-                    self.ctx.window().scale_factor = scale_factor;
+                    // Ignore resize events to zero in any dimension, to avoid issues with Winit
+                    // and the ConPTY. A 0x0 resize will also occur when the window is minimized
+                    // on Windows.
+                    if width != 0 && height != 0 {
+                        // Resize to event's dimensions, since no resize event is emitted on
+                        // Wayland.
+                        display_update_pending.set_dimensions(PhysicalSize::new(width, height));
+                    }
                 },
                 EventType::Frame => {
                     self.ctx.display.window.has_frame.store(true, Ordering::Relaxed);
