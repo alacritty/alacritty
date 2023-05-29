@@ -2,7 +2,7 @@ ALACRITTY(1)
 
 # NAME
 
-Alacritty - A fast, cross-platform, OpenGL terminal emulator
+Alacritty - A fast, cross-platform, hardware accelerated terminal emulator
 
 # SYNOPSIS
 

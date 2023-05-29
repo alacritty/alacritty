@@ -7,7 +7,7 @@
   <project_license>APACHE-2.0</project_license>
   <metadata_license>APACHE-2.0</metadata_license>
   <!-- Translators: The application's summary / tagline -->
-  <summary>A fast, cross-platform, OpenGL terminal emulator</summary>
+  <summary>A fast, hardware accelerated terminal emulator</summary>
   <description>
     <p>
       Alacritty is a modern terminal emulator that comes with sensible defaults,

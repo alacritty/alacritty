@@ -2,11 +2,11 @@
     <img width="200" alt="Alacritty Logo" src="https://raw.githubusercontent.com/alacritty/alacritty/master/extra/logo/compat/alacritty-term%2Bscanlines.png">
 </p>
 
-<h1 align="center">Alacritty - A fast, cross-platform, OpenGL terminal emulator</h1>
+<h1 align="center">Alacritty - A fast, cross-platform, hardware accelerated terminal emulator</h1>
 
 <p align="center">
   <img width="600"
-       alt="Alacritty - A fast, cross-platform, OpenGL terminal emulator"
+       alt="Alacritty - A fast, cross-platform, hardware accelerated terminal emulator"
        src="https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png">
 </p>
 
