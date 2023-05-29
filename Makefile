@@ -2,8 +2,8 @@ TARGET = alacritty
 
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
-MANPAGE = $(ASSETS_DIR)/alacritty.man
-MANPAGE-MSG = $(ASSETS_DIR)/alacritty-msg.man
+MANPAGE = $(ASSETS_DIR)/man/alacritty.1.scd
+MANPAGE-MSG = $(ASSETS_DIR)/man/alacritty-msg.1.scd
 CONFIGFILE = alacritty.yml
 TERMINFO = $(ASSETS_DIR)/alacritty.info
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
