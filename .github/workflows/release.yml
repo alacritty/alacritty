@@ -76,6 +76,8 @@ jobs:
         run: |
           scdoc < extra/man/alacritty.1.scd | gzip -c > "./alacritty.1.gz"
           scdoc < extra/man/alacritty-msg.1.scd | gzip -c > "./alacritty-msg.1.gz"
+          scdoc < extra/man/alacritty.5.scd | gzip -c > "./alacritty-msg.5.gz"
+          scdoc < extra/man/alacritty-bindings.5.scd | gzip -c > "./alacritty-bindings.5.gz"
       - name: Upload Assets
         run: |
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
