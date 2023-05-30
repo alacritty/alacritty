@@ -1014,7 +1014,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             let value = map.next_value::<SerdeValue>()?;
                             match value.as_integer() {
                                 Some(scancode) => match u32::try_from(scancode) {
-                                    Ok(scancode) => key = Some(Key::Scancode(scancode as u32)),
+                                    Ok(scancode) => key = Some(Key::Scancode(scancode)),
                                     Err(_) => {
                                         return Err(<V::Error as Error>::custom(format!(
                                             "Invalid key binding, scancode too big: {}",

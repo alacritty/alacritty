@@ -61,18 +61,18 @@ fn migrate_config(
 ) -> Result<String, String> {
     // Ensure configuration file has an extension.
     let path_str = path.to_string_lossy();
-    let (prefix, suffix) = match path_str.rsplit_once(".") {
+    let (prefix, suffix) = match path_str.rsplit_once('.') {
         Some((prefix, suffix)) => (prefix, suffix),
-        None => return Err(format!("missing file extension")),
+        None => return Err("missing file extension".to_string()),
     };
 
     // Abort if config is already toml.
     if suffix == "toml" {
-        return Err(format!("already in TOML format"));
+        return Err("already in TOML format".to_string());
     }
 
     // Try to parse the configuration file.
-    let mut config = match config::deserialize_config(&path) {
+    let mut config = match config::deserialize_config(path) {
         Ok(config) => config,
         Err(err) => return Err(format!("parsing error: {err}")),
     };
@@ -105,7 +105,7 @@ fn migrate_imports(
     config: &mut Value,
     recursion_limit: usize,
 ) -> Result<(), String> {
-    let imports = match config::imports(&config, recursion_limit) {
+    let imports = match config::imports(config, recursion_limit) {
         Ok(imports) => imports,
         Err(err) => return Err(format!("import error: {err}")),
     };
