@@ -80,10 +80,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match options.subcommands {
         #[cfg(unix)]
-        Some(Subcommands::Msg(options)) => msg(options),
-        Some(Subcommands::Migrate(options)) => Ok(migrate::migrate(options)),
-        None => alacritty(options),
+        Some(Subcommands::Msg(options)) => msg(options)?,
+        Some(Subcommands::Migrate(options)) => migrate::migrate(options),
+        None => alacritty(options)?,
     }
+
+    Ok(())
 }
 
 /// `msg` subcommand entrypoint.
