@@ -2,8 +2,7 @@ use std::cmp::max;
 use std::os::raw::c_ulong;
 use std::path::PathBuf;
 
-use clap::Subcommand;
-use clap::{ArgAction, Args, Parser, ValueHint};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
