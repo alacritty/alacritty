@@ -2,7 +2,6 @@ use std::cmp::max;
 use std::os::raw::c_ulong;
 use std::path::PathBuf;
 
-#[cfg(unix)]
 use clap::Subcommand;
 use clap::{ArgAction, Args, Parser, ValueHint};
 use log::{self, error, LevelFilter};
@@ -236,6 +235,7 @@ impl WindowIdentity {
 /// Available CLI subcommands.
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
+    #[cfg(unix)]
     Msg(MessageOptions),
     Migrate(MigrateOptions),
 }
