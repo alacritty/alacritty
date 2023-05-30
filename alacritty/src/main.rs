@@ -55,9 +55,9 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use crate::cli::Options;
 #[cfg(unix)]
-use crate::cli::{MessageOptions, Subcommands};
+use crate::cli::MessageOptions;
+use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
