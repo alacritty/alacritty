@@ -132,6 +132,7 @@ fn config_deserialize() {
         "Config warning: field1 has been deprecated; use field2 instead",
         "Config warning: enom_error has been deprecated",
         "Config warning: gone has been removed; it's gone",
+        "Unused config key: field3",
     ]);
 }
 

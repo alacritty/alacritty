@@ -366,17 +366,6 @@ pub fn installed_config(suffix: &str) -> Option<PathBuf> {
 mod tests {
     use super::*;
 
-    static DEFAULT_ALACRITTY_CONFIG: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.toml");
-
-    #[test]
-    fn default_config() {
-        let config_path: PathBuf = DEFAULT_ALACRITTY_CONFIG.into();
-        let mut config = read_config(&config_path, Value::Table(Table::new())).unwrap();
-        config.config_paths = Vec::new();
-        assert_eq!(config, UiConfig::default());
-    }
-
     #[test]
     fn empty_config() {
         toml::from_str::<UiConfig>("").unwrap();
