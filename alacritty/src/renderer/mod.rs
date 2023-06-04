@@ -7,7 +7,7 @@ use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
 use log::{debug, error, info, warn, LevelFilter};
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
@@ -274,7 +274,7 @@ impl GlExtensions {
     ///
     /// This function will lazyly load OpenGL extensions.
     fn contains(extension: &str) -> bool {
-        static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str>> = OnceCell::new();
+        static OPENGL_EXTENSIONS: OnceLock<HashSet<&'static str>> = OnceLock::new();
 
         OPENGL_EXTENSIONS.get_or_init(Self::load_extensions).contains(extension)
     }
