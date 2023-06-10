@@ -24,11 +24,11 @@ pub struct Colors {
 
 impl Colors {
     pub fn footer_bar_foreground(&self) -> Rgb {
-        self.search.bar.foreground.or(self.footer_bar.foreground).unwrap_or(self.primary.background)
+        self.footer_bar.foreground.unwrap_or(self.primary.background)
     }
 
     pub fn footer_bar_background(&self) -> Rgb {
-        self.search.bar.background.or(self.footer_bar.background).unwrap_or(self.primary.foreground)
+        self.footer_bar.background.unwrap_or(self.primary.foreground)
     }
 }
 
@@ -127,8 +127,6 @@ impl Default for InvertedCellColors {
 pub struct SearchColors {
     pub focused_match: FocusedMatchColors,
     pub matches: MatchColors,
-    #[config(deprecated = "use `colors.footer_bar` instead")]
-    bar: BarColors,
 }
 
 #[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]

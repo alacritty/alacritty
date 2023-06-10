@@ -10,9 +10,7 @@ use unicode_width::UnicodeWidthChar;
 use winit::event::{ModifiersState, VirtualKeyCode};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::config::{
-    Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
-};
+use alacritty_terminal::config::{Config as TerminalConfig, Program, LOG_TARGET_CONFIG};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
@@ -87,10 +85,6 @@ pub struct UiConfig {
     /// Bindings for the mouse.
     #[config(deprecated = "use mouse.bindings instead")]
     mouse_bindings: MouseBindings,
-
-    /// Background opacity from 0.0 to 1.0.
-    #[config(deprecated = "use window.opacity instead")]
-    background_opacity: Option<Percentage>,
 }
 
 impl Default for UiConfig {
@@ -100,7 +94,6 @@ impl Default for UiConfig {
             #[cfg(unix)]
             ipc_socket: true,
             draw_bold_text_with_bright_colors: Default::default(),
-            background_opacity: Default::default(),
             terminal_config: Default::default(),
             mouse_bindings: Default::default(),
             config_paths: Default::default(),
@@ -147,7 +140,7 @@ impl UiConfig {
 
     #[inline]
     pub fn window_opacity(&self) -> f32 {
-        self.background_opacity.unwrap_or(self.window.opacity).as_f32()
+        self.window.opacity.as_f32()
     }
 
     #[inline]
