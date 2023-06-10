@@ -278,6 +278,10 @@ pub struct MigrateOptions {
     #[clap(short = 'i', long)]
     pub skip_imports: bool,
 
+    /// Do not move renamed fields to their new location.
+    #[clap(long)]
+    pub skip_renames: bool,
+
     #[clap(short, long)]
     /// Do not output to STDOUT.
     pub silent: bool,

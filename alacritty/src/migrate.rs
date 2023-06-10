@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use toml::Value;
+use toml::{Table, Value};
 
 use crate::cli::MigrateOptions;
 use crate::config;
@@ -82,6 +82,11 @@ fn migrate_config(
         migrate_imports(options, &mut config, recursion_limit)?;
     }
 
+    // Migrate deprecated field names to their new location.
+    if !options.skip_renames {
+        migrate_renames(&mut config)?;
+    }
+
     // Convert to TOML format.
     let toml = toml::to_string(&config).map_err(|err| format!("conversion error: {err}"))?;
     let new_path = format!("{prefix}.toml");
@@ -127,4 +132,84 @@ fn migrate_imports(
     }
 
     Ok(())
+}
+
+/// Migrate deprecated fields.
+fn migrate_renames(config: &mut Value) -> Result<(), String> {
+    let config_table = match config.as_table_mut() {
+        Some(config_table) => config_table,
+        None => return Ok(()),
+    };
+
+    // draw_bold_text_with_bright_colors -> colors.draw_bold_text_with_bright_colors
+    move_value(config_table, &["draw_bold_text_with_bright_colors"], &[
+        "colors",
+        "draw_bold_text_with_bright_colors",
+    ])?;
+
+    // key_bindings -> keyboard.bindings
+    move_value(config_table, &["key_bindings"], &["keyboard", "bindings"])?;
+
+    // mouse_bindings -> keyboard.bindings
+    move_value(config_table, &["mouse_bindings"], &["mouse", "bindings"])?;
+
+    Ok(())
+}
+
+/// Move a toml value from one map to another.
+fn move_value(config_table: &mut Table, origin: &[&str], target: &[&str]) -> Result<(), String> {
+    if let Some(value) = remove_node(config_table, origin)? {
+        if !insert_node_if_empty(config_table, target, value)? {
+            return Err(format!(
+                "conflict: both `{}` and `{}` are set",
+                origin.join("."),
+                target.join(".")
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Remove a node from a tree of tables.
+fn remove_node(table: &mut Table, path: &[&str]) -> Result<Option<Value>, String> {
+    if path.len() == 1 {
+        Ok(table.remove(path[0]))
+    } else {
+        let next_table_value = match table.get_mut(path[0]) {
+            Some(next_table_value) => next_table_value,
+            None => return Ok(None),
+        };
+
+        let next_table = match next_table_value.as_table_mut() {
+            Some(next_table) => next_table,
+            None => return Err(format!("invalid `{}` table", path[0])),
+        };
+
+        remove_node(next_table, &path[1..])
+    }
+}
+
+/// Try to insert a node into a tree of tables.
+///
+/// Returns `false` if the node already exists.
+fn insert_node_if_empty(table: &mut Table, path: &[&str], node: Value) -> Result<bool, String> {
+    if path.len() == 1 {
+        if table.get(path[0]).is_some() {
+            return Ok(false);
+        }
+
+        table.insert(path[0].into(), node);
+
+        Ok(true)
+    } else {
+        let next_table_value = table.entry(path[0]).or_insert_with(|| Value::Table(Table::new()));
+
+        let next_table = match next_table_value.as_table_mut() {
+            Some(next_table) => next_table,
+            None => return Err(format!("invalid `{}` table", path[0])),
+        };
+
+        insert_node_if_empty(next_table, &path[1..], node)
+    }
 }
