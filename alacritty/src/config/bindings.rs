@@ -1017,7 +1017,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                                     Ok(scancode) => key = Some(Key::Scancode(scancode)),
                                     Err(_) => {
                                         return Err(<V::Error as Error>::custom(format!(
-                                            "Invalid key binding, scancode too big: {}",
+                                            "Invalid key binding, scancode is too big: {}",
                                             scancode
                                         )));
                                     },

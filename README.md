@@ -52,8 +52,11 @@ For everyone else, the detailed instructions to install Alacritty can be found
 
 ## Configuration
 
-You can find the default configuration file with documentation for all available
-fields on the [GitHub releases page](https://github.com/alacritty/alacritty/releases) for each release.
+You can find the documentation for Alacritty's configuration in `man 5
+alacritty`, or by looking at [the scdoc file] if you do not have the manpages
+installed.
+
+[the scdoc file]: ./extra/man/alacritty.5.scd
 
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations:

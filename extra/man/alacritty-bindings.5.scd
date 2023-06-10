@@ -45,7 +45,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 |  _"L"_
 :  _"Control"_
 :  _"~Vi|~Search"_
-:  *chars*: _"\u000c"_
+:  *chars*: _"\\u000c"_
 |  _"PageUp"_
 :  _"Shift"_
 :  _"~Alt"_
@@ -385,7 +385,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 |  _"K"_
 :  _"Command"_
 :  _"~Vi|~Search"_
-:  *chars*: _"\u000c"_
+:  *chars*: _"\\u000c"_
 |  _"K"_
 :  _"Command"_
 :  _"~Vi|~Search"_

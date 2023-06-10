@@ -35,13 +35,9 @@ This section documents the root level of the configuration file.
 
 	Live config reload (changes require restart)
 
-*draw_bold_text_with_bright_colors* <boolean>
+*ipc_socket* <boolean> _(unix only)_
 
-	When _true_, bold text is drawn using the bright color variants.
-
-*ipc_socket* <boolean>
-
-	Offer IPC using _alacritty msg_ _(unix only)_
+	Offer IPC using _alacritty msg_
 
 # ENV
 
@@ -122,16 +118,18 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _true_
 
-*class* { instance = <string>, general = <string> }
+*class* { instance = <string>, general = <string> } _(Linux/BSD only)_
 
-	Window class _(Linux/BSD only)_
+	Window class
+
+	On Wayland, _general_ is used as application ID and _instance_ is ignored.
 
 	Default: _{ instance = "Alacritty", general = "Alacritty" }_
 
 *decoration_theme_variant* "Dark" | "Light" | "None"
 
 	Override the variant of the System theme/GTK theme/Wayland client side
-	decorations. Set this to _"none"_ to use the system's default theme variant.
+	decorations. Set this to _"None"_ to use the system's default theme variant.
 
 	Default: _"None"_
 
@@ -141,9 +139,9 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _false_
 
-*option_as_alt* "OnlyLeft" | "OnlyRight" | "Both" | "None"
+*option_as_alt* "OnlyLeft" | "OnlyRight" | "Both" | "None" _(macos only)_
 
-	Make _Option_ key behave as _Alt_ _(macOS only)_
+	Make _Option_ key behave as _Alt_
 
 	Default: _"None"_
 
@@ -199,6 +197,8 @@ macOS:     _{ family = "Menlo",     style = "Regular" }_
 
 *size* <float>
 
+	Font size in points.
+
 	Default: _11.0_
 
 *offset* { x = <integer>, y = <integer> }
@@ -217,7 +217,7 @@ macOS:     _{ family = "Menlo",     style = "Regular" }_
 *builtin_box_drawing* <boolean>
 
 	When _true_, Alacritty will use a custom built-in font for box drawing
-	characters (Unicode points 2500 - 259f).
+	characters (Unicode points _U+2500_ - _U+259f_).
 
 	Default: _true_
 
@@ -239,16 +239,15 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	*dim_foreground* <string>
 
-		If the bright foreground color is not set, it is automatically
-		calculated based on the foreground color.
+		If this is not set, the color is automatically calculated based on the
+		foreground color.
 
 		Default: _"#828482"_
 
 	*bright_foreground* <string>
 
-		If the bright foreground color is not set, or
-		_draw\_bold\_text\_with\_bright\_colors_ is _false_, the normal
-		foreground color will be used.
+		If this is not set, or _draw\_bold\_text\_with\_bright\_colors_ is
+		_false_, the normal foreground color will be used.
 
 		Default: _"#eaeaea"_
 
@@ -310,9 +309,9 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 	Color used for the indicator displaying the position in history during
 	search and vi mode.
 
-	Setting this to _"none"_ will use the opposing primary color.
+	Setting this to _"None"_ will use the opposing primary color.
 
-	Default: _{ foreground = "none", background = "none" }_
+	Default: _{ foreground = "None", background = "None" }_
 
 *footer_bar* { foreground = <string>, background = <string> }
 
@@ -405,6 +404,10 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	Default: _false_
 
+*draw_bold_text_with_bright_colors* <boolean>
+
+	When _true_, bold text is drawn using the bright color variants.
+
 # Bell
 
 This section documents the *[bell]* table of the configuration file.
@@ -433,9 +436,9 @@ This section documents the *[bell]* table of the configuration file.
 
 	This program is executed whenever the bell is rung.
 
-	When set to _"none"_, no command will be executed.
+	When set to _"None"_, no command will be executed.
 
-	Default: _"none"_
+	Default: _"None"_
 
 # Selection
 
@@ -531,13 +534,19 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Set maximum time between double-clicks.
 
+	Default: _300_
+
 *triple_click* { threshold = <integer> }
 
 	Set maximum time between triple-clicks.
 
+	Default: _300_
+
 *hide_when_typing* <boolean>
 
 	When this is _true_, the cursor is temporarily hidden when typing.
+
+	Default: _false_
 
 # Hints
 
@@ -606,6 +615,14 @@ _action_ or a _command_.
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
 
+Default: _[{
+	regex = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+",++
+hyperlinks = true,++
+post_processing = true,++
+mouse = { enabled = true },++
+binding = { key = "U", mods = "Control | Shift" },
+}]_
+
 # Bindings
 
 This section documents the *mouse_bindings* and *key_bindings* at the root level
@@ -662,6 +679,10 @@ https://docs.rs/winit/\*/winit/event/enum.VirtualKeyCode.html#variants
 		the binding to take effect.
 
 		Multiple modes can be combined using _|_, like this: _"~Vi|Search"_.
+
+	*chars*
+
+		Writes the specified string to the terminal.
 
 	*action*
 
