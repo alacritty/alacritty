@@ -43,6 +43,9 @@ pub struct PtyConfig {
     /// Shell startup directory.
     pub working_directory: Option<PathBuf>,
 
+    /// Allow specific clipboard operations
+    pub allow_clipboard: AllowClipboard,
+
     /// Remain open after child process exits.
     #[config(skip)]
     pub hold: bool,
@@ -234,5 +237,14 @@ impl Percentage {
 
     pub fn as_f32(self) -> f32 {
         self.0
+    }
+}
+
+#[derive(SerdeReplace, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct AllowClipboard(pub bool);
+
+impl Default for AllowClipboard {
+    fn default() -> Self {
+        Self(true)
     }
 }

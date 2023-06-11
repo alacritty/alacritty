@@ -394,6 +394,8 @@
   # When set to `true`, selected text will be copied to the primary clipboard.
   #save_to_clipboard: false
 
+#allow_clipboard: true
+
 #cursor:
   # Cursor style
   #style:

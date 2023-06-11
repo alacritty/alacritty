@@ -292,6 +292,9 @@ pub struct Term<T> {
     /// Style of the vi mode cursor.
     vi_mode_cursor_style: Option<CursorStyle>,
 
+    /// Allow access to clipboard.
+    allow_clipboard: bool,
+
     /// Proxy for sending events to the event loop.
     event_proxy: T,
 
@@ -357,6 +360,7 @@ impl<T> Term<T> {
             cursor_style: None,
             default_cursor_style: config.cursor.style(),
             vi_mode_cursor_style: config.cursor.vi_mode_style(),
+            allow_clipboard: config.pty_config.allow_clipboard.0,
             event_proxy,
             is_focused: true,
             title: None,
@@ -447,6 +451,7 @@ impl<T> Term<T> {
         self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
         self.default_cursor_style = config.cursor.style();
         self.vi_mode_cursor_style = config.cursor.vi_mode_style();
+        self.allow_clipboard = config.pty_config.allow_clipboard.0;
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -1539,6 +1544,9 @@ impl<T: EventListener> Handler for Term<T> {
     /// Store data into clipboard.
     #[inline]
     fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
+        if !self.allow_clipboard {
+            return;
+        }
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
@@ -1555,6 +1563,9 @@ impl<T: EventListener> Handler for Term<T> {
     /// Load data from clipboard.
     #[inline]
     fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
+        if !self.allow_clipboard {
+            return;
+        }
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
