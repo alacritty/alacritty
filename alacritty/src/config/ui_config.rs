@@ -255,6 +255,7 @@ impl Default for Hints {
             enabled: vec![Hint {
                 content,
                 action,
+                persist: true,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
@@ -346,6 +347,10 @@ pub struct Hint {
     /// Hint text post processing.
     #[serde(default)]
     pub post_processing: bool,
+
+    /// Persist hints after selection.
+    #[serde(default)]
+    pub persist: bool,
 
     /// Hint mouse highlighting.
     pub mouse: Option<HintMouse>,
