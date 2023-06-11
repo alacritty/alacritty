@@ -122,7 +122,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Window class
 
-	On Wayland, _general_ is used as app_id and _instance_ is ignored.
+	On Wayland, *general* is used as _app\_id_ and *instance* is ignored.
 
 	Default: _{ instance = "Alacritty", general = "Alacritty" }_
 
