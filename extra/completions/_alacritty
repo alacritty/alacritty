@@ -124,6 +124,7 @@ _arguments "${_arguments_options[@]}" \
 '--dry-run[Only output TOML config to stdout]' \
 '-i[Do not recurse over imports]' \
 '--skip-imports[Do not recurse over imports]' \
+'--skip-renames[Do not move renamed fields to their new location]' \
 '-s[Do not output to STDOUT]' \
 '--silent[Do not output to STDOUT]' \
 '-h[Print help]' \

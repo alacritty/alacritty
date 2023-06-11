@@ -36,6 +36,7 @@ complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subco
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s c -l config-file -d 'Path to the configuration file' -r -F
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s d -l dry-run -d 'Only output TOML config to stdout'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s i -l skip-imports -d 'Do not recurse over imports'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -l skip-renames -d 'Do not move renamed fields to their new location'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s s -l silent -d 'Do not output to STDOUT'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s h -l help -d 'Print help'
 complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from migrate; and not __fish_seen_subcommand_from help" -f -a "msg" -d 'Send a message to the Alacritty socket'

@@ -203,7 +203,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__migrate)
-            opts="-c -d -i -s -h --config-file --dry-run --skip-imports --silent --help"
+            opts="-c -d -i -s -h --config-file --dry-run --skip-imports --skip-renames --silent --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
