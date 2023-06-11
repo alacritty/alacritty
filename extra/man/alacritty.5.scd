@@ -122,7 +122,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Window class
 
-	On Wayland, _general_ is used as application ID and _instance_ is ignored.
+	On Wayland, _general_ is used as app_id and _instance_ is ignored.
 
 	Default: _{ instance = "Alacritty", general = "Alacritty" }_
 
@@ -246,10 +246,12 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	*bright_foreground* <string>
 
-		If this is not set, or _draw\_bold\_text\_with\_bright\_colors_ is
-		_false_, the normal foreground color will be used.
+		This color is only used when _draw\_bold\_text\_with\_bright\_colors_ is
+		_true_.
 
-		Default: _"#eaeaea"_
+		If this is not set, the normal foreground will be used.
+
+		Default: _"None"_
 
 *cursor* { text = <string>, cursor = <string> }
 
@@ -532,13 +534,13 @@ This section documents the *[mouse]* table of the configuration file.
 
 *double_click* { threshold = <integer> }
 
-	Set maximum time between double-clicks.
+	Set maximum time between double-clicks in milliseconds.
 
 	Default: _300_
 
 *triple_click* { threshold = <integer> }
 
-	Set maximum time between triple-clicks.
+	Set maximum time between triple-clicks in milliseconds.
 
 	Default: _300_
 

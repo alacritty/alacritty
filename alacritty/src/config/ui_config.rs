@@ -114,6 +114,9 @@ impl Default for UiConfig {
 impl UiConfig {
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
+        // Check which key bindings is most likely to be the user's configuration.
+        //
+        // Both will be non-empty due to the presence of the default keybindings.
         let key_bindings = if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
             &mut self.keyboard.bindings.0
         } else {

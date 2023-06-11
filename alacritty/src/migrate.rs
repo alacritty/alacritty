@@ -3,6 +3,7 @@
 use std::fs;
 use std::path::Path;
 
+use toml::map::Entry;
 use toml::{Table, Value};
 
 use crate::cli::MigrateOptions;
@@ -195,13 +196,13 @@ fn remove_node(table: &mut Table, path: &[&str]) -> Result<Option<Value>, String
 /// Returns `false` if the node already exists.
 fn insert_node_if_empty(table: &mut Table, path: &[&str], node: Value) -> Result<bool, String> {
     if path.len() == 1 {
-        if table.get(path[0]).is_some() {
-            return Ok(false);
+        match table.entry(path[0]) {
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(node);
+                Ok(true)
+            },
+            Entry::Occupied(_) => Ok(false),
         }
-
-        table.insert(path[0].into(), node);
-
-        Ok(true)
     } else {
         let next_table_value = table.entry(path[0]).or_insert_with(|| Value::Table(Table::new()));
 
