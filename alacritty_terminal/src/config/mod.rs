@@ -31,6 +31,8 @@ pub struct Config {
     /// Cursor configuration.
     pub cursor: Cursor,
 
+    pub terminal: TerminalConfig,
+
     #[config(flatten)]
     pub pty_config: PtyConfig,
 }
@@ -42,9 +44,6 @@ pub struct PtyConfig {
 
     /// Shell startup directory.
     pub working_directory: Option<PathBuf>,
-
-    /// Allow specific clipboard operations
-    pub allow_clipboard: AllowClipboard,
 
     /// Remain open after child process exits.
     #[config(skip)]
@@ -240,11 +239,22 @@ impl Percentage {
     }
 }
 
-#[derive(SerdeReplace, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct AllowClipboard(pub bool);
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct TerminalConfig {
+    pub clipboard: ClipboardConfig,
+}
 
-impl Default for AllowClipboard {
-    fn default() -> Self {
-        Self(true)
+impl TerminalConfig {
+    pub fn new() -> Self {
+        Default::default()
     }
+}
+
+#[derive(SerdeReplace, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+pub enum ClipboardConfig {
+    #[default]
+    Store,
+    Load,
+    All,
+    Off,
 }

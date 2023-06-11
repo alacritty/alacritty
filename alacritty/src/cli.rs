@@ -230,7 +230,6 @@ impl From<TerminalOptions> for PtyConfig {
             working_directory: options.working_directory.take(),
             shell: options.command(),
             hold: options.hold,
-            allow_clipboard: Default::default(),
         }
     }
 }

@@ -12,7 +12,7 @@ use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
-use crate::config::Config;
+use crate::config::{ClipboardConfig, Config, TerminalConfig};
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
@@ -292,8 +292,7 @@ pub struct Term<T> {
     /// Style of the vi mode cursor.
     vi_mode_cursor_style: Option<CursorStyle>,
 
-    /// Allow access to clipboard.
-    allow_clipboard: bool,
+    terminal_config: TerminalConfig,
 
     /// Proxy for sending events to the event loop.
     event_proxy: T,
@@ -360,7 +359,7 @@ impl<T> Term<T> {
             cursor_style: None,
             default_cursor_style: config.cursor.style(),
             vi_mode_cursor_style: config.cursor.vi_mode_style(),
-            allow_clipboard: config.pty_config.allow_clipboard.0,
+            terminal_config: config.terminal.clone(),
             event_proxy,
             is_focused: true,
             title: None,
@@ -451,7 +450,7 @@ impl<T> Term<T> {
         self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
         self.default_cursor_style = config.cursor.style();
         self.vi_mode_cursor_style = config.cursor.vi_mode_style();
-        self.allow_clipboard = config.pty_config.allow_clipboard.0;
+        self.terminal_config = config.terminal.clone();
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -1544,7 +1543,8 @@ impl<T: EventListener> Handler for Term<T> {
     /// Store data into clipboard.
     #[inline]
     fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
-        if !self.allow_clipboard {
+        if !matches!(self.terminal_config.clipboard, ClipboardConfig::All | ClipboardConfig::Store)
+        {
             return;
         }
         let clipboard_type = match clipboard {
@@ -1563,7 +1563,7 @@ impl<T: EventListener> Handler for Term<T> {
     /// Load data from clipboard.
     #[inline]
     fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
-        if !self.allow_clipboard {
+        if !matches!(self.terminal_config.clipboard, ClipboardConfig::All | ClipboardConfig::Load) {
             return;
         }
         let clipboard_type = match clipboard {
