@@ -213,3 +213,36 @@ fn insert_node_if_empty(table: &mut Table, path: &[&str], node: Value) -> Result
         insert_node_if_empty(next_table, &path[1..], node)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_values() {
+        let input = r#"
+root_value = 3
+
+[table]
+table_value = 5
+
+[preexisting]
+not_moved = 9
+        "#;
+
+        let mut value: Value = toml::from_str(input).unwrap();
+        let table = value.as_table_mut().unwrap();
+
+        move_value(table, &["root_value"], &["new_table", "root_value"]).unwrap();
+        move_value(table, &["table", "table_value"], &["preexisting", "subtable", "new_name"])
+            .unwrap();
+
+        let output = toml::to_string(table).unwrap();
+
+        assert_eq!(
+            output,
+            "[new_table]\nroot_value = 3\n\n[preexisting]\nnot_moved = \
+             9\n\n[preexisting.subtable]\nnew_name = 5\n\n[table]\n"
+        );
+    }
+}
