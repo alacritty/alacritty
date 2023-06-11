@@ -6,9 +6,9 @@ use mio_extras::channel::{channel, Receiver, Sender};
 
 use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
 use windows_sys::Win32::System::Threading::{
-    RegisterWaitForSingleObject, UnregisterWait, WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
+    RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
+    WT_EXECUTEONLYONCE,
 };
-use windows_sys::Win32::System::WindowsProgramming::INFINITE;
 
 use crate::tty::ChildEvent;
 
