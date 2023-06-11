@@ -40,7 +40,7 @@ signal-hook-mio = { version = "0.2.1", features = ["support-v0_6"] }
 [target.'cfg(windows)'.dependencies]
 mio-anonymous-pipes = "0.2"
 miow = "0.3"
-windows-sys = { version = "0.36", features = [
+windows-sys = { version = "0.48", features = [
     "Win32_System_Console",
     "Win32_Foundation",
     "Win32_Security",
