@@ -38,6 +38,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "toml 0.7.4",
  "unicode-width",
  "wayland-client",
  "windows-sys 0.48.0",
@@ -52,7 +53,7 @@ version = "0.1.2-dev"
 dependencies = [
  "log",
  "serde",
- "serde_yaml",
+ "toml 0.7.4",
  "winit",
 ]
 
@@ -65,8 +66,8 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "serde_yaml",
  "syn 2.0.18",
+ "toml 0.7.4",
 ]
 
 [[package]]
@@ -92,6 +93,7 @@ dependencies = [
  "serde_yaml",
  "signal-hook",
  "signal-hook-mio",
+ "toml 0.7.4",
  "unicode-width",
  "vte",
  "windows-sys 0.48.0",
@@ -585,7 +587,7 @@ checksum = "e62abb876c07e4754fae5c14cafa77937841f01740637e17d78dc04352f32a5e"
 dependencies = [
  "cc",
  "rustc_version",
- "toml",
+ "toml 0.5.11",
  "vswhom",
  "winreg",
 ]
@@ -1664,6 +1666,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93107647184f6027e3b7dcb2e11034cf95ffa1e3a682c67951963ac69c1c007d"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.8.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1887,10 +1898,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6135d499e69981f9ff0ef2167955a5333c35e36f6937d382974566b3d5b94ec"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_edit",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a76a9312f5ba4c2dec6b9161fdf25d87ad8a09256ccea5a556fef03c706a10f"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "toml_edit"
@@ -1899,6 +1925,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2380d56e8670370eee6566b0bfd4265f65b3f432e8c6d85623f728d4fa31f739"
 dependencies = [
  "indexmap",
+ "serde",
+ "serde_spanned",
  "toml_datetime",
  "winnow",
 ]

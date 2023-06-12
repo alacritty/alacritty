@@ -39,6 +39,7 @@ raw-window-handle = "0.5.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.8"
+toml = "0.7.1"
 unicode-width = "0.1"
 winit = { version = "0.28.2", default-features = false, features = ["serde"] }
 

@@ -50,12 +50,12 @@ set of features with high performance.
 	Specify alternative configuration file
 
 	Alacritty looks for the configuration file at the following paths:
-		. $XDG_CONFIG_HOME/alacritty/alacritty.yml
-		. $XDG_CONFIG_HOME/alacritty.yml
-		. $HOME/.config/alacritty/alacritty.yml
-		. $HOME/.alacritty.yml
+		. $XDG_CONFIG_HOME/alacritty/alacritty.toml
+		. $XDG_CONFIG_HOME/alacritty.toml
+		. $HOME/.config/alacritty/alacritty.toml
+		. $HOME/.alacritty.toml
 
-	On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.yml.
+	On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.toml
 
 *--embed* <parent>
 	X11 window ID to embed Alacritty within (decimal or hexadecimal with _0x_ prefix)

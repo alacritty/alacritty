@@ -52,22 +52,25 @@ For everyone else, the detailed instructions to install Alacritty can be found
 
 ## Configuration
 
-You can find the default configuration file with documentation for all available
-fields on the [GitHub releases page](https://github.com/alacritty/alacritty/releases) for each release.
+You can find the documentation for Alacritty's configuration in `man 5
+alacritty`, or by looking at [the scdoc file] if you do not have the manpages
+installed.
+
+[the scdoc file]: ./extra/man/alacritty.5.scd
 
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations:
 
-1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
-2. `$XDG_CONFIG_HOME/alacritty.yml`
-3. `$HOME/.config/alacritty/alacritty.yml`
-4. `$HOME/.alacritty.yml`
+1. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
+2. `$XDG_CONFIG_HOME/alacritty.toml`
+3. `$HOME/.config/alacritty/alacritty.toml`
+4. `$HOME/.alacritty.toml`
 
 ### Windows
 
 On Windows, the config file should be located at:
 
-`%APPDATA%\alacritty\alacritty.yml`
+`%APPDATA%\alacritty\alacritty.toml`
 
 ## Contributing
 

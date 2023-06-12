@@ -42,6 +42,7 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
 mod message_bar;
+mod migrate;
 #[cfg(windows)]
 mod panic;
 mod renderer;
@@ -54,9 +55,9 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use crate::cli::Options;
 #[cfg(unix)]
-use crate::cli::{MessageOptions, Subcommands};
+use crate::cli::MessageOptions;
+use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
@@ -77,14 +78,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Load command line options.
     let options = Options::new();
 
-    #[cfg(unix)]
     match options.subcommands {
-        Some(Subcommands::Msg(options)) => msg(options),
-        None => alacritty(options),
+        #[cfg(unix)]
+        Some(Subcommands::Msg(options)) => msg(options)?,
+        Some(Subcommands::Migrate(options)) => migrate::migrate(options),
+        None => alacritty(options)?,
     }
 
-    #[cfg(not(unix))]
-    alacritty(options)
+    Ok(())
 }
 
 /// `msg` subcommand entrypoint.

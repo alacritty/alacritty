@@ -70,7 +70,7 @@ pub struct WindowContext {
     master_fd: RawFd,
     #[cfg(not(windows))]
     shell_pid: u32,
-    ipc_config: Vec<(String, serde_yaml::Value)>,
+    ipc_config: Vec<(String, toml::Value)>,
     config: Rc<UiConfig>,
 }
 
@@ -379,8 +379,8 @@ impl WindowContext {
                     },
                 };
 
-                // Try and parse value as yaml.
-                match serde_yaml::from_str(value) {
+                // Try and parse value as toml.
+                match toml::from_str(value) {
                     Ok(value) => self.ipc_config.push((key.to_owned(), value)),
                     Err(err) => error!(
                         target: LOG_TARGET_IPC_CONFIG,

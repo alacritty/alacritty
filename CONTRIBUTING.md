@@ -86,8 +86,7 @@ Latency is another important factor for Alacritty. On X11, Windows, and macOS th
 Code should be documented where appropriate. The existing code can be used as a guidance here and
 the general `rustfmt` rules can be followed for formatting.
 
-If any change has been made to the `config.rs` file, these changes should also be documented in the
-example configuration file `alacritty.yml`.
+If any change has been made to the `config.rs` file, it should also be documented in the man pages.
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to
 things like code refactorings or documentation/tests) additionally need to be documented in the

@@ -28,7 +28,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 pub fn derive_direct(ident: Ident, generics: Generics) -> TokenStream2 {
     quote! {
         impl <#generics> alacritty_config::SerdeReplace for #ident <#generics> {
-            fn replace(&mut self, key: &str, value: serde_yaml::Value) -> Result<(), Box<dyn std::error::Error>> {
+            fn replace(&mut self, key: &str, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
                 if !key.is_empty() {
                     let error = format!("Fields \"{}\" do not exist", key);
                     return Err(error.into());
@@ -53,7 +53,7 @@ pub fn derive_recursive<T>(
     quote! {
         #[allow(clippy::extra_unused_lifetimes)]
         impl <'de, #constrained> alacritty_config::SerdeReplace for #ident <#unconstrained> {
-            fn replace(&mut self, key: &str, value: serde_yaml::Value) -> Result<(), Box<dyn std::error::Error>> {
+            fn replace(&mut self, key: &str, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
                 if key.is_empty() {
                     *self = serde::Deserialize::deserialize(value)?;
                     return Ok(());

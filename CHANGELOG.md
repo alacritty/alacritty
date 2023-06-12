@@ -12,15 +12,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Minimum Rust version has been bumped to 1.65.0
 - Manpages are now generated using `scdoc` (see `INSTALL.md`)
 
+### Added
+
+- Warnings for unused configuration file options
+
 ### Changed
 
 - Mode-specific bindings can now be bound in any mode for easier macros
 - `--help` output is more compact now and uses more neutral palette
+- Configuration file now uses TOML instead of YAML
+    Run `alacritty migrate` to automatically convert all configuration files
+- Deprecated config option `draw_bold_text_with_bright_colors`, use
+    `colors.draw_bold_text_with_bright_colors`
+- Deprecated config option `key_bindings`, use `keyboard.bindings`
+- Deprecated config option `mouse_bindings`, use `mouse.bindings`
 
 ### Fixed
 
 - Hyperlink preview not being shown when the terminal has exactly 2 lines
 - Crash on Windows when changing display scale factor
+
+### Removed
+
+- Config option `background_opacity`, use `window.background_opacity`
+- Config option `colors.search.bar`, use `colors.footer_bar` instead
+- Config option `mouse.url`, use the `hints` config section
 
 ## 0.12.1
 
