@@ -563,7 +563,7 @@ terminal and pipe it to other applications.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <action>, <command> <binding>, <mouse> },]
+*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <action>, <command> <binding>, <mouse>, <persist> },]
 
 Array with all available hints.
 
@@ -616,6 +616,11 @@ _action_ or a _command_.
 
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
+	
+	*persist* <boolean>
+
+		Set to _false_ by default. When this is _true_, hints remain persistent 
+		after selection.
 
 Default: _[{
 	regex = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+",++

@@ -267,7 +267,7 @@ impl Default for Hints {
             enabled: vec![Hint {
                 content,
                 action,
-                persist: true,
+                persist: false,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
