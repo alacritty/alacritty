@@ -2,12 +2,10 @@ use std::cmp::max;
 use std::os::raw::c_ulong;
 use std::path::PathBuf;
 
-#[cfg(unix)]
-use clap::Subcommand;
-use clap::{ArgAction, Args, Parser, ValueHint};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
+use toml::{Table, Value};
 
 use alacritty_terminal::config::{Program, PtyConfig};
 
@@ -30,17 +28,18 @@ pub struct Options {
     #[clap(long)]
     pub embed: Option<String>,
 
-    /// Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml].
+    /// Specify alternative configuration file [default:
+    /// $XDG_CONFIG_HOME/alacritty/alacritty.toml].
     #[cfg(not(any(target_os = "macos", windows)))]
     #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
-    /// Specify alternative configuration file [default: %APPDATA%\alacritty\alacritty.yml].
+    /// Specify alternative configuration file [default: %APPDATA%\alacritty\alacritty.toml].
     #[cfg(windows)]
     #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
-    /// Specify alternative configuration file [default: $HOME/.config/alacritty/alacritty.yml].
+    /// Specify alternative configuration file [default: $HOME/.config/alacritty/alacritty.toml].
     #[cfg(target_os = "macos")]
     #[clap(long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
@@ -64,14 +63,13 @@ pub struct Options {
 
     /// CLI options for config overrides.
     #[clap(skip)]
-    pub config_options: Value,
+    pub config_options: TomlValue,
 
     /// Options which can be passed via IPC.
     #[clap(flatten)]
     pub window_options: WindowOptions,
 
     /// Subcommand passed to the CLI.
-    #[cfg(unix)]
     #[clap(subcommand)]
     pub subcommands: Option<Subcommands>,
 }
@@ -81,7 +79,7 @@ impl Options {
         let mut options = Self::parse();
 
         // Convert `--option` flags into serde `Value`.
-        options.config_options = options_as_value(&options.option);
+        options.config_options = TomlValue(options_as_value(&options.option));
 
         options
     }
@@ -125,40 +123,15 @@ impl Options {
     }
 }
 
-/// Combine multiple options into a [`serde_yaml::Value`].
+/// Combine multiple options into a [`toml::Value`].
 pub fn options_as_value(options: &[String]) -> Value {
-    options.iter().fold(Value::default(), |value, option| match option_as_value(option) {
+    options.iter().fold(Value::Table(Table::new()), |value, option| match toml::from_str(option) {
         Ok(new_value) => serde_utils::merge(value, new_value),
         Err(_) => {
             eprintln!("Ignoring invalid option: {:?}", option);
             value
         },
     })
-}
-
-/// Parse an option in the format of `parent.field=value` as a serde Value.
-fn option_as_value(option: &str) -> Result<Value, serde_yaml::Error> {
-    let mut yaml_text = String::with_capacity(option.len());
-    let mut closing_brackets = String::new();
-
-    for (i, c) in option.chars().enumerate() {
-        match c {
-            '=' => {
-                yaml_text.push_str(": ");
-                yaml_text.push_str(&option[i + 1..]);
-                break;
-            },
-            '.' => {
-                yaml_text.push_str(": {");
-                closing_brackets.push('}');
-            },
-            _ => yaml_text.push(c),
-        }
-    }
-
-    yaml_text += &closing_brackets;
-
-    serde_yaml::from_str(&yaml_text)
 }
 
 /// Parse the class CLI parameter.
@@ -259,10 +232,11 @@ impl WindowIdentity {
 }
 
 /// Available CLI subcommands.
-#[cfg(unix)]
 #[derive(Subcommand, Debug)]
 pub enum Subcommands {
+    #[cfg(unix)]
     Msg(MessageOptions),
+    Migrate(MigrateOptions),
 }
 
 /// Send a message to the Alacritty socket.
@@ -287,6 +261,30 @@ pub enum SocketMessage {
 
     /// Update the Alacritty configuration.
     Config(IpcConfig),
+}
+
+/// Migrate the configuration file.
+#[derive(Args, Clone, Debug)]
+pub struct MigrateOptions {
+    /// Path to the configuration file.
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
+    pub config_file: Option<PathBuf>,
+
+    /// Only output TOML config to stdout.
+    #[clap(short, long)]
+    pub dry_run: bool,
+
+    /// Do not recurse over imports.
+    #[clap(short = 'i', long)]
+    pub skip_imports: bool,
+
+    /// Do not move renamed fields to their new location.
+    #[clap(long)]
+    pub skip_renames: bool,
+
+    #[clap(short, long)]
+    /// Do not output to STDOUT.
+    pub silent: bool,
 }
 
 /// Subset of options that we pass to 'create-window' IPC subcommand.
@@ -320,6 +318,16 @@ pub struct IpcConfig {
     pub reset: bool,
 }
 
+/// Toml value with default implementation.
+#[derive(Debug)]
+pub struct TomlValue(pub Value);
+
+impl Default for TomlValue {
+    fn default() -> Self {
+        Self(Value::Table(Table::new()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,7 +341,7 @@ mod tests {
     use clap::CommandFactory;
     #[cfg(target_os = "linux")]
     use clap_complete::Shell;
-    use serde_yaml::mapping::Mapping;
+    use toml::Table;
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
@@ -371,38 +379,38 @@ mod tests {
     #[test]
     fn valid_option_as_value() {
         // Test with a single field.
-        let value = option_as_value("field=true").unwrap();
+        let value: Value = toml::from_str("field=true").unwrap();
 
-        let mut mapping = Mapping::new();
-        mapping.insert(Value::String(String::from("field")), Value::Bool(true));
+        let mut table = Table::new();
+        table.insert(String::from("field"), Value::Boolean(true));
 
-        assert_eq!(value, Value::Mapping(mapping));
+        assert_eq!(value, Value::Table(table));
 
         // Test with nested fields
-        let value = option_as_value("parent.field=true").unwrap();
+        let value: Value = toml::from_str("parent.field=true").unwrap();
 
-        let mut parent_mapping = Mapping::new();
-        parent_mapping.insert(Value::String(String::from("field")), Value::Bool(true));
-        let mut mapping = Mapping::new();
-        mapping.insert(Value::String(String::from("parent")), Value::Mapping(parent_mapping));
+        let mut parent_table = Table::new();
+        parent_table.insert(String::from("field"), Value::Boolean(true));
+        let mut table = Table::new();
+        table.insert(String::from("parent"), Value::Table(parent_table));
 
-        assert_eq!(value, Value::Mapping(mapping));
+        assert_eq!(value, Value::Table(table));
     }
 
     #[test]
     fn invalid_option_as_value() {
-        let value = option_as_value("}");
+        let value = toml::from_str::<Value>("}");
         assert!(value.is_err());
     }
 
     #[test]
     fn float_option_as_value() {
-        let value = option_as_value("float=3.4").unwrap();
+        let value: Value = toml::from_str("float=3.4").unwrap();
 
-        let mut expected = Mapping::new();
-        expected.insert(Value::String(String::from("float")), Value::Number(3.4.into()));
+        let mut expected = Table::new();
+        expected.insert(String::from("float"), Value::Float(3.4));
 
-        assert_eq!(value, Value::Mapping(expected));
+        assert_eq!(value, Value::Table(expected));
     }
 
     #[test]

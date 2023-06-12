@@ -232,7 +232,7 @@ impl<'de> Deserialize<'de> for Class {
             {
                 let mut class = Self::Value::default();
 
-                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
+                while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
                     match key.as_str() {
                         "instance" => match String::deserialize(value) {
                             Ok(instance) => class.instance = instance,
@@ -252,7 +252,7 @@ impl<'de> Deserialize<'de> for Class {
                                 );
                             },
                         },
-                        _ => (),
+                        key => warn!(target: LOG_TARGET_CONFIG, "Unrecognized class field: {key}"),
                     }
                 }
 

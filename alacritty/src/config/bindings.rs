@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Display};
 use bitflags::bitflags;
 use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
-use serde_yaml::Value as SerdeValue;
+use toml::Value as SerdeValue;
 use winit::event::VirtualKeyCode::*;
 use winit::event::{ModifiersState, MouseButton, VirtualKeyCode};
 
@@ -1011,19 +1011,20 @@ impl<'a> Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("key"));
                             }
 
-                            let val = map.next_value::<SerdeValue>()?;
-                            if val.is_u64() {
-                                let scancode = val.as_u64().unwrap();
-                                if scancode > u64::from(u32::MAX) {
-                                    return Err(<V::Error as Error>::custom(format!(
-                                        "Invalid key binding, scancode too big: {}",
-                                        scancode
-                                    )));
-                                }
-                                key = Some(Key::Scancode(scancode as u32));
-                            } else {
-                                let k = Key::deserialize(val).map_err(V::Error::custom)?;
-                                key = Some(k);
+                            let value = map.next_value::<SerdeValue>()?;
+                            match value.as_integer() {
+                                Some(scancode) => match u32::try_from(scancode) {
+                                    Ok(scancode) => key = Some(Key::Scancode(scancode)),
+                                    Err(_) => {
+                                        return Err(<V::Error as Error>::custom(format!(
+                                            "Invalid key binding, scancode is too big: {}",
+                                            scancode
+                                        )));
+                                    },
+                                },
+                                None => {
+                                    key = Some(Key::deserialize(value).map_err(V::Error::custom)?);
+                                },
                             }
                         },
                         Field::Mods => {
@@ -1066,15 +1067,6 @@ impl<'a> Deserialize<'a> for RawBinding {
                                     Err(err) => {
                                         let value = match value {
                                             SerdeValue::String(string) => string,
-                                            SerdeValue::Mapping(map) if map.len() == 1 => {
-                                                match map.into_iter().next() {
-                                                    Some((
-                                                        SerdeValue::String(string),
-                                                        SerdeValue::Null,
-                                                    )) => string,
-                                                    _ => return Err(err),
-                                                }
-                                            },
                                             _ => return Err(err),
                                         };
                                         return Err(V::Error::custom(format!(

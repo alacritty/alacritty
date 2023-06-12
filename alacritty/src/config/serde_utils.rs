@@ -1,7 +1,6 @@
 //! Serde helpers.
 
-use serde_yaml::mapping::Mapping;
-use serde_yaml::Value;
+use toml::{Table, Value};
 
 /// Merge two serde structures.
 ///
@@ -9,20 +8,19 @@ use serde_yaml::Value;
 /// `replacement`.
 pub fn merge(base: Value, replacement: Value) -> Value {
     match (base, replacement) {
-        (Value::Sequence(mut base), Value::Sequence(mut replacement)) => {
+        (Value::Array(mut base), Value::Array(mut replacement)) => {
             base.append(&mut replacement);
-            Value::Sequence(base)
+            Value::Array(base)
         },
-        (Value::Mapping(base), Value::Mapping(replacement)) => {
-            Value::Mapping(merge_mapping(base, replacement))
+        (Value::Table(base), Value::Table(replacement)) => {
+            Value::Table(merge_tables(base, replacement))
         },
-        (value, Value::Null) => value,
         (_, value) => value,
     }
 }
 
-/// Merge two key/value mappings.
-fn merge_mapping(mut base: Mapping, replacement: Mapping) -> Mapping {
+/// Merge two key/value tables.
+fn merge_tables(mut base: Table, replacement: Table) -> Table {
     for (key, value) in replacement {
         let value = match base.remove(&key) {
             Some(base_value) => merge(base_value, value),
@@ -40,54 +38,54 @@ mod tests {
 
     #[test]
     fn merge_primitive() {
-        let base = Value::Null;
-        let replacement = Value::Bool(true);
+        let base = Value::Table(Table::new());
+        let replacement = Value::Boolean(true);
         assert_eq!(merge(base, replacement.clone()), replacement);
 
-        let base = Value::Bool(false);
-        let replacement = Value::Bool(true);
+        let base = Value::Boolean(false);
+        let replacement = Value::Boolean(true);
         assert_eq!(merge(base, replacement.clone()), replacement);
 
-        let base = Value::Number(0.into());
-        let replacement = Value::Number(1.into());
+        let base = Value::Integer(0.into());
+        let replacement = Value::Integer(1.into());
         assert_eq!(merge(base, replacement.clone()), replacement);
 
         let base = Value::String(String::new());
         let replacement = Value::String(String::from("test"));
         assert_eq!(merge(base, replacement.clone()), replacement);
 
-        let base = Value::Mapping(Mapping::new());
-        let replacement = Value::Null;
+        let base = Value::Table(Table::new());
+        let replacement = Value::Table(Table::new());
         assert_eq!(merge(base.clone(), replacement), base);
     }
 
     #[test]
     fn merge_sequence() {
-        let base = Value::Sequence(vec![Value::Null]);
-        let replacement = Value::Sequence(vec![Value::Bool(true)]);
-        let expected = Value::Sequence(vec![Value::Null, Value::Bool(true)]);
+        let base = Value::Array(vec![Value::Table(Table::new())]);
+        let replacement = Value::Array(vec![Value::Boolean(true)]);
+        let expected = Value::Array(vec![Value::Table(Table::new()), Value::Boolean(true)]);
         assert_eq!(merge(base, replacement), expected);
     }
 
     #[test]
-    fn merge_mapping() {
-        let mut base_mapping = Mapping::new();
-        base_mapping.insert(Value::String(String::from("a")), Value::Bool(true));
-        base_mapping.insert(Value::String(String::from("b")), Value::Bool(false));
-        let base = Value::Mapping(base_mapping);
+    fn merge_tables() {
+        let mut base_table = Table::new();
+        base_table.insert(String::from("a"), Value::Boolean(true));
+        base_table.insert(String::from("b"), Value::Boolean(false));
+        let base = Value::Table(base_table);
 
-        let mut replacement_mapping = Mapping::new();
-        replacement_mapping.insert(Value::String(String::from("a")), Value::Bool(true));
-        replacement_mapping.insert(Value::String(String::from("c")), Value::Bool(false));
-        let replacement = Value::Mapping(replacement_mapping);
+        let mut replacement_table = Table::new();
+        replacement_table.insert(String::from("a"), Value::Boolean(true));
+        replacement_table.insert(String::from("c"), Value::Boolean(false));
+        let replacement = Value::Table(replacement_table);
 
         let merged = merge(base, replacement);
 
-        let mut expected_mapping = Mapping::new();
-        expected_mapping.insert(Value::String(String::from("b")), Value::Bool(false));
-        expected_mapping.insert(Value::String(String::from("a")), Value::Bool(true));
-        expected_mapping.insert(Value::String(String::from("c")), Value::Bool(false));
-        let expected = Value::Mapping(expected_mapping);
+        let mut expected_table = Table::new();
+        expected_table.insert(String::from("b"), Value::Boolean(false));
+        expected_table.insert(String::from("a"), Value::Boolean(true));
+        expected_table.insert(String::from("c"), Value::Boolean(false));
+        let expected = Value::Table(expected_table);
 
         assert_eq!(merged, expected);
     }

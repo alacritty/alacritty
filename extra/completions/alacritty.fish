@@ -1,5 +1,5 @@
 complete -c alacritty -n "__fish_use_subcommand" -l embed -d 'X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)' -r
-complete -c alacritty -n "__fish_use_subcommand" -l config-file -d 'Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]' -r -F
+complete -c alacritty -n "__fish_use_subcommand" -l config-file -d 'Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.toml]' -r -F
 complete -c alacritty -n "__fish_use_subcommand" -l socket -d 'Path for IPC socket creation' -r -F
 complete -c alacritty -n "__fish_use_subcommand" -s o -l option -d 'Override configuration file options [example: cursor.style=Beam]' -r
 complete -c alacritty -n "__fish_use_subcommand" -l working-directory -d 'Start the shell in the specified working directory' -r -F
@@ -14,6 +14,7 @@ complete -c alacritty -n "__fish_use_subcommand" -l hold -d 'Remain open after c
 complete -c alacritty -n "__fish_use_subcommand" -s h -l help -d 'Print help'
 complete -c alacritty -n "__fish_use_subcommand" -s V -l version -d 'Print version'
 complete -c alacritty -n "__fish_use_subcommand" -f -a "msg" -d 'Send a message to the Alacritty socket'
+complete -c alacritty -n "__fish_use_subcommand" -f -a "migrate" -d 'Migrate the configuration file'
 complete -c alacritty -n "__fish_use_subcommand" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -s s -l socket -d 'IPC socket connection path override' -r -F
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -s h -l help -d 'Print help'
@@ -32,7 +33,14 @@ complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subco
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -f -a "create-window" -d 'Create a new window in the same Alacritty process'
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -f -a "config" -d 'Update the Alacritty configuration'
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from help" -f -a "msg" -d 'Send a message to the Alacritty socket'
-complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s c -l config-file -d 'Path to the configuration file' -r -F
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s d -l dry-run -d 'Only output TOML config to stdout'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s i -l skip-imports -d 'Do not recurse over imports'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -l skip-renames -d 'Do not move renamed fields to their new location'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s s -l silent -d 'Do not output to STDOUT'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s h -l help -d 'Print help'
+complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from migrate; and not __fish_seen_subcommand_from help" -f -a "msg" -d 'Send a message to the Alacritty socket'
+complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from migrate; and not __fish_seen_subcommand_from help" -f -a "migrate" -d 'Migrate the configuration file'
+complete -c alacritty -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from migrate; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c alacritty -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config" -f -a "create-window" -d 'Create a new window in the same Alacritty process'
 complete -c alacritty -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from msg; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config" -f -a "config" -d 'Update the Alacritty configuration'

@@ -314,7 +314,7 @@ impl RenderableCell {
                 _ => rgb.into(),
             },
             Color::Named(ansi) => {
-                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
+                match (config.draw_bold_text_with_bright_colors(), flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
                     (_, Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
@@ -334,7 +334,7 @@ impl RenderableCell {
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    config.draw_bold_text_with_bright_colors,
+                    config.draw_bold_text_with_bright_colors(),
                     flags & Flags::DIM_BOLD,
                     idx,
                 ) {
