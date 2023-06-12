@@ -150,7 +150,9 @@ impl HintState {
             let bounds = self.matches[index].clone();
             let action = hint.action.clone();
 
-            if !hint.persist {
+            if hint.persist {
+                self.keys.clear();
+            } else {
                 self.stop();
             }
 
