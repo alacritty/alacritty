@@ -563,7 +563,7 @@ terminal and pipe it to other applications.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <action>, <command> <binding>, <mouse>, <persist> },]
+*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <persist>, <action>, <command> <binding>, <mouse> },]
 
 Array with all available hints.
 
@@ -584,6 +584,11 @@ _action_ or a _command_.
 		When this is _true_, heuristics will be used to shorten the match if
 		there are characters likely not to be part of the hint (e.g. a trailing
 		_._). This is most useful for URIs and applies only to _regex_ matches.
+
+	*persist* <boolean>
+
+		Set to _false_ by default. When this is _true_, hints remain persistent 
+		after selection.
 
 	*action* "Copy" | "Paste" | "Select" | "MoveViModeCursor"
 
@@ -617,11 +622,6 @@ _action_ or a _command_.
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
 	
-	*persist* <boolean>
-
-		Set to _false_ by default. When this is _true_, hints remain persistent 
-		after selection.
-
 Default: _[{
 	regex = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+",++
 hyperlinks = true,++
