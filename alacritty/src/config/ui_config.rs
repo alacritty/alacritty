@@ -85,6 +85,12 @@ pub struct UiConfig {
     /// Bindings for the mouse.
     #[config(deprecated = "use mouse.bindings instead")]
     mouse_bindings: MouseBindings,
+
+    /// Configuration file imports.
+    ///
+    /// This is never read since the field is directly accessed through the config's
+    /// [`toml::Value`], but still present to prevent unused field warnings.
+    import: Vec<String>,
 }
 
 impl Default for UiConfig {
@@ -100,6 +106,7 @@ impl Default for UiConfig {
             key_bindings: Default::default(),
             alt_send_esc: Default::default(),
             keyboard: Default::default(),
+            import: Default::default(),
             window: Default::default(),
             colors: Default::default(),
             mouse: Default::default(),

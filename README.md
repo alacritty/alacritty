@@ -24,6 +24,10 @@ a daily driver.
 
 Precompiled binaries are available from the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
 
+Join [`#alacritty`] on libera.chat if you have questions or looking for a quick help.
+
+[`#alacritty`]: https://web.libera.chat/gamja/?channels=#alacritty
+
 ## Features
 
 You can find an overview over the features available in Alacritty [here](./docs/features.md).
@@ -103,13 +107,10 @@ good fit for Alacritty. This means you won't find things like tabs or splits
 (which are best left to a window manager or [terminal multiplexer][tmux]) nor
 niceties like a GUI config editor.
 
-## IRC
-
-Alacritty discussions can be found in `#alacritty` on Libera.Chat.
+[tmux]: https://github.com/tmux/tmux
 
 ## License
 
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/alacritty/alacritty/blob/master/LICENSE-APACHE
-[tmux]: https://github.com/tmux/tmux
