@@ -70,7 +70,7 @@ pub struct WindowContext {
     master_fd: RawFd,
     #[cfg(not(windows))]
     shell_pid: u32,
-    ipc_config: Vec<(String, toml::Value)>,
+    ipc_config: Vec<toml::Value>,
     config: Rc<UiConfig>,
 }
 
@@ -273,13 +273,12 @@ impl WindowContext {
             // Apply each option, removing broken ones.
             let mut i = 0;
             while i < self.ipc_config.len() {
-                let (key, value) = &self.ipc_config[i];
-
-                match config.replace(key, value.clone()) {
+                let option = &self.ipc_config[i];
+                match config.replace(option.clone()) {
                     Err(err) => {
                         error!(
                             target: LOG_TARGET_IPC_CONFIG,
-                            "Unable to override option '{}': {}", key, err
+                            "Unable to override option '{}': {}", option, err
                         );
                         self.ipc_config.swap_remove(i);
                     },
@@ -367,21 +366,9 @@ impl WindowContext {
             self.ipc_config.clear();
         } else {
             for option in &ipc_config.options {
-                // Separate config key/value.
-                let (key, value) = match option.split_once('=') {
-                    Some(split) => split,
-                    None => {
-                        error!(
-                            target: LOG_TARGET_IPC_CONFIG,
-                            "'{}': IPC config option missing value", option
-                        );
-                        continue;
-                    },
-                };
-
-                // Try and parse value as toml.
-                match toml::from_str(value) {
-                    Ok(value) => self.ipc_config.push((key.to_owned(), value)),
+                // Try and parse option as toml.
+                match toml::from_str(option) {
+                    Ok(value) => self.ipc_config.push(value),
                     Err(err) => error!(
                         target: LOG_TARGET_IPC_CONFIG,
                         "'{}': Invalid IPC config value: {:?}", option, err
