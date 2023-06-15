@@ -35,9 +35,13 @@ This section documents the root level of the configuration file.
 
 	Live config reload (changes require restart)
 
+	Default: _true_
+
 *ipc_socket* <boolean> _(unix only)_
 
 	Offer IPC using _alacritty msg_
+
+	Default: _true_
 
 # ENV
 
@@ -410,6 +414,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	When _true_, bold text is drawn using the bright color variants.
 
+	Default: _false_
+
 # Bell
 
 This section documents the *[bell]* table of the configuration file.
@@ -563,7 +569,7 @@ terminal and pipe it to other applications.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <action>, <command> <binding>, <mouse> },]
+*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <persist>, <action>, <command> <binding>, <mouse> },]
 
 Array with all available hints.
 
@@ -584,6 +590,10 @@ _action_ or a _command_.
 		When this is _true_, heuristics will be used to shorten the match if
 		there are characters likely not to be part of the hint (e.g. a trailing
 		_._). This is most useful for URIs and applies only to _regex_ matches.
+
+	*persist* <boolean>
+
+		When this is _true_, hints remain persistent after selection.
 
 	*action* "Copy" | "Paste" | "Select" | "MoveViModeCursor"
 
@@ -621,6 +631,7 @@ Default: _[{
 	regex = "(mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+",++
 hyperlinks = true,++
 post_processing = true,++
+persist = false,++
 mouse = { enabled = true },++
 binding = { key = "U", mods = "Control | Shift" },
 }]_

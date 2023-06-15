@@ -150,7 +150,12 @@ impl HintState {
             let bounds = self.matches[index].clone();
             let action = hint.action.clone();
 
-            self.stop();
+            // Exit hint mode unless it requires explicit dismissal.
+            if hint.persist {
+                self.keys.clear();
+            } else {
+                self.stop();
+            }
 
             // Hyperlinks take precedence over regex matches.
             let hyperlink = term.grid()[*bounds.start()].hyperlink();
