@@ -173,8 +173,8 @@ impl Log for Logger {
 fn field_replacement() {
     let mut test = Test::default();
 
-    let value = toml::Value::Integer(13);
-    test.replace("nesting.field2", value).unwrap();
+    let value = toml::from_str("nesting.field2=13").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.nesting.field2, Some(13));
 }
@@ -183,8 +183,8 @@ fn field_replacement() {
 fn replace_derive() {
     let mut test = Test::default();
 
-    let value = toml::Value::Integer(9);
-    test.replace("nesting.newtype", value).unwrap();
+    let value = toml::from_str("nesting.newtype=9").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.nesting.newtype, NewType(9));
 }
@@ -193,8 +193,8 @@ fn replace_derive() {
 fn replace_flatten() {
     let mut test = Test::default();
 
-    let value = toml::Value::Integer(7);
-    test.replace("flatty", value).unwrap();
+    let value = toml::from_str("flatty=7").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.flatten.flatty, 7);
 }

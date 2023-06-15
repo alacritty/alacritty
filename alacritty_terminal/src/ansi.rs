@@ -52,12 +52,9 @@ impl<'de> serde::Deserialize<'de> for CursorShapeShim {
 }
 
 impl alacritty_config::SerdeReplace for CursorShapeShim {
-    fn replace(&mut self, key: &str, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
-        if !key.is_empty() {
-            return Err(format!("Fields \"{0}\" do not exist", key).into());
-        }
-
+    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
         *self = serde::Deserialize::deserialize(value)?;
+
         Ok(())
     }
 }
