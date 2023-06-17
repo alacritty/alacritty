@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Hyperlink preview not being shown when the terminal has exactly 2 lines
 - Crash on Windows when changing display scale factor
+- Freeze with some drivers when using GLX
 
 ## 0.12.1
 
