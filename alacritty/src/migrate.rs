@@ -29,6 +29,8 @@ pub fn migrate(options: MigrateOptions) {
 
     // If we're doing a wet run, perform a dry run first for safety.
     if !options.dry_run {
+        // https://github.com/rust-lang/rust-clippy/issues/10893
+        #[allow(clippy::redundant_clone)]
         let mut options = options.clone();
         options.silent = true;
         options.dry_run = true;
