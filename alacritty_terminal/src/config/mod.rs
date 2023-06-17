@@ -127,7 +127,7 @@ impl Cursor {
 }
 
 #[derive(SerdeReplace, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum ConfigCursorStyle {
     Shape(CursorShapeShim),
     WithBlinking {
@@ -191,7 +191,7 @@ impl From<CursorBlinking> for bool {
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum Program {
     Just(String),
     WithArgs {

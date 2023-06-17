@@ -455,6 +455,7 @@ impl<'de> Deserialize<'de> for HintContent {
 
 /// Binding for triggering a keyboard hint.
 #[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct HintBinding {
     pub key: Key,
     #[serde(default)]
