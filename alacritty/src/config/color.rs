@@ -75,6 +75,7 @@ impl Default for HintEndColors {
 }
 
 #[derive(Deserialize, Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct IndexedColor {
     pub color: Rgb,
 
