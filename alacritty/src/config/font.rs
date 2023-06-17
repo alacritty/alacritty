@@ -148,14 +148,14 @@ impl<'de> Deserialize<'de> for Size {
             type Value = Size;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("f64 or u64")
+                f.write_str("f64 or i64")
             }
 
             fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
                 Ok(Size(FontSize::new(value as f32)))
             }
 
-            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
                 Ok(Size(FontSize::new(value as f32)))
             }
         }
