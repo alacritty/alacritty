@@ -65,16 +65,16 @@ installed.
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations:
 
-1. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
-2. `$XDG_CONFIG_HOME/alacritty.toml`
-3. `$HOME/.config/alacritty/alacritty.toml`
-4. `$HOME/.alacritty.toml`
+1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
+2. `$XDG_CONFIG_HOME/alacritty.yml`
+3. `$HOME/.config/alacritty/alacritty.yml`
+4. `$HOME/.alacritty.yml`
 
 ### Windows
 
 On Windows, the config file should be located at:
 
-`%APPDATA%\alacritty\alacritty.toml`
+`%APPDATA%\alacritty\alacritty.yml`
 
 ## Contributing
 
