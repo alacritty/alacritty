@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Warnings for unused configuration file options
 - Config option `persist` in `hints` config section
+- Support for dynamically loading conpty.dll on Windows
 
 ### Changed
 
