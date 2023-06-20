@@ -14,4 +14,4 @@ serde = "1.0.163"
 toml = "0.7.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-winit = { version = "0.28.2", default-features = false, features = ["serde"] }
+winit = { version = "0.29.0-beta.0", default-features = false, features = ["serde"] }

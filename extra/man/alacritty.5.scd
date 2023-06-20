@@ -656,11 +656,10 @@ This section documents the *[keyboard]* table of the configuration file.
 
 	*key* <string>
 
-		Identifier of the binding's key, for example: _"A"_, _"F1"_, or
-		_"Key0"_.
-
-		A full list with available key codes can be found here:++
-https://docs.rs/winit/\*/winit/event/enum.VirtualKeyCode.html#variants
+		The regular keys like _"a"_, _"0"_, and _"ю"_ could be mapped directly
+		without any special syntax, special keys like _"F1"_ or dead keys
+		could require special names and syntax, which you can find here:++
+https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.
