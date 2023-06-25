@@ -469,6 +469,7 @@ mod tests {
         assert_eq!(selection.to_range(&term(1, 2)), None);
     }
 
+    #[rustfmt::skip]
     /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]
@@ -490,6 +491,7 @@ mod tests {
         });
     }
 
+    #[rustfmt::skip]
     /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]
