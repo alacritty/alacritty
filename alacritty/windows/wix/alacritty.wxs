@@ -1,64 +1,51 @@
-<?xml version="1.0" encoding="windows-1252"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-    <Product Name="Alacritty" Id="*" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.13.0-dev" Manufacturer="Alacritty">
-        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
-        <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
-        <Icon Id="AlacrittyIco" SourceFile=".\alacritty\windows\alacritty.ico"/>
-        <WixVariable Id="WixUILicenseRtf" Value=".\alacritty\windows\wix\license.rtf"/>
-        <Property Id="ARPPRODUCTICON" Value="AlacrittyIco"/>
-        <MediaTemplate EmbedCab="yes"/>
-        <UIRef Id="WixUI_Minimal"/>
-
-        <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
-            <ComponentRef Id="AlacrittyExe"/>
-            <ComponentRef Id="AlacrittyShortcut"/>
-            <ComponentRef Id="ModifyPathEnv"/>
-            <ComponentRef Id="ContextMenu"/>
-        </Feature>
-
-        <!-- Create directories -->
-        <Directory Id="TARGETDIR" Name="SourceDir">
-            <Directory Id="ProgramFiles64Folder">
-                <Directory Id="AlacrittyProgramFiles" Name="Alacritty"/>
-            </Directory>
-            <Directory Id="ProgramMenuFolder">
-                <Directory Id="AlacrittyProgramMenu" Name="Alacritty"/>
-            </Directory>
-        </Directory>
-
-        <!-- Application binaries -->
-        <DirectoryRef Id="AlacrittyProgramFiles">
-            <Component Id="AlacrittyExe" Guid="*">
-                <File Id="AlacrittyExeFile" Source=".\target\release\alacritty.exe" Name="alacritty.exe" KeyPath="yes"/>
-            </Component>
-        </DirectoryRef>
-
-        <DirectoryRef Id="AlacrittyProgramMenu">
-            <!-- Application shortcut -->
-            <Component Id="AlacrittyShortcut" Guid="aa36e61a-23cd-4383-b744-2f78e912f0dc">
-                <Shortcut Id="AlacrittyShortcutFile" Name="Alacritty" Description="A cross-platform, GPU-accelerated terminal emulator" Target="[AlacrittyProgramFiles]alacritty.exe"/>
-                <RemoveFolder Id="AlacrittyProgramMenu" On="uninstall"/>
-                <RegistryValue Root="HKCU" Key="Software\Microsoft\Alacritty" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
-            </Component>
-        </DirectoryRef>
-
-        <DirectoryRef Id="AlacrittyProgramFiles">
-            <!-- Add to PATH -->
-            <Component Id="ModifyPathEnv" Guid="edf0b679-9eb6-46f7-a5d1-5160f30acb34" KeyPath="yes">
-                <Environment Id="PathEnv" Value="[AlacrittyProgramFiles]" Name="PATH" Permanent="no" Part="first" Action="set" System="yes"/>
-            </Component>
-        </DirectoryRef>
-
-        <DirectoryRef Id="TARGETDIR">
-            <!-- Add context menu -->
-            <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91">
-                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here\command">
-                    <RegistryValue Type="string" Value="[AlacrittyProgramFiles]alacritty.exe" KeyPath="yes"/>
-                </RegistryKey>
-                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
-                    <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe"/>
-                </RegistryKey>
-            </Component>
-        </DirectoryRef>
-    </Product>
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+   <Package Name="Alacritty" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.13.0-dev" Manufacturer="Alacritty" InstallerVersion="200">
+      <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+      <Icon Id="AlacrittyIco" SourceFile=".\alacritty\windows\alacritty.ico" />
+      <WixVariable Id="WixUILicenseRtf" Value=".\alacritty\windows\wix\license.rtf" />
+      <Property Id="ARPPRODUCTICON" Value="AlacrittyIco" />
+      <MediaTemplate EmbedCab="yes" />
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
+         <ComponentRef Id="AlacrittyExe" />
+         <ComponentRef Id="AlacrittyShortcut" />
+         <ComponentRef Id="ModifyPathEnv" />
+         <ComponentRef Id="ContextMenu" />
+      </Feature>
+      <!-- Application binaries -->
+      <DirectoryRef Id="AlacrittyProgramFiles">
+         <Component Id="AlacrittyExe">
+            <File Id="AlacrittyExeFile" Source=".\target\release\alacritty.exe" Name="alacritty.exe" KeyPath="yes" />
+         </Component>
+      </DirectoryRef>
+      <DirectoryRef Id="AlacrittyProgramMenu">
+         <!-- Application shortcut -->
+         <Component Id="AlacrittyShortcut" Guid="aa36e61a-23cd-4383-b744-2f78e912f0dc">
+            <Shortcut Id="AlacrittyShortcutFile" Name="Alacritty" Description="A cross-platform, GPU-accelerated terminal emulator" Target="[AlacrittyProgramFiles]alacritty.exe" />
+            <RemoveFolder Id="AlacrittyProgramMenu" On="uninstall" />
+            <RegistryValue Root="HKCU" Key="Software\Microsoft\Alacritty" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+         </Component>
+      </DirectoryRef>
+      <DirectoryRef Id="AlacrittyProgramFiles">
+         <!-- Add to PATH -->
+         <Component Id="ModifyPathEnv" Guid="edf0b679-9eb6-46f7-a5d1-5160f30acb34" KeyPath="yes">
+            <Environment Id="PathEnv" Value="[AlacrittyProgramFiles]" Name="PATH" Permanent="no" Part="first" Action="set" System="yes" />
+         </Component>
+      </DirectoryRef>
+      <StandardDirectory Id="ProgramFiles64Folder">
+         <Directory Id="AlacrittyProgramFiles" Name="Alacritty" />
+      </StandardDirectory>
+      <StandardDirectory Id="ProgramMenuFolder">
+         <Directory Id="AlacrittyProgramMenu" Name="Alacritty" />
+      </StandardDirectory>
+      <!-- Add context menu -->
+      <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91" Directory="TARGETDIR">
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here\command">
+            <RegistryValue Type="string" Value="[AlacrittyProgramFiles]alacritty.exe" KeyPath="yes" />
+         </RegistryKey>
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
+            <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />
+         </RegistryKey>
+      </Component>
+   </Package>
 </Wix>
