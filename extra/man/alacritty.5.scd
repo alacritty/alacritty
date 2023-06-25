@@ -823,6 +823,8 @@ relied upon.
 
 # SEE ALSO
 
+*alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5)
+
 See the alacritty github repository at https://github.com/alacritty/alacritty
 for the full documentation.
 
