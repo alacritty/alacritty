@@ -29,7 +29,7 @@ pub use crate::config::bindings::{
     Action, Binding, BindingMode, Key, MouseAction, SearchAction, ViAction,
 };
 #[cfg(test)]
-pub use crate::config::mouse::{ClickHandler, Mouse};
+pub use crate::config::mouse::Mouse;
 pub use crate::config::ui_config::UiConfig;
 
 /// Maximum number of depth for the configuration file imports.

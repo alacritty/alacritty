@@ -63,6 +63,9 @@ const TOUCH_SCROLL_FACTOR: f64 = 0.35;
 /// Distance before a touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 20.;
 
+/// Duration between clicks used for double_click/triple_click.
+const CLICK_DURATION: Duration = Duration::from_millis(300);
+
 /// Processes input from winit.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -555,19 +558,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.ctx.mouse_mut().last_click_timestamp = now;
 
             // Update multi-click state.
-            let mouse_config = &self.ctx.config().mouse;
             self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
                 // Reset click state if button has changed.
                 _ if button != self.ctx.mouse().last_click_button => {
                     self.ctx.mouse_mut().last_click_button = button;
                     ClickState::Click
                 },
-                ClickState::Click if elapsed < mouse_config.double_click.threshold() => {
-                    ClickState::DoubleClick
-                },
-                ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold() => {
-                    ClickState::TripleClick
-                },
+                ClickState::Click if elapsed < CLICK_DURATION => ClickState::DoubleClick,
+                ClickState::DoubleClick if elapsed < CLICK_DURATION => ClickState::TripleClick,
                 _ => ClickState::Click,
             };
 
