@@ -424,7 +424,12 @@ impl Display {
         let context = gl_context.make_current(&surface)?;
 
         // Create renderer.
-        let mut renderer = Renderer::new(&context, config.debug.renderer)?;
+        let mut renderer = Renderer::new(
+            &context,
+            config.debug.renderer,
+            config.window_background_images(),
+            config.window_background_intensity(),
+        )?;
 
         // Load font common glyphs to accelerate rendering.
         debug!("Filling glyph cache with common glyphs");

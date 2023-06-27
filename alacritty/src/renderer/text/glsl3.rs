@@ -231,7 +231,8 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
         }
 
         // Bind texture if necessary.
-        if *self.active_tex != self.batch.tex() {
+        // if *self.active_tex != self.batch.tex()
+        {
             unsafe {
                 gl::BindTexture(gl::TEXTURE_2D, self.batch.tex());
             }

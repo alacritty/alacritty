@@ -1,5 +1,6 @@
 use std::fmt::{self, Formatter};
 use std::os::raw::c_ulong;
+use std::path::PathBuf;
 
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
@@ -49,6 +50,12 @@ pub struct WindowConfig {
     /// Background opacity from 0.0 to 1.0.
     pub opacity: Percentage,
 
+    // 背景画像
+    pub background_images: Vec<PathBuf>,
+
+    // 背景画像の RGB にかけるブースト値
+    pub background_image_intensity: Percentage,
+
     /// Controls which `Option` key should be treated as `Alt`.
     #[cfg(target_os = "macos")]
     pub option_as_alt: OptionAsAlt,
@@ -80,6 +87,8 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
+            background_images: Default::default(),
+            background_image_intensity: Percentage::new(1.0),
         }
     }
 }

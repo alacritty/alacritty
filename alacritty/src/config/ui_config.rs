@@ -153,6 +153,14 @@ impl UiConfig {
         self.window.opacity.as_f32()
     }
 
+    pub fn window_background_images(&self) -> &[PathBuf] {
+        &self.window.background_images
+    }
+
+    pub fn window_background_intensity(&self) -> f32 {
+        self.window.background_image_intensity.as_f32()
+    }
+
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
         if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {

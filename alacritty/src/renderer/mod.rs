@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, ptr};
 
@@ -29,6 +30,9 @@ pub use text::{GlyphCache, LoaderApi};
 
 use shader::ShaderVersion;
 use text::{Gles2Renderer, Glsl3Renderer, TextRenderer};
+
+mod background;
+use background::BackgroundRenderer;
 
 macro_rules! cstr {
     ($s:literal) => {
@@ -81,6 +85,7 @@ enum TextRendererProvider {
 pub struct Renderer {
     text_renderer: TextRendererProvider,
     rect_renderer: RectRenderer,
+    background_renderer: BackgroundRenderer,
 }
 
 impl Renderer {
@@ -91,6 +96,8 @@ impl Renderer {
     pub fn new(
         context: &PossiblyCurrentContext,
         renderer_prefernce: Option<RendererPreference>,
+        background_image_paths: &[PathBuf],
+        background_intensity: f32,
     ) -> Result<Self, Error> {
         // We need to load OpenGL functions once per instance, but only after we make our context
         // current due to WGL limitations.
@@ -145,7 +152,10 @@ impl Renderer {
             }
         }
 
-        Ok(Self { text_renderer, rect_renderer })
+        let background_renderer =
+            BackgroundRenderer::new(background_image_paths, background_intensity);
+
+        Ok(Self { text_renderer, rect_renderer, background_renderer })
     }
 
     pub fn draw_cells<I: Iterator<Item = RenderableCell>>(
@@ -225,16 +235,8 @@ impl Renderer {
     }
 
     /// Fill the window with `color` and `alpha`.
-    pub fn clear(&self, color: Rgb, alpha: f32) {
-        unsafe {
-            gl::ClearColor(
-                (f32::from(color.r) / 255.0).min(1.0) * alpha,
-                (f32::from(color.g) / 255.0).min(1.0) * alpha,
-                (f32::from(color.b) / 255.0).min(1.0) * alpha,
-                alpha,
-            );
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
+    pub fn clear(&mut self, color: Rgb, alpha: f32) {
+        self.background_renderer.draw(color, alpha);
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
@@ -258,12 +260,14 @@ impl Renderer {
     }
 
     /// Resize the renderer.
-    pub fn resize(&self, size_info: &SizeInfo) {
+    pub fn resize(&mut self, size_info: &SizeInfo) {
         self.set_viewport(size_info);
         match &self.text_renderer {
             TextRendererProvider::Gles2(renderer) => renderer.resize(size_info),
             TextRendererProvider::Glsl3(renderer) => renderer.resize(size_info),
         }
+
+        self.background_renderer.resize(size_info);
     }
 }
 
