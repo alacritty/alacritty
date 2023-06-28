@@ -1168,6 +1168,9 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
+    const NO_DELAY: Duration = Duration::from_millis(0);
+    const DUMMY_CLICK_DURATION: Duration = CLICK_DURATION;
+
     struct MockEventProxy;
     impl EventListener for MockEventProxy {}
 
@@ -1292,6 +1295,7 @@ mod tests {
             initial_button: $initial_button:expr,
             input: $input:expr,
             end_state: $end_state:expr,
+            input_delay: $input_delay:expr,
         } => {
             #[test]
             fn $name() {
@@ -1330,6 +1334,8 @@ mod tests {
                 };
 
                 let mut processor = Processor::new(context);
+
+                processor.ctx.mouse.last_click_timestamp = Instant::now() - $input_delay;
 
                 let event: WinitEvent::<'_, TerminalEvent> = $input;
                 if let WinitEvent::WindowEvent {
@@ -1382,6 +1388,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: NO_DELAY,
     }
 
     test_clickstate! {
@@ -1398,6 +1405,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: NO_DELAY,
     }
 
     test_clickstate! {
@@ -1414,6 +1422,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: NO_DELAY,
     }
 
     test_clickstate! {
@@ -1430,6 +1439,24 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::DoubleClick,
+        input_delay: NO_DELAY,
+    }
+
+    test_clickstate! {
+        name: double_click_failed,
+        initial_state: ClickState::Click,
+        initial_button: MouseButton::Left,
+        input: WinitEvent::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { DeviceId::dummy() },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { WindowId::dummy() },
+        },
+        end_state: ClickState::Click,
+        input_delay: DUMMY_CLICK_DURATION,
     }
 
     test_clickstate! {
@@ -1446,6 +1473,24 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::TripleClick,
+        input_delay: NO_DELAY,
+    }
+
+    test_clickstate! {
+        name: triple_click_failed,
+        initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
+        input: WinitEvent::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { DeviceId::dummy() },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { WindowId::dummy() },
+        },
+        end_state: ClickState::Click,
+        input_delay: DUMMY_CLICK_DURATION,
     }
 
     test_clickstate! {
@@ -1462,6 +1507,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: NO_DELAY,
     }
 
     test_process_binding! {
