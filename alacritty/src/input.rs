@@ -1316,6 +1316,7 @@ mod tests {
                 let mut mouse = Mouse {
                     click_state: $initial_state,
                     last_click_button: $initial_button,
+                    last_click_timestamp: Instant::now() - $input_delay,
                     ..Mouse::default()
                 };
 
@@ -1334,8 +1335,6 @@ mod tests {
                 };
 
                 let mut processor = Processor::new(context);
-
-                processor.ctx.mouse.last_click_timestamp = Instant::now() - $input_delay;
 
                 let event: WinitEvent::<'_, TerminalEvent> = $input;
                 if let WinitEvent::WindowEvent {
