@@ -538,18 +538,6 @@ Windows: _"powershell"_
 
 This section documents the *[mouse]* table of the configuration file.
 
-*double_click* { threshold = <integer> }
-
-	Set maximum time between double-clicks in milliseconds.
-
-	Default: _300_
-
-*triple_click* { threshold = <integer> }
-
-	Set maximum time between triple-clicks in milliseconds.
-
-	Default: _300_
-
 *hide_when_typing* <boolean>
 
 	When this is _true_, the cursor is temporarily hidden when typing.
