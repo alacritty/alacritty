@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `background_opacity`, use `window.background_opacity`
 - Config option `colors.search.bar`, use `colors.footer_bar` instead
 - Config option `mouse.url`, use the `hints` config section
+- Config options `mouse.double_click` and `mouse.triple_click`
 
 ## 0.12.1
 
