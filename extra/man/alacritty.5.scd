@@ -235,11 +235,11 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	*foreground* <string>
 
-		Default: _"#1d1f21"_
+		Default: _"#d8d8d8"_
 
 	*background* <string>
 
-		Default: _"#c5c8c6"_
+		Default: _"#181818"_
 
 	*dim_foreground* <string>
 
@@ -284,11 +284,11 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	*matches* { foreground = <string>, background = <string> }
 
-		Default: _{ foreground = "#000000", background: "#ffffff" }_
+		Default: _{ foreground = "#181818", background: "#ac4242" }_
 
 	*focused_match* { foreground = <string>, background = <string> }
 
-		Default: _{ foreground = "#ffffff", background: "#000000" }_
+		Default: _{ foreground = "#181818", background: "#f4bf75" }_
 
 *hints*
 
@@ -299,7 +299,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 		Allowed values are hexadecimal colors like _#ff00ff_, or
 		_CellForeground_/_CellBackground_, which references the affected cell.
 
-		Default: _{ foreground = "#1d1f21", background = "#e9ff5e" }_
+		Default: _{ foreground = "#181818", background = "#f4bf75" }_
 
 	*end* { foreground = <string>, background = <string> }
 
@@ -308,7 +308,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 		Allowed values are hexadecimal colors like _#ff00ff_, or
 		_CellForeground_/_CellBackground_, which references the affected cell.
 
-		Default: _{ foreground = "#e9ff5e", background = "#1d1f21" }_
+		Default: _{ foreground = "#181818", background = "#ac4242" }_
 
 *line_indicator* { foreground = <string>, background = <string> }
 
@@ -324,7 +324,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 	Color used for the footer bar on the bottom, used by search regex input,
 	hyperlink URI preview, etc.
 
-	Default: _{ foreground = "#c5c8c6", background = "#1d1f21" }_
+	Default: _{ foreground = "#181818", background = "#d8d8d8" }_
 
 *selection* { text = <string>, background = <string> }
 
@@ -338,40 +338,40 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 *normal*
 
 	*black* <string>
-		Default: _"#1d1f21"_
+		Default: _"#181818"_
 	*red* <string>
-		Default: _"#cc6666"_
+		Default: _"#ac4242"_
 	*green* <string>
-		Default: _"#b5bd68"_
+		Default: _"#90a959"_
 	*yellow* <string>
-		Default: _"#f0c674"_
+		Default: _"#f4bf75"_
 	*blue* <string>
-		Default: _"#81a2be"_
+		Default: _"#6a9fb5"_
 	*magenta* <string>
-		Default: _"#b294bb"_
+		Default: _"#aa759f"_
 	*cyan* <string>
-		Default: _"#8abeb7"_
+		Default: _"#75b5aa"_
 	*white* <string>
-		Default: _"#c5c8c6"_
+		Default: _"#d8d8d8"_
 
 *bright*
 
 	*black* <string>
-		Default: _"#666666"_
+		Default: _"#6b6b6b"_
 	*red* <string>
-		Default: _"#d54e53"_
+		Default: _"#c55555"_
 	*green* <string>
-		Default: _"#b9ca4a"_
+		Default: _"#aac474"_
 	*yellow* <string>
-		Default: _"#e7c547"_
+		Default: _"#feca88"_
 	*blue* <string>
-		Default: _"#7aa6da"_
+		Default: _"#82b8c8"_
 	*magenta* <string>
-		Default: _"#c397d8"_
+		Default: _"#c28cb8"_
 	*cyan* <string>
-		Default: _"#70c0b1"_
+		Default: _"#93d3c3"_
 	*white* <string>
-		Default: _"#eaeaea"_
+		Default: _"#f8f8f8"_
 
 *dim*
 
@@ -379,21 +379,21 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 	on the _normal_ colors.
 
 	*black* <string>
-		Default: _"#131415"_
+		Default: _"#0f0f0f"_
 	*red* <string>
-		Default: _"#864343"_
+		Default: _"#712b2b"_
 	*green* <string>
-		Default: _"#777c44"_
+		Default: _"#5f6f3a"_
 	*yellow* <string>
-		Default: _"#9e824c"_
+		Default: _"#a17e4d"_
 	*blue* <string>
-		Default: _"#556a7d"_
+		Default: _"#456877"_
 	*magenta* <string>
-		Default: _"#75617b"_
+		Default: _"#704d68"_
 	*cyan* <string>
-		Default: _"#5b7d78"_
+		Default: _"#4d7770"_
 	*white* <string>
-		Default: _"#828482"_
+		Default: _"#8e8e8e"_
 
 *indexed_colors* [{ index = <integer>, color = <string> },]
 
