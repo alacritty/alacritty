@@ -63,8 +63,8 @@ const TOUCH_SCROLL_FACTOR: f64 = 0.35;
 /// Distance before a touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 20.;
 
-/// Duration between clicks used for double_click/triple_click.
-const CLICK_DURATION: Duration = Duration::from_millis(300);
+/// Threshold used for double_click/triple_click.
+const CLICK_THRESHOLD: Duration = Duration::from_millis(300);
 
 /// Processes input from winit.
 ///
@@ -564,8 +564,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     self.ctx.mouse_mut().last_click_button = button;
                     ClickState::Click
                 },
-                ClickState::Click if elapsed < CLICK_DURATION => ClickState::DoubleClick,
-                ClickState::DoubleClick if elapsed < CLICK_DURATION => ClickState::TripleClick,
+                ClickState::Click if elapsed < CLICK_THRESHOLD => ClickState::DoubleClick,
+                ClickState::DoubleClick if elapsed < CLICK_THRESHOLD => ClickState::TripleClick,
                 _ => ClickState::Click,
             };
 
@@ -1168,9 +1168,6 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
-    const NO_DELAY: Duration = Duration::from_millis(0);
-    const DUMMY_CLICK_DURATION: Duration = CLICK_DURATION;
-
     struct MockEventProxy;
     impl EventListener for MockEventProxy {}
 
@@ -1387,7 +1384,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1404,7 +1401,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1421,7 +1418,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1438,7 +1435,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::DoubleClick,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1455,7 +1452,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: DUMMY_CLICK_DURATION,
+        input_delay: CLICK_THRESHOLD,
     }
 
     test_clickstate! {
@@ -1472,7 +1469,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::TripleClick,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1489,7 +1486,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: DUMMY_CLICK_DURATION,
+        input_delay: CLICK_THRESHOLD,
     }
 
     test_clickstate! {
@@ -1506,7 +1503,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
-        input_delay: NO_DELAY,
+        input_delay: Duration::ZERO,
     }
 
     test_process_binding! {
