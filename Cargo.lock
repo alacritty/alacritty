@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.19.1-dev"
+version = "0.19.2-dev"
 dependencies = [
  "alacritty_config",
  "alacritty_config_derive",

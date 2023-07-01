@@ -30,19 +30,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Deprecated config option `mouse_bindings`, use `mouse.bindings`
 - The default colorscheme is now based on base16 classic dark
 
-### Fixed
-
-- Hyperlink preview not being shown when the terminal has exactly 2 lines
-- Crash on Windows when changing display scale factor
-- Freeze with some drivers when using GLX
-- Crash when shrinking the terminal scrolled into the history
-
 ### Removed
 
 - Config option `background_opacity`, use `window.background_opacity`
 - Config option `colors.search.bar`, use `colors.footer_bar` instead
 - Config option `mouse.url`, use the `hints` config section
 - Config options `mouse.double_click` and `mouse.triple_click`
+
+## 0.12.2
+
+### Fixed
+
+- Hyperlink preview not being shown when the terminal has exactly 2 lines
+- Crash on Windows when changing display scale factor
+- Freeze with some drivers when using GLX
+- Crash when shrinking the terminal scrolled into the history
 
 ## 0.12.1
 
