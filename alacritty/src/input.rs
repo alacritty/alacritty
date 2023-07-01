@@ -63,6 +63,9 @@ const TOUCH_SCROLL_FACTOR: f64 = 0.35;
 /// Distance before a touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 20.;
 
+/// Threshold used for double_click/triple_click.
+const CLICK_THRESHOLD: Duration = Duration::from_millis(300);
+
 /// Processes input from winit.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -555,19 +558,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             self.ctx.mouse_mut().last_click_timestamp = now;
 
             // Update multi-click state.
-            let mouse_config = &self.ctx.config().mouse;
             self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
                 // Reset click state if button has changed.
                 _ if button != self.ctx.mouse().last_click_button => {
                     self.ctx.mouse_mut().last_click_button = button;
                     ClickState::Click
                 },
-                ClickState::Click if elapsed < mouse_config.double_click.threshold() => {
-                    ClickState::DoubleClick
-                },
-                ClickState::DoubleClick if elapsed < mouse_config.triple_click.threshold() => {
-                    ClickState::TripleClick
-                },
+                ClickState::Click if elapsed < CLICK_THRESHOLD => ClickState::DoubleClick,
+                ClickState::DoubleClick if elapsed < CLICK_THRESHOLD => ClickState::TripleClick,
                 _ => ClickState::Click,
             };
 
@@ -1294,6 +1292,7 @@ mod tests {
             initial_button: $initial_button:expr,
             input: $input:expr,
             end_state: $end_state:expr,
+            input_delay: $input_delay:expr,
         } => {
             #[test]
             fn $name() {
@@ -1314,6 +1313,7 @@ mod tests {
                 let mut mouse = Mouse {
                     click_state: $initial_state,
                     last_click_button: $initial_button,
+                    last_click_timestamp: Instant::now() - $input_delay,
                     ..Mouse::default()
                 };
 
@@ -1384,6 +1384,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1400,6 +1401,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1416,6 +1418,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: Duration::ZERO,
     }
 
     test_clickstate! {
@@ -1432,6 +1435,24 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::DoubleClick,
+        input_delay: Duration::ZERO,
+    }
+
+    test_clickstate! {
+        name: double_click_failed,
+        initial_state: ClickState::Click,
+        initial_button: MouseButton::Left,
+        input: WinitEvent::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { DeviceId::dummy() },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { WindowId::dummy() },
+        },
+        end_state: ClickState::Click,
+        input_delay: CLICK_THRESHOLD,
     }
 
     test_clickstate! {
@@ -1448,6 +1469,24 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::TripleClick,
+        input_delay: Duration::ZERO,
+    }
+
+    test_clickstate! {
+        name: triple_click_failed,
+        initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
+        input: WinitEvent::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { DeviceId::dummy() },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { WindowId::dummy() },
+        },
+        end_state: ClickState::Click,
+        input_delay: CLICK_THRESHOLD,
     }
 
     test_clickstate! {
@@ -1464,6 +1503,7 @@ mod tests {
             window_id: unsafe { WindowId::dummy() },
         },
         end_state: ClickState::Click,
+        input_delay: Duration::ZERO,
     }
 
     test_process_binding! {
