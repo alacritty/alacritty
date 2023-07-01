@@ -764,6 +764,8 @@ https://docs.rs/winit/\*/winit/event/enum.VirtualKeyCode.html#variants
 		*PasteSelection*
 			Paste from the selection buffer.
 
+Default: See *alacritty-bindings*(5)
+
 # Debug
 
 This section documents the *[debug]* table of the configuration file.
@@ -808,6 +810,8 @@ relied upon.
 	Default: _false_
 
 # SEE ALSO
+
+*alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5)
 
 See the alacritty github repository at https://github.com/alacritty/alacritty
 for the full documentation.

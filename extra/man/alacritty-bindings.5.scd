@@ -465,6 +465,8 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 
 # SEE ALSO
 
+*alacritty*(1), *alacritty-msg*(1), *alacritty*(5)
+
 See the alacritty github repository at https://github.com/alacritty/alacritty
 for the full documentation.
 

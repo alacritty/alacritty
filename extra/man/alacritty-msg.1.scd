@@ -46,6 +46,8 @@ making it possible to control Alacritty without directly accessing it.
 
 # SEE ALSO
 
+*alacritty*(1), *alacritty*(5), *alacritty-bindings*(5)
+
 See the alacritty github repository at https://github.com/alacritty/alacritty
 for the full documentation.
 
