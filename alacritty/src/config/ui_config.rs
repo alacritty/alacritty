@@ -7,7 +7,7 @@ use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
-use winit::keyboard::{Key, ModifiersState};
+use winit::keyboard::{Key, KeyLocation, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Config as TerminalConfig, Program, LOG_TARGET_CONFIG};
@@ -278,7 +278,10 @@ impl Default for Hints {
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
-                    key: BindingKey::Keycode(Key::Character("u".into())),
+                    key: BindingKey::Keycode {
+                        key: Key::Character("u".into()),
+                        location: KeyLocation::Standard,
+                    },
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
                     mode: Default::default(),
                 }),

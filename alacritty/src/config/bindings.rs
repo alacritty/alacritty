@@ -7,8 +7,8 @@ use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use toml::Value as SerdeValue;
 use winit::event::MouseButton;
-use winit::keyboard::Key::*;
 use winit::keyboard::{Key, KeyCode, ModifiersState};
+use winit::keyboard::{Key::*, KeyLocation};
 use winit::platform::scancode::KeyCodeExtScancode;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
@@ -315,6 +315,7 @@ macro_rules! bindings {
         $ty:ident;
         $(
             $key:expr
+            $(=>$location:expr)?
             $(,$mods:expr)*
             $(,+$mode:expr)*
             $(,~$notmode:expr)*
@@ -333,7 +334,7 @@ macro_rules! bindings {
             $(_notmode.insert($notmode);)*
 
             v.push($ty {
-                trigger: trigger!($ty, $key),
+                trigger: trigger!($ty, $key, $($location)?),
                 mods: _mods,
                 mode: _mode,
                 notmode: _notmode,
@@ -346,13 +347,16 @@ macro_rules! bindings {
 }
 
 macro_rules! trigger {
-    (KeyBinding, $key:literal) => {
-        BindingKey::Keycode(Character($key.into()))
+    (KeyBinding, $key:literal,) => {
+        BindingKey::Keycode { key: Character($key.into()), location: KeyLocation::Standard }
     };
-    (KeyBinding, $key:expr) => {
-        BindingKey::Keycode($key)
+    (KeyBinding, $key:literal, $location:expr) => {
+        BindingKey::Keycode { key: Character($key.into()), location: $location }
     };
-    ($ty:ident, $key:expr) => {
+    (KeyBinding, $key:expr,) => {
+        BindingKey::Keycode { key: $key, location: KeyLocation::Standard }
+    };
+    ($ty:ident, $key:expr,) => {
         $key
     };
 }
@@ -570,6 +574,8 @@ fn common_keybindings() -> Vec<KeyBinding> {
         "=",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "+",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "-",    ModifiersState::CONTROL;                                                                 Action::DecreaseFontSize;
+        "+" => KeyLocation::Numpad, ModifiersState::CONTROL;                                             Action::IncreaseFontSize;
+        "-" => KeyLocation::Numpad, ModifiersState::CONTROL;                                             Action::DecreaseFontSize;
     )
 }
 
@@ -611,6 +617,8 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "w",    ModifiersState::SUPER;                                         Action::Quit;
         "f",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchForward;
         "b",    ModifiersState::SUPER, ~BindingMode::SEARCH;                   Action::SearchBackward;
+        "+" => KeyLocation::Numpad, ModifiersState::SUPER;                     Action::IncreaseFontSize;
+        "-" => KeyLocation::Numpad, ModifiersState::SUPER;                     Action::DecreaseFontSize;
     )
 }
 
@@ -623,7 +631,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum BindingKey {
     Scancode(KeyCode),
-    Keycode(Key),
+    Keycode { key: Key, location: KeyLocation },
 }
 
 impl<'a> Deserialize<'a> for BindingKey {
@@ -636,45 +644,67 @@ impl<'a> Deserialize<'a> for BindingKey {
             Ok(scancode) => Ok(BindingKey::Scancode(KeyCode::from_scancode(scancode))),
             Err(_) => {
                 let keycode = String::deserialize(value.clone()).map_err(D::Error::custom)?;
-                let keycode = if keycode.len() == 1 {
-                    Key::Character(keycode.to_lowercase().into())
+                let (key, location) = if keycode.len() == 1 {
+                    (Key::Character(keycode.to_lowercase().into()), KeyLocation::Standard)
                 } else {
                     // Translate legacy winit codes into their modern counterparts.
                     match keycode.as_str() {
-                        "Up" => Key::ArrowUp,
-                        "Back" => Key::Backspace,
-                        "Down" => Key::ArrowDown,
-                        "Left" => Key::ArrowLeft,
-                        "Right" => Key::ArrowRight,
-                        "At" => Key::Character("@".into()),
-                        "Colon" => Key::Character(":".into()),
-                        "Period" => Key::Character(".".into()),
-                        "Return" | "NumpadEnter" => Key::Enter,
-                        "LBracket" => Key::Character("[".into()),
-                        "RBracket" => Key::Character("]".into()),
-                        "Semicolon" => Key::Character(";".into()),
-                        "Backslash" => Key::Character("\\".into()),
-                        "Plus" | "NumpadAdd" => Key::Character("+".into()),
-                        "Comma" | "NumpadComma" => Key::Character(",".into()),
-                        "Slash" | "NumpadDivide" => Key::Character("/".into()),
-                        "Equals" | "NumpadEquals" => Key::Character("=".into()),
-                        "Minus" | "NumpadSubtract" => Key::Character("-".into()),
-                        "Asterisk" | "NumpadMultiply" => Key::Character("*".into()),
-                        "Key1" | "Numpad1" => Key::Character("1".into()),
-                        "Key2" | "Numpad2" => Key::Character("2".into()),
-                        "Key3" | "Numpad3" => Key::Character("3".into()),
-                        "Key4" | "Numpad4" => Key::Character("4".into()),
-                        "Key5" | "Numpad5" => Key::Character("5".into()),
-                        "Key6" | "Numpad6" => Key::Character("6".into()),
-                        "Key7" | "Numpad7" => Key::Character("7".into()),
-                        "Key8" | "Numpad8" => Key::Character("8".into()),
-                        "Key9" | "Numpad9" => Key::Character("9".into()),
-                        "Key0" | "Numpad0" => Key::Character("0".into()),
-                        _ => Key::deserialize(value).map_err(D::Error::custom)?,
+                        "Up" => (Key::ArrowUp, KeyLocation::Standard),
+                        "Back" => (Key::Backspace, KeyLocation::Standard),
+                        "Down" => (Key::ArrowDown, KeyLocation::Standard),
+                        "Left" => (Key::ArrowLeft, KeyLocation::Standard),
+                        "Right" => (Key::ArrowRight, KeyLocation::Standard),
+                        "At" => (Key::Character("@".into()), KeyLocation::Standard),
+                        "Colon" => (Key::Character(":".into()), KeyLocation::Standard),
+                        "Period" => (Key::Character(".".into()), KeyLocation::Standard),
+                        "Return" => (Key::Enter, KeyLocation::Standard),
+                        "LBracket" => (Key::Character("[".into()), KeyLocation::Standard),
+                        "RBracket" => (Key::Character("]".into()), KeyLocation::Standard),
+                        "Semicolon" => (Key::Character(";".into()), KeyLocation::Standard),
+                        "Backslash" => (Key::Character("\\".into()), KeyLocation::Standard),
+                        "Plus" => (Key::Character("+".into()), KeyLocation::Standard),
+                        "Comma" => (Key::Character(",".into()), KeyLocation::Standard),
+                        "Slash" => (Key::Character("/".into()), KeyLocation::Standard),
+                        "Equals" => (Key::Character("=".into()), KeyLocation::Standard),
+                        "Minus" => (Key::Character("-".into()), KeyLocation::Standard),
+                        "Asterisk" => (Key::Character("*".into()), KeyLocation::Standard),
+                        "Key1" => (Key::Character("1".into()), KeyLocation::Standard),
+                        "Key2" => (Key::Character("2".into()), KeyLocation::Standard),
+                        "Key3" => (Key::Character("3".into()), KeyLocation::Standard),
+                        "Key4" => (Key::Character("4".into()), KeyLocation::Standard),
+                        "Key5" => (Key::Character("5".into()), KeyLocation::Standard),
+                        "Key6" => (Key::Character("6".into()), KeyLocation::Standard),
+                        "Key7" => (Key::Character("7".into()), KeyLocation::Standard),
+                        "Key8" => (Key::Character("8".into()), KeyLocation::Standard),
+                        "Key9" => (Key::Character("9".into()), KeyLocation::Standard),
+                        "Key0" => (Key::Character("0".into()), KeyLocation::Standard),
+
+                        // Special case numpad.
+                        "NumpadEnter" => (Key::Enter, KeyLocation::Numpad),
+                        "NumpadAdd" => (Key::Character("+".into()), KeyLocation::Numpad),
+                        "NumpadComma" => (Key::Character(",".into()), KeyLocation::Numpad),
+                        "NumpadDivide" => (Key::Character("/".into()), KeyLocation::Numpad),
+                        "NumpadEquals" => (Key::Character("=".into()), KeyLocation::Numpad),
+                        "NumpadSubtract" => (Key::Character("-".into()), KeyLocation::Numpad),
+                        "NumpadMultiply" => (Key::Character("*".into()), KeyLocation::Numpad),
+                        "Numpad1" => (Key::Character("1".into()), KeyLocation::Numpad),
+                        "Numpad2" => (Key::Character("2".into()), KeyLocation::Numpad),
+                        "Numpad3" => (Key::Character("3".into()), KeyLocation::Numpad),
+                        "Numpad4" => (Key::Character("4".into()), KeyLocation::Numpad),
+                        "Numpad5" => (Key::Character("5".into()), KeyLocation::Numpad),
+                        "Numpad6" => (Key::Character("6".into()), KeyLocation::Numpad),
+                        "Numpad7" => (Key::Character("7".into()), KeyLocation::Numpad),
+                        "Numpad8" => (Key::Character("8".into()), KeyLocation::Numpad),
+                        "Numpad9" => (Key::Character("9".into()), KeyLocation::Numpad),
+                        "Numpad0" => (Key::Character("0".into()), KeyLocation::Numpad),
+                        _ => (
+                            Key::deserialize(value).map_err(D::Error::custom)?,
+                            KeyLocation::Standard,
+                        ),
                     }
                 };
 
-                Ok(BindingKey::Keycode(keycode))
+                Ok(BindingKey::Keycode { key, location })
             },
         }
     }

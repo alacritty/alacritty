@@ -661,6 +661,10 @@ This section documents the *[keyboard]* table of the configuration file.
 		could require special names and syntax, which you can find here:++
 https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
+		Keys on numpad could be referred by: "NumpadEnter" | "NumpadAdd" |
+		"NumpadComma" | "NumpadDivide" | "NumpadEquals" | "NumpadSubtract" |
+		"NumpadMultiply" | "Numpad[0-9]".
+
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.
 

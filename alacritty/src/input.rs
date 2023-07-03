@@ -1050,7 +1050,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             let key = match (&binding.trigger, &key.key_without_modifiers()) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
-                (_, key) => BindingKey::Keycode(key.clone()),
+                (_, code) => BindingKey::Keycode { key: code.clone(), location: key.location },
             };
 
             if binding.is_triggered_by(mode, mods, &key) {

@@ -352,7 +352,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :[
 :  _"IncreaseFontSize"_
+|  _"NumpadAdd"_
+:  _"Control"_
+:[
+:  _"IncreaseFontSize"_
 |  _"-"_
+:  _"Control"_
+:[
+:  _"DecreaseFontSize"_
+|  _"NumpadSubtract"_
 :  _"Control"_
 :[
 :  _"DecreaseFontSize"_
@@ -394,7 +402,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :[
 :  _"IncreaseFontSize"_
+|  _"NumpadAdd"_
+:  _"Command"_
+:[
+:  _"IncreaseFontSize"_
 |  _"-"_
+:  _"Command"_
+:[
+:  _"DecreaseFontSize"_
+|  _"NumpadSubtract"_
 :  _"Command"_
 :[
 :  _"DecreaseFontSize"_
