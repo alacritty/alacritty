@@ -80,11 +80,11 @@ pub struct UiConfig {
 
     /// Keybindings.
     #[config(deprecated = "use keyboard.bindings instead")]
-    key_bindings: KeyBindings,
+    key_bindings: Option<KeyBindings>,
 
     /// Bindings for the mouse.
     #[config(deprecated = "use mouse.bindings instead")]
-    mouse_bindings: MouseBindings,
+    mouse_bindings: Option<MouseBindings>,
 
     /// Configuration file imports.
     ///
@@ -124,10 +124,10 @@ impl UiConfig {
         // Check which key bindings is most likely to be the user's configuration.
         //
         // Both will be non-empty due to the presence of the default keybindings.
-        let key_bindings = if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
-            &mut self.keyboard.bindings.0
+        let key_bindings = if let Some(key_bindings) = self.key_bindings.as_mut() {
+            &mut key_bindings.0
         } else {
-            &mut self.key_bindings.0
+            &mut self.keyboard.bindings.0
         };
 
         for hint in &self.hints.enabled {
@@ -155,19 +155,19 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
-            self.keyboard.bindings.0.as_slice()
+        if let Some(key_bindings) = self.key_bindings.as_ref() {
+            &key_bindings.0
         } else {
-            self.key_bindings.0.as_slice()
+            &self.keyboard.bindings.0
         }
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        if self.mouse.bindings.0.len() >= self.mouse_bindings.0.len() {
-            self.mouse.bindings.0.as_slice()
+        if let Some(mouse_bindings) = self.mouse_bindings.as_ref() {
+            &mouse_bindings.0
         } else {
-            self.mouse_bindings.0.as_slice()
+            &self.mouse.bindings.0
         }
     }
 
