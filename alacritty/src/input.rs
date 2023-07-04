@@ -975,8 +975,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
-            for ch in text.chars() {
-                self.ctx.hint_input(ch);
+            for character in text.chars() {
+                self.ctx.hint_input(character);
             }
             return;
         }
@@ -995,10 +995,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
-        // TODO maybe we should just accept text?
         if self.ctx.search_active() {
-            for ch in text.chars() {
-                self.ctx.search_input(ch);
+            for character in text.chars() {
+                self.ctx.search_input(character);
             }
 
             return;
@@ -1011,27 +1010,29 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.on_terminal_input_start();
 
-        #[cfg(not(target_os = "macos"))]
-        let alt_send_esc = true;
-
-        #[cfg(target_os = "macos")]
-        let alt_send_esc = {
-            let option_as_alt = self.ctx.config().window.option_as_alt;
-            // Only send ESC for an `Alt` key.
-            option_as_alt == OptionAsAlt::Both
-                || (option_as_alt == OptionAsAlt::OnlyLeft
-                    && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
-                || (option_as_alt == OptionAsAlt::OnlyRight
-                    && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed)
-        };
-
-        let mut bytes = Vec::with_capacity(text.as_bytes().len() + 1);
-        if alt_send_esc && self.ctx.modifiers().state().alt_key() && text.len() == 1 {
+        let mut bytes = Vec::with_capacity(text.len() + 1);
+        if self.alt_send_esc() && text.len() == 1 {
             bytes.push(b'\x1b');
         }
         bytes.extend_from_slice(text.as_bytes());
 
         self.ctx.write_to_pty(bytes);
+    }
+
+    /// Whether we should send `ESC` due to `Alt` being pressed.
+    #[cfg(not(target_os = "macos"))]
+    fn alt_send_esc(&mut self) -> bool {
+        self.ctx.modifiers().state().alt_key()
+    }
+
+    #[cfg(target_os = "macos")]
+    fn alt_send_esc(&mut self) -> bool {
+        let option_as_alt = self.ctx.config().window.option_as_alt;
+        option_as_alt == OptionAsAlt::Both
+            || (option_as_alt == OptionAsAlt::OnlyLeft
+                && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
+            || (option_as_alt == OptionAsAlt::OnlyRight
+                && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed)
     }
 
     /// Attempt to find a binding and execute its action.

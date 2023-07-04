@@ -38,11 +38,11 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :[
 :  _"Copy"_
-|  _"l"_
+|  _"L"_
 :  _"Control"_
 :[
 :  _"ClearLogNotice"_
-|  _"l"_
+|  _"L"_
 :  _"Control"_
 :  _"~Vi|~Search"_
 :  *chars*: _"\\u000c"_
@@ -81,55 +81,55 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
-|  _"i"_
+|  _"I"_
 :[
 :  _"Vi|~Search"_
 :  _"ToggleViMode"_
-|  _"i"_
+|  _"I"_
 :[
 :  _"Vi|~Search"_
 :  _"ScrollToBottom"_
-|  _"c"_
+|  _"C"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ToggleViMode"_
-|  _"y"_
+|  _"Y"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollLineUp"_
-|  _"e"_
+|  _"E"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollLineDown"_
-|  _"g"_
+|  _"G"_
 :[
 :  _"Vi|~Search"_
 :  _"ScrollToTop"_
-|  _"g"_
+|  _"G"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"ScrollToBottom"_
-|  _"b"_
+|  _"B"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollPageUp"_
-|  _"f"_
+|  _"F"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollPageDown"_
-|  _"u"_
+|  _"U"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollHalfPageUp"_
-|  _"d"_
+|  _"D"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ScrollHalfPageDown"_
-|  _"y"_
+|  _"Y"_
 :[
 :  _"Vi|~Search"_
 :  _"Copy"_
-|  _"y"_
+|  _"Y"_
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
@@ -137,19 +137,19 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
-|  _"v"_
+|  _"V"_
 :[
 :  _"Vi|~Search"_
 :  _"ToggleNormalSelection"_
-|  _"v"_
+|  _"V"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"ToggleLineSelection"_
-|  _"v"_
+|  _"V"_
 :  _"Control"_
 :  _"Vi|~Search"_
 :  _"ToggleBlockSelection"_
-|  _"v"_
+|  _"V"_
 :  _"Alt"_
 :  _"Vi|~Search"_
 :  _"ToggleSemanticSelection"_
@@ -157,23 +157,23 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"Open"_
-|  _"z"_
+|  _"Z"_
 :[
 :  _"Vi|~Search"_
 :  _"CenterAroundViCursor"_
-|  _"k"_
+|  _"K"_
 :[
 :  _"Vi|~Search"_
 :  _"Up"_
-|  _"j"_
+|  _"J"_
 :[
 :  _"Vi|~Search"_
 :  _"Down"_
-|  _"h"_
+|  _"H"_
 :[
 :  _"Vi|~Search"_
 :  _"Left"_
-|  _"l"_
+|  _"L"_
 :[
 :  _"Vi|~Search"_
 :  _"Right"_
@@ -205,39 +205,39 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"FirstOccupied"_
-|  _"h"_
+|  _"H"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"High"_
-|  _"m"_
+|  _"M"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Middle"_
-|  _"l"_
+|  _"L"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Low"_
-|  _"b"_
+|  _"B"_
 :[
 :  _"Vi|~Search"_
 :  _"SemanticLeft"_
-|  _"w"_
+|  _"W"_
 :[
 :  _"Vi|~Search"_
 :  _"SemanticRight"_
-|  _"e"_
+|  _"E"_
 :[
 :  _"Vi|~Search"_
 :  _"SemanticRightEnd"_
-|  _"b"_
+|  _"B"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordLeft"_
-|  _"w"_
+|  _"W"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordRight"_
-|  _"e"_
+|  _"E"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordRightEnd"_
@@ -253,11 +253,11 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"SearchBackward"_
-|  _"n"_
+|  _"N"_
 :[
 :  _"Vi|~Search"_
 :  _"SearchNext"_
-|  _"n"_
+|  _"N"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"SearchPrevious"_
@@ -277,23 +277,23 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Search"_
 :  _"SearchCancel"_
-|  _"c"_
+|  _"C"_
 :  _"Control"_
 :  _"Search"_
 :  _"SearchCancel"_
-|  _"u"_
+|  _"U"_
 :  _"Control"_
 :  _"Search"_
 :  _"SearchClear"_
-|  _"w"_
+|  _"W"_
 :  _"Control"_
 :  _"Search"_
 :  _"SearchDeleteWord"_
-|  _"p"_
+|  _"P"_
 :  _"Control"_
 :  _"Search"_
 :  _"SearchHistoryPrevious"_
-|  _"n"_
+|  _"N"_
 :  _"Control"_
 :  _"Search"_
 :  _"SearchHistoryNext"_
@@ -316,23 +316,23 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[ *mods*
 :[ *mode*
 :[ *action*
-|  _"v"_
+|  _"V"_
 :  _"Control|Shift"_
 :  _"~Vi"_
 :  _"Paste"_
-|  _"c"_
+|  _"C"_
 :  _"Control|Shift"_
 :[
 :  _"Copy"_
-|  _"f"_
+|  _"F"_
 :  _"Control|Shift"_
 :  _"~Search"_
 :  _"SearchForward"_
-|  _"b"_
+|  _"B"_
 :  _"Control|Shift"_
 :  _"~Search"_
 :  _"SearchBackward"_
-|  _"c"_
+|  _"C"_
 :  _"Control|Shift"_
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
@@ -382,11 +382,11 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[ *mods*
 :[ *mode*
 :[ *action* / *chars*
-|  _"k"_
+|  _"K"_
 :  _"Command"_
 :  _"~Vi|~Search"_
 :  *chars*: _"\\u000c"_
-|  _"k"_
+|  _"K"_
 :  _"Command"_
 :  _"~Vi|~Search"_
 :  _"ClearHistory"_
@@ -414,51 +414,51 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :[
 :  _"DecreaseFontSize"_
-|  _"v"_
+|  _"V"_
 :  _"Command"_
 :[
 :  _"Paste"_
-|  _"c"_
+|  _"C"_
 :  _"Command"_
 :[
 :  _"Copy"_
-|  _"c"_
+|  _"C"_
 :  _"Command"_
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
-|  _"h"_
+|  _"H"_
 :  _"Command"_
 :[
 :  _"Hide"_
-|  _"h"_
+|  _"H"_
 :  _"Command|Alt"_
 :[
 :  _"HideOtherApplications"_
-|  _"m"_
+|  _"M"_
 :  _"Command"_
 :[
 :  _"Minimize"_
-|  _"q"_
+|  _"Q"_
 :  _"Command"_
 :[
 :  _"Quit"_
-|  _"w"_
+|  _"W"_
 :  _"Command"_
 :[
 :  _"Quit"_
-|  _"n"_
+|  _"N"_
 :  _"Command"_
 :[
 :  _"CreateNewWindow"_
-|  _"f"_
+|  _"F"_
 :  _"Command|Control"_
 :[
 :  _"ToggleFullscreen"_
-|  _"f"_
+|  _"F"_
 :  _"Command"_
 :  _"~Search"_
 :  _"SearchForward"_
-|  _"b"_
+|  _"B"_
 :  _"Command"_
 :  _"~Search"_
 :  _"SearchBackward"_

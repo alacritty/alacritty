@@ -7,8 +7,8 @@ use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use toml::Value as SerdeValue;
 use winit::event::MouseButton;
-use winit::keyboard::{Key, KeyCode, ModifiersState};
-use winit::keyboard::{Key::*, KeyLocation};
+use winit::keyboard::Key::*;
+use winit::keyboard::{Key, KeyCode, KeyLocation, ModifiersState};
 use winit::platform::scancode::KeyCodeExtScancode;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
@@ -644,7 +644,7 @@ impl<'a> Deserialize<'a> for BindingKey {
             Ok(scancode) => Ok(BindingKey::Scancode(KeyCode::from_scancode(scancode))),
             Err(_) => {
                 let keycode = String::deserialize(value.clone()).map_err(D::Error::custom)?;
-                let (key, location) = if keycode.len() == 1 {
+                let (key, location) = if keycode.chars().count() == 1 {
                     (Key::Character(keycode.to_lowercase().into()), KeyLocation::Standard)
                 } else {
                     // Translate legacy winit codes into their modern counterparts.
@@ -981,9 +981,9 @@ impl<'a> Deserialize<'a> for RawBinding {
                                     },
                                 },
                                 None => {
-                                    let k =
-                                        BindingKey::deserialize(value).map_err(V::Error::custom)?;
-                                    key = Some(k);
+                                    key = Some(
+                                        BindingKey::deserialize(value).map_err(V::Error::custom)?,
+                                    )
                                 },
                             }
                         },
