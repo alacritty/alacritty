@@ -642,7 +642,7 @@ of the configuration file.
 
 		Mouse button which needs to be pressed to trigger this binding.
 
-	*action* <keyboard_bindings_action> | "ExpandSelection"
+	*action* <keyboard.bindings.action> | "ExpandSelection"
 
 		*ExpandSelection*
 			Expand the selection to the current mouse cursor location.
