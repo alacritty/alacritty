@@ -603,14 +603,14 @@ _action_ or a _command_.
 
 	*binding* { key = <string>, mods = <string>, mode = <string> }
 
-		See _key_bindings_ for documentation on available values.
+		See _keyboard.bindings_ for documentation on available values.
 
 		This controls which key binding is used to start the keyboard hint
 		selection process.
 
 	*mouse* { mods = <string>, enabled = <boolean> }
 
-		See _key_bindings_ for documentation on available _mods_.
+		See _keyboard.bindings_ for documentation on available _mods_.
 
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
@@ -626,13 +626,13 @@ binding = { key = "U", mods = "Control | Shift" },
 
 # Bindings
 
-This section documents the *mouse_bindings* and *key_bindings* at the root level
+This section documents the *mouse.bindings* and *keyboard.bindings* at the root level
 of the configuration file.
 
-*mouse_bindings* [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
+*mouse.bindings* [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
 
-	See _key_bindings_ for full documentation on _mods_, _mode_, _action_, and
-	_chars_.
+	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
+	and _chars_.
 
 	To trigger mouse bindings when an application running within Alacritty
 	captures the mouse, the `Shift` modifier is automatically added as a
@@ -642,12 +642,12 @@ of the configuration file.
 
 		Mouse button which needs to be pressed to trigger this binding.
 
-	*action* <key_bindings.action> | "ExpandSelection"
+	*action* <keyboard_bindings_action> | "ExpandSelection"
 
 		*ExpandSelection*
 			Expand the selection to the current mouse cursor location.
 
-*key_bindings* [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
+*keyboard.bindings* [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
 
 	To unset a default binding, you can use the action _"ReceiveChar"_ to remove
 	it or _"None"_ to inhibit any action.
