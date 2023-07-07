@@ -1342,7 +1342,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         *self.ctx.occluded = occluded;
                     },
                     WindowEvent::DroppedFile(path) => {
-                        let path: String = path.to_string_lossy().into();
+                        let path: String = String::from("'") + &path.to_string_lossy() + "'";
                         self.ctx.paste(&(path + " "), true);
                     },
                     WindowEvent::CursorLeft { .. } => {
