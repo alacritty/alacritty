@@ -544,6 +544,24 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
+*bindings*: [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
+
+	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
+	and _chars_.
+
+	To trigger mouse bindings when an application running within Alacritty
+	captures the mouse, the `Shift` modifier is automatically added as a
+	requirement.
+
+	*mouse* "Middle" | "Left" | "Right" | <number>
+
+		Mouse button which needs to be pressed to trigger this binding.
+
+	*action* <keyboard.bindings.action> | "ExpandSelection"
+
+		*ExpandSelection*
+			Expand the selection to the current mouse cursor location.
+
 # Hints
 
 This section documents the *[hints]* table of the configuration file.
@@ -624,30 +642,11 @@ mouse = { enabled = true },++
 binding = { key = "U", mods = "Control | Shift" },
 }]_
 
-# Bindings
+# Keyboard
 
-This section documents the *mouse.bindings* and *keyboard.bindings* at the root level
-of the configuration file.
+This section documents the *[keyboard]* table of the configuration file.
 
-*mouse.bindings* [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
-
-	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
-	and _chars_.
-
-	To trigger mouse bindings when an application running within Alacritty
-	captures the mouse, the `Shift` modifier is automatically added as a
-	requirement.
-
-	*mouse* "Middle" | "Left" | "Right" | <number>
-
-		Mouse button which needs to be pressed to trigger this binding.
-
-	*action* <keyboard.bindings.action> | "ExpandSelection"
-
-		*ExpandSelection*
-			Expand the selection to the current mouse cursor location.
-
-*keyboard.bindings* [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
+*bindings*: [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
 
 	To unset a default binding, you can use the action _"ReceiveChar"_ to remove
 	it or _"None"_ to inhibit any action.
