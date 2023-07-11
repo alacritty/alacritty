@@ -408,7 +408,14 @@ impl Window {
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line + 1) as f32 * size.cell_height());
 
-        self.window.set_ime_position(PhysicalPosition::new(nspot_x, nspot_y));
+        // Exclude the rest of the line since we edit from left to right.
+        let width = size.width as f64 - nspot_x;
+        let height = size.cell_height as f64;
+
+        self.window.set_ime_cursor_area(
+            PhysicalPosition::new(nspot_x, nspot_y),
+            PhysicalSize::new(width, height),
+        );
     }
 
     /// Disable macOS window shadows.

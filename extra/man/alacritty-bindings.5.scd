@@ -153,7 +153,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Alt"_
 :  _"Vi|~Search"_
 :  _"ToggleSemanticSelection"_
-|  _"Return"_
+|  _"Enter"_
 :[
 :  _"Vi|~Search"_
 :  _"Open"_
@@ -177,31 +177,31 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"Right"_
-|  _"Up"_
+|  _"ArrowUp"_
 :[
 :  _"Vi|~Search"_
 :  _"Up"_
-|  _"Down"_
+|  _"ArrowDown"_
 :[
 :  _"Vi|~Search"_
 :  _"Down"_
-|  _"Left"_
+|  _"ArrowLeft"_
 :[
 :  _"Vi|~Search"_
 :  _"Left"_
-|  _"Right"_
+|  _"ArrowRight"_
 :[
 :  _"Vi|~Search"_
 :  _"Right"_
-|  _"Key0"_
+|  _"0"_
 :[
 :  _"Vi|~Search"_
 :  _"First"_
-|  _"Key4"_
+|  _"4"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Last"_
-|  _"Key6"_
+|  _"6"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"FirstOccupied"_
@@ -241,15 +241,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordRightEnd"_
-|  _"Key5"_
+|  _"5"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Bracket"_
-|  _"Slash"_
+|  _"/"_
 :[
 :  _"Vi|~Search"_
 :  _"SearchForward"_
-|  _"Slash"_
+|  _"/"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"SearchBackward"_
@@ -269,7 +269,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[ *mods*
 :[ *mode*
 :[ *action*
-|  _"Return"_
+|  _"Enter"_
 :[
 :  _"Search|Vi"_
 :  _"SearchConfirm"_
@@ -297,15 +297,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :  _"Search"_
 :  _"SearchHistoryNext"_
-|  _"Up"_
+|  _"ArrowUp"_
 :[
 :  _"Search"_
 :  _"SearchHistoryPrevious"_
-|  _"Down"_
+|  _"ArrowDown"_
 :[
 :  _"Search"_
 :  _"SearchHistoryNext"_
-|  _"Return"_
+|  _"Enter"_
 :[
 :  _"Search|~Vi"_
 :  _"SearchFocusNext"_
@@ -340,15 +340,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :[
 :  _"PasteSelection"_
-|  _"Key0"_
+|  _"0"_
 :  _"Control"_
 :[
 :  _"ResetFontSize"_
-|  _"Equals"_
+|  _"="_
 :  _"Control"_
 :[
 :  _"IncreaseFontSize"_
-|  _"Plus"_
+|  _"+"_
 :  _"Control"_
 :[
 :  _"IncreaseFontSize"_
@@ -356,7 +356,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :[
 :  _"IncreaseFontSize"_
-|  _"Minus"_
+|  _"-"_
 :  _"Control"_
 :[
 :  _"DecreaseFontSize"_
@@ -371,7 +371,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[ *mods*
 :[ *mode*
 :[ *action*
-|  _"Return"_
+|  _"Enter"_
 :  _"Alt"_
 :[
 :  _"ToggleFullscreen"_
@@ -390,15 +390,15 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :  _"~Vi|~Search"_
 :  _"ClearHistory"_
-|  _"Key0"_
+|  _"0"_
 :  _"Command"_
 :[
 :  _"ResetFontSize"_
-|  _"Equals"_
+|  _"="_
 :  _"Command"_
 :[
 :  _"IncreaseFontSize"_
-|  _"Plus"_
+|  _"+"_
 :  _"Command"_
 :[
 :  _"IncreaseFontSize"_
@@ -406,7 +406,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :[
 :  _"IncreaseFontSize"_
-|  _"Minus"_
+|  _"-"_
 :  _"Command"_
 :[
 :  _"DecreaseFontSize"_

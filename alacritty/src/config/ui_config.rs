@@ -7,7 +7,7 @@ use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
-use winit::event::{ModifiersState, VirtualKeyCode};
+use winit::keyboard::{Key, KeyLocation, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Config as TerminalConfig, Program, LOG_TARGET_CONFIG};
@@ -15,7 +15,7 @@ use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
-    self, Action, Binding, Key, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
+    self, Action, Binding, BindingKey, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
 };
 use crate::config::color::Colors;
 use crate::config::debug::Debug;
@@ -80,11 +80,11 @@ pub struct UiConfig {
 
     /// Keybindings.
     #[config(deprecated = "use keyboard.bindings instead")]
-    key_bindings: KeyBindings,
+    key_bindings: Option<KeyBindings>,
 
     /// Bindings for the mouse.
     #[config(deprecated = "use mouse.bindings instead")]
-    mouse_bindings: MouseBindings,
+    mouse_bindings: Option<MouseBindings>,
 
     /// Configuration file imports.
     ///
@@ -124,20 +124,20 @@ impl UiConfig {
         // Check which key bindings is most likely to be the user's configuration.
         //
         // Both will be non-empty due to the presence of the default keybindings.
-        let key_bindings = if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
-            &mut self.keyboard.bindings.0
+        let key_bindings = if let Some(key_bindings) = self.key_bindings.as_mut() {
+            &mut key_bindings.0
         } else {
-            &mut self.key_bindings.0
+            &mut self.keyboard.bindings.0
         };
 
         for hint in &self.hints.enabled {
-            let binding = match hint.binding {
+            let binding = match &hint.binding {
                 Some(binding) => binding,
                 None => continue,
             };
 
             let binding = KeyBinding {
-                trigger: binding.key,
+                trigger: binding.key.clone(),
                 mods: binding.mods.0,
                 mode: binding.mode.mode,
                 notmode: binding.mode.not_mode,
@@ -155,19 +155,19 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        if self.keyboard.bindings.0.len() >= self.key_bindings.0.len() {
-            self.keyboard.bindings.0.as_slice()
+        if let Some(key_bindings) = self.key_bindings.as_ref() {
+            &key_bindings.0
         } else {
-            self.key_bindings.0.as_slice()
+            &self.keyboard.bindings.0
         }
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        if self.mouse.bindings.0.len() >= self.mouse_bindings.0.len() {
-            self.mouse.bindings.0.as_slice()
+        if let Some(mouse_bindings) = self.mouse_bindings.as_ref() {
+            &mouse_bindings.0
         } else {
-            self.mouse_bindings.0.as_slice()
+            &self.mouse.bindings.0
         }
     }
 
@@ -208,7 +208,7 @@ pub fn deserialize_bindings<'a, D, T>(
 ) -> Result<Vec<Binding<T>>, D::Error>
 where
     D: Deserializer<'a>,
-    T: Copy + Eq,
+    T: Clone + Eq,
     Binding<T>: Deserialize<'a>,
 {
     let values = Vec::<toml::Value>::deserialize(deserializer)?;
@@ -278,8 +278,11 @@ impl Default for Hints {
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
-                    key: Key::Keycode(VirtualKeyCode::U),
-                    mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CTRL),
+                    key: BindingKey::Keycode {
+                        key: Key::Character("u".into()),
+                        location: KeyLocation::Standard,
+                    },
+                    mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
                     mode: Default::default(),
                 }),
             }],
@@ -454,10 +457,10 @@ impl<'de> Deserialize<'de> for HintContent {
 }
 
 /// Binding for triggering a keyboard hint.
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct HintBinding {
-    pub key: Key,
+    pub key: BindingKey,
     #[serde(default)]
     pub mods: ModsWrapper,
     #[serde(default)]

@@ -544,6 +544,24 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
+*bindings*: [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
+
+	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
+	and _chars_.
+
+	To trigger mouse bindings when an application running within Alacritty
+	captures the mouse, the `Shift` modifier is automatically added as a
+	requirement.
+
+	*mouse* "Middle" | "Left" | "Right" | <number>
+
+		Mouse button which needs to be pressed to trigger this binding.
+
+	*action* <keyboard.bindings.action> | "ExpandSelection"
+
+		*ExpandSelection*
+			Expand the selection to the current mouse cursor location.
+
 # Hints
 
 This section documents the *[hints]* table of the configuration file.
@@ -603,14 +621,14 @@ _action_ or a _command_.
 
 	*binding* { key = <string>, mods = <string>, mode = <string> }
 
-		See _key_bindings_ for documentation on available values.
+		See _keyboard.bindings_ for documentation on available values.
 
 		This controls which key binding is used to start the keyboard hint
 		selection process.
 
 	*mouse* { mods = <string>, enabled = <boolean> }
 
-		See _key_bindings_ for documentation on available _mods_.
+		See _keyboard.bindings_ for documentation on available _mods_.
 
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
@@ -624,30 +642,11 @@ mouse = { enabled = true },++
 binding = { key = "U", mods = "Control | Shift" },
 }]_
 
-# Bindings
+# Keyboard
 
-This section documents the *mouse_bindings* and *key_bindings* at the root level
-of the configuration file.
+This section documents the *[keyboard]* table of the configuration file.
 
-*mouse_bindings* [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
-
-	See _key_bindings_ for full documentation on _mods_, _mode_, _action_, and
-	_chars_.
-
-	To trigger mouse bindings when an application running within Alacritty
-	captures the mouse, the `Shift` modifier is automatically added as a
-	requirement.
-
-	*mouse* "Middle" | "Left" | "Right" | <number>
-
-		Mouse button which needs to be pressed to trigger this binding.
-
-	*action* <key_bindings.action> | "ExpandSelection"
-
-		*ExpandSelection*
-			Expand the selection to the current mouse cursor location.
-
-*key_bindings* [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
+*bindings*: [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
 
 	To unset a default binding, you can use the action _"ReceiveChar"_ to remove
 	it or _"None"_ to inhibit any action.
@@ -657,11 +656,14 @@ of the configuration file.
 
 	*key* <string>
 
-		Identifier of the binding's key, for example: _"A"_, _"F1"_, or
-		_"Key0"_.
+		The regular keys like _"A"_, _"0"_, and _"Я"_ can be mapped directly
+		without any special syntax. Full list of named keys like _"F1"_ and the
+		syntax for dead keys can be found here:++
+https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
-		A full list with available key codes can be found here:++
-https://docs.rs/winit/\*/winit/event/enum.VirtualKeyCode.html#variants
+		Numpad keys are prefixed by _Numpad_: "NumpadEnter" | "NumpadAdd" |
+		"NumpadComma" | "NumpadDivide" | "NumpadEquals" | "NumpadSubtract" |
+		"NumpadMultiply" | "Numpad[0-9]".
 
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.

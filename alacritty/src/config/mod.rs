@@ -26,7 +26,7 @@ mod mouse;
 
 use crate::cli::Options;
 pub use crate::config::bindings::{
-    Action, Binding, BindingMode, Key, MouseAction, SearchAction, ViAction,
+    Action, Binding, BindingKey, BindingMode, MouseAction, SearchAction, ViAction,
 };
 #[cfg(test)]
 pub use crate::config::mouse::Mouse;

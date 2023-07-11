@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::iter;
 
-use winit::event::ModifiersState;
+use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point};

@@ -15,9 +15,10 @@ use glutin::surface::{Rect as DamageRect, Surface, SwapInterval, WindowSurface};
 
 use log::{debug, info};
 use parking_lot::MutexGuard;
+use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
-use winit::event::ModifiersState;
+use winit::keyboard::ModifiersState;
 use winit::window::CursorIcon;
 
 use crossfont::{self, Rasterize, Rasterizer};
@@ -393,10 +394,7 @@ impl Display {
         gl_context: NotCurrentContext,
         config: &UiConfig,
     ) -> Result<Display, Error> {
-        #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-        let is_wayland = false;
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let is_wayland = window.wayland_surface().is_some();
+        let is_wayland = matches!(window.raw_window_handle(), RawWindowHandle::Wayland(_));
 
         let scale_factor = window.scale_factor as f32;
         let rasterizer = Rasterizer::new(scale_factor)?;
@@ -1048,7 +1046,7 @@ impl Display {
             // highlighted hint could be disrupted by the old preview.
             dirty = self.hint_mouse_point.map_or(false, |p| p.line != point.line);
             self.hint_mouse_point = Some(point);
-            self.window.set_mouse_cursor(CursorIcon::Hand);
+            self.window.set_mouse_cursor(CursorIcon::Pointer);
         } else if self.highlighted_hint.is_some() {
             self.hint_mouse_point = None;
             if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {

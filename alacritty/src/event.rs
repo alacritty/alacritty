@@ -19,11 +19,11 @@ use log::{debug, error, info, warn};
 use wayland_client::{Display as WaylandDisplay, EventQueue};
 use winit::dpi::PhysicalSize;
 use winit::event::{
-    ElementState, Event as WinitEvent, Ime, ModifiersState, MouseButton, StartCause,
+    ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
 };
 use winit::event_loop::{
-    ControlFlow, DeviceEventFilter, EventLoop, EventLoopProxy, EventLoopWindowTarget,
+    ControlFlow, DeviceEvents, EventLoop, EventLoopProxy, EventLoopWindowTarget,
 };
 use winit::platform::run_return::EventLoopExtRunReturn;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
@@ -191,9 +191,7 @@ pub struct ActionContext<'a, N, T> {
     pub clipboard: &'a mut Clipboard,
     pub mouse: &'a mut Mouse,
     pub touch: &'a mut TouchPurpose,
-    pub received_count: &'a mut usize,
-    pub suppress_chars: &'a mut bool,
-    pub modifiers: &'a mut ModifiersState,
+    pub modifiers: &'a mut Modifiers,
     pub display: &'a mut Display,
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a UiConfig,
@@ -349,17 +347,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
-    fn received_count(&mut self) -> &mut usize {
-        self.received_count
-    }
-
-    #[inline]
-    fn suppress_chars(&mut self) -> &mut bool {
-        self.suppress_chars
-    }
-
-    #[inline]
-    fn modifiers(&mut self) -> &mut ModifiersState {
+    fn modifiers(&mut self) -> &mut Modifiers {
         self.modifiers
     }
 
@@ -750,7 +738,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn expand_selection(&mut self) {
         let selection_type = match self.mouse().click_state {
             ClickState::Click => {
-                if self.modifiers().ctrl() {
+                if self.modifiers().state().control_key() {
                     SelectionType::Block
                 } else {
                     SelectionType::Simple
@@ -1304,11 +1292,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 
                         self.ctx.display.pending_update.set_dimensions(size);
                     },
-                    WindowEvent::KeyboardInput { input, is_synthetic: false, .. } => {
-                        self.key_input(input);
+                    WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => {
+                        self.key_input(event);
                     },
                     WindowEvent::ModifiersChanged(modifiers) => self.modifiers_input(modifiers),
-                    WindowEvent::ReceivedCharacter(c) => self.received_char(c),
                     WindowEvent::MouseInput { state, button, .. } => {
                         self.ctx.window().set_mouse_visible(true);
                         self.mouse_input(state, button);
@@ -1507,7 +1494,7 @@ impl Processor {
         let mut clipboard = Clipboard::new();
 
         // Disable all device events, since we don't care about them.
-        event_loop.set_device_event_filter(DeviceEventFilter::Always);
+        event_loop.listen_device_events(DeviceEvents::Never);
 
         let exit_code = event_loop.run_return(move |event, event_loop, control_flow| {
             if self.config.debug.print_events {
