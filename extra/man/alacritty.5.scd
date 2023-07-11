@@ -657,8 +657,8 @@ This section documents the *[keyboard]* table of the configuration file.
 	*key* <string>
 
 		The regular keys like _"A"_, _"0"_, and _"Я"_ can be mapped directly
-		without any special syntax. Full list of named keys like _"F1"_ or a
-		syntax for dead keys could be found here:++
+		without any special syntax. Full list of named keys like _"F1"_ and the
+		syntax for dead keys can be found here:++
 https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
 		Numpad keys are prefixed by _Numpad_: "NumpadEnter" | "NumpadAdd" |
