@@ -347,18 +347,18 @@ macro_rules! bindings {
 }
 
 macro_rules! trigger {
-    (KeyBinding, $key:literal,) => {
-        BindingKey::Keycode { key: Character($key.into()), location: KeyLocation::Standard }
-    };
-    (KeyBinding, $key:literal, $location:expr) => {
+    (KeyBinding, $key:literal, $location:expr) => {{
         BindingKey::Keycode { key: Character($key.into()), location: $location }
-    };
-    (KeyBinding, $key:expr,) => {
+    }};
+    (KeyBinding, $key:literal,) => {{
+        BindingKey::Keycode { key: Character($key.into()), location: KeyLocation::Standard }
+    }};
+    (KeyBinding, $key:expr,) => {{
         BindingKey::Keycode { key: $key, location: KeyLocation::Standard }
-    };
-    ($ty:ident, $key:expr,) => {
+    }};
+    ($ty:ident, $key:expr,) => {{
         $key
-    };
+    }};
 }
 
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
