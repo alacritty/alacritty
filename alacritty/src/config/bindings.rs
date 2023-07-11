@@ -364,23 +364,23 @@ macro_rules! trigger {
 pub fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings!(
         MouseBinding;
-        MouseButton::Right;                         MouseAction::ExpandSelection;
+        MouseButton::Right;                            MouseAction::ExpandSelection;
         MouseButton::Right,   ModifiersState::CONTROL; MouseAction::ExpandSelection;
-        MouseButton::Middle, ~BindingMode::VI; Action::PasteSelection;
+        MouseButton::Middle, ~BindingMode::VI;         Action::PasteSelection;
     )
 }
 
 pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
-        Copy;  Action::Copy;
+        Copy; Action::Copy;
         Copy,  +BindingMode::VI; Action::ClearSelection;
         Paste, ~BindingMode::VI; Action::Paste;
         "l",       ModifiersState::CONTROL; Action::ClearLogNotice;
-        "l",       ModifiersState::CONTROL,  ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x0c".into());
-        Tab,       ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[Z".into());
-        Backspace, ModifiersState::ALT,   ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b\x7f".into());
-        Backspace, ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x7f".into());
+        "l",       ModifiersState::CONTROL, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x0c".into());
+        Tab,       ModifiersState::SHIFT,   ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[Z".into());
+        Backspace, ModifiersState::ALT,     ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b\x7f".into());
+        Backspace, ModifiersState::SHIFT,   ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x7f".into());
         Home,      ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToTop;
         End,       ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToBottom;
         PageUp,    ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollPageUp;
@@ -611,7 +611,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "f",    ModifiersState::CONTROL | ModifiersState::SUPER;               Action::ToggleFullscreen;
         "c",    ModifiersState::SUPER;                                         Action::Copy;
         "h",    ModifiersState::SUPER;                                         Action::Hide;
-        "h",    ModifiersState::SUPER | ModifiersState::ALT;                   Action::HideOtherApplications;
+        "h",    ModifiersState::SUPER   | ModifiersState::ALT;                 Action::HideOtherApplications;
         "m",    ModifiersState::SUPER;                                         Action::Minimize;
         "q",    ModifiersState::SUPER;                                         Action::Quit;
         "w",    ModifiersState::SUPER;                                         Action::Quit;
