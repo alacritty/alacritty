@@ -21,7 +21,7 @@ use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::EventQueue;
-use winit::event::{Event as WinitEvent, ModifiersState, WindowEvent};
+use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
 use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 use winit::window::WindowId;
 
@@ -55,10 +55,8 @@ pub struct WindowContext {
     event_queue: Vec<WinitEvent<'static, Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
-    modifiers: ModifiersState,
+    modifiers: Modifiers,
     search_state: SearchState,
-    received_count: usize,
-    suppress_chars: bool,
     notifier: Notifier,
     font_size: Size,
     mouse: Mouse,
@@ -248,9 +246,7 @@ impl WindowContext {
             config,
             notifier: Notifier(loop_tx),
             cursor_blink_timed_out: Default::default(),
-            suppress_chars: Default::default(),
             message_buffer: Default::default(),
-            received_count: Default::default(),
             search_state: Default::default(),
             event_queue: Default::default(),
             ipc_config: Default::default(),
@@ -423,8 +419,6 @@ impl WindowContext {
         let context = ActionContext {
             cursor_blink_timed_out: &mut self.cursor_blink_timed_out,
             message_buffer: &mut self.message_buffer,
-            received_count: &mut self.received_count,
-            suppress_chars: &mut self.suppress_chars,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
             font_size: &mut self.font_size,
@@ -471,7 +465,7 @@ impl WindowContext {
                 &terminal,
                 &self.config,
                 &self.mouse,
-                self.modifiers,
+                self.modifiers.state(),
             );
             self.mouse.hint_highlight_dirty = false;
         }

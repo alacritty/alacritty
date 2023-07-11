@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Warnings for unused configuration file options
 - Config option `persist` in `hints` config section
 - Support for dynamically loading conpty.dll on Windows
+- Support for keybindings with dead keys
+- `Back`/`Forward` mouse buttons support in bindings
 
 ### Changed
 
@@ -29,6 +31,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Deprecated config option `key_bindings`, use `keyboard.bindings`
 - Deprecated config option `mouse_bindings`, use `mouse.bindings`
 - The default colorscheme is now based on base16 classic dark
+- IME popup now tries to not obscure the current cursor line
+
+### Fixed
+
+- Unconditional query of xdg-portal settings on Wayland
+- `Maximized` startup mode not filling the screen properly on GNOME Wayland
+- `OptionAsAlt` with `OnlyLeft`/`OnlyRight` settings not working properly on macOS
+- Default Vi key bindings for `Last`/`First` actions not working on X11/Wayland
 
 ### Removed
 

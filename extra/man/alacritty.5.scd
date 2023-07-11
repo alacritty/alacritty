@@ -656,11 +656,14 @@ This section documents the *[keyboard]* table of the configuration file.
 
 	*key* <string>
 
-		Identifier of the binding's key, for example: _"A"_, _"F1"_, or
-		_"Key0"_.
+		The regular keys like _"A"_, _"0"_, and _"Я"_ can be mapped directly
+		without any special syntax. Full list of named keys like _"F1"_ and the
+		syntax for dead keys can be found here:++
+https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
-		A full list with available key codes can be found here:++
-https://docs.rs/winit/\*/winit/event/enum.VirtualKeyCode.html#variants
+		Numpad keys are prefixed by _Numpad_: "NumpadEnter" | "NumpadAdd" |
+		"NumpadComma" | "NumpadDivide" | "NumpadEquals" | "NumpadSubtract" |
+		"NumpadMultiply" | "Numpad[0-9]".
 
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.
