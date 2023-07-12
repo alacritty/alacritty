@@ -14,7 +14,7 @@ opening URLs with the keyboard. By default you can launch it using
 ### Motion
 
 The cursor motions are setup by default to mimic vi, however they are fully
-configurable. If you don't like vi's bindings, take a look at the [onfiguration
+configurable. If you don't like vi's bindings, take a look at the configuration
 file to change the various movements.
 
 ### Selection
