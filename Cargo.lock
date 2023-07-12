@@ -2518,8 +2518,7 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 [[package]]
 name = "winit"
 version = "0.29.0-beta.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f1afaf8490cc3f1309520ebb53a4cd3fc3642c7df8064a4b074bb9867998d44"
+source = "git+https://github.com/kchibisov/winit?branch=activation-token#3db1359195d60526e68ea925f41cdfb20c11c575"
 dependencies = [
  "android-activity",
  "atomic-waker",

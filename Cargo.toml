@@ -11,3 +11,6 @@ resolver = "2"
 lto = "thin"
 debug = 1
 incremental = false
+
+[patch.crates-io]
+winit = { git = "https://github.com/kchibisov/winit", branch = "activation-token" }

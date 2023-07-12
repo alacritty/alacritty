@@ -1368,6 +1368,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         },
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
+                    | WindowEvent::ActivationTokenDone { .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::TouchpadMagnify { .. }
                     | WindowEvent::TouchpadRotate { .. }

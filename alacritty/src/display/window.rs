@@ -21,6 +21,11 @@ use {
     png::Decoder,
 };
 
+#[cfg(not(any(target_os = "macos", windows)))]
+use winit::platform::startup_notify::{
+    self, EventLoopExtStartupNotify, WindowBuilderExtStartupNotify,
+};
+
 use std::fmt::{self, Display, Formatter};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -152,6 +157,13 @@ impl Window {
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
         }
 
+        #[cfg(not(any(target_os = "macos", windows)))]
+        if let Some(token) = event_loop.read_token_from_env() {
+            window_builder = window_builder.with_activation_token(token);
+            // Clear the env after reading it.
+            startup_notify::reset_activation_token_env();
+        }
+
         let window = window_builder
             .with_title(&identity.title)
             .with_theme(config.window.decorations_theme_variant)
@@ -221,7 +233,8 @@ impl Window {
 
     #[inline]
     pub fn set_inner_size(&self, size: PhysicalSize<u32>) {
-        self.window.set_inner_size(size);
+        // TODO
+        let _ = self.window.request_inner_size(size);
     }
 
     #[inline]
