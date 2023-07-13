@@ -182,8 +182,60 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    #[cfg(target_os = "macos")]
+    /// Select next tab.
+    SelectNextTab,
+
+    #[cfg(target_os = "macos")]
+    /// Select previous tab.
+    SelectPreviousTab,
+
+    #[cfg(target_os = "macos")]
+    /// Select the first tab.
+    SelectTab1,
+
+    #[cfg(target_os = "macos")]
+    /// Select the second tab.
+    SelectTab2,
+
+    #[cfg(target_os = "macos")]
+    /// Select the third tab.
+    SelectTab3,
+
+    #[cfg(target_os = "macos")]
+    /// Select the fourth tab.
+    SelectTab4,
+
+    #[cfg(target_os = "macos")]
+    /// Select the fifth tab.
+    SelectTab5,
+
+    #[cfg(target_os = "macos")]
+    /// Select the sixth tab.
+    SelectTab6,
+
+    #[cfg(target_os = "macos")]
+    /// Select the seventh tab.
+    SelectTab7,
+
+    #[cfg(target_os = "macos")]
+    /// Select the eighth tab.
+    SelectTab8,
+
+    #[cfg(target_os = "macos")]
+    /// Select the nineth tab.
+    SelectTab9,
+
+    #[cfg(target_os = "macos")]
+    /// Select the last tab.
+    SelectLastTab,
+
     /// Create a new Alacritty window.
     CreateNewWindow,
+
+    #[cfg(target_os = "macos")]
+    /// Create new window in a tab.
+    CreateNewTab,
 
     /// Toggle fullscreen.
     ToggleFullscreen,
@@ -600,6 +652,22 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         KeyBinding;
         "c",    ModifiersState::SUPER, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert, ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[2;2~".into());
+        // Tabbing api.
+        "t",    ModifiersState::SUPER;                                         Action::CreateNewTab;
+        "]",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectNextTab;
+        "[",    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
+        Tab,    ModifiersState::SUPER;                                         Action::SelectNextTab;
+        Tab,    ModifiersState::SUPER | ModifiersState::SHIFT;                 Action::SelectPreviousTab;
+        "1",    ModifiersState::SUPER;                                         Action::SelectTab1;
+        "2",    ModifiersState::SUPER;                                         Action::SelectTab2;
+        "3",    ModifiersState::SUPER;                                         Action::SelectTab3;
+        "4",    ModifiersState::SUPER;                                         Action::SelectTab4;
+        "5",    ModifiersState::SUPER;                                         Action::SelectTab5;
+        "6",    ModifiersState::SUPER;                                         Action::SelectTab6;
+        "7",    ModifiersState::SUPER;                                         Action::SelectTab7;
+        "8",    ModifiersState::SUPER;                                         Action::SelectTab8;
+        "9",    ModifiersState::SUPER;                                         Action::SelectLastTab;
+
         "0",    ModifiersState::SUPER;                                         Action::ResetFontSize;
         "=",    ModifiersState::SUPER;                                         Action::IncreaseFontSize;
         "+",    ModifiersState::SUPER;                                         Action::IncreaseFontSize;

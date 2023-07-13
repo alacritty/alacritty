@@ -103,6 +103,8 @@ impl WindowContext {
             &identity,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             gl_config.x11_visual(),
+            #[cfg(target_os = "macos")]
+            &options.window_tabbing_id,
         )?;
 
         // Create context.
@@ -135,6 +137,8 @@ impl WindowContext {
             &identity,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             gl_config.x11_visual(),
+            #[cfg(target_os = "macos")]
+            &options.window_tabbing_id,
         )?;
 
         // Create context.

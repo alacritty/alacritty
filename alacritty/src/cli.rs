@@ -297,6 +297,11 @@ pub struct WindowOptions {
     #[clap(flatten)]
     /// Window options which could be passed via IPC.
     pub window_identity: WindowIdentity,
+
+    #[clap(skip)]
+    #[cfg(target_os = "macos")]
+    /// The window tabbing identifier to use when building a window.
+    pub window_tabbing_id: Option<String>,
 }
 
 /// Parameters to the `config` IPC subcommand.

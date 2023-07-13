@@ -450,6 +450,10 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :[
 :  _"CreateNewWindow"_
+|  _"T"_
+:  _"Command"_
+:[
+:  _"CreateNewTab"_
 |  _"F"_
 :  _"Command|Control"_
 :[
@@ -462,6 +466,58 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :  _"~Search"_
 :  _"SearchBackward"_
+|  _"]"_
+:  _"Command|Shift"_
+:[
+:  _"SelectNextTab"_
+|  _"["_
+:  _"Command|Shift"_
+:[
+:  _"SelectPreviousTab"_
+|  _"Tab"_
+:  _"Command"_
+:[
+:  _"SelectNextTab"_
+|  _"Tab"_
+:  _"Command|Shift"_
+:[
+:  _"SelectPreviousTab"_
+|  _"1"_
+:  _"Command"_
+:[
+:  _"SelectTab1"_
+|  _"2"_
+:  _"Command"_
+:[
+:  _"SelectTab2"_
+|  _"3"_
+:  _"Command"_
+:[
+:  _"SelectTab3"_
+|  _"4"_
+:  _"Command"_
+:[
+:  _"SelectTab4"_
+|  _"5"_
+:  _"Command"_
+:[
+:  _"SelectTab5"_
+|  _"6"_
+:  _"Command"_
+:[
+:  _"SelectTab6"_
+|  _"7"_
+:  _"Command"_
+:[
+:  _"SelectTab7"_
+|  _"8"_
+:  _"Command"_
+:[
+:  _"SelectTab8"_
+|  _"2 9"_
+:  _"Command"_
+:[
+:  _"SelectLastTab"_
 
 # SEE ALSO
 
