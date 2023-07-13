@@ -23,7 +23,7 @@ use winit::event::{
 use winit::event_loop::EventLoopWindowTarget;
 #[cfg(target_os = "macos")]
 use winit::keyboard::ModifiersKeyState;
-use winit::keyboard::ModifiersState;
+use winit::keyboard::{Key, ModifiersState};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
@@ -1050,9 +1050,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         for i in 0..self.ctx.config().key_bindings().len() {
             let binding = &self.ctx.config().key_bindings()[i];
 
-            let key = match (&binding.trigger, &key.key_without_modifiers()) {
+            // When the logical key is some named key, use it, otherwise fallback to
+            // key without modifiers to account for bindings.
+            let logical_key = if matches!(key.logical_key, Key::Character(_)) {
+                key.key_without_modifiers()
+            } else {
+                key.logical_key.clone()
+            };
+
+            let key = match (&binding.trigger, logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
-                (_, code) => BindingKey::Keycode { key: code.clone(), location: key.location },
+                (_, code) => BindingKey::Keycode { key: code, location: key.location },
             };
 
             if binding.is_triggered_by(mode, mods, &key) {
