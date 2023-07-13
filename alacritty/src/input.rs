@@ -1028,11 +1028,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     #[cfg(target_os = "macos")]
     fn alt_send_esc(&mut self) -> bool {
         let option_as_alt = self.ctx.config().window.option_as_alt;
-        option_as_alt == OptionAsAlt::Both
-            || (option_as_alt == OptionAsAlt::OnlyLeft
-                && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
-            || (option_as_alt == OptionAsAlt::OnlyRight
-                && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed)
+        self.ctx.modifiers().state().alt_key()
+            && (option_as_alt == OptionAsAlt::Both
+                || (option_as_alt == OptionAsAlt::OnlyLeft
+                    && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
+                || (option_as_alt == OptionAsAlt::OnlyRight
+                    && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed))
     }
 
     /// Attempt to find a binding and execute its action.
