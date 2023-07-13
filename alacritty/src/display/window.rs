@@ -1,11 +1,3 @@
-#[rustfmt::skip]
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use {
-    wayland_client::protocol::wl_surface::WlSurface,
-    wayland_client::{Attached, EventQueue, Proxy},
-    winit::platform::wayland::{EventLoopWindowTargetExtWayland, WindowExtWayland},
-};
-
 #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
 use winit::platform::wayland::WindowBuilderExtWayland;
 
@@ -13,8 +5,8 @@ use winit::platform::wayland::WindowBuilderExtWayland;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
-
-    winit::platform::x11::{WindowExtX11, WindowBuilderExtX11},
+    winit::platform::x11::{WindowBuilderExtX11, EventLoopWindowTargetExtX11},
+    winit::window::raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle},
     glutin::platform::x11::X11VisualInfo,
     x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
@@ -22,8 +14,6 @@ use {
 };
 
 use std::fmt::{self, Display, Formatter};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
 use {
@@ -33,13 +23,12 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
 };
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
+use winit::window::raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
     WindowId,
@@ -107,14 +96,13 @@ impl From<crossfont::Error> for Error {
 /// Wraps the underlying windowing library to provide a stable API in Alacritty.
 pub struct Window {
     /// Flag tracking that we have a frame we can draw.
-    pub has_frame: Arc<AtomicBool>,
-
-    /// Attached Wayland surface to request new frame events.
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub wayland_surface: Option<Attached<WlSurface>>,
+    pub has_frame: bool,
 
     /// Cached scale factor for quickly scaling pixel sizes.
     pub scale_factor: f64,
+
+    /// Flag indicating whether redraw was requested.
+    pub requested_redraw: bool,
 
     window: WinitWindow,
 
@@ -133,8 +121,6 @@ impl Window {
         event_loop: &EventLoopWindowTarget<E>,
         config: &UiConfig,
         identity: &Identity,
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        wayland_event_queue: Option<&EventQueue>,
         #[rustfmt::skip]
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
@@ -161,12 +147,6 @@ impl Window {
             .with_fullscreen(config.window.fullscreen())
             .build(event_loop)?;
 
-        // Check if we're running Wayland to disable vsync.
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let is_wayland = event_loop.is_wayland();
-        #[cfg(all(not(feature = "wayland"), not(any(target_os = "macos", windows))))]
-        let is_wayland = false;
-
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
         window.set_cursor_icon(current_mouse_cursor);
@@ -181,23 +161,12 @@ impl Window {
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
 
+        // On X11, embed the window inside another if the parent ID has been set.
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if !is_wayland {
-            // On X11, embed the window inside another if the parent ID has been set.
-            if let Some(parent_window_id) = config.window.embed {
-                x_embed_window(&window, parent_window_id);
-            }
+        if let Some(parent_window_id) = event_loop.is_x11().then_some(config.window.embed).flatten()
+        {
+            x_embed_window(&window, parent_window_id);
         }
-
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        let wayland_surface = if is_wayland {
-            // Attach surface to Alacritty's internal wayland queue to handle frame callbacks.
-            let surface = window.wayland_surface().unwrap();
-            let proxy: Proxy<WlSurface> = unsafe { Proxy::from_c_ptr(surface as _) };
-            Some(proxy.attach(wayland_event_queue.as_ref().unwrap().token()))
-        } else {
-            None
-        };
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
@@ -205,11 +174,10 @@ impl Window {
         Ok(Self {
             current_mouse_cursor,
             mouse_visible: true,
+            requested_redraw: false,
             window,
             title: identity.title,
-            has_frame: Arc::new(AtomicBool::new(true)),
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_surface,
+            has_frame: true,
             scale_factor,
         })
     }
@@ -220,8 +188,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_inner_size(&self, size: PhysicalSize<u32>) {
-        self.window.set_inner_size(size);
+    pub fn request_inner_size(&self, size: PhysicalSize<u32>) {
+        let _ = self.window.request_inner_size(size);
     }
 
     #[inline]
@@ -248,8 +216,11 @@ impl Window {
     }
 
     #[inline]
-    pub fn request_redraw(&self) {
-        self.window.request_redraw();
+    pub fn request_redraw(&mut self) {
+        if !self.requested_redraw {
+            self.requested_redraw = true;
+            self.window.request_redraw();
+        }
     }
 
     #[inline]
@@ -296,7 +267,7 @@ impl Window {
 
         #[cfg(feature = "x11")]
         let builder = match x11_visual {
-            Some(visual) => builder.with_x11_visual(visual.into_raw()),
+            Some(visual) => builder.with_x11_visual(visual.visual_id() as u32),
             None => builder,
         };
 
@@ -367,6 +338,13 @@ impl Window {
         self.set_maximized(!self.window.is_maximized());
     }
 
+    /// Inform windowing system about presenting to the window.
+    ///
+    /// Should be called right before presenting to the window with e.g. `eglSwapBuffers`.
+    pub fn pre_present_notify(&self) {
+        self.window.pre_present_notify();
+    }
+
     #[cfg(target_os = "macos")]
     pub fn toggle_simple_fullscreen(&self) {
         self.set_simple_fullscreen(!self.window.simple_fullscreen());
@@ -392,11 +370,6 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn set_simple_fullscreen(&self, simple_fullscreen: bool) {
         self.window.set_simple_fullscreen(simple_fullscreen);
-    }
-
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub fn wayland_surface(&self) -> Option<&Attached<WlSurface>> {
-        self.wayland_surface.as_ref()
     }
 
     pub fn set_ime_allowed(&self, allowed: bool) {
@@ -437,8 +410,12 @@ impl Window {
 
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
-    let (xlib_display, xlib_window) = match (window.xlib_display(), window.xlib_window()) {
-        (Some(display), Some(window)) => (display, window),
+    let xlib_display = window.raw_display_handle();
+    let xlib_window = window.raw_window_handle();
+    let (xlib_display, xlib_window) = match (xlib_display, xlib_window) {
+        (RawDisplayHandle::Xlib(display), RawWindowHandle::Xlib(window)) => {
+            (display.display, window.window)
+        },
         _ => return,
     };
 
@@ -448,7 +425,7 @@ fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
         let atom = (xlib.XInternAtom)(xlib_display as *mut _, "_XEMBED".as_ptr() as *const _, 0);
         (xlib.XChangeProperty)(
             xlib_display as _,
-            xlib_window as _,
+            xlib_window,
             atom,
             atom,
             32,

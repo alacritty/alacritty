@@ -1325,7 +1325,7 @@ mod tests {
 
                 let mut processor = Processor::new(context);
 
-                let event: WinitEvent::<'_, TerminalEvent> = $input;
+                let event: WinitEvent::<TerminalEvent> = $input;
                 if let WinitEvent::WindowEvent {
                     event: WindowEvent::MouseInput {
                         state,
