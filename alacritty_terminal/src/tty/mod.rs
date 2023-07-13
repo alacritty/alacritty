@@ -72,6 +72,7 @@ pub fn setup_env(config: &Config) {
 
     // Prevent child processes from inheriting startup notification env.
     env::remove_var("DESKTOP_STARTUP_ID");
+    env::remove_var("XDG_ACTIVATION_TOKEN");
 
     // Set env vars from config.
     for (key, value) in config.env.iter() {
