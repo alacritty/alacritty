@@ -843,6 +843,32 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 			Enter fullscreen without occupying another space.
 		*HideOtherApplications*
 			Hide all windows other than Alacritty.
+		*CreateNewTab*
+			Create new window in a tab.
+		*SelectNextTab*
+			Select next tab.
+		*SelectPreviousTab*
+			Select previous tab.
+		*SelectTab1*
+			Select the first tab.
+		*SelectTab2*
+			Select the second tab.
+		*SelectTab3*
+			Select the third tab.
+		*SelectTab4*
+			Select the fourth tab.
+		*SelectTab5*
+			Select the fifth tab.
+		*SelectTab6*
+			Select the sixth tab.
+		*SelectTab7*
+			Select the seventh tab.
+		*SelectTab8*
+			Select the eighth tab.
+		*SelectTab9*
+			Select the nineth tab.
+		*SelectLastTab*
+			Select the last tab.
 
 		_Linux/BSD exclusive:_
 

@@ -392,10 +392,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[cfg(not(windows))]
-    fn create_new_window(&mut self) {
+    fn create_new_window(&mut self, #[cfg(target_os = "macos")] tabbing_id: Option<String>) {
         let mut options = WindowOptions::default();
         if let Ok(working_directory) = foreground_process_path(self.master_fd, self.shell_pid) {
             options.terminal_options.working_directory = Some(working_directory);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            options.window_tabbing_id = tabbing_id;
         }
 
         let _ = self.event_proxy.send_event(Event::new(EventType::CreateWindow(options), None));
