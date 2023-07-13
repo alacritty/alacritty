@@ -7,7 +7,6 @@ use std::mem;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use crossfont::Size;
@@ -17,12 +16,10 @@ use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
 use log::{error, info};
-use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use wayland_client::EventQueue;
-use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
+use winit::event::{Event as WinitEvent, Modifiers};
 use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+use winit::window::raw_window_handle::HasRawDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_config::SerdeReplace;
@@ -42,7 +39,7 @@ use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState, TouchPurpose};
+use crate::event::{ActionContext, Event, EventProxy, Mouse, SearchState, TouchPurpose};
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
@@ -52,7 +49,8 @@ use crate::{input, renderer};
 pub struct WindowContext {
     pub message_buffer: MessageBuffer,
     pub display: Display,
-    event_queue: Vec<WinitEvent<'static, Event>>,
+    pub dirty: bool,
+    event_queue: Vec<WinitEvent<Event>>,
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
     modifiers: Modifiers,
@@ -61,7 +59,6 @@ pub struct WindowContext {
     font_size: Size,
     mouse: Mouse,
     touch: TouchPurpose,
-    dirty: bool,
     occluded: bool,
     preserve_title: bool,
     #[cfg(not(windows))]
@@ -79,8 +76,6 @@ impl WindowContext {
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Self, Box<dyn Error>> {
         let raw_display_handle = event_loop.raw_display_handle();
 
@@ -106,8 +101,6 @@ impl WindowContext {
             event_loop,
             &config,
             &identity,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             gl_config.x11_visual(),
         )?;
@@ -126,8 +119,6 @@ impl WindowContext {
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
-        #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-        wayland_event_queue: Option<&EventQueue>,
     ) -> Result<Self, Box<dyn Error>> {
         // Get any window and take its GL config and display to build a new context.
         let (gl_display, gl_config) = {
@@ -142,8 +133,6 @@ impl WindowContext {
             event_loop,
             &config,
             &identity,
-            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            wayland_event_queue,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             gl_config.x11_visual(),
         )?;
@@ -377,6 +366,35 @@ impl WindowContext {
         self.update_config(config);
     }
 
+    /// Draw the window.
+    pub fn draw(&mut self, scheduler: &mut Scheduler) {
+        self.display.window.requested_redraw = false;
+
+        if self.occluded {
+            return;
+        }
+
+        self.dirty = false;
+
+        // Force the display to process any pending display update.
+        self.display.process_renderer_update();
+
+        // Request immediate re-draw if visual bell animation is not finished yet.
+        if !self.display.visual_bell.completed() {
+            self.display.window.request_redraw();
+        }
+
+        // Redraw the window.
+        let terminal = self.terminal.lock();
+        self.display.draw(
+            terminal,
+            scheduler,
+            &self.message_buffer,
+            &self.config,
+            &self.search_state,
+        );
+    }
+
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
@@ -384,30 +402,19 @@ impl WindowContext {
         event_proxy: &EventLoopProxy<Event>,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
-        event: WinitEvent<'_, Event>,
+        event: WinitEvent<Event>,
     ) {
         match event {
-            // Skip further event handling with no staged updates.
-            WinitEvent::RedrawEventsCleared if self.event_queue.is_empty() && !self.dirty => {
-                return;
+            WinitEvent::AboutToWait | WinitEvent::RedrawRequested(_) => {
+                // Skip further event handling with no staged updates.
+                if self.event_queue.is_empty() {
+                    return;
+                }
+
+                // Continue to process all pending events.
             },
-            // Continue to process all pending events.
-            WinitEvent::RedrawEventsCleared => (),
-            // Remap scale_factor change event to remove the lifetime.
-            WinitEvent::WindowEvent {
-                event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
-                window_id,
-            } => {
-                let size = (new_inner_size.width, new_inner_size.height);
-                let event =
-                    Event::new(EventType::ScaleFactorChanged(scale_factor, size), window_id);
-                self.event_queue.push(event.into());
-                return;
-            },
-            // Transmute to extend lifetime, which exists only for `ScaleFactorChanged` event.
-            // Since we remap that event to remove the lifetime, this is safe.
-            event => unsafe {
-                self.event_queue.push(mem::transmute(event));
+            event => {
+                self.event_queue.push(event);
                 return;
             },
         }
@@ -470,30 +477,12 @@ impl WindowContext {
             self.mouse.hint_highlight_dirty = false;
         }
 
-        // Skip rendering until we get a new frame.
-        if !self.display.window.has_frame.load(Ordering::Relaxed) {
-            return;
-        }
-
-        if self.dirty && !self.occluded {
-            // Force the display to process any pending display update.
-            self.display.process_renderer_update();
-
-            self.dirty = false;
-
-            // Request immediate re-draw if visual bell animation is not finished yet.
-            if !self.display.visual_bell.completed() {
-                self.display.window.request_redraw();
-            }
-
-            // Redraw the window.
-            self.display.draw(
-                terminal,
-                scheduler,
-                &self.message_buffer,
-                &self.config,
-                &self.search_state,
-            );
+        // Request a redraw.
+        //
+        // Even though redraw requests are squashed in winit, we try not to
+        // request more if we haven't received a new frame request yet.
+        if self.dirty && !self.occluded && !matches!(event, WinitEvent::RedrawRequested(_)) {
+            self.display.window.request_redraw();
         }
     }
 
