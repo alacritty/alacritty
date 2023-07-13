@@ -70,7 +70,7 @@ const TOUCH_SCROLL_FACTOR: f64 = 0.35;
 const MAX_TAP_DISTANCE: f64 = 20.;
 
 /// Threshold used for double_click/triple_click.
-const CLICK_THRESHOLD: Duration = Duration::from_millis(300);
+const CLICK_THRESHOLD: Duration = Duration::from_millis(400);
 
 /// Processes input from winit.
 ///
