@@ -19,11 +19,12 @@ pub enum ViMotion {
     Left,
     /// Move right.
     Right,
-    /// Move to start of line.
+    /// First column, or beginning of the line when already at the first column.
     First,
-    /// Move to end of line.
+    /// Last column, or beginning of the line when already at the last column.
     Last,
-    /// Move to the first non-empty cell.
+    /// First non-empty cell in this terminal row, or first non-empty cell
+    /// of the line when already at the first cell of the row.
     FirstOccupied,
     /// Move to top of screen.
     High,
