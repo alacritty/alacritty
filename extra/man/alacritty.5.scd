@@ -745,6 +745,9 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 			Start a forward buffer search.
 		*SearchBackward*
 			Start a backward buffer search.
+
+		_Extra vi mode actions:_
+
 		*Up*
 			Move up.
 		*Down*
@@ -784,6 +787,9 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 			Move to end of whitespace separated word.
 		*Bracket*
 			Move to opposing bracket.
+
+		_Search actions:_
+
 		*SearchFocusNext*
 			Move the focus to the next search match.
 		*SearchFocusPrevious*
