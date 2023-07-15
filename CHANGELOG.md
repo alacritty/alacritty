@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Default Vi key bindings for `Last`/`First` actions not working on X11/Wayland
 - Cut off wide characters in preedit string
 - Scrolling on touchscreens
+- Fixed applying `colors.transparent_background_colors` for selections
 
 ### Removed
 

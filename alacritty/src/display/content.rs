@@ -239,6 +239,9 @@ impl RenderableCell {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            if content.config.colors.transparent_background_colors {
+                bg_alpha = content.config.window_opacity();
+            }
 
             if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
