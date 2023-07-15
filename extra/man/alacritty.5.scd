@@ -746,7 +746,7 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 		*SearchBackward*
 			Start a backward buffer search.
 
-		_Extra vi mode actions:_
+		_Vi mode actions:_
 
 		*Up*
 			Move up.
