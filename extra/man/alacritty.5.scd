@@ -689,14 +689,73 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
 	*action*
 
+		*ReceiveChar*
+			Allow receiving char input.
+		*None*
+			No action.
+		*Paste*
+			Paste contents of system clipboard.
+		*Copy*
+			Store current selection into clipboard.
+		*IncreaseFontSize*
+			Increase font size.
+		*DecreaseFontSize*
+			Decrease font size.
+		*ResetFontSize*
+			Reset font size to the config value.
+		*ScrollPageUp*
+			Scroll exactly one page up.
+		*ScrollPageDown*
+			Scroll exactly one page down.
+		*ScrollHalfPageUp*
+			Scroll half a page up.
+		*ScrollHalfPageDown*
+			Scroll half a page down.
+		*ScrollLineUp*
+			Scroll one line up.
+		*ScrollLineDown*
+			Scroll one line down.
+		*ScrollToTop*
+			Scroll all the way to the top.
+		*ScrollToBottom*
+			Scroll all the way to the bottom.
+		*ClearHistory*
+			Clear the display buffer(s) to remove history.
+		*Hide*
+			Hide the Alacritty window.
+		*Minimize*
+			Minimize the Alacritty window.
+		*Quit*
+			Quit Alacritty.
+		*ClearLogNotice*
+			Clear warning and error notices.
+		*SpawnNewInstance*
+			Spawn a new instance of Alacritty.
+		*CreateNewWindow*
+			Create a new Alacritty window.
+		*ToggleFullscreen*
+			Toggle fullscreen.
+		*ToggleMaximized*
+			Toggle maximized.
+		*ClearSelection*
+			Clear active selection.
+		*ToggleViMode*
+			Toggle vi mode.
+		*SearchForward*
+			Start a forward buffer search.
+		*SearchBackward*
+			Start a backward buffer search.
+
+		_Vi mode actions:_
+
 		*Up*
-			One line up.
+			Move up.
 		*Down*
-			One line down.
+			Move down.
 		*Left*
-			One character left.
+			Move left.
 		*Right*
-			One character right.
+			Move right.
 		*First*
 			First column, or beginning of the line when already at the first column.
 		*Last*
@@ -705,46 +764,40 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 			First non-empty cell in this terminal row, or first non-empty cell
 			of the line when already at the first cell of the row.
 		*High*
-			Top of the screen.
+			Move to top of screen.
 		*Middle*
-			Center of the screen.
+			Move to center of screen.
 		*Low*
-			Bottom of the screen.
+			Move to bottom of screen.
 		*SemanticLeft*
-			the previous semantically separated word.
+			Move to start of semantically separated word.
 		*SemanticRight*
-			he next semantically separated word.
+			Move to start of next semantically separated word.
 		*SemanticLeftEnd*
-			revious semantically separated word.
+			Move to end of previous semantically separated word.
 		*SemanticRightEnd*
-			End of the next semantically separated word.
+			Move to end of semantically separated word.
 		*WordLeft*
-			Start of the previous whitespace separated word.
+			Move to start of whitespace separated word.
 		*WordRight*
-			Start of the next whitespace separated word.
+			Move to start of next whitespace separated word.
 		*WordLeftEnd*
-			End of the previous whitespace separated word.
+			Move to end of previous whitespace separated word.
 		*WordRightEnd*
-			End of the next whitespace separated word.
+			Move to end of whitespace separated word.
 		*Bracket*
-			Character matching the bracket at the cursor's location.
-		*SearchNext*
-			Beginning of the next match.
-		*SearchPrevious*
-			Beginning of the previous match.
-		*SearchStart*
-			Start of the match to the left of the vi mode cursor.
-		*SearchEnd*
-			End of the match to the right of the vi mode cursor.
+			Move to opposing bracket.
 
-		_Search mode exclusive:_
+		_Search actions:_
 
 		*SearchFocusNext*
 			Move the focus to the next search match.
 		*SearchFocusPrevious*
 			Move the focus to the previous search match.
 		*SearchConfirm*
+			Confirm the active search.
 		*SearchCancel*
+			Cancel the active search.
 		*SearchClear*
 			Reset the search regex.
 		*SearchDeleteWord*
@@ -758,6 +811,8 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
 		*ToggleSimpleFullscreen*
 			Enter fullscreen without occupying another space.
+		*HideOtherApplications*
+			Hide all windows other than Alacritty.
 
 		_Linux/BSD exclusive:_
 
