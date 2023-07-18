@@ -8,6 +8,7 @@ use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
 use log::{debug, error, info, warn, LevelFilter};
 use once_cell::sync::OnceCell;
+use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
@@ -175,15 +176,30 @@ impl Renderer {
         size_info: &SizeInfo,
         glyph_cache: &mut GlyphCache,
     ) {
-        let cells = string_chars.enumerate().map(|(i, character)| RenderableCell {
-            point: Point::new(point.line, point.column + i),
-            character,
-            extra: None,
-            flags: Flags::empty(),
-            bg_alpha: 1.0,
-            fg,
-            bg,
-            underline: fg,
+        let mut skip_next = false;
+        let cells = string_chars.enumerate().filter_map(|(i, character)| {
+            if skip_next {
+                skip_next = false;
+                return None;
+            }
+
+            let mut flags = Flags::empty();
+            if character.width() == Some(2) {
+                flags.insert(Flags::WIDE_CHAR);
+                // Wide character is always followed by a spacer, so skip it.
+                skip_next = true;
+            }
+
+            Some(RenderableCell {
+                point: Point::new(point.line, point.column + i),
+                character,
+                extra: None,
+                flags: Flags::empty(),
+                bg_alpha: 1.0,
+                fg,
+                bg,
+                underline: fg,
+            })
         });
 
         self.draw_cells(size_info, glyph_cache, cells);
