@@ -243,7 +243,7 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
 
 /// Move by semantically separated word, like w/b/e/ge in vi.
 fn semantic<T: EventListener>(
-    term: &mut Term<T>,
+    term: &Term<T>,
     mut point: Point,
     direction: Direction,
     side: Side,
@@ -293,7 +293,7 @@ fn semantic<T: EventListener>(
 
 /// Move by whitespace separated word, like W/B/E/gE in vi.
 fn word<T: EventListener>(
-    term: &mut Term<T>,
+    term: &Term<T>,
     mut point: Point,
     direction: Direction,
     side: Side,
