@@ -24,6 +24,15 @@ This section documents the root level of the configuration file.
 	All imports must either be absolute paths starting with _/_, or paths
 	relative to the user's home directory starting with _~/_.
 
+*shell* <string> | { program = <string>, args = [<string>,] }
+
+	You can set _shell.program_ to the path of your favorite shell, e.g.
+	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
+
+	Default:
+		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
+Windows: _"powershell"_
+
 *working_directory* <string> | "None"
 
 	Directory the shell is started in. When this is unset, or _None_, the
@@ -524,15 +533,6 @@ This section documents the *[cursor]* table of the configuration file.
 	from _0.0_ to _1.0_.
 
 	Default: _0.15_
-
-*shell* <string> | { program = <string>, args = [<string>,] }
-
-	You can set _shell.program_ to the path of your favorite shell, e.g.
-	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
-
-	Default:
-		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
-Windows: _"powershell"_
 
 # Mouse
 
