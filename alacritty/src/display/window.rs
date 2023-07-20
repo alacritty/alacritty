@@ -1,3 +1,8 @@
+#[cfg(not(any(target_os = "macos", windows)))]
+use winit::platform::startup_notify::{
+    self, EventLoopExtStartupNotify, WindowBuilderExtStartupNotify,
+};
+
 #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
 use winit::platform::wayland::WindowBuilderExtWayland;
 
@@ -141,6 +146,17 @@ impl Window {
         if let Some(position) = config.window.position {
             window_builder = window_builder
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
+        }
+
+        #[cfg(not(any(target_os = "macos", windows)))]
+        if let Some(token) = event_loop.read_token_from_env() {
+            log::debug!("Activating window with token: {token:?}");
+            window_builder = window_builder.with_activation_token(token);
+
+            // Remove the token from the env.
+            unsafe {
+                startup_notify::reset_activation_token_env();
+            }
         }
 
         let window = window_builder

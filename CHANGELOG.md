@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Back`/`Forward` mouse buttons support in bindings
 - Copy global IPC options (`-w -1`) for new windows
 - Bindings to create and navigate tabs on macOS
+- Support startup notify protocol to raise initial window on Wayland/X11
 
 ### Changed
 
