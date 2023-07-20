@@ -204,7 +204,7 @@ impl RenderableCell {
         let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg = Self::compute_bg_rgb(content, cell.bg);
 
-        let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
+        let bg_alpha = if cell.flags.contains(Flags::INVERSE) {
             mem::swap(&mut fg, &mut bg);
             1.0
         } else {
@@ -232,13 +232,13 @@ impl RenderableCell {
             } else {
                 (colors.hints.end.foreground, colors.hints.end.background)
             };
-            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
 
             character = c;
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
-            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
 
             if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
@@ -252,7 +252,7 @@ impl RenderableCell {
             } else {
                 (colors.search.matches.foreground, colors.search.matches.background)
             };
-            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
         }
 
         // Convert cell point to viewport position.
@@ -286,13 +286,7 @@ impl RenderableCell {
     }
 
     /// Apply [`CellRgb`] colors to the cell's colors.
-    fn compute_cell_rgb(
-        cell_fg: &mut Rgb,
-        cell_bg: &mut Rgb,
-        bg_alpha: &mut f32,
-        fg: CellRgb,
-        bg: CellRgb,
-    ) {
+    fn compute_cell_rgb(cell_fg: &mut Rgb, cell_bg: &mut Rgb, fg: CellRgb, bg: CellRgb) {
         let old_fg = mem::replace(cell_fg, fg.color(*cell_fg, *cell_bg));
         *cell_bg = bg.color(old_fg, *cell_bg);
     }
