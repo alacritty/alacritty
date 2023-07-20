@@ -1050,10 +1050,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         for i in 0..self.ctx.config().key_bindings().len() {
             let binding = &self.ctx.config().key_bindings()[i];
 
-            // When the logical key is some named key, use it, otherwise fallback to
-            // key without modifiers to account for bindings.
-            let logical_key = if matches!(key.logical_key, Key::Character(_)) {
-                key.key_without_modifiers()
+            // We don't want the key without modifier, because it means something else most of
+            // the time. However what we want is to manually lowercase the character to account
+            // for both small and capital latters on regular characters at the same time.
+            let logical_key = if let Key::Character(ch) = key.logical_key.as_ref() {
+                Key::Character(ch.to_lowercase().into())
             } else {
                 key.logical_key.clone()
             };

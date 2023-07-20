@@ -197,11 +197,11 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"First"_
-|  _"4"_
+|  _"$"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Last"_
-|  _"6"_
+|  _"^"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"FirstOccupied"_
@@ -241,7 +241,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordRightEnd"_
-|  _"5"_
+|  _"%"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Bracket"_
