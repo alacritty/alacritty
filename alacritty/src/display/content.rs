@@ -239,14 +239,11 @@ impl RenderableCell {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+
             if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
                 fg = content.color(NamedColor::Background as usize);
                 bg = content.color(NamedColor::Foreground as usize);
-                bg_alpha = 1.0;
-            }
-            if content.config.colors.transparent_background_colors {
-                bg_alpha = content.config.window_opacity();
             }
         } else if content.search.as_mut().map_or(false, |search| search.advance(cell.point)) {
             let focused = content.focused_match.map_or(false, |fm| fm.contains(&cell.point));
@@ -298,10 +295,6 @@ impl RenderableCell {
     ) {
         let old_fg = mem::replace(cell_fg, fg.color(*cell_fg, *cell_bg));
         *cell_bg = bg.color(old_fg, *cell_bg);
-
-        if bg != CellRgb::CellBackground {
-            *bg_alpha = 1.0;
-        }
     }
 
     /// Get the RGB color from a cell's foreground color.
@@ -368,10 +361,10 @@ impl RenderableCell {
     /// is computed.
     #[inline]
     fn compute_bg_alpha(config: &UiConfig, bg: Color) -> f32 {
-        if bg == Color::Named(NamedColor::Background) {
-            0.
-        } else if config.colors.transparent_background_colors {
+        if config.colors.transparent_background_colors {
             config.window_opacity()
+        } else if bg == Color::Named(NamedColor::Background) {
+            0.
         } else {
             1.
         }
