@@ -25,7 +25,7 @@ use crate::config::window::WindowConfig;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
-const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file://|git://|ssh:|ftp://)\
+const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
@@ -550,11 +550,11 @@ impl Eq for LazyRegexVariant {}
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use alacritty_terminal::term::test::mock_term;
 
     use crate::display::hint::visible_regex_match_iter;
-
-    use super::*;
 
     #[test]
     fn positive_url_parsing_regex_test() {
@@ -569,6 +569,7 @@ mod tests {
             "http://example.org",
             "news:some.news.portal",
             "file:///C:/Windows/",
+            "file:/home/user/whatever",
             "git://github.com/user/repo.git",
             "ssh:git@github.com:user/repo.git",
             "ftp://ftp.example.org",
