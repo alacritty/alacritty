@@ -31,8 +31,33 @@ pub struct Config {
     /// Cursor configuration.
     pub cursor: Cursor,
 
+    /// Terminal specific settings.
+    pub terminal: Terminal,
+
     #[config(flatten)]
     pub pty_config: PtyConfig,
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]
+pub struct Terminal {
+    // OSC 52 handling (clipboard handling).
+    pub osc52: Osc52,
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]
+pub enum Osc52 {
+    /// The handling of the escape sequence is disabled.
+    Disabled,
+    /// Only copy sequence is accepted.
+    ///
+    /// This option is the default as a compromiss between entirely
+    /// disabling it (the most secure) and allowing `paste` (the less secure).
+    #[default]
+    OnlyCopy,
+    /// Only paste sequence is accepted.
+    OnlyPaste,
+    /// Both are accepted.
+    CopyPaste,
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]

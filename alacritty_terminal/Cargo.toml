@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.19.2-dev"
+version = "0.20.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
