@@ -37,6 +37,7 @@ nix = { version = "0.26.2", default-features = false, features = ["term"] }
 signal-hook = "0.3.10"
 
 [target.'cfg(windows)'.dependencies]
+piper = "0.2"
 miow = "0.3"
 windows-sys = { version = "0.48", features = [
     "Win32_System_Console",
