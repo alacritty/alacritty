@@ -553,7 +553,7 @@ This section documents the *[mouse]* table of the configuration file.
 	captures the mouse, the `Shift` modifier is automatically added as a
 	requirement.
 
-	*mouse* "Middle" | "Left" | "Right" | <number>
+	*mouse* "Middle" | "Left" | "Right" | "Back" | "Forward" | <number>
 
 		Mouse button which needs to be pressed to trigger this binding.
 
