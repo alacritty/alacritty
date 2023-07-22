@@ -23,7 +23,6 @@ use crate::tty::windows::blocking::{UnblockedReader, UnblockedWriter};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
 
-// Adjust to taste. Too high means higher memory consumption, too low means over-synchronization.
 const PIPE_CAPACITY: usize = crate::event_loop::READ_BUFFER_SIZE;
 
 /// Load the pseudoconsole API from conpty.dll if possible, otherwise use the
