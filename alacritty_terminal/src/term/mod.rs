@@ -12,7 +12,7 @@ use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
 };
-use crate::config::Config;
+use crate::config::{Config, Osc52, Terminal};
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
@@ -304,6 +304,9 @@ pub struct Term<T> {
 
     /// Information about damaged cells.
     damage: TermDamageState,
+
+    /// Config directly for the terminal.
+    config: Terminal,
 }
 
 impl<T> Term<T> {
@@ -363,6 +366,7 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             selection: None,
             damage,
+            config: config.terminal.clone(),
         }
     }
 
@@ -460,6 +464,8 @@ impl<T> Term<T> {
         } else {
             self.grid.update_history(config.scrolling.history() as usize);
         }
+
+        self.config = config.terminal.clone();
 
         // Damage everything on config updates.
         self.mark_fully_damaged();
@@ -1539,6 +1545,11 @@ impl<T: EventListener> Handler for Term<T> {
     /// Store data into clipboard.
     #[inline]
     fn clipboard_store(&mut self, clipboard: u8, base64: &[u8]) {
+        if !matches!(self.config.osc52, Osc52::OnlyCopy | Osc52::CopyPaste) {
+            debug!("Denied osc52 store");
+            return;
+        }
+
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
@@ -1555,6 +1566,11 @@ impl<T: EventListener> Handler for Term<T> {
     /// Load data from clipboard.
     #[inline]
     fn clipboard_load(&mut self, clipboard: u8, terminator: &str) {
+        if !matches!(self.config.osc52, Osc52::OnlyPaste | Osc52::CopyPaste) {
+            debug!("Denied osc52 load");
+            return;
+        }
+
         let clipboard_type = match clipboard {
             b'c' => ClipboardType::Clipboard,
             b'p' | b's' => ClipboardType::Selection,
