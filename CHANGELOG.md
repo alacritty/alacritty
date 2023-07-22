@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Maximized` startup mode not filling the screen properly on GNOME Wayland
 - `OptionAsAlt` with `OnlyLeft`/`OnlyRight` settings not working properly on macOS
 - Default Vi key bindings for `Last`/`First` actions not working on X11/Wayland
+- Cut off wide characters in preedit string
 
 ### Removed
 
