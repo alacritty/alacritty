@@ -534,6 +534,20 @@ This section documents the *[cursor]* table of the configuration file.
 
 	Default: _0.15_
 
+# Terminal
+
+This section documents the *[terminal]* table of the configuration file.
+
+*osc52* "Disabled" | "OnlyCopy" | "OnlyPaste" | "CopyPaste"
+
+	Controls the ability to write to the system clipboard with the _OSC 52_
+	escape sequence. While this escape sequence is useful to copy contents
+	from the remote server, the ability to paste is not that necessary
+	given that normal `Paste` action could be used instead and such
+	sequence could be abused.
+
+	Default: _"OnlyCopy"_
+
 # Mouse
 
 This section documents the *[mouse]* table of the configuration file.
