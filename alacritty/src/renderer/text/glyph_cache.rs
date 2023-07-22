@@ -1,11 +1,10 @@
 use std::collections::HashMap;
-use std::hash::BuildHasherDefault;
 
+use ahash::RandomState;
 use crossfont::{
     Error as RasterizerError, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph,
     Rasterizer, Size, Slant, Style, Weight,
 };
-use fnv::FnvHasher;
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
@@ -46,7 +45,7 @@ pub struct Glyph {
 /// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs.
-    cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
+    cache: HashMap<GlyphKey, Glyph, RandomState>,
 
     /// Rasterizer for loading new glyphs.
     rasterizer: Rasterizer,
@@ -91,7 +90,7 @@ impl GlyphCache {
         let metrics = rasterizer.metrics(regular, font.size())?;
 
         Ok(Self {
-            cache: HashMap::default(),
+            cache: Default::default(),
             rasterizer,
             font_size: font.size(),
             font_key: regular,

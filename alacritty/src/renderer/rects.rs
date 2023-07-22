@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::mem;
 
+use ahash::RandomState;
 use crossfont::Metrics;
 
 use alacritty_terminal::grid::Dimensions;
@@ -157,7 +158,7 @@ impl RenderLine {
 /// Lines for underline and strikeout.
 #[derive(Default)]
 pub struct RenderLines {
-    inner: HashMap<Flags, Vec<RenderLine>>,
+    inner: HashMap<Flags, Vec<RenderLine>, RandomState>,
 }
 
 impl RenderLines {

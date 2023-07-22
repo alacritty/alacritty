@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
+use ahash::RandomState;
 use log::{debug, error, info, warn};
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use wayland_client::{Display as WaylandDisplay, EventQueue};
@@ -1044,7 +1045,7 @@ pub enum TouchPurpose {
     Scroll(TouchEvent),
     Zoom(TouchZoom),
     Tap(TouchEvent),
-    Invalid(HashSet<u64>),
+    Invalid(HashSet<u64, RandomState>),
 }
 
 impl Default for TouchPurpose {
@@ -1085,8 +1086,8 @@ impl TouchZoom {
     }
 
     /// Get active touch slots.
-    pub fn slots(&self) -> HashSet<u64> {
-        let mut set = HashSet::new();
+    pub fn slots(&self) -> HashSet<u64, RandomState> {
+        let mut set = HashSet::default();
         set.insert(self.slots.0.id);
         set.insert(self.slots.1.id);
         set
@@ -1401,7 +1402,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 pub struct Processor {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     wayland_event_queue: Option<EventQueue>,
-    windows: HashMap<WindowId, WindowContext>,
+    windows: HashMap<WindowId, WindowContext, RandomState>,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
 }
@@ -1423,7 +1424,7 @@ impl Processor {
         });
 
         Processor {
-            windows: HashMap::new(),
+            windows: Default::default(),
             config: Rc::new(config),
             cli_options,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
