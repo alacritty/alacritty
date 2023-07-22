@@ -542,9 +542,9 @@ This section documents the *[terminal]* table of the configuration file.
 
 	Controls the ability to write to the system clipboard with the _OSC 52_
 	escape sequence. While this escape sequence is useful to copy contents
-	from the remote server, the ability to paste is not that necessary
-	given that normal `Paste` action could be used instead and such
-	sequence could be abused.
+	from the remote server, allowing any application to read from the clipboard
+	can be easily abused while not providing significant benefits over
+	explicitly pasting text.
 
 	Default: _"OnlyCopy"_
 
