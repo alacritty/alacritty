@@ -25,7 +25,7 @@ use crate::config::window::WindowConfig;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
-const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
@@ -547,3 +547,61 @@ impl PartialEq for LazyRegexVariant {
     }
 }
 impl Eq for LazyRegexVariant {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use alacritty_terminal::term::test::mock_term;
+
+    use crate::display::hint::visible_regex_match_iter;
+
+    #[test]
+    fn positive_url_parsing_regex_test() {
+        for regular_url in [
+            "ipfs:s0mEhAsh",
+            "ipns:an0TherHash1234",
+            "magnet:?xt=urn:btih:L0UDHA5H12",
+            "mailto:example@example.org",
+            "gemini://gemini.example.org/",
+            "gopher://gopher.example.org",
+            "https://www.example.org",
+            "http://example.org",
+            "news:some.news.portal",
+            "file:///C:/Windows/",
+            "file:/home/user/whatever",
+            "git://github.com/user/repo.git",
+            "ssh:git@github.com:user/repo.git",
+            "ftp://ftp.example.org",
+        ] {
+            let term = mock_term(regular_url);
+            let regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &regex).collect::<Vec<_>>();
+            assert_eq!(
+                matches.len(),
+                1,
+                "Should have exactly one match url {regular_url}, but instead got: {matches:?}"
+            )
+        }
+    }
+
+    #[test]
+    fn negative_url_parsing_regex_test() {
+        for url_like in [
+            "http::trace::on_request::log_parameters",
+            "http//www.example.org",
+            "/user:example.org",
+            "mailto: example@example.org",
+            "http://<script>alert('xss')</script>",
+            "mailto:",
+        ] {
+            let term = mock_term(url_like);
+            let regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &regex).collect::<Vec<_>>();
+            assert!(
+                matches.is_empty(),
+                "Should not match url in string {url_like}, but instead got: {matches:?}"
+            )
+        }
+    }
+}
