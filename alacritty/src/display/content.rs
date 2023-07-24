@@ -204,7 +204,7 @@ impl RenderableCell {
         let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg = Self::compute_bg_rgb(content, cell.bg);
 
-        let bg_alpha = if cell.flags.contains(Flags::INVERSE) {
+        let mut bg_alpha = if cell.flags.contains(Flags::INVERSE) {
             mem::swap(&mut fg, &mut bg);
             1.0
         } else {
@@ -232,13 +232,27 @@ impl RenderableCell {
             } else {
                 (colors.hints.end.foreground, colors.hints.end.background)
             };
-            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
+            Self::compute_cell_rgb(
+                content.config,
+                &mut fg,
+                &mut bg,
+                &mut bg_alpha,
+                config_fg,
+                config_bg,
+            );
 
             character = c;
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
-            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
+            Self::compute_cell_rgb(
+                content.config,
+                &mut fg,
+                &mut bg,
+                &mut bg_alpha,
+                config_fg,
+                config_bg,
+            );
 
             if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
@@ -252,7 +266,14 @@ impl RenderableCell {
             } else {
                 (colors.search.matches.foreground, colors.search.matches.background)
             };
-            Self::compute_cell_rgb(&mut fg, &mut bg, config_fg, config_bg);
+            Self::compute_cell_rgb(
+                content.config,
+                &mut fg,
+                &mut bg,
+                &mut bg_alpha,
+                config_fg,
+                config_bg,
+            );
         }
 
         // Convert cell point to viewport position.
@@ -286,9 +307,24 @@ impl RenderableCell {
     }
 
     /// Apply [`CellRgb`] colors to the cell's colors.
-    fn compute_cell_rgb(cell_fg: &mut Rgb, cell_bg: &mut Rgb, fg: CellRgb, bg: CellRgb) {
+    fn compute_cell_rgb(
+        config: &UiConfig,
+        cell_fg: &mut Rgb,
+        cell_bg: &mut Rgb,
+        bg_alpha: &mut f32,
+        fg: CellRgb,
+        bg: CellRgb,
+    ) {
         let old_fg = mem::replace(cell_fg, fg.color(*cell_fg, *cell_bg));
         *cell_bg = bg.color(old_fg, *cell_bg);
+
+        if bg != CellRgb::CellBackground {
+            if config.colors.transparent_background_colors {
+                *bg_alpha = config.window_opacity()
+            } else {
+                *bg_alpha = 1.0;
+            }
+        }
     }
 
     /// Get the RGB color from a cell's foreground color.
@@ -355,10 +391,10 @@ impl RenderableCell {
     /// is computed.
     #[inline]
     fn compute_bg_alpha(config: &UiConfig, bg: Color) -> f32 {
-        if config.colors.transparent_background_colors {
-            config.window_opacity()
-        } else if bg == Color::Named(NamedColor::Background) {
+        if bg == Color::Named(NamedColor::Background) {
             0.
+        } else if config.colors.transparent_background_colors {
+            config.window_opacity()
         } else {
             1.
         }
