@@ -2,6 +2,7 @@ use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::iter;
 
+use ahash::RandomState;
 use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
@@ -307,7 +308,7 @@ pub fn visible_unique_hyperlinks_iter<T>(term: &Term<T>) -> impl Iterator<Item =
     let mut display_iter = term.grid().display_iter().peekable();
 
     // Avoid creating hints for the same hyperlinks, but from a different places.
-    let mut unique_hyperlinks = HashSet::new();
+    let mut unique_hyperlinks = HashSet::<Hyperlink, RandomState>::default();
 
     iter::from_fn(move || {
         // Find the start of the next unique hyperlink.

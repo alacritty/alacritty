@@ -780,7 +780,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
             TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
             TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
-                let mut set = HashSet::new();
+                let mut set = HashSet::default();
                 set.insert(event.id);
                 TouchPurpose::Invalid(set)
             },

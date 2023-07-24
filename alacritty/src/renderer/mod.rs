@@ -3,6 +3,7 @@ use std::ffi::{CStr, CString};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, ptr};
 
+use ahash::RandomState;
 use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
@@ -290,13 +291,13 @@ impl GlExtensions {
     ///
     /// This function will lazyly load OpenGL extensions.
     fn contains(extension: &str) -> bool {
-        static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str>> = OnceCell::new();
+        static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str, RandomState>> = OnceCell::new();
 
         OPENGL_EXTENSIONS.get_or_init(Self::load_extensions).contains(extension)
     }
 
     /// Load available OpenGL extensions.
-    fn load_extensions() -> HashSet<&'static str> {
+    fn load_extensions() -> HashSet<&'static str, RandomState> {
         unsafe {
             let extensions = gl::GetString(gl::EXTENSIONS);
 
@@ -313,7 +314,7 @@ impl GlExtensions {
             } else {
                 match CStr::from_ptr(extensions as *mut _).to_str() {
                     Ok(ext) => ext.split_whitespace().collect(),
-                    Err(_) => HashSet::new(),
+                    Err(_) => Default::default(),
                 }
             }
         }
