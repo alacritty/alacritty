@@ -10,14 +10,15 @@ use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
-use winit::keyboard::{Key, KeyLocation, ModifiersState};
+use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
-    self, Action, Binding, BindingKey, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
+    self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
+    MouseBinding,
 };
 use crate::config::color::Colors;
 use crate::config::cursor::Cursor;
@@ -152,11 +153,12 @@ impl UiConfig {
     /// Derive [`TermConfig`] from the config.
     pub fn term_options(&self) -> TermConfig {
         TermConfig {
-            scrolling_history: self.scrolling.history() as usize,
-            default_cursor_style: self.cursor.style(),
-            vi_mode_cursor_style: self.cursor.vi_mode_style(),
             semantic_escape_chars: self.selection.semantic_escape_chars.clone(),
+            scrolling_history: self.scrolling.history() as usize,
+            vi_mode_cursor_style: self.cursor.vi_mode_style(),
+            default_cursor_style: self.cursor.style(),
             osc52: self.terminal.osc52.0,
+            kitty_keyboard: true,
         }
     }
 

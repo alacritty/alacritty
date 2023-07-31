@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `window.blur` config option to request blur for transparent windows
 - `--option` argument for `alacritty msg create-window`
 - Support for `DECRQM`/`DECRPM` escape sequences
+- Support for kitty's keyboard protocol
 
 ### Changed
 
