@@ -232,27 +232,13 @@ impl RenderableCell {
             } else {
                 (colors.hints.end.foreground, colors.hints.end.background)
             };
-            Self::compute_cell_rgb(
-                content.config,
-                &mut fg,
-                &mut bg,
-                &mut bg_alpha,
-                config_fg,
-                config_bg,
-            );
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
 
             character = c;
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
-            Self::compute_cell_rgb(
-                content.config,
-                &mut fg,
-                &mut bg,
-                &mut bg_alpha,
-                config_fg,
-                config_bg,
-            );
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
 
             if fg == bg && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same.
@@ -266,14 +252,11 @@ impl RenderableCell {
             } else {
                 (colors.search.matches.foreground, colors.search.matches.background)
             };
-            Self::compute_cell_rgb(
-                content.config,
-                &mut fg,
-                &mut bg,
-                &mut bg_alpha,
-                config_fg,
-                config_bg,
-            );
+            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+        }
+
+        if bg_alpha > 0. && content.config.colors.transparent_background_colors {
+            bg_alpha = content.config.window_opacity();
         }
 
         // Convert cell point to viewport position.
@@ -308,7 +291,6 @@ impl RenderableCell {
 
     /// Apply [`CellRgb`] colors to the cell's colors.
     fn compute_cell_rgb(
-        config: &UiConfig,
         cell_fg: &mut Rgb,
         cell_bg: &mut Rgb,
         bg_alpha: &mut f32,
@@ -319,11 +301,7 @@ impl RenderableCell {
         *cell_bg = bg.color(old_fg, *cell_bg);
 
         if bg != CellRgb::CellBackground {
-            if config.colors.transparent_background_colors {
-                *bg_alpha = config.window_opacity()
-            } else {
-                *bg_alpha = 1.0;
-            }
+            *bg_alpha = 1.0;
         }
     }
 
