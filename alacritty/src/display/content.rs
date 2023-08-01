@@ -244,6 +244,7 @@ impl RenderableCell {
                 // Reveal inversed text when fg/bg is the same.
                 fg = content.color(NamedColor::Background as usize);
                 bg = content.color(NamedColor::Foreground as usize);
+                bg_alpha = 1.0;
             }
         } else if content.search.as_mut().map_or(false, |search| search.advance(cell.point)) {
             let focused = content.focused_match.map_or(false, |fm| fm.contains(&cell.point));
