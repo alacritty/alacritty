@@ -256,6 +256,7 @@ impl RenderableCell {
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
         }
 
+        // Apply transparency to all renderable cells if `transparent_background_colors` is set
         if bg_alpha > 0. && content.config.colors.transparent_background_colors {
             bg_alpha = content.config.window_opacity();
         }
