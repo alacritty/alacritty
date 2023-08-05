@@ -827,6 +827,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 let delta_y = touch.location.y - last_touch.location.y;
                 *touch_purpose = TouchPurpose::Scroll(touch);
 
+                // Use a fixed scroll factor for touchscreens, to accurately track finger motion.
                 self.scroll_terminal(0., delta_y, 1.0);
             },
             TouchPurpose::Select(_) => self.mouse_moved(touch.location),
