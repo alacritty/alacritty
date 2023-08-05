@@ -63,9 +63,6 @@ const MIN_SELECTION_SCROLLING_HEIGHT: f64 = 5.;
 /// Number of pixels for increasing the selection scrolling speed factor by one.
 const SELECTION_SCROLLING_STEP: f64 = 20.;
 
-/// Touch scroll speed.
-const TOUCH_SCROLL_FACTOR: f64 = 0.35;
-
 /// Distance before a touch input is considered a drag.
 const MAX_TAP_DISTANCE: f64 = 20.;
 
@@ -650,11 +647,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        let multiplier = self.ctx.config().terminal_config.scrolling.multiplier;
         match delta {
             MouseScrollDelta::LineDelta(columns, lines) => {
                 let new_scroll_px_x = columns * self.ctx.size_info().cell_width();
                 let new_scroll_px_y = lines * self.ctx.size_info().cell_height();
-                self.scroll_terminal(new_scroll_px_x as f64, new_scroll_px_y as f64);
+                self.scroll_terminal(
+                    new_scroll_px_x as f64,
+                    new_scroll_px_y as f64,
+                    multiplier as f64,
+                );
             },
             MouseScrollDelta::PixelDelta(mut lpos) => {
                 match phase {
@@ -671,7 +673,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                             lpos.x = 0.;
                         }
 
-                        self.scroll_terminal(lpos.x, lpos.y);
+                        self.scroll_terminal(lpos.x, lpos.y, multiplier as f64);
                     },
                     _ => (),
                 }
@@ -679,7 +681,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, new_scroll_x_px: f64, new_scroll_y_px: f64) {
+    fn scroll_terminal(&mut self, new_scroll_x_px: f64, new_scroll_y_px: f64, multiplier: f64) {
         const MOUSE_WHEEL_UP: u8 = 64;
         const MOUSE_WHEEL_DOWN: u8 = 65;
         const MOUSE_WHEEL_LEFT: u8 = 66;
@@ -712,8 +714,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().state().shift_key()
         {
-            let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
-
             self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
             self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
@@ -740,7 +740,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = f64::from(self.ctx.config().terminal_config.scrolling.multiplier);
             self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
 
             let lines = (self.ctx.mouse().accumulated_scroll.y / height) as i32;
@@ -828,7 +827,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 let delta_y = touch.location.y - last_touch.location.y;
                 *touch_purpose = TouchPurpose::Scroll(touch);
 
-                self.scroll_terminal(0., delta_y * TOUCH_SCROLL_FACTOR);
+                // Use a fixed scroll factor for touchscreens, to accurately track finger motion.
+                self.scroll_terminal(0., delta_y, 1.0);
             },
             TouchPurpose::Select(_) => self.mouse_moved(touch.location),
             TouchPurpose::Invalid(_) => (),
