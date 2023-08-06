@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Support for dynamically loading conpty.dll on Windows
 - Support for keybindings with dead keys
 - `Back`/`Forward` mouse buttons support in bindings
+- Copy global IPC options (`-w -1`) for new windows
 
 ### Changed
 
