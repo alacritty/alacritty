@@ -1403,6 +1403,7 @@ pub struct Processor {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
+    #[cfg(unix)]
     global_ipc_options: Vec<String>,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
@@ -1429,6 +1430,7 @@ impl Processor {
             cli_options,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
+            #[cfg(unix)]
             global_ipc_options: Default::default(),
             windows: Default::default(),
         }
@@ -1476,9 +1478,12 @@ impl Processor {
         )?;
 
         // Apply global IPC options.
-        let options = self.global_ipc_options.clone();
-        let ipc_config = IpcConfig { options, window_id: None, reset: false };
-        window_context.update_ipc_config(self.config.clone(), ipc_config);
+        #[cfg(unix)]
+        {
+            let options = self.global_ipc_options.clone();
+            let ipc_config = IpcConfig { options, window_id: None, reset: false };
+            window_context.update_ipc_config(self.config.clone(), ipc_config);
+        }
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
