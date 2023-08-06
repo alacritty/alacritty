@@ -1468,6 +1468,8 @@ impl Processor {
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window = self.windows.iter().next().as_ref().unwrap().1;
+
+        #[allow(unused_mut)]
         let mut window_context = window.additional(
             event_loop,
             proxy,
