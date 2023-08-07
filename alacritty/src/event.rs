@@ -1403,6 +1403,8 @@ pub struct Processor {
     #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
     wayland_event_queue: Option<EventQueue>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
+    #[cfg(unix)]
+    global_ipc_options: Vec<String>,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
 }
@@ -1424,11 +1426,13 @@ impl Processor {
         });
 
         Processor {
-            windows: Default::default(),
             config: Rc::new(config),
             cli_options,
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             wayland_event_queue,
+            #[cfg(unix)]
+            global_ipc_options: Default::default(),
+            windows: Default::default(),
         }
     }
 
@@ -1464,7 +1468,9 @@ impl Processor {
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
         let window = self.windows.iter().next().as_ref().unwrap().1;
-        let window_context = window.additional(
+
+        #[allow(unused_mut)]
+        let mut window_context = window.additional(
             event_loop,
             proxy,
             self.config.clone(),
@@ -1472,6 +1478,14 @@ impl Processor {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             self.wayland_event_queue.as_ref(),
         )?;
+
+        // Apply global IPC options.
+        #[cfg(unix)]
+        {
+            let options = self.global_ipc_options.clone();
+            let ipc_config = IpcConfig { options, window_id: None, reset: false };
+            window_context.update_ipc_config(self.config.clone(), ipc_config);
+        }
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
@@ -1609,6 +1623,15 @@ impl Processor {
                     payload: EventType::IpcConfig(ipc_config),
                     window_id,
                 }) => {
+                    // Persist global options for future windows.
+                    if window_id.is_none() {
+                        if ipc_config.reset {
+                            self.global_ipc_options.clear();
+                        } else {
+                            self.global_ipc_options.extend_from_slice(&ipc_config.options);
+                        }
+                    }
+
                     for (_, window_context) in self
                         .windows
                         .iter_mut()
