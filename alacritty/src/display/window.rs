@@ -35,7 +35,7 @@ use {
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
-use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::{dpi::{PhysicalPosition, PhysicalSize}, window::Theme};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
@@ -212,6 +212,11 @@ impl Window {
             wayland_surface,
             scale_factor,
         })
+    }
+
+    #[inline]
+    pub fn theme(&self) -> Option<Theme> {
+        self.window.theme()
     }
 
     #[inline]

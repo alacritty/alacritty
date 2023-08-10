@@ -19,7 +19,7 @@ use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
-use winit::window::CursorIcon;
+use winit::window::{CursorIcon, Theme};
 
 use crossfont::{self, Rasterize, Rasterizer};
 use unicode_width::UnicodeWidthChar;
@@ -41,6 +41,7 @@ use crate::config::window::StartupMode;
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
+use crate::display::colorscheme::ColorScheme;
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::RenderDamageIterator;
@@ -500,6 +501,14 @@ impl Display {
             info!("Failed to disable vsync: {}", err);
         }
 
+        let colors = match window.theme() {
+            Some(theme) => match theme {
+                Theme::Light => ColorScheme::default().light_colors,
+                Theme::Dark => ColorScheme::default().dark_colors,
+            }
+            None => ColorScheme::default().dark_colors,
+        };
+
         Ok(Self {
             window,
             context: ManuallyDrop::new(Replaceable::new(context)),
@@ -516,7 +525,7 @@ impl Display {
             cursor_hidden: false,
             frame_timer: FrameTimer::new(),
             visual_bell: VisualBell::from(&config.bell),
-            colors: List::from(&config.colors),
+            colors,
             pending_update: Default::default(),
             pending_renderer_update: Default::default(),
             debug_damage,
