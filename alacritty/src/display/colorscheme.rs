@@ -1,8 +1,9 @@
-use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::color::{CellRgb, Rgb};
 
 use super::color::List;
-use crate::config::color::Colors;
 use crate::config::color::BrightColors;
+use crate::config::color::Colors;
+use crate::config::color::InvertedCellColors;
 use crate::config::color::NormalColors;
 use crate::config::color::PrimaryColors;
 
@@ -20,6 +21,10 @@ pub struct ColorScheme {
 
 impl Default for ColorScheme {
     fn default() -> ColorScheme {
+        let cursor_colors = InvertedCellColors {
+                foreground: CellRgb::Rgb(Rgb::new(0x28, 0x28, 0x28)),
+                background: CellRgb::Rgb(Rgb::new(0x00, 0x00, 0x00)),
+            };
         let light_colors = List::from(&Colors {
             primary: PrimaryColors {
                 foreground: Rgb::new(0x00, 0x00, 0x00),
@@ -27,6 +32,9 @@ impl Default for ColorScheme {
                 bright_foreground: Default::default(),
                 dim_foreground: Default::default(),
             },
+            cursor: cursor_colors,
+            vi_mode_cursor: cursor_colors,
+            selection: cursor_colors,
             normal: NormalColors {
                 black: Rgb::new(0xd7, 0xd7, 0xd7),
                 red: Rgb::new(0x97, 0x25, 0x00),
