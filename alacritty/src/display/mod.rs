@@ -55,6 +55,7 @@ use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
+pub mod colorscheme;
 pub mod cursor;
 pub mod hint;
 pub mod window;
