@@ -1,7 +1,13 @@
 TARGET = alacritty
 
+ifeq ($(origin CARGO_TARGET_DIR), undefined)
+	TARGET_DIR = target
+else
+	TARGET_DIR = $(CARGO_TARGET_DIR)
+endif
+
 ASSETS_DIR = extra
-RELEASE_DIR = target/release
+RELEASE_DIR = $(TARGET_DIR)/release
 MANPAGE = $(ASSETS_DIR)/man/alacritty.1.scd
 MANPAGE-MSG = $(ASSETS_DIR)/man/alacritty-msg.1.scd
 MANPAGE-CONFIG = $(ASSETS_DIR)/man/alacritty.5.scd
