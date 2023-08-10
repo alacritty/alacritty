@@ -1369,6 +1369,18 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             *self.ctx.dirty = true;
                         },
                     },
+                    WindowEvent::ThemeChanged(theme) => {
+                        use crate::display::colorscheme::ColorScheme;
+                        let colorscheme = ColorScheme::default();
+                        match theme {
+                            winit::window::Theme::Light => {
+                                self.ctx.display.colors = colorscheme.light_colors;
+                            },
+                            winit::window::Theme::Dark => {
+                                self.ctx.display.colors = colorscheme.dark_colors;
+                            },
+                        }
+                    },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::TouchpadPressure { .. }
                     | WindowEvent::TouchpadMagnify { .. }
@@ -1379,7 +1391,6 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::AxisMotion { .. }
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
-                    | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Moved(_) => (),
                 }
