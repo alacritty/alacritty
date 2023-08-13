@@ -713,6 +713,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             .mode()
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && !self.ctx.modifiers().state().shift_key()
+            && !self.ctx.terminal().mode().contains(TermMode::VI)
+            && !self.ctx.search_active()
         {
             self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
             self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;

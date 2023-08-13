@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The double click threshold was raised to `400ms`
 - OSC 52 paste ability is now **disabled by default**; use `terminal.osc52` to adjust it
 - Apply `colors.transparent_background_colors` for selections, hints, and search matches
+- Alternate scroll is no longer reported while Vi mode or Search is active
 
 ### Fixed
 
