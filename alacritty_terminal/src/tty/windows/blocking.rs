@@ -1,14 +1,14 @@
 //! Code for running a reader/writer on another thread while driving it through `polling`.
 
-use piper::{pipe, Reader, Writer};
-use polling::os::iocp::{CompletionPacket, PollerIocpExt};
-use polling::{Event, PollMode, Poller};
-
 use std::io::prelude::*;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 use std::{io, thread};
+
+use piper::{pipe, Reader, Writer};
+use polling::os::iocp::{CompletionPacket, PollerIocpExt};
+use polling::{Event, PollMode, Poller};
 
 use crate::thread::spawn_named;
 

@@ -11,6 +11,7 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use log::error;
+use polling::{Event as PollingEvent, PollMode};
 
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
@@ -205,8 +206,8 @@ where
             let mut state = State::default();
             let mut buf = [0u8; READ_BUFFER_SIZE];
 
-            let poll_opts = polling::PollMode::Level;
-            let mut interest = polling::Event::readable(0);
+            let poll_opts = PollMode::Level;
+            let mut interest = PollingEvent::readable(0);
 
             // Register TTY through EventedRW interface.
             self.pty.register(&self.poll, interest, poll_opts).unwrap();
@@ -262,12 +263,7 @@ where
                         },
 
                         token if token == tty::PTY_READ_TOKEN || token == tty::PTY_WRITE_TOKEN => {
-                            /* FIXME: once polling supports extra reported modes bring it back.
-                            if UnixReady::from(event.readiness()).is_hup() {
-                                // Don't try to do I/O on a dead PTY.
-                                continue;
-                            }
-                            */
+                            // FIXME: once polling supports extra reported modes bring it back.
 
                             if event.readable {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
@@ -330,7 +326,7 @@ impl event::Notify for Notifier {
         B: Into<Cow<'static, [u8]>>,
     {
         let bytes = bytes.into();
-        // terminal hangs if we send 0 bytes through.
+        // Terminal hangs if we send 0 bytes through.
         if bytes.len() == 0 {
             return;
         }

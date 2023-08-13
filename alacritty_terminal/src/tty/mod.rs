@@ -6,6 +6,8 @@ use std::{env, io};
 
 use crate::config::Config;
 
+use polling::{Event, PollMode, Poller};
+
 #[cfg(not(windows))]
 mod unix;
 #[cfg(not(windows))]
@@ -15,8 +17,6 @@ pub use self::unix::*;
 pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
-
-use polling::{Event, PollMode, Poller};
 
 /// This trait defines the behaviour needed to read and/or write to a stream.
 /// It defines an abstraction over mio's interface in order to allow either one

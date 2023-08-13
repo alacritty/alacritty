@@ -16,6 +16,7 @@ use log::error;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
+use polling::{Event, PollMode, Poller};
 use signal_hook::consts as sigconsts;
 use signal_hook::low_level::pipe as signal_pipe;
 
@@ -317,41 +318,33 @@ impl EventedReadWrite for Pty {
     #[inline]
     fn register(
         &mut self,
-        poll: &Arc<polling::Poller>,
-        mut interest: polling::Event,
-        poll_opts: polling::PollMode,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
         self.token = PTY_READ_TOKEN;
         interest.key = self.token;
         poll.add_with_mode(&self.file, interest, poll_opts)?;
 
         self.signals_token = PTY_CHILD_EVENT_TOKEN;
-        poll.add_with_mode(
-            &self.signals,
-            polling::Event::readable(self.signals_token),
-            polling::PollMode::Level,
-        )
+        poll.add_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
     }
 
     #[inline]
     fn reregister(
         &mut self,
-        poll: &Arc<polling::Poller>,
-        mut interest: polling::Event,
-        poll_opts: polling::PollMode,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
         interest.key = self.token;
         poll.modify_with_mode(&self.file, interest, poll_opts)?;
 
-        poll.modify_with_mode(
-            &self.signals,
-            polling::Event::readable(self.signals_token),
-            polling::PollMode::Level,
-        )
+        poll.modify_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &Arc<polling::Poller>) -> Result<()> {
+    fn deregister(&mut self, poll: &Arc<Poller>) -> Result<()> {
         poll.delete(&self.file)?;
         poll.delete(&self.signals)
     }
@@ -373,13 +366,10 @@ impl EventedPty for Pty {
         // See if there has been a SIGCHLD.
         let mut buf = [0u8; 1];
         match self.signals.read(&mut buf) {
-            Ok(_) => {
-                // We received the signal.
-            },
+            // We received the signal.
+            Ok(_) => (),
 
             Err(e) => {
-                // We didn't receive the signal.
-                // Either an error occurred or we got EAGAIN. We don't really care which one.
                 if e.kind() != ErrorKind::WouldBlock {
                     error!("Error reading from signal pipe: {}", e);
                 }
