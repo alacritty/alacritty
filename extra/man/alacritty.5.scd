@@ -139,7 +139,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _{ instance = "Alacritty", general = "Alacritty" }_
 
-*decoration_theme_variant* "Dark" | "Light" | "None"
+*decorations_theme_variant* "Dark" | "Light" | "None"
 
 	Override the variant of the System theme/GTK theme/Wayland client side
 	decorations. Set this to _"None"_ to use the system's default theme variant.
