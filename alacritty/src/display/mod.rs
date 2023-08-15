@@ -400,7 +400,7 @@ impl Display {
         let rasterizer = Rasterizer::new(scale_factor)?;
 
         debug!("Loading \"{}\" font", &config.font.normal().family);
-        let mut glyph_cache = GlyphCache::new(rasterizer, &config.font)?;
+        let mut glyph_cache = GlyphCache::new(rasterizer, &config.font, window.scale_factor)?;
 
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics, window.scale_factor);
