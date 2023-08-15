@@ -403,7 +403,7 @@ impl Display {
         let mut glyph_cache = GlyphCache::new(rasterizer, &config.font)?;
 
         let metrics = glyph_cache.font_metrics();
-        let (cell_width, cell_height) = compute_cell_size(config, &metrics);
+        let (cell_width, cell_height) = compute_cell_size(config, &metrics, window.scale_factor);
 
         // Resize the window to account for the user configured size.
         if let Some(dimensions) = config.window.dimensions() {
@@ -575,7 +575,7 @@ impl Display {
         let _ = glyph_cache.update_font_size(font, scale_factor);
 
         // Compute new cell sizes.
-        compute_cell_size(config, &glyph_cache.font_metrics())
+        compute_cell_size(config, &glyph_cache.font_metrics(), scale_factor)
     }
 
     /// Reset glyph cache.
@@ -1610,12 +1610,12 @@ impl FrameTimer {
 ///
 /// This will return a tuple of the cell width and height.
 #[inline]
-fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics) -> (f32, f32) {
+fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics, scale_factor: f64) -> (f32, f32) {
     let offset_x = f64::from(config.font.offset.x);
     let offset_y = f64::from(config.font.offset.y);
     (
-        (metrics.average_advance + offset_x).floor().max(1.) as f32,
-        (metrics.line_height + offset_y).floor().max(1.) as f32,
+        (metrics.average_advance + offset_x * scale_factor).floor().max(1.) as f32,
+        (metrics.line_height + offset_y * scale_factor).floor().max(1.) as f32,
     )
 }
 
