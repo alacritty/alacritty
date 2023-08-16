@@ -8,6 +8,8 @@ use winit::window::{Fullscreen, Theme};
 
 #[cfg(target_os = "macos")]
 use alacritty_terminal::config::OptionAsAlt;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -139,12 +141,12 @@ impl WindowConfig {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn option_as_alt(&self) -> winit::platform::macos::OptionAsAlt {
+    pub fn option_as_alt(&self) -> WinitOptionAsAlt {
         match self.option_as_alt {
-            OptionAsAlt::OnlyLeft => winit::platform::macos::OptionAsAlt::OnlyLeft,
-            OptionAsAlt::OnlyRight => winit::platform::macos::OptionAsAlt::OnlyRight,
-            OptionAsAlt::Both => winit::platform::macos::OptionAsAlt::Both,
-            OptionAsAlt::None => winit::platform::macos::OptionAsAlt::None,
+            OptionAsAlt::OnlyLeft => WinitOptionAsAlt::OnlyLeft,
+            OptionAsAlt::OnlyRight => WinitOptionAsAlt::OnlyRight,
+            OptionAsAlt::Both => WinitOptionAsAlt::Both,
+            OptionAsAlt::None => WinitOptionAsAlt::None,
         }
     }
 }
