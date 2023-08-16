@@ -1610,7 +1610,11 @@ impl FrameTimer {
 ///
 /// This will return a tuple of the cell width and height.
 #[inline]
-fn compute_cell_size(config: &UiConfig, metrics: &crossfont::Metrics, scale_factor: f64) -> (f32, f32) {
+fn compute_cell_size(
+    config: &UiConfig,
+    metrics: &crossfont::Metrics,
+    scale_factor: f64,
+) -> (f32, f32) {
     let offset_x = f64::from(config.font.offset.x);
     let offset_y = f64::from(config.font.offset.y);
     (
