@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use winit::window::{Fullscreen, Theme};
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::OptionAsAlt;
+use alacritty_terminal::config::OptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -51,7 +51,7 @@ pub struct WindowConfig {
 
     /// Controls which `Option` key should be treated as `Alt`.
     #[cfg(target_os = "macos")]
-    pub option_as_alt: OptionAsAlt,
+    option_as_alt: OptionAsAlt,
 
     /// Resize increments.
     pub resize_increments: bool,
@@ -136,6 +136,16 @@ impl WindowConfig {
     #[inline]
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn option_as_alt(&self) -> winit::platform::macos::OptionAsAlt {
+        match self.option_as_alt {
+            OptionAsAlt::OnlyLeft => winit::platform::macos::OptionAsAlt::OnlyLeft,
+            OptionAsAlt::OnlyRight => winit::platform::macos::OptionAsAlt::OnlyRight,
+            OptionAsAlt::Both => winit::platform::macos::OptionAsAlt::Both,
+            OptionAsAlt::None => winit::platform::macos::OptionAsAlt::None,
+        }
     }
 }
 
