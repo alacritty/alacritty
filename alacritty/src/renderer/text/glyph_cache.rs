@@ -82,7 +82,11 @@ pub struct GlyphCache {
 }
 
 impl GlyphCache {
-    pub fn new(mut rasterizer: Rasterizer, font: &Font, scale_factor: f64) -> Result<GlyphCache, crossfont::Error> {
+    pub fn new(
+        mut rasterizer: Rasterizer,
+        font: &Font,
+        scale_factor: f64,
+    ) -> Result<GlyphCache, crossfont::Error> {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
