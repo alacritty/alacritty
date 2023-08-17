@@ -314,7 +314,7 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
-        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt);
+        let window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt());
 
         match window_config.decorations {
             Decorations::Full => window,
