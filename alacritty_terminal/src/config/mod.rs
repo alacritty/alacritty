@@ -215,22 +215,6 @@ impl From<CursorBlinking> for bool {
     }
 }
 
-#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OptionAsAlt {
-    /// The left `Option` key is treated as `Alt`.
-    OnlyLeft,
-
-    /// The right `Option` key is treated as `Alt`.
-    OnlyRight,
-
-    /// Both `Option` keys are treated as `Alt`.
-    Both,
-
-    /// No special handling is applied for `Option` key.
-    #[default]
-    None,
-}
-
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Program {

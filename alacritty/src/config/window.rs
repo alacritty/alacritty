@@ -7,8 +7,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use winit::window::{Fullscreen, Theme};
 
 #[cfg(target_os = "macos")]
-use alacritty_terminal::config::OptionAsAlt;
-#[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
@@ -274,4 +272,21 @@ impl<'de> Deserialize<'de> for Class {
 
         deserializer.deserialize_any(ClassVisitor)
     }
+}
+
+#[cfg(target_os = "macos")]
+#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptionAsAlt {
+    /// The left `Option` key is treated as `Alt`.
+    OnlyLeft,
+
+    /// The right `Option` key is treated as `Alt`.
+    OnlyRight,
+
+    /// Both `Option` keys are treated as `Alt`.
+    Both,
+
+    /// No special handling is applied for `Option` key.
+    #[default]
+    None,
 }
