@@ -1,11 +1,7 @@
 use alacritty_config_derive::ConfigDeserialize;
 use alacritty_terminal::term::color::{CellRgb, Rgb};
 
-use crate::config::color::BrightColors;
-use crate::config::color::Colors;
-use crate::config::color::InvertedCellColors;
-use crate::config::color::NormalColors;
-use crate::config::color::PrimaryColors;
+use crate::config::color::{BrightColors, Colors, InvertedCellColors, NormalColors, PrimaryColors};
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ThemeVariant {
