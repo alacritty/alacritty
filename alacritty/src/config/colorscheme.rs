@@ -7,14 +7,14 @@ use crate::config::color::InvertedCellColors;
 use crate::config::color::NormalColors;
 use crate::config::color::PrimaryColors;
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ThemeVariant {
     Light,
     Dark,
     System,
 }
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ColorScheme {
     pub mode: ThemeVariant,
     pub light: Colors,
