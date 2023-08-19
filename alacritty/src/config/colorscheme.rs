@@ -1,22 +1,24 @@
 use alacritty_terminal::term::color::{CellRgb, Rgb};
+use alacritty_config_derive::ConfigDeserialize;
 
-use super::color::List;
 use crate::config::color::BrightColors;
 use crate::config::color::Colors;
 use crate::config::color::InvertedCellColors;
 use crate::config::color::NormalColors;
 use crate::config::color::PrimaryColors;
 
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub enum ThemeVariant {
     Light,
     Dark,
     System,
 }
 
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct ColorScheme {
-    pub theme_variant: ThemeVariant,
-    pub light_colors: List,
-    pub dark_colors: List,
+    pub mode: ThemeVariant,
+    pub light: Colors,
+    pub dark: Colors,
 }
 
 impl Default for ColorScheme {
@@ -25,7 +27,7 @@ impl Default for ColorScheme {
                 foreground: CellRgb::Rgb(Rgb::new(0x28, 0x28, 0x28)),
                 background: CellRgb::Rgb(Rgb::new(0x00, 0x00, 0x00)),
             };
-        let light_colors = List::from(&Colors {
+        let light_colors = Colors {
             primary: PrimaryColors {
                 foreground: Rgb::new(0x00, 0x00, 0x00),
                 background: Rgb::new(0xff, 0xff, 0xff),
@@ -56,10 +58,10 @@ impl Default for ColorScheme {
                 white: Rgb::new(0x00, 0x00, 0x00),
             },
             ..Default::default()
-        });
+        };
 
-        let dark_colors = List::from(&Colors::default());
+        let dark_colors = Colors::default();
 
-        ColorScheme { theme_variant: ThemeVariant::System, light_colors, dark_colors }
+        ColorScheme { mode: ThemeVariant::System, light: light_colors, dark: dark_colors }
     }
 }

@@ -34,6 +34,7 @@ use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
 
+use crate::config::colorscheme::ThemeVariant;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -41,7 +42,6 @@ use crate::config::window::StartupMode;
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::List;
-use crate::display::colorscheme::ColorScheme;
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::RenderDamageIterator;
@@ -56,13 +56,12 @@ use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
 pub mod content;
-pub mod colorscheme;
+pub mod color;
 pub mod cursor;
 pub mod hint;
 pub mod window;
 
 mod bell;
-mod color;
 mod damage;
 mod meter;
 
@@ -501,12 +500,18 @@ impl Display {
             info!("Failed to disable vsync: {}", err);
         }
 
-        let colors = match window.theme() {
-            Some(theme) => match theme {
-                Theme::Light => ColorScheme::default().light_colors,
-                Theme::Dark => ColorScheme::default().dark_colors,
+        let colors = if config.colorscheme.mode == ThemeVariant::Light {
+            List::from(&config.colorscheme.light)
+        } else if config.colorscheme.mode == ThemeVariant::Dark {
+            List::from(&config.colorscheme.dark)
+        } else {
+            match window.theme() {
+                Some(theme) => match theme {
+                    Theme::Light => List::from(&config.colorscheme.light),
+                    Theme::Dark => List::from(&config.colorscheme.dark),
+                }
+                None => List::from(&config.colorscheme.dark),
             }
-            None => ColorScheme::default().dark_colors,
         };
 
         Ok(Self {

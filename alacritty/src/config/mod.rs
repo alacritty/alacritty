@@ -14,6 +14,7 @@ use alacritty_terminal::config::LOG_TARGET_CONFIG;
 
 pub mod bell;
 pub mod color;
+pub mod colorscheme;
 pub mod debug;
 pub mod font;
 pub mod monitor;

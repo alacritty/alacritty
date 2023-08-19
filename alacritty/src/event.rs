@@ -1370,14 +1370,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         },
                     },
                     WindowEvent::ThemeChanged(theme) => {
-                        use crate::display::colorscheme::ColorScheme;
-                        let colorscheme = ColorScheme::default();
+                        use crate::display::color::List;
                         match theme {
                             winit::window::Theme::Light => {
-                                self.ctx.display.colors = colorscheme.light_colors;
+                                self.ctx.display.colors = List::from(&self.ctx.config.colorscheme.light)
                             },
                             winit::window::Theme::Dark => {
-                                self.ctx.display.colors = colorscheme.dark_colors;
+                                self.ctx.display.colors = List::from(&self.ctx.config.colorscheme.dark)
                             },
                         }
                     },

@@ -22,6 +22,7 @@ use crate::config::debug::Debug;
 use crate::config::font::Font;
 use crate::config::mouse::{Mouse, MouseBindings};
 use crate::config::window::WindowConfig;
+use crate::config::colorscheme::ColorScheme;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
@@ -55,6 +56,8 @@ pub struct UiConfig {
 
     /// RGB values for colors.
     pub colors: Colors,
+
+    pub colorscheme: ColorScheme,
 
     /// Path where config was loaded from.
     #[config(skip)]
@@ -105,6 +108,7 @@ impl Default for UiConfig {
             config_paths: Default::default(),
             key_bindings: Default::default(),
             alt_send_esc: Default::default(),
+            colorscheme: Default::default(),
             keyboard: Default::default(),
             import: Default::default(),
             window: Default::default(),
