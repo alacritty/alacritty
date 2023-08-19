@@ -219,6 +219,7 @@ impl GlyphCache {
                     &self.metrics,
                     &self.font_offset,
                     &self.glyph_offset,
+                    self.scale_factor,
                 )
             })
             .flatten()
