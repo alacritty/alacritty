@@ -1373,10 +1373,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         use crate::display::color::List;
                         match theme {
                             winit::window::Theme::Light => {
-                                self.ctx.display.colors = List::from(&self.ctx.config.colorscheme.light)
+                                self.ctx.display.colors =
+                                    List::from(&self.ctx.config.colorscheme.light)
                             },
                             winit::window::Theme::Dark => {
-                                self.ctx.display.colors = List::from(&self.ctx.config.colorscheme.dark)
+                                self.ctx.display.colors =
+                                    List::from(&self.ctx.config.colorscheme.dark)
                             },
                         }
                     },

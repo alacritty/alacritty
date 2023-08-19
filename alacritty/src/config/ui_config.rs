@@ -18,11 +18,11 @@ use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
 };
 use crate::config::color::Colors;
+use crate::config::colorscheme::ColorScheme;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
 use crate::config::mouse::{Mouse, MouseBindings};
 use crate::config::window::WindowConfig;
-use crate::config::colorscheme::ColorScheme;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]

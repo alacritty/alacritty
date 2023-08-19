@@ -55,8 +55,8 @@ use crate::renderer::{self, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
-pub mod content;
 pub mod color;
+pub mod content;
 pub mod cursor;
 pub mod hint;
 pub mod window;
@@ -509,7 +509,7 @@ impl Display {
                 Some(theme) => match theme {
                     Theme::Light => List::from(&config.colorscheme.light),
                     Theme::Dark => List::from(&config.colorscheme.dark),
-                }
+                },
                 None => List::from(&config.colorscheme.dark),
             }
         };

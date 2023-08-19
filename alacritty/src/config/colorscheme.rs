@@ -1,5 +1,5 @@
-use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_config_derive::ConfigDeserialize;
+use alacritty_terminal::term::color::{CellRgb, Rgb};
 
 use crate::config::color::BrightColors;
 use crate::config::color::Colors;
@@ -24,9 +24,9 @@ pub struct ColorScheme {
 impl Default for ColorScheme {
     fn default() -> ColorScheme {
         let cursor_colors = InvertedCellColors {
-                foreground: CellRgb::Rgb(Rgb::new(0x28, 0x28, 0x28)),
-                background: CellRgb::Rgb(Rgb::new(0x00, 0x00, 0x00)),
-            };
+            foreground: CellRgb::Rgb(Rgb::new(0x28, 0x28, 0x28)),
+            background: CellRgb::Rgb(Rgb::new(0x00, 0x00, 0x00)),
+        };
         let light_colors = Colors {
             primary: PrimaryColors {
                 foreground: Rgb::new(0x00, 0x00, 0x00),

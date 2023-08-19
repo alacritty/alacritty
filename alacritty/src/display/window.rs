@@ -35,14 +35,14 @@ use {
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
-use winit::{dpi::{PhysicalPosition, PhysicalSize}, window::Theme};
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
-    CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
-    WindowId,
+    CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
+    WindowBuilder, WindowId,
 };
 
 use alacritty_terminal::index::Point;
