@@ -833,13 +833,11 @@ mod tests {
 
         // Test coverage of box drawing characters.
         for character in '\u{2500}'..='\u{259f}' {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0)
-                .is_some());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0).is_some());
         }
 
         for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0)
-                .is_none());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0).is_none());
         }
     }
 }
