@@ -1020,7 +1020,20 @@ impl Display {
     pub fn update_config(&mut self, config: &UiConfig) {
         self.debug_damage = config.debug.highlight_damage;
         self.visual_bell.update_config(&config.bell);
-        self.colors = List::from(&config.colors);
+
+        self.colors = if config.colorscheme.mode == ThemeVariant::Light {
+            List::from(&config.colorscheme.light)
+        } else if config.colorscheme.mode == ThemeVariant::Dark {
+            List::from(&config.colorscheme.dark)
+        } else {
+            match self.window.theme() {
+                Some(theme) => match theme {
+                    Theme::Light => List::from(&config.colorscheme.light),
+                    Theme::Dark => List::from(&config.colorscheme.dark),
+                },
+                None => List::from(&config.colorscheme.dark),
+            }
+        };
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
