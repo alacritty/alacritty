@@ -387,9 +387,10 @@ pub fn highlighted_at<T>(
             });
         }
 
-        if let Some(bounds) = hint.content.regex.as_ref().and_then(|regex| {
+        let bounds = hint.content.regex.as_ref().and_then(|regex| {
             regex.with_compiled(|regex| regex_match_at(term, point, regex, hint.post_processing))
-        }) {
+        });
+        if let Some(bounds) = bounds.flatten() {
             return Some(HintMatch { bounds, action: hint.action.clone(), hyperlink: None });
         }
 

@@ -483,11 +483,11 @@ pub struct LazyRegex(Rc<RefCell<LazyRegexVariant>>);
 
 impl LazyRegex {
     /// Execute a function with the compiled regex DFAs as parameter.
-    pub fn with_compiled<T, F>(&self, mut f: F) -> T
+    pub fn with_compiled<T, F>(&self, f: F) -> Option<T>
     where
         F: FnMut(&RegexSearch) -> T,
     {
-        f(self.0.borrow_mut().compiled())
+        self.0.borrow_mut().compiled().map(f)
     }
 }
 
@@ -506,6 +506,7 @@ impl<'de> Deserialize<'de> for LazyRegex {
 pub enum LazyRegexVariant {
     Compiled(Box<RegexSearch>),
     Pattern(String),
+    Uncompilable,
 }
 
 impl LazyRegexVariant {
@@ -513,27 +514,29 @@ impl LazyRegexVariant {
     ///
     /// If the regex is not already compiled, this will compile the DFAs and store them for future
     /// access.
-    fn compiled(&mut self) -> &RegexSearch {
+    fn compiled(&mut self) -> Option<&RegexSearch> {
         // Check if the regex has already been compiled.
         let regex = match self {
-            Self::Compiled(regex_search) => return regex_search,
+            Self::Compiled(regex_search) => return Some(regex_search),
+            Self::Uncompilable => return None,
             Self::Pattern(regex) => regex,
         };
 
         // Compile the regex.
         let regex_search = match RegexSearch::new(regex) {
             Ok(regex_search) => regex_search,
-            Err(error) => {
-                error!("hint regex is invalid: {}", error);
-                RegexSearch::new("").unwrap()
+            Err(err) => {
+                error!("could not compile hint regex: {err}");
+                *self = Self::Uncompilable;
+                return None;
             },
         };
         *self = Self::Compiled(Box::new(regex_search));
 
         // Return a reference to the compiled DFAs.
         match self {
-            Self::Compiled(dfas) => dfas,
-            Self::Pattern(_) => unreachable!(),
+            Self::Compiled(dfas) => Some(dfas),
+            _ => unreachable!(),
         }
     }
 }
