@@ -21,15 +21,24 @@ use winit::window::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 pub fn create_gl_display(
     raw_display_handle: RawDisplayHandle,
     _raw_window_handle: Option<RawWindowHandle>,
+    _prefer_egl: bool,
 ) -> GlutinResult<Display> {
     #[cfg(target_os = "macos")]
     let preference = DisplayApiPreference::Cgl;
 
     #[cfg(windows)]
-    let preference = DisplayApiPreference::Wgl(Some(_raw_window_handle.unwrap()));
+    let preference = if _prefer_egl {
+        DisplayApiPreference::EglThenWgl(Some(_raw_window_handle.unwrap()))
+    } else {
+        DisplayApiPreference::WglThenEgl(Some(_raw_window_handle.unwrap()))
+    };
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    let preference = DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook));
+    let preference = if _prefer_egl {
+        DisplayApiPreference::EglThenGlx(Box::new(x11::register_xlib_error_hook))
+    } else {
+        DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook))
+    };
 
     #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
     let preference = DisplayApiPreference::Egl;

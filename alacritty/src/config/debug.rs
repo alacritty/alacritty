@@ -23,6 +23,9 @@ pub struct Debug {
     /// The renderer alacritty should be using.
     pub renderer: Option<RendererPreference>,
 
+    /// Use EGL as display API if the current platform allows it.
+    pub prefer_egl: bool,
+
     /// Record ref test.
     #[config(skip)]
     pub ref_test: bool,
@@ -38,6 +41,7 @@ impl Default for Debug {
             highlight_damage: Default::default(),
             ref_test: Default::default(),
             renderer: Default::default(),
+            prefer_egl: Default::default(),
         }
     }
 }
