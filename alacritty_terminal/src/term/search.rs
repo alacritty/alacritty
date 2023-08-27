@@ -228,7 +228,7 @@ impl<T> Term<T> {
         let mut c = cell.c;
 
         let mut point = iter.point();
-        let mut last_point = point; // TODO: Hacky af
+        let mut last_point = point;
 
         loop {
             // Convert char to array of bytes.
