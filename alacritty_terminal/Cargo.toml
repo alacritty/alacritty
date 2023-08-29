@@ -26,7 +26,7 @@ log = "0.4"
 mio = "0.6.20"
 mio-extras = "2"
 parking_lot = "0.12.0"
-regex-automata = "0.1.9"
+regex-automata = "0.3.6"
 serde = { version = "1", features = ["derive", "rc"] }
 serde_yaml = "0.8"
 toml = "0.7.1"

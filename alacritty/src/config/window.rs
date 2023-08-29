@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use winit::window::{Fullscreen, Theme};
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::OptionAsAlt;
+use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
@@ -51,7 +51,7 @@ pub struct WindowConfig {
 
     /// Controls which `Option` key should be treated as `Alt`.
     #[cfg(target_os = "macos")]
-    pub option_as_alt: OptionAsAlt,
+    option_as_alt: OptionAsAlt,
 
     /// Resize increments.
     pub resize_increments: bool,
@@ -136,6 +136,16 @@ impl WindowConfig {
     #[inline]
     pub fn maximized(&self) -> bool {
         self.startup_mode == StartupMode::Maximized
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn option_as_alt(&self) -> WinitOptionAsAlt {
+        match self.option_as_alt {
+            OptionAsAlt::OnlyLeft => WinitOptionAsAlt::OnlyLeft,
+            OptionAsAlt::OnlyRight => WinitOptionAsAlt::OnlyRight,
+            OptionAsAlt::Both => WinitOptionAsAlt::Both,
+            OptionAsAlt::None => WinitOptionAsAlt::None,
+        }
     }
 }
 
@@ -262,4 +272,21 @@ impl<'de> Deserialize<'de> for Class {
 
         deserializer.deserialize_any(ClassVisitor)
     }
+}
+
+#[cfg(target_os = "macos")]
+#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptionAsAlt {
+    /// The left `Option` key is treated as `Alt`.
+    OnlyLeft,
+
+    /// The right `Option` key is treated as `Alt`.
+    OnlyRight,
+
+    /// Both `Option` keys are treated as `Alt`.
+    Both,
+
+    /// No special handling is applied for `Option` key.
+    #[default]
+    None,
 }

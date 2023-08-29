@@ -2,7 +2,12 @@ use std::cmp::max;
 use std::mem;
 use std::ops::RangeInclusive;
 
-use regex_automata::{dense, DenseDFA, Error as RegexError, DFA};
+pub use regex_automata::dfa::dense::BuildError;
+use regex_automata::dfa::dense::{Builder, Config, DFA};
+use regex_automata::dfa::Automaton;
+use regex_automata::nfa::thompson::Config as ThompsonConfig;
+use regex_automata::util::syntax::Config as SyntaxConfig;
+use regex_automata::Anchored;
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
@@ -12,39 +17,38 @@ use crate::term::Term;
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
+/// Maximum DFA size to prevent pathological regexes taking down the entire system.
+const MAX_DFA_SIZE: usize = 100_000_000;
+
 pub type Match = RangeInclusive<Point>;
 
 /// Terminal regex search state.
 #[derive(Clone, Debug)]
 pub struct RegexSearch {
-    /// Locate end of match searching right.
-    right_fdfa: DenseDFA<Vec<usize>, usize>,
-    /// Locate start of match searching right.
-    right_rdfa: DenseDFA<Vec<usize>, usize>,
-
-    /// Locate start of match searching left.
-    left_fdfa: DenseDFA<Vec<usize>, usize>,
-    /// Locate end of match searching left.
-    left_rdfa: DenseDFA<Vec<usize>, usize>,
+    dfa: DFA<Vec<u32>>,
+    rdfa: DFA<Vec<u32>>,
 }
 
 impl RegexSearch {
     /// Build the forward and backward search DFAs.
-    pub fn new(search: &str) -> Result<RegexSearch, RegexError> {
-        // Check case info for smart case
+    pub fn new(search: &str) -> Result<RegexSearch, Box<BuildError>> {
+        // Setup configs for both DFA directions.
         let has_uppercase = search.chars().any(|c| c.is_uppercase());
+        let syntax_config = SyntaxConfig::new().case_insensitive(!has_uppercase);
+        let config = Config::new().dfa_size_limit(Some(MAX_DFA_SIZE));
 
-        // Create Regex DFAs for all search directions.
-        let mut builder = dense::Builder::new();
-        let builder = builder.case_insensitive(!has_uppercase);
+        // Create Regex DFA for left-to-right search.
+        let dfa = Builder::new().configure(config.clone()).syntax(syntax_config).build(search)?;
 
-        let left_fdfa = builder.clone().reverse(true).build(search)?;
-        let left_rdfa = builder.clone().anchored(true).longest_match(true).build(search)?;
+        // Create Regex DFA for right-to-left search.
+        let thompson_config = ThompsonConfig::new().reverse(true);
+        let rdfa = Builder::new()
+            .configure(config)
+            .syntax(syntax_config)
+            .thompson(thompson_config)
+            .build(search)?;
 
-        let right_fdfa = builder.clone().build(search)?;
-        let right_rdfa = builder.anchored(true).longest_match(true).reverse(true).build(search)?;
-
-        Ok(RegexSearch { right_fdfa, right_rdfa, left_fdfa, left_rdfa })
+        Ok(RegexSearch { dfa, rdfa })
     }
 }
 
@@ -52,7 +56,7 @@ impl<T> Term<T> {
     /// Get next search match in the specified direction.
     pub fn search_next(
         &self,
-        dfas: &RegexSearch,
+        regex: &RegexSearch,
         mut origin: Point,
         direction: Direction,
         side: Side,
@@ -63,15 +67,15 @@ impl<T> Term<T> {
         max_lines = max_lines.filter(|max_lines| max_lines + 1 < self.total_lines());
 
         match direction {
-            Direction::Right => self.next_match_right(dfas, origin, side, max_lines),
-            Direction::Left => self.next_match_left(dfas, origin, side, max_lines),
+            Direction::Right => self.next_match_right(regex, origin, side, max_lines),
+            Direction::Left => self.next_match_left(regex, origin, side, max_lines),
         }
     }
 
     /// Find the next match to the right of the origin.
     fn next_match_right(
         &self,
-        dfas: &RegexSearch,
+        regex: &RegexSearch,
         origin: Point,
         side: Side,
         max_lines: Option<usize>,
@@ -88,7 +92,7 @@ impl<T> Term<T> {
             _ => end.sub(self, Boundary::None, 1),
         };
 
-        let mut regex_iter = RegexIter::new(start, end, Direction::Right, self, dfas).peekable();
+        let mut regex_iter = RegexIter::new(start, end, Direction::Right, self, regex).peekable();
 
         // Check if there's any match at all.
         let first_match = regex_iter.peek()?.clone();
@@ -110,7 +114,7 @@ impl<T> Term<T> {
     /// Find the next match to the left of the origin.
     fn next_match_left(
         &self,
-        dfas: &RegexSearch,
+        regex: &RegexSearch,
         origin: Point,
         side: Side,
         max_lines: Option<usize>,
@@ -127,7 +131,7 @@ impl<T> Term<T> {
             _ => end.add(self, Boundary::None, 1),
         };
 
-        let mut regex_iter = RegexIter::new(start, end, Direction::Left, self, dfas).peekable();
+        let mut regex_iter = RegexIter::new(start, end, Direction::Left, self, regex).peekable();
 
         // Check if there's any match at all.
         let first_match = regex_iter.peek()?.clone();
@@ -157,10 +161,16 @@ impl<T> Term<T> {
     /// Find the next regex match to the left of the origin point.
     ///
     /// The origin is always included in the regex.
-    pub fn regex_search_left(&self, dfas: &RegexSearch, start: Point, end: Point) -> Option<Match> {
+    pub fn regex_search_left(
+        &self,
+        regex: &RegexSearch,
+        start: Point,
+        end: Point,
+    ) -> Option<Match> {
         // Find start and end of match.
-        let match_start = self.regex_search(start, end, Direction::Left, &dfas.left_fdfa)?;
-        let match_end = self.regex_search(match_start, start, Direction::Right, &dfas.left_rdfa)?;
+        let match_start = self.regex_search(start, end, Direction::Left, false, &regex.rdfa)?;
+        let match_end =
+            self.regex_search(match_start, start, Direction::Right, true, &regex.dfa)?;
 
         Some(match_start..=match_end)
     }
@@ -170,13 +180,14 @@ impl<T> Term<T> {
     /// The origin is always included in the regex.
     pub fn regex_search_right(
         &self,
-        dfas: &RegexSearch,
+        regex: &RegexSearch,
         start: Point,
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_end = self.regex_search(start, end, Direction::Right, &dfas.right_fdfa)?;
-        let match_start = self.regex_search(match_end, start, Direction::Left, &dfas.right_rdfa)?;
+        let match_end = self.regex_search(start, end, Direction::Right, false, &regex.dfa)?;
+        let match_start =
+            self.regex_search(match_end, start, Direction::Left, true, &regex.rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -189,7 +200,8 @@ impl<T> Term<T> {
         start: Point,
         end: Point,
         direction: Direction,
-        dfa: &impl DFA,
+        anchored: bool,
+        regex: &impl Automaton,
     ) -> Option<Point> {
         let topmost_line = self.topmost_line();
         let screen_lines = self.screen_lines() as i32;
@@ -201,8 +213,12 @@ impl<T> Term<T> {
             Direction::Left => GridIterator::prev,
         };
 
+        // Get start state for the DFA.
+        let regex_anchored = if anchored { Anchored::Yes } else { Anchored::No };
+        let start_state = regex.universal_start_state(regex_anchored).unwrap();
+        let mut state = start_state;
+
         let mut iter = self.grid.iter_from(start);
-        let mut state = dfa.start_state();
         let mut last_wrapped = false;
         let mut regex_match = None;
         let mut done = false;
@@ -212,6 +228,7 @@ impl<T> Term<T> {
         let mut c = cell.c;
 
         let mut point = iter.point();
+        let mut last_point = point;
 
         loop {
             // Convert char to array of bytes.
@@ -227,20 +244,30 @@ impl<T> Term<T> {
                 };
 
                 // Since we get the state from the DFA, it doesn't need to be checked.
-                state = unsafe { dfa.next_state_unchecked(state, byte) };
+                state = unsafe { regex.next_state_unchecked(state, byte) };
+
+                // Matches require one additional BYTE of lookahead, so we check the match state for
+                // the first byte of every new character to determine if the last character was a
+                // match.
+                if i == 0 && regex.is_match_state(state) {
+                    regex_match = Some(last_point);
+                }
             }
 
-            // Handle regex state changes.
-            if dfa.is_match_or_dead_state(state) {
-                if dfa.is_dead_state(state) {
-                    break;
-                } else {
-                    regex_match = Some(point);
-                }
+            // Abort on dead states.
+            if regex.is_dead_state(state) {
+                break;
             }
 
             // Stop once we've reached the target point.
             if point == end || done {
+                // When reaching the end-of-input, we need to notify the parser that no look-ahead
+                // is possible and check if the current state is still a match.
+                state = regex.next_eoi_state(state);
+                if regex.is_match_state(state) {
+                    regex_match = Some(point);
+                }
+
                 break;
             }
 
@@ -264,7 +291,7 @@ impl<T> Term<T> {
             let wrapped = cell.flags.contains(Flags::WRAPLINE);
             c = cell.c;
 
-            let last_point = mem::replace(&mut point, iter.point());
+            last_point = mem::replace(&mut point, iter.point());
 
             // Handle linebreaks.
             if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
@@ -272,7 +299,16 @@ impl<T> Term<T> {
             {
                 match regex_match {
                     Some(_) => break,
-                    None => state = dfa.start_state(),
+                    None => {
+                        // When reaching the end-of-input, we need to notify the parser that no
+                        // look-ahead is possible and check if the current state is still a match.
+                        state = regex.next_eoi_state(state);
+                        if regex.is_match_state(state) {
+                            regex_match = Some(last_point);
+                        }
+
+                        state = start_state;
+                    },
                 }
             }
 
@@ -441,7 +477,7 @@ pub struct RegexIter<'a, T> {
     point: Point,
     end: Point,
     direction: Direction,
-    dfas: &'a RegexSearch,
+    regex: &'a RegexSearch,
     term: &'a Term<T>,
     done: bool,
 }
@@ -452,9 +488,9 @@ impl<'a, T> RegexIter<'a, T> {
         end: Point,
         direction: Direction,
         term: &'a Term<T>,
-        dfas: &'a RegexSearch,
+        regex: &'a RegexSearch,
     ) -> Self {
-        Self { point: start, done: false, end, direction, term, dfas }
+        Self { point: start, done: false, end, direction, term, regex }
     }
 
     /// Skip one cell, advancing the origin point to the next one.
@@ -470,8 +506,8 @@ impl<'a, T> RegexIter<'a, T> {
     /// Get the next match in the specified direction.
     fn next_match(&self) -> Option<Match> {
         match self.direction {
-            Direction::Right => self.term.regex_search_right(self.dfas, self.point, self.end),
-            Direction::Left => self.term.regex_search_left(self.dfas, self.point, self.end),
+            Direction::Right => self.term.regex_search_right(self.regex, self.point, self.end),
+            Direction::Left => self.term.regex_search_left(self.regex, self.point, self.end),
         }
     }
 }
@@ -524,12 +560,12 @@ mod tests {
         ");
 
         // Check regex across wrapped and unwrapped lines.
-        let dfas = RegexSearch::new("Ala.*123").unwrap();
+        let regex = RegexSearch::new("Ala.*123").unwrap();
         let start = Point::new(Line(1), Column(0));
         let end = Point::new(Line(4), Column(2));
         let match_start = Point::new(Line(1), Column(0));
         let match_end = Point::new(Line(2), Column(2));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
@@ -544,12 +580,12 @@ mod tests {
         ");
 
         // Check regex across wrapped and unwrapped lines.
-        let dfas = RegexSearch::new("Ala.*123").unwrap();
+        let regex = RegexSearch::new("Ala.*123").unwrap();
         let start = Point::new(Line(4), Column(2));
         let end = Point::new(Line(1), Column(0));
         let match_start = Point::new(Line(1), Column(0));
         let match_end = Point::new(Line(2), Column(2));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
@@ -561,16 +597,16 @@ mod tests {
         ");
 
         // Greedy stopped at linebreak.
-        let dfas = RegexSearch::new("Ala.*critty").unwrap();
+        let regex = RegexSearch::new("Ala.*critty").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(25));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
 
         // Greedy stopped at dead state.
-        let dfas = RegexSearch::new("Ala[^y]*critty").unwrap();
+        let regex = RegexSearch::new("Ala[^y]*critty").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(15));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
     }
 
     #[test]
@@ -582,10 +618,10 @@ mod tests {
             third\
         ");
 
-        let dfas = RegexSearch::new("nothing").unwrap();
+        let regex = RegexSearch::new("nothing").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(2), Column(4));
-        assert_eq!(term.regex_search_right(&dfas, start, end), None);
+        assert_eq!(term.regex_search_right(&regex, start, end), None);
     }
 
     #[test]
@@ -597,10 +633,10 @@ mod tests {
             third\
         ");
 
-        let dfas = RegexSearch::new("nothing").unwrap();
+        let regex = RegexSearch::new("nothing").unwrap();
         let start = Point::new(Line(2), Column(4));
         let end = Point::new(Line(0), Column(0));
-        assert_eq!(term.regex_search_left(&dfas, start, end), None);
+        assert_eq!(term.regex_search_left(&regex, start, end), None);
     }
 
     #[test]
@@ -612,12 +648,12 @@ mod tests {
         ");
 
         // Make sure the cell containing the linebreak is not skipped.
-        let dfas = RegexSearch::new("te.*123").unwrap();
+        let regex = RegexSearch::new("te.*123").unwrap();
         let start = Point::new(Line(1), Column(0));
         let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(9));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
@@ -629,11 +665,11 @@ mod tests {
         ");
 
         // Make sure the cell containing the linebreak is not skipped.
-        let dfas = RegexSearch::new("te.*123").unwrap();
+        let regex = RegexSearch::new("te.*123").unwrap();
         let start = Point::new(Line(0), Column(2));
         let end = Point::new(Line(1), Column(9));
         let match_start = Point::new(Line(1), Column(0));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=end));
     }
 
     #[test]
@@ -641,10 +677,10 @@ mod tests {
         let term = mock_term("alacritty");
 
         // Make sure dead state cell is skipped when reversing.
-        let dfas = RegexSearch::new("alacrit").unwrap();
+        let regex = RegexSearch::new("alacrit").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(6));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
     }
 
     #[test]
@@ -652,57 +688,68 @@ mod tests {
         let term = mock_term("zooo lense");
 
         // Make sure the reverse DFA operates the same as a forward DFA.
-        let dfas = RegexSearch::new("zoo").unwrap();
+        let regex = RegexSearch::new("zoo").unwrap();
         let start = Point::new(Line(0), Column(9));
         let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
     fn multibyte_unicode() {
         let term = mock_term("testвосибing");
 
-        let dfas = RegexSearch::new("te.*ing").unwrap();
+        let regex = RegexSearch::new("te.*ing").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(11));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
 
-        let dfas = RegexSearch::new("te.*ing").unwrap();
+        let regex = RegexSearch::new("te.*ing").unwrap();
         let start = Point::new(Line(0), Column(11));
         let end = Point::new(Line(0), Column(0));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(end..=start));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(end..=start));
+    }
+
+    #[test]
+    fn end_on_multibyte_unicode() {
+        let term = mock_term("testвосиб");
+
+        let regex = RegexSearch::new("te.*и").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(8));
+        let match_end = Point::new(Line(0), Column(7));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=match_end));
     }
 
     #[test]
     fn fullwidth() {
         let term = mock_term("a🦇x🦇");
 
-        let dfas = RegexSearch::new("[^ ]*").unwrap();
+        let regex = RegexSearch::new("[^ ]*").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(5));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
 
-        let dfas = RegexSearch::new("[^ ]*").unwrap();
+        let regex = RegexSearch::new("[^ ]*").unwrap();
         let start = Point::new(Line(0), Column(5));
         let end = Point::new(Line(0), Column(0));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(end..=start));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(end..=start));
     }
 
     #[test]
     fn singlecell_fullwidth() {
         let term = mock_term("🦇");
 
-        let dfas = RegexSearch::new("🦇").unwrap();
+        let regex = RegexSearch::new("🦇").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(1));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=end));
 
-        let dfas = RegexSearch::new("🦇").unwrap();
+        let regex = RegexSearch::new("🦇").unwrap();
         let start = Point::new(Line(0), Column(1));
         let end = Point::new(Line(0), Column(0));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(end..=start));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(end..=start));
     }
 
     #[test]
@@ -713,16 +760,16 @@ mod tests {
         let end = Point::new(Line(0), Column(4));
 
         // Ensure ending without a match doesn't loop indefinitely.
-        let dfas = RegexSearch::new("x").unwrap();
-        assert_eq!(term.regex_search_right(&dfas, start, end), None);
+        let regex = RegexSearch::new("x").unwrap();
+        assert_eq!(term.regex_search_right(&regex, start, end), None);
 
-        let dfas = RegexSearch::new("x").unwrap();
+        let regex = RegexSearch::new("x").unwrap();
         let match_end = Point::new(Line(0), Column(5));
-        assert_eq!(term.regex_search_right(&dfas, start, match_end), None);
+        assert_eq!(term.regex_search_right(&regex, start, match_end), None);
 
         // Ensure match is captured when only partially inside range.
-        let dfas = RegexSearch::new("jarr🦇").unwrap();
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(start..=match_end));
+        let regex = RegexSearch::new("jarr🦇").unwrap();
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(start..=match_end));
     }
 
     #[test]
@@ -733,17 +780,17 @@ mod tests {
             xxx\
         ");
 
-        let dfas = RegexSearch::new("xxx").unwrap();
+        let regex = RegexSearch::new("xxx").unwrap();
         let start = Point::new(Line(0), Column(2));
         let end = Point::new(Line(1), Column(2));
         let match_start = Point::new(Line(1), Column(0));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=end));
 
-        let dfas = RegexSearch::new("xxx").unwrap();
+        let regex = RegexSearch::new("xxx").unwrap();
         let start = Point::new(Line(1), Column(0));
         let end = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(end..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(end..=match_end));
     }
 
     #[test]
@@ -754,19 +801,19 @@ mod tests {
             xx🦇\
         ");
 
-        let dfas = RegexSearch::new("🦇x").unwrap();
+        let regex = RegexSearch::new("🦇x").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(1), Column(3));
         let match_start = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=match_end));
 
-        let dfas = RegexSearch::new("x🦇").unwrap();
+        let regex = RegexSearch::new("x🦇").unwrap();
         let start = Point::new(Line(1), Column(2));
         let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(1), Column(1));
         let match_end = Point::new(Line(1), Column(3));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
@@ -778,33 +825,33 @@ mod tests {
         ");
         term.grid[Line(0)][Column(3)].flags.insert(Flags::LEADING_WIDE_CHAR_SPACER);
 
-        let dfas = RegexSearch::new("🦇x").unwrap();
+        let regex = RegexSearch::new("🦇x").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(1), Column(3));
         let match_start = Point::new(Line(0), Column(3));
         let match_end = Point::new(Line(1), Column(2));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=match_end));
 
-        let dfas = RegexSearch::new("🦇x").unwrap();
+        let regex = RegexSearch::new("🦇x").unwrap();
         let start = Point::new(Line(1), Column(3));
         let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(0), Column(3));
         let match_end = Point::new(Line(1), Column(2));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
 
-        let dfas = RegexSearch::new("x🦇").unwrap();
+        let regex = RegexSearch::new("x🦇").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(1), Column(3));
         let match_start = Point::new(Line(0), Column(2));
         let match_end = Point::new(Line(1), Column(1));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=match_end));
 
-        let dfas = RegexSearch::new("x🦇").unwrap();
+        let regex = RegexSearch::new("x🦇").unwrap();
         let start = Point::new(Line(1), Column(3));
         let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(0), Column(2));
         let match_end = Point::new(Line(1), Column(1));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
@@ -815,12 +862,12 @@ mod tests {
         term.grid[Line(0)][Column(1)].c = '字';
         term.grid[Line(0)][Column(1)].flags = Flags::WIDE_CHAR;
 
-        let dfas = RegexSearch::new("test").unwrap();
+        let regex = RegexSearch::new("test").unwrap();
 
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(1));
 
-        let mut iter = RegexIter::new(start, end, Direction::Right, &term, &dfas);
+        let mut iter = RegexIter::new(start, end, Direction::Right, &term, &regex);
         assert_eq!(iter.next(), None);
     }
 
@@ -833,19 +880,19 @@ mod tests {
         ");
 
         // Bottom to top.
-        let dfas = RegexSearch::new("abc").unwrap();
+        let regex = RegexSearch::new("abc").unwrap();
         let start = Point::new(Line(1), Column(0));
         let end = Point::new(Line(0), Column(2));
         let match_start = Point::new(Line(0), Column(0));
         let match_end = Point::new(Line(0), Column(2));
-        assert_eq!(term.regex_search_right(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_right(&regex, start, end), Some(match_start..=match_end));
 
         // Top to bottom.
-        let dfas = RegexSearch::new("def").unwrap();
+        let regex = RegexSearch::new("def").unwrap();
         let start = Point::new(Line(0), Column(2));
         let end = Point::new(Line(1), Column(0));
         let match_start = Point::new(Line(1), Column(0));
         let match_end = Point::new(Line(1), Column(2));
-        assert_eq!(term.regex_search_left(&dfas, start, end), Some(match_start..=match_end));
+        assert_eq!(term.regex_search_left(&regex, start, end), Some(match_start..=match_end));
     }
 }

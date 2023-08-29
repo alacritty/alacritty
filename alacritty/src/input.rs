@@ -1027,7 +1027,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     #[cfg(target_os = "macos")]
     fn alt_send_esc(&mut self) -> bool {
-        let option_as_alt = self.ctx.config().window.option_as_alt;
+        let option_as_alt = self.ctx.config().window.option_as_alt();
         self.ctx.modifiers().state().alt_key()
             && (option_as_alt == OptionAsAlt::Both
                 || (option_as_alt == OptionAsAlt::OnlyLeft
