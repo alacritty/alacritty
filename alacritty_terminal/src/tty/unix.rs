@@ -2,15 +2,16 @@
 
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind, Read, Result, Write};
 use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::{env, ptr};
 
+use bitflags::bitflags;
 use libc::{self, c_int, winsize, TIOCSCTTY};
-use log::error;
+use log::{error, warn};
 use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -21,13 +22,6 @@ use signal_hook_mio::v0_6::Signals;
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
-
-macro_rules! die {
-    ($($arg:tt)*) => {{
-        error!($($arg)*);
-        std::process::exit(1);
-    }}
-}
 
 /// Get raw fds for master/slave ends of a new PTY.
 fn make_pty(size: winsize) -> Result<(RawFd, RawFd)> {
@@ -41,7 +35,7 @@ fn make_pty(size: winsize) -> Result<(RawFd, RawFd)> {
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
-fn set_controlling_terminal(fd: c_int) {
+fn set_controlling_terminal(fd: c_int) -> Result<()> {
     let res = unsafe {
         // TIOSCTTY changes based on platform and the `ioctl` call is different
         // based on architecture (32/64). So a generic cast is used to make sure
@@ -52,7 +46,9 @@ fn set_controlling_terminal(fd: c_int) {
     };
 
     if res < 0 {
-        die!("ioctl TIOCSCTTY failed: {}", Error::last_os_error());
+        Err(Error::last_os_error())
+    } else {
+        Ok(())
     }
 }
 
@@ -185,6 +181,42 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
     login_command
 }
 
+bitflags! {
+    /// Status of the child process reported by pre_exec()
+    pub struct ChildStatus: u8 {
+        // The status is sent over PTY. Make sure not to send any control characters.
+        const BASE                = 0b0100_0000; // Base pty-safe value - no errors
+        const SETSID_ERROR        = 0b0000_0001; // Cannot set session ID
+        const TIOCSCTTY_ERROR     = 0b0000_0010; // Cannot set controlling terminal
+        const CHDIR_ERROR         = 0b0000_0100; // Cannot change working directory
+    }
+}
+
+/// Read status from the child process, log warnings if any.
+fn check_child_status(file: &mut File) -> Result<()> {
+    // Read status byte from the child process
+    let mut status_buffer = [0u8; 1];
+    file.read_exact(&mut status_buffer)?;
+    let pre_exec_status = ChildStatus::from_bits(status_buffer[0]).unwrap_or_else(|| {
+        warn!("Cannot decode child process status {:#2x}", status_buffer[0]);
+        ChildStatus::BASE
+    });
+
+    if pre_exec_status.contains(ChildStatus::SETSID_ERROR) {
+        warn!("Child process failed to set session ID");
+    }
+
+    if pre_exec_status.contains(ChildStatus::TIOCSCTTY_ERROR) {
+        warn!("Child process failed to set controlling terminal");
+    }
+
+    if pre_exec_status.contains(ChildStatus::CHDIR_ERROR) {
+        warn!("Child process failed to change directory");
+    }
+
+    Ok(())
+}
+
 /// Create a new TTY and return a handle to interact with it.
 pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let (master, slave) = make_pty(window_size.to_winsize())?;
@@ -223,15 +255,30 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     // Set Window ID for clients relying on X11 hacks.
     builder.env("WINDOWID", window_id);
 
+    let working_directory = config.working_directory.clone();
+
     unsafe {
         builder.pre_exec(move || {
+            let mut status_flag = ChildStatus::BASE;
+
             // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
-                return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
+                status_flag |= ChildStatus::SETSID_ERROR;
             }
 
-            set_controlling_terminal(slave);
+            if set_controlling_terminal(slave).is_err() {
+                status_flag |= ChildStatus::TIOCSCTTY_ERROR;
+            }
+
+            // Handle set working directory option.
+            if let Some(dir) = &working_directory {
+                env::set_current_dir(dir)
+                    .unwrap_or_else(|_| status_flag |= ChildStatus::CHDIR_ERROR);
+            }
+
+            let status_buffer = [status_flag.bits()];
+            let _ = File::from_raw_fd(slave).write_all(&status_buffer);
 
             // No longer need slave/master fds.
             libc::close(slave);
@@ -248,11 +295,6 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
         });
     }
 
-    // Handle set working directory option.
-    if let Some(dir) = &config.working_directory {
-        builder.current_dir(dir);
-    }
-
     // Prepare signal handling before spawning child.
     let signals = Signals::new([sigconsts::SIGCHLD]).expect("error preparing signal handling");
 
@@ -264,9 +306,12 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 set_nonblocking(master);
             }
 
+            let mut file = unsafe { File::from_raw_fd(master) };
+            check_child_status(&mut file)?;
+
             let mut pty = Pty {
                 child,
-                file: unsafe { File::from_raw_fd(master) },
+                file,
                 token: mio::Token::from(0),
                 signals,
                 signals_token: mio::Token::from(0),
@@ -399,7 +444,7 @@ impl OnResize for Pty {
         let res = unsafe { libc::ioctl(self.file.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", Error::last_os_error());
+            warn!("ioctl TIOCSWINSZ failed: {}", Error::last_os_error());
         }
     }
 }
