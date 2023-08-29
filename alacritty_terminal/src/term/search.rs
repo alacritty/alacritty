@@ -7,8 +7,7 @@ use regex_automata::dfa::dense::{Builder, Config, DFA};
 use regex_automata::dfa::Automaton;
 use regex_automata::nfa::thompson::Config as ThompsonConfig;
 use regex_automata::util::syntax::Config as SyntaxConfig;
-use regex_automata::Anchored;
-use regex_automata::Input;
+use regex_automata::{Anchored, Input};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
