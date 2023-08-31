@@ -27,7 +27,7 @@ pub fn set_locale_environment() {
     let system_locale = system_locale();
 
     // Set locale to system locale.
-    let system_locale_c = CString::new(system_locale.clone()).expect("nul byte in system locale");
+    let system_locale_c = CString::new(system_locale.as_bytes()).expect("nul byte in system locale");
     let lc_all = unsafe { setlocale(LC_ALL, system_locale_c.as_ptr()) };
 
     // Check if system locale was valid or not.
