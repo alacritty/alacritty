@@ -7,7 +7,7 @@ Alacritty - TOML configuration file format
 # SYNTAX
 
 Alacritty's configuration file uses the TOML format. The format's specification
-can be found at https://toml.io/en/v1.0.0.
+can be found at _https://toml.io/en/v1.0.0_.
 
 # GENERAL
 
@@ -24,6 +24,12 @@ This section documents the root level of the configuration file.
 	All imports must either be absolute paths starting with _/_, or paths
 	relative to the user's home directory starting with _~/_.
 
+	Example:
+		import = [++
+	_"~/.config/alacritty/base16-dark.toml"_,++
+	_"~/.config/alacritty/keybindings.toml"_,++
+]
+
 *shell* <string> | { program = <string>, args = [<string>,] }
 
 	You can set _shell.program_ to the path of your favorite shell, e.g.
@@ -32,6 +38,11 @@ This section documents the root level of the configuration file.
 	Default:
 		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
 Windows: _"powershell"_
+
+	Example:
+		*[shell]*++
+program = _"/bin/zsh"_++
+args = [_"-l"_]
 
 *working_directory* <string> | "None"
 
@@ -58,10 +69,9 @@ All key-value pairs in the *env* section will be added as environment variables
 for any process spawned by Alacritty, including its shell. Some entries may
 override variables set by alacritty itself.
 
-```
-[env]
-TERM = "alacritty"
-```
+Example:
+	*[env]*++
+WINIT_X11_SCALE_FACTOR = _"1.0"_
 
 # WINDOW
 
@@ -576,6 +586,12 @@ This section documents the *[mouse]* table of the configuration file.
 		*ExpandSelection*
 			Expand the selection to the current mouse cursor location.
 
+	Example:
+		*[mouse]*++
+bindings = [++
+	{ mouse = _"Right"_, mods = _"Control"_, action = _"Paste"_ },++
+]
+
 # Hints
 
 This section documents the *[hints]* table of the configuration file.
@@ -837,6 +853,13 @@ https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
 
 Default: See *alacritty-bindings*(5)
 
+Example:
+	*[keyboard]*++
+bindings = [++
+	{ key = _"N"_, mods = _"Control|Shift"_, action = _"CreateNewWindow"_ },++
+]
+
+
 # Debug
 
 This section documents the *[debug]* table of the configuration file.
@@ -860,6 +883,12 @@ relied upon.
 *log_level* "Off" | "Error" | "Warn" | "Info" | "Debug" | "Trace"
 
 	Default: _"Warn"_
+
+	To add extra libraries to logging _ALACRITTY_EXTRA_LOG_TARGETS_ variable
+	can be used.
+
+	Example:
+		_ALACRITTY_EXTRA_LOG_TARGETS="winit;vte" alacritty -vvv_
 
 *renderer* "glsl3" | "gles2" | "gles2_pure" | "None"
 
