@@ -35,10 +35,10 @@ Windows: _"powershell"_
 
 *working_directory* <string> | "None"
 
-	Directory the shell is started in. When this is unset, or _None_, the
+	Directory the shell is started in. When this is unset, or _"None"_, the
 	working directory of the parent process will be used.
 
-	Default: _None_
+	Default: _"None"_
 
 *live_config_reload* <boolean>
 
@@ -499,12 +499,12 @@ This section documents the *[cursor]* table of the configuration file.
 
 *vi_mode_style*
 
-	If the vi mode cursor style is _None_ or not specified, it will fall back to
+	If the vi mode cursor style is _"None"_ or not specified, it will fall back to
 	the active value of the normal cursor.
 
 	See _cursor.style_ for available options.
 
-	Default: _None_
+	Default: _"None"_
 
 *blink_interval* <integer>
 
