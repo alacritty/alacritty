@@ -92,8 +92,11 @@ impl WindowContext {
         #[cfg(not(windows))]
         let raw_window_handle = None;
 
-        let gl_display =
-            renderer::platform::create_gl_display(raw_display_handle, raw_window_handle)?;
+        let gl_display = renderer::platform::create_gl_display(
+            raw_display_handle,
+            raw_window_handle,
+            config.debug.prefer_egl,
+        )?;
         let gl_config = renderer::platform::pick_gl_config(&gl_display, raw_window_handle)?;
 
         #[cfg(not(windows))]
