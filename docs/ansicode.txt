@@ -736,8 +736,8 @@ Oct Hex  *  	(* marks function used in DEC VT series or LA series terminals)
   ESC >   Set numeric keypad to numbers mode
   OA      Up-cursor key    sends ESC O A after ESC = ESC [ ? 1 h
   OB      Down-cursor key  sends ESC O B    "      "         "
-  OC      Right-cursor key sends ESC O B    "      "         "
-  OB      Left-cursor key  sends ESC O B    "      "         "
+  OC      Right-cursor key sends ESC O C    "      "         "
+  OD      Left-cursor key  sends ESC O D    "      "         "
   OM      ENTER key        sends ESC O M after ESC =
   Ol      COMMA on keypad  sends ESC O l    "      "   (that's lowercase L)
   Om      MINUS on keypad  sends ESC O m    "      "
