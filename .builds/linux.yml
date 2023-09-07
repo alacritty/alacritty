@@ -8,6 +8,7 @@ packages:
   - fontconfig
   - libxcb
   - libxkbcommon
+  - scdoc
 
 sources:
   - https://github.com/alacritty/alacritty
@@ -18,13 +19,19 @@ environment:
 tasks:
   - rustup: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --profile minimal
-  - test: |
-      cd alacritty
-      cargo test
   - rustfmt: |
       cd alacritty
       rustup toolchain install nightly -c rustfmt
       cargo +nightly fmt -- --check
+  - man-pages: |
+      cd alacritty
+      cat extra/man/alacritty.1.scd | scdoc > /dev/null
+      cat extra/man/alacritty-msg.1.scd | scdoc > /dev/null
+      cat extra/man/alacritty.5.scd | scdoc > /dev/null
+      cat extra/man/alacritty-bindings.5.scd | scdoc > /dev/null
+  - test: |
+      cd alacritty
+      cargo test
   - oldstable: |
       cd alacritty
       rustup toolchain install --profile minimal 1.65.0
