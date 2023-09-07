@@ -937,10 +937,10 @@ relied upon.
 
 *prefer_egl* <boolean>
 
-    Use EGL as display API if the current platform allows it. Note that
-    transparency may not work with EGL on Linux/BSD.
+	Use EGL as display API if the current platform allows it. Note that
+	transparency may not work with EGL on Linux/BSD.
 
-    Default: _false_
+	Default: _false_
 
 # SEE ALSO
 
