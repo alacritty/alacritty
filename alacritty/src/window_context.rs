@@ -398,7 +398,7 @@ impl WindowContext {
             scheduler,
             &self.message_buffer,
             &self.config,
-            &self.search_state,
+            &mut self.search_state,
         );
     }
 
