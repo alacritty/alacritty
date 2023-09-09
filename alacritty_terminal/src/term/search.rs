@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::error::Error;
 use std::mem;
 use std::ops::RangeInclusive;
 
@@ -16,9 +17,6 @@ use crate::term::Term;
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
-/// Maximum DFA size to prevent pathological regexes taking down the entire system.
-const MAX_DFA_SIZE: usize = 100_000_000;
-
 pub type Match = RangeInclusive<Point>;
 
 /// Terminal regex search state.
@@ -32,10 +30,15 @@ impl RegexSearch {
     /// Build the forward and backward search DFAs.
     pub fn new(search: &str) -> Result<RegexSearch, Box<BuildError>> {
         // Setup configs for both DFA directions.
+        //
+        // Bounds are based on Regex's meta engine:
+        // https://github.com/rust-lang/regex/blob/061ee815ef2c44101dba7b0b124600fcb03c1912/regex-automata/src/meta/wrappers.rs#L581-L599
         let has_uppercase = search.chars().any(|c| c.is_uppercase());
         let syntax_config = SyntaxConfig::new().case_insensitive(!has_uppercase);
-        let config = Config::new().cache_capacity(MAX_DFA_SIZE);
-        let mut thompson_config = ThompsonConfig::new().nfa_size_limit(Some(MAX_DFA_SIZE));
+        let config =
+            Config::new().minimum_cache_clear_count(Some(3)).minimum_bytes_per_state(Some(10));
+        let max_size = config.get_cache_capacity();
+        let mut thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
 
         // Create Regex DFA for left-to-right search.
         let fdfa = Builder::new()
@@ -221,6 +224,27 @@ impl<T> Term<T> {
         anchored: bool,
         regex: &mut LazyDfa,
     ) -> Option<Point> {
+        match self.regex_search_internal(start, end, direction, anchored, regex) {
+            Ok(regex_match) => regex_match,
+            Err(err) => {
+                log::warn!("Regex exceeded complexity limit");
+                log::debug!("    {err}");
+                None
+            },
+        }
+    }
+
+    /// Find the next regex match.
+    ///
+    /// To automatically log regex complexity errors, use [`Self::regex_search`] instead.
+    fn regex_search_internal(
+        &self,
+        start: Point,
+        end: Point,
+        direction: Direction,
+        anchored: bool,
+        regex: &mut LazyDfa,
+    ) -> Result<Option<Point>, Box<dyn Error>> {
         let topmost_line = self.topmost_line();
         let screen_lines = self.screen_lines() as i32;
         let last_column = self.last_column();
@@ -262,7 +286,7 @@ impl<T> Term<T> {
                 };
 
                 // Since we get the state from the DFA, it doesn't need to be checked.
-                state = regex.dfa.next_state(&mut regex.cache, state, byte).unwrap();
+                state = regex.dfa.next_state(&mut regex.cache, state, byte)?;
 
                 // Matches require one additional BYTE of lookahead, so we check the match state for
                 // the first byte of every new character to determine if the last character was a
@@ -281,7 +305,7 @@ impl<T> Term<T> {
             if point == end || done {
                 // When reaching the end-of-input, we need to notify the parser that no look-ahead
                 // is possible and check if the current state is still a match.
-                state = regex.dfa.next_eoi_state(&mut regex.cache, state).unwrap();
+                state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
                     regex_match = Some(point);
                 }
@@ -320,12 +344,12 @@ impl<T> Term<T> {
                     None => {
                         // When reaching the end-of-input, we need to notify the parser that no
                         // look-ahead is possible and check if the current state is still a match.
-                        state = regex.dfa.next_eoi_state(&mut regex.cache, state).unwrap();
+                        state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                         if state.is_match() {
                             regex_match = Some(last_point);
                         }
 
-                        state = regex.dfa.start_state_forward(&mut regex.cache, &input).unwrap();
+                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
                     },
                 }
             }
@@ -333,7 +357,7 @@ impl<T> Term<T> {
             last_wrapped = wrapped;
         }
 
-        regex_match
+        Ok(regex_match)
     }
 
     /// Advance a grid iterator over fullwidth characters.
@@ -915,7 +939,17 @@ mod tests {
     }
 
     #[test]
-    fn excessive_size_error() {
+    fn nfa_compile_error() {
         assert!(RegexSearch::new("[0-9A-Za-z]{9999999}").is_err());
+    }
+
+    #[test]
+    fn runtime_cache_error() {
+        let term = mock_term(&str::repeat("i", 9999));
+
+        let mut regex = RegexSearch::new("[0-9A-Za-z]{9999}").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(9999));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), None);
     }
 }
