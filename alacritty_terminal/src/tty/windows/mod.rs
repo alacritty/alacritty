@@ -51,8 +51,9 @@ impl Pty {
     }
 }
 
-fn with_key(event: Event, key: usize) -> Event {
-    Event { key, ..event }
+fn with_key(mut event: Event, key: usize) -> Event {
+    event.key = key;
+    event
 }
 
 impl EventedReadWrite for Pty {
@@ -60,7 +61,7 @@ impl EventedReadWrite for Pty {
     type Writer = WritePipe;
 
     #[inline]
-    fn register(
+    unsafe fn register(
         &mut self,
         poll: &Arc<Poller>,
         interest: polling::Event,

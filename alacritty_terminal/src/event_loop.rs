@@ -5,13 +5,14 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
+use std::num::NonZeroUsize;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
 use log::error;
-use polling::{Event as PollingEvent, PollMode};
+use polling::{Event as PollingEvent, Events, PollMode};
 
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
@@ -210,9 +211,11 @@ where
             let mut interest = PollingEvent::readable(0);
 
             // Register TTY through EventedRW interface.
-            self.pty.register(&self.poll, interest, poll_opts).unwrap();
+            unsafe {
+                self.pty.register(&self.poll, interest, poll_opts).unwrap();
+            }
 
-            let mut events = Vec::with_capacity(1024);
+            let mut events = Events::with_capacity(NonZeroUsize::new(128).unwrap());
 
             let mut pipe = if self.ref_test {
                 Some(File::create("./alacritty.recording").expect("create alacritty recording"))
@@ -226,6 +229,7 @@ where
                 let timeout =
                     handler.sync_timeout().map(|st| st.saturating_duration_since(Instant::now()));
 
+                events.clear();
                 if let Err(err) = self.poll.wait(&mut events, timeout) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
@@ -245,7 +249,7 @@ where
                     break;
                 }
 
-                for event in events.drain(..) {
+                for event in events.iter() {
                     match event.key {
                         tty::PTY_CHILD_EVENT_TOKEN => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {

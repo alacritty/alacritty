@@ -25,7 +25,10 @@ pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;
 
-    fn register(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
+    /// # Safety
+    ///
+    /// The underlying sources must outlive their registration in the `Poller`.
+    unsafe fn register(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
     fn reregister(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
     fn deregister(&mut self, _: &Arc<Poller>) -> io::Result<()>;
 

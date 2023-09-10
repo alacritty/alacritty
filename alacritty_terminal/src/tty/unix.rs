@@ -316,7 +316,7 @@ impl EventedReadWrite for Pty {
     type Writer = File;
 
     #[inline]
-    fn register(
+    unsafe fn register(
         &mut self,
         poll: &Arc<Poller>,
         mut interest: Event,
@@ -324,10 +324,14 @@ impl EventedReadWrite for Pty {
     ) -> Result<()> {
         self.token = PTY_READ_TOKEN;
         interest.key = self.token;
-        poll.add_with_mode(&self.file, interest, poll_opts)?;
+        unsafe {
+            poll.add_with_mode(&self.file, interest, poll_opts)?;
+        }
 
         self.signals_token = PTY_CHILD_EVENT_TOKEN;
-        poll.add_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
+        unsafe {
+            poll.add_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
+        }
     }
 
     #[inline]
