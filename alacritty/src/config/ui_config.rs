@@ -10,7 +10,10 @@ use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, KeyLocation, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::config::{Config as TerminalConfig, Program, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{
+    Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
+};
+use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
@@ -74,6 +77,8 @@ pub struct UiConfig {
     /// Keyboard configuration.
     keyboard: Keyboard,
 
+    pub scrollbar: Scrollbar,
+
     /// Should draw bold text with brighter colors instead of bold font.
     #[config(deprecated = "use colors.draw_bold_text_with_bright_colors instead")]
     draw_bold_text_with_bright_colors: bool,
@@ -106,6 +111,7 @@ impl Default for UiConfig {
             key_bindings: Default::default(),
             alt_send_esc: Default::default(),
             keyboard: Default::default(),
+            scrollbar: Default::default(),
             import: Default::default(),
             window: Default::default(),
             colors: Default::default(),
@@ -232,6 +238,49 @@ where
     bindings.extend(default);
 
     Ok(bindings)
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+pub struct Scrollbar {
+    pub mode: ScrollbarMode,
+    /// Scrollbar width in pixel. Scaled by DPI.
+    pub width: f32,
+    /// Minimum pixel height of the scrollbar. It is always shown this height,
+    /// even if of the screen is visible. Scaled by DPI.
+    pub min_height: f32,
+    /// Margin right of the scrollbar (x) to the top and bottom (y).
+    /// Scaled by DPI.
+    pub margin: Delta<f32>,
+    pub color: Rgb,
+    /// Scrollbar opacity from 0.0 (invisible) to 1.0 (opaque).
+    pub opacity: Percentage,
+    /// Time (in seconds) before scrollbar starts fading if in fading mode.
+    pub fade_wait_in_secs: f32,
+    /// Time (in seconds) the scrollbar takes to fade.
+    pub fade_time_in_secs: f32,
+}
+
+impl Default for Scrollbar {
+    fn default() -> Self {
+        Scrollbar {
+            mode: Default::default(),
+            width: 8.0,
+            min_height: 4.0,
+            margin: Delta { x: 2.0, y: 2.0 },
+            color: Rgb::new(0x7f, 0x7f, 0x7f),
+            opacity: Percentage::new(0.5),
+            fade_wait_in_secs: 1.5,
+            fade_time_in_secs: 0.5,
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ScrollbarMode {
+    #[default]
+    Never,
+    Fading,
+    Always,
 }
 
 /// A delta for a point in a 2 dimensional plane.
