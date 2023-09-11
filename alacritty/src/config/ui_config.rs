@@ -33,6 +33,7 @@ use crate::config::selection::Selection;
 use crate::config::terminal::Terminal;
 use crate::config::window::WindowConfig;
 use crate::config::LOG_TARGET_CONFIG;
+use crate::display::color::Rgb;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
@@ -90,6 +91,9 @@ pub struct UiConfig {
     /// Path to a shell program to run on startup.
     #[config(deprecated = "use terminal.shell instead")]
     shell: Option<Program>,
+
+    pub scrollbar: Scrollbar,
+
 
     /// Configuration file imports.
     ///
@@ -235,6 +239,49 @@ where
     bindings.extend(default);
 
     Ok(bindings)
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+pub struct Scrollbar {
+    pub mode: ScrollbarMode,
+    /// Scrollbar width in pixel. Scaled by DPI.
+    pub width: f32,
+    /// Minimum pixel height of the scrollbar. It is always shown this height,
+    /// even if of the screen is visible. Scaled by DPI.
+    pub min_height: f32,
+    /// Margin right of the scrollbar (x) to the top and bottom (y).
+    /// Scaled by DPI.
+    pub margin: Delta<f32>,
+    pub color: Rgb,
+    /// Scrollbar opacity from 0.0 (invisible) to 1.0 (opaque).
+    pub opacity: Percentage,
+    /// Time (in seconds) before scrollbar starts fading if in fading mode.
+    pub fade_wait_in_secs: f32,
+    /// Time (in seconds) the scrollbar takes to fade.
+    pub fade_time_in_secs: f32,
+}
+
+impl Default for Scrollbar {
+    fn default() -> Self {
+        Scrollbar {
+            mode: Default::default(),
+            width: 8.0,
+            min_height: 4.0,
+            margin: Delta { x: 2.0, y: 2.0 },
+            color: Rgb::new(0x7f, 0x7f, 0x7f),
+            opacity: Percentage::new(0.5),
+            fade_wait_in_secs: 1.5,
+            fade_time_in_secs: 0.5,
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ScrollbarMode {
+    #[default]
+    Never,
+    Fading,
+    Always,
 }
 
 /// A delta for a point in a 2 dimensional plane.

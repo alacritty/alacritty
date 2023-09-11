@@ -995,6 +995,70 @@ bindings = [++
 	{ key = _"L"_, mods = _"Control|Shift"_, chars = _"l"_ },++
 ]
 
+# Scrollbar
+
+This section documents the *[scrollbar]* table of the configuration file.
+
+*mode* "Never" | "Fading" | "Always"
+
+    Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
+    after the visible area changed (e.g. by scrolling or writing new lines).
+    After _fade_wait_in_secs_, it will fade out.
+
+    Default: _"Never"_
+
+*width* <float>
+
+	Width of the scrollbar in pixels. This width is scaled by DPI.
+
+	Default: _8.0_
+
+*min_height*
+
+    Minimum height of the scrollbar in pixel. The scrollbar does not shrink
+    smaller than this height, to avoid being invisible. This value is scaled
+    by DPI.
+
+    Default: _4.0_
+
+*margin* { x = <integer>, y = <integer> }
+
+	Blank space added around the scrollbar in pixels. This margin is scaled
+	by DPI. The _y_ value is added at both opposing sides. The _x_ value is
+	added to the right.
+
+	Default: _{ x = 0, y = 0 }_
+
+*color* <string>
+
+    The color of the scrollbar.
+
+    Default: _"#7f7f7f"_
+
+*opacity* <float>
+
+	Scrollbar opacity as a floating point number from _0.0_ to _1.0_. The value
+	\_0.0_ is completely transparent, and has the same effect _"Never"_ with
+	more computation. The value _1.0_ is opaque. Note, that the scrollbar does
+	not reduce the writable area, so a value of _1.0_ could hide characters,
+	if _window.padding.x_ allows characters behind the scrollbar.
+
+	Default: _0.5_
+
+*fade_wait_in_secs* <float>
+
+    Time (in seconds) the scrollbar waits before fading out, if in
+    _"Fading"_-_mode_. This property has no effect in other modes.
+
+    Default: _1.5_
+
+*fade_time_in_secs* <float>
+
+    Time (in seconds) the scrollbar takes to disappear in _"Fading"_-_mode_.
+    The scrollbar fades out linearly over this time. This property has no
+    effect in other modes.
+
+    Default: _0.5_
 
 # DEBUG
 
