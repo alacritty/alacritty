@@ -568,14 +568,23 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
+*leader_mod* <mods>
+
+	See _keyboard.bindings_ for full documentation on _mods_.
+
+	Set this option to change the prefix modifier for mouse bindings when an
+	application running within Alacritty captures the mouse.
+
+	Default: _Shift_
+
 *bindings*: [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
 
 	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
 	and _chars_.
 
 	To trigger mouse bindings when an application running within Alacritty
-	captures the mouse, the `Shift` modifier is automatically added as a
-	requirement.
+	captures the mouse, the `leader_mod` modifier key is automatically added as
+	a requirement.
 
 	*mouse* "Middle" | "Left" | "Right" | "Back" | "Forward" | <number>
 
