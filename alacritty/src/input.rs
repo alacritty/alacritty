@@ -21,9 +21,9 @@ use winit::event::{
     TouchPhase,
 };
 use winit::event_loop::EventLoopWindowTarget;
+use winit::keyboard::Key;
 #[cfg(target_os = "macos")]
 use winit::keyboard::ModifiersKeyState;
-use winit::keyboard::{Key, ModifiersState};
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
@@ -457,8 +457,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // Don't launch URLs if mouse has moved.
         self.ctx.mouse_mut().block_hint_launcher = true;
 
+        let leader_mod = self.ctx.config().mouse.leader_mod.into_inner();
+
         if (lmb_pressed || rmb_pressed)
-            && (self.ctx.modifiers().state().shift_key() || !self.ctx.mouse_mode())
+            && (self.ctx.modifiers().state().contains(leader_mod) || !self.ctx.mouse_mode())
         {
             self.ctx.update_selection(point, cell_side);
         } else if cell_changed
@@ -576,7 +578,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     fn on_mouse_press(&mut self, button: MouseButton) {
         // Handle mouse mode.
-        if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
+        let leader_mod = self.ctx.config().mouse.leader_mod.into_inner();
+        if !self.ctx.modifiers().state().contains(leader_mod) && self.ctx.mouse_mode() {
             self.ctx.mouse_mut().click_state = ClickState::None;
 
             let code = match button {
@@ -653,7 +656,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
-        if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
+        let leader_mod = self.ctx.config().mouse.leader_mod.into_inner();
+        if !self.ctx.modifiers().state().contains(leader_mod) && self.ctx.mouse_mode() {
             let code = match button {
                 MouseButton::Left => 0,
                 MouseButton::Middle => 1,
@@ -724,6 +728,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let width = f64::from(self.ctx.size_info().cell_width());
         let height = f64::from(self.ctx.size_info().cell_height());
+        let leader_mod = self.ctx.config().mouse.leader_mod.into_inner();
 
         if self.ctx.mouse_mode() {
             self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px;
@@ -747,7 +752,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             .terminal()
             .mode()
             .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
-            && !self.ctx.modifiers().state().shift_key()
+            && !self.ctx.modifiers().state().contains(leader_mod)
         {
             self.ctx.mouse_mut().accumulated_scroll.x += new_scroll_x_px * multiplier;
             self.ctx.mouse_mut().accumulated_scroll.y += new_scroll_y_px * multiplier;
@@ -988,9 +993,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         for i in 0..self.ctx.config().mouse_bindings().len() {
             let mut binding = self.ctx.config().mouse_bindings()[i].clone();
 
-            // Require shift for all modifiers when mouse mode is active.
+            // Require leader modifier for all modifiers when mouse mode is active.
             if mouse_mode {
-                binding.mods |= ModifiersState::SHIFT;
+                binding.mods |= self.ctx.config().mouse.leader_mod.into_inner();
             }
 
             if binding.is_triggered_by(mode, mods, &button) {
@@ -1141,6 +1146,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let display_offset = self.ctx.terminal().grid().display_offset();
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
+        let leader_mod = self.ctx.config().mouse.leader_mod.into_inner();
 
         // Function to check if mouse is on top of a hint.
         let hint_highlighted = |hint: &HintMatch| hint.should_highlight(point, hyperlink.as_ref());
@@ -1149,7 +1155,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             mouse_state
         } else if self.ctx.display().highlighted_hint.as_ref().map_or(false, hint_highlighted) {
             CursorIcon::Pointer
-        } else if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
+        } else if !self.ctx.modifiers().state().contains(leader_mod) && self.ctx.mouse_mode() {
             CursorIcon::Default
         } else {
             CursorIcon::Text
@@ -1197,7 +1203,7 @@ mod tests {
     use super::*;
 
     use winit::event::{DeviceId, Event as WinitEvent, WindowEvent};
-    use winit::keyboard::Key;
+    use winit::keyboard::{Key, ModifiersState};
     use winit::window::WindowId;
 
     use alacritty_terminal::event::Event as TerminalEvent;

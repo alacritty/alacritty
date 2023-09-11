@@ -371,7 +371,7 @@ pub fn highlighted_at<T>(
         let highlight = hint.mouse.map_or(false, |mouse| {
             mouse.enabled
                 && mouse_mods.contains(mouse.mods.0)
-                && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
+                && (!mouse_mode || mouse_mods.contains(config.mouse.leader_mod.into_inner()))
         });
         if !highlight {
             return None;
