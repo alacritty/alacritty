@@ -453,6 +453,13 @@ This section documents the *[bell]* table of the configuration file.
 
 	Default: _0_
 
+*max_intensity* <float>
+
+	Maximum intensity of the visual flash. This value will be multiplied with the
+	result of the animation function. Valid values range from _0.0_ to _1.0_.
+
+	Default: _1.0_
+
 *color* <string>
 
 	Visual bell animation color.

@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use alacritty_config_derive::ConfigDeserialize;
 
-use alacritty_terminal::config::Program;
+use alacritty_terminal::config::{Percentage, Program};
 use alacritty_terminal::term::color::Rgb;
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct BellConfig {
     /// Visual bell animation function.
     pub animation: BellAnimation,
@@ -15,6 +15,9 @@ pub struct BellConfig {
 
     /// Visual bell flash color.
     pub color: Rgb,
+
+    /// Maximum opacity of the flash color, from 0.0 to 1.0.
+    pub max_intensity: Percentage,
 
     /// Visual bell duration in milliseconds.
     duration: u16,
@@ -27,6 +30,7 @@ impl Default for BellConfig {
             animation: Default::default(),
             command: Default::default(),
             duration: Default::default(),
+            max_intensity: Default::default(),
         }
     }
 }

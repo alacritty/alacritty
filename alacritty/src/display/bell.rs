@@ -11,6 +11,9 @@ pub struct VisualBell {
 
     /// The last time the visual bell rang, if at all.
     start_time: Option<Instant>,
+
+    /// Visual bell intensity multiplier
+    intensity_multiplier: f32,
 }
 
 impl VisualBell {
@@ -23,6 +26,7 @@ impl VisualBell {
 
     /// Get the currently intensity of the visual bell. The bell's intensity
     /// ramps down from 1.0 to 0.0 at a rate determined by the bell's duration.
+    /// It is then multiplied with the intensity_multiplier.
     pub fn intensity(&self) -> f64 {
         self.intensity_at_instant(Instant::now())
     }
@@ -42,7 +46,7 @@ impl VisualBell {
 
     /// Get the intensity of the visual bell at a particular instant. The bell's
     /// intensity ramps down from 1.0 to 0.0 at a rate determined by the bell's
-    /// duration.
+    /// duration. It is then multiplied with the intensity_multiplier.
     pub fn intensity_at_instant(&self, instant: Instant) -> f64 {
         // If `duration` is zero, then the VisualBell is disabled; therefore,
         // its `intensity` is zero.
@@ -93,7 +97,7 @@ impl VisualBell {
 
                 // Since we want the `intensity` of the VisualBell to decay over
                 // `time`, we subtract the `inverse_intensity` from 1.0.
-                1.0 - inverse_intensity
+                (1.0 - inverse_intensity) * self.intensity_multiplier as f64
             },
         }
     }
@@ -110,6 +114,7 @@ impl From<&BellConfig> for VisualBell {
             animation: bell_config.animation,
             duration: bell_config.duration(),
             start_time: None,
+            intensity_multiplier: bell_config.max_intensity.as_f32(),
         }
     }
 }
