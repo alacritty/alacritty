@@ -3,6 +3,7 @@ use std::error::Error;
 use std::mem;
 use std::ops::RangeInclusive;
 
+use log::{debug, warn};
 use regex_automata::hybrid::dfa::{Builder, Cache, Config, DFA};
 pub use regex_automata::hybrid::BuildError;
 use regex_automata::nfa::thompson::Config as ThompsonConfig;
@@ -227,8 +228,8 @@ impl<T> Term<T> {
         match self.regex_search_internal(start, end, direction, anchored, regex) {
             Ok(regex_match) => regex_match,
             Err(err) => {
-                log::warn!("Regex exceeded complexity limit");
-                log::debug!("    {err}");
+                warn!("Regex exceeded complexity limit");
+                debug!("    {err}");
                 None
             },
         }
