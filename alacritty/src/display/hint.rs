@@ -90,10 +90,10 @@ impl HintState {
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    // TODO
-                    // self.matches.extend(matches.flat_map(|rm| {
-                    //     HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
-                    // }));
+                    let matches = matches.collect::<Vec<_>>();
+                    self.matches.extend(matches.into_iter().flat_map(|rm| {
+                        HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
+                    }));
                 } else {
                     self.matches.extend(matches);
                 }
