@@ -90,8 +90,8 @@ impl HintState {
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    let matches = matches.collect::<Vec<_>>();
-                    self.matches.extend(matches.into_iter().flat_map(|rm| {
+                    let mut matches = matches.collect::<Vec<_>>();
+                    self.matches.extend(matches.drain(..).flat_map(|rm| {
                         HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
                     }));
                 } else {
