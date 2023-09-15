@@ -286,7 +286,6 @@ impl<T> Term<T> {
                     Direction::Left => buf[utf8_len - i - 1],
                 };
 
-                // Since we get the state from the DFA, it doesn't need to be checked.
                 state = regex.dfa.next_state(&mut regex.cache, state, byte)?;
 
                 // Matches require one additional BYTE of lookahead, so we check the match state for
