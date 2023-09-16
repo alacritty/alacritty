@@ -698,8 +698,10 @@ This section documents the *[keyboard]* table of the configuration file.
 
 		The regular keys like _"A"_, _"0"_, and _"Я"_ can be mapped directly
 		without any special syntax. Full list of named keys like _"F1"_ and the
-		syntax for dead keys can be found here:++
-https://docs.rs/winit/\*/winit/keyboard/enum.Key.html
+		syntax for dead keys can be found here:
+
+		https://docs.rs/winit/latest/winit/keyboard/enum.NamedKey.html++
+https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead
 
 		Numpad keys are prefixed by _Numpad_: "NumpadEnter" | "NumpadAdd" |
 		"NumpadComma" | "NumpadDivide" | "NumpadEquals" | "NumpadSubtract" |

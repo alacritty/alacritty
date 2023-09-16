@@ -26,21 +26,22 @@ version = "0.1.2-dev"
 ahash = { version = "0.8.3", features = ["no-rng"] }
 bitflags = "2.2.1"
 clap = { version = "4.2.7", features = ["derive", "env"] }
-copypasta = { version = "0.8.1", default-features = false }
+copypasta = { version = "0.10.0", default-features = false }
 crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
-glutin = { version = "0.30.4", default-features = false, features = ["egl", "wgl"] }
+glutin = { version = "0.31.0", default-features = false, features = ["egl", "wgl"] }
 home = "0.5.5"
 libc = "0.2"
 log = { version = "0.4", features = ["std", "serde"] }
 notify = "6.1.1"
 once_cell = "1.12"
 parking_lot = "0.12.0"
+raw-window-handle = "0.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.25"
 toml = "0.8.2"
 unicode-width = "0.1"
-winit = { version = "0.29.1-beta", default-features = false, features = ["serde"] }
+winit = { version = "0.29.2", default-features = false, features = ["rwh_05", "serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"
@@ -57,9 +58,6 @@ png = { version = "0.17.5", default-features = false, optional = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25.0"
 objc = "0.2.2"
-
-[target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
-x11-dl = { version = "2", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 dirs = "5.0.1"
@@ -80,7 +78,6 @@ x11 = [
     "winit/x11",
     "glutin/x11",
     "glutin/glx",
-    "x11-dl",
     "png",
 ]
 wayland = [

@@ -1,5 +1,5 @@
 use log::{debug, warn};
-use winit::window::raw_window_handle::RawDisplayHandle;
+use raw_window_handle::RawDisplayHandle;
 
 use alacritty_terminal::term::ClipboardType;
 
