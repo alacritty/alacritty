@@ -407,7 +407,7 @@ impl Window {
 
     /// Adjust the IME editor position according to the new location of the cursor.
     pub fn update_ime_position(&self, point: Point<usize>, size: &SizeInfo) {
-        let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
+        let nspot_x = f64::from(size.padding_left() + point.column.0 as f32 * size.cell_width());
         let nspot_y = f64::from(size.padding_y() + (point.line + 1) as f32 * size.cell_height());
 
         // Exclude the rest of the line since we edit from left to right.

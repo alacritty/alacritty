@@ -145,7 +145,7 @@ impl RenderLine {
         }
 
         RenderRect::new(
-            start_x + size.padding_x(),
+            start_x + size.padding_left(),
             y + size.padding_y(),
             width,
             thickness,
@@ -471,7 +471,7 @@ impl RectShaderProgram {
                 gl::Uniform1f(u_padding_y, padding_y);
             }
             if let Some(u_padding_x) = self.u_padding_x {
-                gl::Uniform1f(u_padding_x, size_info.padding_x());
+                gl::Uniform1f(u_padding_x, size_info.padding_left());
             }
             if let Some(u_underline_position) = self.u_underline_position {
                 gl::Uniform1f(u_underline_position, underline_position);

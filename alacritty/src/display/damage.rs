@@ -22,7 +22,7 @@ impl<'a> RenderDamageIterator<'a> {
     fn rect_for_line(&self, line_damage: LineDamageBounds) -> Rect {
         let size_info = &self.size_info;
         let y_top = size_info.height() - size_info.padding_y();
-        let x = size_info.padding_x() + line_damage.left as u32 * size_info.cell_width();
+        let x = size_info.padding_left() + line_damage.left as u32 * size_info.cell_width();
         let y = y_top - (line_damage.line + 1) as u32 * size_info.cell_height();
         let width = (line_damage.right - line_damage.left + 1) as u32 * size_info.cell_width();
         Rect::new(x as i32, y as i32, width as i32, size_info.cell_height() as i32)
@@ -110,6 +110,7 @@ mod tests {
             cell_size as f32,
             2.,
             2.,
+            0.,
             true,
         )
         .into();
