@@ -260,6 +260,15 @@ pub struct Scrollbar {
     /// Time (in seconds) the scrollbar takes to fade.
     pub fade_time_in_secs: f32,
 }
+impl Scrollbar {
+    pub fn additional_padding(&self, scale_factor: f32) -> f32 {
+        if self.mode == ScrollbarMode::Always {
+            (self.margin.x * 2.0 + self.width) * scale_factor
+        } else {
+            0.0
+        }
+    }
+}
 
 impl Default for Scrollbar {
     fn default() -> Self {

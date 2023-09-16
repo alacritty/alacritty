@@ -1003,7 +1003,8 @@ This section documents the *[scrollbar]* table of the configuration file.
 
     Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
     after the visible area changed (e.g. by scrolling or writing new lines).
-    After _fade_wait_in_secs_, it will fade out.
+    After _fade_wait_in_secs_, it will fade out. Only _"Always"_ will reserve
+	space for the scrollbar and margin. _"Fading"_ works as overlay.
 
     Default: _"Never"_
 
@@ -1024,8 +1025,7 @@ This section documents the *[scrollbar]* table of the configuration file.
 *margin* { x = <integer>, y = <integer> }
 
 	Blank space added around the scrollbar in pixels. This margin is scaled
-	by DPI. The _y_ value is added at both opposing sides. The _x_ value is
-	added to the right.
+	by DPI and the specified value is always added at both opposing sides.
 
 	Default: _{ x = 0, y = 0 }_
 
@@ -1038,10 +1038,11 @@ This section documents the *[scrollbar]* table of the configuration file.
 *opacity* <float>
 
 	Scrollbar opacity as a floating point number from _0.0_ to _1.0_. The value
-	\_0.0_ is completely transparent, and has the same effect _"Never"_ with
-	more computation. The value _1.0_ is opaque. Note, that the scrollbar does
-	not reduce the writable area, so a value of _1.0_ could hide characters,
-	if _window.padding.x_ allows characters behind the scrollbar.
+	\_0.0_ is completely transparent, and has the same effect as mode _"Never"_
+	with more computation. The value _1.0_ is opaque. Note, that the scrollbar
+	does not reduce the writable area in _"Fading"_ mode, so a value of _1.0_
+	could hide characters, if _window.padding.x_ allows characters behind the
+	scrollbar.
 
 	Default: _0.5_
 

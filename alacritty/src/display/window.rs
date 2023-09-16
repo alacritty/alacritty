@@ -440,7 +440,7 @@ impl Window {
         // NOTE: X11 doesn't support cursor area, so we need to offset manually to not obscure
         // the text.
         let offset = if self.is_x11 { 1 } else { 0 };
-        let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
+        let nspot_x = f64::from(size.padding_left() + point.column.0 as f32 * size.cell_width());
         let nspot_y =
             f64::from(size.padding_y() + (point.line + offset) as f32 * size.cell_height());
 

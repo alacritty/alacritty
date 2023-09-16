@@ -57,7 +57,6 @@ use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
 use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
-use glutin::surface::Rect;
 
 pub mod color;
 pub mod content;
@@ -158,7 +157,10 @@ pub struct SizeInfo<T = f32> {
     cell_height: T,
 
     /// Horizontal window padding.
-    padding_x: T,
+    padding_left: T,
+
+    /// Horizontal window padding.
+    padding_right: T,
 
     /// Vertical window padding.
     padding_y: T,
@@ -177,7 +179,8 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             height: size_info.height as u32,
             cell_width: size_info.cell_width as u32,
             cell_height: size_info.cell_height as u32,
-            padding_x: size_info.padding_x as u32,
+            padding_left: size_info.padding_left as u32,
+            padding_right: size_info.padding_right as u32,
             padding_y: size_info.padding_y as u32,
             screen_lines: size_info.screen_lines,
             columns: size_info.screen_lines,
@@ -218,8 +221,13 @@ impl<T: Clone + Copy> SizeInfo<T> {
     }
 
     #[inline]
-    pub fn padding_x(&self) -> T {
-        self.padding_x
+    pub fn padding_left(&self) -> T {
+        self.padding_left
+    }
+
+    #[inline]
+    pub fn padding_right(&self) -> T {
+        self.padding_right
     }
 
     #[inline]
@@ -237,17 +245,22 @@ impl SizeInfo<f32> {
         cell_height: f32,
         mut padding_x: f32,
         mut padding_y: f32,
+        scrollbar_width: f32,
         dynamic_padding: bool,
     ) -> SizeInfo {
         if dynamic_padding {
-            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
+            padding_x = Self::dynamic_padding(
+                padding_x.floor().mul_add(2., scrollbar_width),
+                width,
+                cell_width,
+            );
+            padding_y = Self::dynamic_padding(padding_y.floor() * 2., height, cell_height);
         }
 
         let lines = (height - 2. * padding_y) / cell_height;
         let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
 
-        let columns = (width - 2. * padding_x) / cell_width;
+        let columns = (width - 2. * padding_x - scrollbar_width) / cell_width;
         let columns = cmp::max(columns as usize, MIN_COLUMNS);
 
         SizeInfo {
@@ -255,7 +268,8 @@ impl SizeInfo<f32> {
             height,
             cell_width,
             cell_height,
-            padding_x: padding_x.floor(),
+            padding_left: padding_x.floor(),
+            padding_right: padding_x.floor() + scrollbar_width.floor(),
             padding_y: padding_y.floor(),
             screen_lines,
             columns,
@@ -272,8 +286,8 @@ impl SizeInfo<f32> {
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
-            && x > self.padding_x as usize
+        x <= (self.padding_left + self.columns as f32 * self.cell_width) as usize
+            && x > self.padding_left as usize
             && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
     }
@@ -281,7 +295,7 @@ impl SizeInfo<f32> {
     /// Calculate padding to spread it evenly around the terminal content.
     #[inline]
     fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
-        padding + ((dimension - 2. * padding) % cell_dimension) / 2.
+        padding + ((dimension - padding) % cell_dimension) / 2.
     }
 }
 
@@ -459,11 +473,12 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
+            config.scrollbar.additional_padding(window.scale_factor as f32),
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
-        info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
+        info!("Padding: {} x {}", size_info.padding_left(), size_info.padding_y());
         info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
         // Update OpenGL projection.
@@ -701,6 +716,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
+            config.scrollbar.additional_padding(self.window.scale_factor as f32),
             config.window.dynamic_padding,
         );
 
@@ -768,7 +784,7 @@ impl Display {
 
         self.renderer.resize(&self.size_info);
 
-        info!("Padding: {} x {}", self.size_info.padding_x(), self.size_info.padding_y());
+        info!("Padding: {} x {}", self.size_info.padding_left(), self.size_info.padding_y());
         info!("Width: {}, Height: {}", self.size_info.width(), self.size_info.height());
     }
 
@@ -1735,7 +1751,8 @@ fn window_size(
     let grid_width = cell_width * dimensions.columns.max(MIN_COLUMNS) as f32;
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
-    let width = (padding.0).mul_add(2., grid_width).floor();
+    let width = (padding.0).mul_add(2., grid_width).floor()
+        + config.scrollbar.additional_padding(scale_factor);
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)

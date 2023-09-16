@@ -502,12 +502,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let size_info = self.ctx.size_info();
 
         let cell_x =
-            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+            x.saturating_sub(size_info.padding_left() as usize) % size_info.cell_width() as usize;
         let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
         let additional_padding =
-            (size_info.width() - size_info.padding_x() * 2.) % size_info.cell_width();
-        let end_of_grid = size_info.width() - size_info.padding_x() - additional_padding;
+            (size_info.width() - size_info.padding_left() - size_info.padding_right())
+                % size_info.cell_width();
+        let end_of_grid = size_info.width() - size_info.padding_right() - additional_padding;
 
         if cell_x > half_cell_width
             // Edge case when mouse leaves the window.
@@ -1257,6 +1258,7 @@ mod tests {
                     51.0,
                     3.0,
                     3.0,
+                    0.,
                     0.,
                     0.,
                     false,

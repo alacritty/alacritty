@@ -200,7 +200,7 @@ mod tests {
         let input = "a";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -212,7 +212,7 @@ mod tests {
         let input = "fo\nbar";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -224,7 +224,7 @@ mod tests {
         let input = "a\nb";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -236,7 +236,7 @@ mod tests {
         let input = "foobar1";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(6., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -248,7 +248,7 @@ mod tests {
         let input = "foobar";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(6., 0., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(6., 0., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -260,7 +260,7 @@ mod tests {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(22., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., false);
+        let size = SizeInfo::new(22., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -275,7 +275,7 @@ mod tests {
         let input = "ha";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(2., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(2., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -287,7 +287,7 @@ mod tests {
         let input = "hahahahahahahahaha";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(2., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., false);
+        let size = SizeInfo::new(2., (MIN_FREE_LINES + 2) as f32, 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -299,7 +299,7 @@ mod tests {
         let input = "test";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -349,7 +349,7 @@ mod tests {
         let input = "a\nbc defg";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(5., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -365,7 +365,7 @@ mod tests {
         let input = "ab\nc 👩d fgh";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(7., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
@@ -381,7 +381,7 @@ mod tests {
         let input = "\n0 1 2 3";
         let mut message_buffer = MessageBuffer::default();
         message_buffer.push(Message::new(input.into(), MessageType::Error));
-        let size = SizeInfo::new(3., 10., 1., 1., 0., 0., false);
+        let size = SizeInfo::new(3., 10., 1., 1., 0., 0., 0., false);
 
         let lines = message_buffer.message().unwrap().text(&size);
 
