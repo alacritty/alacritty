@@ -88,6 +88,16 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _{ column = 0, lines = 0 }_
 
+*position* "None" | { x = <integer>, y = <integer> }
+
+	Window startup position
+
+	Specified in number of pixels.
+
+	If the position is _"None"_, the window manager will handle placement.
+
+	Default: _"None"_
+
 *padding* { x = <integer>, y = <integer> }
 
 	Blank space added around the window in pixels. This padding is scaled
