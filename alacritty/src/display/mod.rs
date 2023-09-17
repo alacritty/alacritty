@@ -759,7 +759,7 @@ impl Display {
         scheduler: &mut Scheduler,
         message_buffer: &MessageBuffer,
         config: &UiConfig,
-        search_state: &SearchState,
+        search_state: &mut SearchState,
     ) {
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);

@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cut off wide characters in preedit string
 - Scrolling on touchscreens
 - Double clicking on CSD titlebar not always maximizing a window on Wayland
+- Excessive memory usage when using regexes with a large number of possible states
 
 ### Removed
 

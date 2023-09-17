@@ -154,8 +154,8 @@ impl SearchState {
     }
 
     /// Active search dfas.
-    pub fn dfas(&self) -> Option<&RegexSearch> {
-        self.dfas.as_ref()
+    pub fn dfas(&mut self) -> Option<&mut RegexSearch> {
+        self.dfas.as_mut()
     }
 
     /// Search regex text if a search is active.
@@ -637,7 +637,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn search_next(&mut self, origin: Point, direction: Direction, side: Side) -> Option<Match> {
         self.search_state
             .dfas
-            .as_ref()
+            .as_mut()
             .and_then(|dfas| self.terminal.search_next(dfas, origin, direction, side, None))
     }
 
@@ -913,7 +913,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     /// Jump to the first regex match from the search origin.
     fn goto_match(&mut self, mut limit: Option<usize>) {
-        let dfas = match &self.search_state.dfas {
+        let dfas = match &mut self.search_state.dfas {
             Some(dfas) => dfas,
             None => return,
         };

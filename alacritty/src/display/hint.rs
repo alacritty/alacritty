@@ -90,7 +90,8 @@ impl HintState {
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    self.matches.extend(matches.flat_map(|rm| {
+                    let mut matches = matches.collect::<Vec<_>>();
+                    self.matches.extend(matches.drain(..).flat_map(|rm| {
                         HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
                     }));
                 } else {
@@ -289,7 +290,7 @@ impl HintLabels {
 /// Iterate over all visible regex matches.
 pub fn visible_regex_match_iter<'a, T>(
     term: &'a Term<T>,
-    regex: &'a RegexSearch,
+    regex: &'a mut RegexSearch,
 ) -> impl Iterator<Item = Match> + 'a {
     let viewport_start = Line(-(term.grid().display_offset() as i32));
     let viewport_end = viewport_start + term.bottommost_line();
@@ -344,7 +345,7 @@ pub fn visible_unique_hyperlinks_iter<T>(term: &Term<T>) -> impl Iterator<Item =
 fn regex_match_at<T>(
     term: &Term<T>,
     point: Point,
-    regex: &RegexSearch,
+    regex: &mut RegexSearch,
     post_processing: bool,
 ) -> Option<Match> {
     let regex_match = visible_regex_match_iter(term, regex).find(|rm| rm.contains(&point))?;
@@ -450,7 +451,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
 /// Iterator over all post-processed matches inside an existing hint match.
 struct HintPostProcessor<'a, T> {
     /// Regex search DFAs.
-    regex: &'a RegexSearch,
+    regex: &'a mut RegexSearch,
 
     /// Terminal reference.
     term: &'a Term<T>,
@@ -467,7 +468,7 @@ struct HintPostProcessor<'a, T> {
 
 impl<'a, T> HintPostProcessor<'a, T> {
     /// Create a new iterator for an unprocessed match.
-    fn new(term: &'a Term<T>, regex: &'a RegexSearch, regex_match: Match) -> Self {
+    fn new(term: &'a Term<T>, regex: &'a mut RegexSearch, regex_match: Match) -> Self {
         let mut post_processor = Self {
             next_match: None,
             start: *regex_match.start(),
@@ -638,11 +639,11 @@ mod tests {
     fn closed_bracket_does_not_result_in_infinite_iterator() {
         let term = mock_term(" ) ");
 
-        let search = RegexSearch::new("[^/ ]").unwrap();
+        let mut search = RegexSearch::new("[^/ ]").unwrap();
 
         let count = HintPostProcessor::new(
             &term,
-            &search,
+            &mut search,
             Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
         )
         .take(1)
@@ -694,9 +695,9 @@ mod tests {
         // The Term returned from this call will have a viewport starting at 0 and ending at 4096.
         // That's good enough for this test, since it only cares about visible content.
         let term = mock_term(&content);
-        let regex = RegexSearch::new("match!").unwrap();
+        let mut regex = RegexSearch::new("match!").unwrap();
 
         // The interator should match everything in the viewport.
-        assert_eq!(visible_regex_match_iter(&term, &regex).count(), 4096);
+        assert_eq!(visible_regex_match_iter(&term, &mut regex).count(), 4096);
     }
 }

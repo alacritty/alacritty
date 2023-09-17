@@ -485,7 +485,7 @@ impl LazyRegex {
     /// Execute a function with the compiled regex DFAs as parameter.
     pub fn with_compiled<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnMut(&RegexSearch) -> T,
+        F: FnMut(&mut RegexSearch) -> T,
     {
         self.0.borrow_mut().compiled().map(f)
     }
@@ -514,7 +514,7 @@ impl LazyRegexVariant {
     ///
     /// If the regex is not already compiled, this will compile the DFAs and store them for future
     /// access.
-    fn compiled(&mut self) -> Option<&RegexSearch> {
+    fn compiled(&mut self) -> Option<&mut RegexSearch> {
         // Check if the regex has already been compiled.
         let regex = match self {
             Self::Compiled(regex_search) => return Some(regex_search),
@@ -578,8 +578,8 @@ mod tests {
             "ftp://ftp.example.org",
         ] {
             let term = mock_term(regular_url);
-            let regex = RegexSearch::new(URL_REGEX).unwrap();
-            let matches = visible_regex_match_iter(&term, &regex).collect::<Vec<_>>();
+            let mut regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &mut regex).collect::<Vec<_>>();
             assert_eq!(
                 matches.len(),
                 1,
@@ -599,8 +599,8 @@ mod tests {
             "mailto:",
         ] {
             let term = mock_term(url_like);
-            let regex = RegexSearch::new(URL_REGEX).unwrap();
-            let matches = visible_regex_match_iter(&term, &regex).collect::<Vec<_>>();
+            let mut regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &mut regex).collect::<Vec<_>>();
             assert!(
                 matches.is_empty(),
                 "Should not match url in string {url_like}, but instead got: {matches:?}"
