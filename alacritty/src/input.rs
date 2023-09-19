@@ -1253,6 +1253,7 @@ mod tests {
         pub message_buffer: &'a mut MessageBuffer,
         pub modifiers: Modifiers,
         config: &'a UiConfig,
+        inline_search_state: &'a mut InlineSearchState,
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
@@ -1267,6 +1268,10 @@ mod tests {
 
         fn search_direction(&self) -> Direction {
             Direction::Right
+        }
+
+        fn inline_search_state(&mut self) -> &mut InlineSearchState {
+            self.inline_search_state
         }
 
         fn search_active(&self) -> bool {
@@ -1381,6 +1386,7 @@ mod tests {
                     ..Mouse::default()
                 };
 
+                let mut inline_search_state = InlineSearchState::default();
                 let mut message_buffer = MessageBuffer::default();
 
                 let context = ActionContext {
@@ -1390,6 +1396,7 @@ mod tests {
                     clipboard: &mut clipboard,
                     modifiers: Default::default(),
                     message_buffer: &mut message_buffer,
+                    inline_search_state: &mut inline_search_state,
                     config: &cfg,
                 };
 
