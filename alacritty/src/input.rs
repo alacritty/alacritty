@@ -46,7 +46,8 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::event::{
-    ClickState, Event, EventType, Mouse, TouchPurpose, TouchZoom, TYPING_SEARCH_DELAY,
+    ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
+    TYPING_SEARCH_DELAY,
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -124,6 +125,9 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
+    fn inline_search_state(&mut self) -> &mut InlineSearchState;
+    fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
+    fn inline_search_next(&mut self, _direction: Direction) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
@@ -259,6 +263,20 @@ impl<T: EventListener> Execute<T> for Action {
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
             },
+            Action::Vi(ViAction::InlineSearchForward) => {
+                ctx.start_inline_search(Direction::Right, false)
+            },
+            Action::Vi(ViAction::InlineSearchBackward) => {
+                ctx.start_inline_search(Direction::Left, false)
+            },
+            Action::Vi(ViAction::InlineSearchForwardShort) => {
+                ctx.start_inline_search(Direction::Right, true)
+            },
+            Action::Vi(ViAction::InlineSearchBackwardShort) => {
+                ctx.start_inline_search(Direction::Left, true)
+            },
+            Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(Direction::Right),
+            Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_next(Direction::Left),
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },
@@ -1006,7 +1024,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
-        let text = key.text_with_all_modifiers().unwrap_or_default();
+        let mut text = key.text_with_all_modifiers().unwrap_or_default();
 
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
@@ -1014,6 +1032,23 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.ctx.hint_input(character);
             }
             return;
+        }
+
+        // First key after inline search is captured.
+        let inline_state = self.ctx.inline_search_state();
+        if !text.is_empty() && mem::take(&mut inline_state.char_pending) {
+            let mut indices = text.char_indices();
+            let (_, c) = indices.next().unwrap();
+            inline_state.character = Some(c);
+
+            // Immediately move to the captured character.
+            self.ctx.inline_search_next(Direction::Right);
+
+            // Remove captured character if there's multiple.
+            match indices.next() {
+                Some((index, _)) => text = &text[index..],
+                None => return,
+            }
         }
 
         // Reset search delay when the user is still typing.

@@ -39,7 +39,9 @@ use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ActionContext, Event, EventProxy, Mouse, SearchState, TouchPurpose};
+use crate::event::{
+    ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
+};
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
@@ -54,6 +56,7 @@ pub struct WindowContext {
     terminal: Arc<FairMutex<Term<EventProxy>>>,
     cursor_blink_timed_out: bool,
     modifiers: Modifiers,
+    inline_search_state: InlineSearchState,
     search_state: SearchState,
     notifier: Notifier,
     font_size: Size,
@@ -242,15 +245,16 @@ impl WindowContext {
             config,
             notifier: Notifier(loop_tx),
             cursor_blink_timed_out: Default::default(),
+            inline_search_state: Default::default(),
             message_buffer: Default::default(),
             search_state: Default::default(),
             event_queue: Default::default(),
             ipc_config: Default::default(),
             modifiers: Default::default(),
+            occluded: Default::default(),
             mouse: Default::default(),
             touch: Default::default(),
             dirty: Default::default(),
-            occluded: Default::default(),
         })
     }
 
@@ -436,6 +440,7 @@ impl WindowContext {
         let context = ActionContext {
             cursor_blink_timed_out: &mut self.cursor_blink_timed_out,
             message_buffer: &mut self.message_buffer,
+            inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
             font_size: &mut self.font_size,
