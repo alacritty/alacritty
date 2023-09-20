@@ -1001,12 +1001,12 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 *mode* "Never" | "Fading" | "Always"
 
-    Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
-    after the visible area changed (e.g. by scrolling or writing new lines).
-    After _fade_wait_in_secs_, it will fade out. Only _"Always"_ will reserve
+	Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
+	after the visible area changed (e.g. by scrolling or writing new lines).
+	After _fade_wait_in_secs_, it will fade out. Only _"Always"_ will reserve
 	space for the scrollbar and margin. _"Fading"_ works as overlay.
 
-    Default: _"Never"_
+	Default: _"Never"_
 
 *width* <float>
 
@@ -1016,11 +1016,11 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 *min_height*
 
-    Minimum height of the scrollbar in pixel. The scrollbar does not shrink
-    smaller than this height, to avoid being invisible. This value is scaled
-    by DPI.
+	Minimum height of the scrollbar in pixel. The scrollbar does not shrink
+	smaller than this height, to avoid being invisible. This value is scaled
+	by DPI.
 
-    Default: _4.0_
+	Default: _4.0_
 
 *margin* { x = <integer>, y = <integer> }
 
@@ -1031,9 +1031,9 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 *color* <string>
 
-    The color of the scrollbar.
+	The color of the scrollbar.
 
-    Default: _"#7f7f7f"_
+	Default: _"#7f7f7f"_
 
 *opacity* <float>
 
@@ -1048,18 +1048,18 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 *fade_wait_in_secs* <float>
 
-    Time (in seconds) the scrollbar waits before fading out, if in
-    _"Fading"_-_mode_. This property has no effect in other modes.
+	Time (in seconds) the scrollbar waits before fading out, if in
+	_"Fading"_-_mode_. This property has no effect in other modes.
 
-    Default: _1.5_
+	Default: _1.5_
 
 *fade_time_in_secs* <float>
 
-    Time (in seconds) the scrollbar takes to disappear in _"Fading"_-_mode_.
-    The scrollbar fades out linearly over this time. This property has no
-    effect in other modes.
+	Time (in seconds) the scrollbar takes to disappear in _"Fading"_-_mode_.
+	The scrollbar fades out linearly over this time. This property has no
+	effect in other modes.
 
-    Default: _0.5_
+	Default: _0.5_
 
 # DEBUG
 
