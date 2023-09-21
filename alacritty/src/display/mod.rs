@@ -1094,7 +1094,7 @@ impl Display {
         total_lines: usize,
         config: &ScrollbarConfig,
     ) {
-        self.scrollbar.update(display_offset, total_lines);
+        let did_change = self.scrollbar.update(display_offset, total_lines);
         let opacity = if let Some(opacity) = self.scrollbar.intensity() {
             opacity
         } else {
@@ -1124,12 +1124,21 @@ impl Display {
         let scrollbar_rect =
             RenderRect::new(x, y, scrollbar_width, scrollbar_height, config.color, opacity);
         rects.push(scrollbar_rect);
-        self.damage_rects.push(Rect {
-            x: x.floor() as i32,
-            y: config.margin.y.floor() as i32,
-            width: scrollbar_width.ceil() as i32,
-            height: background_area_height.ceil() as i32,
-        });
+        if did_change {
+            self.damage_rects.push(Rect {
+                x: x.floor() as i32,
+                y: config.margin.y.floor() as i32,
+                width: scrollbar_width.ceil() as i32,
+                height: background_area_height.ceil() as i32,
+            });
+        } else if config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32() {
+            self.damage_rects.push(Rect {
+                x: x.floor() as i32,
+                y: (self.size_info.height() - y - scrollbar_height).floor() as i32,
+                width: scrollbar_width.ceil() as i32,
+                height: scrollbar_height.ceil() as i32,
+            });
+        }
     }
 
     #[inline(never)]

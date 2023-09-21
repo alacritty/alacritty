@@ -25,14 +25,18 @@ impl Scrollbar {
     }
 
     /// Returns whether the scrollbar position or height needs an update.
-    pub fn update(&mut self, display_offset: usize, total_lines: usize) {
+    pub fn update(&mut self, display_offset: usize, total_lines: usize) -> bool {
         if self.display_offset != display_offset {
             self.display_offset = display_offset;
             self.total_lines = total_lines;
             self.last_change = Some(Instant::now());
+            true
         } else if self.total_lines != total_lines {
             self.total_lines = total_lines;
             self.last_change = Some(Instant::now());
+            true
+        } else {
+            false
         }
     }
 
