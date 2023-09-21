@@ -1186,10 +1186,6 @@ impl Display {
             return;
         };
 
-        if self.size_info.screen_lines >= total_lines {
-            return;
-        }
-
         if config.mode == ScrollbarMode::Fading {
             self.window.request_redraw();
         }
