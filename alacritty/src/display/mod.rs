@@ -38,7 +38,7 @@ use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
-use crate::config::ui_config::{Scrollbar, ScrollbarMode};
+use crate::config::ui_config::{Scrollbar as ScrollbarConfig, ScrollbarMode};
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
@@ -50,6 +50,7 @@ use crate::display::cursor::IntoRects;
 use crate::display::damage::{damage_y_to_viewport_y, DamageTracker};
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
+use crate::display::scrollbar::Scrollbar;
 use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
@@ -67,6 +68,7 @@ pub mod window;
 mod bell;
 mod damage;
 mod meter;
+mod scrollbar;
 
 /// Label for the forward terminal search bar.
 const FORWARD_SEARCH_LABEL: &str = "Search: ";
@@ -377,6 +379,8 @@ pub struct Display {
 
     pub visual_bell: VisualBell,
 
+    scrollbar: Scrollbar,
+
     /// Mapped RGB values for each terminal color.
     pub colors: List,
 
@@ -413,8 +417,6 @@ pub struct Display {
 
     glyph_cache: GlyphCache,
     meter: Meter,
-
-    scroll_change_tracker: ScrollChangeTracker,
 }
 
 impl Display {
@@ -558,7 +560,7 @@ impl Display {
             cursor_hidden: Default::default(),
             meter: Default::default(),
             ime: Default::default(),
-            scroll_change_tracker: Default::default(),
+            scrollbar: Scrollbar::from(&config.scrollbar),
         })
     }
 
@@ -1073,6 +1075,7 @@ impl Display {
     pub fn update_config(&mut self, config: &UiConfig) {
         self.damage_tracker.debug = config.debug.highlight_damage;
         self.visual_bell.update_config(&config.bell);
+        self.scrollbar.update_config(&config.scrollbar);
         self.colors = List::from(&config.colors);
     }
 
@@ -1145,42 +1148,15 @@ impl Display {
         dirty
     }
 
-    fn calculate_scrollbar_opacity(&mut self, config: &Scrollbar) -> Option<f32> {
-        let opacity = match config.mode {
-            ScrollbarMode::Never => {
-                return None;
-            },
-            ScrollbarMode::Fading => {
-                let last_scroll = self.scroll_change_tracker.last_change_time()?;
-                let timeout = (Instant::now() - last_scroll).as_secs_f32();
-                if timeout <= config.fade_wait_in_secs {
-                    config.opacity.as_f32()
-                } else {
-                    let current_fade_time = timeout - config.fade_wait_in_secs;
-                    if current_fade_time < config.fade_time_in_secs {
-                        // Fading progress from 0.0 to 1.0.
-                        let fading_progress = current_fade_time / config.fade_time_in_secs;
-                        (1.0 - fading_progress) * config.opacity.as_f32()
-                    } else {
-                        self.scroll_change_tracker.clear_change_time();
-                        return None;
-                    }
-                }
-            },
-            ScrollbarMode::Always => config.opacity.as_f32(),
-        };
-        Some(opacity)
-    }
-
     fn draw_scrollbar(
         &mut self,
         rects: &mut Vec<RenderRect>,
         display_offset: usize,
         total_lines: usize,
-        config: &Scrollbar,
+        config: &ScrollbarConfig,
     ) {
-        self.scroll_change_tracker.update(display_offset, total_lines);
-        let opacity = if let Some(opacity) = self.calculate_scrollbar_opacity(config) {
+        self.scrollbar.update(display_offset, total_lines);
+        let opacity = if let Some(opacity) = self.scrollbar.intensity() {
             opacity
         } else {
             return;
@@ -1561,35 +1537,6 @@ impl Drop for Display {
             ManuallyDrop::drop(&mut self.context);
             ManuallyDrop::drop(&mut self.surface);
         }
-    }
-}
-
-/// Keeps track of when the scrollbar should be visible or fading.
-#[derive(Debug, Default)]
-struct ScrollChangeTracker {
-    display_offset: usize,
-    total_lines: usize,
-    last_change: Option<Instant>,
-}
-
-impl ScrollChangeTracker {
-    fn update(&mut self, display_offset: usize, total_lines: usize) {
-        if self.display_offset != display_offset {
-            self.display_offset = display_offset;
-            self.total_lines = total_lines;
-            self.last_change = Some(Instant::now());
-        } else if self.total_lines != total_lines {
-            self.total_lines = total_lines;
-            self.last_change = Some(Instant::now());
-        }
-    }
-
-    fn last_change_time(&self) -> Option<Instant> {
-        self.last_change
-    }
-
-    fn clear_change_time(&mut self) {
-        self.last_change = None;
     }
 }
 
