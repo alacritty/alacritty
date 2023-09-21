@@ -1180,7 +1180,9 @@ impl Display {
         config: &Scrollbar,
     ) {
         self.scroll_change_tracker.update(display_offset, total_lines);
-        let Some(opacity) = self.calculate_scrollbar_opacity(config) else {
+        let opacity = if let Some(opacity) = self.calculate_scrollbar_opacity(config) {
+            opacity
+        } else {
             return;
         };
 
