@@ -836,6 +836,28 @@ mod tests {
     }
 
     #[test]
+    fn multiline() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            hello/world \r\n\
+            hello/world\
+        ");
+
+        const PATTERN: &str = "([\\-\\._a-z0-9]*/[^/ ]*)+/?";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(10));
+        let match_start = Point::new(Line(0), Column(0));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=end));
+
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(11));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(1), Column(10));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
     fn wrapping_into_fullwidth() {
         #[rustfmt::skip]
         let term = mock_term("\
