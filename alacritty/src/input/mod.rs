@@ -448,6 +448,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let x = x.clamp(0, size_info.width() as i32 - 1) as usize;
         let y = y.clamp(0, size_info.height() as i32 - 1) as usize;
+
+        let mouse_y_delta = y as f32 - self.ctx.mouse().y as f32;
+        if let Some(drag_event) = self.ctx.display().scrollbar.get_new_scroll(mouse_y_delta) {
+            self.ctx.scroll(drag_event);
+        }
+
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -597,6 +603,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
+        let scale_factor = self.ctx.window().scale_factor as f32;
+        let size_info = self.ctx.size_info();
+        let mouse_x = self.ctx.mouse().x;
+        let mouse_y = self.ctx.mouse().y;
+        if self.ctx.display().scrollbar.try_start_drag(size_info, scale_factor, mouse_x, mouse_y) {
+            return;
+        };
+
         // Handle mouse mode.
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             self.ctx.mouse_mut().click_state = ClickState::None;
@@ -676,6 +690,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
+        self.ctx.display().scrollbar.stop_dragging();
+
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             let code = match button {
                 MouseButton::Left => 0,

@@ -379,7 +379,7 @@ pub struct Display {
 
     pub visual_bell: VisualBell,
 
-    scrollbar: Scrollbar,
+    pub scrollbar: Scrollbar,
 
     /// Mapped RGB values for each terminal color.
     pub colors: List,
