@@ -1155,7 +1155,7 @@ impl Display {
         total_lines: usize,
         config: &ScrollbarConfig,
     ) {
-        let did_change = self.scrollbar.update(display_offset, total_lines);
+        let did_position_change = self.scrollbar.update(display_offset, total_lines);
         let opacity = if let Some(opacity) = self.scrollbar.intensity() {
             opacity
         } else {
@@ -1166,40 +1166,34 @@ impl Display {
             self.window.request_redraw();
         }
 
-        let height_portion = self.size_info.screen_lines as f32 / total_lines as f32;
-
         let scale_factor = self.window.scale_factor as f32;
-        let scrollbar_margin_y = config.margin.y * scale_factor;
-        let background_area_height: f32 = self.size_info.height - 2.0 * scrollbar_margin_y;
-        let end_of_visible_area = total_lines - display_offset;
-        let start_of_visible_area = end_of_visible_area - self.size_info.screen_lines;
-
-        let scrollbar_width = config.width * scale_factor;
-        let scrollbar_height =
-            (height_portion * background_area_height).max(config.min_height * scale_factor);
-        let x = self.size_info.width - scrollbar_width - config.margin.x * scale_factor;
-        let y_progress = start_of_visible_area as f32 / total_lines as f32;
-        let y = (y_progress * background_area_height)
-            .min(background_area_height - config.min_height)
-            + scrollbar_margin_y;
+        let bg_rect = self.scrollbar.bg_rect(self.size_info, scale_factor);
         let scrollbar_rect =
-            RenderRect::new(x, y, scrollbar_width, scrollbar_height, config.color, opacity);
-        rects.push(scrollbar_rect);
-        if did_change {
+            self.scrollbar.rect_from_bg_rect(bg_rect, self.size_info, scale_factor);
+        let y = self.size_info.height - (scrollbar_rect.y + scrollbar_rect.height) as f32;
+        rects.push(RenderRect::new(
+            scrollbar_rect.x as f32,
+            y,
+            scrollbar_rect.width as f32,
+            scrollbar_rect.height as f32,
+            config.color,
+            opacity,
+        ));
+        if did_position_change {
             self.damage_tracker.frame().add_viewport_rect(
                 &self.size_info,
-                x.floor() as i32,
-                config.margin.y.floor() as i32,
-                scrollbar_width.ceil() as i32,
-                background_area_height.ceil() as i32,
+                scrollbar_rect.x as i32,
+                y as i32,
+                scrollbar_rect.width as i32,
+                scrollbar_rect.height as i32,
             );
         } else if config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32() {
             self.damage_tracker.frame().add_viewport_rect(
                 &self.size_info,
-                x.floor() as i32,
-                config.margin.y.floor() as i32,
-                scrollbar_width.ceil() as i32,
-                background_area_height.ceil() as i32,
+                scrollbar_rect.x as i32,
+                y as i32,
+                scrollbar_rect.width as i32,
+                scrollbar_rect.height as i32,
             );
         }
     }

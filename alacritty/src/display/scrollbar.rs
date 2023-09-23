@@ -1,6 +1,10 @@
 use std::time::Instant;
 
+use glutin::surface::Rect;
+
 use crate::config::ui_config::{Scrollbar as ScrollbarConfig, ScrollbarMode};
+
+use super::SizeInfo;
 
 /// Keeps track of when the scrollbar should be visible or fading.
 #[derive(Debug)]
@@ -73,5 +77,42 @@ impl Scrollbar {
             ScrollbarMode::Always => self.config.opacity.as_f32(),
         };
         Some(opacity)
+    }
+
+    pub fn bg_rect(&self, display_size: SizeInfo, scale_factor: f32) -> Rect {
+        let scrollbar_margin_y = self.config.margin.y * scale_factor;
+        let scrollbar_margin_x = self.config.margin.x * scale_factor;
+
+        let background_area_height: f32 = display_size.height - 2.0 * scrollbar_margin_y;
+
+        let scrollbar_width = self.config.width * scale_factor;
+        let x = display_size.width - scrollbar_width - scrollbar_margin_x;
+        Rect {
+            x: x.floor() as i32,
+            y: scrollbar_margin_y.floor() as i32,
+            width: scrollbar_width.ceil() as i32,
+            height: background_area_height.ceil() as i32,
+        }
+    }
+
+    pub fn rect_from_bg_rect(
+        &self,
+        bg_rect: Rect,
+        display_size: SizeInfo,
+        scale_factor: f32,
+    ) -> Rect {
+        let height_fraction = display_size.screen_lines as f32 / self.total_lines as f32;
+        let scrollbar_height =
+            (height_fraction * bg_rect.height as f32).max(self.config.min_height * scale_factor);
+
+        let y_progress = self.display_offset as f32 / self.total_lines as f32;
+        let y = y_progress * bg_rect.height as f32 + bg_rect.y as f32;
+
+        Rect {
+            x: bg_rect.x,
+            y: y.floor() as i32,
+            width: bg_rect.width,
+            height: scrollbar_height.ceil() as i32,
+        }
     }
 }
