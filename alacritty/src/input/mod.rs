@@ -86,6 +86,7 @@ pub trait ActionContext<T: EventListener> {
     fn toggle_selection(&mut self, _ty: SelectionType, _point: Point, _side: Side) {}
     fn update_selection(&mut self, _point: Point, _side: Side) {}
     fn clear_selection(&mut self) {}
+    fn stop_selection(&mut self) {}
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
@@ -717,6 +718,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if let MouseButton::Left | MouseButton::Right = button {
             // Copy selection on release, to prevent flooding the display server.
             self.ctx.copy_selection(ClipboardType::Selection);
+            self.ctx.stop_selection();
         }
     }
 
