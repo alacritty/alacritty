@@ -603,14 +603,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_press(&mut self, button: MouseButton) {
-        let scale_factor = self.ctx.window().scale_factor as f32;
-        let size_info = self.ctx.size_info();
-        let mouse_x = self.ctx.mouse().x;
-        let mouse_y = self.ctx.mouse().y;
-        if self.ctx.display().scrollbar.try_start_drag(size_info, scale_factor, mouse_x, mouse_y) {
-            return;
-        };
-
         // Handle mouse mode.
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             self.ctx.mouse_mut().click_state = ClickState::None;
@@ -654,6 +646,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle left click selection and vi mode cursor movement.
     fn on_left_click(&mut self, point: Point) {
+        let scale_factor = self.ctx.window().scale_factor as f32;
+        let size_info = self.ctx.size_info();
+        let mouse_x = self.ctx.mouse().x;
+        let mouse_y = self.ctx.mouse().y;
+        if self.ctx.display().scrollbar.try_start_drag(size_info, scale_factor, mouse_x, mouse_y) {
+            return;
+        };
+
         let side = self.ctx.mouse().cell_side;
         let control = self.ctx.modifiers().state().control_key();
 
