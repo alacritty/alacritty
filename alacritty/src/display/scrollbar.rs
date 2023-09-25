@@ -126,13 +126,22 @@ impl Scrollbar {
         }
     }
 
-    fn contains_mouse_pos(
-        &self,
+    pub fn contains_mouse_pos(
+        &mut self,
         display_size: SizeInfo,
         scale_factor: f32,
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
+        let intensity = if let Some(intensity) = self.intensity() {
+            intensity
+        } else {
+            return false;
+        };
+        if intensity == 0. {
+            return false;
+        }
+
         let bg_rect = self.bg_rect(display_size, scale_factor);
         let scrollbar_rect = self.rect_from_bg_rect(bg_rect, display_size, scale_factor);
         let mouse_x = mouse_x as f32;
@@ -155,15 +164,6 @@ impl Scrollbar {
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
-        let intensity = if let Some(intensity) = self.intensity() {
-            intensity
-        } else {
-            return false;
-        };
-        if intensity == 0. {
-            return false;
-        }
-
         if !self.contains_mouse_pos(display_size, scale_factor, mouse_x, mouse_y) {
             return false;
         }
@@ -173,6 +173,10 @@ impl Scrollbar {
         self.drag_state = Some(DragState { cells_per_dragged_pixel, accumulated_cells: 0. });
 
         true
+    }
+
+    pub fn is_dragging(&mut self) -> bool {
+        self.drag_state.is_some()
     }
 
     pub fn stop_dragging(&mut self) {

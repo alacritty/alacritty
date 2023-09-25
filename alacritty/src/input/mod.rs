@@ -1076,6 +1076,22 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Icon state of the cursor.
     fn cursor_state(&mut self) -> CursorIcon {
+        if self.ctx.display().scrollbar.is_dragging() {
+            return CursorIcon::RowResize;
+        }
+        let display_size = self.ctx.size_info();
+        let scale_factor = self.ctx.window().scale_factor as f32;
+        let mouse_x = self.ctx.mouse().x;
+        let mouse_y = self.ctx.mouse().y;
+        if self.ctx.display().scrollbar.contains_mouse_pos(
+            display_size,
+            scale_factor,
+            mouse_x,
+            mouse_y,
+        ) {
+            return CursorIcon::Default;
+        }
+
         let display_offset = self.ctx.terminal().grid().display_offset();
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
