@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - OSC 52 paste ability is now **disabled by default**; use `terminal.osc52` to adjust it
 - Apply `colors.transparent_background_colors` for selections, hints, and search matches
 - Underline full hint during keyboard selection
+- Synchronized updates now use `CSI 2026` instead of legacy `DCS` variant
 
 ### Fixed
 
