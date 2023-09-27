@@ -115,8 +115,11 @@ impl Scrollbar {
         let scrollbar_height =
             (height_fraction * bg_rect.height as f32).max(self.config.min_height * scale_factor);
 
-        let y_progress =
-            self.display_offset as f32 / (self.total_lines - display_size.screen_lines) as f32;
+        let y_progress = if self.total_lines <= display_size.screen_lines {
+            0.0
+        } else {
+            self.display_offset as f32 / (self.total_lines - display_size.screen_lines) as f32
+        };
         let y = y_progress * (bg_rect.height as f32 - scrollbar_height) + bg_rect.y as f32;
 
         Rect {
