@@ -1586,6 +1586,7 @@ pub enum TouchPurpose {
     None,
     Select(TouchEvent),
     Scroll(TouchEvent),
+    ScrollbarDrag(TouchEvent),
     Zoom(TouchZoom),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
