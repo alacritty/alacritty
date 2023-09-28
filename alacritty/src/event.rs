@@ -1244,6 +1244,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let text = format(self.ctx.size_info().into());
                         self.ctx.write_to_pty(text.into_bytes());
                     },
+                    TerminalEvent::MouseCursorIcon(icon) => {
+                        self.ctx.display().osc22_cursor = icon;
+                        self.reset_mouse_cursor();
+                    },
                     TerminalEvent::PtyWrite(text) => self.ctx.write_to_pty(text.into_bytes()),
                     TerminalEvent::MouseCursorDirty => self.reset_mouse_cursor(),
                     TerminalEvent::CursorBlinkingChange => self.ctx.update_cursor_blinking(),

@@ -40,8 +40,11 @@ pub struct Config {
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]
 pub struct Terminal {
-    // OSC 52 handling (clipboard handling).
+    /// OSC 52 handling (clipboard handling).
     pub osc52: Osc52,
+
+    /// Allow to set cursor shape with the OSC 22 escape.
+    pub osc22: bool,
 }
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq, Default)]

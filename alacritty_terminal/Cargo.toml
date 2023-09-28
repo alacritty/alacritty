@@ -20,6 +20,7 @@ version = "0.1.2-dev"
 [dependencies]
 base64 = "0.13.0"
 bitflags = { version = "2.2.1", features = ["serde"] }
+cursor-icon = "1.0.0"
 home = "0.5.5"
 libc = "0.2"
 log = "0.4"

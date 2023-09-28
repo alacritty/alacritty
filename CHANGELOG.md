@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Bindings to create and navigate tabs on macOS
 - Support startup notify protocol to raise initial window on Wayland/X11
 - Debug option `prefer_egl` to prioritize EGL over other display APIs
+- Escape sequence to change mouse cursor shape (OSC 22);
+    use `terminal.osc22` to enable it
 
 ### Changed
 

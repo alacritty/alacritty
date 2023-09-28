@@ -371,6 +371,9 @@ pub struct Display {
     /// The state of the timer for frame scheduling.
     pub frame_timer: FrameTimer,
 
+    /// Mouse icon set by the user with the OSC 22 escape sequence.
+    pub osc22_cursor: Option<CursorIcon>,
+
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
@@ -516,6 +519,7 @@ impl Display {
             colors: List::from(&config.colors),
             pending_update: Default::default(),
             pending_renderer_update: Default::default(),
+            osc22_cursor: None,
             debug_damage,
             damage_rects,
             raw_window_handle,
@@ -1048,11 +1052,17 @@ impl Display {
             self.window.set_mouse_cursor(CursorIcon::Pointer);
         } else if self.highlighted_hint.is_some() {
             self.hint_mouse_point = None;
-            if term.mode().intersects(TermMode::MOUSE_MODE) && !term.mode().contains(TermMode::VI) {
-                self.window.set_mouse_cursor(CursorIcon::Default);
+            let cursor = if let Some(cursor) = self.osc22_cursor {
+                cursor
+            } else if term.mode().intersects(TermMode::MOUSE_MODE)
+                && !term.mode().contains(TermMode::VI)
+            {
+                CursorIcon::Default
             } else {
-                self.window.set_mouse_cursor(CursorIcon::Text);
-            }
+                CursorIcon::Text
+            };
+
+            self.window.set_mouse_cursor(cursor);
         }
 
         dirty |= self.highlighted_hint != highlighted_hint;

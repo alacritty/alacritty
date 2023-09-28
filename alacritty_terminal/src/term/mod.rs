@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::{cmp, mem, ptr, slice, str};
 
 use bitflags::bitflags;
+use cursor_icon::CursorIcon;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
 use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
@@ -466,6 +467,10 @@ impl<T> Term<T> {
         }
 
         self.config = config.terminal.clone();
+
+        if !self.config.osc22 {
+            self.event_proxy.send_event(Event::MouseCursorIcon(None));
+        }
 
         // Damage everything on config updates.
         self.mark_fully_damaged();
@@ -1694,6 +1699,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.mode.insert(TermMode::default());
 
         self.event_proxy.send_event(Event::CursorBlinkingChange);
+        self.event_proxy.send_event(Event::MouseCursorIcon(None));
         self.mark_fully_damaged();
     }
 
@@ -1924,6 +1930,14 @@ impl<T: EventListener> Handler for Term<T> {
 
         // Notify UI about blinking changes.
         self.event_proxy.send_event(Event::CursorBlinkingChange);
+    }
+
+    #[inline]
+    fn set_mouse_cursor_icon(&mut self, icon: CursorIcon) {
+        if self.config.osc22 {
+            trace!("Requesting to set mouse cursor icon to {:?}", icon);
+            self.event_proxy.send_event(Event::MouseCursorIcon(Some(icon)));
+        }
     }
 
     #[inline]

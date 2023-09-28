@@ -568,6 +568,13 @@ This section documents the *[terminal]* table of the configuration file.
 
 	Default: _"OnlyCopy"_
 
+*osc22* <boolean>
+
+	Controls the ability to change the mouse cursor shape with the escape
+	sequences trying to improve application mouse mode user experience.
+
+	Default: _false_
+
 # Mouse
 
 This section documents the *[mouse]* table of the configuration file.

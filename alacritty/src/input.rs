@@ -1149,6 +1149,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             mouse_state
         } else if self.ctx.display().highlighted_hint.as_ref().map_or(false, hint_highlighted) {
             CursorIcon::Pointer
+        } else if let Some(cursor) = self.ctx.display().osc22_cursor {
+            cursor
         } else if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             CursorIcon::Default
         } else {
