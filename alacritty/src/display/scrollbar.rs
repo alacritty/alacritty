@@ -172,8 +172,19 @@ impl Scrollbar {
             return false;
         }
 
-        let cells_per_dragged_cell = self.total_lines as f32 / display_size.screen_lines as f32;
-        let cells_per_dragged_pixel = cells_per_dragged_cell / display_size.cell_height;
+        let bg_rect = self.bg_rect(display_size, scale_factor);
+        let rect = self.rect_from_bg_rect(bg_rect, display_size, scale_factor);
+
+        if bg_rect.height == rect.height || self.total_lines <= display_size.screen_lines {
+            self.drag_state =
+                Some(DragState { cells_per_dragged_pixel: 0.0, accumulated_cells: 0. });
+            return true;
+        }
+
+        // Amount of pixels, you have to drag over, to scroll from top to bottom.
+        let total_pixel_scroll = bg_rect.height - rect.height;
+        let total_lines_to_scroll = self.total_lines - display_size.screen_lines;
+        let cells_per_dragged_pixel = total_lines_to_scroll as f32 / total_pixel_scroll as f32;
         self.drag_state = Some(DragState { cells_per_dragged_pixel, accumulated_cells: 0. });
 
         true
@@ -187,6 +198,7 @@ impl Scrollbar {
         self.drag_state = None;
     }
 
+    #[must_use]
     pub fn get_new_scroll(&mut self, mouse_y_delta_in_pixel: f32) -> Option<Scroll> {
         if let Some(drag_state) = self.drag_state.as_mut() {
             drag_state.accumulated_cells +=

@@ -827,11 +827,31 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle beginning of touch input.
     pub fn on_touch_start(&mut self, touch: TouchEvent) {
-        let touch_purpose = self.ctx.touch_purpose();
-        *touch_purpose = match mem::take(touch_purpose) {
-            TouchPurpose::None => TouchPurpose::Tap(touch),
+        let old_touch_purpose = mem::take(self.ctx.touch_purpose());
+        let new_touch_purpose = match old_touch_purpose {
+            TouchPurpose::None => {
+                let size_info = self.ctx.size_info();
+                let scale_factor = self.ctx.window().scale_factor as f32;
+                let mouse_x = touch.location.x as usize;
+                let mouse_y = touch.location.y as usize;
+                if self.ctx.display().scrollbar.try_start_drag(
+                    size_info,
+                    scale_factor,
+                    mouse_x,
+                    mouse_y,
+                ) {
+                    TouchPurpose::ScrollbarDrag(touch)
+                } else {
+                    TouchPurpose::Tap(touch)
+                }
+            },
             TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
             TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
+            TouchPurpose::ScrollbarDrag(event) => {
+                let mut set = HashSet::default();
+                set.insert(event.id);
+                TouchPurpose::Invalid(set)
+            },
             TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
                 let mut set = HashSet::default();
                 set.insert(event.id);
@@ -842,6 +862,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 TouchPurpose::Invalid(slots)
             },
         };
+        *self.ctx.touch_purpose() = new_touch_purpose;
     }
 
     /// Handle touch input movement.
@@ -871,6 +892,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     // Apply motion since touch start.
                     self.on_touch_motion(touch);
                 }
+            },
+            TouchPurpose::ScrollbarDrag(_) => {
+                // Don't handle drag as this is already done for WInitEvent::CursorMoved.
             },
             TouchPurpose::Zoom(zoom) => {
                 let font_delta = zoom.font_delta(touch);
@@ -904,6 +928,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(start_location);
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            TouchPurpose::ScrollbarDrag { .. } => {
+                *touch_purpose = Default::default();
+                self.ctx.display().scrollbar.stop_dragging();
             },
             // Invalidate zoom once a finger was released.
             TouchPurpose::Zoom(zoom) => {
