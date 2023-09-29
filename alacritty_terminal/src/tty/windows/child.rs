@@ -120,7 +120,7 @@ mod tests {
         // Poll for the event or fail with timeout if nothing has been sent.
         let mut events = polling::Events::new();
         poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
-        assert_eq!(events[0].key, PTY_CHILD_EVENT_TOKEN);
+        assert_eq!(events.iter().next().unwrap().key, PTY_CHILD_EVENT_TOKEN);
         // Verify that at least one `ChildEvent::Exited` was received.
         assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
     }
