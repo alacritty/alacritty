@@ -1008,12 +1008,6 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 	Default: _"Never"_
 
-*width* <float>
-
-	Width of the scrollbar in pixels. This width is scaled by DPI.
-
-	Default: _8.0_
-
 *min_height*
 
 	Minimum height of the scrollbar in pixel. The scrollbar does not shrink
@@ -1052,7 +1046,7 @@ This section documents the *[scrollbar]* table of the configuration file.
 	The scrollbar fades out linearly after 80% of this time has passed. This
 	property has no effect in other modes.
 
-	Default: _1.5_
+	Default: _2.0_
 
 # DEBUG
 

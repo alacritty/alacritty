@@ -475,7 +475,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.scrollbar.additional_padding(window.scale_factor as f32),
+            config.scrollbar.additional_padding(cell_width, window.scale_factor as f32),
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
 
@@ -718,7 +718,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.scrollbar.additional_padding(self.window.scale_factor as f32),
+            config.scrollbar.additional_padding(cell_width, self.window.scale_factor as f32),
             config.window.dynamic_padding,
         );
 
@@ -1701,7 +1701,7 @@ fn window_size(
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor()
-        + config.scrollbar.additional_padding(scale_factor);
+        + config.scrollbar.additional_padding(cell_width, scale_factor);
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)

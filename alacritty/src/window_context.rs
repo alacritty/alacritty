@@ -287,8 +287,7 @@ impl WindowContext {
         if window_config.padding(1.) != self.config.window.padding(1.)
             || window_config.dynamic_padding != self.config.window.dynamic_padding
             || window_config.resize_increments != self.config.window.resize_increments
-            || old_config.scrollbar.additional_padding(1.)
-                != self.config.scrollbar.additional_padding(1.)
+            || old_config.scrollbar.margin.x != self.config.scrollbar.margin.x
         {
             self.display.pending_update.dirty = true;
         }

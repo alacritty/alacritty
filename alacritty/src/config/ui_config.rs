@@ -244,8 +244,6 @@ where
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct Scrollbar {
     pub mode: ScrollbarMode,
-    /// Scrollbar width in pixel. Scaled by DPI.
-    pub width: f32,
     /// Minimum pixel height of the scrollbar. It is always shown this height,
     /// even if of the screen is visible. Scaled by DPI.
     pub min_height: f32,
@@ -259,9 +257,9 @@ pub struct Scrollbar {
     pub fade_time_in_secs: f32,
 }
 impl Scrollbar {
-    pub fn additional_padding(&self, scale_factor: f32) -> f32 {
+    pub fn additional_padding(&self, cell_width: f32, scale_factor: f32) -> f32 {
         if self.mode == ScrollbarMode::Always {
-            (self.margin.x * 2.0 + self.width) * scale_factor
+            (self.margin.x * 2.0) * scale_factor + cell_width
         } else {
             0.0
         }
@@ -272,12 +270,11 @@ impl Default for Scrollbar {
     fn default() -> Self {
         Scrollbar {
             mode: Default::default(),
-            width: 8.0,
             min_height: 4.0,
             margin: Delta { x: 2.0, y: 2.0 },
             color: Rgb::new(0x7f, 0x7f, 0x7f),
             opacity: Percentage::new(0.5),
-            fade_time_in_secs: 1.5,
+            fade_time_in_secs: 2.0,
         }
     }
 }
