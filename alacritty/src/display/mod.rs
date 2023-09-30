@@ -1168,8 +1168,7 @@ impl Display {
 
         let scale_factor = self.window.scale_factor as f32;
         let bg_rect = self.scrollbar.bg_rect(self.size_info, scale_factor);
-        let scrollbar_rect =
-            self.scrollbar.rect_from_bg_rect(bg_rect, self.size_info, scale_factor);
+        let scrollbar_rect = self.scrollbar.rect_from_bg_rect(bg_rect, self.size_info);
         let y = self.size_info.height - (scrollbar_rect.y + scrollbar_rect.height) as f32;
         rects.push(RenderRect::new(
             scrollbar_rect.x as f32,

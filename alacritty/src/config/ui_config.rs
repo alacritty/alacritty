@@ -244,9 +244,6 @@ where
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct Scrollbar {
     pub mode: ScrollbarMode,
-    /// Minimum pixel height of the scrollbar. It is always shown this height,
-    /// even if of the screen is visible. Scaled by DPI.
-    pub min_height: f32,
     /// Margin right of the scrollbar (x) to the top and bottom (y).
     /// Scaled by DPI.
     pub margin: Delta<f32>,
@@ -270,7 +267,6 @@ impl Default for Scrollbar {
     fn default() -> Self {
         Scrollbar {
             mode: Default::default(),
-            min_height: 4.0,
             margin: Delta { x: 2.0, y: 2.0 },
             color: Rgb::new(0x7f, 0x7f, 0x7f),
             opacity: Percentage::new(0.5),

@@ -998,6 +998,7 @@ bindings = [++
 # Scrollbar
 
 This section documents the *[scrollbar]* table of the configuration file.
+The scrollbar is always one cell wide and at least two cells high.
 
 *mode* "Never" | "Fading" | "Always"
 
@@ -1007,14 +1008,6 @@ This section documents the *[scrollbar]* table of the configuration file.
 	space for the scrollbar and margin. _"Fading"_ works as overlay.
 
 	Default: _"Never"_
-
-*min_height*
-
-	Minimum height of the scrollbar in pixel. The scrollbar does not shrink
-	smaller than this height, to avoid being invisible. This value is scaled
-	by DPI.
-
-	Default: _4.0_
 
 *margin* { x = <integer>, y = <integer> }
 

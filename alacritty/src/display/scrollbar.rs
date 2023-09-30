@@ -107,15 +107,10 @@ impl Scrollbar {
         }
     }
 
-    pub fn rect_from_bg_rect(
-        &self,
-        bg_rect: Rect,
-        display_size: SizeInfo,
-        scale_factor: f32,
-    ) -> Rect {
+    pub fn rect_from_bg_rect(&self, bg_rect: Rect, display_size: SizeInfo) -> Rect {
         let height_fraction = display_size.screen_lines as f32 / self.total_lines as f32;
         let scrollbar_height =
-            (height_fraction * bg_rect.height as f32).max(self.config.min_height * scale_factor);
+            (height_fraction * bg_rect.height as f32).max(2. * display_size.cell_height);
 
         let y_progress = if self.total_lines <= display_size.screen_lines {
             0.0
@@ -149,7 +144,7 @@ impl Scrollbar {
         }
 
         let bg_rect = self.bg_rect(display_size, scale_factor);
-        let scrollbar_rect = self.rect_from_bg_rect(bg_rect, display_size, scale_factor);
+        let scrollbar_rect = self.rect_from_bg_rect(bg_rect, display_size);
         let mouse_x = mouse_x as f32;
         let mouse_y = display_size.height - mouse_y as f32;
 
@@ -175,7 +170,7 @@ impl Scrollbar {
         }
 
         let bg_rect = self.bg_rect(display_size, scale_factor);
-        let rect = self.rect_from_bg_rect(bg_rect, display_size, scale_factor);
+        let rect = self.rect_from_bg_rect(bg_rect, display_size);
 
         if bg_rect.height == rect.height || self.total_lines <= display_size.screen_lines {
             self.drag_state =
