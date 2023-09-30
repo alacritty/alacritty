@@ -39,6 +39,7 @@ use alacritty_terminal::term::{ClipboardType, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
 
 use crate::clipboard::Clipboard;
+use crate::config::ui_config::ScrollbarMode;
 use crate::config::{
     Action, BindingKey, BindingMode, MouseAction, SearchAction, UiConfig, ViAction,
 };
@@ -429,9 +430,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let x = x.clamp(0, size_info.width() as i32 - 1) as usize;
         let y = y.clamp(0, size_info.height() as i32 - 1) as usize;
 
-        let mouse_y_delta = y as f32 - self.ctx.mouse().y as f32;
-        if let Some(drag_event) = self.ctx.display().scrollbar.apply_mouse_delta(mouse_y_delta) {
-            self.ctx.scroll(drag_event);
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            let mouse_y_delta = y as f32 - self.ctx.mouse().y as f32;
+            if let Some(drag_event) = self.ctx.display().scrollbar.apply_mouse_delta(mouse_y_delta)
+            {
+                self.ctx.scroll(drag_event);
+            }
         }
 
         self.ctx.mouse_mut().x = x;
@@ -626,12 +630,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle left click selection and vi mode cursor movement.
     fn on_left_click(&mut self, point: Point) {
-        let size_info = self.ctx.size_info();
-        let mouse_x = self.ctx.mouse().x;
-        let mouse_y = self.ctx.mouse().y;
-        if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
-            return;
-        };
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            let size_info = self.ctx.size_info();
+            let mouse_x = self.ctx.mouse().x;
+            let mouse_y = self.ctx.mouse().y;
+            if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
+                return;
+            };
+        }
 
         let side = self.ctx.mouse().cell_side;
 
@@ -668,7 +674,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
-        if self.ctx.display().scrollbar.is_dragging() {
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never
+            && self.ctx.display().scrollbar.is_dragging()
+        {
             self.ctx.display().scrollbar.stop_dragging();
             // Mouse icon is different, when not scrolling.
             let mouse_state = self.cursor_state();
@@ -834,13 +842,17 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let old_touch_purpose = mem::take(self.ctx.touch_purpose());
         let new_touch_purpose = match old_touch_purpose {
             TouchPurpose::None => {
-                let size_info = self.ctx.size_info();
-                let mouse_x = touch.location.x as usize;
-                let mouse_y = touch.location.y as usize;
-                if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
-                    TouchPurpose::ScrollbarDrag(touch)
-                } else {
+                if self.ctx.config().scrollbar.mode == ScrollbarMode::Never {
                     TouchPurpose::Tap(touch)
+                } else {
+                    let size_info = self.ctx.size_info();
+                    let mouse_x = touch.location.x as usize;
+                    let mouse_y = touch.location.y as usize;
+                    if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
+                        TouchPurpose::ScrollbarDrag(touch)
+                    } else {
+                        TouchPurpose::Tap(touch)
+                    }
                 }
             },
             TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
@@ -1183,14 +1195,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Icon state of the cursor.
     fn cursor_state(&mut self) -> CursorIcon {
-        if self.ctx.display().scrollbar.is_dragging() {
-            return CursorIcon::RowResize;
-        }
-        let display_size = self.ctx.size_info();
-        let mouse_x = self.ctx.mouse().x;
-        let mouse_y = self.ctx.mouse().y;
-        if self.ctx.display().scrollbar.contains_mouse_pos(display_size, mouse_x, mouse_y) {
-            return CursorIcon::Default;
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            if self.ctx.display().scrollbar.is_dragging() {
+                return CursorIcon::RowResize;
+            }
+            let display_size = self.ctx.size_info();
+            let mouse_x = self.ctx.mouse().x;
+            let mouse_y = self.ctx.mouse().y;
+            if self.ctx.display().scrollbar.contains_mouse_pos(display_size, mouse_x, mouse_y) {
+                return CursorIcon::Default;
+            }
         }
 
         let display_offset = self.ctx.terminal().grid().display_offset();
