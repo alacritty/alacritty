@@ -451,7 +451,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let y = y.clamp(0, size_info.height() as i32 - 1) as usize;
 
         let mouse_y_delta = y as f32 - self.ctx.mouse().y as f32;
-        if let Some(drag_event) = self.ctx.display().scrollbar.get_new_scroll(mouse_y_delta) {
+        if let Some(drag_event) = self.ctx.display().scrollbar.apply_mouse_delta(mouse_y_delta) {
             self.ctx.scroll(drag_event);
         }
 
