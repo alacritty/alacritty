@@ -464,6 +464,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let point = self.ctx.mouse().point(&size_info, display_offset);
         let cell_changed = old_point != point;
 
+        // Update mouse state and check for URL change or whether we entered scrollbar.
+        let mouse_state = self.cursor_state();
+        self.ctx.window().set_mouse_cursor(mouse_state);
+
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
             && self.ctx.mouse().cell_side == cell_side
@@ -474,10 +478,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
-
-        // Update mouse state and check for URL change.
-        let mouse_state = self.cursor_state();
-        self.ctx.window().set_mouse_cursor(mouse_state);
 
         // Prompt hint highlight update.
         self.ctx.mouse_mut().hint_highlight_dirty = true;
@@ -691,7 +691,12 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
-        self.ctx.display().scrollbar.stop_dragging();
+        if self.ctx.display().scrollbar.is_dragging() {
+            self.ctx.display().scrollbar.stop_dragging();
+            // Mouse icon is different, when not scrolling.
+            let mouse_state = self.cursor_state();
+            self.ctx.window().set_mouse_cursor(mouse_state);
+        }
 
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             let code = match button {
