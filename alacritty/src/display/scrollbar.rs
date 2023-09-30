@@ -198,8 +198,9 @@ impl Scrollbar {
         self.drag_state = None;
     }
 
-    #[must_use]
-    pub fn get_new_scroll(&mut self, mouse_y_delta_in_pixel: f32) -> Option<Scroll> {
+    #[must_use = "The actual scroll is not applied but returned and has to be applied by the \
+                  callside"]
+    pub fn apply_mouse_delta(&mut self, mouse_y_delta_in_pixel: f32) -> Option<Scroll> {
         if let Some(drag_state) = self.drag_state.as_mut() {
             drag_state.accumulated_cells +=
                 mouse_y_delta_in_pixel * drag_state.cells_per_dragged_pixel;
