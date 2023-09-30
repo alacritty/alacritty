@@ -89,11 +89,10 @@ impl Scrollbar {
         Some(opacity)
     }
 
-    pub fn bg_rect(&self, display_size: SizeInfo, scale_factor: f32) -> Rect {
-        let scrollbar_margin_y = display_size.padding_y() + self.config.margin.y * scale_factor;
+    pub fn bg_rect(&self, display_size: SizeInfo) -> Rect {
+        let scrollbar_margin_y = display_size.padding_y();
         let scrollbar_margin_x = display_size.padding_right()
-            - self.config.additional_padding(display_size.cell_width, scale_factor)
-            + self.config.margin.x * scale_factor;
+            - self.config.additional_padding(display_size.cell_width, display_size.padding_left());
 
         let background_area_height: f32 = display_size.height - 2. * scrollbar_margin_y;
 
@@ -130,7 +129,6 @@ impl Scrollbar {
     pub fn contains_mouse_pos(
         &mut self,
         display_size: SizeInfo,
-        scale_factor: f32,
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
@@ -143,7 +141,7 @@ impl Scrollbar {
             return false;
         }
 
-        let bg_rect = self.bg_rect(display_size, scale_factor);
+        let bg_rect = self.bg_rect(display_size);
         let scrollbar_rect = self.rect_from_bg_rect(bg_rect, display_size);
         let mouse_x = mouse_x as f32;
         let mouse_y = display_size.height - mouse_y as f32;
@@ -161,15 +159,14 @@ impl Scrollbar {
     pub fn try_start_drag(
         &mut self,
         display_size: SizeInfo,
-        scale_factor: f32,
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
-        if !self.contains_mouse_pos(display_size, scale_factor, mouse_x, mouse_y) {
+        if !self.contains_mouse_pos(display_size, mouse_x, mouse_y) {
             return false;
         }
 
-        let bg_rect = self.bg_rect(display_size, scale_factor);
+        let bg_rect = self.bg_rect(display_size);
         let rect = self.rect_from_bg_rect(bg_rect, display_size);
 
         if bg_rect.height == rect.height || self.total_lines <= display_size.screen_lines {

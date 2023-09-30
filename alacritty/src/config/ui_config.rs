@@ -243,9 +243,6 @@ where
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct Scrollbar {
     pub mode: ScrollbarMode,
-    /// Margin right of the scrollbar (x) to the top and bottom (y).
-    /// Scaled by DPI.
-    pub margin: Delta<f32>,
     pub color: Rgb,
     /// Scrollbar opacity from 0.0 (invisible) to 1.0 (opaque).
     pub opacity: Percentage,
@@ -253,9 +250,9 @@ pub struct Scrollbar {
     pub fade_time_in_secs: f32,
 }
 impl Scrollbar {
-    pub fn additional_padding(&self, cell_width: f32, scale_factor: f32) -> f32 {
+    pub fn additional_padding(&self, cell_width: f32, window_padding_x: f32) -> f32 {
         if self.mode == ScrollbarMode::Always {
-            (self.margin.x * 2.0) * scale_factor + cell_width
+            window_padding_x + cell_width
         } else {
             0.0
         }
@@ -266,7 +263,6 @@ impl Default for Scrollbar {
     fn default() -> Self {
         Scrollbar {
             mode: Default::default(),
-            margin: Delta { x: 2.0, y: 2.0 },
             color: Rgb::new(0x7f, 0x7f, 0x7f),
             opacity: Percentage::new(0.5),
             fade_time_in_secs: 2.0,
