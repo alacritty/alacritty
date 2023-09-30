@@ -1005,16 +1005,9 @@ The scrollbar is always one cell wide and at least two cells high.
 	Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
 	after the visible area changed (e.g. by scrolling or writing new lines).
 	After _fade_wait_in_secs_, it will fade out. Only _"Always"_ will reserve
-	space for the scrollbar and margin. _"Fading"_ works as overlay.
+	space for the scrollbar and padding. _"Fading"_ works as overlay.
 
 	Default: _"Never"_
-
-*margin* { x = <integer>, y = <integer> }
-
-	Blank space added around the scrollbar in pixels. This margin is scaled
-	by DPI and the specified value is always added at both opposing sides.
-
-	Default: _{ x = 0, y = 0 }_
 
 *color* <string>
 

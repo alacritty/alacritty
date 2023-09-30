@@ -475,7 +475,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.scrollbar.additional_padding(cell_width, window.scale_factor as f32),
+            config.scrollbar.additional_padding(cell_width, padding.0),
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
 
@@ -718,7 +718,7 @@ impl Display {
             cell_height,
             padding.0,
             padding.1,
-            config.scrollbar.additional_padding(cell_width, self.window.scale_factor as f32),
+            config.scrollbar.additional_padding(cell_width, padding.0),
             config.window.dynamic_padding,
         );
 
@@ -1166,8 +1166,7 @@ impl Display {
             self.window.request_redraw();
         }
 
-        let scale_factor = self.window.scale_factor as f32;
-        let bg_rect = self.scrollbar.bg_rect(self.size_info, scale_factor);
+        let bg_rect = self.scrollbar.bg_rect(self.size_info);
         let scrollbar_rect = self.scrollbar.rect_from_bg_rect(bg_rect, self.size_info);
         let y = self.size_info.height - (scrollbar_rect.y + scrollbar_rect.height) as f32;
         rects.push(RenderRect::new(
@@ -1700,7 +1699,7 @@ fn window_size(
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor()
-        + config.scrollbar.additional_padding(cell_width, scale_factor);
+        + config.scrollbar.additional_padding(cell_width, padding.0);
     let height = (padding.1).mul_add(2., grid_height).floor();
 
     PhysicalSize::new(width as u32, height as u32)

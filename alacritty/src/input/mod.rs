@@ -647,11 +647,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle left click selection and vi mode cursor movement.
     fn on_left_click(&mut self, point: Point) {
-        let scale_factor = self.ctx.window().scale_factor as f32;
         let size_info = self.ctx.size_info();
         let mouse_x = self.ctx.mouse().x;
         let mouse_y = self.ctx.mouse().y;
-        if self.ctx.display().scrollbar.try_start_drag(size_info, scale_factor, mouse_x, mouse_y) {
+        if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
             return;
         };
 
@@ -858,15 +857,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let new_touch_purpose = match old_touch_purpose {
             TouchPurpose::None => {
                 let size_info = self.ctx.size_info();
-                let scale_factor = self.ctx.window().scale_factor as f32;
                 let mouse_x = touch.location.x as usize;
                 let mouse_y = touch.location.y as usize;
-                if self.ctx.display().scrollbar.try_start_drag(
-                    size_info,
-                    scale_factor,
-                    mouse_x,
-                    mouse_y,
-                ) {
+                if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
                     TouchPurpose::ScrollbarDrag(touch)
                 } else {
                     TouchPurpose::Tap(touch)
@@ -1113,15 +1106,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return CursorIcon::RowResize;
         }
         let display_size = self.ctx.size_info();
-        let scale_factor = self.ctx.window().scale_factor as f32;
         let mouse_x = self.ctx.mouse().x;
         let mouse_y = self.ctx.mouse().y;
-        if self.ctx.display().scrollbar.contains_mouse_pos(
-            display_size,
-            scale_factor,
-            mouse_x,
-            mouse_y,
-        ) {
+        if self.ctx.display().scrollbar.contains_mouse_pos(display_size, mouse_x, mouse_y) {
             return CursorIcon::Default;
         }
 
