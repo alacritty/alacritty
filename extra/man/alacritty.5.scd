@@ -1046,20 +1046,13 @@ This section documents the *[scrollbar]* table of the configuration file.
 
 	Default: _0.5_
 
-*fade_wait_in_secs* <float>
-
-	Time (in seconds) the scrollbar waits before fading out, if in
-	_"Fading"_-_mode_. This property has no effect in other modes.
-
-	Default: _1.5_
-
 *fade_time_in_secs* <float>
 
 	Time (in seconds) the scrollbar takes to disappear in _"Fading"_-_mode_.
-	The scrollbar fades out linearly over this time. This property has no
-	effect in other modes.
+	The scrollbar fades out linearly after 80% of this time has passed. This
+	property has no effect in other modes.
 
-	Default: _0.5_
+	Default: _1.5_
 
 # DEBUG
 

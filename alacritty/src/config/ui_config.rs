@@ -255,9 +255,7 @@ pub struct Scrollbar {
     pub color: Rgb,
     /// Scrollbar opacity from 0.0 (invisible) to 1.0 (opaque).
     pub opacity: Percentage,
-    /// Time (in seconds) before scrollbar starts fading if in fading mode.
-    pub fade_wait_in_secs: f32,
-    /// Time (in seconds) the scrollbar takes to fade.
+    /// Time (in seconds) the scrollbar fading takes.
     pub fade_time_in_secs: f32,
 }
 impl Scrollbar {
@@ -279,8 +277,7 @@ impl Default for Scrollbar {
             margin: Delta { x: 2.0, y: 2.0 },
             color: Rgb::new(0x7f, 0x7f, 0x7f),
             opacity: Percentage::new(0.5),
-            fade_wait_in_secs: 1.5,
-            fade_time_in_secs: 0.5,
+            fade_time_in_secs: 1.5,
         }
     }
 }
