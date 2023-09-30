@@ -68,13 +68,15 @@ impl Scrollbar {
             ScrollbarMode::Fading => {
                 let last_scroll = self.last_change_time()?;
                 let timeout = (Instant::now() - last_scroll).as_secs_f32();
-                if timeout <= self.config.fade_wait_in_secs {
+                let fade_wait = self.config.fade_time_in_secs * 0.8;
+                let fade_time = self.config.fade_time_in_secs - fade_wait;
+                if timeout <= fade_wait {
                     self.config.opacity.as_f32()
                 } else {
-                    let current_fade_time = timeout - self.config.fade_wait_in_secs;
-                    if current_fade_time < self.config.fade_time_in_secs {
+                    let current_fade_time = timeout - fade_wait;
+                    if current_fade_time < fade_time {
                         // Fading progress from 0.0 to 1.0.
-                        let fading_progress = current_fade_time / self.config.fade_time_in_secs;
+                        let fading_progress = current_fade_time / fade_time;
                         (1.0 - fading_progress) * self.config.opacity.as_f32()
                     } else {
                         self.clear_change_time();
