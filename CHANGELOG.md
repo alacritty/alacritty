@@ -157,7 +157,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Added
 
-- Non-interactive scrollbar (enable via config `scrollbar.mode`)
+- Scrollbar (enable via config `scrollbar.mode`)
 - Warnings for unused configuration file options
 - Config option `persist` in `hints` config section
 - Support for dynamically loading conpty.dll on Windows
