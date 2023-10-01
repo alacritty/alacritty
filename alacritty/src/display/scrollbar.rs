@@ -60,12 +60,15 @@ impl Scrollbar {
         self.last_change = None;
     }
 
-    pub fn intensity(&mut self) -> Option<f32> {
+    pub fn intensity(&mut self, display_size: SizeInfo) -> Option<f32> {
         let opacity = match self.config.mode {
             ScrollbarMode::Never => {
                 return None;
             },
             ScrollbarMode::Fading => {
+                if self.total_lines <= display_size.screen_lines {
+                    return None;
+                }
                 let last_scroll = self.last_change_time()?;
                 let timeout = (Instant::now() - last_scroll).as_secs_f32();
                 let fade_wait = self.config.fade_time_in_secs * 0.8;
@@ -132,7 +135,7 @@ impl Scrollbar {
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
-        let intensity = if let Some(intensity) = self.intensity() {
+        let intensity = if let Some(intensity) = self.intensity(display_size) {
             intensity
         } else {
             return false;
