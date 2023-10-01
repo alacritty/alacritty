@@ -1156,7 +1156,7 @@ impl Display {
         config: &ScrollbarConfig,
     ) {
         let did_position_change = self.scrollbar.update(display_offset, total_lines);
-        let opacity = if let Some(opacity) = self.scrollbar.intensity() {
+        let opacity = if let Some(opacity) = self.scrollbar.intensity(self.size_info) {
             opacity
         } else {
             return;
