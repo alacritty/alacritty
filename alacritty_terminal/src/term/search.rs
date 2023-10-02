@@ -291,7 +291,7 @@ impl<T> Term<T> {
                 // Matches require one additional BYTE of lookahead, so we check the match state for
                 // the first byte of every new character to determine if the last character was a
                 // match.
-                if i == 0 && state.is_match() {
+                if i == 0 && state.is_match() && point != start {
                     regex_match = Some(last_point);
                 }
             }
@@ -339,18 +339,16 @@ impl<T> Term<T> {
             if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
                 || (last_point.column == Column(0) && point.column == last_column && !wrapped)
             {
+                // When reaching the end-of-input, we need to notify the parser that no
+                // look-ahead is possible and check if the current state is still a match.
+                state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
+                if state.is_match() {
+                    regex_match = Some(last_point);
+                }
+
                 match regex_match {
                     Some(_) => break,
-                    None => {
-                        // When reaching the end-of-input, we need to notify the parser that no
-                        // look-ahead is possible and check if the current state is still a match.
-                        state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
-                        if state.is_match() {
-                            regex_match = Some(last_point);
-                        }
-
-                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
-                    },
+                    None => state = regex.dfa.start_state_forward(&mut regex.cache, &input)?,
                 }
             }
 
@@ -839,21 +837,22 @@ mod tests {
     fn multiline() {
         #[rustfmt::skip]
         let term = mock_term("\
-            hello/world \r\n\
-            hello/world\
+            test \r\n\
+            test\
         ");
 
-        const PATTERN: &str = "([\\-\\._a-z0-9]*/[^/ ]*)+/?";
+        const PATTERN: &str = "[a-z]*";
         let mut regex = RegexSearch::new(PATTERN).unwrap();
         let start = Point::new(Line(0), Column(0));
-        let end = Point::new(Line(0), Column(10));
+        let end = Point::new(Line(0), Column(3));
         let match_start = Point::new(Line(0), Column(0));
         assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=end));
 
         let mut regex = RegexSearch::new(PATTERN).unwrap();
-        let start = Point::new(Line(0), Column(11));
+        let start = Point::new(Line(0), Column(4));
+        let end = Point::new(Line(0), Column(0));
         let match_start = Point::new(Line(1), Column(0));
-        let match_end = Point::new(Line(1), Column(10));
+        let match_end = Point::new(Line(1), Column(3));
         assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
     }
 
