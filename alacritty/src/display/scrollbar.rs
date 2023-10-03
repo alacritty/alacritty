@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use alacritty_terminal::grid::Scroll;
 use glutin::surface::Rect;
@@ -27,6 +27,24 @@ impl From<&ScrollbarConfig> for Scrollbar {
             total_lines: 0,
             last_change: None,
             drag_state: None,
+        }
+    }
+}
+
+pub enum ScrollbarState {
+    Show { opacity: f32 },
+    WaitForFading { opacity: f32, remaining_duration: Duration },
+    Fading { opacity: f32 },
+    Invisible,
+}
+
+impl ScrollbarState {
+    pub fn opacity(&self) -> f32 {
+        match self {
+            ScrollbarState::Show { opacity } => *opacity,
+            ScrollbarState::WaitForFading { opacity, .. } => *opacity,
+            ScrollbarState::Fading { opacity } => *opacity,
+            ScrollbarState::Invisible => 0.0,
         }
     }
 }
@@ -60,36 +78,39 @@ impl Scrollbar {
         self.last_change = None;
     }
 
-    pub fn intensity(&mut self, display_size: SizeInfo) -> Option<f32> {
-        let opacity = match self.config.mode {
-            ScrollbarMode::Never => {
-                return None;
-            },
+    pub fn intensity(&mut self, display_size: SizeInfo) -> ScrollbarState {
+        match self.config.mode {
+            ScrollbarMode::Never => ScrollbarState::Invisible,
             ScrollbarMode::Fading => {
                 if self.total_lines <= display_size.screen_lines {
-                    return None;
+                    return ScrollbarState::Invisible;
                 }
-                let last_scroll = self.last_change_time()?;
-                let timeout = (Instant::now() - last_scroll).as_secs_f32();
-                let fade_wait = self.config.fade_time_in_secs * 0.8;
-                let fade_time = self.config.fade_time_in_secs - fade_wait;
-                if timeout <= fade_wait {
-                    self.config.opacity.as_f32()
-                } else {
-                    let current_fade_time = timeout - fade_wait;
-                    if current_fade_time < fade_time {
-                        // Fading progress from 0.0 to 1.0.
-                        let fading_progress = current_fade_time / fade_time;
-                        (1.0 - fading_progress) * self.config.opacity.as_f32()
+                if let Some(last_scroll) = self.last_change_time() {
+                    let timeout = (Instant::now() - last_scroll).as_secs_f32();
+                    let fade_wait = self.config.fade_time_in_secs * 0.8;
+                    let fade_time = self.config.fade_time_in_secs - fade_wait;
+                    if timeout <= fade_wait {
+                        let opacity = self.config.opacity.as_f32();
+                        let remaining_duration = Duration::from_secs_f32(fade_wait - timeout);
+                        ScrollbarState::WaitForFading { opacity, remaining_duration }
                     } else {
-                        self.clear_change_time();
-                        return None;
+                        let current_fade_time = timeout - fade_wait;
+                        if current_fade_time < fade_time {
+                            // Fading progress from 0.0 to 1.0.
+                            let fading_progress = current_fade_time / fade_time;
+                            let opacity = (1.0 - fading_progress) * self.config.opacity.as_f32();
+                            ScrollbarState::Fading { opacity }
+                        } else {
+                            self.clear_change_time();
+                            ScrollbarState::Invisible
+                        }
                     }
+                } else {
+                    ScrollbarState::Invisible
                 }
             },
-            ScrollbarMode::Always => self.config.opacity.as_f32(),
-        };
-        Some(opacity)
+            ScrollbarMode::Always => ScrollbarState::Show { opacity: self.config.opacity.as_f32() },
+        }
     }
 
     pub fn bg_rect(&self, display_size: SizeInfo) -> Rect {
@@ -135,11 +156,7 @@ impl Scrollbar {
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
-        let intensity = if let Some(intensity) = self.intensity(display_size) {
-            intensity
-        } else {
-            return false;
-        };
+        let intensity = self.intensity(display_size).opacity();
         if intensity == 0. {
             return false;
         }
