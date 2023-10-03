@@ -370,7 +370,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CreateNewWindow => ctx.create_new_window(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             #[cfg(target_os = "macos")]
-            Action::CreateNewWindow => ctx.create_new_window(None),
+            Action::CreateNewWindow => ctx.spawn_new_instance(),
             #[cfg(target_os = "macos")]
             Action::CreateNewTab => {
                 let tabbing_id = Some(ctx.window().tabbing_id());
