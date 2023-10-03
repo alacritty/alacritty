@@ -272,9 +272,11 @@ impl<T> Term<T> {
 
         let mut point = iter.point();
         let mut last_point = point;
+        let mut xxx = 0;
 
-        loop {
+        'outer: loop {
             // Convert char to array of bytes.
+            println!("C: {c} ({point:?})");
             let mut buf = [0; 4];
             let utf8_len = c.encode_utf8(&mut buf).len();
 
@@ -287,6 +289,7 @@ impl<T> Term<T> {
                 };
 
                 state = regex.dfa.next_state(&mut regex.cache, state, byte)?;
+                xxx += 1;
 
                 // Matches require one additional BYTE of lookahead, so we check the match state for
                 // the first byte of every new character to determine if the last character was a
@@ -294,23 +297,40 @@ impl<T> Term<T> {
                 //
                 // We ignore it on the first character to avoid reporting matches for regexes
                 // matching an empty string.
-                if i == 0 && state.is_match() && point != start {
+                if i == 0 && state.is_match() {
+                    println!("IS MATCH");
                     regex_match = Some(last_point);
+                } else if state.is_dead() {
+                    // Restart search if our search resulted in an empty match.
+                    if xxx == 2 {
+                        println!("DEAD WITH EMPTY MATCH ({xxx})");
+                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
+                        regex_match = None;
+                        xxx = 0;
+                        if i == 0 {
+                            // TODO: multi-byte loops infinitely if second byte causes dead.
+                            continue 'outer;
+                        }
+                    } else {
+                        println!("IS DEAD ({xxx})");
+                        // Abort on dead state.
+                        break 'outer;
+                    }
                 }
-            }
-
-            // Abort on dead states.
-            if state.is_dead() {
-                break;
             }
 
             // Stop once we've reached the target point.
             if point == end || done {
+                println!("DONE: {} - {}", point == end, done);
                 // When reaching the end-of-input, we need to notify the parser that no look-ahead
                 // is possible and check if the current state is still a match.
                 state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
+                    println!("DONE EOI MATCH");
                     regex_match = Some(point);
+                } else if state.is_dead() && xxx == 1 {
+                    println!("DEAD END: {xxx}");
+                    regex_match = None;
                 }
 
                 break;
@@ -342,16 +362,26 @@ impl<T> Term<T> {
             if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
                 || (last_point.column == Column(0) && point.column == last_column && !wrapped)
             {
+                println!("NEWLINE");
                 // When reaching the end-of-input, we need to notify the parser that no
                 // look-ahead is possible and check if the current state is still a match.
                 state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
+                    println!("NEWLINE MATCH ({xxx})");
                     regex_match = Some(last_point);
                 }
 
                 match regex_match {
-                    Some(_) => break,
-                    None => state = regex.dfa.start_state_forward(&mut regex.cache, &input)?,
+                    Some(_) if (!state.is_dead() || xxx > 1) && xxx != 0 => {
+                        println!("NEWLINE BREAK ({xxx})");
+                        break;
+                    },
+                    _ => {
+                        println!("RESET");
+                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
+                        regex_match = None;
+                        xxx = 0;
+                    },
                 }
             }
 
@@ -837,6 +867,29 @@ mod tests {
     }
 
     #[test]
+    fn wrapping_into_fullwidth() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            🦇xx\r\n\
+            xx🦇\
+        ");
+
+        let mut regex = RegexSearch::new("🦇x").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(1), Column(3));
+        let match_start = Point::new(Line(0), Column(0));
+        let match_end = Point::new(Line(0), Column(2));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+
+        let mut regex = RegexSearch::new("x🦇").unwrap();
+        let start = Point::new(Line(1), Column(2));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(1), Column(1));
+        let match_end = Point::new(Line(1), Column(3));
+        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
     fn multiline() {
         #[rustfmt::skip]
         let term = mock_term("\
@@ -860,26 +913,43 @@ mod tests {
     }
 
     #[test]
-    fn wrapping_into_fullwidth() {
+    fn weird() {
         #[rustfmt::skip]
-        let term = mock_term("\
-            🦇xx\r\n\
-            xx🦇\
-        ");
+        let term = mock_term(" abc ");
 
-        let mut regex = RegexSearch::new("🦇x").unwrap();
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
         let start = Point::new(Line(0), Column(0));
-        let end = Point::new(Line(1), Column(3));
-        let match_start = Point::new(Line(0), Column(0));
-        let match_end = Point::new(Line(0), Column(2));
+        let end = Point::new(Line(0), Column(4));
+        let match_start = Point::new(Line(0), Column(1));
+        let match_end = Point::new(Line(0), Column(3));
         assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+    }
 
-        let mut regex = RegexSearch::new("x🦇").unwrap();
-        let start = Point::new(Line(1), Column(2));
-        let end = Point::new(Line(0), Column(0));
-        let match_start = Point::new(Line(1), Column(1));
-        let match_end = Point::new(Line(1), Column(3));
-        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_start..=match_end));
+    #[test]
+    fn weird2() {
+        #[rustfmt::skip]
+        let term = mock_term(" ↑");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(1));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), None);
+    }
+
+    #[test]
+    fn weird3() {
+        #[rustfmt::skip]
+        let term = mock_term("abc          \nxxx");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(3));
+        let end = Point::new(Line(1), Column(2));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(1), Column(2));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
     }
 
     #[test]
