@@ -291,6 +291,9 @@ impl<T> Term<T> {
                 // Matches require one additional BYTE of lookahead, so we check the match state for
                 // the first byte of every new character to determine if the last character was a
                 // match.
+                //
+                // We ignore it on the first character to avoid reporting matches for regexes
+                // matching an empty string.
                 if i == 0 && state.is_match() && point != start {
                     regex_match = Some(last_point);
                 }
