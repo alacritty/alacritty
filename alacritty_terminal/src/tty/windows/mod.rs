@@ -20,8 +20,7 @@ use miow::pipe::{AnonRead, AnonWrite};
 use polling::{Event, Poller};
 
 pub const PTY_CHILD_EVENT_TOKEN: usize = 1;
-pub const PTY_READ_TOKEN: usize = 2;
-pub const PTY_WRITE_TOKEN: usize = 3;
+pub const PTY_READ_WRITE_TOKEN: usize = 2;
 
 type ReadPipe = UnblockedReader<AnonRead>;
 type WritePipe = UnblockedWriter<AnonWrite>;
@@ -67,8 +66,8 @@ impl EventedReadWrite for Pty {
         interest: polling::Event,
         poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        self.conin.register(poll, with_key(interest, PTY_WRITE_TOKEN), poll_opts);
-        self.conout.register(poll, with_key(interest, PTY_READ_TOKEN), poll_opts);
+        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
         self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
 
         Ok(())
@@ -81,8 +80,8 @@ impl EventedReadWrite for Pty {
         interest: polling::Event,
         poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        self.conin.register(poll, with_key(interest, PTY_WRITE_TOKEN), poll_opts);
-        self.conout.register(poll, with_key(interest, PTY_READ_TOKEN), poll_opts);
+        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
         self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
 
         Ok(())

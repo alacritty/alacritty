@@ -215,7 +215,7 @@ where
                 self.pty.register(&self.poll, interest, poll_opts).unwrap();
             }
 
-            let mut events = Events::with_capacity(NonZeroUsize::new(128).unwrap());
+            let mut events = Events::with_capacity(NonZeroUsize::new(1024).unwrap());
 
             let mut pipe = if self.ref_test {
                 Some(File::create("./alacritty.recording").expect("create alacritty recording"))
@@ -266,8 +266,11 @@ where
                             }
                         },
 
-                        token if token == tty::PTY_READ_TOKEN || token == tty::PTY_WRITE_TOKEN => {
-                            // FIXME: once polling supports extra reported modes bring it back.
+                        tty::PTY_READ_WRITE_TOKEN => {
+                            if event.is_interrupt() {
+                                // Don't try to do I/O on a dead PTY.
+                                continue;
+                            }
 
                             if event.readable {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())

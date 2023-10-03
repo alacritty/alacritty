@@ -24,9 +24,8 @@ use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
-// We use the same interest for reading and writing.
-pub(crate) const PTY_READ_TOKEN: usize = 0;
-pub(crate) const PTY_WRITE_TOKEN: usize = 0;
+// Interest in PTY read/writes.
+pub(crate) const PTY_READ_WRITE_TOKEN: usize = 0;
 
 // Interest in new child events.
 pub(crate) const PTY_CHILD_EVENT_TOKEN: usize = 1;
@@ -112,9 +111,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
 pub struct Pty {
     child: Child,
     file: File,
-    token: usize,
     signals: UnixStream,
-    signals_token: usize,
 }
 
 impl Pty {
@@ -280,13 +277,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 set_nonblocking(master);
             }
 
-            let mut pty = Pty {
-                child,
-                file: unsafe { File::from_raw_fd(master) },
-                token: 0,
-                signals,
-                signals_token: 0,
-            };
+            let mut pty = Pty { child, file: unsafe { File::from_raw_fd(master) }, signals };
             pty.on_resize(window_size);
             Ok(pty)
         },
@@ -322,15 +313,17 @@ impl EventedReadWrite for Pty {
         mut interest: Event,
         poll_opts: PollMode,
     ) -> Result<()> {
-        self.token = PTY_READ_TOKEN;
-        interest.key = self.token;
+        interest.key = PTY_READ_WRITE_TOKEN;
         unsafe {
             poll.add_with_mode(&self.file, interest, poll_opts)?;
         }
 
-        self.signals_token = PTY_CHILD_EVENT_TOKEN;
         unsafe {
-            poll.add_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
+            poll.add_with_mode(
+                &self.signals,
+                Event::readable(PTY_CHILD_EVENT_TOKEN),
+                PollMode::Level,
+            )
         }
     }
 
@@ -341,10 +334,14 @@ impl EventedReadWrite for Pty {
         mut interest: Event,
         poll_opts: PollMode,
     ) -> Result<()> {
-        interest.key = self.token;
+        interest.key = PTY_READ_WRITE_TOKEN;
         poll.modify_with_mode(&self.file, interest, poll_opts)?;
 
-        poll.modify_with_mode(&self.signals, Event::readable(self.signals_token), PollMode::Level)
+        poll.modify_with_mode(
+            &self.signals,
+            Event::readable(PTY_CHILD_EVENT_TOKEN),
+            PollMode::Level,
+        )
     }
 
     #[inline]
@@ -369,22 +366,17 @@ impl EventedPty for Pty {
     fn next_child_event(&mut self) -> Option<ChildEvent> {
         // See if there has been a SIGCHLD.
         let mut buf = [0u8; 1];
-        match self.signals.read(&mut buf) {
-            // We received the signal.
-            Ok(_) => (),
-
-            Err(e) => {
-                if e.kind() != ErrorKind::WouldBlock {
-                    error!("Error reading from signal pipe: {}", e);
-                }
-                return None;
-            },
+        if let Err(err) = self.signals.read(&mut buf) {
+            if err.kind() != ErrorKind::WouldBlock {
+                error!("Error reading from signal pipe: {}", err);
+            }
+            return None;
         }
 
         // Match on the child process.
         match self.child.try_wait() {
-            Err(e) => {
-                error!("Error checking child process termination: {}", e);
+            Err(err) => {
+                error!("Error checking child process termination: {}", err);
                 None
             },
             Ok(None) => None,
