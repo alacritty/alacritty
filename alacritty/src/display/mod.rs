@@ -984,7 +984,15 @@ impl Display {
             }
         }
 
-        self.draw_scrollbar(&mut rects, display_offset, total_lines, &config.scrollbar);
+        if config.scrollbar.mode != ScrollbarMode::Never {
+            self.draw_scrollbar(
+                &mut rects,
+                scheduler,
+                display_offset,
+                total_lines,
+                &config.scrollbar,
+            );
+        }
 
         if let Some(message) = message_buffer.message() {
             let search_offset = usize::from(search_state.regex().is_some());
@@ -1151,19 +1159,26 @@ impl Display {
     fn draw_scrollbar(
         &mut self,
         rects: &mut Vec<RenderRect>,
+        scheduler: &mut Scheduler,
         display_offset: usize,
         total_lines: usize,
         config: &ScrollbarConfig,
     ) {
         let did_position_change = self.scrollbar.update(display_offset, total_lines);
-        let opacity = if let Some(opacity) = self.scrollbar.intensity(self.size_info) {
-            opacity
-        } else {
-            return;
+        let opacity = match self.scrollbar.intensity(self.size_info) {
+            scrollbar::ScrollbarState::Show { opacity } => opacity,
+            scrollbar::ScrollbarState::WaitForFading { opacity, remaining_duration } => {
+                self.request_scrollbar_redraw(scheduler, remaining_duration);
+                opacity
+            },
+            scrollbar::ScrollbarState::Fading { opacity } => {
+                self.window.request_redraw();
+                opacity
+            },
+            scrollbar::ScrollbarState::Invisible => 0.,
         };
-
-        if config.mode == ScrollbarMode::Fading {
-            self.window.request_redraw();
+        if opacity == 0. {
+            return;
         }
 
         let bg_rect = self.scrollbar.bg_rect(self.size_info);
@@ -1523,9 +1538,18 @@ impl Display {
 
         let window_id = self.window.id();
         let timer_id = TimerId::new(Topic::Frame, window_id);
-        let event = Event::new(EventType::Frame, window_id);
+        let event = Event::new(EventType::Frame { force: false }, window_id);
 
         scheduler.schedule(event, swap_timeout, false, timer_id);
+    }
+
+    fn request_scrollbar_redraw(&mut self, scheduler: &mut Scheduler, wait_timeout: Duration) {
+        let window_id = self.window.id();
+        let timer_id = TimerId::new(Topic::ScrollbarRedraw, window_id);
+        let event = Event::new(EventType::Frame { force: true }, window_id);
+
+        scheduler.unschedule(timer_id);
+        scheduler.schedule(event, wait_timeout, false, timer_id);
     }
 }
 
