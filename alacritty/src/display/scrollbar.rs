@@ -85,6 +85,9 @@ impl Scrollbar {
                 if self.total_lines <= display_size.screen_lines {
                     return ScrollbarState::Invisible;
                 }
+                if self.is_dragging() {
+                    self.last_change = Some(Instant::now());
+                }
                 if let Some(last_scroll) = self.last_change_time() {
                     let timeout = (Instant::now() - last_scroll).as_secs_f32();
                     let fade_wait = self.config.fade_time_in_secs * 0.8;
