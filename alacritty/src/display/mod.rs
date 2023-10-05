@@ -1175,23 +1175,27 @@ impl Display {
                 self.window.request_redraw();
                 opacity
             },
-            scrollbar::ScrollbarState::Invisible => 0.,
+            scrollbar::ScrollbarState::Invisible { has_damage } => {
+                if !has_damage {
+                    return;
+                }
+                0.
+            },
         };
-        if opacity == 0. {
-            return;
-        }
-
         let bg_rect = self.scrollbar.bg_rect(self.size_info);
         let scrollbar_rect = self.scrollbar.rect_from_bg_rect(bg_rect, self.size_info);
         let y = self.size_info.height - (scrollbar_rect.y + scrollbar_rect.height) as f32;
-        rects.push(RenderRect::new(
-            scrollbar_rect.x as f32,
-            y,
-            scrollbar_rect.width as f32,
-            scrollbar_rect.height as f32,
-            config.color,
-            opacity,
-        ));
+        if opacity != 0. {
+            rects.push(RenderRect::new(
+                scrollbar_rect.x as f32,
+                y,
+                scrollbar_rect.width as f32,
+                scrollbar_rect.height as f32,
+                config.color,
+                opacity,
+            ));
+        }
+
         if did_position_change {
             self.damage_tracker.frame().add_viewport_rect(
                 &self.size_info,
