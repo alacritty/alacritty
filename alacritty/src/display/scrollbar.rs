@@ -8,7 +8,7 @@ use crate::config::ui_config::{Scrollbar as ScrollbarConfig, ScrollbarMode};
 use super::SizeInfo;
 
 /// Keeps track of when the scrollbar should be visible or fading.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Scrollbar {
     config: ScrollbarConfig,
     /// Display offset, that was last used to draw the scrollbar.
@@ -31,6 +31,7 @@ impl From<&ScrollbarConfig> for Scrollbar {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ScrollbarState {
     Show { opacity: f32 },
     WaitForFading { opacity: f32, remaining_duration: Duration },
@@ -234,7 +235,7 @@ impl Scrollbar {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct DragState {
     cells_per_dragged_pixel: f32,
     accumulated_cells: f32,
