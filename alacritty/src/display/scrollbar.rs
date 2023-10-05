@@ -33,21 +33,20 @@ impl From<&ScrollbarConfig> for Scrollbar {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ScrollbarState {
-    Show { opacity: f32 },
-    WaitForFading { opacity: f32, remaining_duration: Duration },
-    Fading { opacity: f32 },
-    Invisible,
-}
-
-impl ScrollbarState {
-    pub fn opacity(&self) -> f32 {
-        match self {
-            ScrollbarState::Show { opacity } => *opacity,
-            ScrollbarState::WaitForFading { opacity, .. } => *opacity,
-            ScrollbarState::Fading { opacity } => *opacity,
-            ScrollbarState::Invisible => 0.0,
-        }
-    }
+    Show {
+        opacity: f32,
+    },
+    WaitForFading {
+        opacity: f32,
+        remaining_duration: Duration,
+    },
+    Fading {
+        opacity: f32,
+    },
+    /// `has_damage` - If the scrollbar was previously viisible, we need to draw a damage rect.
+    Invisible {
+        has_damage: bool,
+    },
 }
 
 impl Scrollbar {
@@ -79,12 +78,24 @@ impl Scrollbar {
         self.last_change = None;
     }
 
+    pub fn is_visible(&self, display_size: SizeInfo) -> bool {
+        match self.config.mode {
+            ScrollbarMode::Never => false,
+            ScrollbarMode::Fading => {
+                self.is_dragging()
+                    || self.total_lines > display_size.screen_lines
+                        && self.last_change_time().is_some()
+            },
+            ScrollbarMode::Always => true,
+        }
+    }
+
     pub fn intensity(&mut self, display_size: SizeInfo) -> ScrollbarState {
         match self.config.mode {
-            ScrollbarMode::Never => ScrollbarState::Invisible,
+            ScrollbarMode::Never => ScrollbarState::Invisible { has_damage: false },
             ScrollbarMode::Fading => {
                 if self.total_lines <= display_size.screen_lines {
-                    return ScrollbarState::Invisible;
+                    return ScrollbarState::Invisible { has_damage: false };
                 }
                 if self.is_dragging() {
                     self.last_change = Some(Instant::now());
@@ -106,11 +117,11 @@ impl Scrollbar {
                             ScrollbarState::Fading { opacity }
                         } else {
                             self.clear_change_time();
-                            ScrollbarState::Invisible
+                            ScrollbarState::Invisible { has_damage: true }
                         }
                     }
                 } else {
-                    ScrollbarState::Invisible
+                    ScrollbarState::Invisible { has_damage: false }
                 }
             },
             ScrollbarMode::Always => ScrollbarState::Show { opacity: self.config.opacity.as_f32() },
@@ -160,8 +171,7 @@ impl Scrollbar {
         mouse_x: usize,
         mouse_y: usize,
     ) -> bool {
-        let intensity = self.intensity(display_size).opacity();
-        if intensity == 0. {
+        if !self.is_visible(display_size) {
             return false;
         }
 
@@ -208,7 +218,7 @@ impl Scrollbar {
         true
     }
 
-    pub fn is_dragging(&mut self) -> bool {
+    pub fn is_dragging(&self) -> bool {
         self.drag_state.is_some()
     }
 
