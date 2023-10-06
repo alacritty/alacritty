@@ -272,11 +272,19 @@ impl<T> Term<T> {
 
         let mut point = iter.point();
         let mut last_point = point;
-        let mut xxx = 0;
+        let mut consumed_bytes = 0;
+
+        // Reset the regex state to restart the search.
+        macro_rules! reset_state {
+            () => {{
+                state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
+                consumed_bytes = 0;
+                regex_match = None;
+            }};
+        }
 
         'outer: loop {
             // Convert char to array of bytes.
-            println!("C: {c} ({point:?})");
             let mut buf = [0; 4];
             let utf8_len = c.encode_utf8(&mut buf).len();
 
@@ -289,30 +297,41 @@ impl<T> Term<T> {
                 };
 
                 state = regex.dfa.next_state(&mut regex.cache, state, byte)?;
-                xxx += 1;
+                consumed_bytes += 1;
 
-                // Matches require one additional BYTE of lookahead, so we check the match state for
-                // the first byte of every new character to determine if the last character was a
-                // match.
-                //
-                // We ignore it on the first character to avoid reporting matches for regexes
-                // matching an empty string.
                 if i == 0 && state.is_match() {
-                    println!("IS MATCH");
+                    // Matches require one additional BYTE of lookahead, so we check the match state
+                    // for the first byte of every new character to determine if the last character
+                    // was a match.
                     regex_match = Some(last_point);
                 } else if state.is_dead() {
-                    // Restart search if our search resulted in an empty match.
-                    if xxx == 2 {
-                        println!("DEAD WITH EMPTY MATCH ({xxx})");
-                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
-                        regex_match = None;
-                        xxx = 0;
+                    if consumed_bytes == 2 {
+                        // Reset search if we found an empty match.
+                        //
+                        // With an unanchored search, a dead state only occurs after the end of a
+                        // match has been found. While we want to abort after the first match has
+                        // ended, we don't want empty matches since we cannot highlight them.
+                        //
+                        // So once we encounter an empty match, we reset our parser state and clear
+                        // the match, effectively starting a new search one character farther than
+                        // before.
+                        //
+                        // An empty match requires consuming `2` bytes, since the first byte will
+                        // report the match for the empty string, while the second byte then
+                        // reports the dead state indicating the first character isn't part of the
+                        // match.
+                        reset_state!();
+
+                        // Retry this character if first byte caused failure.
+                        //
+                        // After finding an empty match, we want to advance the search start by one
+                        // character. So if the first character has multiple bytes and the dead
+                        // state isn't reached at `i == 0`, then we continue with the rest of the
+                        // loop to advance the parser by one character.
                         if i == 0 {
-                            // TODO: multi-byte loops infinitely if second byte causes dead.
                             continue 'outer;
                         }
                     } else {
-                        println!("IS DEAD ({xxx})");
                         // Abort on dead state.
                         break 'outer;
                     }
@@ -321,15 +340,13 @@ impl<T> Term<T> {
 
             // Stop once we've reached the target point.
             if point == end || done {
-                println!("DONE: {} - {}", point == end, done);
                 // When reaching the end-of-input, we need to notify the parser that no look-ahead
-                // is possible and check if the current state is still a match.
+                // is possible and check for state changes.
                 state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
-                    println!("DONE EOI MATCH");
                     regex_match = Some(point);
-                } else if state.is_dead() && xxx == 1 {
-                    println!("DEAD END: {xxx}");
+                } else if state.is_dead() && consumed_bytes == 1 {
+                    // Ignore empty matches.
                     regex_match = None;
                 }
 
@@ -362,26 +379,19 @@ impl<T> Term<T> {
             if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
                 || (last_point.column == Column(0) && point.column == last_column && !wrapped)
             {
-                println!("NEWLINE");
                 // When reaching the end-of-input, we need to notify the parser that no
                 // look-ahead is possible and check if the current state is still a match.
                 state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
-                    println!("NEWLINE MATCH ({xxx})");
                     regex_match = Some(last_point);
                 }
 
                 match regex_match {
-                    Some(_) if (!state.is_dead() || xxx > 1) && xxx != 0 => {
-                        println!("NEWLINE BREAK ({xxx})");
+                    // Stop if we found a non-empty match before the linebreak.
+                    Some(_) if (!state.is_dead() || consumed_bytes > 1) && consumed_bytes != 0 => {
                         break;
                     },
-                    _ => {
-                        println!("RESET");
-                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
-                        regex_match = None;
-                        xxx = 0;
-                    },
+                    _ => reset_state!(),
                 }
             }
 
