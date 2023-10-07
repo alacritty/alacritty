@@ -2,25 +2,33 @@
 
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
 use std::{env, ptr};
 
 use libc::{self, c_int, winsize, TIOCSCTTY};
 use log::error;
-use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
+use polling::{Event, PollMode, Poller};
 use signal_hook::consts as sigconsts;
-use signal_hook_mio::v0_6::Signals;
+use signal_hook::low_level::pipe as signal_pipe;
 
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+
+// Interest in PTY read/writes.
+pub(crate) const PTY_READ_WRITE_TOKEN: usize = 0;
+
+// Interest in new child events.
+pub(crate) const PTY_CHILD_EVENT_TOKEN: usize = 1;
 
 macro_rules! die {
     ($($arg:tt)*) => {{
@@ -103,9 +111,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
 pub struct Pty {
     child: Child,
     file: File,
-    token: mio::Token,
-    signals: Signals,
-    signals_token: mio::Token,
+    signals: UnixStream,
 }
 
 impl Pty {
@@ -254,7 +260,14 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     }
 
     // Prepare signal handling before spawning child.
-    let signals = Signals::new([sigconsts::SIGCHLD]).expect("error preparing signal handling");
+    let signals = {
+        let (sender, recv) = UnixStream::pair()?;
+
+        // Register the recv end of the pipe for SIGCHLD.
+        signal_pipe::register(sigconsts::SIGCHLD, sender)?;
+        recv.set_nonblocking(true)?;
+        recv
+    };
 
     match builder.spawn() {
         Ok(child) => {
@@ -264,13 +277,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 set_nonblocking(master);
             }
 
-            let mut pty = Pty {
-                child,
-                file: unsafe { File::from_raw_fd(master) },
-                token: mio::Token::from(0),
-                signals,
-                signals_token: mio::Token::from(0),
-            };
+            let mut pty = Pty { child, file: unsafe { File::from_raw_fd(master) }, signals };
             pty.on_resize(window_size);
             Ok(pty)
         },
@@ -300,46 +307,47 @@ impl EventedReadWrite for Pty {
     type Writer = File;
 
     #[inline]
-    fn register(
+    unsafe fn register(
         &mut self,
-        poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = mio::Token>,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
-        self.token = token.next().unwrap();
-        poll.register(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+        interest.key = PTY_READ_WRITE_TOKEN;
+        unsafe {
+            poll.add_with_mode(&self.file, interest, poll_opts)?;
+        }
 
-        self.signals_token = token.next().unwrap();
-        poll.register(
-            &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
-        )
+        unsafe {
+            poll.add_with_mode(
+                &self.signals,
+                Event::readable(PTY_CHILD_EVENT_TOKEN),
+                PollMode::Level,
+            )
+        }
     }
 
     #[inline]
     fn reregister(
         &mut self,
-        poll: &mio::Poll,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
-        poll.reregister(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+        interest.key = PTY_READ_WRITE_TOKEN;
+        poll.modify_with_mode(&self.file, interest, poll_opts)?;
 
-        poll.reregister(
+        poll.modify_with_mode(
             &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
+            Event::readable(PTY_CHILD_EVENT_TOKEN),
+            PollMode::Level,
         )
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
-        poll.deregister(&EventedFd(&self.file.as_raw_fd()))?;
-        poll.deregister(&self.signals)
+    fn deregister(&mut self, poll: &Arc<Poller>) -> Result<()> {
+        poll.delete(&self.file)?;
+        poll.delete(&self.signals)
     }
 
     #[inline]
@@ -348,43 +356,32 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn read_token(&self) -> mio::Token {
-        self.token
-    }
-
-    #[inline]
     fn writer(&mut self) -> &mut File {
         &mut self.file
-    }
-
-    #[inline]
-    fn write_token(&self) -> mio::Token {
-        self.token
     }
 }
 
 impl EventedPty for Pty {
     #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        self.signals.pending().next().and_then(|signal| {
-            if signal != sigconsts::SIGCHLD {
-                return None;
+        // See if there has been a SIGCHLD.
+        let mut buf = [0u8; 1];
+        if let Err(err) = self.signals.read(&mut buf) {
+            if err.kind() != ErrorKind::WouldBlock {
+                error!("Error reading from signal pipe: {}", err);
             }
+            return None;
+        }
 
-            match self.child.try_wait() {
-                Err(e) => {
-                    error!("Error checking child process termination: {}", e);
-                    None
-                },
-                Ok(None) => None,
-                Ok(_) => Some(ChildEvent::Exited),
-            }
-        })
-    }
-
-    #[inline]
-    fn child_event_token(&self) -> mio::Token {
-        self.signals_token
+        // Match on the child process.
+        match self.child.try_wait() {
+            Err(err) => {
+                error!("Error checking child process termination: {}", err);
+                None
+            },
+            Ok(None) => None,
+            Ok(_) => Some(ChildEvent::Exited),
+        }
     }
 }
 
