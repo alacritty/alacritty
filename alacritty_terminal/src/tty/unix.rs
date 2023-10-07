@@ -4,7 +4,8 @@ use std::ffi::CStr;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::fd::OwnedFd;
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
@@ -38,7 +39,7 @@ macro_rules! die {
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
-fn make_pty(size: winsize) -> Result<(RawFd, RawFd)> {
+fn make_pty(size: winsize) -> Result<(OwnedFd, OwnedFd)> {
     let mut window_size = size;
     window_size.ws_xpixel = 0;
     window_size.ws_ypixel = 0;
@@ -194,12 +195,14 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
 /// Create a new TTY and return a handle to interact with it.
 pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let (master, slave) = make_pty(window_size.to_winsize())?;
+    let master_fd = master.as_raw_fd();
+    let slave_fd = slave.as_raw_fd();
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    if let Ok(mut termios) = termios::tcgetattr(master) {
+    if let Ok(mut termios) = termios::tcgetattr(&master) {
         // Set character encoding to UTF-8.
         termios.input_flags.set(InputFlags::IUTF8, true);
-        let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
+        let _ = termios::tcsetattr(&master, SetArg::TCSANOW, &termios);
     }
 
     let user = ShellUser::from_env()?;
@@ -216,9 +219,9 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
     // error on libc::close.).
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
+    builder.stdin(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stderr(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stdout(unsafe { Stdio::from_raw_fd(slave_fd) });
 
     // Setup shell environment.
     let window_id = window_id.to_string();
@@ -237,11 +240,11 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
             }
 
-            set_controlling_terminal(slave);
+            set_controlling_terminal(slave_fd);
 
             // No longer need slave/master fds.
-            libc::close(slave);
-            libc::close(master);
+            libc::close(slave_fd);
+            libc::close(master_fd);
 
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
             libc::signal(libc::SIGHUP, libc::SIG_DFL);
@@ -274,10 +277,10 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
-                set_nonblocking(master);
+                set_nonblocking(master_fd);
             }
 
-            let mut pty = Pty { child, file: unsafe { File::from_raw_fd(master) }, signals };
+            let mut pty = Pty { child, file: unsafe { File::from_raw_fd(master_fd) }, signals };
             pty.on_resize(window_size);
             Ok(pty)
         },

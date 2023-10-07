@@ -11,4 +11,4 @@ rust-version = "1.70.0"
 [dependencies]
 log = { version = "0.4.17", features = ["serde"] }
 serde = "1.0.163"
-toml = "0.7.1"
+toml = "0.8.2"
