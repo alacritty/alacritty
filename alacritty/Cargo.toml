@@ -60,7 +60,6 @@ objc = "0.2.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = { version = "2", optional = true }
-wayland-client = { version = "0.31.1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 dirs = "5.0.1"
@@ -82,12 +81,13 @@ x11 = [
     "glutin/x11",
     "glutin/glx",
     "x11-dl",
-    "png"]
+    "png",
+]
 wayland = [
     "copypasta/wayland",
     "glutin/wayland",
     "winit/wayland",
     "winit/wayland-dlopen",
     "winit/wayland-csd-adwaita-crossfont",
-    "wayland-client"]
+]
 nightly = []
