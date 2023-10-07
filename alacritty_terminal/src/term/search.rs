@@ -8,7 +8,7 @@ use regex_automata::hybrid::dfa::{Builder, Cache, Config, DFA};
 pub use regex_automata::hybrid::BuildError;
 use regex_automata::nfa::thompson::Config as ThompsonConfig;
 use regex_automata::util::syntax::Config as SyntaxConfig;
-use regex_automata::{Anchored, Input};
+use regex_automata::{Anchored, Input, MatchKind};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
@@ -23,8 +23,10 @@ pub type Match = RangeInclusive<Point>;
 /// Terminal regex search state.
 #[derive(Clone, Debug)]
 pub struct RegexSearch {
-    fdfa: LazyDfa,
-    rdfa: LazyDfa,
+    left_fdfa: LazyDfa,
+    left_rdfa: LazyDfa,
+    right_rdfa: LazyDfa,
+    right_fdfa: LazyDfa,
 }
 
 impl RegexSearch {
@@ -39,24 +41,39 @@ impl RegexSearch {
         let config =
             Config::new().minimum_cache_clear_count(Some(3)).minimum_bytes_per_state(Some(10));
         let max_size = config.get_cache_capacity();
-        let mut thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
+        let thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
 
-        // Create Regex DFA for left-to-right search.
-        let fdfa = Builder::new()
-            .configure(config.clone())
-            .syntax(syntax_config)
-            .thompson(thompson_config.clone())
-            .build(search)?;
+        // Create DFAs to find start/end in left-to-right search.
+        let right_fdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config.clone(),
+            thompson_config.clone(),
+            Direction::Right,
+            false,
+        )?;
+        let right_rdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config.clone(),
+            thompson_config.clone(),
+            Direction::Left,
+            true,
+        )?;
 
-        // Create Regex DFA for right-to-left search.
-        thompson_config = thompson_config.reverse(true);
-        let rdfa = Builder::new()
-            .configure(config)
-            .syntax(syntax_config)
-            .thompson(thompson_config)
-            .build(search)?;
+        // Create DFAs to find start/end in right-to-left search.
+        let left_fdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config.clone(),
+            thompson_config.clone(),
+            Direction::Left,
+            false,
+        )?;
+        let left_rdfa =
+            LazyDfa::new(search, config, syntax_config, thompson_config, Direction::Right, true)?;
 
-        Ok(RegexSearch { fdfa: fdfa.into(), rdfa: rdfa.into() })
+        Ok(RegexSearch { left_fdfa, left_rdfa, right_fdfa, right_rdfa })
     }
 }
 
@@ -67,10 +84,32 @@ struct LazyDfa {
     cache: Cache,
 }
 
-impl From<DFA> for LazyDfa {
-    fn from(dfa: DFA) -> Self {
+impl LazyDfa {
+    fn new(
+        search: &str,
+        mut config: Config,
+        syntax: SyntaxConfig,
+        mut thompson: ThompsonConfig,
+        direction: Direction,
+        reverse: bool,
+    ) -> Result<Self, Box<BuildError>> {
+        thompson = match direction {
+            Direction::Left => thompson.reverse(true),
+            Direction::Right => thompson.reverse(false),
+        };
+        config = if reverse {
+            config.match_kind(MatchKind::All)
+        } else {
+            config.match_kind(MatchKind::LeftmostFirst)
+        };
+
+        // Create the DFA.
+        let dfa =
+            Builder::new().configure(config).syntax(syntax).thompson(thompson).build(search)?;
+
         let cache = dfa.create_cache();
-        Self { dfa, cache }
+
+        Ok(Self { dfa, cache })
     }
 }
 
@@ -190,9 +229,10 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_start = self.regex_search(start, end, Direction::Left, false, &mut regex.rdfa)?;
+        let match_start =
+            self.regex_search(start, end, Direction::Left, false, &mut regex.left_fdfa)?;
         let match_end =
-            self.regex_search(match_start, start, Direction::Right, true, &mut regex.fdfa)?;
+            self.regex_search(match_start, start, Direction::Right, true, &mut regex.left_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -207,9 +247,10 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_end = self.regex_search(start, end, Direction::Right, false, &mut regex.fdfa)?;
+        let match_end =
+            self.regex_search(start, end, Direction::Right, false, &mut regex.right_fdfa)?;
         let match_start =
-            self.regex_search(match_end, start, Direction::Left, true, &mut regex.rdfa)?;
+            self.regex_search(match_end, start, Direction::Left, true, &mut regex.right_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -923,7 +964,7 @@ mod tests {
     }
 
     #[test]
-    fn weird() {
+    fn empty_match() {
         #[rustfmt::skip]
         let term = mock_term(" abc ");
 
@@ -937,7 +978,7 @@ mod tests {
     }
 
     #[test]
-    fn weird2() {
+    fn empty_match_multibyte() {
         #[rustfmt::skip]
         let term = mock_term(" ↑");
 
@@ -949,7 +990,7 @@ mod tests {
     }
 
     #[test]
-    fn weird3() {
+    fn empty_match_multiline() {
         #[rustfmt::skip]
         let term = mock_term("abc          \nxxx");
 
@@ -1055,5 +1096,17 @@ mod tests {
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(9999));
         assert_eq!(term.regex_search_right(&mut regex, start, end), None);
+    }
+
+    #[test]
+    fn greed_is_good() {
+        #[rustfmt::skip]
+        let term = mock_term("https://github.com");
+
+        // Bottom to top.
+        let mut regex = RegexSearch::new("/github.com|https://github.com").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(17));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(start..=end));
     }
 }
