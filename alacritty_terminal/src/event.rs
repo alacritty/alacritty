@@ -2,6 +2,8 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
+use cursor_icon::CursorIcon;
+
 use crate::term::color::Rgb;
 use crate::term::ClipboardType;
 
@@ -16,6 +18,11 @@ pub enum Event {
 
     /// Window title change.
     Title(String),
+
+    /// Mouse cursor icon change.
+    ///
+    /// `None` indicates that it was unset.
+    MouseCursorIcon(Option<CursorIcon>),
 
     /// Reset to the default window title.
     ResetTitle,
@@ -65,6 +72,7 @@ impl Debug for Event {
             Event::Title(title) => write!(f, "Title({title})"),
             Event::CursorBlinkingChange => write!(f, "CursorBlinkingChange"),
             Event::MouseCursorDirty => write!(f, "MouseCursorDirty"),
+            Event::MouseCursorIcon(icon) => write!(f, "MouseCursorIcon({icon:?})"),
             Event::ResetTitle => write!(f, "ResetTitle"),
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),

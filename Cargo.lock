@@ -97,6 +97,7 @@ dependencies = [
  "alacritty_config_derive",
  "base64",
  "bitflags 2.3.3",
+ "cursor-icon",
  "home",
  "libc",
  "log",

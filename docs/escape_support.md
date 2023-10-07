@@ -94,6 +94,7 @@ brevity.
 | `OSC 10`  | IMPLEMENTED |                                                    |
 | `OSC 11`  | IMPLEMENTED |                                                    |
 | `OSC 12`  | IMPLEMENTED |                                                    |
+| `OSC 22`  | IMPLEMENTED |                                                    |
 | `OSC 50`  | IMPLEMENTED | Only `CursorShape` is supported                    |
 | `OSC 52`  | IMPLEMENTED | Only Clipboard and primary selection supported     |
 | `OSC 104` | IMPLEMENTED |                                                    |
