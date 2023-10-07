@@ -47,7 +47,7 @@ impl RegexSearch {
         let right_fdfa = LazyDfa::new(
             search,
             config.clone(),
-            syntax_config.clone(),
+            syntax_config,
             thompson_config.clone(),
             Direction::Right,
             false,
@@ -55,7 +55,7 @@ impl RegexSearch {
         let right_rdfa = LazyDfa::new(
             search,
             config.clone(),
-            syntax_config.clone(),
+            syntax_config,
             thompson_config.clone(),
             Direction::Left,
             true,
@@ -65,7 +65,7 @@ impl RegexSearch {
         let left_fdfa = LazyDfa::new(
             search,
             config.clone(),
-            syntax_config.clone(),
+            syntax_config,
             thompson_config.clone(),
             Direction::Left,
             false,
