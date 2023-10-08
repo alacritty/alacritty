@@ -33,7 +33,7 @@ unicode-width = "0.1"
 vte = { version = "0.12.0", default-features = false, features = ["ansi", "serde"] }
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.27.1", default-features = false, features = ["term"] }
+rustix-openpty = "0.1.1"
 signal-hook = "0.3.10"
 
 [target.'cfg(windows)'.dependencies]
