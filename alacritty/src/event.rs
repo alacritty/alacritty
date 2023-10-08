@@ -889,14 +889,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Find next match in this line.
         let vi_point = self.terminal.vi_mode_cursor.point;
         let point = match direction {
-            Direction::Right => {
-                let origin = vi_point.add(self.terminal, Boundary::None, 1);
-                self.terminal.inline_search_right(origin, search_character)
-            },
-            Direction::Left => {
-                let origin = vi_point.sub(self.terminal, Boundary::None, 1);
-                self.terminal.inline_search_left(origin, search_character)
-            },
+            Direction::Right => self.terminal.inline_search_right(vi_point, search_character),
+            Direction::Left => self.terminal.inline_search_left(vi_point, search_character),
         };
 
         // Jump to point if there's a match.
