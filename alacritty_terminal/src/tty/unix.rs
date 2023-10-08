@@ -280,7 +280,7 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 set_nonblocking(master_fd);
             }
 
-            let mut pty = Pty { child, file: unsafe { File::from_raw_fd(master_fd) }, signals };
+            let mut pty = Pty { child, file: File::from(master), signals };
             pty.on_resize(window_size);
             Ok(pty)
         },
