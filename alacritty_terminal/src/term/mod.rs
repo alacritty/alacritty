@@ -4,6 +4,8 @@ use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
 use std::{cmp, mem, ptr, slice, str};
 
+use base64::engine::general_purpose::STANDARD as Base64;
+use base64::Engine;
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
@@ -1556,7 +1558,7 @@ impl<T: EventListener> Handler for Term<T> {
             _ => return,
         };
 
-        if let Ok(bytes) = base64::decode(base64) {
+        if let Ok(bytes) = Base64.decode(base64) {
             if let Ok(text) = String::from_utf8(bytes) {
                 self.event_proxy.send_event(Event::ClipboardStore(clipboard_type, text));
             }
@@ -1582,7 +1584,7 @@ impl<T: EventListener> Handler for Term<T> {
         self.event_proxy.send_event(Event::ClipboardLoad(
             clipboard_type,
             Arc::new(move |text| {
-                let base64 = base64::encode(text);
+                let base64 = Base64.encode(text);
                 format!("\x1b]52;{};{}{}", clipboard as char, base64, terminator)
             }),
         ));

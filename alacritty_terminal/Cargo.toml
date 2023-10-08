@@ -7,7 +7,7 @@ description = "Library for writing terminal emulators"
 readme = "../README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.70.0"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
@@ -18,7 +18,7 @@ path = "../alacritty_config"
 version = "0.1.2-dev"
 
 [dependencies]
-base64 = "0.13.0"
+base64 = "0.21.3"
 bitflags = { version = "2.2.1", features = ["serde"] }
 home = "0.5.5"
 libc = "0.2"
@@ -27,18 +27,18 @@ parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.3.6"
 serde = { version = "1", features = ["derive", "rc"] }
-serde_yaml = "0.8"
-toml = "0.7.1"
+serde_yaml = "0.9.25"
+toml = "0.8.2"
 unicode-width = "0.1"
 vte = { version = "0.12.0", default-features = false, features = ["ansi", "serde"] }
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.26.2", default-features = false, features = ["term"] }
+nix = { version = "0.27.1", default-features = false, features = ["term"] }
 signal-hook = "0.3.10"
 
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"
-miow = "0.3.0"
+miow = "0.6.0"
 windows-sys = { version = "0.48.0", features = [
     "Win32_System_Console",
     "Win32_Foundation",

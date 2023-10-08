@@ -365,4 +365,4 @@ _alacritty() {
     esac
 }
 
-complete -F _alacritty -o bashdefault -o default alacritty
+complete -F _alacritty -o nosort -o bashdefault -o default alacritty
