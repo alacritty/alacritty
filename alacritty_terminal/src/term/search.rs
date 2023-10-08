@@ -8,7 +8,7 @@ use regex_automata::hybrid::dfa::{Builder, Cache, Config, DFA};
 pub use regex_automata::hybrid::BuildError;
 use regex_automata::nfa::thompson::Config as ThompsonConfig;
 use regex_automata::util::syntax::Config as SyntaxConfig;
-use regex_automata::{Anchored, Input};
+use regex_automata::{Anchored, Input, MatchKind};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
@@ -23,8 +23,10 @@ pub type Match = RangeInclusive<Point>;
 /// Terminal regex search state.
 #[derive(Clone, Debug)]
 pub struct RegexSearch {
-    fdfa: LazyDfa,
-    rdfa: LazyDfa,
+    left_fdfa: LazyDfa,
+    left_rdfa: LazyDfa,
+    right_rdfa: LazyDfa,
+    right_fdfa: LazyDfa,
 }
 
 impl RegexSearch {
@@ -39,24 +41,39 @@ impl RegexSearch {
         let config =
             Config::new().minimum_cache_clear_count(Some(3)).minimum_bytes_per_state(Some(10));
         let max_size = config.get_cache_capacity();
-        let mut thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
+        let thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
 
-        // Create Regex DFA for left-to-right search.
-        let fdfa = Builder::new()
-            .configure(config.clone())
-            .syntax(syntax_config)
-            .thompson(thompson_config.clone())
-            .build(search)?;
+        // Create DFAs to find start/end in left-to-right search.
+        let right_fdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config,
+            thompson_config.clone(),
+            Direction::Right,
+            false,
+        )?;
+        let right_rdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config,
+            thompson_config.clone(),
+            Direction::Left,
+            true,
+        )?;
 
-        // Create Regex DFA for right-to-left search.
-        thompson_config = thompson_config.reverse(true);
-        let rdfa = Builder::new()
-            .configure(config)
-            .syntax(syntax_config)
-            .thompson(thompson_config)
-            .build(search)?;
+        // Create DFAs to find start/end in right-to-left search.
+        let left_fdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config,
+            thompson_config.clone(),
+            Direction::Left,
+            false,
+        )?;
+        let left_rdfa =
+            LazyDfa::new(search, config, syntax_config, thompson_config, Direction::Right, true)?;
 
-        Ok(RegexSearch { fdfa: fdfa.into(), rdfa: rdfa.into() })
+        Ok(RegexSearch { left_fdfa, left_rdfa, right_fdfa, right_rdfa })
     }
 }
 
@@ -67,10 +84,32 @@ struct LazyDfa {
     cache: Cache,
 }
 
-impl From<DFA> for LazyDfa {
-    fn from(dfa: DFA) -> Self {
+impl LazyDfa {
+    fn new(
+        search: &str,
+        mut config: Config,
+        syntax: SyntaxConfig,
+        mut thompson: ThompsonConfig,
+        direction: Direction,
+        reverse: bool,
+    ) -> Result<Self, Box<BuildError>> {
+        thompson = match direction {
+            Direction::Left => thompson.reverse(true),
+            Direction::Right => thompson.reverse(false),
+        };
+        config = if reverse {
+            config.match_kind(MatchKind::All)
+        } else {
+            config.match_kind(MatchKind::LeftmostFirst)
+        };
+
+        // Create the DFA.
+        let dfa =
+            Builder::new().configure(config).syntax(syntax).thompson(thompson).build(search)?;
+
         let cache = dfa.create_cache();
-        Self { dfa, cache }
+
+        Ok(Self { dfa, cache })
     }
 }
 
@@ -190,9 +229,10 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_start = self.regex_search(start, end, Direction::Left, false, &mut regex.rdfa)?;
+        let match_start =
+            self.regex_search(start, end, Direction::Left, false, &mut regex.left_fdfa)?;
         let match_end =
-            self.regex_search(match_start, start, Direction::Right, true, &mut regex.fdfa)?;
+            self.regex_search(match_start, start, Direction::Right, true, &mut regex.left_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -207,9 +247,10 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_end = self.regex_search(start, end, Direction::Right, false, &mut regex.fdfa)?;
+        let match_end =
+            self.regex_search(start, end, Direction::Right, false, &mut regex.right_fdfa)?;
         let match_start =
-            self.regex_search(match_end, start, Direction::Left, true, &mut regex.rdfa)?;
+            self.regex_search(match_end, start, Direction::Left, true, &mut regex.right_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -272,8 +313,18 @@ impl<T> Term<T> {
 
         let mut point = iter.point();
         let mut last_point = point;
+        let mut consumed_bytes = 0;
 
-        loop {
+        // Reset the regex state to restart the search.
+        macro_rules! reset_state {
+            () => {{
+                state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
+                consumed_bytes = 0;
+                regex_match = None;
+            }};
+        }
+
+        'outer: loop {
             // Convert char to array of bytes.
             let mut buf = [0; 4];
             let utf8_len = c.encode_utf8(&mut buf).len();
@@ -287,27 +338,57 @@ impl<T> Term<T> {
                 };
 
                 state = regex.dfa.next_state(&mut regex.cache, state, byte)?;
+                consumed_bytes += 1;
 
-                // Matches require one additional BYTE of lookahead, so we check the match state for
-                // the first byte of every new character to determine if the last character was a
-                // match.
                 if i == 0 && state.is_match() {
+                    // Matches require one additional BYTE of lookahead, so we check the match state
+                    // for the first byte of every new character to determine if the last character
+                    // was a match.
                     regex_match = Some(last_point);
-                }
-            }
+                } else if state.is_dead() {
+                    if consumed_bytes == 2 {
+                        // Reset search if we found an empty match.
+                        //
+                        // With an unanchored search, a dead state only occurs after the end of a
+                        // match has been found. While we want to abort after the first match has
+                        // ended, we don't want empty matches since we cannot highlight them.
+                        //
+                        // So once we encounter an empty match, we reset our parser state and clear
+                        // the match, effectively starting a new search one character farther than
+                        // before.
+                        //
+                        // An empty match requires consuming `2` bytes, since the first byte will
+                        // report the match for the empty string, while the second byte then
+                        // reports the dead state indicating the first character isn't part of the
+                        // match.
+                        reset_state!();
 
-            // Abort on dead states.
-            if state.is_dead() {
-                break;
+                        // Retry this character if first byte caused failure.
+                        //
+                        // After finding an empty match, we want to advance the search start by one
+                        // character. So if the first character has multiple bytes and the dead
+                        // state isn't reached at `i == 0`, then we continue with the rest of the
+                        // loop to advance the parser by one character.
+                        if i == 0 {
+                            continue 'outer;
+                        }
+                    } else {
+                        // Abort on dead state.
+                        break 'outer;
+                    }
+                }
             }
 
             // Stop once we've reached the target point.
             if point == end || done {
                 // When reaching the end-of-input, we need to notify the parser that no look-ahead
-                // is possible and check if the current state is still a match.
+                // is possible and check for state changes.
                 state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
                 if state.is_match() {
                     regex_match = Some(point);
+                } else if state.is_dead() && consumed_bytes == 1 {
+                    // Ignore empty matches.
+                    regex_match = None;
                 }
 
                 break;
@@ -339,18 +420,19 @@ impl<T> Term<T> {
             if (last_point.column == last_column && point.column == Column(0) && !last_wrapped)
                 || (last_point.column == Column(0) && point.column == last_column && !wrapped)
             {
-                match regex_match {
-                    Some(_) => break,
-                    None => {
-                        // When reaching the end-of-input, we need to notify the parser that no
-                        // look-ahead is possible and check if the current state is still a match.
-                        state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
-                        if state.is_match() {
-                            regex_match = Some(last_point);
-                        }
+                // When reaching the end-of-input, we need to notify the parser that no
+                // look-ahead is possible and check if the current state is still a match.
+                state = regex.dfa.next_eoi_state(&mut regex.cache, state)?;
+                if state.is_match() {
+                    regex_match = Some(last_point);
+                }
 
-                        state = regex.dfa.start_state_forward(&mut regex.cache, &input)?;
+                match regex_match {
+                    // Stop if we found a non-empty match before the linebreak.
+                    Some(_) if (!state.is_dead() || consumed_bytes > 1) && consumed_bytes != 0 => {
+                        break;
                     },
+                    _ => reset_state!(),
                 }
             }
 
@@ -859,6 +941,69 @@ mod tests {
     }
 
     #[test]
+    fn multiline() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            test \r\n\
+            test\
+        ");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(3));
+        let match_start = Point::new(Line(0), Column(0));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=end));
+
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(4));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(1), Column(3));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
+    fn empty_match() {
+        #[rustfmt::skip]
+        let term = mock_term(" abc ");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(4));
+        let match_start = Point::new(Line(0), Column(1));
+        let match_end = Point::new(Line(0), Column(3));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
+    fn empty_match_multibyte() {
+        #[rustfmt::skip]
+        let term = mock_term(" ↑");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(1));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), None);
+    }
+
+    #[test]
+    fn empty_match_multiline() {
+        #[rustfmt::skip]
+        let term = mock_term("abc          \nxxx");
+
+        const PATTERN: &str = "[a-z]*";
+        let mut regex = RegexSearch::new(PATTERN).unwrap();
+        let start = Point::new(Line(0), Column(3));
+        let end = Point::new(Line(1), Column(2));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(1), Column(2));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
     fn leading_spacer() {
         #[rustfmt::skip]
         let mut term = mock_term("\
@@ -951,5 +1096,17 @@ mod tests {
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(9999));
         assert_eq!(term.regex_search_right(&mut regex, start, end), None);
+    }
+
+    #[test]
+    fn greed_is_good() {
+        #[rustfmt::skip]
+        let term = mock_term("https://github.com");
+
+        // Bottom to top.
+        let mut regex = RegexSearch::new("/github.com|https://github.com").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(17));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(start..=end));
     }
 }
