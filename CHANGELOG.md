@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Packaging
 
-- Minimum Rust version has been bumped to 1.65.0
+- Minimum Rust version has been bumped to 1.70.0
 - Manpages are now generated using `scdoc` (see `INSTALL.md`)
 
 ### Added

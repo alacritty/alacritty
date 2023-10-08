@@ -23,7 +23,7 @@ fn main() {
     .unwrap();
 
     #[cfg(windows)]
-    embed_resource::compile("./windows/alacritty.rc");
+    embed_resource::compile("./windows/alacritty.rc", embed_resource::NONE);
 }
 
 fn commit_hash() -> Option<String> {

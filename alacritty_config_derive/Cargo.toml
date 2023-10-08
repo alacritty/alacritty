@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "Failure resistant deserialization derive"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.70.0"
 
 [lib]
 proc-macro = true
@@ -23,4 +23,4 @@ version = "0.1.2-dev"
 [dev-dependencies]
 log = "0.4.11"
 serde = { version = "1.0.117", features = ["derive"] }
-toml = "0.7.1"
+toml = "0.8.2"

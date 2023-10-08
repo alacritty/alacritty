@@ -2,25 +2,34 @@
 
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::fd::OwnedFd;
+use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
 use std::{env, ptr};
 
 use libc::{self, c_int, winsize, TIOCSCTTY};
 use log::error;
-use mio::unix::EventedFd;
 use nix::pty::openpty;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use nix::sys::termios::{self, InputFlags, SetArg};
+use polling::{Event, PollMode, Poller};
 use signal_hook::consts as sigconsts;
-use signal_hook_mio::v0_6::Signals;
+use signal_hook::low_level::pipe as signal_pipe;
 
 use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+
+// Interest in PTY read/writes.
+pub(crate) const PTY_READ_WRITE_TOKEN: usize = 0;
+
+// Interest in new child events.
+pub(crate) const PTY_CHILD_EVENT_TOKEN: usize = 1;
 
 macro_rules! die {
     ($($arg:tt)*) => {{
@@ -30,7 +39,7 @@ macro_rules! die {
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
-fn make_pty(size: winsize) -> Result<(RawFd, RawFd)> {
+fn make_pty(size: winsize) -> Result<(OwnedFd, OwnedFd)> {
     let mut window_size = size;
     window_size.ws_xpixel = 0;
     window_size.ws_ypixel = 0;
@@ -103,9 +112,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
 pub struct Pty {
     child: Child,
     file: File,
-    token: mio::Token,
-    signals: Signals,
-    signals_token: mio::Token,
+    signals: UnixStream,
 }
 
 impl Pty {
@@ -188,12 +195,14 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
 /// Create a new TTY and return a handle to interact with it.
 pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let (master, slave) = make_pty(window_size.to_winsize())?;
+    let master_fd = master.as_raw_fd();
+    let slave_fd = slave.as_raw_fd();
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    if let Ok(mut termios) = termios::tcgetattr(master) {
+    if let Ok(mut termios) = termios::tcgetattr(&master) {
         // Set character encoding to UTF-8.
         termios.input_flags.set(InputFlags::IUTF8, true);
-        let _ = termios::tcsetattr(master, SetArg::TCSANOW, &termios);
+        let _ = termios::tcsetattr(&master, SetArg::TCSANOW, &termios);
     }
 
     let user = ShellUser::from_env()?;
@@ -210,9 +219,9 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
     // error on libc::close.).
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
-    builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
+    builder.stdin(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stderr(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stdout(unsafe { Stdio::from_raw_fd(slave_fd) });
 
     // Setup shell environment.
     let window_id = window_id.to_string();
@@ -231,11 +240,11 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
                 return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
             }
 
-            set_controlling_terminal(slave);
+            set_controlling_terminal(slave_fd);
 
             // No longer need slave/master fds.
-            libc::close(slave);
-            libc::close(master);
+            libc::close(slave_fd);
+            libc::close(master_fd);
 
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
             libc::signal(libc::SIGHUP, libc::SIG_DFL);
@@ -254,23 +263,24 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     }
 
     // Prepare signal handling before spawning child.
-    let signals = Signals::new([sigconsts::SIGCHLD]).expect("error preparing signal handling");
+    let signals = {
+        let (sender, recv) = UnixStream::pair()?;
+
+        // Register the recv end of the pipe for SIGCHLD.
+        signal_pipe::register(sigconsts::SIGCHLD, sender)?;
+        recv.set_nonblocking(true)?;
+        recv
+    };
 
     match builder.spawn() {
         Ok(child) => {
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
-                set_nonblocking(master);
+                set_nonblocking(master_fd);
             }
 
-            let mut pty = Pty {
-                child,
-                file: unsafe { File::from_raw_fd(master) },
-                token: mio::Token::from(0),
-                signals,
-                signals_token: mio::Token::from(0),
-            };
+            let mut pty = Pty { child, file: File::from(master), signals };
             pty.on_resize(window_size);
             Ok(pty)
         },
@@ -300,46 +310,47 @@ impl EventedReadWrite for Pty {
     type Writer = File;
 
     #[inline]
-    fn register(
+    unsafe fn register(
         &mut self,
-        poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = mio::Token>,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
-        self.token = token.next().unwrap();
-        poll.register(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+        interest.key = PTY_READ_WRITE_TOKEN;
+        unsafe {
+            poll.add_with_mode(&self.file, interest, poll_opts)?;
+        }
 
-        self.signals_token = token.next().unwrap();
-        poll.register(
-            &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
-        )
+        unsafe {
+            poll.add_with_mode(
+                &self.signals,
+                Event::readable(PTY_CHILD_EVENT_TOKEN),
+                PollMode::Level,
+            )
+        }
     }
 
     #[inline]
     fn reregister(
         &mut self,
-        poll: &mio::Poll,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        mut interest: Event,
+        poll_opts: PollMode,
     ) -> Result<()> {
-        poll.reregister(&EventedFd(&self.file.as_raw_fd()), self.token, interest, poll_opts)?;
+        interest.key = PTY_READ_WRITE_TOKEN;
+        poll.modify_with_mode(&self.file, interest, poll_opts)?;
 
-        poll.reregister(
+        poll.modify_with_mode(
             &self.signals,
-            self.signals_token,
-            mio::Ready::readable(),
-            mio::PollOpt::level(),
+            Event::readable(PTY_CHILD_EVENT_TOKEN),
+            PollMode::Level,
         )
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &mio::Poll) -> Result<()> {
-        poll.deregister(&EventedFd(&self.file.as_raw_fd()))?;
-        poll.deregister(&self.signals)
+    fn deregister(&mut self, poll: &Arc<Poller>) -> Result<()> {
+        poll.delete(&self.file)?;
+        poll.delete(&self.signals)
     }
 
     #[inline]
@@ -348,43 +359,32 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn read_token(&self) -> mio::Token {
-        self.token
-    }
-
-    #[inline]
     fn writer(&mut self) -> &mut File {
         &mut self.file
-    }
-
-    #[inline]
-    fn write_token(&self) -> mio::Token {
-        self.token
     }
 }
 
 impl EventedPty for Pty {
     #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        self.signals.pending().next().and_then(|signal| {
-            if signal != sigconsts::SIGCHLD {
-                return None;
+        // See if there has been a SIGCHLD.
+        let mut buf = [0u8; 1];
+        if let Err(err) = self.signals.read(&mut buf) {
+            if err.kind() != ErrorKind::WouldBlock {
+                error!("Error reading from signal pipe: {}", err);
             }
+            return None;
+        }
 
-            match self.child.try_wait() {
-                Err(e) => {
-                    error!("Error checking child process termination: {}", e);
-                    None
-                },
-                Ok(None) => None,
-                Ok(_) => Some(ChildEvent::Exited),
-            }
-        })
-    }
-
-    #[inline]
-    fn child_event_token(&self) -> mio::Token {
-        self.signals_token
+        // Match on the child process.
+        match self.child.try_wait() {
+            Err(err) => {
+                error!("Error checking child process termination: {}", err);
+                None
+            },
+            Ok(None) => None,
+            Ok(_) => Some(ChildEvent::Exited),
+        }
     }
 }
 
