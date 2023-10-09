@@ -43,6 +43,25 @@ impl RegexSearch {
         let max_size = config.get_cache_capacity();
         let thompson_config = ThompsonConfig::new().nfa_size_limit(Some(max_size));
 
+        // Create DFAs to find start/end in right-to-left search.
+        let left_rdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config,
+            thompson_config.clone(),
+            Direction::Right,
+            true,
+        )?;
+        let has_empty = left_rdfa.dfa.get_nfa().has_empty();
+        let left_fdfa = LazyDfa::new(
+            search,
+            config.clone(),
+            syntax_config,
+            thompson_config.clone(),
+            Direction::Left,
+            has_empty,
+        )?;
+
         // Create DFAs to find start/end in left-to-right search.
         let right_fdfa = LazyDfa::new(
             search,
@@ -50,28 +69,10 @@ impl RegexSearch {
             syntax_config,
             thompson_config.clone(),
             Direction::Right,
-            false,
+            has_empty,
         )?;
-        let right_rdfa = LazyDfa::new(
-            search,
-            config.clone(),
-            syntax_config,
-            thompson_config.clone(),
-            Direction::Left,
-            true,
-        )?;
-
-        // Create DFAs to find start/end in right-to-left search.
-        let left_fdfa = LazyDfa::new(
-            search,
-            config.clone(),
-            syntax_config,
-            thompson_config.clone(),
-            Direction::Left,
-            false,
-        )?;
-        let left_rdfa =
-            LazyDfa::new(search, config, syntax_config, thompson_config, Direction::Right, true)?;
+        let right_rdfa =
+            LazyDfa::new(search, config, syntax_config, thompson_config, Direction::Left, true)?;
 
         Ok(RegexSearch { left_fdfa, left_rdfa, right_fdfa, right_rdfa })
     }
@@ -82,6 +83,8 @@ impl RegexSearch {
 struct LazyDfa {
     dfa: DFA,
     cache: Cache,
+    direction: Direction,
+    match_all: bool,
 }
 
 impl LazyDfa {
@@ -91,13 +94,13 @@ impl LazyDfa {
         syntax: SyntaxConfig,
         mut thompson: ThompsonConfig,
         direction: Direction,
-        reverse: bool,
+        match_all: bool,
     ) -> Result<Self, Box<BuildError>> {
         thompson = match direction {
             Direction::Left => thompson.reverse(true),
             Direction::Right => thompson.reverse(false),
         };
-        config = if reverse {
+        config = if match_all {
             config.match_kind(MatchKind::All)
         } else {
             config.match_kind(MatchKind::LeftmostFirst)
@@ -109,7 +112,7 @@ impl LazyDfa {
 
         let cache = dfa.create_cache();
 
-        Ok(Self { dfa, cache })
+        Ok(Self { direction, cache, dfa, match_all })
     }
 }
 
@@ -229,10 +232,8 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_start =
-            self.regex_search(start, end, Direction::Left, false, &mut regex.left_fdfa)?;
-        let match_end =
-            self.regex_search(match_start, start, Direction::Right, true, &mut regex.left_rdfa)?;
+        let match_start = self.regex_search(start, end, &mut regex.left_fdfa)?;
+        let match_end = self.regex_search(match_start, start, &mut regex.left_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -247,10 +248,8 @@ impl<T> Term<T> {
         end: Point,
     ) -> Option<Match> {
         // Find start and end of match.
-        let match_end =
-            self.regex_search(start, end, Direction::Right, false, &mut regex.right_fdfa)?;
-        let match_start =
-            self.regex_search(match_end, start, Direction::Left, true, &mut regex.right_rdfa)?;
+        let match_end = self.regex_search(start, end, &mut regex.right_fdfa)?;
+        let match_start = self.regex_search(match_end, start, &mut regex.right_rdfa)?;
 
         Some(match_start..=match_end)
     }
@@ -258,15 +257,8 @@ impl<T> Term<T> {
     /// Find the next regex match.
     ///
     /// This will always return the side of the first match which is farthest from the start point.
-    fn regex_search(
-        &self,
-        start: Point,
-        end: Point,
-        direction: Direction,
-        anchored: bool,
-        regex: &mut LazyDfa,
-    ) -> Option<Point> {
-        match self.regex_search_internal(start, end, direction, anchored, regex) {
+    fn regex_search(&self, start: Point, end: Point, regex: &mut LazyDfa) -> Option<Point> {
+        match self.regex_search_internal(start, end, regex) {
             Ok(regex_match) => regex_match,
             Err(err) => {
                 warn!("Regex exceeded complexity limit");
@@ -283,8 +275,6 @@ impl<T> Term<T> {
         &self,
         start: Point,
         end: Point,
-        direction: Direction,
-        anchored: bool,
         regex: &mut LazyDfa,
     ) -> Result<Option<Point>, Box<dyn Error>> {
         let topmost_line = self.topmost_line();
@@ -292,13 +282,13 @@ impl<T> Term<T> {
         let last_column = self.last_column();
 
         // Advance the iterator.
-        let next = match direction {
+        let next = match regex.direction {
             Direction::Right => GridIterator::next,
             Direction::Left => GridIterator::prev,
         };
 
         // Get start state for the DFA.
-        let regex_anchored = if anchored { Anchored::Yes } else { Anchored::No };
+        let regex_anchored = if regex.match_all { Anchored::Yes } else { Anchored::No };
         let input = Input::new(&[]).anchored(regex_anchored);
         let mut state = regex.dfa.start_state_forward(&mut regex.cache, &input).unwrap();
 
@@ -308,7 +298,7 @@ impl<T> Term<T> {
         let mut done = false;
 
         let mut cell = iter.cell();
-        self.skip_fullwidth(&mut iter, &mut cell, direction);
+        self.skip_fullwidth(&mut iter, &mut cell, regex.direction);
         let mut c = cell.c;
 
         let mut point = iter.point();
@@ -332,7 +322,7 @@ impl<T> Term<T> {
             // Pass char to DFA as individual bytes.
             for i in 0..utf8_len {
                 // Inverse byte order when going left.
-                let byte = match direction {
+                let byte = match regex.direction {
                     Direction::Right => buf[i],
                     Direction::Left => buf[utf8_len - i - 1],
                 };
@@ -409,7 +399,7 @@ impl<T> Term<T> {
             // Check for completion before potentially skipping over fullwidth characters.
             done = iter.point() == end;
 
-            self.skip_fullwidth(&mut iter, &mut cell, direction);
+            self.skip_fullwidth(&mut iter, &mut cell, regex.direction);
 
             let wrapped = cell.flags.contains(Flags::WRAPLINE);
             c = cell.c;
@@ -1107,6 +1097,18 @@ mod tests {
         let mut regex = RegexSearch::new("/github.com|https://github.com").unwrap();
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(17));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(start..=end));
+    }
+
+    #[test]
+    fn anchored_empty() {
+        #[rustfmt::skip]
+        let term = mock_term("rust");
+
+        // Bottom to top.
+        let mut regex = RegexSearch::new(";*|rust").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(0), Column(3));
         assert_eq!(term.regex_search_right(&mut regex, start, end), Some(start..=end));
     }
 }
