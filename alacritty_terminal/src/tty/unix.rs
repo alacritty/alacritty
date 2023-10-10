@@ -12,12 +12,13 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::{env, ptr};
 
-use libc::{self, c_int, winsize, TIOCSCTTY};
+use libc::{self, c_int, TIOCSCTTY};
 use log::error;
-use nix::pty::openpty;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-use nix::sys::termios::{self, InputFlags, SetArg};
 use polling::{Event, PollMode, Poller};
+use rustix_openpty::openpty;
+use rustix_openpty::rustix::termios::Winsize;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use rustix_openpty::rustix::termios::{self, InputModes, OptionalActions};
 use signal_hook::consts as sigconsts;
 use signal_hook::low_level::pipe as signal_pipe;
 
@@ -39,14 +40,14 @@ macro_rules! die {
 }
 
 /// Get raw fds for master/slave ends of a new PTY.
-fn make_pty(size: winsize) -> Result<(OwnedFd, OwnedFd)> {
+fn make_pty(size: Winsize) -> Result<(OwnedFd, OwnedFd)> {
     let mut window_size = size;
     window_size.ws_xpixel = 0;
     window_size.ws_ypixel = 0;
 
-    let ends = openpty(Some(&window_size), None)?;
+    let ends = openpty(None, Some(&window_size))?;
 
-    Ok((ends.master, ends.slave))
+    Ok((ends.controller, ends.user))
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
@@ -201,8 +202,8 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(mut termios) = termios::tcgetattr(&master) {
         // Set character encoding to UTF-8.
-        termios.input_flags.set(InputFlags::IUTF8, true);
-        let _ = termios::tcsetattr(&master, SetArg::TCSANOW, &termios);
+        termios.input_modes.set(InputModes::IUTF8, true);
+        let _ = termios::tcsetattr(&master, OptionalActions::Now, &termios);
     }
 
     let user = ShellUser::from_env()?;
@@ -404,20 +405,20 @@ impl OnResize for Pty {
     }
 }
 
-/// Types that can produce a `libc::winsize`.
+/// Types that can produce a `Winsize`.
 pub trait ToWinsize {
-    /// Get a `libc::winsize`.
-    fn to_winsize(self) -> winsize;
+    /// Get a `Winsize`.
+    fn to_winsize(self) -> Winsize;
 }
 
 impl ToWinsize for WindowSize {
-    fn to_winsize(self) -> winsize {
+    fn to_winsize(self) -> Winsize {
         let ws_row = self.num_lines as libc::c_ushort;
         let ws_col = self.num_cols as libc::c_ushort;
 
         let ws_xpixel = ws_col * self.cell_width as libc::c_ushort;
         let ws_ypixel = ws_row * self.cell_height as libc::c_ushort;
-        winsize { ws_row, ws_col, ws_xpixel, ws_ypixel }
+        Winsize { ws_row, ws_col, ws_xpixel, ws_ypixel }
     }
 }
 

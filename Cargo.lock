@@ -100,11 +100,11 @@ dependencies = [
  "libc",
  "log",
  "miow",
- "nix 0.27.1",
  "parking_lot",
  "piper",
  "polling",
  "regex-automata",
+ "rustix-openpty",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -1315,17 +1315,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
-dependencies = [
- "bitflags 2.4.0",
- "cfg-if",
- "libc",
-]
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1658,9 +1647,21 @@ checksum = "f25469e9ae0f3d0047ca8b93fc56843f38e6774f0914a107ff8b41be8be8e0b7"
 dependencies = [
  "bitflags 2.4.0",
  "errno",
+ "itoa",
  "libc",
  "linux-raw-sys",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "rustix-openpty"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a25c3aad9fc1424eb82c88087789a7d938e1829724f3e4043163baf0d13cfc12"
+dependencies = [
+ "errno",
+ "libc",
+ "rustix",
 ]
 
 [[package]]
