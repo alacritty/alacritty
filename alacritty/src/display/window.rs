@@ -35,8 +35,8 @@ use winit::monitor::MonitorHandle;
 use winit::platform::windows::IconExtWindows;
 use winit::window::raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::{
-    CursorIcon, Fullscreen, ImePurpose, UserAttentionType, Window as WinitWindow, WindowBuilder,
-    WindowId,
+    CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
+    WindowBuilder, WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -372,6 +372,10 @@ impl Window {
     /// Should be called right before presenting to the window with e.g. `eglSwapBuffers`.
     pub fn pre_present_notify(&self) {
         self.window.pre_present_notify();
+    }
+
+    pub fn set_theme(&self, theme: Option<Theme>) {
+        self.window.set_theme(theme);
     }
 
     #[cfg(target_os = "macos")]

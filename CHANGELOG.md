@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Scrolling on touchscreens
 - Double clicking on CSD titlebar not always maximizing a window on Wayland
 - Excessive memory usage when using regexes with a large number of possible states
+- `window.decorations_theme_variant` not live reloading
 
 ### Removed
 
