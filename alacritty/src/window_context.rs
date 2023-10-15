@@ -303,6 +303,9 @@ impl WindowContext {
             self.display.pending_update.set_font(font);
         }
 
+        // Always reload the theme to account for auto-theme switching.
+        self.display.window.set_theme(self.config.window.decorations_theme_variant);
+
         // Update display if either padding options or resize increments were changed.
         let window_config = &old_config.window;
         if window_config.padding(1.) != self.config.window.padding(1.)
