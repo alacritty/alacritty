@@ -989,7 +989,10 @@ impl Display {
         // time to finish OpenGL operations is accounted for in the timeout.
         if matches!(
             self.raw_window_handle,
-            RawWindowHandle::AppKit(_) | RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_)
+            RawWindowHandle::AppKit(_)
+                | RawWindowHandle::Xlib(_)
+                | RawWindowHandle::Xcb(_)
+                | RawWindowHandle::Win32(_)
         ) {
             self.request_frame(scheduler);
         }

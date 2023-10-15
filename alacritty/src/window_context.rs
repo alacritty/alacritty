@@ -39,7 +39,7 @@ use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
-use crate::event::{ActionContext, Event, EventProxy, Mouse, SearchState, TouchPurpose};
+use crate::event::{ActionContext, Event, EventProxy, EventType, Mouse, SearchState, TouchPurpose};
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
@@ -348,7 +348,7 @@ impl WindowContext {
         let event = Event::new(TerminalEvent::CursorBlinkingChange.into(), None);
         self.event_queue.push(event.into());
 
-        self.dirty = true;
+        self.display.window.request_redraw();
     }
 
     /// Update the IPC config overrides.
@@ -377,7 +377,7 @@ impl WindowContext {
     }
 
     /// Draw the window.
-    pub fn draw(&mut self, scheduler: &mut Scheduler) {
+    pub fn draw(&mut self, event_proxy: &EventLoopProxy<Event>, scheduler: &mut Scheduler) {
         self.display.window.requested_redraw = false;
 
         if self.occluded {
@@ -391,7 +391,11 @@ impl WindowContext {
 
         // Request immediate re-draw if visual bell animation is not finished yet.
         if !self.display.visual_bell.completed() {
-            self.display.window.request_redraw();
+            let window_id = Some(self.display.window.id());
+            // Winit is not reliable on at least Windows when asking for `Redraw` during the
+            // `RedrawRequsted`.
+            let _ = event_proxy
+                .send_event(Event::new(EventType::Terminal(TerminalEvent::Wakeup), window_id));
         }
 
         // Redraw the window.
@@ -487,10 +491,7 @@ impl WindowContext {
             self.mouse.hint_highlight_dirty = false;
         }
 
-        // Request a redraw.
-        //
-        // Even though redraw requests are squashed in winit, we try not to
-        // request more if we haven't received a new frame request yet.
+        // We draw from `RedrawRequested`, so no need to request it, since we clear dirty bit.
         if self.dirty && !self.occluded && !matches!(event, WinitEvent::RedrawRequested(_)) {
             self.display.window.request_redraw();
         }

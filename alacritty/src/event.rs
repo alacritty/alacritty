@@ -1481,6 +1481,9 @@ impl Processor {
                 return;
             }
 
+            // NOTE when moving event to be handled without batching, the `dirty` must be changed
+            // to `display.window.request_redraw`, otherwise we could have a situation with an
+            // empty queue, but dirty bit being set.
             match event {
                 // The event loop just got initialized. Create a window.
                 WinitEvent::Resumed => {
@@ -1512,9 +1515,7 @@ impl Processor {
                 }) => {
                     if let Some(window_context) = self.windows.get_mut(&window_id) {
                         window_context.dirty = true;
-                        if window_context.display.window.has_frame {
-                            window_context.display.window.request_redraw();
-                        }
+                        window_context.display.window.request_redraw();
                     }
                 },
                 // NOTE: This event bypasses batching to minimize input latency.
@@ -1567,7 +1568,7 @@ impl Processor {
                         WinitEvent::RedrawRequested(window_id),
                     );
 
-                    window_context.draw(&mut scheduler);
+                    window_context.draw(&proxy, &mut scheduler);
                 },
                 // Process all pending events.
                 WinitEvent::AboutToWait => {
