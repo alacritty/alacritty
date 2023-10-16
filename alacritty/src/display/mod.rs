@@ -987,13 +987,9 @@ impl Display {
 
         // XXX: Request the new frame after swapping buffers, so the
         // time to finish OpenGL operations is accounted for in the timeout.
-        if matches!(
-            self.raw_window_handle,
-            RawWindowHandle::AppKit(_)
-                | RawWindowHandle::Xlib(_)
-                | RawWindowHandle::Xcb(_)
-                | RawWindowHandle::Win32(_)
-        ) {
+        //
+        // Wayland uses winit to throttle frames, so ignore it here.
+        if !matches!(self.raw_window_handle, RawWindowHandle::Wayland(_)) {
             self.request_frame(scheduler);
         }
 

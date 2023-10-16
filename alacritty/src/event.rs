@@ -1481,9 +1481,6 @@ impl Processor {
                 return;
             }
 
-            // NOTE when moving event to be handled without batching, the `dirty` must be changed
-            // to `display.window.request_redraw`, otherwise we could have a situation with an
-            // empty queue, but dirty bit being set.
             match event {
                 // The event loop just got initialized. Create a window.
                 WinitEvent::Resumed => {

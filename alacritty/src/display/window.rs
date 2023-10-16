@@ -238,8 +238,8 @@ impl Window {
 
     #[inline]
     pub fn request_redraw(&mut self) {
-        // Don't need to request a frame when we don't have a frame, since we'll get a `Frame`
-        // event back, which will check the `dirty` on the display and do an actual request.
+        // No need to request a frame when we don't have one. The next `Frame` event will check the
+        // `dirty` flag on the display and submit a redraw request.
         if self.has_frame && !self.requested_redraw {
             self.requested_redraw = true;
             self.window.request_redraw();
