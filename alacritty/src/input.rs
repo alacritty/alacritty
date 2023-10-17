@@ -1003,17 +1003,24 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
         let mouse_mode = self.ctx.mouse_mode();
         let mods = self.ctx.modifiers().state();
+        let mouse_bindings = self.ctx.config().mouse_bindings().to_owned();
 
-        for i in 0..self.ctx.config().mouse_bindings().len() {
-            let mut binding = self.ctx.config().mouse_bindings()[i].clone();
+        // If mouse mode is active, also look for bindings without shift.
+        let mut check_fallback = mouse_mode && mods.contains(ModifiersState::SHIFT);
 
-            // Require shift for all modifiers when mouse mode is active.
-            if mouse_mode {
-                binding.mods |= ModifiersState::SHIFT;
-            }
-
+        for binding in &mouse_bindings {
             if binding.is_triggered_by(mode, mods, &button) {
                 binding.action.execute(&mut self.ctx);
+                check_fallback = false;
+            }
+        }
+
+        if check_fallback {
+            let fallback_mods = mods & !ModifiersState::SHIFT;
+            for binding in &mouse_bindings {
+                if binding.is_triggered_by(mode, fallback_mods, &button) {
+                    binding.action.execute(&mut self.ctx);
+                }
             }
         }
     }
