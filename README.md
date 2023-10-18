@@ -102,6 +102,15 @@ If you have doubts about Alacritty's performance or usability, the best way to
 quantify terminal emulators is always to test them with **your** specific
 usecases.
 
+**_How to do tabs with Alacritty?_**
+
+Alacritty doesn't support tabs by design.
+
+Tabs can be added by Window Managers or Terminal Multiplexers such as tmux.
+
+MacOS users can add tabs using `Prefer tabs when opening documents: Always` setting at `System Settings -> Desctop & Dock`. New windows will be grouped as tabs.
+More info [here](https://support.apple.com/en-gb/guide/mac-help/mchla4695cce/mac).
+
 **_Why isn't feature X implemented?_**
 
 Alacritty has many great features, but not every feature from every other
