@@ -874,42 +874,15 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     /// Jump to the next matching character in the line.
-    fn inline_search_next(&mut self, mut direction: Direction) {
-        let c = match self.inline_search_state.character {
-            Some(c) => c,
-            None => return,
-        };
-        let mut buf = [0; 4];
-        let search_character = c.encode_utf8(&mut buf);
+    fn inline_search_next(&mut self) {
+        let direction = self.inline_search_state.direction;
+        self.inline_search(direction);
+    }
 
-        if self.inline_search_state.direction == Direction::Left {
-            direction = direction.opposite();
-        }
-
-        // Find next match in this line.
-        let vi_point = self.terminal.vi_mode_cursor.point;
-        let point = match direction {
-            Direction::Right => self.terminal.inline_search_right(vi_point, search_character),
-            Direction::Left => self.terminal.inline_search_left(vi_point, search_character),
-        };
-
-        // Jump to point if there's a match.
-        if let Ok(mut point) = point {
-            if self.inline_search_state.stop_short {
-                let grid = self.terminal.grid();
-                point = match direction {
-                    Direction::Right => {
-                        grid.iter_from(point).prev().map_or(point, |cell| cell.point)
-                    },
-                    Direction::Left => {
-                        grid.iter_from(point).next().map_or(point, |cell| cell.point)
-                    },
-                };
-            }
-
-            self.terminal.vi_goto_point(point);
-            self.mark_dirty();
-        }
+    /// Jump to the next matching character in the line.
+    fn inline_search_previous(&mut self) {
+        let direction = self.inline_search_state.direction.opposite();
+        self.inline_search(direction);
     }
 
     fn message(&self) -> Option<&Message> {
@@ -1104,6 +1077,41 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let timer_id = TimerId::new(Topic::BlinkTimeout, window_id);
 
         self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
+    }
+
+    /// Perferm vi mode inline search in the specified direction.
+    fn inline_search(&mut self, direction: Direction) {
+        let c = match self.inline_search_state.character {
+            Some(c) => c,
+            None => return,
+        };
+        let mut buf = [0; 4];
+        let search_character = c.encode_utf8(&mut buf);
+
+        // Find next match in this line.
+        let vi_point = self.terminal.vi_mode_cursor.point;
+        let point = match direction {
+            Direction::Right => self.terminal.inline_search_right(vi_point, search_character),
+            Direction::Left => self.terminal.inline_search_left(vi_point, search_character),
+        };
+
+        // Jump to point if there's a match.
+        if let Ok(mut point) = point {
+            if self.inline_search_state.stop_short {
+                let grid = self.terminal.grid();
+                point = match direction {
+                    Direction::Right => {
+                        grid.iter_from(point).prev().map_or(point, |cell| cell.point)
+                    },
+                    Direction::Left => {
+                        grid.iter_from(point).next().map_or(point, |cell| cell.point)
+                    },
+                };
+            }
+
+            self.terminal.vi_goto_point(point);
+            self.mark_dirty();
+        }
     }
 }
 

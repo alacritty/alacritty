@@ -127,7 +127,8 @@ pub trait ActionContext<T: EventListener> {
     fn toggle_vi_mode(&mut self) {}
     fn inline_search_state(&mut self) -> &mut InlineSearchState;
     fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
-    fn inline_search_next(&mut self, _direction: Direction) {}
+    fn inline_search_next(&mut self) {}
+    fn inline_search_previous(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
@@ -275,8 +276,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Vi(ViAction::InlineSearchBackwardShort) => {
                 ctx.start_inline_search(Direction::Left, true)
             },
-            Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(Direction::Right),
-            Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_next(Direction::Left),
+            Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
+            Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },
@@ -1041,7 +1042,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 inline_state.character = Some(c);
 
                 // Immediately move to the captured character.
-                self.ctx.inline_search_next(Direction::Right);
+                self.ctx.inline_search_next();
             }
 
             // Ignore all other characters in `text`.
