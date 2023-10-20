@@ -1024,7 +1024,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
-        let mut text = key.text_with_all_modifiers().unwrap_or_default();
+        let text = key.text_with_all_modifiers().unwrap_or_default();
 
         // All key bindings are disabled while a hint is being selected.
         if self.ctx.display().hint_state.active() {
@@ -1036,19 +1036,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // First key after inline search is captured.
         let inline_state = self.ctx.inline_search_state();
-        if mem::take(&mut inline_state.char_pending) && !text.is_empty() {
-            let mut indices = text.char_indices();
-            let (_, c) = indices.next().unwrap();
-            inline_state.character = Some(c);
+        if mem::take(&mut inline_state.char_pending) {
+            if let Some(c) = text.chars().next() {
+                inline_state.character = Some(c);
 
-            // Immediately move to the captured character.
-            self.ctx.inline_search_next(Direction::Right);
-
-            // Remove captured character if there's multiple.
-            match indices.next() {
-                Some((index, _)) => text = &text[index..],
-                None => return,
+                // Immediately move to the captured character.
+                self.ctx.inline_search_next(Direction::Right);
             }
+
+            // Ignore all other characters in `text`.
+            return;
         }
 
         // Reset search delay when the user is still typing.
