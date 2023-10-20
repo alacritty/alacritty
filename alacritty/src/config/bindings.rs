@@ -331,6 +331,18 @@ pub enum ViAction {
     Open,
     /// Centers the screen around the vi mode cursor.
     CenterAroundViCursor,
+    /// Search forward within the current line.
+    InlineSearchForward,
+    /// Search backward within the current line.
+    InlineSearchBackward,
+    /// Search forward within the current line, stopping just short of the character.
+    InlineSearchForwardShort,
+    /// Search backward within the current line, stopping just short of the character.
+    InlineSearchBackwardShort,
+    /// Jump to the next inline search match.
+    InlineSearchNext,
+    /// Jump to the previous inline search match.
+    InlineSearchPrevious,
 }
 
 /// Search mode specific actions.
@@ -506,6 +518,12 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "n",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::SearchPrevious;
         Enter,                              +BindingMode::VI, ~BindingMode::SEARCH; ViAction::Open;
         "z",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CenterAroundViCursor;
+        "f",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForward;
+        "f",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackward;
+        "t",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForwardShort;
+        "t",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackwardShort;
+        ";",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchNext;
+        ",",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchPrevious;
         "k",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Up;
         "j",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Down;
         "h",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Left;

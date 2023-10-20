@@ -513,7 +513,25 @@ impl<T> Term<T> {
     }
 
     /// Find left end of semantic block.
-    pub fn semantic_search_left(&self, mut point: Point) -> Point {
+    #[must_use]
+    pub fn semantic_search_left(&self, point: Point) -> Point {
+        match self.inline_search_left(point, &self.semantic_escape_chars) {
+            Ok(point) => self.grid.iter_from(point).next().map_or(point, |cell| cell.point),
+            Err(point) => point,
+        }
+    }
+
+    /// Find right end of semantic block.
+    #[must_use]
+    pub fn semantic_search_right(&self, point: Point) -> Point {
+        match self.inline_search_right(point, &self.semantic_escape_chars) {
+            Ok(point) => self.grid.iter_from(point).prev().map_or(point, |cell| cell.point),
+            Err(point) => point,
+        }
+    }
+
+    /// Searching to the left, find the next character contained in `needles`.
+    pub fn inline_search_left(&self, mut point: Point, needles: &str) -> Result<Point, Point> {
         // Limit the starting point to the last line in the history
         point.line = max(point.line, self.topmost_line());
 
@@ -522,22 +540,22 @@ impl<T> Term<T> {
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         while let Some(cell) = iter.prev() {
-            if !cell.flags.intersects(wide) && self.semantic_escape_chars.contains(cell.c) {
+            point = cell.point;
+
+            if !cell.flags.intersects(wide) && needles.contains(cell.c) {
+                return Ok(point);
+            }
+
+            if point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
                 break;
             }
-
-            if cell.point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
-            }
-
-            point = cell.point;
         }
 
-        point
+        Err(point)
     }
 
-    /// Find right end of semantic block.
-    pub fn semantic_search_right(&self, mut point: Point) -> Point {
+    /// Searching to the right, find the next character contained in `needles`.
+    pub fn inline_search_right(&self, mut point: Point, needles: &str) -> Result<Point, Point> {
         // Limit the starting point to the last line in the history
         point.line = max(point.line, self.topmost_line());
 
@@ -545,18 +563,18 @@ impl<T> Term<T> {
         let last_column = self.columns() - 1;
 
         for cell in self.grid.iter_from(point) {
-            if !cell.flags.intersects(wide) && self.semantic_escape_chars.contains(cell.c) {
-                break;
-            }
-
             point = cell.point;
 
+            if !cell.flags.intersects(wide) && needles.contains(cell.c) {
+                return Ok(point);
+            }
+
             if point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
+                break;
             }
         }
 
-        point
+        Err(point)
     }
 
     /// Find the beginning of the current line across linewraps.

@@ -46,7 +46,8 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::event::{
-    ClickState, Event, EventType, Mouse, TouchPurpose, TouchZoom, TYPING_SEARCH_DELAY,
+    ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
+    TYPING_SEARCH_DELAY,
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -124,6 +125,10 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
+    fn inline_search_state(&mut self) -> &mut InlineSearchState;
+    fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
+    fn inline_search_next(&mut self) {}
+    fn inline_search_previous(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
@@ -259,6 +264,20 @@ impl<T: EventListener> Execute<T> for Action {
 
                 ctx.scroll(Scroll::Delta(scroll_lines));
             },
+            Action::Vi(ViAction::InlineSearchForward) => {
+                ctx.start_inline_search(Direction::Right, false)
+            },
+            Action::Vi(ViAction::InlineSearchBackward) => {
+                ctx.start_inline_search(Direction::Left, false)
+            },
+            Action::Vi(ViAction::InlineSearchForwardShort) => {
+                ctx.start_inline_search(Direction::Right, true)
+            },
+            Action::Vi(ViAction::InlineSearchBackwardShort) => {
+                ctx.start_inline_search(Direction::Left, true)
+            },
+            Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
+            Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },
@@ -1016,6 +1035,20 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
+        // First key after inline search is captured.
+        let inline_state = self.ctx.inline_search_state();
+        if mem::take(&mut inline_state.char_pending) {
+            if let Some(c) = text.chars().next() {
+                inline_state.character = Some(c);
+
+                // Immediately move to the captured character.
+                self.ctx.inline_search_next();
+            }
+
+            // Ignore all other characters in `text`.
+            return;
+        }
+
         // Reset search delay when the user is still typing.
         if self.ctx.search_active() {
             let timer_id = TimerId::new(Topic::DelayedSearch, self.ctx.window().id());
@@ -1218,6 +1251,7 @@ mod tests {
         pub message_buffer: &'a mut MessageBuffer,
         pub modifiers: Modifiers,
         config: &'a UiConfig,
+        inline_search_state: &'a mut InlineSearchState,
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
@@ -1232,6 +1266,10 @@ mod tests {
 
         fn search_direction(&self) -> Direction {
             Direction::Right
+        }
+
+        fn inline_search_state(&mut self) -> &mut InlineSearchState {
+            self.inline_search_state
         }
 
         fn search_active(&self) -> bool {
@@ -1346,6 +1384,7 @@ mod tests {
                     ..Mouse::default()
                 };
 
+                let mut inline_search_state = InlineSearchState::default();
                 let mut message_buffer = MessageBuffer::default();
 
                 let context = ActionContext {
@@ -1355,6 +1394,7 @@ mod tests {
                     clipboard: &mut clipboard,
                     modifiers: Default::default(),
                     message_buffer: &mut message_buffer,
+                    inline_search_state: &mut inline_search_state,
                     config: &cfg,
                 };
 

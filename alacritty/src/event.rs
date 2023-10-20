@@ -29,7 +29,7 @@ use winit::window::WindowId;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
 use alacritty_terminal::event_loop::Notifier;
-use alacritty_terminal::grid::{Dimensions, Scroll};
+use alacritty_terminal::grid::{BidirectionalIterator, Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
@@ -178,6 +178,27 @@ impl Default for SearchState {
     }
 }
 
+/// Vi inline search state.
+pub struct InlineSearchState {
+    /// Whether inline search is currently waiting for search character input.
+    pub char_pending: bool,
+    pub character: Option<char>,
+
+    direction: Direction,
+    stop_short: bool,
+}
+
+impl Default for InlineSearchState {
+    fn default() -> Self {
+        Self {
+            direction: Direction::Right,
+            char_pending: Default::default(),
+            stop_short: Default::default(),
+            character: Default::default(),
+        }
+    }
+}
+
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
@@ -193,6 +214,7 @@ pub struct ActionContext<'a, N, T> {
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
+    pub inline_search_state: &'a mut InlineSearchState,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
@@ -839,6 +861,30 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         *self.dirty = true;
     }
 
+    /// Get vi inline search state.
+    fn inline_search_state(&mut self) -> &mut InlineSearchState {
+        self.inline_search_state
+    }
+
+    /// Start vi mode inline search.
+    fn start_inline_search(&mut self, direction: Direction, stop_short: bool) {
+        self.inline_search_state.stop_short = stop_short;
+        self.inline_search_state.direction = direction;
+        self.inline_search_state.char_pending = true;
+    }
+
+    /// Jump to the next matching character in the line.
+    fn inline_search_next(&mut self) {
+        let direction = self.inline_search_state.direction;
+        self.inline_search(direction);
+    }
+
+    /// Jump to the next matching character in the line.
+    fn inline_search_previous(&mut self) {
+        let direction = self.inline_search_state.direction.opposite();
+        self.inline_search(direction);
+    }
+
     fn message(&self) -> Option<&Message> {
         self.message_buffer.message()
     }
@@ -1031,6 +1077,41 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let timer_id = TimerId::new(Topic::BlinkTimeout, window_id);
 
         self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
+    }
+
+    /// Perferm vi mode inline search in the specified direction.
+    fn inline_search(&mut self, direction: Direction) {
+        let c = match self.inline_search_state.character {
+            Some(c) => c,
+            None => return,
+        };
+        let mut buf = [0; 4];
+        let search_character = c.encode_utf8(&mut buf);
+
+        // Find next match in this line.
+        let vi_point = self.terminal.vi_mode_cursor.point;
+        let point = match direction {
+            Direction::Right => self.terminal.inline_search_right(vi_point, search_character),
+            Direction::Left => self.terminal.inline_search_left(vi_point, search_character),
+        };
+
+        // Jump to point if there's a match.
+        if let Ok(mut point) = point {
+            if self.inline_search_state.stop_short {
+                let grid = self.terminal.grid();
+                point = match direction {
+                    Direction::Right => {
+                        grid.iter_from(point).prev().map_or(point, |cell| cell.point)
+                    },
+                    Direction::Left => {
+                        grid.iter_from(point).next().map_or(point, |cell| cell.point)
+                    },
+                };
+            }
+
+            self.terminal.vi_goto_point(point);
+            self.mark_dirty();
+        }
     }
 }
 
