@@ -1036,7 +1036,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // First key after inline search is captured.
         let inline_state = self.ctx.inline_search_state();
-        if !text.is_empty() && mem::take(&mut inline_state.char_pending) {
+        if mem::take(&mut inline_state.char_pending) && !text.is_empty() {
             let mut indices = text.char_indices();
             let (_, c) = indices.next().unwrap();
             inline_state.character = Some(c);
