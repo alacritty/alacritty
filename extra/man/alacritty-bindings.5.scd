@@ -161,6 +161,30 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"CenterAroundViCursor"_
+|  _"F"_
+:[
+:  _"Vi|~Search"_
+:  _"InlineSearchForward"_
+|  _"F"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"InlineSearchBackward"_
+|  _"T"_
+:[
+:  _"Vi|~Search"_
+:  _"InlineSearchForwardShort"_
+|  _"T"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"InlineSearchBackwardShort"_
+|  _";"_
+:[
+:  _"Vi|~Search"_
+:  _"InlineSearchNext"_
+|  _","_
+:[
+:  _"Vi|~Search"_
+:  _"InlineSearchPrevious"_
 |  _"K"_
 :[
 :  _"Vi|~Search"_
