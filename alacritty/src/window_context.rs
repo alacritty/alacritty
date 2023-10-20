@@ -393,10 +393,9 @@ impl WindowContext {
         // Request immediate re-draw if visual bell animation is not finished yet.
         if !self.display.visual_bell.completed() {
             let window_id = Some(self.display.window.id());
-            // Winit on Windows discards `redraw_requested` calls from the `RedrawRequested` event,
-            // thus use a `Wakeup` which is delivered reliably and also sets the `dirty` flag.
-            let _ = event_proxy
-                .send_event(Event::new(EventType::Terminal(TerminalEvent::Wakeup), window_id));
+            // Winit states that requesting a redraw from `RedrawRequested` doesn't work on
+            // Windows, so use a user event to force the redraw instead.
+            let _ = event_proxy.send_event(Event::new(EventType::Redraw, window_id));
         }
 
         // Redraw the window.
@@ -420,21 +419,7 @@ impl WindowContext {
         event: WinitEvent<Event>,
     ) {
         match event {
-            WinitEvent::AboutToWait => {
-                // Skip further event handling with no staged updates.
-                if self.event_queue.is_empty() {
-                    // Request a redraw in-case we have dirty flag set without events in the queue.
-                    // This could happen when event excluded from batching set `dirty` flag, but
-                    // forgot to call `redraw_requested`.
-                    if self.dirty && !self.occluded {
-                        self.display.window.request_redraw();
-                    }
-                    return;
-                }
-
-                // Continue to process all pending events.
-            },
-            WinitEvent::RedrawRequested(_) => {
+            WinitEvent::AboutToWait | WinitEvent::RedrawRequested(_) => {
                 // Skip further event handling with no staged updates.
                 if self.event_queue.is_empty() {
                     return;
@@ -507,7 +492,7 @@ impl WindowContext {
         }
 
         // Don't call `request_redraw` when event is `RedrawRequested` since the `dirty` flag
-        // represents the current frame, but redraw is for the `next` frame.
+        // represents the current frame, but redraw is for the next frame.
         if self.dirty && !self.occluded && !matches!(event, WinitEvent::RedrawRequested(_)) {
             self.display.window.request_redraw();
         }

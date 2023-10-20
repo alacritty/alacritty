@@ -99,6 +99,7 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
+    Redraw,
     Frame,
 }
 
@@ -1254,6 +1255,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
+                | EventType::Redraw
                 | EventType::Frame => (),
             },
             WinitEvent::WindowEvent { event, .. } => {
@@ -1505,8 +1507,12 @@ impl Processor {
 
                     info!("Initialisation complete");
                 },
-                // NOTE: This event bypasses batching to minimize input latency.
+                // NOTE: These events bypasses batching to minimize input latency.
                 WinitEvent::UserEvent(Event {
+                    window_id: Some(window_id),
+                    payload: EventType::Redraw,
+                })
+                | WinitEvent::UserEvent(Event {
                     window_id: Some(window_id),
                     payload: EventType::Terminal(TerminalEvent::Wakeup),
                 }) => {
