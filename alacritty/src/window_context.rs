@@ -16,10 +16,10 @@ use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
 use log::{error, info};
+use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
-use winit::event::{Event as WinitEvent, Modifiers};
+use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
 use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
-use winit::window::raw_window_handle::HasRawDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_config::SerdeReplace;
@@ -419,7 +419,8 @@ impl WindowContext {
         event: WinitEvent<Event>,
     ) {
         match event {
-            WinitEvent::AboutToWait | WinitEvent::RedrawRequested(_) => {
+            WinitEvent::AboutToWait
+            | WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. } => {
                 // Skip further event handling with no staged updates.
                 if self.event_queue.is_empty() {
                     return;
@@ -492,11 +493,12 @@ impl WindowContext {
             self.mouse.hint_highlight_dirty = false;
         }
 
-        // Request a redraw.
-        //
-        // Even though redraw requests are squashed in winit, we try not to
-        // request more if we haven't received a new frame request yet.
-        if self.dirty && !self.occluded && !matches!(event, WinitEvent::RedrawRequested(_)) {
+        // Don't call `request_redraw` when event is `RedrawRequested` since the `dirty` flag
+        // represents the current frame, but redraw is for the next frame.
+        if self.dirty
+            && !self.occluded
+            && !matches!(event, WinitEvent::WindowEvent { event: WindowEvent::RedrawRequested, .. })
+        {
             self.display.window.request_redraw();
         }
     }

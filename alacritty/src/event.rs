@@ -15,7 +15,9 @@ use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::{self, Size};
+use glutin::display::{Display as GlutinDisplay, GetGlDisplay};
 use log::{debug, error, info, warn};
+use raw_window_handle::HasRawDisplayHandle;
 use winit::event::{
     ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
@@ -23,7 +25,6 @@ use winit::event::{
 use winit::event_loop::{
     ControlFlow, DeviceEvents, EventLoop, EventLoopProxy, EventLoopWindowTarget,
 };
-use winit::window::raw_window_handle::HasRawDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
@@ -1447,6 +1448,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
                     | WindowEvent::HoveredFile(_)
+                    | WindowEvent::RedrawRequested
                     | WindowEvent::Moved(_) => (),
                 }
             },
@@ -1455,8 +1457,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             | WinitEvent::DeviceEvent { .. }
             | WinitEvent::LoopExiting
             | WinitEvent::Resumed
-            | WinitEvent::AboutToWait
-            | WinitEvent::RedrawRequested(_) => (),
+            | WinitEvent::MemoryWarning
+            | WinitEvent::AboutToWait => (),
         }
     }
 }
@@ -1467,6 +1469,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
 /// triggered.
 pub struct Processor {
     windows: HashMap<WindowId, WindowContext, RandomState>,
+    gl_display: Option<GlutinDisplay>,
     #[cfg(unix)]
     global_ipc_options: Vec<String>,
     cli_options: CliOptions,
@@ -1484,6 +1487,7 @@ impl Processor {
     ) -> Processor {
         Processor {
             cli_options,
+            gl_display: None,
             config: Rc::new(config),
             windows: Default::default(),
             #[cfg(unix)]
@@ -1504,6 +1508,7 @@ impl Processor {
         let window_context =
             WindowContext::initial(event_loop, proxy, self.config.clone(), options)?;
 
+        self.gl_display = Some(window_context.display.gl_context().display());
         self.windows.insert(window_context.id(), window_context);
 
         Ok(())
@@ -1552,7 +1557,8 @@ impl Processor {
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
 
-        let result = event_loop.run(move |event, event_loop, control_flow| {
+        let mut initial_window_error = Ok(());
+        let result = event_loop.run(|event, event_loop| {
             if self.config.debug.print_events {
                 info!("winit event: {:?}", event);
             }
@@ -1578,13 +1584,29 @@ impl Processor {
                         proxy.clone(),
                         initial_window_options,
                     ) {
-                        // Log the error right away since we can't return it.
-                        eprintln!("Error: {}", err);
-                        *control_flow = ControlFlow::ExitWithCode(1);
+                        initial_window_error = Err(err);
+                        event_loop.exit();
                         return;
                     }
 
                     info!("Initialisation complete");
+                },
+                WinitEvent::LoopExiting => {
+                    match self.gl_display.take() {
+                        #[cfg(not(target_os = "macos"))]
+                        Some(glutin::display::Display::Egl(display)) => {
+                            // Ensure that all the windows are dropped, so the destructors for
+                            // Renderer and contexts ran.
+                            self.windows.clear();
+
+                            // SAFETY: the display is being destroyed after destroying all the
+                            // windows, thus no attempt to access the EGL state will be made.
+                            unsafe {
+                                display.terminate();
+                            }
+                        },
+                        _ => (),
+                    }
                 },
                 // NOTE: This event bypasses batching to minimize input latency.
                 WinitEvent::UserEvent(Event {
@@ -1631,10 +1653,10 @@ impl Processor {
                             window_context.write_ref_test_results();
                         }
 
-                        *control_flow = ControlFlow::Exit;
+                        event_loop.exit();
                     }
                 },
-                WinitEvent::RedrawRequested(window_id) => {
+                WinitEvent::WindowEvent { window_id, event: WindowEvent::RedrawRequested } => {
                     let window_context = match self.windows.get_mut(&window_id) {
                         Some(window_context) => window_context,
                         None => return,
@@ -1645,7 +1667,7 @@ impl Processor {
                         &proxy,
                         &mut clipboard,
                         &mut scheduler,
-                        WinitEvent::RedrawRequested(window_id),
+                        event,
                     );
 
                     window_context.draw(&mut scheduler);
@@ -1665,10 +1687,11 @@ impl Processor {
 
                     // Update the scheduler after event processing to ensure
                     // the event loop deadline is as accurate as possible.
-                    *control_flow = match scheduler.update() {
+                    let control_flow = match scheduler.update() {
                         Some(instant) => ControlFlow::WaitUntil(instant),
                         None => ControlFlow::Wait,
                     };
+                    event_loop.set_control_flow(control_flow);
                 },
                 // Process config update.
                 WinitEvent::UserEvent(Event { payload: EventType::ConfigReload(path), .. }) => {
@@ -1757,7 +1780,11 @@ impl Processor {
             }
         });
 
-        result.map_err(Into::into)
+        if initial_window_error.is_err() {
+            initial_window_error
+        } else {
+            result.map_err(Into::into)
+        }
     }
 
     /// Check if an event is irrelevant and can be skipped.
@@ -1775,9 +1802,7 @@ impl Processor {
                     | WindowEvent::HoveredFile(_)
                     | WindowEvent::Moved(_)
             ),
-            WinitEvent::Suspended { .. }
-            | WinitEvent::NewEvents { .. }
-            | WinitEvent::LoopExiting => true,
+            WinitEvent::Suspended { .. } | WinitEvent::NewEvents { .. } => true,
             _ => false,
         }
     }

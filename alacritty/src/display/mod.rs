@@ -14,10 +14,10 @@ use glutin::surface::{Rect as DamageRect, Surface, SwapInterval, WindowSurface};
 
 use log::{debug, info};
 use parking_lot::MutexGuard;
+use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
-use winit::window::raw_window_handle::RawWindowHandle;
 use winit::window::CursorIcon;
 
 use crossfont::{self, Rasterize, Rasterizer};
@@ -987,10 +987,7 @@ impl Display {
 
         // XXX: Request the new frame after swapping buffers, so the
         // time to finish OpenGL operations is accounted for in the timeout.
-        if matches!(
-            self.raw_window_handle,
-            RawWindowHandle::AppKit(_) | RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_)
-        ) {
+        if !matches!(self.raw_window_handle, RawWindowHandle::Wayland(_)) {
             self.request_frame(scheduler);
         }
 

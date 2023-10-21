@@ -1,5 +1,4 @@
 use std::fmt::{self, Formatter};
-use std::os::raw::c_ulong;
 
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
@@ -31,7 +30,7 @@ pub struct WindowConfig {
 
     /// XEmbed parent.
     #[config(skip)]
-    pub embed: Option<c_ulong>,
+    pub embed: Option<u32>,
 
     /// System decorations theme variant.
     pub decorations_theme_variant: Option<Theme>,

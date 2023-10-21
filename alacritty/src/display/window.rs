@@ -11,9 +11,7 @@ use winit::platform::wayland::WindowBuilderExtWayland;
 use {
     std::io::Cursor,
     winit::platform::x11::{WindowBuilderExtX11, EventLoopWindowTargetExtX11},
-    winit::window::raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle},
     glutin::platform::x11::X11VisualInfo,
-    x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib},
     winit::window::Icon,
     png::Decoder,
 };
@@ -28,12 +26,12 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
 };
 
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
-use winit::window::raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
     WindowBuilder, WindowId,
@@ -154,9 +152,14 @@ impl Window {
             window_builder = window_builder.with_activation_token(token);
 
             // Remove the token from the env.
-            unsafe {
-                startup_notify::reset_activation_token_env();
-            }
+            startup_notify::reset_activation_token_env();
+        }
+
+        // On X11, embed the window inside another if the parent ID has been set.
+        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+        if let Some(parent_window_id) = event_loop.is_x11().then_some(config.window.embed).flatten()
+        {
+            window_builder = window_builder.with_embed_parent_window(parent_window_id);
         }
 
         let window = window_builder
@@ -181,13 +184,6 @@ impl Window {
 
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
-
-        // On X11, embed the window inside another if the parent ID has been set.
-        #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-        if let Some(parent_window_id) = event_loop.is_x11().then_some(config.window.embed).flatten()
-        {
-            x_embed_window(&window, parent_window_id);
-        }
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
@@ -238,7 +234,9 @@ impl Window {
 
     #[inline]
     pub fn request_redraw(&mut self) {
-        if !self.requested_redraw {
+        // No need to request a frame when we don't have one. The next `Frame` event will check the
+        // `dirty` flag on the display and submit a redraw request.
+        if self.has_frame && !self.requested_redraw {
             self.requested_redraw = true;
             self.window.request_redraw();
         }
@@ -470,44 +468,6 @@ impl Window {
     }
 }
 
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-fn x_embed_window(window: &WinitWindow, parent_id: std::os::raw::c_ulong) {
-    let xlib_display = window.raw_display_handle();
-    let xlib_window = window.raw_window_handle();
-    let (xlib_display, xlib_window) = match (xlib_display, xlib_window) {
-        (RawDisplayHandle::Xlib(display), RawWindowHandle::Xlib(window)) => {
-            (display.display, window.window)
-        },
-        _ => return,
-    };
-
-    let xlib = Xlib::open().expect("get xlib");
-
-    unsafe {
-        let atom = (xlib.XInternAtom)(xlib_display as *mut _, "_XEMBED".as_ptr() as *const _, 0);
-        (xlib.XChangeProperty)(
-            xlib_display as _,
-            xlib_window,
-            atom,
-            atom,
-            32,
-            PropModeReplace,
-            [0, 1].as_ptr(),
-            2,
-        );
-
-        // Register new error handler.
-        let old_handler = (xlib.XSetErrorHandler)(Some(xembed_error_handler));
-
-        // Check for the existence of the target before attempting reparenting.
-        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
-
-        // Drain errors and restore original error handler.
-        (xlib.XSync)(xlib_display as _, 0);
-        (xlib.XSetErrorHandler)(old_handler);
-    }
-}
-
 #[cfg(target_os = "macos")]
 fn use_srgb_color_space(window: &WinitWindow) {
     let raw_window = match window.raw_window_handle() {
@@ -518,10 +478,4 @@ fn use_srgb_color_space(window: &WinitWindow) {
     unsafe {
         let _: () = msg_send![raw_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
     }
-}
-
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
-    log::error!("Could not embed into specified window.");
-    std::process::exit(1);
 }
