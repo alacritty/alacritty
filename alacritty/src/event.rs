@@ -1557,7 +1557,8 @@ impl Processor {
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
 
-        let result = event_loop.run(move |event, event_loop| {
+        let mut initial_window_error = Ok(());
+        let result = event_loop.run(|event, event_loop| {
             if self.config.debug.print_events {
                 info!("winit event: {:?}", event);
             }
@@ -1583,9 +1584,7 @@ impl Processor {
                         proxy.clone(),
                         initial_window_options,
                     ) {
-                        // TODO propagate error.
-                        // Log the error right away since we can't return it.
-                        eprintln!("Error: {}", err);
+                        initial_window_error = Err(err);
                         event_loop.exit();
                         return;
                     }
@@ -1598,12 +1597,10 @@ impl Processor {
                         Some(glutin::display::Display::Egl(display)) => {
                             // Ensure that all the windows are dropped, so the destructors for
                             // Renderer and contexts ran.
-                            let windows = mem::take(&mut self.windows);
-                            drop(windows);
+                            self.windows.clear();
 
                             // SAFETY: the display is being destroyed after destroying all the
-                            // windows, thus no attempt to access the
-                            // EGL state will be made.
+                            // windows, thus no attempt to access the EGL state will be made.
                             unsafe {
                                 display.terminate();
                             }
@@ -1783,7 +1780,11 @@ impl Processor {
             }
         });
 
-        result.map_err(Into::into)
+        if initial_window_error.is_err() {
+            initial_window_error
+        } else {
+            result.map_err(Into::into)
+        }
     }
 
     /// Check if an event is irrelevant and can be skipped.
