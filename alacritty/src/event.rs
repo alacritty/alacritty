@@ -1551,14 +1551,15 @@ impl Processor {
         let mut scheduler = Scheduler::new(proxy.clone());
         let mut initial_window_options = Some(initial_window_options);
 
-        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
-        let mut clipboard = unsafe { Clipboard::new(event_loop.raw_display_handle()) };
-
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
 
         let mut initial_window_error = Ok(());
-        let result = event_loop.run(|event, event_loop| {
+        let initial_window_error_loop = &mut initial_window_error;
+        // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
+        // which is done by `move` into event loop.
+        let mut clipboard = unsafe { Clipboard::new(event_loop.raw_display_handle()) };
+        let result = event_loop.run(move |event, event_loop| {
             if self.config.debug.print_events {
                 info!("winit event: {:?}", event);
             }
@@ -1584,7 +1585,7 @@ impl Processor {
                         proxy.clone(),
                         initial_window_options,
                     ) {
-                        initial_window_error = Err(err);
+                        *initial_window_error_loop = Err(err);
                         event_loop.exit();
                         return;
                     }
