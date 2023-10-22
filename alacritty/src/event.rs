@@ -1,6 +1,7 @@
 //! Process window events.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
@@ -1551,14 +1552,15 @@ impl Processor {
         let mut scheduler = Scheduler::new(proxy.clone());
         let mut initial_window_options = Some(initial_window_options);
 
-        // NOTE: Since this takes a pointer to the winit event loop, it MUST be dropped first.
-        let mut clipboard = unsafe { Clipboard::new(event_loop.raw_display_handle()) };
-
         // Disable all device events, since we don't care about them.
         event_loop.listen_device_events(DeviceEvents::Never);
 
-        let mut initial_window_error = Ok(());
-        let result = event_loop.run(|event, event_loop| {
+        let initial_window_error = Rc::new(RefCell::new(Ok(())));
+        let initial_window_error_loop = initial_window_error.clone();
+        // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
+        // which is done by `move` into event loop.
+        let mut clipboard = unsafe { Clipboard::new(event_loop.raw_display_handle()) };
+        let result = event_loop.run(move |event, event_loop| {
             if self.config.debug.print_events {
                 info!("winit event: {:?}", event);
             }
@@ -1584,7 +1586,7 @@ impl Processor {
                         proxy.clone(),
                         initial_window_options,
                     ) {
-                        initial_window_error = Err(err);
+                        *initial_window_error_loop.borrow_mut() = Err(err);
                         event_loop.exit();
                         return;
                     }
@@ -1780,8 +1782,8 @@ impl Processor {
             }
         });
 
-        if initial_window_error.is_err() {
-            initial_window_error
+        if initial_window_error.borrow().is_err() {
+            initial_window_error.replace(Ok(()))
         } else {
             result.map_err(Into::into)
         }
