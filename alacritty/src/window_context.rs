@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use crossfont::Size;
 use glutin::config::GetGlConfig;
-use glutin::context::NotCurrentContext;
 use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
@@ -117,7 +116,9 @@ impl WindowContext {
         let gl_context =
             renderer::platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)?;
 
-        Self::new(window, gl_context, config, options, proxy)
+        let display = Display::new(window, gl_context, &config, false)?;
+
+        Self::new(display, config, options, proxy)
     }
 
     /// Create additional context with the graphics platform other windows are using.
@@ -155,13 +156,20 @@ impl WindowContext {
             Some(raw_window_handle),
         )?;
 
-        Self::new(window, gl_context, config, options, proxy)
+        // Check if new window will be opened as a tab.
+        #[cfg(target_os = "macos")]
+        let tabbed = options.window_tabbing_id.is_some();
+        #[cfg(not(target_os = "macos"))]
+        let tabbed = false;
+
+        let display = Display::new(window, gl_context, &config, tabbed)?;
+
+        Self::new(display, config, options, proxy)
     }
 
     /// Create a new terminal window context.
     fn new(
-        window: Window,
-        context: NotCurrentContext,
+        display: Display,
         config: Rc<UiConfig>,
         options: WindowOptions,
         proxy: EventLoopProxy<Event>,
@@ -170,11 +178,6 @@ impl WindowContext {
         options.terminal_options.override_pty_config(&mut pty_config);
 
         let preserve_title = options.window_identity.title.is_some();
-
-        // Create a display.
-        //
-        // The display manages a window and can draw the terminal.
-        let display = Display::new(window, context, &config)?;
 
         info!(
             "PTY dimensions: {:?} x {:?}",
