@@ -50,8 +50,9 @@ impl<'a> StrShortener<'a> {
         }
 
         if direction == ShortenDirection::Right {
+            let skip_chars = 0; // suppress clippy warning about `skip(0)` in Rust 1.73+
             return Self {
-                chars: text.chars().skip(0),
+                chars: text.chars().skip(skip_chars),
                 accumulated_len: 0,
                 text_action: TextAction::Char,
                 max_width,
