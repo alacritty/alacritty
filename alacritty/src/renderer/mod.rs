@@ -92,7 +92,7 @@ impl Renderer {
     /// supported OpenGL version.
     pub fn new(
         context: &PossiblyCurrentContext,
-        renderer_prefernce: Option<RendererPreference>,
+        renderer_preference: Option<RendererPreference>,
     ) -> Result<Self, Error> {
         // We need to load OpenGL functions once per instance, but only after we make our context
         // current due to WGL limitations.
@@ -119,7 +119,7 @@ impl Renderer {
         let is_gles_context = matches!(context.context_api(), ContextApi::Gles(_));
 
         // Use the config option to enforce a particular renderer configuration.
-        let (use_glsl3, allow_dsb) = match renderer_prefernce {
+        let (use_glsl3, allow_dsb) = match renderer_preference {
             Some(RendererPreference::Glsl3) => (true, true),
             Some(RendererPreference::Gles2) => (false, true),
             Some(RendererPreference::Gles2Pure) => (false, false),
@@ -288,7 +288,7 @@ struct GlExtensions;
 impl GlExtensions {
     /// Check if the given `extension` is supported.
     ///
-    /// This function will lazyly load OpenGL extensions.
+    /// This function will lazily load OpenGL extensions.
     fn contains(extension: &str) -> bool {
         static OPENGL_EXTENSIONS: OnceCell<HashSet<&'static str, RandomState>> = OnceCell::new();
 

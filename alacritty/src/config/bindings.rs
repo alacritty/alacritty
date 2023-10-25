@@ -224,7 +224,7 @@ pub enum Action {
     SelectTab8,
 
     #[cfg(target_os = "macos")]
-    /// Select the nineth tab.
+    /// Select the ninth tab.
     SelectTab9,
 
     #[cfg(target_os = "macos")]

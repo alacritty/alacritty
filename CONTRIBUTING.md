@@ -114,7 +114,7 @@ Alacritty's release process aims to provide stable and well tested releases with
 back new features during the testing period.
 
 To achieve these goals, a new branch is created for every new release. Both the release candidates
-and the final version are only comitted and tagged in this branch. The master branch only tracks
+and the final version are only committed and tagged in this branch. The master branch only tracks
 development versions, allowing us to keep the branches completely separate without merging releases
 back into master.
 

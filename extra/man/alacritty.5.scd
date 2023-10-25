@@ -853,7 +853,7 @@ https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead
 		*InlineSearchForward*
 			Search forward within the current line.
 		*InlineSearchBcakward*
-			Search backard within the current line.
+			Search backward within the current line.
 		*InlineSearchForwardShort*
 			Search forward within the current line, stopping just short of the character.
 		*InlineSearchBackwardShort*
@@ -911,7 +911,7 @@ https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead
 		*SelectTab8*
 			Select the eighth tab.
 		*SelectTab9*
-			Select the nineth tab.
+			Select the ninth tab.
 		*SelectLastTab*
 			Select the last tab.
 

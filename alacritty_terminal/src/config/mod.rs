@@ -50,7 +50,7 @@ pub enum Osc52 {
     Disabled,
     /// Only copy sequence is accepted.
     ///
-    /// This option is the default as a compromiss between entirely
+    /// This option is the default as a compromise between entirely
     /// disabling it (the most secure) and allowing `paste` (the less secure).
     #[default]
     OnlyCopy,

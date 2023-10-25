@@ -40,7 +40,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
     // Ensure that width and height is at least one.
     let height = (metrics.line_height as i32 + offset.y as i32).max(1) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32).max(1) as usize;
-    // Use one eight of the cell width, since this is used as a step size for block elemenets.
+    // Use one eight of the cell width, since this is used as a step size for block elements.
     let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1);
     let heavy_stroke_size = stroke_size * 2;
 
@@ -704,10 +704,10 @@ impl Canvas {
     /// vertex and co-vertex respectively using a given `stroke` in the bottom-right quadrant of the
     /// `Canvas` coordinate system.
     fn draw_ellipse_arc(&mut self, stroke_size: usize) {
-        fn colors_with_error(error: f32, max_transparancy: f32) -> (Pixel, Pixel) {
-            let transparancy = error * max_transparancy;
-            let alpha_1 = 1. - transparancy;
-            let alpha_2 = 1. - (max_transparancy - transparancy);
+        fn colors_with_error(error: f32, max_transparency: f32) -> (Pixel, Pixel) {
+            let transparency = error * max_transparency;
+            let alpha_1 = 1. - transparency;
+            let alpha_2 = 1. - (max_transparency - transparency);
             let color_1 = Pixel::gray((COLOR_FILL._r as f32 * alpha_1) as u8);
             let color_2 = Pixel::gray((COLOR_FILL._r as f32 * alpha_2) as u8);
             (color_1, color_2)
@@ -717,7 +717,7 @@ impl Canvas {
         let v_line_bounds = self.v_line_bounds(self.x_center(), stroke_size);
         let h_line_bounds = (h_line_bounds.0 as usize, h_line_bounds.1 as usize);
         let v_line_bounds = (v_line_bounds.0 as usize, v_line_bounds.1 as usize);
-        let max_transparancy = 0.5;
+        let max_transparency = 0.5;
 
         for (radius_y, radius_x) in
             (h_line_bounds.0..h_line_bounds.1).zip(v_line_bounds.0..v_line_bounds.1)
@@ -733,7 +733,7 @@ impl Canvas {
                 let y = radius_y * f32::sqrt(1. - x * x / radius_x2);
                 let error = y.fract();
 
-                let (color_1, color_2) = colors_with_error(error, max_transparancy);
+                let (color_1, color_2) = colors_with_error(error, max_transparency);
 
                 let x = x.clamp(0., radius_x);
                 let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.);
@@ -749,7 +749,7 @@ impl Canvas {
                 let x = radius_x * f32::sqrt(1. - y * y / radius_y2);
                 let error = x - x.fract();
 
-                let (color_1, color_2) = colors_with_error(error, max_transparancy);
+                let (color_1, color_2) = colors_with_error(error, max_transparency);
 
                 let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.);
                 let x = x.clamp(0., v_line_bounds.1 as f32 - 1.);
