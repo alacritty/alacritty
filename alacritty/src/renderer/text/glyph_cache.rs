@@ -76,10 +76,17 @@ pub struct GlyphCache {
 
     /// Whether to use the built-in font for box drawing characters.
     builtin_box_drawing: bool,
+
+    /// Display scale factor
+    scale_factor: f64,
 }
 
 impl GlyphCache {
-    pub fn new(mut rasterizer: Rasterizer, font: &Font) -> Result<GlyphCache, crossfont::Error> {
+    pub fn new(
+        mut rasterizer: Rasterizer,
+        font: &Font,
+        scale_factor: f64,
+    ) -> Result<GlyphCache, crossfont::Error> {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
@@ -101,6 +108,7 @@ impl GlyphCache {
             glyph_offset: font.glyph_offset,
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
+            scale_factor,
         })
     }
 
@@ -211,6 +219,7 @@ impl GlyphCache {
                     &self.metrics,
                     &self.font_offset,
                     &self.glyph_offset,
+                    self.scale_factor,
                 )
             })
             .flatten()
@@ -246,8 +255,8 @@ impl GlyphCache {
     where
         L: LoadGlyph,
     {
-        glyph.left += i32::from(self.glyph_offset.x);
-        glyph.top += i32::from(self.glyph_offset.y);
+        glyph.left += ((self.glyph_offset.x as f64) * self.scale_factor) as i32;
+        glyph.top += ((self.glyph_offset.y as f64) * self.scale_factor) as i32;
         glyph.top -= self.metrics.descent as i32;
 
         // The metrics of zero-width characters are based on rendering
@@ -284,6 +293,7 @@ impl GlyphCache {
         self.rasterizer.update_dpr(scale_factor as f32);
         self.font_offset = font.offset;
         self.glyph_offset = font.glyph_offset;
+        self.scale_factor = scale_factor;
 
         // Recompute font keys.
         let (regular, bold, italic, bold_italic) =

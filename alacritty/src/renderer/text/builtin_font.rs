@@ -21,25 +21,33 @@ pub fn builtin_glyph(
     metrics: &Metrics,
     offset: &Delta<i8>,
     glyph_offset: &Delta<i8>,
+    scale_factor: f64,
 ) -> Option<RasterizedGlyph> {
     let mut glyph = match character {
         // Box drawing characters and block elements.
-        '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
+        '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset, scale_factor),
         _ => return None,
     };
 
     // Since we want to ignore `glyph_offset` for the built-in font, subtract it to compensate its
     // addition when loading glyphs in the renderer.
-    glyph.left -= glyph_offset.x as i32;
-    glyph.top -= glyph_offset.y as i32;
+    glyph.left -= ((glyph_offset.x as f64) * scale_factor) as i32;
+    glyph.top -= ((glyph_offset.y as f64) * scale_factor) as i32;
 
     Some(glyph)
 }
 
-fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+fn box_drawing(
+    character: char,
+    metrics: &Metrics,
+    offset: &Delta<i8>,
+    scale_factor: f64,
+) -> RasterizedGlyph {
     // Ensure that width and height is at least one.
-    let height = (metrics.line_height as i32 + offset.y as i32).max(1) as usize;
-    let width = (metrics.average_advance as i32 + offset.x as i32).max(1) as usize;
+    let offset_y = ((offset.y as f64) * scale_factor) as i32;
+    let offset_x = ((offset.x as f64) * scale_factor) as i32;
+    let height = (metrics.line_height as i32 + offset_y).max(1) as usize;
+    let width = (metrics.average_advance as i32 + offset_x).max(1) as usize;
     // Use one eight of the cell width, since this is used as a step size for block elemenets.
     let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1);
     let heavy_stroke_size = stroke_size * 2;
@@ -482,7 +490,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
         _ => unreachable!(),
     }
 
-    let top = height as i32 + metrics.descent as i32;
+    let top = height as i32 + ((metrics.descent as f64) * scale_factor) as i32;
     let buffer = BitmapBuffer::Rgb(canvas.into_raw());
     RasterizedGlyph {
         character,
@@ -825,11 +833,11 @@ mod tests {
 
         // Test coverage of box drawing characters.
         for character in '\u{2500}'..='\u{259f}' {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_some());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0).is_some());
         }
 
         for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_none());
+            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset, 1.0).is_none());
         }
     }
 }
