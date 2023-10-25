@@ -42,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Apply `colors.transparent_background_colors` for selections, hints, and search matches
 - Underline full hint during keyboard selection
 - Synchronized updates now use `CSI 2026` instead of legacy `DCS` variant
+- In mouse mode with `Shift` pressed, mouse bindings without `Shift` are only triggered
+    if no exact binding (i.e. one with `Shift`) is found.
 
 ### Fixed
 

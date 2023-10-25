@@ -583,9 +583,10 @@ This section documents the *[mouse]* table of the configuration file.
 	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
 	and _chars_.
 
-	To trigger mouse bindings when an application running within Alacritty
-	captures the mouse, the `Shift` modifier is automatically added as a
-	requirement.
+	When an application running within Alacritty captures the mouse, the `Shift`
+	modifier can be used to suppress mouse reporting. If no action is found for
+	the event, actions for the event without the `Shift` modifier are triggered
+	instead.
 
 	*mouse* "Middle" | "Left" | "Right" | "Back" | "Forward" | <number>
 
