@@ -2982,7 +2982,7 @@ mod tests {
         term.push_title();
         term.set_title(Some("Next".into()));
         assert_eq!(term.title, Some("Next".into()));
-        assert_eq!(term.title_stack.get(0).unwrap(), &Some("Test".into()));
+        assert_eq!(term.title_stack.first().unwrap(), &Some("Test".into()));
 
         // Title can be popped from stack and set as the window title.
         term.pop_title();
