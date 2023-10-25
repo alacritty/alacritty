@@ -392,7 +392,7 @@ impl Display {
         window: Window,
         gl_context: NotCurrentContext,
         config: &UiConfig,
-        tabbed: bool,
+        _tabbed: bool,
     ) -> Result<Display, Error> {
         let raw_window_handle = window.raw_window_handle();
 
@@ -477,7 +477,7 @@ impl Display {
 
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
-        if !tabbed {
+        if !_tabbed {
             match config.window.startup_mode {
                 #[cfg(target_os = "macos")]
                 StartupMode::SimpleFullscreen => window.set_simple_fullscreen(true),
