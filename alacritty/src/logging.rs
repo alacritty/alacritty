@@ -28,7 +28,7 @@ pub const LOG_TARGET_IPC_CONFIG: &str = "alacritty_log_ipc_config";
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
-/// Name for the environment varibale containing extra logging targets.
+/// Name for the environment variable containing extra logging targets.
 ///
 /// The targets are semicolon separated.
 const ALACRITTY_EXTRA_LOG_TARGETS_ENV: &str = "ALACRITTY_EXTRA_LOG_TARGETS";

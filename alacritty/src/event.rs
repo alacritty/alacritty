@@ -815,7 +815,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             //
             // We remove `\x1b` to ensure it's impossible for the pasted text to write the bracketed
             // paste end escape `\x1b[201~` and `\x03` since some shells incorrectly terminate
-            // bracketed paste on its receival.
+            // bracketed paste when they receive it.
             let filtered = text.replace(['\x1b', '\x03'], "");
             self.write_to_pty(filtered.into_bytes());
 
@@ -1080,7 +1080,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
     }
 
-    /// Perferm vi mode inline search in the specified direction.
+    /// Perform vi mode inline search in the specified direction.
     fn inline_search(&mut self, direction: Direction) {
         let c = match self.inline_search_state.character {
             Some(c) => c,
@@ -1573,7 +1573,7 @@ impl Processor {
                 // The event loop just got initialized. Create a window.
                 WinitEvent::Resumed => {
                     // Creating window inside event loop is required for platforms like macOS to
-                    // properly initialize state, like tab management. Othwerwise the first
+                    // properly initialize state, like tab management. Otherwise the first
                     // window won't handle tabs.
                     let initial_window_options = match initial_window_options.take() {
                         Some(initial_window_options) => initial_window_options,

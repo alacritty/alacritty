@@ -73,7 +73,7 @@ pub struct WindowContext {
 }
 
 impl WindowContext {
-    /// Create initial window context that dous bootstrapping the graphics Api we're going to use.
+    /// Create initial window context that does bootstrapping the graphics API we're going to use.
     pub fn initial(
         event_loop: &EventLoopWindowTarget<Event>,
         proxy: EventLoopProxy<Event>,

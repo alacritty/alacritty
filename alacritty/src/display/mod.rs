@@ -587,7 +587,7 @@ impl Display {
     }
 
     // XXX: this function must not call to any `OpenGL` related tasks. Renderer updates are
-    // performed in [`Self::process_renderer_update`] right befor drawing.
+    // performed in [`Self::process_renderer_update`] right before drawing.
     //
     /// Process update events.
     pub fn handle_update<T>(
@@ -1378,7 +1378,7 @@ impl Display {
         }
     }
 
-    /// Requst a new frame for a window on Wayland.
+    /// Request a new frame for a window on Wayland.
     fn request_frame(&mut self, scheduler: &mut Scheduler) {
         // Mark that we've used a frame.
         self.window.has_frame = false;
@@ -1408,7 +1408,7 @@ impl Display {
 impl Drop for Display {
     fn drop(&mut self) {
         // Switch OpenGL context before dropping, otherwise objects (like programs) from other
-        // contexts might be deleted during droping renderer.
+        // contexts might be deleted when dropping renderer.
         self.make_current();
         unsafe {
             ManuallyDrop::drop(&mut self.renderer);

@@ -298,7 +298,7 @@ mod tests {
         // Expected cell size on 64-bit architectures.
         const EXPECTED_CELL_SIZE: usize = 24;
 
-        // Ensure that cell size isn't growning by accident.
+        // Ensure that cell size isn't growing by accident.
         assert!(mem::size_of::<Cell>() <= EXPECTED_CELL_SIZE);
     }
 
