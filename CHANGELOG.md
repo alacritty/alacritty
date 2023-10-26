@@ -70,6 +70,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `mouse.url`, use the `hints` config section
 - Config options `mouse.double_click` and `mouse.triple_click`
 
+## 0.12.3
+
+### Fixed
+
+- Crash on macOS Sonoma due to change in macOS resize handling
+- Crash when Wayland compositor advertises `wl_compositor@v5` interface
+
 ## 0.12.2
 
 ### Fixed
