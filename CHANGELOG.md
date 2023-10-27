@@ -62,6 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Blocking paste freezing alacritty on Wayland
 - `Command` modifier persisting after `Cmd + Tab` on macOS
 - Crash on exit when using NVIDIA binary drivers on Wayland
+- `window.startup_mode` applied to window again when creating new tab
 
 ### Removed
 
