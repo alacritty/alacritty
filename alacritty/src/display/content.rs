@@ -510,7 +510,7 @@ impl<'a> HintMatches<'a> {
         Self { matches: matches.into(), index: 0 }
     }
 
-    /// Create from regex matches on term visable part.
+    /// Create from regex matches on term visible part.
     fn visible_regex_matches<T>(term: &Term<T>, dfas: &mut RegexSearch) -> Self {
         let matches = hint::visible_regex_match_iter(term, dfas).collect::<Vec<_>>();
         Self::new(matches)

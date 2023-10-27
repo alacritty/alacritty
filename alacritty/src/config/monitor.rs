@@ -24,7 +24,7 @@ pub fn watch(mut paths: Vec<PathBuf>, event_proxy: EventLoopProxy<Event>) {
     // Exclude char devices like `/dev/null`, sockets, and so on, by checking that file type is a
     // regular file.
     paths.retain(|path| {
-        // Call `metadata` to resolve symbolink links.
+        // Call `metadata` to resolve symbolic links.
         path.metadata().map_or(false, |metadata| metadata.file_type().is_file())
     });
 

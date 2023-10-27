@@ -413,7 +413,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
     // Find adjacent lines that have the same `hyperlink`. The end purpose to highlight hyperlinks
     // that span across multiple lines or not directly attached to each other.
 
-    // Find the closest to the viewport start adjucent line.
+    // Find the closest to the viewport start adjacent line.
     while match_start.line > viewport_start {
         let next_line = match_start.line - 1i32;
         // Iterate over all the cells in the grid's line and check if any of those cells contains
@@ -697,7 +697,7 @@ mod tests {
         let term = mock_term(&content);
         let mut regex = RegexSearch::new("match!").unwrap();
 
-        // The interator should match everything in the viewport.
+        // The iterator should match everything in the viewport.
         assert_eq!(visible_regex_match_iter(&term, &mut regex).count(), 4096);
     }
 }

@@ -42,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Apply `colors.transparent_background_colors` for selections, hints, and search matches
 - Underline full hint during keyboard selection
 - Synchronized updates now use `CSI 2026` instead of legacy `DCS` variant
+- In mouse mode with `Shift` pressed, mouse bindings without `Shift` are only triggered
+    if no exact binding (i.e. one with `Shift`) is found.
 
 ### Fixed
 
@@ -68,6 +70,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config option `colors.search.bar`, use `colors.footer_bar` instead
 - Config option `mouse.url`, use the `hints` config section
 - Config options `mouse.double_click` and `mouse.triple_click`
+
+## 0.12.3
+
+### Fixed
+
+- Crash on macOS Sonoma due to change in macOS resize handling
+- Crash when Wayland compositor advertises `wl_compositor@v5` interface
 
 ## 0.12.2
 

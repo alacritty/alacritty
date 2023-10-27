@@ -402,7 +402,7 @@ impl<T> Term<T> {
         // Add information about old cursor position and new one if they are not the same, so we
         // cover everything that was produced by `Term::input`.
         if self.damage.last_cursor != previous_cursor {
-            // Cursor cooridanates are always inside viewport even if you have `display_offset`.
+            // Cursor coordinates are always inside viewport even if you have `display_offset`.
             let point = Point::new(previous_cursor.line.0 as usize, previous_cursor.column);
             self.damage.damage_point(point);
         }

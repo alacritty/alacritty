@@ -25,13 +25,13 @@ pub enum Event {
 
     /// Request to write the contents of the clipboard to the PTY.
     ///
-    /// The attached function is a formatter which will corectly transform the clipboard content
+    /// The attached function is a formatter which will correctly transform the clipboard content
     /// into the expected escape sequence format.
     ClipboardLoad(ClipboardType, Arc<dyn Fn(&str) -> String + Sync + Send + 'static>),
 
     /// Request to write the RGB value of a color to the PTY.
     ///
-    /// The attached function is a formatter which will corectly transform the RGB color into the
+    /// The attached function is a formatter which will correctly transform the RGB color into the
     /// expected escape sequence format.
     ColorRequest(usize, Arc<dyn Fn(Rgb) -> String + Sync + Send + 'static>),
 
