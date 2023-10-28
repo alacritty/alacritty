@@ -41,7 +41,7 @@ serde_json = "1"
 serde_yaml = "0.9.25"
 toml = "0.8.2"
 unicode-width = "0.1"
-winit = { version = "0.29.2", default-features = false, features = ["rwh_05", "serde"] }
+winit = { version = "0.29.3", default-features = false, features = ["rwh_05", "serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"
