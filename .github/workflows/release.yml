@@ -82,6 +82,8 @@ jobs:
           ./.github/workflows/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty-msg.1.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty.5.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty-bindings.5.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
