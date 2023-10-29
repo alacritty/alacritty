@@ -16,9 +16,8 @@ use log::{self, Level, LevelFilter};
 use once_cell::sync::Lazy;
 use winit::event_loop::EventLoopProxy;
 
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
-
 use crate::cli::Options;
+use crate::config::LOG_TARGET_CONFIG;
 use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 

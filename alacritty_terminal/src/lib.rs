@@ -5,7 +5,7 @@
 #![cfg_attr(feature = "cargo-clippy", deny(warnings))]
 
 pub mod ansi;
-pub mod config;
+// pub mod config;
 pub mod event;
 pub mod event_loop;
 pub mod grid;

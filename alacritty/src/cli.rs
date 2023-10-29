@@ -6,8 +6,9 @@ use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
-use alacritty_terminal::config::{Program, PtyConfig};
+use alacritty_terminal::tty::PtyConfig;
 
+use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
 use crate::config::{serde_utils, UiConfig};
 
@@ -189,7 +190,7 @@ impl TerminalOptions {
         }
 
         if let Some(command) = self.command() {
-            pty_config.shell = Some(command);
+            pty_config.shell = Some(command.into());
         }
 
         pty_config.hold |= self.hold;
@@ -200,7 +201,7 @@ impl From<TerminalOptions> for PtyConfig {
     fn from(mut options: TerminalOptions) -> Self {
         PtyConfig {
             working_directory: options.working_directory.take(),
-            shell: options.command(),
+            shell: options.command().map(Into::into),
             hold: options.hold,
         }
     }

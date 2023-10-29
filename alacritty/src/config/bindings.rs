@@ -14,11 +14,10 @@ use winit::platform::scancode::PhysicalKeyExtScancode;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
-use alacritty_terminal::config::Program;
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
-use crate::config::ui_config::Hint;
+use crate::config::ui_config::{Hint, Program};
 
 /// Describes a state and action to take in that state.
 ///

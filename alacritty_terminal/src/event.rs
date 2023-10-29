@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use crate::term::color::Rgb;
+use crate::ansi::Rgb;
 use crate::term::ClipboardType;
 
 /// Terminal event.

@@ -22,9 +22,8 @@ use rustix_openpty::rustix::termios::{self, InputModes, OptionalActions};
 use signal_hook::consts as sigconsts;
 use signal_hook::low_level::pipe as signal_pipe;
 
-use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
-use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, PtyConfig};
 
 // Interest in PTY read/writes.
 pub(crate) const PTY_READ_WRITE_TOKEN: usize = 0;
@@ -209,8 +208,8 @@ pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Resul
     let user = ShellUser::from_env()?;
 
     let mut builder = if let Some(shell) = config.shell.as_ref() {
-        let mut cmd = Command::new(shell.program());
-        cmd.args(shell.args());
+        let mut cmd = Command::new(&shell.program);
+        cmd.args(shell.args.as_slice());
         cmd
     } else {
         default_shell_command(&user.shell, &user.user)

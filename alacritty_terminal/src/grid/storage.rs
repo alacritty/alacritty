@@ -3,6 +3,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ops::{Index, IndexMut};
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::Row;
@@ -27,7 +28,8 @@ const MAX_CACHE_SIZE: usize = 1_000;
 /// [`slice::rotate_left`]: https://doc.rust-lang.org/std/primitive.slice.html#method.rotate_left
 /// [`Deref`]: std::ops::Deref
 /// [`zero`]: #structfield.zero
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Storage<T> {
     inner: Vec<Row<T>>,
 

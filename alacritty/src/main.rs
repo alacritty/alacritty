@@ -12,13 +12,11 @@
 #[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
-#[cfg(target_os = "macos")]
-use std::env;
 use std::error::Error;
 use std::fmt::Write as _;
-use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use log::info;
 #[cfg(windows)]
@@ -147,8 +145,13 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     // Update the log level from config.
     log::set_max_level(config.debug.log_level);
 
-    // Set environment variables.
-    tty::setup_env(&config.terminal_config);
+    // Set tty environment variables.
+    tty::setup_env();
+
+    // Set env vars from config.
+    for (key, value) in config.env.iter() {
+        env::set_var(key, value);
+    }
 
     // Switch to home directory.
     #[cfg(target_os = "macos")]

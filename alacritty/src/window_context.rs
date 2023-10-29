@@ -174,7 +174,7 @@ impl WindowContext {
         options: WindowOptions,
         proxy: EventLoopProxy<Event>,
     ) -> Result<Self, Box<dyn Error>> {
-        let mut pty_config = config.terminal_config.pty_config.clone();
+        let mut pty_config = config.pty_config();
         options.terminal_options.override_pty_config(&mut pty_config);
 
         let preserve_title = options.window_identity.title.is_some();
@@ -192,7 +192,7 @@ impl WindowContext {
         // This object contains all of the state about what's being displayed. It's
         // wrapped in a clonable mutex since both the I/O loop and display need to
         // access it.
-        let terminal = Term::new(&config.terminal_config, &display.size_info, event_proxy.clone());
+        let terminal = Term::new(config.term_options(), &display.size_info, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
 
         // Create the PTY.
@@ -229,7 +229,7 @@ impl WindowContext {
         let _io_thread = event_loop.spawn();
 
         // Start cursor blinking, in case `Focused` isn't sent on startup.
-        if config.terminal_config.cursor.style().blinking {
+        if config.cursor.style().blinking {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
 
@@ -289,14 +289,10 @@ impl WindowContext {
         }
 
         self.display.update_config(&self.config);
-        self.terminal.lock().update_config(&self.config.terminal_config);
+        self.terminal.lock().set_options(self.config.term_options());
 
         // Reload cursor if its thickness has changed.
-        if (old_config.terminal_config.cursor.thickness()
-            - self.config.terminal_config.cursor.thickness())
-        .abs()
-            > f32::EPSILON
-        {
+        if (old_config.cursor.thickness() - self.config.cursor.thickness()).abs() > f32::EPSILON {
             self.display.pending_update.set_cursor_dirty();
         }
 

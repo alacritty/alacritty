@@ -5,10 +5,9 @@ use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
 use std::sync::Arc;
 
-use crate::config::{Program, PtyConfig};
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, PtyConfig, Shell};
 
 mod blocking;
 mod child;
@@ -124,12 +123,12 @@ impl OnResize for Pty {
 }
 
 fn cmdline(config: &PtyConfig) -> String {
-    let default_shell = Program::Just("powershell".to_owned());
+    let default_shell = Shell { program: "powershell".to_owned(), args: Vec::new() };
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program())
-        .chain(shell.args().iter().map(|a| a.as_ref()))
-        .collect::<Vec<_>>()
+    once(shell.program.as_str())
+        .chain(shell.args.iter().map(|s| s.as_str()))
+        .collect::<Vec<&str>>()
         .join(" ")
 }
 

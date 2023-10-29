@@ -9,10 +9,9 @@ use winit::window::{Fullscreen, Theme};
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::config::{Percentage, LOG_TARGET_CONFIG};
-use alacritty_terminal::index::Column;
 
-use crate::config::ui_config::Delta;
+use crate::config::ui_config::{Delta, Percentage};
+use crate::config::LOG_TARGET_CONFIG;
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
@@ -90,7 +89,7 @@ impl Default for WindowConfig {
 impl WindowConfig {
     #[inline]
     pub fn dimensions(&self) -> Option<Dimensions> {
-        let (lines, columns) = (self.dimensions.lines, self.dimensions.columns.0);
+        let (lines, columns) = (self.dimensions.lines, self.dimensions.columns);
         let (lines_is_non_zero, columns_is_non_zero) = (lines != 0, columns != 0);
 
         if lines_is_non_zero && columns_is_non_zero {
@@ -194,7 +193,7 @@ pub enum Decorations {
 #[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dimensions {
     /// Window width in character columns.
-    pub columns: Column,
+    pub columns: usize,
 
     /// Window Height in character lines.
     pub lines: usize,

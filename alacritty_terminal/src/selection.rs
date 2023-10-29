@@ -395,14 +395,13 @@ impl Selection {
 mod tests {
     use super::*;
 
-    use crate::config::Config;
     use crate::index::{Column, Point, Side};
     use crate::term::test::TermSize;
-    use crate::term::Term;
+    use crate::term::{Term, TermOptions};
 
     fn term(height: usize, width: usize) -> Term<()> {
         let size = TermSize::new(width, height);
-        Term::new(&Config::default(), &size, ())
+        Term::new(TermOptions::default(), &size, ())
     }
 
     /// Test case of single cell selection.
