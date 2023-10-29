@@ -133,6 +133,12 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _1.0_
 
+*blur* <boolean> _(works on macOS/KDE Wayland)_
+
+	Request compositor to blur content behind transparent windows.
+
+	Default: _false_
+
 *startup_mode* "Windowed" | "Maximized" | "Fullscreen" | "SimpleFullscreen"
 
 	Startup mode (changes require restart)

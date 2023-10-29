@@ -345,8 +345,9 @@ impl WindowContext {
         #[cfg(target_os = "macos")]
         self.display.window.set_option_as_alt(self.config.window.option_as_alt());
 
-        // Change opacity state.
+        // Change opacity and blur state.
         self.display.window.set_transparent(!opaque);
+        self.display.window.set_blur(self.config.window.blur);
 
         // Update hint keys.
         self.display.hint_state.update_alphabet(self.config.hints.alphabet());

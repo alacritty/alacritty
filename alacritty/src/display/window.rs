@@ -167,6 +167,7 @@ impl Window {
             .with_theme(config.window.decorations_theme_variant)
             .with_visible(false)
             .with_transparent(true)
+            .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
             .with_fullscreen(config.window.fullscreen())
             .build(event_loop)?;
@@ -341,6 +342,10 @@ impl Window {
 
     pub fn set_transparent(&self, transparent: bool) {
         self.window.set_transparent(transparent);
+    }
+
+    pub fn set_blur(&self, blur: bool) {
+        self.window.set_blur(blur);
     }
 
     pub fn set_maximized(&self, maximized: bool) {
