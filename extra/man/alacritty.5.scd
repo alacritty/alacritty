@@ -26,9 +26,9 @@ This section documents the root level of the configuration file.
 
 	Example:
 		import = [++
-	_"~/.config/alacritty/base16-dark.toml"_,++
-	_"~/.config/alacritty/keybindings.toml"_,++
-]
+		_"~/.config/alacritty/base16-dark.toml"_,++
+		_"~/.config/alacritty/keybindings.toml"_,++
+		]
 
 *shell* <string> | { program = <string>, args = [<string>,] }
 
