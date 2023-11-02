@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, PtyConfig, Shell};
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options, Shell};
 
 mod blocking;
 mod child;
@@ -33,7 +33,7 @@ pub struct Pty {
     child_watcher: ChildExitWatcher,
 }
 
-pub fn new(config: &PtyConfig, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
+pub fn new(config: &Options, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
     conpty::new(config, window_size)
         .ok_or_else(|| Error::new(ErrorKind::Other, "failed to spawn conpty"))
 }
@@ -122,13 +122,13 @@ impl OnResize for Pty {
     }
 }
 
-fn cmdline(config: &PtyConfig) -> String {
-    let default_shell = Shell { program: "powershell".to_owned(), args: Vec::new() };
+fn cmdline(config: &Options) -> String {
+    let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_str())
         .chain(shell.args.iter().map(|s| s.as_str()))
-        .collect::<Vec<&str>>()
+        .collect::<Vec<_>>()
         .join(" ")
 }
 

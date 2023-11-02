@@ -23,7 +23,7 @@ use signal_hook::consts as sigconsts;
 use signal_hook::low_level::pipe as signal_pipe;
 
 use crate::event::{OnResize, WindowSize};
-use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, PtyConfig};
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options};
 
 // Interest in PTY read/writes.
 pub(crate) const PTY_READ_WRITE_TOKEN: usize = 0;
@@ -193,7 +193,7 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
 }
 
 /// Create a new TTY and return a handle to interact with it.
-pub fn new(config: &PtyConfig, window_size: WindowSize, window_id: u64) -> Result<Pty> {
+pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let (master, slave) = make_pty(window_size.to_winsize())?;
     let master_fd = master.as_raw_fd();
     let slave_fd = slave.as_raw_fd();

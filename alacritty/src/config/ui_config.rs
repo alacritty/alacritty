@@ -4,8 +4,8 @@ use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use alacritty_terminal::term::TermOptions;
-use alacritty_terminal::tty::{PtyConfig, Shell};
+use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
@@ -149,9 +149,9 @@ impl Default for UiConfig {
 }
 
 impl UiConfig {
-    /// Derive [`TermOptions`] from the config.
-    pub fn term_options(&self) -> TermOptions {
-        TermOptions {
+    /// Derive [`TermConfig`] from the config.
+    pub fn term_options(&self) -> TermConfig {
+        TermConfig {
             scrolling_history: self.scrolling.history() as usize,
             default_cursor_style: self.cursor.style(),
             vi_mode_cursor_style: self.cursor.vi_mode_style(),
@@ -160,10 +160,10 @@ impl UiConfig {
         }
     }
 
-    /// Derive [`PtyConfig`] from the config.
-    pub fn pty_config(&self) -> PtyConfig {
+    /// Derive [`PtyOptions`] from the config.
+    pub fn pty_config(&self) -> PtyOptions {
         let shell = self.shell.clone().map(Into::into);
-        PtyConfig { shell, working_directory: self.working_directory.clone(), hold: false }
+        PtyOptions { shell, working_directory: self.working_directory.clone(), hold: false }
     }
 
     /// Generate key bindings for all keyboard hints.
@@ -648,9 +648,25 @@ impl Program {
 impl From<Program> for Shell {
     fn from(value: Program) -> Self {
         match value {
-            Program::Just(program) => Shell { program, args: Vec::new() },
-            Program::WithArgs { program, args } => Shell { program, args },
+            Program::Just(program) => Shell::new(program, Vec::new()),
+            Program::WithArgs { program, args } => Shell::new(program, args),
         }
+    }
+}
+
+pub(crate) struct StringVisitor;
+impl<'de> serde::de::Visitor<'de> for StringVisitor {
+    type Value = String;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(s.to_lowercase())
     }
 }
 

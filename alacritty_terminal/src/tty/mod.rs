@@ -18,8 +18,8 @@ pub use self::windows::*;
 
 /// Configuration for the `Pty` interface.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct PtyConfig {
-    /// Shell options..
+pub struct Options {
+    /// Shell options.
     ///
     /// [`None`] will use the default shell.
     pub shell: Option<Shell>,
@@ -35,13 +35,19 @@ pub struct PtyConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Shell {
     /// Path to a shell program to run on startup.
-    pub program: String,
+    pub(crate) program: String,
     /// Arguments passed to shell.
-    pub args: Vec<String>,
+    pub(crate) args: Vec<String>,
+}
+
+impl Shell {
+    pub fn new(program: String, args: Vec<String>) -> Self {
+        Self { program, args }
+    }
 }
 
 /// This trait defines the behaviour needed to read and/or write to a stream.
-/// It defines an abstraction over mio's interface in order to allow either one
+/// It defines an abstraction over polling's interface in order to allow either one
 /// read/write object or a separate read and write object.
 pub trait EventedReadWrite {
     type Reader: io::Read;

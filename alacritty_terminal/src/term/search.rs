@@ -678,7 +678,7 @@ mod tests {
 
     use crate::index::{Column, Line};
     use crate::term::test::{mock_term, TermSize};
-    use crate::term::TermOptions;
+    use crate::term::Config;
 
     #[test]
     fn regex_right() {
@@ -1052,7 +1052,7 @@ mod tests {
     #[test]
     fn wide_without_spacer() {
         let size = TermSize::new(2, 2);
-        let mut term = Term::new(TermOptions::default(), &size, ());
+        let mut term = Term::new(Config::default(), &size, ());
         term.grid[Line(0)][Column(0)].c = 'x';
         term.grid[Line(0)][Column(1)].c = '字';
         term.grid[Line(0)][Column(1)].flags = Flags::WIDE_CHAR;

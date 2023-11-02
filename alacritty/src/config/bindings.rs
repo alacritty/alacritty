@@ -17,7 +17,7 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::TermMode;
 use alacritty_terminal::vi_mode::ViMotion;
 
-use crate::config::ui_config::{Hint, Program};
+use crate::config::ui_config::{Hint, Program, StringVisitor};
 
 /// Describes a state and action to take in that state.
 ///
@@ -1102,8 +1102,10 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             action = if let Ok(vi_action) = ViAction::deserialize(value.clone()) {
                                 Some(vi_action.into())
-                            } else if let Ok(vi_motion) = ViMotion::deserialize(value.clone()) {
-                                Some(vi_motion.into())
+                            } else if let Ok(vi_motion) =
+                                ViMotionWrapper::deserialize(value.clone())
+                            {
+                                Some(vi_motion.0.into())
                             } else if let Ok(search_action) =
                                 SearchAction::deserialize(value.clone())
                             {
@@ -1209,6 +1211,21 @@ impl<'a> Deserialize<'a> for KeyBinding {
         let raw = RawBinding::deserialize(deserializer)?;
         raw.into_key_binding()
             .map_err(|_| D::Error::custom("expected key binding, got mouse binding"))
+    }
+}
+
+#[derive(SerdeReplace, Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ViMotionWrapper(ViMotion);
+
+impl<'de> Deserialize<'de> for ViMotionWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = deserializer.deserialize_str(StringVisitor)?;
+        ViMotion::deserialize(SerdeValue::String(value))
+            .map(ViMotionWrapper)
+            .map_err(de::Error::custom)
     }
 }
 

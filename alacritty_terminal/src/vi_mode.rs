@@ -11,7 +11,7 @@ use crate::term::Term;
 
 /// Possible vi mode motion movements.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(rename_all = "lowercase"))]
 pub enum ViMotion {
     /// Move up.
     Up,
@@ -385,11 +385,11 @@ mod tests {
     use crate::event::VoidListener;
     use crate::index::{Column, Line};
     use crate::term::test::TermSize;
-    use crate::term::{Term, TermOptions};
+    use crate::term::{Config, Term};
 
     fn term() -> Term<VoidListener> {
         let size = TermSize::new(20, 20);
-        Term::new(TermOptions::default(), &size, VoidListener)
+        Term::new(Config::default(), &size, VoidListener)
     }
 
     #[test]

@@ -11,7 +11,7 @@ use alacritty_terminal::grid::{Dimensions, Grid};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::test::TermSize;
-use alacritty_terminal::term::{Term, TermOptions};
+use alacritty_terminal::term::{Config, Term};
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -104,7 +104,7 @@ fn ref_test(dir: &Path) {
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap();
 
-    let mut options = TermOptions::default();
+    let mut options = Config::default();
     options.scrolling_history = ref_config.history_size as usize;
 
     let mut terminal = Term::new(options, &size, Mock);
