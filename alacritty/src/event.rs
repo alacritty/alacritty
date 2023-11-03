@@ -154,6 +154,11 @@ impl SearchState {
         self.focused_match.as_ref()
     }
 
+    /// Clear the focused match.
+    pub fn clear_focused_match(&mut self) {
+        self.focused_match = None;
+    }
+
     /// Active search dfas.
     pub fn dfas(&mut self) -> Option<&mut RegexSearch> {
         self.dfas.as_mut()

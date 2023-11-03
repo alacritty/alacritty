@@ -598,7 +598,7 @@ impl Display {
         terminal: &mut Term<T>,
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
-        search_active: bool,
+        search_state: &mut SearchState,
         config: &UiConfig,
     ) where
         T: EventListener,
@@ -643,6 +643,7 @@ impl Display {
         );
 
         // Update number of column/lines in the viewport.
+        let search_active = search_state.history_index.is_some();
         let message_bar_lines = message_buffer.message().map_or(0, |m| m.text(&new_size).len());
         let search_lines = usize::from(search_active);
         new_size.reserve_lines(message_bar_lines + search_lines);
@@ -658,10 +659,14 @@ impl Display {
         // Resize terminal.
         terminal.resize(new_size);
 
-        // Queue renderer update if terminal dimensions/padding changed.
+        // Check if dimensions have changed.
         if new_size != self.size_info {
+            // Queue renderer update.
             let renderer_update = self.pending_renderer_update.get_or_insert(Default::default());
             renderer_update.resize = true;
+
+            // Clear focused search match.
+            search_state.clear_focused_match();
         }
         self.size_info = new_size;
     }
