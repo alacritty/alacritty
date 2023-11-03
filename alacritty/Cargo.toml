@@ -23,7 +23,7 @@ path = "../alacritty_config"
 version = "0.1.2-dev"
 
 [dependencies]
-ahash = { version = "0.8.3", features = ["no-rng"] }
+ahash = { version = "0.8.6", features = ["no-rng"] }
 bitflags = "2.2.1"
 clap = { version = "4.2.7", features = ["derive", "env"] }
 copypasta = { version = "0.10.0", default-features = false }
