@@ -559,13 +559,7 @@ impl WindowContext {
             search_state.direction == Direction::Left
         };
 
-        display.handle_update(
-            terminal,
-            notifier,
-            message_buffer,
-            search_state,
-            config,
-        );
+        display.handle_update(terminal, notifier, message_buffer, search_state, config);
 
         let new_is_searching = search_state.history_index.is_some();
         if !old_is_searching && new_is_searching {
