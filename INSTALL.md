@@ -249,13 +249,17 @@ filling in this section of the README.
 
 ### Linux / Windows / BSD
 
+Running `build` will output the binary in `target/release/`
 ```sh
-cargo build --release // will put the bin in target/release/
-// or
-cargo install --path alacritty // will install alacritty globally (in ~/.cargo/bin)
+cargo build --release
 ```
 
-On Linux/BSD, if it is desired to build Alacritty without support for either the
+Alternatively you can use `install` that will install it globally (in `~/.cargo/bin` by default)
+```
+cargo install --path alacritty 
+```
+
+On Linux/BSD, if it is desired to build (or install) Alacritty without support for either the
 X11 or Wayland rendering backend the following commands can be used.
 
 ```sh
