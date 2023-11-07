@@ -250,7 +250,9 @@ filling in this section of the README.
 ### Linux / Windows / BSD
 
 ```sh
-cargo build --release
+cargo build --release // will put the bin in target/release/
+// or
+cargo install --path alacritty // will install alacritty globally (in ~/.cargo/bin)
 ```
 
 On Linux/BSD, if it is desired to build Alacritty without support for either the
