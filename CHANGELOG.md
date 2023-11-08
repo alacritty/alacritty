@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Debug option `prefer_egl` to prioritize EGL over other display APIs
 - Inline vi-mode search using `f`/`F`/`t`/`T`
 - `window.blur` config option to request blur for transparent windows
+- `--option` argument for `alacritty msg create-window`
 
 ### Changed
 

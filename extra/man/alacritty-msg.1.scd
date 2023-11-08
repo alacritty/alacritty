@@ -19,14 +19,24 @@ making it possible to control Alacritty without directly accessing it.
 *create-window*
 	Create a new window in the same Alacritty process
 
-	*OPTIONS*
+	*FLAGS*
 		*--hold*
 			Remain open after child process exits
 
+	*OPTIONS*
 		*--working-directory* <working-directory>
 			Start the shell in the specified working directory
 
-		*command* <command>...
+		*-T, --title* <TITLE>
+			Defines the window title [default: Alacritty]
+
+		*--class* <GENERAL> | <GENERAL>,<INSTANCE>
+			Defines window class/app_id on X11/Wayland [default: Alacritty]
+
+		*-o, --option* <OPTION>...
+			Override configuration file options [example: 'cursor.style="Beam"']
+
+		*-e, --command* <COMMAND>...
 			Command and args to execute (must be last argument)
 
 *config*
@@ -34,7 +44,11 @@ making it possible to control Alacritty without directly accessing it.
 
 	*ARGS*
 		*<CONFIG_OPTIONS>...*
-			Configuration file options [example: cursor.style=Beam]
+			Configuration file options [example: 'cursor.style="Beam"']
+
+	*FLAGS*
+		*-r, --reset*
+			Clear all runtime configuration changes
 
 	*OPTIONS*
 		*-w, --window-id* <WINDOW_ID>

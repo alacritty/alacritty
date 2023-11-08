@@ -126,7 +126,7 @@ impl From<YamlError> for Error {
 }
 
 /// Load the configuration file.
-pub fn load(options: &Options) -> UiConfig {
+pub fn load(options: &mut Options) -> UiConfig {
     let config_path = options
         .config_file
         .clone()
@@ -155,7 +155,7 @@ pub fn load(options: &Options) -> UiConfig {
 }
 
 /// Attempt to reload the configuration file.
-pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
+pub fn reload(config_path: &Path, options: &mut Options) -> Result<UiConfig> {
     debug!("Reloading configuration file: {:?}", config_path);
 
     // Load config, propagating errors.
@@ -167,7 +167,7 @@ pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
 }
 
 /// Modifications after the `UiConfig` object is created.
-fn after_loading(config: &mut UiConfig, options: &Options) {
+fn after_loading(config: &mut UiConfig, options: &mut Options) {
     // Override config with CLI options.
     options.override_config(config);
 

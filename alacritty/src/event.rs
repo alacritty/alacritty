@@ -36,7 +36,7 @@ use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 
 #[cfg(unix)]
-use crate::cli::IpcConfig;
+use crate::cli::{IpcConfig, ParsedOptions};
 use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
@@ -1479,7 +1479,7 @@ pub struct Processor {
     windows: HashMap<WindowId, WindowContext, RandomState>,
     gl_display: Option<GlutinDisplay>,
     #[cfg(unix)]
-    global_ipc_options: Vec<String>,
+    global_ipc_options: ParsedOptions,
     cli_options: CliOptions,
     config: Rc<UiConfig>,
 }
@@ -1531,16 +1531,16 @@ impl Processor {
     ) -> Result<(), Box<dyn Error>> {
         let window = self.windows.iter().next().as_ref().unwrap().1;
 
+        // Overide config with CLI/IPC options.
+        let mut config_overrides = options.config_overrides();
+        #[cfg(unix)]
+        config_overrides.extend_from_slice(&self.global_ipc_options);
+        let mut config = self.config.clone();
+        config = config_overrides.override_config_rc(config);
+
         #[allow(unused_mut)]
         let mut window_context =
-            window.additional(event_loop, proxy, self.config.clone(), options)?;
-
-        // Apply global IPC options.
-        #[cfg(unix)]
-        {
-            let options = self.global_ipc_options.clone();
-            window_context.add_window_config(self.config.clone(), &options);
-        }
+            window.additional(event_loop, proxy, config, options, config_overrides)?;
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
@@ -1712,7 +1712,7 @@ impl Processor {
                     }
 
                     // Load config and update each terminal.
-                    if let Ok(config) = config::reload(&path, &self.cli_options) {
+                    if let Ok(config) = config::reload(&path, &mut self.cli_options) {
                         self.config = Rc::new(config);
 
                         for window_context in self.windows.values_mut() {
@@ -1726,15 +1726,10 @@ impl Processor {
                     payload: EventType::IpcConfig(ipc_config),
                     window_id,
                 }) => {
-                    // Persist global options for future windows.
-                    if window_id.is_none() {
-                        if ipc_config.reset {
-                            self.global_ipc_options.clear();
-                        } else {
-                            self.global_ipc_options.extend_from_slice(&ipc_config.options);
-                        }
-                    }
+                    // Try and parse options as toml.
+                    let mut options = ParsedOptions::from_options(&ipc_config.options);
 
+                    // Override IPC config for each window with matching ID.
                     for (_, window_context) in self
                         .windows
                         .iter_mut()
@@ -1743,8 +1738,16 @@ impl Processor {
                         if ipc_config.reset {
                             window_context.reset_window_config(self.config.clone());
                         } else {
-                            window_context
-                                .add_window_config(self.config.clone(), &ipc_config.options);
+                            window_context.add_window_config(self.config.clone(), &options);
+                        }
+                    }
+
+                    // Persist global options for future windows.
+                    if window_id.is_none() {
+                        if ipc_config.reset {
+                            self.global_ipc_options.clear();
+                        } else {
+                            self.global_ipc_options.append(&mut options);
                         }
                     }
                 },

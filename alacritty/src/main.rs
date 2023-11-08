@@ -122,7 +122,7 @@ impl Drop for TemporaryFiles {
 ///
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
+fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
     let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build()?;
 
@@ -139,7 +139,7 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     info!("Running on Wayland");
 
     // Load configuration file.
-    let config = config::load(&options);
+    let config = config::load(&mut options);
     log_config_path(&config);
 
     // Update the log level from config.
