@@ -14,14 +14,13 @@ use glutin::config::GetGlConfig;
 use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
-use log::{error, info};
+use log::info;
 use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
 use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 use winit::window::WindowId;
 
-use alacritty_config::SerdeReplace;
 use alacritty_terminal::event::Event as TerminalEvent;
 use alacritty_terminal::event_loop::{EventLoop as PtyEventLoop, Msg, Notifier};
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -31,7 +30,7 @@ use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
-use crate::cli::WindowOptions;
+use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
 use crate::display::window::Window;
@@ -39,7 +38,8 @@ use crate::display::Display;
 use crate::event::{
     ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
 };
-use crate::logging::LOG_TARGET_WINDOW_CONFIG;
+#[cfg(unix)]
+use crate::logging::LOG_TARGET_IPC_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
 use crate::{input, renderer};
@@ -65,7 +65,7 @@ pub struct WindowContext {
     master_fd: RawFd,
     #[cfg(not(windows))]
     shell_pid: u32,
-    window_config: Vec<toml::Value>,
+    window_config: ParsedOptions,
     config: Rc<UiConfig>,
 }
 
@@ -126,6 +126,7 @@ impl WindowContext {
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
+        config_overrides: ParsedOptions,
     ) -> Result<Self, Box<dyn Error>> {
         // Get any window and take its GL config and display to build a new context.
         let (gl_display, gl_config) = {
@@ -162,7 +163,14 @@ impl WindowContext {
 
         let display = Display::new(window, gl_context, &config, tabbed)?;
 
-        Self::new(display, config, options, proxy)
+        let mut window_context = Self::new(display, config, options, proxy)?;
+
+        // Set the config overrides at startup.
+        //
+        // These are already applied to `config`, so no update is necessary.
+        window_context.window_config = config_overrides;
+
+        Ok(window_context)
     }
 
     /// Create a new terminal window context.
@@ -248,9 +256,9 @@ impl WindowContext {
             cursor_blink_timed_out: Default::default(),
             inline_search_state: Default::default(),
             message_buffer: Default::default(),
+            window_config: Default::default(),
             search_state: Default::default(),
             event_queue: Default::default(),
-            window_config: Default::default(),
             modifiers: Default::default(),
             occluded: Default::default(),
             mouse: Default::default(),
@@ -264,27 +272,7 @@ impl WindowContext {
         let old_config = mem::replace(&mut self.config, new_config);
 
         // Apply ipc config if there are overrides.
-        if !self.window_config.is_empty() {
-            let mut config = (*self.config).clone();
-
-            // Apply each option, removing broken ones.
-            let mut i = 0;
-            while i < self.window_config.len() {
-                let option = &self.window_config[i];
-                match config.replace(option.clone()) {
-                    Err(err) => {
-                        error!(
-                            target: LOG_TARGET_WINDOW_CONFIG,
-                            "Unable to override option '{}': {}", option, err
-                        );
-                        self.window_config.swap_remove(i);
-                    },
-                    Ok(_) => i += 1,
-                }
-            }
-
-            self.config = Rc::new(config);
-        }
+        self.config = self.window_config.override_config_rc(self.config.clone());
 
         self.display.update_config(&self.config);
         self.terminal.lock().set_options(self.config.term_options());
@@ -357,7 +345,7 @@ impl WindowContext {
     #[cfg(unix)]
     pub fn reset_window_config(&mut self, config: Rc<UiConfig>) {
         // Clear previous window errors.
-        self.message_buffer.remove_target(LOG_TARGET_WINDOW_CONFIG);
+        self.message_buffer.remove_target(LOG_TARGET_IPC_CONFIG);
 
         self.window_config.clear();
 
@@ -367,20 +355,11 @@ impl WindowContext {
 
     /// Add new window config overrides.
     #[cfg(unix)]
-    pub fn add_window_config(&mut self, config: Rc<UiConfig>, options: &[String]) {
+    pub fn add_window_config(&mut self, config: Rc<UiConfig>, options: &ParsedOptions) {
         // Clear previous window errors.
-        self.message_buffer.remove_target(LOG_TARGET_WINDOW_CONFIG);
+        self.message_buffer.remove_target(LOG_TARGET_IPC_CONFIG);
 
-        for option in options {
-            // Try and parse option as toml.
-            match toml::from_str(option) {
-                Ok(value) => self.window_config.push(value),
-                Err(err) => error!(
-                    target: LOG_TARGET_WINDOW_CONFIG,
-                    "'{}': Invalid window config value: {:?}", option, err
-                ),
-            }
-        }
+        self.window_config.extend_from_slice(options);
 
         // Reload current config to pull new IPC config.
         self.update_config(config);

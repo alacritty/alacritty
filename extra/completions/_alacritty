@@ -18,14 +18,14 @@ _alacritty() {
 '--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED: ' \
 '--config-file=[Specify alternative configuration file \[default\: \$XDG_CONFIG_HOME/alacritty/alacritty.toml\]]:CONFIG_FILE:_files' \
 '--socket=[Path for IPC socket creation]:SOCKET:_files' \
-'*-o+[Override configuration file options \[example\: cursor.style=Beam\]]:OPTION: ' \
-'*--option=[Override configuration file options \[example\: cursor.style=Beam\]]:OPTION: ' \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
 '-T+[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
 '--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance: ' \
+'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
+'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
 '--print-events[Print all events to stdout]' \
 '--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
@@ -68,6 +68,8 @@ _arguments "${_arguments_options[@]}" \
 '-T+[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
 '--title=[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
 '--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance: ' \
+'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
+'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -81,7 +83,7 @@ _arguments "${_arguments_options[@]}" \
 '()--reset[Clear all runtime configuration changes]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
-'*::options -- Configuration file options \[example\: cursor.style=Beam\]:' \
+'*::options -- Configuration file options \[example\: '\''cursor.style="Beam"'\''\]:' \
 && ret=0
 ;;
 (help)

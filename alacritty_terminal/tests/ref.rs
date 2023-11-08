@@ -104,8 +104,8 @@ fn ref_test(dir: &Path) {
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap();
 
-    let mut options = Config::default();
-    options.scrolling_history = ref_config.history_size as usize;
+    let options =
+        Config { scrolling_history: ref_config.history_size as usize, ..Default::default() };
 
     let mut terminal = Term::new(options, &size, Mock);
     let mut parser: ansi::Processor = ansi::Processor::new();

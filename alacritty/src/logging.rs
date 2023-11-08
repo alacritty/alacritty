@@ -20,8 +20,8 @@ use crate::cli::Options;
 use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 
-/// Logging target for per-window config error messages.
-pub const LOG_TARGET_WINDOW_CONFIG: &str = "alacritty_log_window_config";
+/// Logging target for IPC config error messages.
+pub const LOG_TARGET_IPC_CONFIG: &str = "alacritty_log_window_config";
 
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
@@ -42,7 +42,7 @@ static EXTRA_LOG_TARGETS: Lazy<Vec<String>> = Lazy::new(|| {
 
 /// List of targets which will be logged by Alacritty.
 const ALLOWED_TARGETS: &[&str] = &[
-    LOG_TARGET_WINDOW_CONFIG,
+    LOG_TARGET_IPC_CONFIG,
     LOG_TARGET_CONFIG,
     "alacritty_config_derive",
     "alacritty_terminal",
@@ -50,6 +50,7 @@ const ALLOWED_TARGETS: &[&str] = &[
     "crossfont",
 ];
 
+/// Initialize the logger to its defaults.
 pub fn initialize(
     options: &Options,
     event_proxy: EventLoopProxy<Event>,

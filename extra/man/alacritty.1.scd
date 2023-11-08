@@ -61,7 +61,7 @@ set of features with high performance.
 	X11 window ID to embed Alacritty within (decimal or hexadecimal with _0x_ prefix)
 
 *-o, --option* <option>...
-	Override configuration file options [example: cursor.style=Beam]
+	Override configuration file options [example: 'cursor.style="Beam"']
 
 *--socket* <socket>
 	Path for IPC socket creation

@@ -1,17 +1,20 @@
 use std::cmp::max;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::rc::Rc;
 
+use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
-use crate::logging::LOG_TARGET_CONFIG;
 use alacritty_terminal::tty::Options as PtyOptions;
 
 use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
 use crate::config::UiConfig;
+use crate::logging::LOG_TARGET_IPC_CONFIG;
 
 /// CLI options for the main Alacritty executable.
 #[derive(Parser, Default, Debug)]
@@ -60,7 +63,7 @@ pub struct Options {
 
     /// CLI options for config overrides.
     #[clap(skip)]
-    pub config_options: Vec<(String, Value)>,
+    pub config_options: ParsedOptions,
 
     /// Options which can be passed via IPC.
     #[clap(flatten)]
@@ -75,22 +78,14 @@ impl Options {
     pub fn new() -> Self {
         let mut options = Self::parse();
 
-        for option in options.window_options.option.drain(..) {
-            let parsed = match toml::from_str(&option) {
-                Ok(parsed) => parsed,
-                Err(err) => {
-                    eprintln!("Ignoring invalid CLI option '{option}': {err}");
-                    continue;
-                },
-            };
-            options.config_options.push((option, parsed));
-        }
+        // Parse CLI config overrides.
+        options.config_options = options.window_options.config_overrides();
 
         options
     }
 
     /// Override configuration file with options from the CLI.
-    pub fn override_config(&self, config: &mut UiConfig) {
+    pub fn override_config(&mut self, config: &mut UiConfig) {
         #[cfg(unix)]
         {
             config.ipc_socket |= self.socket.is_some();
@@ -107,12 +102,7 @@ impl Options {
         }
 
         // Replace CLI options.
-        use alacritty_config::SerdeReplace;
-        for (option, parsed) in &self.config_options {
-            if let Err(err) = config.replace(parsed.clone()) {
-                error!(target: LOG_TARGET_CONFIG, "Unable to set CLI option '{}': {}", option, err);
-            }
-        }
+        self.config_options.override_config(config);
     }
 
     /// Logging filter level.
@@ -305,16 +295,23 @@ pub struct WindowOptions {
     /// The window tabbing identifier to use when building a window.
     pub window_tabbing_id: Option<String>,
 
-    /// Override configuration file options [example: cursor.style=Beam].
+    /// Override configuration file options [example: 'cursor.style="Beam"'].
     #[clap(short = 'o', long, num_args = 1..)]
     option: Vec<String>,
+}
+
+impl WindowOptions {
+    /// Get the parsed set of CLI config overrides.
+    pub fn config_overrides(&self) -> ParsedOptions {
+        ParsedOptions::from_options(&self.option)
+    }
 }
 
 /// Parameters to the `config` IPC subcommand.
 #[cfg(unix)]
 #[derive(Args, Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 pub struct IpcConfig {
-    /// Configuration file options [example: cursor.style=Beam].
+    /// Configuration file options [example: 'cursor.style="Beam"'].
     #[clap(required = true, value_name = "CONFIG_OPTIONS")]
     pub options: Vec<String>,
 
@@ -327,6 +324,78 @@ pub struct IpcConfig {
     /// Clear all runtime configuration changes.
     #[clap(short, long, conflicts_with = "options")]
     pub reset: bool,
+}
+
+/// Parsed CLI config overrides.
+#[derive(Debug, Default)]
+pub struct ParsedOptions {
+    config_options: Vec<(String, Value)>,
+}
+
+impl ParsedOptions {
+    /// Parse CLI config overrides.
+    pub fn from_options(options: &[String]) -> Self {
+        let mut config_options = Vec::new();
+
+        for option in options {
+            let parsed = match toml::from_str(option) {
+                Ok(parsed) => parsed,
+                Err(err) => {
+                    eprintln!("Ignoring invalid CLI option '{option}': {err}");
+                    continue;
+                },
+            };
+            config_options.push((option.clone(), parsed));
+        }
+
+        Self { config_options }
+    }
+
+    /// Apply CLI config overrides, removing broken ones.
+    pub fn override_config(&mut self, config: &mut UiConfig) {
+        let mut i = 0;
+        while i < self.config_options.len() {
+            let (option, parsed) = &self.config_options[i];
+            match config.replace(parsed.clone()) {
+                Err(err) => {
+                    error!(
+                        target: LOG_TARGET_IPC_CONFIG,
+                        "Unable to override option '{}': {}", option, err
+                    );
+                    self.config_options.swap_remove(i);
+                },
+                Ok(_) => i += 1,
+            }
+        }
+    }
+
+    /// Apply CLI config overrides to a CoW config.
+    pub fn override_config_rc(&mut self, config: Rc<UiConfig>) -> Rc<UiConfig> {
+        // Skip clone without write requirement.
+        if self.config_options.is_empty() {
+            return config;
+        }
+
+        // Override cloned config.
+        let mut config = (*config).clone();
+        self.override_config(&mut config);
+
+        Rc::new(config)
+    }
+}
+
+impl Deref for ParsedOptions {
+    type Target = Vec<(String, Value)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.config_options
+    }
+}
+
+impl DerefMut for ParsedOptions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.config_options
+    }
 }
 
 #[cfg(test)]
@@ -361,7 +430,7 @@ mod tests {
         let title = Some(String::from("foo"));
         let window_identity = WindowIdentity { title, ..WindowIdentity::default() };
         let new_window_options = WindowOptions { window_identity, ..WindowOptions::default() };
-        let options = Options { window_options: new_window_options, ..Options::default() };
+        let mut options = Options { window_options: new_window_options, ..Options::default() };
         options.override_config(&mut config);
 
         assert!(!config.window.dynamic_title);
