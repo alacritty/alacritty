@@ -127,7 +127,6 @@ impl From<YamlError> for Error {
 
 /// Load the configuration file.
 pub fn load(options: &Options) -> UiConfig {
-    let config_options = options.config_options.0.clone();
     let config_path = options
         .config_file
         .clone()
@@ -140,9 +139,9 @@ pub fn load(options: &Options) -> UiConfig {
     //  - Default
     let mut config = config_path
         .as_ref()
-        .and_then(|config_path| load_from(config_path, config_options.clone()).ok())
+        .and_then(|config_path| load_from(config_path).ok())
         .unwrap_or_else(|| {
-            let mut config = UiConfig::deserialize(config_options).unwrap_or_default();
+            let mut config = UiConfig::default();
             match config_path {
                 Some(config_path) => config.config_paths.push(config_path),
                 None => info!(target: LOG_TARGET_CONFIG, "No config file found; using default"),
@@ -160,8 +159,7 @@ pub fn reload(config_path: &Path, options: &Options) -> Result<UiConfig> {
     debug!("Reloading configuration file: {:?}", config_path);
 
     // Load config, propagating errors.
-    let config_options = options.config_options.0.clone();
-    let mut config = load_from(config_path, config_options)?;
+    let mut config = load_from(config_path)?;
 
     after_loading(&mut config, options);
 
@@ -178,8 +176,8 @@ fn after_loading(config: &mut UiConfig, options: &Options) {
 }
 
 /// Load configuration file and log errors.
-fn load_from(path: &Path, cli_config: Value) -> Result<UiConfig> {
-    match read_config(path, cli_config) {
+fn load_from(path: &Path) -> Result<UiConfig> {
+    match read_config(path) {
         Ok(config) => Ok(config),
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
@@ -189,12 +187,9 @@ fn load_from(path: &Path, cli_config: Value) -> Result<UiConfig> {
 }
 
 /// Deserialize configuration file from path.
-fn read_config(path: &Path, cli_config: Value) -> Result<UiConfig> {
+fn read_config(path: &Path) -> Result<UiConfig> {
     let mut config_paths = Vec::new();
-    let mut config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
-
-    // Override config with CLI options.
-    config_value = serde_utils::merge(config_value, cli_config);
+    let config_value = parse_config(path, &mut config_paths, IMPORT_RECURSION_LIMIT)?;
 
     // Deserialize to concrete type.
     let mut config = UiConfig::deserialize(config_value)?;
