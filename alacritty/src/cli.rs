@@ -4,13 +4,14 @@ use std::path::PathBuf;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
-use toml::{Table, Value};
+use toml::Value;
 
+use crate::logging::LOG_TARGET_CONFIG;
 use alacritty_terminal::tty::Options as PtyOptions;
 
 use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
-use crate::config::{serde_utils, UiConfig};
+use crate::config::UiConfig;
 
 /// CLI options for the main Alacritty executable.
 #[derive(Parser, Default, Debug)]
@@ -57,13 +58,9 @@ pub struct Options {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     verbose: u8,
 
-    /// Override configuration file options [example: cursor.style=Beam].
-    #[clap(short = 'o', long, num_args = 1..)]
-    option: Vec<String>,
-
     /// CLI options for config overrides.
     #[clap(skip)]
-    pub config_options: TomlValue,
+    pub config_options: Vec<(String, Value)>,
 
     /// Options which can be passed via IPC.
     #[clap(flatten)]
@@ -78,8 +75,16 @@ impl Options {
     pub fn new() -> Self {
         let mut options = Self::parse();
 
-        // Convert `--option` flags into serde `Value`.
-        options.config_options = TomlValue(options_as_value(&options.option));
+        for option in options.window_options.option.drain(..) {
+            let parsed = match toml::from_str(&option) {
+                Ok(parsed) => parsed,
+                Err(err) => {
+                    eprintln!("Ignoring invalid CLI option '{option}': {err}");
+                    continue;
+                },
+            };
+            options.config_options.push((option, parsed));
+        }
 
         options
     }
@@ -99,6 +104,14 @@ impl Options {
 
         if config.debug.print_events {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
+        }
+
+        // Replace CLI options.
+        use alacritty_config::SerdeReplace;
+        for (option, parsed) in &self.config_options {
+            if let Err(err) = config.replace(parsed.clone()) {
+                error!(target: LOG_TARGET_CONFIG, "Unable to set CLI option '{}': {}", option, err);
+            }
         }
     }
 
@@ -121,17 +134,6 @@ impl Options {
             (..) => LevelFilter::Off,
         }
     }
-}
-
-/// Combine multiple options into a [`toml::Value`].
-pub fn options_as_value(options: &[String]) -> Value {
-    options.iter().fold(Value::Table(Table::new()), |value, option| match toml::from_str(option) {
-        Ok(new_value) => serde_utils::merge(value, new_value),
-        Err(_) => {
-            eprintln!("Ignoring invalid option: {:?}", option);
-            value
-        },
-    })
 }
 
 /// Parse the class CLI parameter.
@@ -302,6 +304,10 @@ pub struct WindowOptions {
     #[cfg(target_os = "macos")]
     /// The window tabbing identifier to use when building a window.
     pub window_tabbing_id: Option<String>,
+
+    /// Override configuration file options [example: cursor.style=Beam].
+    #[clap(short = 'o', long, num_args = 1..)]
+    option: Vec<String>,
 }
 
 /// Parameters to the `config` IPC subcommand.
@@ -321,16 +327,6 @@ pub struct IpcConfig {
     /// Clear all runtime configuration changes.
     #[clap(short, long, conflicts_with = "options")]
     pub reset: bool,
-}
-
-/// Toml value with default implementation.
-#[derive(Debug)]
-pub struct TomlValue(pub Value);
-
-impl Default for TomlValue {
-    fn default() -> Self {
-        Self(Value::Table(Table::new()))
-    }
 }
 
 #[cfg(test)]

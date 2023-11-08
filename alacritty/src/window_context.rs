@@ -31,8 +31,6 @@ use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
 
-#[cfg(unix)]
-use crate::cli::IpcConfig;
 use crate::cli::WindowOptions;
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
@@ -41,7 +39,7 @@ use crate::display::Display;
 use crate::event::{
     ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
 };
-use crate::logging::LOG_TARGET_IPC_CONFIG;
+use crate::logging::LOG_TARGET_WINDOW_CONFIG;
 use crate::message_bar::MessageBuffer;
 use crate::scheduler::Scheduler;
 use crate::{input, renderer};
@@ -67,7 +65,7 @@ pub struct WindowContext {
     master_fd: RawFd,
     #[cfg(not(windows))]
     shell_pid: u32,
-    ipc_config: Vec<toml::Value>,
+    window_config: Vec<toml::Value>,
     config: Rc<UiConfig>,
 }
 
@@ -252,7 +250,7 @@ impl WindowContext {
             message_buffer: Default::default(),
             search_state: Default::default(),
             event_queue: Default::default(),
-            ipc_config: Default::default(),
+            window_config: Default::default(),
             modifiers: Default::default(),
             occluded: Default::default(),
             mouse: Default::default(),
@@ -266,20 +264,20 @@ impl WindowContext {
         let old_config = mem::replace(&mut self.config, new_config);
 
         // Apply ipc config if there are overrides.
-        if !self.ipc_config.is_empty() {
+        if !self.window_config.is_empty() {
             let mut config = (*self.config).clone();
 
             // Apply each option, removing broken ones.
             let mut i = 0;
-            while i < self.ipc_config.len() {
-                let option = &self.ipc_config[i];
+            while i < self.window_config.len() {
+                let option = &self.window_config[i];
                 match config.replace(option.clone()) {
                     Err(err) => {
                         error!(
-                            target: LOG_TARGET_IPC_CONFIG,
+                            target: LOG_TARGET_WINDOW_CONFIG,
                             "Unable to override option '{}': {}", option, err
                         );
-                        self.ipc_config.swap_remove(i);
+                        self.window_config.swap_remove(i);
                     },
                     Ok(_) => i += 1,
                 }
@@ -355,24 +353,32 @@ impl WindowContext {
         self.dirty = true;
     }
 
-    /// Update the IPC config overrides.
+    /// Clear the window config overrides.
     #[cfg(unix)]
-    pub fn update_ipc_config(&mut self, config: Rc<UiConfig>, ipc_config: IpcConfig) {
-        // Clear previous IPC errors.
-        self.message_buffer.remove_target(LOG_TARGET_IPC_CONFIG);
+    pub fn reset_window_config(&mut self, config: Rc<UiConfig>) {
+        // Clear previous window errors.
+        self.message_buffer.remove_target(LOG_TARGET_WINDOW_CONFIG);
 
-        if ipc_config.reset {
-            self.ipc_config.clear();
-        } else {
-            for option in &ipc_config.options {
-                // Try and parse option as toml.
-                match toml::from_str(option) {
-                    Ok(value) => self.ipc_config.push(value),
-                    Err(err) => error!(
-                        target: LOG_TARGET_IPC_CONFIG,
-                        "'{}': Invalid IPC config value: {:?}", option, err
-                    ),
-                }
+        self.window_config.clear();
+
+        // Reload current config to pull new IPC config.
+        self.update_config(config);
+    }
+
+    /// Add new window config overrides.
+    #[cfg(unix)]
+    pub fn add_window_config(&mut self, config: Rc<UiConfig>, options: &[String]) {
+        // Clear previous window errors.
+        self.message_buffer.remove_target(LOG_TARGET_WINDOW_CONFIG);
+
+        for option in options {
+            // Try and parse option as toml.
+            match toml::from_str(option) {
+                Ok(value) => self.window_config.push(value),
+                Err(err) => error!(
+                    target: LOG_TARGET_WINDOW_CONFIG,
+                    "'{}': Invalid window config value: {:?}", option, err
+                ),
             }
         }
 

@@ -479,7 +479,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn start_search(&mut self, direction: Direction) {
         // Only create new history entry if the previous regex wasn't empty.
-        if self.search_state.history.get(0).map_or(true, |regex| !regex.is_empty()) {
+        if self.search_state.history.front().map_or(true, |regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
             self.search_state.history.truncate(MAX_SEARCH_HISTORY_SIZE);
         }
@@ -1539,8 +1539,7 @@ impl Processor {
         #[cfg(unix)]
         {
             let options = self.global_ipc_options.clone();
-            let ipc_config = IpcConfig { options, window_id: None, reset: false };
-            window_context.update_ipc_config(self.config.clone(), ipc_config);
+            window_context.add_window_config(self.config.clone(), &options);
         }
 
         self.windows.insert(window_context.id(), window_context);
@@ -1741,7 +1740,12 @@ impl Processor {
                         .iter_mut()
                         .filter(|(id, _)| window_id.is_none() || window_id == Some(**id))
                     {
-                        window_context.update_ipc_config(self.config.clone(), ipc_config.clone());
+                        if ipc_config.reset {
+                            window_context.reset_window_config(self.config.clone());
+                        } else {
+                            window_context
+                                .add_window_config(self.config.clone(), &ipc_config.options);
+                        }
                     }
                 },
                 // Create a new terminal window.
