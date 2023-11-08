@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Synchronized updates now use `CSI 2026` instead of legacy `DCS` variant
 - In mouse mode with `Shift` pressed, mouse bindings without `Shift` are only triggered
     if no exact binding (i.e. one with `Shift`) is found.
+- Use built-in font for powerline symbols from `U+E0B0` to `U+E0B3`
 
 ### Fixed
 
