@@ -505,15 +505,20 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
 
     let mut canvas = Canvas::new(width, height);
 
-    let x_end = width as f32 - 1.;
     let y_end = height as f32 - 1.;
     let y_center = y_end / 2.;
+
+    // Start with offset `1` and draw until the intersection of the 2 f(x) = x + 1 and
+    // g(x) = H - x + 1. The intersection happens at 2 * f(x) = H - 2 or f(x) = H/2,
+    // which is `y_center`.
+    let from_y = 1;
+    let x_end = y_center.floor();
 
     // Pick the start point outside of the canvas to even-out the start.
     let from_x = 0.;
     let to_x = x_end;
-    canvas.draw_line_grid(from_x, 0., to_x, y_center.floor());
-    canvas.draw_line_grid(from_x, y_end, to_x, y_center.ceil());
+    canvas.draw_line_grid(from_x, from_y as f32, to_x, y_center.floor());
+    canvas.draw_line_grid(from_x, y_end - from_y as f32, to_x, y_center.ceil());
 
     // For regular arrows we handle thickness by drawing 2 angle arrows and then just filling
     // the contents between them.
@@ -521,13 +526,13 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
         // The default line is of stroke size 1, so the 0.5 is computed by subtracting 1 from
         // stroke_size and then adding 0.5 to to put the target in the center of the cell.
         let to_x = x_end - stroke_size;
-        canvas.draw_line_grid(from_x, stroke_size, to_x, y_center.floor());
-        canvas.draw_line_grid(from_x, y_end - stroke_size, to_x, y_center.ceil());
+        canvas.draw_line_grid(from_x, from_y as f32 + stroke_size, to_x, y_center.floor());
+        canvas.draw_line_grid(from_x, y_end - stroke_size - from_y as f32, to_x, y_center.ceil());
     }
 
     let buffer = canvas.buffer_mut();
     if character == '\u{e0b0}' || character == '\u{e0b2}' {
-        for row in 0..height {
+        for row in from_y..height - from_y {
             let row_offset = row * width;
             for index in 1..width {
                 let index = row_offset + index;
@@ -557,7 +562,7 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
             }
         }
 
-        for row in 0..height {
+        for row in from_y..height - from_y {
             let row_offset = row * width;
 
             // Find the point on the inner line.
