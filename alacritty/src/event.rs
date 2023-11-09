@@ -40,7 +40,7 @@ use crate::cli::IpcConfig;
 use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
-use crate::config::{self, UiConfig, LOG_TARGET_CONFIG};
+use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
 use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
@@ -49,6 +49,7 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::logging::LOG_TARGET_CONFIG;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
@@ -1071,16 +1072,15 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
 
     fn schedule_blinking_timeout(&mut self) {
         let blinking_timeout = self.config.cursor.blink_timeout();
-        if blinking_timeout == 0 {
+        if blinking_timeout == Duration::ZERO {
             return;
         }
 
         let window_id = self.display.window.id();
-        let blinking_timeout_interval = Duration::from_secs(blinking_timeout);
         let event = Event::new(EventType::BlinkCursorTimeout, window_id);
         let timer_id = TimerId::new(Topic::BlinkTimeout, window_id);
 
-        self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
+        self.scheduler.schedule(event, blinking_timeout, false, timer_id);
     }
 
     /// Perform vi mode inline search in the specified direction.

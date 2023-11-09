@@ -33,12 +33,10 @@ pub use crate::config::bindings::{
     Action, BindingKey, BindingMode, MouseAction, SearchAction, ViAction,
 };
 pub use crate::config::ui_config::UiConfig;
+use crate::logging::LOG_TARGET_CONFIG;
 
 /// Maximum number of depth for the configuration file imports.
 pub const IMPORT_RECURSION_LIMIT: usize = 5;
-
-/// Logging target for config error messages.
-pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 
 /// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;

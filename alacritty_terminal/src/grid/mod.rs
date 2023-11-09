@@ -6,9 +6,9 @@ use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::ansi::{CharsetIndex, StandardCharset};
 use crate::index::{Column, Line, Point};
 use crate::term::cell::{Flags, ResetDiscriminant};
+use crate::vte::ansi::{CharsetIndex, StandardCharset};
 
 pub mod resize;
 mod row;

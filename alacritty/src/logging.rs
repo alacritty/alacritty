@@ -17,7 +17,6 @@ use once_cell::sync::Lazy;
 use winit::event_loop::EventLoopProxy;
 
 use crate::cli::Options;
-use crate::config::LOG_TARGET_CONFIG;
 use crate::event::{Event, EventType};
 use crate::message_bar::{Message, MessageType};
 
@@ -26,6 +25,9 @@ pub const LOG_TARGET_IPC_CONFIG: &str = "alacritty_log_ipc_config";
 
 /// Name for the environment variable containing the log file's path.
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
+
+/// Logging target for config error messages.
+pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 
 /// Name for the environment variable containing extra logging targets.
 ///

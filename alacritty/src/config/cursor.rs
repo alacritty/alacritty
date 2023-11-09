@@ -1,13 +1,18 @@
 use std::cmp;
+use std::time::Duration;
 
 use serde::Deserialize;
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::ansi::{CursorShape as VteCursorShape, CursorStyle as VteCursorStyle};
+use alacritty_terminal::vte::ansi::{CursorShape as VteCursorShape, CursorStyle as VteCursorStyle};
 
 use crate::config::ui_config::Percentage;
 
+/// The minimum blink interval value in milliseconds.
 const MIN_BLINK_INTERVAL: u64 = 10;
+
+/// The minimum number of blinks before pausing.
+const MIN_BLINK_CYCLES_BEFORE_PAUSE: u64 = 1;
 
 #[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq)]
 pub struct Cursor {
@@ -55,13 +60,15 @@ impl Cursor {
     }
 
     #[inline]
-    pub fn blink_timeout(self) -> u64 {
-        const MILLIS_IN_SECOND: u64 = 1000;
-        match self.blink_timeout {
-            0 => 0,
-            blink_timeout => {
-                cmp::max(self.blink_interval * 5 / MILLIS_IN_SECOND, blink_timeout as u64)
-            },
+    pub fn blink_timeout(self) -> Duration {
+        if self.blink_timeout == 0 {
+            Duration::ZERO
+        } else {
+            cmp::max(
+                // Show/hide is what we consider a cycle, so multiply by `2`.
+                Duration::from_millis(self.blink_interval * 2 * MIN_BLINK_CYCLES_BEFORE_PAUSE),
+                Duration::from_secs(self.blink_timeout as u64),
+            )
         }
     }
 }

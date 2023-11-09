@@ -5,13 +5,13 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
-use alacritty_terminal::ansi;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Grid};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Config, Term};
+use alacritty_terminal::vte::ansi;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {

@@ -1102,8 +1102,7 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             action = if let Ok(vi_action) = ViAction::deserialize(value.clone()) {
                                 Some(vi_action.into())
-                            } else if let Ok(vi_motion) =
-                                ViMotionWrapper::deserialize(value.clone())
+                            } else if let Ok(vi_motion) = SerdeViMotion::deserialize(value.clone())
                             {
                                 Some(vi_motion.0.into())
                             } else if let Ok(search_action) =
@@ -1215,16 +1214,16 @@ impl<'a> Deserialize<'a> for KeyBinding {
 }
 
 #[derive(SerdeReplace, Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ViMotionWrapper(ViMotion);
+pub struct SerdeViMotion(ViMotion);
 
-impl<'de> Deserialize<'de> for ViMotionWrapper {
+impl<'de> Deserialize<'de> for SerdeViMotion {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let value = deserializer.deserialize_str(StringVisitor)?;
         ViMotion::deserialize(SerdeValue::String(value))
-            .map(ViMotionWrapper)
+            .map(SerdeViMotion)
             .map_err(de::Error::custom)
     }
 }

@@ -23,13 +23,13 @@ use winit::window::CursorIcon;
 use crossfont::{self, Rasterize, Rasterizer};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::ansi::{CursorShape, NamedColor};
 use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
 use alacritty_terminal::grid::Dimensions as TermDimensions;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::{Selection, SelectionRange};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
+use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
 use crate::config::font::Font;
 use crate::config::scrolling::MAX_SCROLLBACK_LINES;

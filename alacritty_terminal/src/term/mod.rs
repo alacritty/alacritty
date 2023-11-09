@@ -12,11 +12,7 @@ use base64::Engine;
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
-use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 
-use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
-};
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
@@ -24,6 +20,10 @@ use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
+use crate::vte::ansi::{
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, NamedColor, Rgb,
+    StandardCharset,
+};
 
 pub mod cell;
 pub mod color;
@@ -311,7 +311,7 @@ pub struct Term<T> {
 /// Configuration options for the [`Term`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
-    /// The amount of scrolling history to allocate.
+    /// The maximum amount of scrolling history.
     pub scrolling_history: usize,
 
     /// Default cursor style to reset the cursor to.
@@ -1543,7 +1543,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Set the indexed color value.
     #[inline]
-    fn set_color(&mut self, index: usize, color: VteRgb) {
+    fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
 
         // Damage terminal if the color changed and it's not the cursor.
@@ -1753,7 +1753,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_hyperlink(&mut self, hyperlink: Option<VteHyperlink>) {
+    fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
         trace!("Setting hyperlink: {:?}", hyperlink);
         self.grid.cursor.template.set_hyperlink(hyperlink.map(|e| e.into()));
     }
@@ -2254,13 +2254,13 @@ mod tests {
 
     use std::mem;
 
-    use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
     use crate::event::VoidListener;
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
     use crate::term::test::TermSize;
+    use crate::vte::ansi::{self, CharsetIndex, Handler, StandardCharset};
 
     #[test]
     fn scroll_display_page_up() {
@@ -2969,12 +2969,12 @@ mod tests {
         term.reset_damage();
 
         let color_index = 257;
-        term.set_color(color_index, VteRgb::default());
+        term.set_color(color_index, Rgb::default());
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
         // Setting the same color once again shouldn't trigger full damage.
-        term.set_color(color_index, VteRgb::default());
+        term.set_color(color_index, Rgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         term.reset_color(color_index);
@@ -2982,7 +2982,7 @@ mod tests {
         term.reset_damage();
 
         // We shouldn't trigger fully damage when cursor gets update.
-        term.set_color(NamedColor::Cursor as usize, VteRgb::default());
+        term.set_color(NamedColor::Cursor as usize, Rgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`

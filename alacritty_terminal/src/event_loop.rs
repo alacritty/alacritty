@@ -17,7 +17,8 @@ use polling::{Event as PollingEvent, Events, PollMode};
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
 use crate::term::Term;
-use crate::{ansi, thread, tty};
+use crate::vte::ansi;
+use crate::{thread, tty};
 
 /// Max bytes to read from the PTY before forced terminal synchronization.
 pub(crate) const READ_BUFFER_SIZE: usize = 0x10_0000;

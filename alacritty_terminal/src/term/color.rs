@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::ansi::{NamedColor, Rgb};
+use crate::vte::ansi::{NamedColor, Rgb};
 
 /// Number of terminal colors.
 pub const COUNT: usize = 269;
