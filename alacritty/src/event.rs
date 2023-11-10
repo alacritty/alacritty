@@ -1266,8 +1266,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::SearchNext => self.ctx.goto_match(None),
                 EventType::Scroll(scroll) => self.ctx.scroll(scroll),
                 EventType::BlinkCursor => {
-                    self.ctx.display.cursor_hidden ^= true;
-                    *self.ctx.dirty = true;
+                    // Only change state when timeout isn't reached, since we could get
+                    // BlinkCursor and BlinkCursorTimeout events at the same time.
+                    if !*self.ctx.cursor_blink_timed_out {
+                        self.ctx.display.cursor_hidden ^= true;
+                        *self.ctx.dirty = true;
+                    }
                 },
                 EventType::BlinkCursorTimeout => {
                     // Disable blinking after timeout reached.

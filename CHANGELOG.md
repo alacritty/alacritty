@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash on exit when using NVIDIA binary drivers on Wayland
 - `window.startup_mode` applied to window again when creating new tab
 - Crash when leaving search after resize
+- Cursor being hidden after reaching cursor blinking timeout
 
 ### Removed
 
