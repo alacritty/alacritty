@@ -5,9 +5,8 @@ use std::cmp::{max, min, Ord, Ordering};
 use std::fmt;
 use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use alacritty_config_derive::SerdeReplace;
 
 use crate::grid::Dimensions;
 
@@ -46,7 +45,8 @@ pub enum Boundary {
 }
 
 /// Index in the grid using row, column notation.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Point<L = Line, C = Column> {
     pub line: L,
     pub column: C,
@@ -131,7 +131,8 @@ impl<L: Ord, C: Ord> Ord for Point<L, C> {
 /// A line.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Line(pub i32);
 
 impl Line {
@@ -224,19 +225,8 @@ impl PartialEq<usize> for Line {
 /// A column.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(
-    SerdeReplace,
-    Serialize,
-    Deserialize,
-    Debug,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Default,
-    Ord,
-    PartialOrd,
-)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Column(pub usize);
 
 impl fmt::Display for Column {

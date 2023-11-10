@@ -13,9 +13,9 @@ use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::color::Rgb;
 
 use crate::config::debug::RendererPreference;
+use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;

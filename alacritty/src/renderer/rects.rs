@@ -7,8 +7,8 @@ use crossfont::Metrics;
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::color::Rgb;
 
+use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;

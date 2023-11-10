@@ -24,11 +24,6 @@ impl Scrolling {
     pub fn history(self) -> u32 {
         self.history.0
     }
-
-    // Update the history size, used in ref tests.
-    pub fn set_history(&mut self, history: u32) {
-        self.history = ScrollingHistory(history);
-    }
 }
 
 #[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]

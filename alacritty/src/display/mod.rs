@@ -23,23 +23,22 @@ use winit::window::CursorIcon;
 use crossfont::{self, Rasterize, Rasterizer};
 use unicode_width::UnicodeWidthChar;
 
-use alacritty_terminal::ansi::{CursorShape, NamedColor};
-use alacritty_terminal::config::MAX_SCROLLBACK_LINES;
 use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
 use alacritty_terminal::grid::Dimensions as TermDimensions;
 use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::{Selection, SelectionRange};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES};
+use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
 use crate::config::font::Font;
+use crate::config::scrolling::MAX_SCROLLBACK_LINES;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
-use crate::display::color::List;
+use crate::display::color::{List, Rgb};
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
 use crate::display::damage::RenderDamageIterator;
@@ -53,13 +52,13 @@ use crate::renderer::{self, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
+pub mod color;
 pub mod content;
 pub mod cursor;
 pub mod hint;
 pub mod window;
 
 mod bell;
-mod color;
 mod damage;
 mod meter;
 
@@ -862,7 +861,7 @@ impl Display {
         };
 
         // Draw cursor.
-        rects.extend(cursor.rects(&size_info, config.terminal_config.cursor.thickness()));
+        rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
 
         // Push visual bell after url/underline/strikeout rects.
         let visual_bell_intensity = self.visual_bell.intensity();
@@ -900,9 +899,7 @@ impl Display {
                     let fg = config.colors.footer_bar_foreground();
                     let shape = CursorShape::Underline;
                     let cursor = RenderableCursor::new(Point::new(line, column), shape, fg, false);
-                    rects.extend(
-                        cursor.rects(&size_info, config.terminal_config.cursor.thickness()),
-                    );
+                    rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
                 }
 
                 Some(Point::new(line, column))
@@ -1144,9 +1141,7 @@ impl Display {
                 let cursor_point = Point::new(point.line, cursor_column);
                 let cursor =
                     RenderableCursor::new(cursor_point, CursorShape::HollowBlock, fg, is_wide);
-                rects.extend(
-                    cursor.rects(&self.size_info, config.terminal_config.cursor.thickness()),
-                );
+                rects.extend(cursor.rects(&self.size_info, config.cursor.thickness()));
                 cursor_point
             },
             _ => end,
@@ -1622,7 +1617,7 @@ fn window_size(
 ) -> PhysicalSize<u32> {
     let padding = config.window.padding(scale_factor);
 
-    let grid_width = cell_width * dimensions.columns.0.max(MIN_COLUMNS) as f32;
+    let grid_width = cell_width * dimensions.columns.max(MIN_COLUMNS) as f32;
     let grid_height = cell_height * dimensions.lines.max(MIN_SCREEN_LINES) as f32;
 
     let width = (padding.0).mul_add(2., grid_width).floor();

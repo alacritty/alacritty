@@ -27,7 +27,6 @@ use winit::event_loop::{
 };
 use winit::window::WindowId;
 
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
 use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions, Scroll};
@@ -45,10 +44,12 @@ use crate::config::{self, UiConfig};
 #[cfg(not(windows))]
 use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
+use crate::display::color::Rgb;
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+use crate::logging::LOG_TARGET_CONFIG;
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::window_context::WindowContext;
@@ -284,8 +285,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             None => return,
         };
 
-        if ty == ClipboardType::Selection && self.config.terminal_config.selection.save_to_clipboard
-        {
+        if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
             self.clipboard.store(ClipboardType::Clipboard, text.clone());
         }
         self.clipboard.store(ty, text);
@@ -1033,10 +1033,10 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
     /// Update the cursor blinking state.
     fn update_cursor_blinking(&mut self) {
         // Get config cursor style.
-        let mut cursor_style = self.config.terminal_config.cursor.style;
+        let mut cursor_style = self.config.cursor.style;
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
         if vi_mode {
-            cursor_style = self.config.terminal_config.cursor.vi_mode_style.unwrap_or(cursor_style);
+            cursor_style = self.config.cursor.vi_mode_style.unwrap_or(cursor_style);
         }
 
         // Check terminal cursor style.
@@ -1066,23 +1066,21 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let window_id = self.display.window.id();
         let timer_id = TimerId::new(Topic::BlinkCursor, window_id);
         let event = Event::new(EventType::BlinkCursor, window_id);
-        let blinking_interval =
-            Duration::from_millis(self.config.terminal_config.cursor.blink_interval());
+        let blinking_interval = Duration::from_millis(self.config.cursor.blink_interval());
         self.scheduler.schedule(event, blinking_interval, true, timer_id);
     }
 
     fn schedule_blinking_timeout(&mut self) {
-        let blinking_timeout = self.config.terminal_config.cursor.blink_timeout();
-        if blinking_timeout == 0 {
+        let blinking_timeout = self.config.cursor.blink_timeout();
+        if blinking_timeout == Duration::ZERO {
             return;
         }
 
         let window_id = self.display.window.id();
-        let blinking_timeout_interval = Duration::from_secs(blinking_timeout);
         let event = Event::new(EventType::BlinkCursorTimeout, window_id);
         let timer_id = TimerId::new(Topic::BlinkTimeout, window_id);
 
-        self.scheduler.schedule(event, blinking_timeout_interval, false, timer_id);
+        self.scheduler.schedule(event, blinking_timeout, false, timer_id);
     }
 
     /// Perform vi mode inline search in the specified direction.
@@ -1324,8 +1322,9 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::ColorRequest(index, format) => {
                         let color = self.ctx.terminal().colors()[index]
+                            .map(Rgb)
                             .unwrap_or(self.ctx.display.colors[index]);
-                        self.ctx.write_to_pty(format(color).into_bytes());
+                        self.ctx.write_to_pty(format(color.0).into_bytes());
                     },
                     TerminalEvent::TextAreaSizeRequest(format) => {
                         let text = format(self.ctx.size_info().into());
@@ -1386,7 +1385,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.terminal.is_focused = is_focused;
 
                         // When the unfocused hollow is used we must redraw on focus change.
-                        if self.ctx.config.terminal_config.cursor.unfocused_hollow {
+                        if self.ctx.config.cursor.unfocused_hollow {
                             *self.ctx.dirty = true;
                         }
 

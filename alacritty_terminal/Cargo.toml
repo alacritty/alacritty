@@ -9,28 +9,22 @@ homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
 rust-version = "1.70.0"
 
-[dependencies.alacritty_config_derive]
-path = "../alacritty_config_derive"
-version = "0.2.2-dev"
-
-[dependencies.alacritty_config]
-path = "../alacritty_config"
-version = "0.1.2-dev"
+[features]
+default = ["serde"]
+serde = ["dep:serde", "bitflags/serde", "vte/serde"]
 
 [dependencies]
 base64 = "0.21.3"
-bitflags = { version = "2.2.1", features = ["serde"] }
+bitflags = "2.4.1"
 home = "0.5.5"
 libc = "0.2"
 log = "0.4"
 parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.3.6"
-serde = { version = "1", features = ["derive", "rc"] }
-serde_yaml = "0.9.25"
-toml = "0.8.2"
 unicode-width = "0.1"
 vte = { version = "0.12.0", default-features = false, features = ["ansi", "serde"] }
+serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix-openpty = "0.1.1"

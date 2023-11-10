@@ -10,14 +10,16 @@ use toml::de::Error as TomlError;
 use toml::ser::Error as TomlSeError;
 use toml::{Table, Value};
 
-use alacritty_terminal::config::LOG_TARGET_CONFIG;
-
 pub mod bell;
 pub mod color;
+pub mod cursor;
 pub mod debug;
 pub mod font;
 pub mod monitor;
+pub mod scrolling;
+pub mod selection;
 pub mod serde_utils;
+pub mod terminal;
 pub mod ui_config;
 pub mod window;
 
@@ -31,6 +33,7 @@ pub use crate::config::bindings::{
     Action, BindingKey, BindingMode, MouseAction, SearchAction, ViAction,
 };
 pub use crate::config::ui_config::UiConfig;
+use crate::logging::LOG_TARGET_CONFIG;
 
 /// Maximum number of depth for the configuration file imports.
 pub const IMPORT_RECURSION_LIMIT: usize = 5;

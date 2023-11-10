@@ -1,8 +1,11 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
@@ -10,7 +13,6 @@ use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, KeyLocation, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::config::{Config as TerminalConfig, Program, LOG_TARGET_CONFIG};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
@@ -18,10 +20,15 @@ use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
 };
 use crate::config::color::Colors;
+use crate::config::cursor::Cursor;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
 use crate::config::mouse::{Mouse, MouseBindings};
+use crate::config::scrolling::Scrolling;
+use crate::config::selection::Selection;
+use crate::config::terminal::Terminal;
 use crate::config::window::WindowConfig;
+use crate::config::LOG_TARGET_CONFIG;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
@@ -30,6 +37,18 @@ const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https:
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct UiConfig {
+    /// Extra environment variables.
+    pub env: HashMap<String, String>,
+
+    /// How much scrolling history to keep.
+    pub scrolling: Scrolling,
+
+    /// Cursor configuration.
+    pub cursor: Cursor,
+
+    /// Selection configuration.
+    pub selection: Selection,
+
     /// Font configuration.
     pub font: Font,
 
@@ -68,8 +87,13 @@ pub struct UiConfig {
     pub ipc_socket: bool,
 
     /// Config for the alacritty_terminal itself.
-    #[config(flatten)]
-    pub terminal_config: TerminalConfig,
+    pub terminal: Terminal,
+
+    /// Path to a shell program to run on startup.
+    pub shell: Option<Program>,
+
+    /// Shell startup directory.
+    pub working_directory: Option<PathBuf>,
 
     /// Keyboard configuration.
     keyboard: Keyboard,
@@ -100,25 +124,48 @@ impl Default for UiConfig {
             #[cfg(unix)]
             ipc_socket: true,
             draw_bold_text_with_bright_colors: Default::default(),
-            terminal_config: Default::default(),
+            working_directory: Default::default(),
             mouse_bindings: Default::default(),
             config_paths: Default::default(),
             key_bindings: Default::default(),
             alt_send_esc: Default::default(),
+            scrolling: Default::default(),
+            selection: Default::default(),
             keyboard: Default::default(),
+            terminal: Default::default(),
             import: Default::default(),
+            cursor: Default::default(),
             window: Default::default(),
             colors: Default::default(),
+            shell: Default::default(),
             mouse: Default::default(),
             debug: Default::default(),
             hints: Default::default(),
             font: Default::default(),
             bell: Default::default(),
+            env: Default::default(),
         }
     }
 }
 
 impl UiConfig {
+    /// Derive [`TermConfig`] from the config.
+    pub fn term_options(&self) -> TermConfig {
+        TermConfig {
+            scrolling_history: self.scrolling.history() as usize,
+            default_cursor_style: self.cursor.style(),
+            vi_mode_cursor_style: self.cursor.vi_mode_style(),
+            semantic_escape_chars: self.selection.semantic_escape_chars.clone(),
+            osc52: self.terminal.osc52.0,
+        }
+    }
+
+    /// Derive [`PtyOptions`] from the config.
+    pub fn pty_config(&self) -> PtyOptions {
+        let shell = self.shell.clone().map(Into::into);
+        PtyOptions { shell, working_directory: self.working_directory.clone(), hold: false }
+    }
+
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
         // Check which key bindings is most likely to be the user's configuration.
@@ -550,6 +597,78 @@ impl PartialEq for LazyRegexVariant {
     }
 }
 impl Eq for LazyRegexVariant {}
+
+/// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
+#[derive(SerdeReplace, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Percentage(f32);
+
+impl Default for Percentage {
+    fn default() -> Self {
+        Percentage(1.0)
+    }
+}
+
+impl Percentage {
+    pub fn new(value: f32) -> Self {
+        Percentage(value.clamp(0., 1.))
+    }
+
+    pub fn as_f32(self) -> f32 {
+        self.0
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum Program {
+    Just(String),
+    WithArgs {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
+}
+
+impl Program {
+    pub fn program(&self) -> &str {
+        match self {
+            Program::Just(program) => program,
+            Program::WithArgs { program, .. } => program,
+        }
+    }
+
+    pub fn args(&self) -> &[String] {
+        match self {
+            Program::Just(_) => &[],
+            Program::WithArgs { args, .. } => args,
+        }
+    }
+}
+
+impl From<Program> for Shell {
+    fn from(value: Program) -> Self {
+        match value {
+            Program::Just(program) => Shell::new(program, Vec::new()),
+            Program::WithArgs { program, args } => Shell::new(program, args),
+        }
+    }
+}
+
+pub(crate) struct StringVisitor;
+impl<'de> serde::de::Visitor<'de> for StringVisitor {
+    type Value = String;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(s.to_lowercase())
+    }
+}
 
 #[cfg(test)]
 mod tests {

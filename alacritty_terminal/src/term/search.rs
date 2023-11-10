@@ -515,7 +515,7 @@ impl<T> Term<T> {
     /// Find left end of semantic block.
     #[must_use]
     pub fn semantic_search_left(&self, point: Point) -> Point {
-        match self.inline_search_left(point, &self.semantic_escape_chars) {
+        match self.inline_search_left(point, self.semantic_escape_chars()) {
             Ok(point) => self.grid.iter_from(point).next().map_or(point, |cell| cell.point),
             Err(point) => point,
         }
@@ -524,7 +524,7 @@ impl<T> Term<T> {
     /// Find right end of semantic block.
     #[must_use]
     pub fn semantic_search_right(&self, point: Point) -> Point {
-        match self.inline_search_right(point, &self.semantic_escape_chars) {
+        match self.inline_search_right(point, self.semantic_escape_chars()) {
             Ok(point) => self.grid.iter_from(point).prev().map_or(point, |cell| cell.point),
             Err(point) => point,
         }
@@ -676,9 +676,9 @@ impl<'a, T> Iterator for RegexIter<'a, T> {
 mod tests {
     use super::*;
 
-    use crate::config::Config;
     use crate::index::{Column, Line};
     use crate::term::test::{mock_term, TermSize};
+    use crate::term::Config;
 
     #[test]
     fn regex_right() {
@@ -1052,7 +1052,7 @@ mod tests {
     #[test]
     fn wide_without_spacer() {
         let size = TermSize::new(2, 2);
-        let mut term = Term::new(&Config::default(), &size, ());
+        let mut term = Term::new(Config::default(), &size, ());
         term.grid[Line(0)][Column(0)].c = 'x';
         term.grid[Line(0)][Column(1)].c = '字';
         term.grid[Line(0)][Column(1)].flags = Flags::WIDE_CHAR;

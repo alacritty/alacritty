@@ -17,11 +17,11 @@ use windows_sys::Win32::System::Threading::{
     STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
 };
 
-use crate::config::PtyConfig;
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::blocking::{UnblockedReader, UnblockedWriter};
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::{cmdline, win32_string, Pty};
+use crate::tty::Options;
 
 const PIPE_CAPACITY: usize = crate::event_loop::READ_BUFFER_SIZE;
 
@@ -104,7 +104,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new(config: &PtyConfig, window_size: WindowSize) -> Option<Pty> {
+pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     let api = ConptyApi::new();
     let mut pty_handle: HPCON = 0;
 
