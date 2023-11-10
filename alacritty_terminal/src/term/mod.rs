@@ -4,17 +4,15 @@ use std::ops::{Index, IndexMut, Range};
 use std::sync::Arc;
 use std::{cmp, mem, ptr, slice, str};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use base64::engine::general_purpose::STANDARD as Base64;
 use base64::Engine;
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
-use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 
-use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
-};
-use crate::config::{Config, Osc52, Terminal};
 use crate::event::{Event, EventListener};
 use crate::grid::{Dimensions, Grid, GridIterator, Scroll};
 use crate::index::{self, Boundary, Column, Direction, Line, Point, Side};
@@ -22,6 +20,10 @@ use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
+use crate::vte::ansi::{
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, NamedColor, Rgb,
+    StandardCharset,
+};
 
 pub mod cell;
 pub mod color;
@@ -37,6 +39,9 @@ pub const MIN_SCREEN_LINES: usize = 1;
 
 /// Max size of the window title stack.
 const TITLE_STACK_MAX_DEPTH: usize = 4096;
+
+/// Default semantic escape characters.
+pub const SEMANTIC_ESCAPE_CHARS: &str = ",│`|:\"' ()[]{}<>\t";
 
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
@@ -280,19 +285,11 @@ pub struct Term<T> {
     /// Range going from top to bottom of the terminal, indexed from the top of the viewport.
     scroll_region: Range<Line>,
 
-    semantic_escape_chars: String,
-
     /// Modified terminal colors.
     colors: Colors,
 
     /// Current style of the cursor.
     cursor_style: Option<CursorStyle>,
-
-    /// Default style for resetting the cursor.
-    default_cursor_style: CursorStyle,
-
-    /// Style of the vi mode cursor.
-    vi_mode_cursor_style: Option<CursorStyle>,
 
     /// Proxy for sending events to the event loop.
     event_proxy: T,
@@ -308,7 +305,58 @@ pub struct Term<T> {
     damage: TermDamageState,
 
     /// Config directly for the terminal.
-    config: Terminal,
+    config: Config,
+}
+
+/// Configuration options for the [`Term`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Config {
+    /// The maximum amount of scrolling history.
+    pub scrolling_history: usize,
+
+    /// Default cursor style to reset the cursor to.
+    pub default_cursor_style: CursorStyle,
+
+    /// Cursor style for Vi mode.
+    pub vi_mode_cursor_style: Option<CursorStyle>,
+
+    /// The characters which terminate semantic selection.
+    ///
+    /// The default value is [`SEMANTIC_ESCAPE_CHARS`].
+    pub semantic_escape_chars: String,
+
+    /// OSC52 support mode.
+    pub osc52: Osc52,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            scrolling_history: 10000,
+            semantic_escape_chars: SEMANTIC_ESCAPE_CHARS.to_owned(),
+            default_cursor_style: Default::default(),
+            vi_mode_cursor_style: Default::default(),
+            osc52: Default::default(),
+        }
+    }
+}
+
+/// OSC 52 behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(rename_all = "lowercase"))]
+pub enum Osc52 {
+    /// The handling of the escape sequence is disabled.
+    Disabled,
+    /// Only copy sequence is accepted.
+    ///
+    /// This option is the default as a compromise between entirely
+    /// disabling it (the most secure) and allowing `paste` (the less secure).
+    #[default]
+    OnlyCopy,
+    /// Only paste sequence is accepted.
+    OnlyPaste,
+    /// Both are accepted.
+    CopyPaste,
 }
 
 impl<T> Term<T> {
@@ -334,11 +382,11 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn new<D: Dimensions>(config: &Config, dimensions: &D, event_proxy: T) -> Term<T> {
+    pub fn new<D: Dimensions>(options: Config, dimensions: &D, event_proxy: T) -> Term<T> {
         let num_cols = dimensions.columns();
         let num_lines = dimensions.screen_lines();
 
-        let history_size = config.scrolling.history() as usize;
+        let history_size = options.scrolling_history;
         let grid = Grid::new(num_lines, num_cols, history_size);
         let alt = Grid::new(num_lines, num_cols, 0);
 
@@ -358,17 +406,14 @@ impl<T> Term<T> {
             mode: Default::default(),
             scroll_region,
             colors: color::Colors::default(),
-            semantic_escape_chars: config.selection.semantic_escape_chars.to_owned(),
             cursor_style: None,
-            default_cursor_style: config.cursor.style(),
-            vi_mode_cursor_style: config.cursor.vi_mode_style(),
             event_proxy,
             is_focused: true,
             title: None,
             title_stack: Vec::new(),
             selection: None,
             damage,
-            config: config.terminal.clone(),
+            config: options,
         }
     }
 
@@ -446,13 +491,12 @@ impl<T> Term<T> {
         self.damage.damage_line(line, left, right);
     }
 
-    pub fn update_config(&mut self, config: &Config)
+    /// Set new options for the [`Term`].
+    pub fn set_options(&mut self, options: Config)
     where
         T: EventListener,
     {
-        self.semantic_escape_chars = config.selection.semantic_escape_chars.to_owned();
-        self.default_cursor_style = config.cursor.style();
-        self.vi_mode_cursor_style = config.cursor.vi_mode_style();
+        self.config = options;
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -462,12 +506,10 @@ impl<T> Term<T> {
         self.event_proxy.send_event(title_event);
 
         if self.mode.contains(TermMode::ALT_SCREEN) {
-            self.inactive_grid.update_history(config.scrolling.history() as usize);
+            self.inactive_grid.update_history(self.config.scrolling_history);
         } else {
-            self.grid.update_history(config.scrolling.history() as usize);
+            self.grid.update_history(self.config.scrolling_history);
         }
-
-        self.config = config.terminal.clone();
 
         // Damage everything on config updates.
         self.mark_fully_damaged();
@@ -870,7 +912,7 @@ impl<T> Term<T> {
 
     #[inline]
     pub fn semantic_escape_chars(&self) -> &str {
-        &self.semantic_escape_chars
+        &self.config.semantic_escape_chars
     }
 
     /// Active terminal cursor style.
@@ -878,10 +920,10 @@ impl<T> Term<T> {
     /// While vi mode is active, this will automatically return the vi mode cursor style.
     #[inline]
     pub fn cursor_style(&self) -> CursorStyle {
-        let cursor_style = self.cursor_style.unwrap_or(self.default_cursor_style);
+        let cursor_style = self.cursor_style.unwrap_or(self.config.default_cursor_style);
 
         if self.mode.contains(TermMode::VI) {
-            self.vi_mode_cursor_style.unwrap_or(cursor_style)
+            self.config.vi_mode_cursor_style.unwrap_or(cursor_style)
         } else {
             cursor_style
         }
@@ -1501,10 +1543,8 @@ impl<T: EventListener> Handler for Term<T> {
 
     /// Set the indexed color value.
     #[inline]
-    fn set_color(&mut self, index: usize, color: VteRgb) {
+    fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("Setting color[{}] = {:?}", index, color);
-
-        let color = color.into();
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
@@ -1713,7 +1753,7 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_hyperlink(&mut self, hyperlink: Option<VteHyperlink>) {
+    fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
         trace!("Setting hyperlink: {:?}", hyperlink);
         self.grid.cursor.template.set_hyperlink(hyperlink.map(|e| e.into()));
     }
@@ -1818,7 +1858,7 @@ impl<T: EventListener> Handler for Term<T> {
             ansi::Mode::ColumnMode => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
-                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
                 style.blinking = true;
                 self.event_proxy.send_event(Event::CursorBlinkingChange);
             },
@@ -1863,7 +1903,7 @@ impl<T: EventListener> Handler for Term<T> {
                 self.mark_fully_damaged();
             },
             ansi::Mode::BlinkingCursor => {
-                let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+                let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
                 style.blinking = false;
                 self.event_proxy.send_event(Event::CursorBlinkingChange);
             },
@@ -1932,7 +1972,7 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_cursor_shape(&mut self, shape: CursorShape) {
         trace!("Setting cursor shape {:?}", shape);
 
-        let style = self.cursor_style.get_or_insert(self.default_cursor_style);
+        let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
         style.shape = shape;
     }
 
@@ -2118,14 +2158,14 @@ impl<'a> RenderableContent<'a> {
 pub mod test {
     use super::*;
 
+    #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
     use unicode_width::UnicodeWidthChar;
 
-    use crate::config::Config;
     use crate::event::VoidListener;
     use crate::index::Column;
 
-    #[derive(Serialize, Deserialize)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct TermSize {
         pub columns: usize,
         pub screen_lines: usize,
@@ -2180,7 +2220,7 @@ pub mod test {
 
         // Create terminal with the appropriate dimensions.
         let size = TermSize::new(num_cols, lines.len());
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Fill terminal with content.
         for (line, text) in lines.iter().enumerate() {
@@ -2214,19 +2254,18 @@ mod tests {
 
     use std::mem;
 
-    use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
-    use crate::config::Config;
     use crate::event::VoidListener;
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Point, Side};
     use crate::selection::{Selection, SelectionType};
     use crate::term::cell::{Cell, Flags};
     use crate::term::test::TermSize;
+    use crate::vte::ansi::{self, CharsetIndex, Handler, StandardCharset};
 
     #[test]
     fn scroll_display_page_up() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2252,7 +2291,7 @@ mod tests {
     #[test]
     fn scroll_display_page_down() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2282,7 +2321,7 @@ mod tests {
     #[test]
     fn simple_selection_works() {
         let size = TermSize::new(5, 5);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let grid = term.grid_mut();
         for i in 0..4 {
             if i == 1 {
@@ -2328,7 +2367,7 @@ mod tests {
     #[test]
     fn semantic_selection_works() {
         let size = TermSize::new(5, 3);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let mut grid: Grid<Cell> = Grid::new(3, 5, 0);
         for i in 0..5 {
             for j in 0..2 {
@@ -2343,7 +2382,7 @@ mod tests {
         let mut escape_chars = String::from("\"");
 
         mem::swap(&mut term.grid, &mut grid);
-        mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
+        mem::swap(&mut term.config.semantic_escape_chars, &mut escape_chars);
 
         {
             term.selection = Some(Selection::new(
@@ -2376,7 +2415,7 @@ mod tests {
     #[test]
     fn line_selection_works() {
         let size = TermSize::new(5, 1);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let mut grid: Grid<Cell> = Grid::new(1, 5, 0);
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2397,7 +2436,7 @@ mod tests {
     #[test]
     fn block_selection_works() {
         let size = TermSize::new(5, 5);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let grid = term.grid_mut();
         for i in 1..4 {
             grid[Line(i)][Column(0)].c = '"';
@@ -2453,7 +2492,7 @@ mod tests {
     #[test]
     fn input_line_drawing_character() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2464,7 +2503,7 @@ mod tests {
     #[test]
     fn clearing_viewport_keeps_history_position() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2485,7 +2524,7 @@ mod tests {
     #[test]
     fn clearing_viewport_with_vi_mode_keeps_history_position() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2511,7 +2550,7 @@ mod tests {
     #[test]
     fn clearing_scrollback_resets_display_offset() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2532,7 +2571,7 @@ mod tests {
     #[test]
     fn clearing_scrollback_sets_vi_cursor_into_viewport() {
         let size = TermSize::new(10, 20);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..29 {
@@ -2558,7 +2597,7 @@ mod tests {
     #[test]
     fn clear_saved_lines() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Add one line of scrollback.
         term.grid.scroll_up(&(Line(0)..Line(1)), 1);
@@ -2580,7 +2619,7 @@ mod tests {
     #[test]
     fn vi_cursor_keep_pos_on_scrollback_buffer() {
         let size = TermSize::new(5, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 11 lines of scrollback.
         for _ in 0..20 {
@@ -2600,7 +2639,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_active_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2620,7 +2659,7 @@ mod tests {
     #[test]
     fn grow_lines_updates_inactive_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2646,7 +2685,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_active_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2666,7 +2705,7 @@ mod tests {
     #[test]
     fn shrink_lines_updates_inactive_cursor_pos() {
         let mut size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Create 10 lines of scrollback.
         for _ in 0..19 {
@@ -2692,7 +2731,7 @@ mod tests {
     #[test]
     fn damage_public_usage() {
         let size = TermSize::new(10, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
 
@@ -2785,7 +2824,7 @@ mod tests {
     #[test]
     fn damage_cursor_movements() {
         let size = TermSize::new(10, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
         let num_cols = term.columns();
         // Reset terminal for partial damage tests since it's initialized as fully damaged.
         term.reset_damage();
@@ -2883,7 +2922,7 @@ mod tests {
     #[test]
     fn full_damage() {
         let size = TermSize::new(100, 10);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         assert!(term.damage.is_fully_damaged);
         for _ in 0..20 {
@@ -2904,7 +2943,7 @@ mod tests {
         assert!(!term.damage.is_fully_damaged);
         term.reset_damage();
 
-        term.update_config(&Config::default());
+        term.set_options(Config::default());
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
@@ -2930,12 +2969,12 @@ mod tests {
         term.reset_damage();
 
         let color_index = 257;
-        term.set_color(color_index, VteRgb::default());
+        term.set_color(color_index, Rgb::default());
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
         // Setting the same color once again shouldn't trigger full damage.
-        term.set_color(color_index, VteRgb::default());
+        term.set_color(color_index, Rgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         term.reset_color(color_index);
@@ -2943,7 +2982,7 @@ mod tests {
         term.reset_damage();
 
         // We shouldn't trigger fully damage when cursor gets update.
-        term.set_color(NamedColor::Cursor as usize, VteRgb::default());
+        term.set_color(NamedColor::Cursor as usize, Rgb::default());
         assert!(!term.damage.is_fully_damaged);
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`
@@ -2969,7 +3008,7 @@ mod tests {
     #[test]
     fn window_title() {
         let size = TermSize::new(7, 17);
-        let mut term = Term::new(&Config::default(), &size, VoidListener);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
 
         // Title None by default.
         assert_eq!(term.title, None);

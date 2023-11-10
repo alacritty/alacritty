@@ -4,8 +4,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::{env, io};
 
-use crate::config::Config;
-
 use polling::{Event, PollMode, Poller};
 
 #[cfg(not(windows))]
@@ -18,8 +16,38 @@ pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
 
+/// Configuration for the `Pty` interface.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Options {
+    /// Shell options.
+    ///
+    /// [`None`] will use the default shell.
+    pub shell: Option<Shell>,
+
+    /// Shell startup directory.
+    pub working_directory: Option<PathBuf>,
+
+    /// Remain open after child process exits.
+    pub hold: bool,
+}
+
+/// Shell options.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Shell {
+    /// Path to a shell program to run on startup.
+    pub(crate) program: String,
+    /// Arguments passed to shell.
+    pub(crate) args: Vec<String>,
+}
+
+impl Shell {
+    pub fn new(program: String, args: Vec<String>) -> Self {
+        Self { program, args }
+    }
+}
+
 /// This trait defines the behaviour needed to read and/or write to a stream.
-/// It defines an abstraction over mio's interface in order to allow either one
+/// It defines an abstraction over polling's interface in order to allow either one
 /// read/write object or a separate read and write object.
 pub trait EventedReadWrite {
     type Reader: io::Read;
@@ -56,7 +84,7 @@ pub trait EventedPty: EventedReadWrite {
 }
 
 /// Setup environment variables.
-pub fn setup_env(config: &Config) {
+pub fn setup_env() {
     // Default to 'alacritty' terminfo if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.
@@ -69,11 +97,6 @@ pub fn setup_env(config: &Config) {
     // Prevent child processes from inheriting startup notification env.
     env::remove_var("DESKTOP_STARTUP_ID");
     env::remove_var("XDG_ACTIVATION_TOKEN");
-
-    // Set env vars from config.
-    for (key, value) in config.env.iter() {
-        env::set_var(key, value);
-    }
 }
 
 /// Check if a terminfo entry exists on the system.

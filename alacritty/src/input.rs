@@ -29,7 +29,6 @@ use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::window::CursorIcon;
 
-use alacritty_terminal::ansi::{ClearMode, Handler};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Point, Side};
@@ -37,6 +36,7 @@ use alacritty_terminal::selection::SelectionType;
 use alacritty_terminal::term::search::Match;
 use alacritty_terminal::term::{ClipboardType, Term, TermMode};
 use alacritty_terminal::vi_mode::ViMotion;
+use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
 use crate::config::{
@@ -701,7 +701,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let multiplier = self.ctx.config().terminal_config.scrolling.multiplier;
+        let multiplier = self.ctx.config().scrolling.multiplier;
         match delta {
             MouseScrollDelta::LineDelta(columns, lines) => {
                 let new_scroll_px_x = columns * self.ctx.size_info().cell_width();
@@ -1382,7 +1382,7 @@ mod tests {
                     false,
                 );
 
-                let mut terminal = Term::new(&cfg.terminal_config, &size, MockEventProxy);
+                let mut terminal = Term::new(cfg.term_options(), &size, MockEventProxy);
 
                 let mut mouse = Mouse {
                     click_state: $initial_state,

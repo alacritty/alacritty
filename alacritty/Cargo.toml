@@ -12,7 +12,6 @@ rust-version = "1.70.0"
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
 version = "0.20.0-dev"
-default-features = false
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"

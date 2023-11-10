@@ -6,8 +6,9 @@ use log::{self, error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::{Table, Value};
 
-use alacritty_terminal::config::{Program, PtyConfig};
+use alacritty_terminal::tty::Options as PtyOptions;
 
+use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
 use crate::config::{serde_utils, UiConfig};
 
@@ -178,8 +179,8 @@ impl TerminalOptions {
         Some(Program::WithArgs { program: program.clone(), args: args.to_vec() })
     }
 
-    /// Override the [`PtyConfig`]'s fields with the [`TerminalOptions`].
-    pub fn override_pty_config(&self, pty_config: &mut PtyConfig) {
+    /// Override the [`PtyOptions`]'s fields with the [`TerminalOptions`].
+    pub fn override_pty_config(&self, pty_config: &mut PtyOptions) {
         if let Some(working_directory) = &self.working_directory {
             if working_directory.is_dir() {
                 pty_config.working_directory = Some(working_directory.to_owned());
@@ -189,18 +190,18 @@ impl TerminalOptions {
         }
 
         if let Some(command) = self.command() {
-            pty_config.shell = Some(command);
+            pty_config.shell = Some(command.into());
         }
 
         pty_config.hold |= self.hold;
     }
 }
 
-impl From<TerminalOptions> for PtyConfig {
+impl From<TerminalOptions> for PtyOptions {
     fn from(mut options: TerminalOptions) -> Self {
-        PtyConfig {
+        PtyOptions {
             working_directory: options.working_directory.take(),
-            shell: options.command(),
+            shell: options.command().map(Into::into),
             hold: options.hold,
         }
     }

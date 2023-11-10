@@ -1,6 +1,7 @@
 use std::cmp::min;
 
-use alacritty_config_derive::ConfigDeserialize;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::event::EventListener;
 use crate::grid::{Dimensions, GridCell};
@@ -9,7 +10,8 @@ use crate::term::cell::Flags;
 use crate::term::Term;
 
 /// Possible vi mode motion movements.
-#[derive(ConfigDeserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(rename_all = "lowercase"))]
 pub enum ViMotion {
     /// Move up.
     Up,
@@ -379,16 +381,15 @@ fn is_boundary<T>(term: &Term<T>, point: Point, direction: Direction) -> bool {
 mod tests {
     use super::*;
 
-    use crate::ansi::Handler;
-    use crate::config::Config;
     use crate::event::VoidListener;
     use crate::index::{Column, Line};
     use crate::term::test::TermSize;
-    use crate::term::Term;
+    use crate::term::{Config, Term};
+    use crate::vte::ansi::Handler;
 
     fn term() -> Term<VoidListener> {
         let size = TermSize::new(20, 20);
-        Term::new(&Config::default(), &size, VoidListener)
+        Term::new(Config::default(), &size, VoidListener)
     }
 
     #[test]

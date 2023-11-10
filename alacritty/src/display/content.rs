@@ -2,18 +2,17 @@ use std::borrow::Cow;
 use std::ops::Deref;
 use std::{cmp, mem};
 
-use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags, Hyperlink};
-use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term, TermMode};
+use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 
 use crate::config::UiConfig;
-use crate::display::color::{List, DIM_FACTOR};
+use crate::display::color::{CellRgb, List, Rgb, DIM_FACTOR};
 use crate::display::hint::{self, HintState};
 use crate::display::{Display, SizeInfo};
 use crate::event::SearchState;
@@ -55,7 +54,7 @@ impl<'a> RenderableContent<'a> {
             || display.ime.preedit().is_some()
         {
             CursorShape::Hidden
-        } else if !term.is_focused && config.terminal_config.cursor.unfocused_hollow {
+        } else if !term.is_focused && config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
         } else {
             terminal_content.cursor.shape
@@ -102,7 +101,7 @@ impl<'a> RenderableContent<'a> {
 
     /// Get the RGB value for a color index.
     pub fn color(&self, color: usize) -> Rgb {
-        self.terminal_content.colors[color].unwrap_or(self.colors[color])
+        self.terminal_content.colors[color].map(Rgb).unwrap_or(self.colors[color])
     }
 
     pub fn selection_range(&self) -> Option<SelectionRange> {
@@ -117,8 +116,8 @@ impl<'a> RenderableContent<'a> {
         } else {
             self.config.colors.cursor
         };
-        let cursor_color =
-            self.terminal_content.colors[NamedColor::Cursor].map_or(color.background, CellRgb::Rgb);
+        let cursor_color = self.terminal_content.colors[NamedColor::Cursor]
+            .map_or(color.background, |c| CellRgb::Rgb(Rgb(c)));
         let text_color = color.foreground;
 
         let insufficient_contrast = (!matches!(cursor_color, CellRgb::Rgb(_))
