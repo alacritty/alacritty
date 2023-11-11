@@ -1,5 +1,5 @@
 //! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf)
-//! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf).
+//! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf), and also powerline symbols.
 
 use std::{cmp, mem, ops};
 
@@ -25,6 +25,8 @@ pub fn builtin_glyph(
     let mut glyph = match character {
         // Box drawing characters and block elements.
         '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
+        // Powerline symbols: '','','',''
+        '\u{e0b0}'..='\u{e0b3}' => powerline_drawing(character, metrics, offset),
         _ => return None,
     };
 
@@ -495,6 +497,125 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
     }
 }
 
+fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+    let height = (metrics.line_height as i32 + offset.y as i32) as usize;
+    let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
+    // Use one eight of the cell width, since this is used as a step size for block elements.
+    let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1) as f32;
+
+    let mut canvas = Canvas::new(width, height);
+
+    let y_center = (height - 1) as f32 / 2.;
+    // Start with offset `1` and draw until the intersection of the f(x) = x + 1 and
+    // g(x) = H - x + 1 lines. The intersection happens when f(x) = g(x), which is at
+    // x = H/2 (`y_center`).
+    let from_y = 1;
+    let x_end = y_center.floor();
+    let y_end = (height - from_y - 1) as f32;
+
+    // Pick the start point outside of the canvas to even-out the start.
+    let from_x = 0.;
+    let to_x = x_end;
+    canvas.draw_line_grid(from_x, from_y as f32, to_x, y_center.floor());
+    canvas.draw_line_grid(from_x, y_end, to_x, y_center.ceil());
+
+    // For regular arrows we handle thickness by drawing 2 angle arrows and then just filling
+    // the contents between them.
+    if (character == '\u{e0b1}' || character == '\u{e0b3}') && stroke_size > 1. {
+        // The default line is of stroke size 1, so the 0.5 is computed by subtracting 1 from
+        // stroke_size and then adding 0.5 to to put the target in the center of the cell.
+        let to_x = x_end - stroke_size;
+        canvas.draw_line_grid(from_x, from_y as f32 + stroke_size, to_x, y_center.floor());
+        canvas.draw_line_grid(from_x, y_end - stroke_size, to_x, y_center.ceil());
+    }
+
+    let buffer = canvas.buffer_mut();
+    if character == '\u{e0b0}' || character == '\u{e0b2}' {
+        for row in from_y..height - from_y {
+            let row_offset = row * width;
+            for index in 1..width {
+                let index = row_offset + index;
+                if buffer[index - 1]._r > buffer[index]._r && buffer[index]._r == 0 {
+                    break;
+                }
+
+                buffer[index - 1] = COLOR_FILL;
+            }
+        }
+    } else if stroke_size > 1. {
+        // Find the bottom/top most points of extra line we draw, so we can properly set the
+        // `start`.
+
+        let mut y1 = 0;
+        for row in (0..height / 2).rev() {
+            if buffer[row * width]._r != 0 {
+                y1 = row;
+                break;
+            }
+        }
+        let mut y2 = height / 2;
+        for row in height / 2..height {
+            if buffer[row * width]._r != 0 {
+                y2 = row;
+                break;
+            }
+        }
+
+        for row in from_y..height - from_y {
+            let row_offset = row * width;
+
+            // Find the point on the inner line.
+            let mut start = 0;
+            if row >= y1 && row <= y2 {
+                for base_index in 0..width - 1 {
+                    let index = row_offset + base_index;
+                    if buffer[index]._r != 0 {
+                        start = base_index + 1;
+                        break;
+                    }
+                }
+            }
+
+            // Find the point on the outer line.
+            let mut end = 0;
+            for base_index in (1..width).rev() {
+                let index = row_offset + base_index;
+                if buffer[index]._r != 0 {
+                    end = base_index - 1;
+                    break;
+                }
+            }
+
+            if (row == y1 || row == y2) && start == end {
+                start = 0;
+            }
+
+            // Fill the canvas between inner and outer points in the row.
+            for index in start..=end {
+                let index = row_offset + index;
+                buffer[index] = COLOR_FILL;
+            }
+        }
+    }
+
+    // Some glyphs are just flipped versions of others, so just flip them.
+    if character == '\u{e0b2}' || character == '\u{e0b3}' {
+        canvas.flip_horizontal();
+    }
+
+    let top = height as i32 + metrics.descent as i32;
+    let buffer = BitmapBuffer::Rgb(canvas.into_raw());
+    RasterizedGlyph {
+        character,
+        top,
+        left: 0,
+        height: height as i32,
+        width: width as i32,
+        buffer,
+        advance: (width as i32, height as i32),
+    }
+}
+
 #[repr(packed)]
 #[derive(Clone, Copy, Debug, Default)]
 struct Pixel {
@@ -591,6 +712,16 @@ impl Canvas {
         let end_x = cmp::min((x + stroke_size as f32 / 2.) as i32, self.width as i32) as f32;
 
         (start_x, end_x)
+    }
+
+    /// Flip horizontally.
+    fn flip_horizontal(&mut self) {
+        for row in 0..self.height {
+            for col in 0..self.width / 2 {
+                let index = row * self.width;
+                self.buffer.swap(index + col, index + self.width - col - 1)
+            }
+        }
     }
 
     /// Draws a horizontal straight line from (`x`, `y`) of `size` with the given `stroke_size`.
@@ -696,6 +827,33 @@ impl Canvas {
                 self.put_pixel(x as f32, intery.trunc(), color_1);
                 self.put_pixel(x as f32, intery.trunc() + 1., color_2);
                 intery += gradient;
+            }
+        }
+    }
+
+    /// WalkGrid line drawing from (`from_x`, `from_y`) to (`to_x`, `to_y`).
+    fn draw_line_grid(&mut self, from_x: f32, from_y: f32, to_x: f32, to_y: f32) {
+        let dx = (to_x - from_x).trunc();
+        let nx = dx.abs();
+
+        let dy = (to_y - from_y).trunc();
+        let ny = dy.abs();
+
+        let sign_x = dx.signum();
+        let sign_y = dy.signum();
+
+        let mut point = (from_x.trunc(), from_y.trunc());
+        let mut ix = 0.;
+        let mut iy = 0.;
+        while ix <= nx && iy <= ny {
+            self.put_pixel(point.0, point.1, COLOR_FILL);
+
+            if (0.5 + ix) / nx < (0.5 + iy) / ny {
+                point.0 += sign_x;
+                ix += 1.;
+            } else {
+                point.1 += sign_y;
+                iy += 1.;
             }
         }
     }
@@ -807,29 +965,44 @@ mod tests {
     use super::*;
     use crossfont::Metrics;
 
+    // Dummy metrics values to test builtin glyphs coverage.
+    const METRICS: Metrics = Metrics {
+        average_advance: 6.,
+        line_height: 16.,
+        descent: 4.,
+        underline_position: 2.,
+        underline_thickness: 2.,
+        strikeout_position: 2.,
+        strikeout_thickness: 2.,
+    };
+
     #[test]
     fn builtin_line_drawing_glyphs_coverage() {
-        // Dummy metrics values to test built-in glyphs coverage.
-        let metrics = Metrics {
-            average_advance: 6.,
-            line_height: 16.,
-            descent: 4.,
-            underline_position: 2.,
-            underline_thickness: 2.,
-            strikeout_position: 2.,
-            strikeout_thickness: 2.,
-        };
-
         let offset = Default::default();
         let glyph_offset = Default::default();
 
         // Test coverage of box drawing characters.
         for character in '\u{2500}'..='\u{259f}' {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_some());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_some());
         }
 
         for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
-            assert!(builtin_glyph(character, &metrics, &offset, &glyph_offset).is_none());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_none());
+        }
+    }
+
+    #[test]
+    fn builtin_powerline_glyphs_coverage() {
+        let offset = Default::default();
+        let glyph_offset = Default::default();
+
+        // Test coverage of box drawing characters.
+        for character in '\u{e0b0}'..='\u{e0b3}' {
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_some());
+        }
+
+        for character in ('\u{e0a0}'..'\u{e0b0}').chain('\u{e0b4}'..'\u{e0c0}') {
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_none());
         }
     }
 }
