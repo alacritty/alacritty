@@ -506,9 +506,9 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     let mut canvas = Canvas::new(width, height);
 
     let y_center = (height - 1) as f32 / 2.;
-    // Start with offset `1` and draw until the intersection of the 2 f(x) = x + 1 and
-    // g(x) = H - x + 1. The intersection happens at 2 * f(x) = H - 2 or f(x) = H/2,
-    // which is `y_center`.
+    // Start with offset `1` and draw until the intersection of the f(x) = x + 1 and
+    // g(x) = H - x + 1 lines. The intersection happens when f(x) = g(x), which is at
+    // x = H/2 (`y_center`).
     let from_y = 1;
     let x_end = y_center.floor();
     let y_end = (height - from_y - 1) as f32;
