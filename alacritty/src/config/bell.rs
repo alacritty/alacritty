@@ -56,10 +56,10 @@ pub enum BellAnimation {
     // Penner animation.
     EaseOutQuint,
     // Penner animation.
-    #[default]
     EaseOutExpo,
     // Penner animation.
     EaseOutCirc,
     // Penner animation.
+    #[default]
     Linear,
 }
