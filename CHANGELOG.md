@@ -70,6 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Crash when leaving search after resize
 - Cursor being hidden after reaching cursor blinking timeout
 - Message bar content getting stuck after closing with multiple messages on Wayland
+- Vi cursor position not redrawn on PageUp/PageDown without scrollback
 
 ### Removed
 
