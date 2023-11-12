@@ -380,7 +380,7 @@ impl WindowContext {
 
         // Request immediate re-draw if visual bell animation is not finished yet.
         if !self.display.visual_bell.completed() {
-            // We can get an OS redraw which by-passes alacritty's _frame_ throttling, thus
+            // We can get an OS redraw which bypasses alacritty's frame throttling, thus
             // mark the window as dirty when we don't have frame yet.
             if self.display.window.has_frame {
                 self.display.window.request_redraw();
