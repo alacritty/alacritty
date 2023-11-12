@@ -461,7 +461,7 @@ This section documents the *[bell]* table of the configuration file.
 
 	Visual bell animation effect for flashing the screen when the visual bell is rung.
 
-	Default: _"EaseOutExpo"_
+	Default: _"Linear"_
 
 *duration* <integer>
 
