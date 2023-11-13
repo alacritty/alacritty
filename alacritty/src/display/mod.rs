@@ -941,11 +941,17 @@ impl Display {
                 MessageType::Warning => config.colors.normal.yellow,
             };
 
+            let x = 0;
+            let width = size_info.width() as i32;
+            let height = (size_info.height() - y) as i32;
             let message_bar_rect =
-                RenderRect::new(0., y, size_info.width(), size_info.height() - y, bg, 1.);
+                RenderRect::new(x as f32, y, width as f32, height as f32, bg, 1.);
 
             // Push message_bar in the end, so it'll be above all other content.
             rects.push(message_bar_rect);
+
+            // Always damage message bar, since it could have messages of the same size in it.
+            self.damage_rects.push(DamageRect { x, y: y as i32, width, height });
 
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, &metrics, rects);
