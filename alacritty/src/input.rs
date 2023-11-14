@@ -328,37 +328,33 @@ impl<T: EventListener> Execute<T> for Action {
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
-            Action::ScrollPageUp => {
+            Action::ScrollPageUp
+            | Action::ScrollPageDown
+            | Action::ScrollHalfPageUp
+            | Action::ScrollHalfPageDown => {
                 // Move vi mode cursor.
                 let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines() as i32;
-                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
+                let (scroll, amount) = match self {
+                    Action::ScrollPageUp => (Scroll::PageUp, term.screen_lines() as i32),
+                    Action::ScrollPageDown => (Scroll::PageDown, -(term.screen_lines() as i32)),
+                    Action::ScrollHalfPageUp => {
+                        let amount = term.screen_lines() as i32 / 2;
+                        (Scroll::Delta(amount), amount)
+                    },
+                    Action::ScrollHalfPageDown => {
+                        let amount = -(term.screen_lines() as i32 / 2);
+                        (Scroll::Delta(amount), amount)
+                    },
+                    _ => unreachable!(),
+                };
 
-                ctx.scroll(Scroll::PageUp);
-            },
-            Action::ScrollPageDown => {
-                // Move vi mode cursor.
-                let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines() as i32);
-                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
+                let old_vi_cursor = term.vi_mode_cursor;
+                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, amount);
+                if old_vi_cursor != term.vi_mode_cursor {
+                    ctx.mark_dirty();
+                }
 
-                ctx.scroll(Scroll::PageDown);
-            },
-            Action::ScrollHalfPageUp => {
-                // Move vi mode cursor.
-                let term = ctx.terminal_mut();
-                let scroll_lines = term.screen_lines() as i32 / 2;
-                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
-
-                ctx.scroll(Scroll::Delta(scroll_lines));
-            },
-            Action::ScrollHalfPageDown => {
-                // Move vi mode cursor.
-                let term = ctx.terminal_mut();
-                let scroll_lines = -(term.screen_lines() as i32 / 2);
-                term.vi_mode_cursor = term.vi_mode_cursor.scroll(term, scroll_lines);
-
-                ctx.scroll(Scroll::Delta(scroll_lines));
+                ctx.scroll(scroll);
             },
             Action::ScrollLineUp => ctx.scroll(Scroll::Delta(1)),
             Action::ScrollLineDown => ctx.scroll(Scroll::Delta(-1)),

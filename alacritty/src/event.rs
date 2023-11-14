@@ -252,6 +252,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn scroll(&mut self, scroll: Scroll) {
         let old_offset = self.terminal.grid().display_offset() as i32;
 
+        let old_vi_cursor = self.terminal.vi_mode_cursor;
         self.terminal.scroll_display(scroll);
 
         let lines_changed = old_offset - self.terminal.grid().display_offset() as i32;
@@ -261,10 +262,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.search_state.display_offset_delta += lines_changed;
         }
 
+        let vi_mode = self.terminal.mode().contains(TermMode::VI);
+
         // Update selection.
-        if self.terminal.mode().contains(TermMode::VI)
-            && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty())
-        {
+        if vi_mode && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty()) {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
             || self.mouse.right_button_state == ElementState::Pressed
@@ -274,8 +275,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.update_selection(point, self.mouse.cell_side);
         }
 
-        // Update dirty if actually scrolled or we're in the Vi mode.
-        *self.dirty |= lines_changed != 0;
+        // Scrolling inside Vi mode moves the cursor, so start typing.
+        if vi_mode {
+            self.on_typing_start();
+        }
+
+        // Update dirty if actually scrolled or moved Vi cursor in Vi mode.
+        *self.dirty |=
+            lines_changed != 0 || (vi_mode && old_vi_cursor != self.terminal.vi_mode_cursor);
     }
 
     // Copy text selection.
