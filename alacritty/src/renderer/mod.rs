@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -47,12 +48,16 @@ pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
 pub enum Error {
     /// Shader error.
     Shader(ShaderError),
+
+    /// Other error.
+    Other(String),
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::Shader(err) => err.source(),
+            Error::Other(_) => None,
         }
     }
 }
@@ -63,6 +68,9 @@ impl fmt::Display for Error {
             Error::Shader(err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
             },
+            Error::Other(err) => {
+                write!(f, "{}", err)
+            },
         }
     }
 }
@@ -70,6 +78,12 @@ impl fmt::Display for Error {
 impl From<ShaderError> for Error {
     fn from(val: ShaderError) -> Self {
         Error::Shader(val)
+    }
+}
+
+impl From<String> for Error {
+    fn from(val: String) -> Self {
+        Error::Other(val)
     }
 }
 
@@ -83,6 +97,25 @@ enum TextRendererProvider {
 pub struct Renderer {
     text_renderer: TextRendererProvider,
     rect_renderer: RectRenderer,
+}
+
+/// Wrapper around gl::GetString with error checking and reporting.
+fn gl_get_string(
+    string_id: gl::types::GLenum,
+    description: &str,
+) -> Result<Cow<'static, str>, Error> {
+    unsafe {
+        let string_ptr = gl::GetString(string_id);
+        match gl::GetError() {
+            gl::NO_ERROR if !string_ptr.is_null() => {
+                Ok(CStr::from_ptr(string_ptr as *const _).to_string_lossy())
+            },
+            gl::INVALID_ENUM => {
+                Err(format!("OpenGL error requesting {}: invalid enum", description).into())
+            },
+            error_id => Err(format!("OpenGL error {} requesting {}", error_id, description).into()),
+        }
+    }
 }
 
 impl Renderer {
@@ -104,14 +137,9 @@ impl Renderer {
             });
         }
 
-        let (shader_version, gl_version, renderer) = unsafe {
-            let renderer = CStr::from_ptr(gl::GetString(gl::RENDERER) as *mut _).to_string_lossy();
-            let shader_version =
-                CStr::from_ptr(gl::GetString(gl::SHADING_LANGUAGE_VERSION) as *mut _)
-                    .to_string_lossy();
-            let gl_version = CStr::from_ptr(gl::GetString(gl::VERSION) as *mut _).to_string_lossy();
-            (shader_version, gl_version, renderer)
-        };
+        let shader_version = gl_get_string(gl::SHADING_LANGUAGE_VERSION, "shader version")?;
+        let gl_version = gl_get_string(gl::VERSION, "OpenGL version")?;
+        let renderer = gl_get_string(gl::RENDERER, "renderer version")?;
 
         info!("Running on {renderer}");
         info!("OpenGL version {gl_version}, shader_version {shader_version}");
