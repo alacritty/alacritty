@@ -21,8 +21,8 @@ use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 use crate::vte::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, NamedColor, Rgb,
-    StandardCharset,
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, NamedColor,
+    NamedMode, NamedPrivateMode, PrivateMode, Rgb, StandardCharset,
 };
 
 pub mod cell;
@@ -1813,100 +1813,148 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
-    fn set_mode(&mut self, mode: ansi::Mode) {
-        trace!("Setting mode: {:?}", mode);
+    fn set_private_mode(&mut self, mode: PrivateMode) {
+        let mode = match mode {
+            PrivateMode::Named(mode) => mode,
+            PrivateMode::Unknown(mode) => {
+                debug!("Ignoring unknown mode {} in set_private_mode", mode);
+                return;
+            },
+        };
+
+        trace!("Setting private mode: {:?}", mode);
         match mode {
-            ansi::Mode::UrgencyHints => self.mode.insert(TermMode::URGENCY_HINTS),
-            ansi::Mode::SwapScreenAndSetRestoreCursor => {
+            NamedPrivateMode::UrgencyHints => self.mode.insert(TermMode::URGENCY_HINTS),
+            NamedPrivateMode::SwapScreenAndSetRestoreCursor => {
                 if !self.mode.contains(TermMode::ALT_SCREEN) {
                     self.swap_alt();
                 }
             },
-            ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
-            ansi::Mode::CursorKeys => self.mode.insert(TermMode::APP_CURSOR),
+            NamedPrivateMode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
+            NamedPrivateMode::CursorKeys => self.mode.insert(TermMode::APP_CURSOR),
             // Mouse protocols are mutually exclusive.
-            ansi::Mode::ReportMouseClicks => {
+            NamedPrivateMode::ReportMouseClicks => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_REPORT_CLICK);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
-            ansi::Mode::ReportCellMouseMotion => {
+            NamedPrivateMode::ReportCellMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_DRAG);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
-            ansi::Mode::ReportAllMouseMotion => {
+            NamedPrivateMode::ReportAllMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_MOTION);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
-            ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
-            ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
+            NamedPrivateMode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
+            NamedPrivateMode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
             // Mouse encodings are mutually exclusive.
-            ansi::Mode::SgrMouse => {
+            NamedPrivateMode::SgrMouse => {
                 self.mode.remove(TermMode::UTF8_MOUSE);
                 self.mode.insert(TermMode::SGR_MOUSE);
             },
-            ansi::Mode::Utf8Mouse => {
+            NamedPrivateMode::Utf8Mouse => {
                 self.mode.remove(TermMode::SGR_MOUSE);
                 self.mode.insert(TermMode::UTF8_MOUSE);
             },
-            ansi::Mode::AlternateScroll => self.mode.insert(TermMode::ALTERNATE_SCROLL),
-            ansi::Mode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
-            ansi::Mode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
-            ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
-            ansi::Mode::ColumnMode => self.deccolm(),
-            ansi::Mode::Insert => self.mode.insert(TermMode::INSERT),
-            ansi::Mode::BlinkingCursor => {
+            NamedPrivateMode::AlternateScroll => self.mode.insert(TermMode::ALTERNATE_SCROLL),
+            NamedPrivateMode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
+            NamedPrivateMode::Origin => self.mode.insert(TermMode::ORIGIN),
+            NamedPrivateMode::ColumnMode => self.deccolm(),
+            NamedPrivateMode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
                 style.blinking = true;
                 self.event_proxy.send_event(Event::CursorBlinkingChange);
             },
+            NamedPrivateMode::SyncUpdate => (),
+        }
+    }
+
+    #[inline]
+    fn unset_private_mode(&mut self, mode: PrivateMode) {
+        let mode = match mode {
+            PrivateMode::Named(mode) => mode,
+            PrivateMode::Unknown(mode) => {
+                debug!("Ignoring unknown mode {} in unset_private_mode", mode);
+                return;
+            },
+        };
+
+        trace!("Unsetting private mode: {:?}", mode);
+        match mode {
+            NamedPrivateMode::UrgencyHints => self.mode.remove(TermMode::URGENCY_HINTS),
+            NamedPrivateMode::SwapScreenAndSetRestoreCursor => {
+                if self.mode.contains(TermMode::ALT_SCREEN) {
+                    self.swap_alt();
+                }
+            },
+            NamedPrivateMode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
+            NamedPrivateMode::CursorKeys => self.mode.remove(TermMode::APP_CURSOR),
+            NamedPrivateMode::ReportMouseClicks => {
+                self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
+            NamedPrivateMode::ReportCellMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_DRAG);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
+            NamedPrivateMode::ReportAllMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_MOTION);
+                self.event_proxy.send_event(Event::MouseCursorDirty);
+            },
+            NamedPrivateMode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
+            NamedPrivateMode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
+            NamedPrivateMode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
+            NamedPrivateMode::Utf8Mouse => self.mode.remove(TermMode::UTF8_MOUSE),
+            NamedPrivateMode::AlternateScroll => self.mode.remove(TermMode::ALTERNATE_SCROLL),
+            NamedPrivateMode::LineWrap => self.mode.remove(TermMode::LINE_WRAP),
+            NamedPrivateMode::Origin => self.mode.remove(TermMode::ORIGIN),
+            NamedPrivateMode::ColumnMode => self.deccolm(),
+            NamedPrivateMode::BlinkingCursor => {
+                let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
+                style.blinking = false;
+                self.event_proxy.send_event(Event::CursorBlinkingChange);
+            },
+            NamedPrivateMode::SyncUpdate => (),
+        }
+    }
+
+    #[inline]
+    fn set_mode(&mut self, mode: ansi::Mode) {
+        let mode = match mode {
+            ansi::Mode::Named(mode) => mode,
+            ansi::Mode::Unknown(mode) => {
+                debug!("Ignoring unknown mode {} in set_mode", mode);
+                return;
+            },
+        };
+
+        trace!("Setting public mode: {:?}", mode);
+        match mode {
+            NamedMode::Insert => self.mode.insert(TermMode::INSERT),
+            NamedMode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
         }
     }
 
     #[inline]
     fn unset_mode(&mut self, mode: ansi::Mode) {
-        trace!("Unsetting mode: {:?}", mode);
+        let mode = match mode {
+            ansi::Mode::Named(mode) => mode,
+            ansi::Mode::Unknown(mode) => {
+                debug!("Ignorning unknown mode {} in unset_mode", mode);
+                return;
+            },
+        };
+
+        trace!("Setting public mode: {:?}", mode);
         match mode {
-            ansi::Mode::UrgencyHints => self.mode.remove(TermMode::URGENCY_HINTS),
-            ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                if self.mode.contains(TermMode::ALT_SCREEN) {
-                    self.swap_alt();
-                }
-            },
-            ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
-            ansi::Mode::CursorKeys => self.mode.remove(TermMode::APP_CURSOR),
-            ansi::Mode::ReportMouseClicks => {
-                self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
-                self.event_proxy.send_event(Event::MouseCursorDirty);
-            },
-            ansi::Mode::ReportCellMouseMotion => {
-                self.mode.remove(TermMode::MOUSE_DRAG);
-                self.event_proxy.send_event(Event::MouseCursorDirty);
-            },
-            ansi::Mode::ReportAllMouseMotion => {
-                self.mode.remove(TermMode::MOUSE_MOTION);
-                self.event_proxy.send_event(Event::MouseCursorDirty);
-            },
-            ansi::Mode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
-            ansi::Mode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
-            ansi::Mode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
-            ansi::Mode::Utf8Mouse => self.mode.remove(TermMode::UTF8_MOUSE),
-            ansi::Mode::AlternateScroll => self.mode.remove(TermMode::ALTERNATE_SCROLL),
-            ansi::Mode::LineWrap => self.mode.remove(TermMode::LINE_WRAP),
-            ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
-            ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
-            ansi::Mode::ColumnMode => self.deccolm(),
-            ansi::Mode::Insert => {
+            NamedMode::Insert => {
                 self.mode.remove(TermMode::INSERT);
                 self.mark_fully_damaged();
             },
-            ansi::Mode::BlinkingCursor => {
-                let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
-                style.blinking = false;
-                self.event_proxy.send_event(Event::CursorBlinkingChange);
-            },
+            NamedMode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
         }
     }
 
@@ -2669,14 +2717,14 @@ mod tests {
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Enter alt screen.
-        term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+        term.set_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
 
         // Increase visible lines.
         size.screen_lines = 30;
         term.resize(size);
 
         // Leave alt screen.
-        term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+        term.unset_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
 
         assert_eq!(term.history_size(), 0);
         assert_eq!(term.grid.cursor.point, Point::new(Line(19), Column(0)));
@@ -2715,14 +2763,14 @@ mod tests {
         assert_eq!(term.grid.cursor.point, Point::new(Line(9), Column(0)));
 
         // Enter alt screen.
-        term.set_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+        term.set_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
 
         // Increase visible lines.
         size.screen_lines = 5;
         term.resize(size);
 
         // Leave alt screen.
-        term.unset_mode(ansi::Mode::SwapScreenAndSetRestoreCursor);
+        term.unset_private_mode(NamedPrivateMode::SwapScreenAndSetRestoreCursor.into());
 
         assert_eq!(term.history_size(), 15);
         assert_eq!(term.grid.cursor.point, Point::new(Line(4), Column(0)));
@@ -2963,7 +3011,7 @@ mod tests {
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
-        term.set_mode(ansi::Mode::Insert);
+        term.set_mode(NamedMode::Insert.into());
         // Just setting `Insert` mode shouldn't mark terminal as damaged.
         assert!(!term.damage.is_fully_damaged);
         term.reset_damage();
@@ -2991,7 +3039,7 @@ mod tests {
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
-        term.unset_mode(ansi::Mode::Insert);
+        term.unset_mode(NamedMode::Insert.into());
         assert!(term.damage.is_fully_damaged);
         term.reset_damage();
 
