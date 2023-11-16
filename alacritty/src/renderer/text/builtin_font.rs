@@ -1,7 +1,7 @@
 //! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf)
 //! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf), and also powerline symbols.
 
-use std::{cmp, mem, ops};
+use std::{cmp, iter, mem, ops};
 
 use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
@@ -519,8 +519,8 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     // x = H/2 - 1.
     let intersection = (height as i32 + 1) / 2 - 1;
 
-    let mut f_x = LineEquation::new(slope, f_y0, 0, intersection);
-    let mut g_x = LineEquation::new(-slope, g_y0, 0, intersection);
+    let f_x = LineEquation::new(slope, f_y0, 0, intersection);
+    let g_x = LineEquation::new(-slope, g_y0, 0, intersection);
 
     // Inner functions to make arrows thicker.
     let mut f_x_inner =
@@ -528,7 +528,8 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     let mut g_x_inner =
         LineEquation::new(-slope, g_y0 - extra_thickness, 0, intersection - extra_thickness);
 
-    while let (Some(p1), Some(p2)) = (f_x.next(), g_x.next()) {
+    // NOTE f_x and g_x have the same amount of iterations.
+    for (p1, p2) in iter::zip(f_x, g_x) {
         if character == POWERLINE_TRIANGLE || character == POWERLINE_TRIANGLE_FLIPPED {
             canvas.draw_rect(0., p1.1, p1.0 + 1., 1., COLOR_FILL);
             canvas.draw_rect(0., p2.1, p2.0 + 1., 1., COLOR_FILL);
