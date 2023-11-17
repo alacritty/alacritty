@@ -71,6 +71,8 @@ brevity.
 |            | REJECTED    | `11`-`19`, `51`-`55`                              |
 | `CSI n`    | IMPLEMENTED |                                                   |
 | `CSI P`    | IMPLEMENTED |                                                   |
+| `CSI $ p`  | IMPLEMENTED |                                                   |
+| `CSI ? $ p`| IMPLEMENTED |                                                   |
 | `CSI SP q` | IMPLEMENTED |                                                   |
 | `CSI r`    | IMPLEMENTED |                                                   |
 | `CSI S`    | IMPLEMENTED |                                                   |

@@ -1922,6 +1922,58 @@ impl<T: EventListener> Handler for Term<T> {
     }
 
     #[inline]
+    fn report_private_mode(&mut self, mode: PrivateMode) {
+        trace!("Reporting private mode {mode:?}");
+        let state = match mode {
+            PrivateMode::Named(mode) => match mode {
+                NamedPrivateMode::CursorKeys => self.mode.contains(TermMode::APP_CURSOR).into(),
+                NamedPrivateMode::Origin => self.mode.contains(TermMode::ORIGIN).into(),
+                NamedPrivateMode::LineWrap => self.mode.contains(TermMode::LINE_WRAP).into(),
+                NamedPrivateMode::BlinkingCursor => {
+                    let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
+                    style.blinking.into()
+                },
+                NamedPrivateMode::ShowCursor => self.mode.contains(TermMode::SHOW_CURSOR).into(),
+                NamedPrivateMode::ReportMouseClicks => {
+                    self.mode.contains(TermMode::MOUSE_REPORT_CLICK).into()
+                },
+                NamedPrivateMode::ReportCellMouseMotion => {
+                    self.mode.contains(TermMode::MOUSE_DRAG).into()
+                },
+                NamedPrivateMode::ReportAllMouseMotion => {
+                    self.mode.contains(TermMode::MOUSE_MOTION).into()
+                },
+                NamedPrivateMode::ReportFocusInOut => {
+                    self.mode.contains(TermMode::FOCUS_IN_OUT).into()
+                },
+                NamedPrivateMode::Utf8Mouse => self.mode.contains(TermMode::UTF8_MOUSE).into(),
+                NamedPrivateMode::SgrMouse => self.mode.contains(TermMode::SGR_MOUSE).into(),
+                NamedPrivateMode::AlternateScroll => {
+                    self.mode.contains(TermMode::ALTERNATE_SCROLL).into()
+                },
+                NamedPrivateMode::UrgencyHints => {
+                    self.mode.contains(TermMode::URGENCY_HINTS).into()
+                },
+                NamedPrivateMode::SwapScreenAndSetRestoreCursor => {
+                    self.mode.contains(TermMode::ALT_SCREEN).into()
+                },
+                NamedPrivateMode::BracketedPaste => {
+                    self.mode.contains(TermMode::BRACKETED_PASTE).into()
+                },
+                NamedPrivateMode::SyncUpdate => ModeState::Reset,
+                NamedPrivateMode::ColumnMode => ModeState::NotSupported,
+            },
+            PrivateMode::Unknown(_) => ModeState::NotSupported,
+        };
+
+        self.event_proxy.send_event(Event::PtyWrite(format!(
+            "\x1b[?{};{}$p",
+            mode.raw(),
+            state as u8,
+        )));
+    }
+
+    #[inline]
     fn set_mode(&mut self, mode: ansi::Mode) {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
@@ -1956,6 +2008,26 @@ impl<T: EventListener> Handler for Term<T> {
             },
             NamedMode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
         }
+    }
+
+    #[inline]
+    fn report_mode(&mut self, mode: ansi::Mode) {
+        trace!("Reporting mode {mode:?}");
+        let state = match mode {
+            ansi::Mode::Named(mode) => match mode {
+                NamedMode::Insert => self.mode.contains(TermMode::INSERT).into(),
+                NamedMode::LineFeedNewLine => {
+                    self.mode.contains(TermMode::LINE_FEED_NEW_LINE).into()
+                },
+            },
+            ansi::Mode::Unknown(_) => ModeState::NotSupported,
+        };
+
+        self.event_proxy.send_event(Event::PtyWrite(format!(
+            "\x1b[{};{}$p",
+            mode.raw(),
+            state as u8,
+        )));
     }
 
     #[inline]
@@ -2076,6 +2148,28 @@ impl<T: EventListener> Handler for Term<T> {
     fn text_area_size_chars(&mut self) {
         let text = format!("\x1b[8;{};{}t", self.screen_lines(), self.columns());
         self.event_proxy.send_event(Event::PtyWrite(text));
+    }
+}
+
+/// The state of the [`Mode`] and [`PrivateMode`].
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+enum ModeState {
+    /// The mode is not supported.
+    NotSupported = 0,
+    /// The mode is currently set.
+    Set = 1,
+    /// The mode is currently not set.
+    Reset = 2,
+}
+
+impl From<bool> for ModeState {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Set
+        } else {
+            Self::Reset
+        }
     }
 }
 
