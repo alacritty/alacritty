@@ -511,22 +511,22 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     let mut canvas = Canvas::new(width, height);
 
     let slope = 1;
-    let f_y0 = 1;
-    let g_y0 = height as i32 - f_y0 - 1;
+    let top_y = 1;
+    let bottom_y = height as i32 - top_y - 1;
 
     // Start with offset `1` and draw until the intersection of the f(x) = slope * x + 1 and
     // g(x) = H - slope * x - 1 lines. The intersection happens when f(x) = g(x), which is at
-    // x = H/2 - 1.
+    // x = (H - 2) / (2 * slope).
     let x_intersection = (height as i32 + 1) / 2 - 1;
 
-    let top_line = LineIterator::new(slope, f_y0, 0, x_intersection);
-    let bottom_line = LineIterator::new(-slope, g_y0, 0, x_intersection);
+    let top_line = (0..x_intersection).map(|x| line_equation(slope, x, top_y));
+    let bottom_line = (0..x_intersection).map(|x| line_equation(-slope, x, bottom_y));
 
     // Inner lines to make arrows thicker.
-    let mut top_inner_line =
-        LineIterator::new(slope, f_y0 + extra_thickness, 0, x_intersection - extra_thickness);
-    let mut bottom_inner_line =
-        LineIterator::new(-slope, g_y0 - extra_thickness, 0, x_intersection - extra_thickness);
+    let mut top_inner_line = (0..x_intersection - extra_thickness)
+        .map(|x| line_equation(slope, x, top_y + extra_thickness));
+    let mut bottom_inner_line = (0..x_intersection - extra_thickness)
+        .map(|x| line_equation(-slope, x, bottom_y - extra_thickness));
 
     // NOTE: top_line and bottom_line have the same amount of iterations.
     for (p1, p2) in top_line.zip(bottom_line) {
@@ -889,32 +889,9 @@ fn calculate_stroke_size(cell_width: usize) -> usize {
     cmp::max((cell_width as f32 / 8.).round() as usize, 1)
 }
 
-/// Iterator over the `f(x) = slope * x + offset` yielding (x, f(x))
-/// on each iteration.
-struct LineIterator {
-    slope: i32,
-    offset: i32,
-    x: i32,
-    width: i32,
-}
-
-impl LineIterator {
-    fn new(slope: i32, offset: i32, from_x: i32, width: i32) -> Self {
-        Self { x: from_x - 1, width, slope, offset }
-    }
-}
-
-impl Iterator for LineIterator {
-    type Item = (f32, f32);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.x += 1;
-        if self.x >= self.width {
-            None
-        } else {
-            Some((self.x as f32, (self.slope * self.x + self.offset) as f32))
-        }
-    }
+/// `f(x) = slope * x + offset` equation.
+fn line_equation(slope: i32, x: i32, offset: i32) -> (f32, f32) {
+    (x as f32, (slope * x + offset) as f32)
 }
 
 #[cfg(test)]
