@@ -1,7 +1,7 @@
 //! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf)
 //! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf), and also powerline symbols.
 
-use std::{cmp, iter, mem, ops};
+use std::{cmp, mem, ops};
 
 use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
 
@@ -15,10 +15,10 @@ const COLOR_FILL_ALPHA_STEP_3: Pixel = Pixel { _r: 64, _g: 64, _b: 64 };
 /// Default color used for filling.
 const COLOR_FILL: Pixel = Pixel { _r: 255, _g: 255, _b: 255 };
 
-const POWERLINE_TRIANGLE: char = '\u{e0b0}';
-const POWERLINE_ARROW: char = '\u{e0b1}';
-const POWERLINE_TRIANGLE_FLIPPED: char = '\u{e0b2}';
-const POWERLINE_ARROW_FLIPPED: char = '\u{e0b3}';
+const POWERLINE_TRIANGLE_LTR: char = '\u{e0b0}';
+const POWERLINE_ARROW_LTR: char = '\u{e0b1}';
+const POWERLINE_TRIANGLE_RTL: char = '\u{e0b2}';
+const POWERLINE_ARROW_RTL: char = '\u{e0b3}';
 
 /// Returns the rasterized glyph if the character is part of the built-in font.
 pub fn builtin_glyph(
@@ -31,7 +31,7 @@ pub fn builtin_glyph(
         // Box drawing characters and block elements.
         '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
         // Powerline symbols: '','','',''
-        POWERLINE_TRIANGLE..=POWERLINE_ARROW_FLIPPED => {
+        POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
             powerline_drawing(character, metrics, offset)
         },
         _ => return None,
@@ -514,31 +514,31 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     let f_y0 = 1;
     let g_y0 = height as i32 - f_y0 - 1;
 
-    // Start with offset `1` and draw until the intersection of the f(x) = x + 1 and
-    // g(x) = H - x - 1 lines. The intersection happens when f(x) = g(x), which is at
+    // Start with offset `1` and draw until the intersection of the f(x) = slope * x + 1 and
+    // g(x) = H - slope * x - 1 lines. The intersection happens when f(x) = g(x), which is at
     // x = H/2 - 1.
-    let intersection = (height as i32 + 1) / 2 - 1;
+    let x_intersection = (height as i32 + 1) / 2 - 1;
 
-    let f_x = LineEquation::new(slope, f_y0, 0, intersection);
-    let g_x = LineEquation::new(-slope, g_y0, 0, intersection);
+    let top_line = LineIterator::new(slope, f_y0, 0, x_intersection);
+    let bottom_line = LineIterator::new(-slope, g_y0, 0, x_intersection);
 
-    // Inner functions to make arrows thicker.
-    let mut f_x_inner =
-        LineEquation::new(slope, f_y0 + extra_thickness, 0, intersection - extra_thickness);
-    let mut g_x_inner =
-        LineEquation::new(-slope, g_y0 - extra_thickness, 0, intersection - extra_thickness);
+    // Inner lines to make arrows thicker.
+    let mut top_inner_line =
+        LineIterator::new(slope, f_y0 + extra_thickness, 0, x_intersection - extra_thickness);
+    let mut bottom_inner_line =
+        LineIterator::new(-slope, g_y0 - extra_thickness, 0, x_intersection - extra_thickness);
 
-    // NOTE f_x and g_x have the same amount of iterations.
-    for (p1, p2) in iter::zip(f_x, g_x) {
-        if character == POWERLINE_TRIANGLE || character == POWERLINE_TRIANGLE_FLIPPED {
+    // NOTE: top_line and bottom_line have the same amount of iterations.
+    for (p1, p2) in top_line.zip(bottom_line) {
+        if character == POWERLINE_TRIANGLE_LTR || character == POWERLINE_TRIANGLE_RTL {
             canvas.draw_rect(0., p1.1, p1.0 + 1., 1., COLOR_FILL);
             canvas.draw_rect(0., p2.1, p2.0 + 1., 1., COLOR_FILL);
-        } else if character == POWERLINE_ARROW || character == POWERLINE_ARROW_FLIPPED {
-            let p3 = f_x_inner.next().unwrap_or(p2);
-            let p4 = g_x_inner.next().unwrap_or(p1);
+        } else if character == POWERLINE_ARROW_LTR || character == POWERLINE_ARROW_RTL {
+            let p3 = top_inner_line.next().unwrap_or(p2);
+            let p4 = bottom_inner_line.next().unwrap_or(p1);
 
-            // Once we reach the canvas end fill the area between f(x) and g(x) to make a proper
-            // cut.
+            // If we can't fit the entire arrow in the cell, we cut off the tip of the arrow by
+            // drawing a rectangle between the two lines.
             if p1.0 as usize + 1 == width {
                 canvas.draw_rect(p1.0, p1.1, 1., p2.1 - p1.1 + 1., COLOR_FILL);
                 break;
@@ -549,7 +549,7 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
         }
     }
 
-    if character == POWERLINE_TRIANGLE_FLIPPED || character == POWERLINE_ARROW_FLIPPED {
+    if character == POWERLINE_TRIANGLE_RTL || character == POWERLINE_ARROW_RTL {
         canvas.flip_horizontal();
     }
 
@@ -883,27 +883,28 @@ impl Canvas {
     }
 }
 
-/// Size of the stroke to use.
-fn calculate_stroke_size(width: usize) -> usize {
+/// Compute line width.
+fn calculate_stroke_size(cell_width: usize) -> usize {
     // Use one eight of the cell width, since this is used as a step size for block elements.
-    cmp::max((width as f32 / 8.).round() as usize, 1)
+    cmp::max((cell_width as f32 / 8.).round() as usize, 1)
 }
 
-/// Equation for `f(x) = slope * x + offset.
-struct LineEquation {
+/// Iterator over the `f(x) = slope * x + offset` yielding (x, f(x))
+/// on each iteration.
+struct LineIterator {
     slope: i32,
     offset: i32,
     x: i32,
     width: i32,
 }
 
-impl LineEquation {
+impl LineIterator {
     fn new(slope: i32, offset: i32, from_x: i32, width: i32) -> Self {
         Self { x: from_x - 1, width, slope, offset }
     }
 }
 
-impl Iterator for LineEquation {
+impl Iterator for LineIterator {
     type Item = (f32, f32);
 
     fn next(&mut self) -> Option<Self::Item> {
