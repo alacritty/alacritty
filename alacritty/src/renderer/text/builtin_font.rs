@@ -15,6 +15,11 @@ const COLOR_FILL_ALPHA_STEP_3: Pixel = Pixel { _r: 64, _g: 64, _b: 64 };
 /// Default color used for filling.
 const COLOR_FILL: Pixel = Pixel { _r: 255, _g: 255, _b: 255 };
 
+const POWERLINE_TRIANGLE_LTR: char = '\u{e0b0}';
+const POWERLINE_ARROW_LTR: char = '\u{e0b1}';
+const POWERLINE_TRIANGLE_RTL: char = '\u{e0b2}';
+const POWERLINE_ARROW_RTL: char = '\u{e0b3}';
+
 /// Returns the rasterized glyph if the character is part of the built-in font.
 pub fn builtin_glyph(
     character: char,
@@ -26,7 +31,9 @@ pub fn builtin_glyph(
         // Box drawing characters and block elements.
         '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
         // Powerline symbols: '','','',''
-        '\u{e0b0}'..='\u{e0b3}' => powerline_drawing(character, metrics, offset),
+        POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
+            powerline_drawing(character, metrics, offset)
+        },
         _ => return None,
     };
 
@@ -42,8 +49,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
     // Ensure that width and height is at least one.
     let height = (metrics.line_height as i32 + offset.y as i32).max(1) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32).max(1) as usize;
-    // Use one eight of the cell width, since this is used as a step size for block elements.
-    let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1);
+    let stroke_size = calculate_stroke_size(width);
     let heavy_stroke_size = stroke_size * 2;
 
     // Certain symbols require larger canvas than the cell itself, since for proper contiguous
@@ -500,106 +506,50 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
 fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
-    // Use one eight of the cell width, since this is used as a step size for block elements.
-    let stroke_size = cmp::max((width as f32 / 8.).round() as usize, 1) as f32;
+    let extra_thickness = calculate_stroke_size(width) as i32 - 1;
 
     let mut canvas = Canvas::new(width, height);
 
-    let y_center = (height - 1) as f32 / 2.;
-    // Start with offset `1` and draw until the intersection of the f(x) = x + 1 and
-    // g(x) = H - x + 1 lines. The intersection happens when f(x) = g(x), which is at
-    // x = H/2 (`y_center`).
-    let from_y = 1;
-    let x_end = y_center.floor();
-    let y_end = (height - from_y - 1) as f32;
+    let slope = 1;
+    let top_y = 1;
+    let bottom_y = height as i32 - top_y - 1;
 
-    // Pick the start point outside of the canvas to even-out the start.
-    let from_x = 0.;
-    let to_x = x_end;
-    canvas.draw_line_grid(from_x, from_y as f32, to_x, y_center.floor());
-    canvas.draw_line_grid(from_x, y_end, to_x, y_center.ceil());
+    // Start with offset `1` and draw until the intersection of the f(x) = slope * x + 1 and
+    // g(x) = H - slope * x - 1 lines. The intersection happens when f(x) = g(x), which is at
+    // x = (H - 2) / (2 * slope).
+    let x_intersection = (height as i32 + 1) / 2 - 1;
 
-    // For regular arrows we handle thickness by drawing 2 angle arrows and then just filling
-    // the contents between them.
-    if (character == '\u{e0b1}' || character == '\u{e0b3}') && stroke_size > 1. {
-        // The default line is of stroke size 1, so the 0.5 is computed by subtracting 1 from
-        // stroke_size and then adding 0.5 to to put the target in the center of the cell.
-        let to_x = x_end - stroke_size;
-        canvas.draw_line_grid(from_x, from_y as f32 + stroke_size, to_x, y_center.floor());
-        canvas.draw_line_grid(from_x, y_end - stroke_size, to_x, y_center.ceil());
-    }
+    let top_line = (0..x_intersection).map(|x| line_equation(slope, x, top_y));
+    let bottom_line = (0..x_intersection).map(|x| line_equation(-slope, x, bottom_y));
 
-    let buffer = canvas.buffer_mut();
-    if character == '\u{e0b0}' || character == '\u{e0b2}' {
-        for row in from_y..height - from_y {
-            let row_offset = row * width;
-            for index in 1..width {
-                let index = row_offset + index;
-                if buffer[index - 1]._r > buffer[index]._r && buffer[index]._r == 0 {
-                    break;
-                }
+    // Inner lines to make arrows thicker.
+    let mut top_inner_line = (0..x_intersection - extra_thickness)
+        .map(|x| line_equation(slope, x, top_y + extra_thickness));
+    let mut bottom_inner_line = (0..x_intersection - extra_thickness)
+        .map(|x| line_equation(-slope, x, bottom_y - extra_thickness));
 
-                buffer[index - 1] = COLOR_FILL;
-            }
-        }
-    } else if stroke_size > 1. {
-        // Find the bottom/top most points of extra line we draw, so we can properly set the
-        // `start`.
+    // NOTE: top_line and bottom_line have the same amount of iterations.
+    for (p1, p2) in top_line.zip(bottom_line) {
+        if character == POWERLINE_TRIANGLE_LTR || character == POWERLINE_TRIANGLE_RTL {
+            canvas.draw_rect(0., p1.1, p1.0 + 1., 1., COLOR_FILL);
+            canvas.draw_rect(0., p2.1, p2.0 + 1., 1., COLOR_FILL);
+        } else if character == POWERLINE_ARROW_LTR || character == POWERLINE_ARROW_RTL {
+            let p3 = top_inner_line.next().unwrap_or(p2);
+            let p4 = bottom_inner_line.next().unwrap_or(p1);
 
-        let mut y1 = 0;
-        for row in (0..height / 2).rev() {
-            if buffer[row * width]._r != 0 {
-                y1 = row;
+            // If we can't fit the entire arrow in the cell, we cut off the tip of the arrow by
+            // drawing a rectangle between the two lines.
+            if p1.0 as usize + 1 == width {
+                canvas.draw_rect(p1.0, p1.1, 1., p2.1 - p1.1 + 1., COLOR_FILL);
                 break;
-            }
-        }
-        let mut y2 = height / 2;
-        for row in height / 2..height {
-            if buffer[row * width]._r != 0 {
-                y2 = row;
-                break;
-            }
-        }
-
-        for row in from_y..height - from_y {
-            let row_offset = row * width;
-
-            // Find the point on the inner line.
-            let mut start = 0;
-            if row >= y1 && row <= y2 {
-                for base_index in 0..width - 1 {
-                    let index = row_offset + base_index;
-                    if buffer[index]._r != 0 {
-                        start = base_index + 1;
-                        break;
-                    }
-                }
-            }
-
-            // Find the point on the outer line.
-            let mut end = 0;
-            for base_index in (1..width).rev() {
-                let index = row_offset + base_index;
-                if buffer[index]._r != 0 {
-                    end = base_index - 1;
-                    break;
-                }
-            }
-
-            if (row == y1 || row == y2) && start == end {
-                start = 0;
-            }
-
-            // Fill the canvas between inner and outer points in the row.
-            for index in start..=end {
-                let index = row_offset + index;
-                buffer[index] = COLOR_FILL;
+            } else {
+                canvas.draw_rect(p1.0, p1.1, 1., p3.1 - p1.1 + 1., COLOR_FILL);
+                canvas.draw_rect(p4.0, p4.1, 1., p2.1 - p4.1 + 1., COLOR_FILL);
             }
         }
     }
 
-    // Some glyphs are just flipped versions of others, so just flip them.
-    if character == '\u{e0b2}' || character == '\u{e0b3}' {
+    if character == POWERLINE_TRIANGLE_RTL || character == POWERLINE_ARROW_RTL {
         canvas.flip_horizontal();
     }
 
@@ -831,33 +781,6 @@ impl Canvas {
         }
     }
 
-    /// WalkGrid line drawing from (`from_x`, `from_y`) to (`to_x`, `to_y`).
-    fn draw_line_grid(&mut self, from_x: f32, from_y: f32, to_x: f32, to_y: f32) {
-        let dx = (to_x - from_x).trunc();
-        let nx = dx.abs();
-
-        let dy = (to_y - from_y).trunc();
-        let ny = dy.abs();
-
-        let sign_x = dx.signum();
-        let sign_y = dy.signum();
-
-        let mut point = (from_x.trunc(), from_y.trunc());
-        let mut ix = 0.;
-        let mut iy = 0.;
-        while ix <= nx && iy <= ny {
-            self.put_pixel(point.0, point.1, COLOR_FILL);
-
-            if (0.5 + ix) / nx < (0.5 + iy) / ny {
-                point.0 += sign_x;
-                ix += 1.;
-            } else {
-                point.1 += sign_y;
-                iy += 1.;
-            }
-        }
-    }
-
     /// Draws a part of an ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
     /// vertex and co-vertex respectively using a given `stroke` in the bottom-right quadrant of the
     /// `Canvas` coordinate system.
@@ -958,6 +881,17 @@ impl Canvas {
             Vec::from_raw_parts(buf, len, capacity)
         }
     }
+}
+
+/// Compute line width.
+fn calculate_stroke_size(cell_width: usize) -> usize {
+    // Use one eight of the cell width, since this is used as a step size for block elements.
+    cmp::max((cell_width as f32 / 8.).round() as usize, 1)
+}
+
+/// `f(x) = slope * x + offset` equation.
+fn line_equation(slope: i32, x: i32, offset: i32) -> (f32, f32) {
+    (x as f32, (slope * x + offset) as f32)
 }
 
 #[cfg(test)]
