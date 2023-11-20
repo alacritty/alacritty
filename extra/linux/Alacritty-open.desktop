@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Exec=alacritty --working-directory %U
+TryExec=alacritty
+Icon=Alacritty
+Terminal=false
+Categories=System;TerminalEmulator;
+Name=Alacritty
+GenericName=Terminal
+Comment=Open URLs with Alacritty
+StartupWMClass=Alacritty
+Actions=New;
+MimeType=inode/directory;text/*;x-scheme-handler/alacritty;x-scheme-handler/ssh;
