@@ -10,4 +10,4 @@ GenericName=Terminal
 Comment=Open URLs with Alacritty
 StartupWMClass=Alacritty
 Actions=New;
-MimeType=inode/directory;text/*;x-scheme-handler/alacritty;x-scheme-handler/ssh;
+MimeType=inode/directory;text/*;x-scheme-handler/alacritty;
