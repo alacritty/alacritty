@@ -517,7 +517,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Enable IME so we can input into the search bar with it if we were in Vi mode.
         self.window().set_ime_allowed(true);
 
-        self.terminal.mark_fully_damaged();
+        self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
     }
 
@@ -853,10 +853,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             // If we had search running when leaving Vi mode we should mark terminal fully damaged
             // to cleanup highlighted results.
             if self.search_state.dfas.take().is_some() {
-                self.terminal.mark_fully_damaged();
-            } else {
-                // Damage line indicator.
-                self.terminal.damage_line(0, 0, self.terminal.columns() - 1);
+                self.display.damage_tracker.frame().mark_fully_damaged();
             }
         } else {
             self.clear_selection();
@@ -1029,7 +1026,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
         self.window().set_ime_allowed(!vi_mode);
 
-        self.terminal.mark_fully_damaged();
+        self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
         self.search_state.history_index = None;
 

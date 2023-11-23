@@ -110,6 +110,11 @@ pub struct LineDamageBounds {
 
 impl LineDamageBounds {
     #[inline]
+    pub fn new(line: usize, left: usize, right: usize) -> Self {
+        Self { line, left, right }
+    }
+
+    #[inline]
     pub fn undamaged(line: usize, num_cols: usize) -> Self {
         Self { line, left: num_cols, right: 0 }
     }
@@ -141,15 +146,19 @@ pub enum TermDamage<'a> {
     Partial(TermDamageIterator<'a>),
 }
 
-/// Iterator over the terminal's damaged lines.
+/// Iterator over the terminal's viewport damaged lines.
 #[derive(Clone, Debug)]
 pub struct TermDamageIterator<'a> {
     line_damage: slice::Iter<'a, LineDamageBounds>,
+    display_offset: usize,
 }
 
 impl<'a> TermDamageIterator<'a> {
-    fn new(line_damage: &'a [LineDamageBounds]) -> Self {
-        Self { line_damage: line_damage.iter() }
+    pub fn new(line_damage: &'a [LineDamageBounds], display_offset: usize) -> Self {
+        let num_lines = line_damage.len();
+        // Filter out invisible damage.
+        let line_damage = &line_damage[..num_lines.saturating_sub(display_offset)];
+        Self { display_offset, line_damage: line_damage.iter() }
     }
 }
 
@@ -157,26 +166,26 @@ impl<'a> Iterator for TermDamageIterator<'a> {
     type Item = LineDamageBounds;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.line_damage.find(|line| line.is_damaged()).copied()
+        self.line_damage.find_map(|line| {
+            line.is_damaged().then_some(LineDamageBounds::new(
+                line.line + self.display_offset,
+                line.left,
+                line.right,
+            ))
+        })
     }
 }
 
 /// State of the terminal damage.
 struct TermDamageState {
     /// Hint whether terminal should be damaged entirely regardless of the actual damage changes.
-    is_fully_damaged: bool,
+    full: bool,
 
     /// Information about damage on terminal lines.
     lines: Vec<LineDamageBounds>,
 
     /// Old terminal cursor point.
     last_cursor: Point,
-
-    /// Last Vi cursor point.
-    last_vi_cursor_point: Option<Point<usize>>,
-
-    /// Old selection range.
-    last_selection: Option<SelectionRange>,
 }
 
 impl TermDamageState {
@@ -184,22 +193,14 @@ impl TermDamageState {
         let lines =
             (0..num_lines).map(|line| LineDamageBounds::undamaged(line, num_cols)).collect();
 
-        Self {
-            is_fully_damaged: true,
-            lines,
-            last_cursor: Default::default(),
-            last_vi_cursor_point: Default::default(),
-            last_selection: Default::default(),
-        }
+        Self { full: true, lines, last_cursor: Default::default() }
     }
 
     #[inline]
     fn resize(&mut self, num_cols: usize, num_lines: usize) {
         // Reset point, so old cursor won't end up outside of the viewport.
         self.last_cursor = Default::default();
-        self.last_vi_cursor_point = None;
-        self.last_selection = None;
-        self.is_fully_damaged = true;
+        self.full = true;
 
         self.lines.clear();
         self.lines.reserve(num_lines);
@@ -220,32 +221,9 @@ impl TermDamageState {
         self.lines[line].expand(left, right);
     }
 
-    fn damage_selection(
-        &mut self,
-        selection: SelectionRange,
-        display_offset: usize,
-        num_cols: usize,
-    ) {
-        let display_offset = display_offset as i32;
-        let last_visible_line = self.lines.len() as i32 - 1;
-
-        // Don't damage invisible selection.
-        if selection.end.line.0 + display_offset < 0
-            || selection.start.line.0.abs() < display_offset - last_visible_line
-        {
-            return;
-        };
-
-        let start = cmp::max(selection.start.line.0 + display_offset, 0);
-        let end = (selection.end.line.0 + display_offset).clamp(0, last_visible_line);
-        for line in start as usize..=end as usize {
-            self.damage_line(line, 0, num_cols - 1);
-        }
-    }
-
     /// Reset information about terminal damage.
     fn reset(&mut self, num_cols: usize) {
-        self.is_fully_damaged = false;
+        self.full = false;
         self.lines.iter_mut().for_each(|line| line.reset(num_cols));
     }
 }
@@ -417,30 +395,27 @@ impl<T> Term<T> {
         }
     }
 
+    /// Collect the information about the changes in the lines, which
+    /// could be used to minimize the amount of drawing operations.
+    ///
+    /// The user controlled elements, like `Vi` mode cursor and `Selection` are **not** part of the
+    /// collected damage state. Those could easily be tracked by comparing their old and new
+    /// value between adjacent frames.
+    ///
+    /// After reading damage [`reset_damage`] should be called.
+    ///
+    /// [`reset_damage`]: Self::reset_damage
     #[must_use]
-    pub fn damage(&mut self, selection: Option<SelectionRange>) -> TermDamage<'_> {
+    pub fn damage(&mut self) -> TermDamage<'_> {
         // Ensure the entire terminal is damaged after entering insert mode.
         // Leaving is handled in the ansi handler.
         if self.mode.contains(TermMode::INSERT) {
             self.mark_fully_damaged();
         }
 
-        // Update tracking of cursor, selection, and vi mode cursor.
-
-        let display_offset = self.grid().display_offset();
-        let vi_cursor_point = if self.mode.contains(TermMode::VI) {
-            point_to_viewport(display_offset, self.vi_mode_cursor.point)
-        } else {
-            None
-        };
-
         let previous_cursor = mem::replace(&mut self.damage.last_cursor, self.grid.cursor.point);
-        let previous_selection = mem::replace(&mut self.damage.last_selection, selection);
-        let previous_vi_cursor_point =
-            mem::replace(&mut self.damage.last_vi_cursor_point, vi_cursor_point);
 
-        // Early return if the entire terminal is damaged.
-        if self.damage.is_fully_damaged {
+        if self.damage.full {
             return TermDamage::Full;
         }
 
@@ -455,24 +430,10 @@ impl<T> Term<T> {
         // Always damage current cursor.
         self.damage_cursor();
 
-        // Vi mode doesn't update the terminal content, thus only last vi cursor position and the
-        // new one should be damaged.
-        if let Some(previous_vi_cursor_point) = previous_vi_cursor_point {
-            self.damage.damage_point(previous_vi_cursor_point)
-        }
-
-        // Damage Vi cursor if it's present.
-        if let Some(vi_cursor_point) = self.damage.last_vi_cursor_point {
-            self.damage.damage_point(vi_cursor_point);
-        }
-
-        if self.damage.last_selection != previous_selection {
-            for selection in self.damage.last_selection.into_iter().chain(previous_selection) {
-                self.damage.damage_selection(selection, display_offset, self.columns());
-            }
-        }
-
-        TermDamage::Partial(TermDamageIterator::new(&self.damage.lines))
+        // NOTE: damage which changes all the content when the display offset is non-zero (e.g.
+        // scrolling) is handled via full damage.
+        let display_offset = self.grid().display_offset();
+        TermDamage::Partial(TermDamageIterator::new(&self.damage.lines, display_offset))
     }
 
     /// Resets the terminal damage information.
@@ -481,14 +442,8 @@ impl<T> Term<T> {
     }
 
     #[inline]
-    pub fn mark_fully_damaged(&mut self) {
-        self.damage.is_fully_damaged = true;
-    }
-
-    /// Damage line in a terminal viewport.
-    #[inline]
-    pub fn damage_line(&mut self, line: usize, left: usize, right: usize) {
-        self.damage.damage_line(line, left, right);
+    fn mark_fully_damaged(&mut self) {
+        self.damage.full = true;
     }
 
     /// Set new options for the [`Term`].
@@ -1323,7 +1278,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Carriage return");
         let new_col = 0;
         let line = self.grid.cursor.point.line.0 as usize;
-        self.damage_line(line, new_col, self.grid.cursor.point.column.0);
+        self.damage.damage_line(line, new_col, self.grid.cursor.point.column.0);
         self.grid.cursor.point.column = Column(new_col);
         self.grid.cursor.input_needs_wrap = false;
     }
@@ -1491,7 +1446,7 @@ impl<T: EventListener> Handler for Term<T> {
         }
 
         let line = self.grid.cursor.point.line.0 as usize;
-        self.damage_line(line, self.grid.cursor.point.column.0, old_col);
+        self.damage.damage_line(line, self.grid.cursor.point.column.0, old_col);
     }
 
     #[inline]
@@ -2888,7 +2843,7 @@ mod tests {
         term.input('e');
         let right = term.grid.cursor.point.column.0;
 
-        let mut damaged_lines = match term.damage(None) {
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
@@ -2896,70 +2851,51 @@ mod tests {
         assert_eq!(damaged_lines.next(), None);
         term.reset_damage();
 
-        // Check that selection we've passed was properly damaged.
+        // Create scrollback.
+        for _ in 0..20 {
+            term.newline();
+        }
 
-        let line = 1;
-        let left = 0;
-        let right = term.columns() - 1;
-        let mut selection =
-            Selection::new(SelectionType::Block, Point::new(Line(line), Column(3)), Side::Left);
-        selection.update(Point::new(Line(line), Column(5)), Side::Left);
-        let selection_range = selection.to_range(&term);
+        match term.damage() {
+            TermDamage::Full => (),
+            TermDamage::Partial(_) => panic!("Expected Full damage, however got Partial "),
+        };
+        term.reset_damage();
 
-        let mut damaged_lines = match term.damage(selection_range) {
+        term.scroll_display(Scroll::Delta(10));
+        term.reset_damage();
+
+        // No damage when scrolled into viewport.
+        for idx in 0..term.columns() {
+            term.goto(idx as i32, idx);
+        }
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
-        let line = line as usize;
-        // Skip cursor damage information, since we're just testing selection.
-        damaged_lines.next();
-        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
-        assert_eq!(damaged_lines.next(), None);
-        term.reset_damage();
-
-        // Check that existing selection gets damaged when it is removed.
-
-        let mut damaged_lines = match term.damage(None) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
-        // Skip cursor damage information, since we're just testing selection clearing.
-        damaged_lines.next();
-        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
-        assert_eq!(damaged_lines.next(), None);
-        term.reset_damage();
-
-        // Check that `Vi` cursor in vi mode is being always damaged.
-
-        term.toggle_vi_mode();
-        // Put Vi cursor to a different location than normal cursor.
-        term.vi_goto_point(Point::new(Line(5), Column(5)));
-        // Reset damage, so the damage information from `vi_goto_point` won't affect test.
-        term.reset_damage();
-        let vi_cursor_point = term.vi_mode_cursor.point;
-        let line = vi_cursor_point.line.0 as usize;
-        let left = vi_cursor_point.column.0;
-        let right = left;
-
-        let mut damaged_lines = match term.damage(None) {
-            TermDamage::Full => panic!("Expected partial damage, however got Full"),
-            TermDamage::Partial(damaged_lines) => damaged_lines,
-        };
-        // Skip cursor damage information, since we're just testing Vi cursor.
-        damaged_lines.next();
-        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
         assert_eq!(damaged_lines.next(), None);
 
-        // Ensure that old Vi cursor got damaged as well.
+        // Scroll back into the viewport, so we have 2 visible lines which terminal can write
+        // to.
+        term.scroll_display(Scroll::Delta(-2));
         term.reset_damage();
-        term.toggle_vi_mode();
-        let mut damaged_lines = match term.damage(None) {
+
+        term.goto(0, 0);
+        term.goto(1, 0);
+        term.goto(2, 0);
+        let display_offset = term.grid().display_offset();
+        let mut damaged_lines = match term.damage() {
             TermDamage::Full => panic!("Expected partial damage, however got Full"),
             TermDamage::Partial(damaged_lines) => damaged_lines,
         };
-        // Skip cursor damage information, since we're just testing Vi cursor.
-        damaged_lines.next();
-        assert_eq!(damaged_lines.next(), Some(LineDamageBounds { line, left, right }));
+        assert_eq!(
+            damaged_lines.next(),
+            Some(LineDamageBounds { line: display_offset, left: 0, right: 0 })
+        );
+        assert_eq!(
+            damaged_lines.next(),
+            Some(LineDamageBounds { line: display_offset + 1, left: 0, right: 0 })
+        );
         assert_eq!(damaged_lines.next(), None);
     }
 
@@ -3066,85 +3002,85 @@ mod tests {
         let size = TermSize::new(100, 10);
         let mut term = Term::new(Config::default(), &size, VoidListener);
 
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         for _ in 0..20 {
             term.newline();
         }
         term.reset_damage();
 
         term.clear_screen(ansi::ClearMode::Above);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.scroll_display(Scroll::Top);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         // Sequential call to scroll display without doing anything shouldn't damage.
         term.scroll_display(Scroll::Top);
-        assert!(!term.damage.is_fully_damaged);
+        assert!(!term.damage.full);
         term.reset_damage();
 
         term.set_options(Config::default());
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.scroll_down_relative(Line(5), 2);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.scroll_up_relative(Line(3), 2);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.deccolm();
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.decaln();
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.set_mode(NamedMode::Insert.into());
         // Just setting `Insert` mode shouldn't mark terminal as damaged.
-        assert!(!term.damage.is_fully_damaged);
+        assert!(!term.damage.full);
         term.reset_damage();
 
         let color_index = 257;
         term.set_color(color_index, Rgb::default());
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         // Setting the same color once again shouldn't trigger full damage.
         term.set_color(color_index, Rgb::default());
-        assert!(!term.damage.is_fully_damaged);
+        assert!(!term.damage.full);
 
         term.reset_color(color_index);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         // We shouldn't trigger fully damage when cursor gets update.
         term.set_color(NamedColor::Cursor as usize, Rgb::default());
-        assert!(!term.damage.is_fully_damaged);
+        assert!(!term.damage.full);
 
         // However requesting terminal damage should mark terminal as fully damaged in `Insert`
         // mode.
-        let _ = term.damage(None);
-        assert!(term.damage.is_fully_damaged);
+        let _ = term.damage();
+        assert!(term.damage.full);
         term.reset_damage();
 
         term.unset_mode(NamedMode::Insert.into());
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         // Keep this as a last check, so we don't have to deal with restoring from alt-screen.
         term.swap_alt();
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
         term.reset_damage();
 
         let size = TermSize::new(10, 10);
         term.resize(size);
-        assert!(term.damage.is_fully_damaged);
+        assert!(term.damage.full);
     }
 
     #[test]
