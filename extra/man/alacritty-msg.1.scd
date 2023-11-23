@@ -2,7 +2,7 @@ ALACRITTY-MSG(1)
 
 # NAME
 
-alacritty-msg - Send messages to Alacritty
+alacritty-msg - Send messages to Alacritty.
 
 # SYNOPSIS
 
@@ -11,63 +11,83 @@ making it possible to control Alacritty without directly accessing it.
 
 # OPTIONS
 
-*-s, --socket* <socket>
-	Path for IPC socket communication
+*-s, --socket* _<SOCKET>_
+
+	Path for IPC socket communication.
 
 # MESSAGES
 
 *create-window*
-	Create a new window in the same Alacritty process
+
+	Create a new window in the same Alacritty process.
 
 	*FLAGS*
 		*--hold*
-			Remain open after child process exits
+
+			Remain open after child process exits.
 
 	*OPTIONS*
-		*--working-directory* <working-directory>
-			Start the shell in the specified working directory
+		*--working-directory* _<WORKING_DIRECTORY>_
 
-		*-T, --title* <TITLE>
-			Defines the window title [default: Alacritty]
+			Start the shell in the specified working directory.
 
-		*--class* <GENERAL> | <GENERAL>,<INSTANCE>
-			Defines window class/app_id on X11/Wayland [default: Alacritty]
+		*-T, --title* _<TITLE>_
 
-		*-o, --option* <OPTION>...
-			Override configuration file options [example: 'cursor.style="Beam"']
+			Defines the window title.
 
-		*-e, --command* <COMMAND>...
-			Command and args to execute (must be last argument)
+			Default: _Alacritty_
+
+		*--class* _<GENERAL>_ | _<GENERAL>_,_<INSTANCE>_
+
+			Defines window class/app_id on X11/Wayland.
+
+			Default: _Alacritty,Alacritty_
+
+		*-o, --option* _<OPTION>..._
+
+			Override configuration file options.
+
+			Example: _alacritty msg create-window -o 'cursor.style="Beam"'_
+
+		*-e, --command* _<COMMAND>..._
+
+			Command and args to execute (must be last argument).
 
 *config*
-	Update the Alacritty configuration
+
+	Update the Alacritty configuration.
 
 	*ARGS*
 		*<CONFIG_OPTIONS>...*
-			Configuration file options [example: 'cursor.style="Beam"']
+
+			Configuration file options.
+
+			Example: _alacritty msg config 'cursor.style="Beam"'_
 
 	*FLAGS*
 		*-r, --reset*
-			Clear all runtime configuration changes
+
+			Clear all runtime configuration changes.
 
 	*OPTIONS*
-		*-w, --window-id* <WINDOW_ID>
+		*-w, --window-id* _<WINDOW_ID>_
+
 			Window ID for the new config.
 
 			Use _-1_ to apply this change to all windows.
 
-			\[default: *$ALACRITTY_WINDOW_ID*]
+			Default: _$ALACRITTY_WINDOW_ID_
 
 # SEE ALSO
 
 *alacritty*(1), *alacritty*(5), *alacritty-bindings*(5)
 
-See the alacritty github repository at https://github.com/alacritty/alacritty
+See the alacritty github repository at _https://github.com/alacritty/alacritty_
 for the full documentation.
 
 # BUGS
 
-Found a bug? Please report it at https://github.com/alacritty/alacritty/issues.
+Found a bug? Please report it at _https://github.com/alacritty/alacritty/issues_.
 
 # MAINTAINERS
 
