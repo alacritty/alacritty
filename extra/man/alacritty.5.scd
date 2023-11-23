@@ -184,6 +184,13 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
+Example:
+	*[window]*++
+padding = { x = _3_, y = _3_ }++
+dynamic_padding = _true_++
+opacity = _0.9_
+
+
 # SCROLLING
 
 This section documents the *[scrolling]* table of the configuration file.
