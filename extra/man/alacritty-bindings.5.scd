@@ -2,7 +2,7 @@ ALACRITTY-BINDINGS(5)
 
 # NAME
 
-Alacritty Bindings - Default configuration file bindings
+Alacritty Bindings - Default configuration file bindings.
 
 # SYNOPSIS
 
@@ -547,12 +547,12 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 
 *alacritty*(1), *alacritty-msg*(1), *alacritty*(5)
 
-See the alacritty github repository at https://github.com/alacritty/alacritty
+See the alacritty github repository at _https://github.com/alacritty/alacritty_
 for the full documentation.
 
 # BUGS
 
-Found a bug? Please report it at https://github.com/alacritty/alacritty/issues.
+Found a bug? Please report it at _https://github.com/alacritty/alacritty/issues_.
 
 # MAINTAINERS
 

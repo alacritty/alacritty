@@ -2,7 +2,7 @@ ALACRITTY(5)
 
 # NAME
 
-Alacritty - TOML configuration file format
+Alacritty - TOML configuration file format.
 
 # SYNTAX
 
@@ -13,9 +13,9 @@ can be found at _https://toml.io/en/v1.0.0_.
 
 This section documents the root level of the configuration file.
 
-*import* [<string>,]
+*import* [_"<string>"_,]
 
-	Import additional configuration files
+	Import additional configuration files.
 
 	Imports are loaded in order, skipping all missing files, with the importing
 	file being loaded last. If a field is already present in a previous import,
@@ -30,7 +30,7 @@ This section documents the root level of the configuration file.
 	_"~/.config/alacritty/keybindings.toml"_,++
 ]
 
-*shell* <string> | { program = <string>, args = [<string>,] }
+*shell* _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
 
 	You can set _shell.program_ to the path of your favorite shell, e.g.
 	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
@@ -44,20 +44,20 @@ Windows: _"powershell"_
 program = _"/bin/zsh"_++
 args = [_"-l"_]
 
-*working_directory* <string> | "None"
+*working_directory* _"<string>"_ | _"None"_
 
 	Directory the shell is started in. When this is unset, or _"None"_, the
 	working directory of the parent process will be used.
 
 	Default: _"None"_
 
-*live_config_reload* <boolean>
+*live_config_reload* _true_ | _false_
 
 	Live config reload (changes require restart)
 
 	Default: _true_
 
-*ipc_socket* <boolean> _(unix only)_
+*ipc_socket* _true_ | _false_ # _(unix only)_
 
 	Offer IPC using _alacritty msg_
 
@@ -77,20 +77,20 @@ WINIT_X11_SCALE_FACTOR = _"1.0"_
 
 This section documents the *[window]* table of the configuration file.
 
-*dimensions* { columns = <integer>, lines = <integer> }
+*dimensions* { columns = _<integer>_, lines = _<integer>_ }
 
-	Window dimensions (changes require restart)
+	Window dimensions (changes require restart).
 
 	Number of lines/columns (not pixels) in the terminal. Both lines and columns
 	must be non-zero for this to take effect. The number of columns must be at
 	least _2_, while using a value of _0_ for columns and lines will fall back
 	to the window manager's recommended size
 
-	Default: _{ column = 0, lines = 0 }_
+	Default: { column = _0_, lines = _0_ }
 
-*position* "None" | { x = <integer>, y = <integer> }
+*position* _"None"_ | { x = _<integer>_, y = _<integer>_ }
 
-	Window startup position
+	Window startup position.
 
 	Specified in number of pixels.
 
@@ -98,89 +98,89 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
-*padding* { x = <integer>, y = <integer> }
+*padding* { x = _<integer>_, y = _<integer>_ }
 
 	Blank space added around the window in pixels. This padding is scaled
 	by DPI and the specified value is always added at both opposing sides.
 
-	Default: _{ x = 0, y = 0 }_
+	Default: { x = _0_, y = _0_ }
 
-*dynamic_padding* <boolean>
+*dynamic_padding* _true_ | _false_
 
 	Spread additional padding evenly around the terminal content.
 
 	Default: _false_
 
-*decorations* "Full" | "None" | "Transparent" | "Buttonless"
+*decorations* _"Full"_ | _"None"_ | _"Transparent"_ | _"Buttonless"_
 
-	Window decorations
+	Window decorations.
 
 	*Full*
-		Borders and title bar
+		Borders and title bar.
 	*None*
-		Neither borders nor title bar
+		Neither borders nor title bar.
 	*Transparent* _(macOS only)_
-		Title bar, transparent background and title bar buttons
+		Title bar, transparent background and title bar buttons.
 	*Buttonless* _(macOS only)_
-		Title bar, transparent background and no title bar buttons
+		Title bar, transparent background and no title bar buttons.
 
 	Default: _"Full"_
 
-*opacity* <float>
+*opacity* _<float>_
 
 	Background opacity as a floating point number from _0.0_ to _1.0_. The value
 	\_0.0_ is completely transparent and _1.0_ is opaque.
 
 	Default: _1.0_
 
-*blur* <boolean> _(works on macOS/KDE Wayland)_
+*blur* _true_ | _false_ # _(works on macOS/KDE Wayland)_
 
 	Request compositor to blur content behind transparent windows.
 
 	Default: _false_
 
-*startup_mode* "Windowed" | "Maximized" | "Fullscreen" | "SimpleFullscreen"
+*startup_mode* _"Windowed"_ | _"Maximized"_ | _"Fullscreen"_ | _"SimpleFullscreen"_
 
 	Startup mode (changes require restart)
 
 	Default: _"Windowed"_
 
-*title* <string>
+*title* _"<string>"_
 
-	Window title
+	Window title.
 
 	Default: _"Alacritty"_
 
-*dynamic_title* <boolean>
+*dynamic_title* _true_ | _false_
 
 	Allow terminal applications to change Alacritty's window title.
 
 	Default: _true_
 
-*class* { instance = <string>, general = <string> } _(Linux/BSD only)_
+*class* { instance = _"<string>"_, general = _"<string>"_ } # _(Linux/BSD only)_
 
-	Window class
+	Window class.
 
 	On Wayland, *general* is used as _app\_id_ and *instance* is ignored.
 
-	Default: _{ instance = "Alacritty", general = "Alacritty" }_
+	Default: { instance = _"Alacritty"_, general = _"Alacritty"_ }
 
-*decorations_theme_variant* "Dark" | "Light" | "None"
+*decorations_theme_variant* _"Dark"_ | _"Light"_ | _"None"_
 
 	Override the variant of the System theme/GTK theme/Wayland client side
 	decorations. Set this to _"None"_ to use the system's default theme variant.
 
 	Default: _"None"_
 
-*resize_increments* <boolean>
+*resize_increments* _true_ | _false_
 
 	Prefer resizing window by discrete steps equal to cell dimensions.
 
 	Default: _false_
 
-*option_as_alt* "OnlyLeft" | "OnlyRight" | "Both" | "None" _(macos only)_
+*option_as_alt* _"OnlyLeft"_ | _"OnlyRight"_ | _"Both"_ | _"None"_ # _(macos only)_
 
-	Make _Option_ key behave as _Alt_
+	Make _Option_ key behave as _Alt_.
 
 	Default: _"None"_
 
@@ -188,7 +188,7 @@ This section documents the *[window]* table of the configuration file.
 
 This section documents the *[scrolling]* table of the configuration file.
 
-*history* <integer>
+*history* _<integer>_
 
 	Maximum number of lines in the scrollback buffer.++
 Specifying _0_ will disable scrolling.++
@@ -196,7 +196,7 @@ Limited to _100000_.
 
 	Default: _10000_
 
-*multiplier* <integer>
+*multiplier* _<integer>_
 
 	Number of line scrolled for every input scroll increment.
 
@@ -206,54 +206,54 @@ Limited to _100000_.
 
 This section documents the *[font]* table of the configuration file.
 
-*normal* { family = <string>, style = <string> }
+*normal* { family = _"<string>"_, style = _"<string>"_ }
 
 	Default:
-		Linux/BSD: _{ family = "monospace", style = "Regular" }_++
-Windows:   _{ family = "Consolas",  style = "Regular" }_++
-macOS:     _{ family = "Menlo",     style = "Regular" }_
+		Linux/BSD: { family = _"monospace"_, style = _"Regular"_ }++
+Windows:   { family = _"Consolas"_,  style = _"Regular"_ }++
+macOS:     { family = _"Menlo"_,     style = _"Regular"_ }
 
-*bold* { family = <string>, style = <string> }
-
-	If the family is not specified, it will fall back to the value specified for
-	the normal font.
-
-	Default: _{ style = "Bold" }_
-
-*italic* { family = <string>, style = <string> }
+*bold* { family = _"<string>"_, style = _"<string>"_ }
 
 	If the family is not specified, it will fall back to the value specified for
 	the normal font.
 
-	Default: _{ style = "Italic" }_
+	Default: { style = _"Bold"_ }
 
-*bold_italic* { family = <string>, style = <string> }
+*italic* { family = _"<string>"_, style = _"<string>"_ }
 
 	If the family is not specified, it will fall back to the value specified for
 	the normal font.
 
-	Default: _{ style = "Bold Italic" }_
+	Default: { style = _"Italic"_ }
 
-*size* <float>
+*bold_italic* { family = _"<string>"_, style = _"<string>"_ }
+
+	If the family is not specified, it will fall back to the value specified for
+	the normal font.
+
+	Default: { style = _"Bold Italic"_ }
+
+*size* _<float>_
 
 	Font size in points.
 
 	Default: _11.0_
 
-*offset* { x = <integer>, y = <integer> }
+*offset* { x = _<integer>_, y = _<integer>_ }
 
 	Offset is the extra space around each character. _y_ can be thought of as
 	modifying the line spacing, and _x_ as modifying the letter spacing.
 
-	Default: _{ x = 0, y = 0 }_
+	Default: { x = _0_, y = _0_ }
 
-*glyph_offset* { x = <integer>, y = <integer> }
+*glyph_offset* { x = _<integer>_, y = _<integer>_ }
 
 	Glyph offset determines the locations of the glyphs within their cells with
 	the default being at the bottom. Increasing _x_ moves the glyph to the
 	right, increasing _y_ moves the glyph upward.
 
-*builtin_box_drawing* <boolean>
+*builtin_box_drawing* _true_ | _false_
 
 	When _true_, Alacritty will use a custom built-in font for box drawing
 	characters (Unicode points _U+2500_ - _U+259F_) and powerline symbols
@@ -265,26 +265,26 @@ macOS:     _{ family = "Menlo",     style = "Regular" }_
 
 This section documents the *[colors]* table of the configuration file.
 
-Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
+Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_.
 
 *primary*
 
-	*foreground* <string>
+	*foreground* _"<string>"_
 
 		Default: _"#d8d8d8"_
 
-	*background* <string>
+	*background* _"<string>"_
 
 		Default: _"#181818"_
 
-	*dim_foreground* <string>
+	*dim_foreground* _"<string>"_
 
 		If this is not set, the color is automatically calculated based on the
 		foreground color.
 
 		Default: _"#828482"_
 
-	*bright_foreground* <string>
+	*bright_foreground* _"<string>"_
 
 		This color is only used when _draw\_bold\_text\_with\_bright\_colors_ is
 		_true_.
@@ -293,23 +293,23 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 		Default: _"None"_
 
-*cursor* { text = <string>, cursor = <string> }
+*cursor* { text = _"<string>"_, cursor = _"<string>"_ }
 
 	Colors which should be used to draw the terminal cursor.
 
 	Allowed values are hexadecimal colors like _#ff00ff_, or
 	_CellForeground_/_CellBackground_, which references the affected cell.
 
-	Default: _{ text = "CellBackground", cursor: "CellForeground" }_
+	Default: { text = _"CellBackground"_, cursor = _"CellForeground"_ }
 
-*vi_mode_cursor* { text = <string>, cursor = <string> }
+*vi_mode_cursor* { text = _"<string>"_, cursor = _"<string>"_ }
 
 	Colors for the cursor when the vi mode is active.
 
 	Allowed values are hexadecimal colors like _#ff00ff_, or
 	_CellForeground_/_CellBackground_, which references the affected cell.
 
-	Default: _{ text = "CellBackground", cursor: "CellForeground" }_
+	Default: { text = _"CellBackground"_, cursor = _"CellForeground"_ }
 
 *search*
 
@@ -318,95 +318,95 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 	Allowed values are hexadecimal colors like _#ff00ff_, or
 	_CellForeground_/_CellBackground_, which references the affected cell.
 
-	*matches* { foreground = <string>, background = <string> }
+	*matches* { foreground = _"<string>"_, background = _"<string>"_ }
 
-		Default: _{ foreground = "#181818", background: "#ac4242" }_
+		Default: { foreground = _"#181818"_, background = _"#ac4242"_ }
 
-	*focused_match* { foreground = <string>, background = <string> }
+	*focused_match* { foreground = _"<string>"_, background = _"<string>"_ }
 
-		Default: _{ foreground = "#181818", background: "#f4bf75" }_
+		Default: { foreground = _"#181818"_, background = _"#f4bf75"_ }
 
 *hints*
 
-	*start* { foreground = <string>, background = <string> }
+	*start* { foreground = _"<string>"_, background = _"<string>"_ }
 
-		First character in the hint label
-
-		Allowed values are hexadecimal colors like _#ff00ff_, or
-		_CellForeground_/_CellBackground_, which references the affected cell.
-
-		Default: _{ foreground = "#181818", background = "#f4bf75" }_
-
-	*end* { foreground = <string>, background = <string> }
-
-		All characters after the first one in the hint label
+		First character in the hint label.
 
 		Allowed values are hexadecimal colors like _#ff00ff_, or
 		_CellForeground_/_CellBackground_, which references the affected cell.
 
-		Default: _{ foreground = "#181818", background = "#ac4242" }_
+		Default: { foreground = _"#181818"_, background = _"#f4bf75"_ }
 
-*line_indicator* { foreground = <string>, background = <string> }
+	*end* { foreground = _"<string>"_, background = _"<string>"_ }
+
+		All characters after the first one in the hint label.
+
+		Allowed values are hexadecimal colors like _#ff00ff_, or
+		_CellForeground_/_CellBackground_, which references the affected cell.
+
+		Default: { foreground = _"#181818"_, background = _"#ac4242"_ }
+
+*line_indicator* { foreground = _"<string>"_, background = _"<string>"_ }
 
 	Color used for the indicator displaying the position in history during
 	search and vi mode.
 
 	Setting this to _"None"_ will use the opposing primary color.
 
-	Default: _{ foreground = "None", background = "None" }_
+	Default: { foreground = _"None"_, background = _"None"_ }
 
-*footer_bar* { foreground = <string>, background = <string> }
+*footer_bar* { foreground = _"<string>"_, background = _"<string>"_ }
 
 	Color used for the footer bar on the bottom, used by search regex input,
 	hyperlink URI preview, etc.
 
-	Default: _{ foreground = "#181818", background = "#d8d8d8" }_
+	Default: { foreground = _"#181818"_, background = _"#d8d8d8"_ }
 
-*selection* { text = <string>, background = <string> }
+*selection* { text = _"<string>"_, background = _"<string>"_ }
 
 	Colors used for drawing selections.
 
 	Allowed values are hexadecimal colors like _#ff00ff_, or
 	_CellForeground_/_CellBackground_, which references the affected cell.
 
-	Default: _{ text = "CellBackground", background = "CellForeground" }_
+	Default: { text = _"CellBackground"_, background = _"CellForeground"_ }
 
 *normal*
 
-	*black* <string>
+	*black* _"<string>"_
 		Default: _"#181818"_
-	*red* <string>
+	*red* _"<string>"_
 		Default: _"#ac4242"_
-	*green* <string>
+	*green* _"<string>"_
 		Default: _"#90a959"_
-	*yellow* <string>
+	*yellow* _"<string>"_
 		Default: _"#f4bf75"_
-	*blue* <string>
+	*blue* _"<string>"_
 		Default: _"#6a9fb5"_
-	*magenta* <string>
+	*magenta* _"<string>"_
 		Default: _"#aa759f"_
-	*cyan* <string>
+	*cyan* _"<string>"_
 		Default: _"#75b5aa"_
-	*white* <string>
+	*white* _"<string>"_
 		Default: _"#d8d8d8"_
 
 *bright*
 
-	*black* <string>
+	*black* _"<string>"_
 		Default: _"#6b6b6b"_
-	*red* <string>
+	*red* _"<string>"_
 		Default: _"#c55555"_
-	*green* <string>
+	*green* _"<string>"_
 		Default: _"#aac474"_
-	*yellow* <string>
+	*yellow* _"<string>"_
 		Default: _"#feca88"_
-	*blue* <string>
+	*blue* _"<string>"_
 		Default: _"#82b8c8"_
-	*magenta* <string>
+	*magenta* _"<string>"_
 		Default: _"#c28cb8"_
-	*cyan* <string>
+	*cyan* _"<string>"_
 		Default: _"#93d3c3"_
-	*white* <string>
+	*white* _"<string>"_
 		Default: _"#f8f8f8"_
 
 *dim*
@@ -414,31 +414,31 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 	If the dim colors are not set, they will be calculated automatically based
 	on the _normal_ colors.
 
-	*black* <string>
+	*black* _"<string>"_
 		Default: _"#0f0f0f"_
-	*red* <string>
+	*red* _"<string>"_
 		Default: _"#712b2b"_
-	*green* <string>
+	*green* _"<string>"_
 		Default: _"#5f6f3a"_
-	*yellow* <string>
+	*yellow* _"<string>"_
 		Default: _"#a17e4d"_
-	*blue* <string>
+	*blue* _"<string>"_
 		Default: _"#456877"_
-	*magenta* <string>
+	*magenta* _"<string>"_
 		Default: _"#704d68"_
-	*cyan* <string>
+	*cyan* _"<string>"_
 		Default: _"#4d7770"_
-	*white* <string>
+	*white* _"<string>"_
 		Default: _"#8e8e8e"_
 
-*indexed_colors* [{ index = <integer>, color = <string> },]
+*indexed_colors* [{ index = _<integer>_, color = _"<string>"_ },]
 
 	The indexed colors include all colors from 16 to 256.
 	When these are not set, they're filled with sensible defaults.
 
 	Default: _[]_
 
-*transparent_background_colors* <boolean>
+*transparent_background_colors* _true_ | _false_
 
 	Whether or not _window.opacity_ applies to all cell backgrounds, or only to
 	the default background. When set to _true_ all cells will be transparent
@@ -446,7 +446,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	Default: _false_
 
-*draw_bold_text_with_bright_colors* <boolean>
+*draw_bold_text_with_bright_colors* _true_ | _false_
 
 	When _true_, bold text is drawn using the bright color variants.
 
@@ -456,27 +456,27 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 This section documents the *[bell]* table of the configuration file.
 
-*animation* "Ease" | "EaseOut" | "EaseOutSine" | "EaseOutQuad" | "EaseOutCubic"
-\| "EaseOutQuart" | "EaseOutQuint" | "EaseOutExpo" | "EaseOutCirc" | "Linear"
+*animation* _"Ease"_ | _"EaseOut"_ | _"EaseOutSine"_ | _"EaseOutQuad"_ | _"EaseOutCubic"_
+\| _"EaseOutQuart"_ | _"EaseOutQuint"_ | _"EaseOutExpo"_ | _"EaseOutCirc"_ | _"Linear"_
 
 	Visual bell animation effect for flashing the screen when the visual bell is rung.
 
 	Default: _"Linear"_
 
-*duration* <integer>
+*duration* _<integer>_
 
 	Duration of the visual bell flash in milliseconds. A `duration` of `0` will
 	disable the visual bell animation.
 
 	Default: _0_
 
-*color* <string>
+*color* _"<string>"_
 
 	Visual bell animation color.
 
 	Default: _"#ffffff"_
 
-*command* <string> | { program = <string>, args = [<string>,] }
+*command* _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
 
 	This program is executed whenever the bell is rung.
 
@@ -488,14 +488,14 @@ This section documents the *[bell]* table of the configuration file.
 
 This section documents the *[selection]* table of the configuration file.
 
-*semantic_escape_chars* <string>
+*semantic_escape_chars* _"<string>"_
 
 	This string contains all characters that are used as separators for
 	"semantic words" in Alacritty.
 
 	Default: _",│`|:\"' ()[]{}<>\t"_
 
-*save_to_clipboard* <boolean>
+*save_to_clipboard* _true_ | _false_
 
 	When set to _true_, selected text will be copied to the primary clipboard.
 
@@ -507,11 +507,11 @@ This section documents the *[cursor]* table of the configuration file.
 
 *style*
 
-	*shape* "Block" | "Underline" | "Beam"
+	*shape* _"Block"_ | _"Underline"_ | _"Beam"_
 
 		Default: _"Block"_
 
-	*blinking* "Never" | "Off" | "On" | "Always"
+	*blinking* _"Never"_ | _"Off"_ | _"On"_ | _"Always"_
 
 		*Never*
 			Prevent the cursor from ever blinking
@@ -533,13 +533,13 @@ This section documents the *[cursor]* table of the configuration file.
 
 	Default: _"None"_
 
-*blink_interval* <integer>
+*blink_interval* _<integer>_
 
 	Cursor blinking interval in milliseconds.
 
 	Default: _750_
 
-*blink_timeout* <integer>
+*blink_timeout* _<integer>_
 
 	Time after which cursor stops blinking, in seconds.
 
@@ -547,14 +547,14 @@ This section documents the *[cursor]* table of the configuration file.
 
 	Default: _5_
 
-*unfocused_hollow* <boolean>
+*unfocused_hollow* _true_ | _false_
 
 	When this is _true_, the cursor will be rendered as a hollow box when the
 	window is not focused.
 
 	Default: _true_
 
-*thickness* <float>
+*thickness* _<float>_
 
 	Thickness of the cursor relative to the cell width as floating point number
 	from _0.0_ to _1.0_.
@@ -565,7 +565,7 @@ This section documents the *[cursor]* table of the configuration file.
 
 This section documents the *[terminal]* table of the configuration file.
 
-*osc52* "Disabled" | "OnlyCopy" | "OnlyPaste" | "CopyPaste"
+*osc52* _"Disabled"_ | _"OnlyCopy"_ | _"OnlyPaste"_ | _"CopyPaste"_
 
 	Controls the ability to write to the system clipboard with the _OSC 52_
 	escape sequence. While this escape sequence is useful to copy contents
@@ -579,13 +579,13 @@ This section documents the *[terminal]* table of the configuration file.
 
 This section documents the *[mouse]* table of the configuration file.
 
-*hide_when_typing* <boolean>
+*hide_when_typing* _true_ | _false_
 
 	When this is _true_, the cursor is temporarily hidden when typing.
 
 	Default: _false_
 
-*bindings*: [{ <mouse>, <mods>, <mode>, <action> | chars = <string> },]
+*bindings*: [{ *<mouse>*, *<mods>*, *<mode>*, *<action>* | *<chars>* },]
 
 	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
 	and _chars_.
@@ -595,11 +595,11 @@ This section documents the *[mouse]* table of the configuration file.
 	the event, actions for the event without the `Shift` modifier are triggered
 	instead.
 
-	*mouse* "Middle" | "Left" | "Right" | "Back" | "Forward" | <number>
+	*mouse* _"Middle"_ | _"Left"_ | _"Right"_ | _"Back"_ | _"Forward"_ | _<integer>_
 
 		Mouse button which needs to be pressed to trigger this binding.
 
-	*action* <keyboard.bindings.action> | "ExpandSelection"
+	*action* *<keyboard.bindings.action>* | _"ExpandSelection"_
 
 		*ExpandSelection*
 			Expand the selection to the current mouse cursor location.
@@ -617,39 +617,39 @@ This section documents the *[hints]* table of the configuration file.
 Terminal hints can be used to find text or hyperlinks in the visible part of the
 terminal and pipe it to other applications.
 
-*alphabet* <string>
+*alphabet* _"<string>"_
 
 	Keys used for the hint labels.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* [{ <regex>, <hyperlinks>, <post_processing>, <persist>, <action>, <command> <binding>, <mouse> },]
+*enabled* [{ *<regex>*, *<hyperlinks>*, *<post_processing>*, *<persist>*, *<action>*, *<command>* *<binding>*, *<mouse>* },]
 
 Array with all available hints.
 
 Each hint must have at least one of _regex_ or _hyperlinks_ and either an
 _action_ or a _command_.
 
-	*regex* <string>
+	*regex* _"<string>"_
 
 		Regex each line will be compared against.
 
-	*hyperlinks* <boolean>
+	*hyperlinks* _true_ | _false_
 
 		When this is _true_, all OSC 8 escape sequence hyperlinks will be
 		included in the hints.
 
-	*post_processing* <boolean>
+	*post_processing* _true_ | _false_
 
 		When this is _true_, heuristics will be used to shorten the match if
 		there are characters likely not to be part of the hint (e.g. a trailing
 		_._). This is most useful for URIs and applies only to _regex_ matches.
 
-	*persist* <boolean>
+	*persist* _true_ | _false_
 
 		When this is _true_, hints remain persistent after selection.
 
-	*action* "Copy" | "Paste" | "Select" | "MoveViModeCursor"
+	*action* _"Copy"_ | _"Paste"_ | _"Select"_ | _"MoveViModeCursor"_
 
 		*Copy*
 			Copy the hint's text to the clipboard.
@@ -660,41 +660,41 @@ _action_ or a _command_.
 		*MoveViModeCursor*
 			Move the vi mode cursor to the beginning of the hint.
 
-	*command* <string> | { program = <string>, args = [<string>,] }
+	*command* _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
 
 		Command which will be executed when the hint is clicked or selected with
 		the _binding_.
 
 		The hint's text is always attached as the last argument.
 
-	*binding* { key = <string>, mods = <string>, mode = <string> }
+	*binding* { key = _"<string>"_, mods = _"<string>"_, mode = _"<string>"_ }
 
 		See _keyboard.bindings_ for documentation on available values.
 
 		This controls which key binding is used to start the keyboard hint
 		selection process.
 
-	*mouse* { mods = <string>, enabled = <boolean> }
+	*mouse* { mods = _"<string>"_, enabled = _true_ | _false_ }
 
 		See _keyboard.bindings_ for documentation on available _mods_.
 
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
 
-Default: _[{
-	regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+",++
-hyperlinks = true,++
-post_processing = true,++
-persist = false,++
-mouse = { enabled = true },++
-binding = { key = "U", mods = "Control | Shift" },
-}]_
+Default: [{
+	regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+"_,++
+hyperlinks = _true_,++
+post_processing = _true_,++
+persist = _false_,++
+mouse = { enabled = _true_ },++
+binding = { key = _"U"_, mods = _"Control|Shift"_ },++
+}]
 
 # KEYBOARD
 
 This section documents the *[keyboard]* table of the configuration file.
 
-*bindings*: [{ <key>, <mods>, <mode>, <action> | chars = <string> },]
+*bindings*: [{ *<key>*, *<mods>*, *<mode>*, *<action>* | *<chars>* },]
 
 	To unset a default binding, you can use the action _"ReceiveChar"_ to remove
 	it or _"None"_ to inhibit any action.
@@ -702,28 +702,28 @@ This section documents the *[keyboard]* table of the configuration file.
 	Multiple keybindings can be triggered by a single key press and will be
 	executed in the order they are defined in.
 
-	*key* <string>
+	*key* _"<string>"_
 
 		The regular keys like _"A"_, _"0"_, and _"Я"_ can be mapped directly
 		without any special syntax. Full list of named keys like _"F1"_ and the
 		syntax for dead keys can be found here:
 
-		https://docs.rs/winit/latest/winit/keyboard/enum.NamedKey.html++
-https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead
+		_https://docs.rs/winit/latest/winit/keyboard/enum.NamedKey.html_++
+_https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 
-		Numpad keys are prefixed by _Numpad_: "NumpadEnter" | "NumpadAdd" |
-		"NumpadComma" | "NumpadDivide" | "NumpadEquals" | "NumpadSubtract" |
-		"NumpadMultiply" | "Numpad[0-9]".
+		Numpad keys are prefixed by _Numpad_: _"NumpadEnter"_ | _"NumpadAdd"_ |
+		_"NumpadComma"_ | _"NumpadDivide"_ | _"NumpadEquals"_ | _"NumpadSubtract"_ |
+		_"NumpadMultiply"_ | _"Numpad[0-9]"_.
 
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.
 
-	*mods* "Command" | "Control" | "Option" | "Super" | "Shift" | "Alt"
+	*mods* _"Command"_ | _"Control"_ | _"Option"_ | _"Super"_ | _"Shift"_ | _"Alt"_
 
 		Multiple modifiers can be combined using _|_, like this: _"Control |
 		Shift"_.
 
-	*mode* "AppCursor" | "AppKeypad" | "Search" | "Alt" | "Vi"
+	*mode* _"AppCursor"_ | _"AppKeypad"_ | _"Search"_ | _"Alt"_ | _"Vi"_
 
 		This defines a terminal mode which must be active for this binding to
 		have an effect.
@@ -733,7 +733,7 @@ https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead
 
 		Multiple modes can be combined using _|_, like this: _"~Vi|Search"_.
 
-	*chars*
+	*chars* _"<string>"_
 
 		Writes the specified string to the terminal.
 
@@ -935,6 +935,7 @@ Example:
 	*[keyboard]*++
 bindings = [++
 	{ key = _"N"_, mods = _"Control|Shift"_, action = _"CreateNewWindow"_ },++
+	{ key = _"L"_, mods = _"Control|Shift"_, chars = _"l"_ },++
 ]
 
 
@@ -946,19 +947,19 @@ Debug options are meant to help troubleshoot issues with Alacritty. These can
 change or be removed entirely without warning, so their stability shouldn't be
 relied upon.
 
-*render_timer* <boolean>
+*render_timer* _true_ | _false_
 
 	Display the time it takes to draw each frame.
 
 	Default: _false_
 
-*persistent_logging* <boolean>
+*persistent_logging* _true_ | _false_
 
 	Keep the log file after quitting Alacritty.
 
 	Default: _false_
 
-*log_level* "Off" | "Error" | "Warn" | "Info" | "Debug" | "Trace"
+*log_level* _"Off"_ | _"Error"_ | _"Warn"_ | _"Info"_ | _"Debug"_ | _"Trace"_
 
 	Default: _"Warn"_
 
@@ -968,26 +969,26 @@ relied upon.
 	Example:
 		_ALACRITTY_EXTRA_LOG_TARGETS="winit;vte" alacritty -vvv_
 
-*renderer* "glsl3" | "gles2" | "gles2_pure" | "None"
+*renderer* _"glsl3"_ | _"gles2"_ | _"gles2_pure"_ | _"None"_
 
 	Force use of a specific renderer, _"None"_ will use the highest available
 	one.
 
 	Default: _"None"_
 
-*print_events* <boolean>
+*print_events* _true_ | _false_
 
 	Log all received window events.
 
 	Default: _false_
 
-*highlight_damage* <boolean>
+*highlight_damage* _true_ | _false_
 
 	Highlight window damage information.
 
 	Default: _false_
 
-*prefer_egl* <boolean>
+*prefer_egl* _true_ | _false_
 
 	Use EGL as display API if the current platform allows it. Note that
 	transparency may not work with EGL on Linux/BSD.
@@ -998,12 +999,12 @@ relied upon.
 
 *alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5)
 
-See the alacritty github repository at https://github.com/alacritty/alacritty
+See the alacritty github repository at _https://github.com/alacritty/alacritty_
 for the full documentation.
 
 # BUGS
 
-Found a bug? Please report it at https://github.com/alacritty/alacritty/issues.
+Found a bug? Please report it at _https://github.com/alacritty/alacritty/issues_.
 
 # MAINTAINERS
 

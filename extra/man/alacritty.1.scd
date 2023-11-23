@@ -2,7 +2,7 @@ ALACRITTY(1)
 
 # NAME
 
-Alacritty - A fast, cross-platform, OpenGL terminal emulator
+Alacritty - A fast, cross-platform, OpenGL terminal emulator.
 
 # SYNOPSIS
 
@@ -14,79 +14,101 @@ set of features with high performance.
 # FLAGS
 
 *-h, --help*
-	Prints help information
+
+	Prints help information.
 
 *--hold*
-	Remain open after child process exits
+
+	Remain open after child process exits.
 
 *--print-events*
-	Print all events to stdout
+
+	Print all events to stdout.
 
 *-q*
-	Reduces the level of verbosity (the min level is *-qq*)
+
+	Reduces the level of verbosity (the min level is *-qq*).
 
 *--ref-test*
+
 	Generates ref test
 
 *-v*
-	Increases the level of verbosity (the max level is *-vvv*)
+
+	Increases the level of verbosity (the max level is *-vvv*).
 
 *-V, --version*
-	Prints version information
+
+	Prints version information.
 
 # OPTIONS
 
-*--class* <general> | <general>,<instance>
-	Defines the window class hint on Linux [default: Alacritty,Alacritty]
+*--class* _<GENERAL>_ | _<GENERAL>_,_<INSTANCE>_
+
+	Defines the window class hint on Linux.
 
 	When only the general class is passed, instance will be set to the same value.
 
 	On Wayland the general class sets the _app\_id_, while the instance class is ignored.
 
-*-e, --command* <command>...
-	Command and args to execute (must be last argument)
+	Default: _Alacritty,Alacritty_
 
-*--config-file* <config-file>
-	Specify alternative configuration file
+*-e, --command* _<COMMAND>..._
+
+	Command and args to execute (must be last argument).
+
+*--config-file* _<CONFIG_FILE>_
+
+	Specify alternative configuration file.
 
 	Alacritty looks for the configuration file at the following paths:
-		. $XDG_CONFIG_HOME/alacritty/alacritty.toml
-		. $XDG_CONFIG_HOME/alacritty.toml
-		. $HOME/.config/alacritty/alacritty.toml
-		. $HOME/.alacritty.toml
+		. _$XDG_CONFIG_HOME/alacritty/alacritty.toml_
+		. _$XDG_CONFIG_HOME/alacritty.toml_
+		. _$HOME/.config/alacritty/alacritty.toml_
+		. _$HOME/.alacritty.toml_
 
-	On Windows, the configuration file is located at %APPDATA%\\alacritty\\alacritty.toml
+	On Windows, the configuration file is located at _%APPDATA%\\alacritty\\alacritty.toml_.
 
-*--embed* <parent>
-	X11 window ID to embed Alacritty within (decimal or hexadecimal with _0x_ prefix)
+*--embed* _<PARENT>_
 
-*-o, --option* <option>...
-	Override configuration file options [example: 'cursor.style="Beam"']
+	X11 window ID to embed Alacritty within (decimal or hexadecimal with _0x_ prefix).
 
-*--socket* <socket>
-	Path for IPC socket creation
+*-o, --option* _<OPTION>..._
 
-*-T, --title* <title>
-	Defines the window title [default: Alacritty]
+	Override configuration file options.
 
-*--working-directory* <working-directory>
-	Start the shell in the specified working directory
+	Example: _alacritty -o 'cursor.style="Beam"'_
+
+*--socket* _<SOCKET>_
+
+	Path for IPC socket creation.
+
+*-T, --title* _<TITLE>_
+
+	Defines the window title.
+
+	Default: _Alacritty_
+
+*--working-directory* _<WORKING_DIRECTORY>_
+
+	Start the shell in the specified working directory.
 
 # SUBCOMMANDS
 
 *msg*
-	Send IPC socket messages (see *alacritty-msg*(1))
+
+	Send IPC socket messages (see *alacritty-msg*(1)).
 
 # SEE ALSO
 
 *alacritty-msg*(1), *alacritty*(5), *alacritty-bindings*(5)
 
-See the alacritty github repository at https://github.com/alacritty/alacritty
+See the alacritty github repository at _https://github.com/alacritty/alacritty_
 for the full documentation.
 
 # BUGS
 
-Found a bug? Please report it at https://github.com/alacritty/alacritty/issues.
+Found a bug? Please report it at _https://github.com/alacritty/alacritty/issues_.
 
 # MAINTAINERS
 
