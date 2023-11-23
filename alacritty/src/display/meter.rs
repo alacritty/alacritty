@@ -64,11 +64,6 @@ impl<'a> Drop for Sampler<'a> {
 }
 
 impl Meter {
-    /// Create a meter.
-    pub fn new() -> Meter {
-        Default::default()
-    }
-
     /// Get a sampler.
     pub fn sampler(&mut self) -> Sampler<'_> {
         Sampler::new(self)

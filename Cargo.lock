@@ -1975,9 +1975,9 @@ dependencies = [
 
 [[package]]
 name = "vte"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "401dc1020e10f74d38616c1f1ab92ccd85dc902705a29d0730e0fbea8534f91a"
+checksum = "40eb22ae96f050e0c0d6f7ce43feeae26c348fc4dea56928ca81537cfaa6188b"
 dependencies = [
  "bitflags 2.4.1",
  "cursor-icon",
