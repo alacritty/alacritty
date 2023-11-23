@@ -1014,9 +1014,6 @@ relied upon.
 
 *alacritty*(1), *alacritty-msg*(1), *alacritty-bindings*(5)
 
-See the alacritty github repository at _https://github.com/alacritty/alacritty_
-for the full documentation.
-
 # BUGS
 
 Found a bug? Please report it at _https://github.com/alacritty/alacritty/issues_.
