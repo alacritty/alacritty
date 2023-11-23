@@ -23,7 +23,7 @@ set of features with high performance.
 
 *--print-events*
 
-	Print all events to stdout.
+	Print all events to STDOUT.
 
 *-q*
 
@@ -98,6 +98,34 @@ set of features with high performance.
 *msg*
 
 	Send IPC socket messages (see *alacritty-msg*(1)).
+
+*migrate*
+
+	Migrate the configuration file.
+
+	*-c, --config-file* _<CONFIG_FILE>_
+
+		Path to the configuration file.
+
+	*-d, --dry-run*
+
+		Only output TOML config to STDOUT.
+
+	*-i, --skip-imports*
+
+		Do not recurse over imports.
+
+	*--skip-renames*
+
+		Do not move renamed fields to their new location.
+
+	*-s, --silent*
+
+		Do not output to STDOUT.
+
+	*-h, --help*
+
+		Print help information.
 
 # SEE ALSO
 
