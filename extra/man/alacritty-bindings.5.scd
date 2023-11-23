@@ -9,7 +9,7 @@ Alacritty Bindings - Default configuration file bindings
 This page documents all key and mouse bindings for the default Alacritty
 configuration. See *alacritty*(5) for full configuration format documentation.
 
-# Mouse Bindings
+# MOUSE BINDINGS
 
 [[ *mouse*
 :[ *mods*
@@ -24,7 +24,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"~Vi"_
 :  _"PasteSelection"_
 
-# Key Bindings
+# KEY BINDINGS
 
 [[ *key*
 :[ *mods*
