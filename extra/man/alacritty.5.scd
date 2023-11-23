@@ -184,7 +184,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
-# Scrolling
+# SCROLLING
 
 This section documents the *[scrolling]* table of the configuration file.
 
@@ -202,7 +202,7 @@ Limited to _100000_.
 
 	Default: _3_
 
-# Font
+# FONT
 
 This section documents the *[font]* table of the configuration file.
 
@@ -261,7 +261,7 @@ macOS:     _{ family = "Menlo",     style = "Regular" }_
 
 	Default: _true_
 
-# Colors
+# COLORS
 
 This section documents the *[colors]* table of the configuration file.
 
@@ -452,7 +452,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 	Default: _false_
 
-# Bell
+# BELL
 
 This section documents the *[bell]* table of the configuration file.
 
@@ -484,7 +484,7 @@ This section documents the *[bell]* table of the configuration file.
 
 	Default: _"None"_
 
-# Selection
+# SELECTION
 
 This section documents the *[selection]* table of the configuration file.
 
@@ -501,7 +501,7 @@ This section documents the *[selection]* table of the configuration file.
 
 	Default: _false_
 
-# Cursor
+# CURSOR
 
 This section documents the *[cursor]* table of the configuration file.
 
@@ -561,7 +561,7 @@ This section documents the *[cursor]* table of the configuration file.
 
 	Default: _0.15_
 
-# Terminal
+# TERMINAL
 
 This section documents the *[terminal]* table of the configuration file.
 
@@ -575,7 +575,7 @@ This section documents the *[terminal]* table of the configuration file.
 
 	Default: _"OnlyCopy"_
 
-# Mouse
+# MOUSE
 
 This section documents the *[mouse]* table of the configuration file.
 
@@ -610,7 +610,7 @@ bindings = [++
 	{ mouse = _"Right"_, mods = _"Control"_, action = _"Paste"_ },++
 ]
 
-# Hints
+# HINTS
 
 This section documents the *[hints]* table of the configuration file.
 
@@ -690,7 +690,7 @@ mouse = { enabled = true },++
 binding = { key = "U", mods = "Control | Shift" },
 }]_
 
-# Keyboard
+# KEYBOARD
 
 This section documents the *[keyboard]* table of the configuration file.
 
@@ -938,7 +938,7 @@ bindings = [++
 ]
 
 
-# Debug
+# DEBUG
 
 This section documents the *[debug]* table of the configuration file.
 
