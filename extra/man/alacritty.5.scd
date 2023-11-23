@@ -65,7 +65,7 @@ args = [_"-l"_]
 
 # ENV
 
-All key-value pairs in the *env* section will be added as environment variables
+All key-value pairs in the *[env]* section will be added as environment variables
 for any process spawned by Alacritty, including its shell. Some entries may
 override variables set by alacritty itself.
 
@@ -269,6 +269,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 *primary*
 
+	This section documents the *[colors.primary]* table of the configuration file.
+
 	*foreground* = _"<string>"_
 
 		Default: _"#d8d8d8"_
@@ -313,7 +315,7 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 *search*
 
-	Colors used for the search bar and match highlighting.
+	This section documents the *[colors.search]* table of the configuration.
 
 	Allowed values are hexadecimal colors like _#ff00ff_, or
 	_CellForeground_/_CellBackground_, which references the affected cell.
@@ -327,6 +329,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 		Default: { foreground = _"#181818"_, background = _"#f4bf75"_ }
 
 *hints*
+
+	This section documents the *[colors.hints]* table of the configuration.
 
 	*start* = { foreground = _"<string>"_, background = _"<string>"_ }
 
@@ -373,6 +377,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 *normal*
 
+	This section documents the *[colors.normal]* table of the configuration.
+
 	*black* = _"<string>"_
 		Default: _"#181818"_
 	*red* = _"<string>"_
@@ -392,6 +398,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 
 *bright*
 
+	This section documents the *[colors.bright]* table of the configuration.
+
 	*black* = _"<string>"_
 		Default: _"#6b6b6b"_
 	*red* = _"<string>"_
@@ -410,6 +418,8 @@ Colors are specified using their hexadecimal values with a _#_ prefix: _#RRGGBB_
 		Default: _"#f8f8f8"_
 
 *dim*
+
+	This section documents the *[colors.dim]* table of the configuration.
 
 	If the dim colors are not set, they will be calculated automatically based
 	on the _normal_ colors.
@@ -505,7 +515,7 @@ This section documents the *[selection]* table of the configuration file.
 
 This section documents the *[cursor]* table of the configuration file.
 
-*style*
+*style* = { *<shape>*, *<blinking>* }
 
 	*shape* = _"Block"_ | _"Underline"_ | _"Beam"_
 
@@ -524,12 +534,10 @@ This section documents the *[cursor]* table of the configuration file.
 
 		Default: _"Off"_
 
-*vi_mode_style*
+*vi_mode_style* = { *<shape>*, *<blinking>* } | _"None"_
 
 	If the vi mode cursor style is _"None"_ or not specified, it will fall back to
 	the active value of the normal cursor.
-
-	See _cursor.style_ for available options.
 
 	Default: _"None"_
 
