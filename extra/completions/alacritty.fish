@@ -6,7 +6,7 @@ complete -c alacritty -n "__fish_use_subcommand" -s e -l command -d 'Command and
 complete -c alacritty -n "__fish_use_subcommand" -s T -l title -d 'Defines the window title [default: Alacritty]' -r
 complete -c alacritty -n "__fish_use_subcommand" -l class -d 'Defines window class/app_id on X11/Wayland [default: Alacritty]' -r
 complete -c alacritty -n "__fish_use_subcommand" -s o -l option -d 'Override configuration file options [example: \'cursor.style="Beam"\']' -r
-complete -c alacritty -n "__fish_use_subcommand" -l print-events -d 'Print all events to stdout'
+complete -c alacritty -n "__fish_use_subcommand" -l print-events -d 'Print all events to STDOUT'
 complete -c alacritty -n "__fish_use_subcommand" -l ref-test -d 'Generates ref test'
 complete -c alacritty -n "__fish_use_subcommand" -s q -d 'Reduces the level of verbosity (the min level is -qq)'
 complete -c alacritty -n "__fish_use_subcommand" -s v -d 'Increases the level of verbosity (the max level is -vvv)'
@@ -35,7 +35,7 @@ complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subco
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -f -a "config" -d 'Update the Alacritty configuration'
 complete -c alacritty -n "__fish_seen_subcommand_from msg; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from create-window; and not __fish_seen_subcommand_from config; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s c -l config-file -d 'Path to the configuration file' -r -F
-complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s d -l dry-run -d 'Only output TOML config to stdout'
+complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s d -l dry-run -d 'Only output TOML config to STDOUT'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s i -l skip-imports -d 'Do not recurse over imports'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -l skip-renames -d 'Do not move renamed fields to their new location'
 complete -c alacritty -n "__fish_seen_subcommand_from migrate" -s s -l silent -d 'Do not output to STDOUT'

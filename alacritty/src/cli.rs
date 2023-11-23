@@ -20,7 +20,7 @@ use crate::logging::LOG_TARGET_IPC_CONFIG;
 #[derive(Parser, Default, Debug)]
 #[clap(author, about, version = env!("VERSION"))]
 pub struct Options {
-    /// Print all events to stdout.
+    /// Print all events to STDOUT.
     #[clap(long)]
     pub print_events: bool,
 
@@ -262,7 +262,7 @@ pub struct MigrateOptions {
     #[clap(short, long, value_hint = ValueHint::FilePath)]
     pub config_file: Option<PathBuf>,
 
-    /// Only output TOML config to stdout.
+    /// Only output TOML config to STDOUT.
     #[clap(short, long)]
     pub dry_run: bool,
 

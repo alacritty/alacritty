@@ -26,7 +26,7 @@ _alacritty() {
 '--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance: ' \
 '*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
 '*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
-'--print-events[Print all events to stdout]' \
+'--print-events[Print all events to STDOUT]' \
 '--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
@@ -122,8 +122,8 @@ esac
 _arguments "${_arguments_options[@]}" \
 '-c+[Path to the configuration file]:CONFIG_FILE:_files' \
 '--config-file=[Path to the configuration file]:CONFIG_FILE:_files' \
-'-d[Only output TOML config to stdout]' \
-'--dry-run[Only output TOML config to stdout]' \
+'-d[Only output TOML config to STDOUT]' \
+'--dry-run[Only output TOML config to STDOUT]' \
 '-i[Do not recurse over imports]' \
 '--skip-imports[Do not recurse over imports]' \
 '--skip-renames[Do not move renamed fields to their new location]' \
