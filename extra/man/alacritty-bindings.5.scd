@@ -538,7 +538,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Command"_
 :[
 :  _"SelectTab8"_
-|  _"2 9"_
+|  _"9"_
 :  _"Command"_
 :[
 :  _"SelectLastTab"_
