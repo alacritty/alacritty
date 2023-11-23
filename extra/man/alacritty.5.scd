@@ -696,14 +696,17 @@ _action_ or a _command_.
 		The _enabled_ field controls if the hint should be underlined when
 		hovering over the hint text with all _mods_ pressed.
 
-Default: [{
-	regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+"_,++
-hyperlinks = _true_,++
-post_processing = _true_,++
-persist = _false_,++
-mouse = { enabled = _true_ },++
-binding = { key = _"U"_, mods = _"Control|Shift"_ },++
-}]
+	Default:
+		*[[hints.enabled]]*++
+command         = _"xdg-open"_ # On Linux/BSD++
+# command       = _"open"_ # On macOS++
+# command       = { program = _"cmd"_, args = [ _"/c"_, _"start"_, _""_ ] } # On Windows++
+hyperlinks      = _true_++
+post_processing = _true_++
+persist         = _false_++
+mouse.enabled   = _true_++
+binding         = { key = _"U"_, mods = _"Control|Shift"_ }++
+regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+"_
 
 # KEYBOARD
 
