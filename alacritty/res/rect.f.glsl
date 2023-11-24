@@ -45,7 +45,7 @@ color_t draw_undercurl(float_t x, float_t y) {
   // cosine curve.
   float_t alpha = 1.;
   if (y > undercurlTop || y < undercurlBottom) {
-    // NOTE: doing proper SDF is complicated for this shader, so just make AA
+    // Doing proper SDF is complicated for this shader, so just make AA
     // stronger by 1/x^2, which renders preserving underline thickness and
     // being bold enough.
     float_t dst = min(abs(undercurlTop - y), abs(undercurlBottom - y));
