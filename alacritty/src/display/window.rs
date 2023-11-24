@@ -112,6 +112,7 @@ pub struct Window {
     /// Current window title.
     title: String,
 
+    is_x11: bool,
     current_mouse_cursor: CursorIcon,
     mouse_visible: bool,
 }
@@ -188,15 +189,17 @@ impl Window {
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
+        let is_x11 = matches!(window.raw_window_handle(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
+            requested_redraw: false,
+            title: identity.title,
             current_mouse_cursor,
             mouse_visible: true,
-            requested_redraw: false,
-            window,
-            title: identity.title,
             has_frame: true,
             scale_factor,
+            window,
+            is_x11,
         })
     }
 
@@ -412,11 +415,17 @@ impl Window {
 
     /// Adjust the IME editor position according to the new location of the cursor.
     pub fn update_ime_position(&self, point: Point<usize>, size: &SizeInfo) {
+        // NOTE: X11 doesn't support cursor area, so we need to offset manually to not obscure
+        // the text.
+        let offset = if self.is_x11 { 1 } else { 0 };
         let nspot_x = f64::from(size.padding_x() + point.column.0 as f32 * size.cell_width());
-        let nspot_y = f64::from(size.padding_y() + (point.line + 1) as f32 * size.cell_height());
+        let nspot_y =
+            f64::from(size.padding_y() + (point.line + offset) as f32 * size.cell_height());
 
-        // Exclude the rest of the line since we edit from left to right.
-        let width = size.width as f64 - nspot_x;
+        // NOTE: some compositors don't like excluding too much and try to render popup at the
+        // bottom right corner of the provided area, so exclude just the full-width char to not
+        // obscure the cursor and not render popup at the end of the window.
+        let width = size.cell_width() as f64 * 2.;
         let height = size.cell_height as f64;
 
         self.window.set_ime_cursor_area(
