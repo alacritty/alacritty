@@ -618,7 +618,8 @@ impl Display {
 
             info!("Cell size: {} x {}", cell_width, cell_height);
 
-            // NOTE: fonts can change glyph sizes keeping the same cell size.
+            // Mark entire terminal as damaged since glyph size could change without cell size
+            // changes.
             self.damage_tracker.frame().mark_fully_damaged();
         }
 
