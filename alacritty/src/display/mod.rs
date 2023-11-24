@@ -617,6 +617,9 @@ impl Display {
             cell_height = cell_dimensions.1;
 
             info!("Cell size: {} x {}", cell_width, cell_height);
+
+            // NOTE: fonts can change glyph sizes keeping the same cell size.
+            self.damage_tracker.frame().mark_fully_damaged();
         }
 
         let (mut width, mut height) = (self.size_info.width(), self.size_info.height());
