@@ -631,7 +631,7 @@ pub enum BindingKey {
 }
 
 /// Key location for matching bindings.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub enum KeyLocation {
     /// The key is in its standard position.
     Standard,
@@ -663,8 +663,6 @@ impl PartialEq for KeyLocation {
         )
     }
 }
-
-impl Eq for KeyLocation {}
 
 impl<'a> Deserialize<'a> for BindingKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

@@ -22,7 +22,8 @@ use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 use crate::vte::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, KeyboardModes,
-    NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb, StandardCharset, KeyboardModesApplyBehavior
+    KeyboardModesApplyBehavior, NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb,
+    StandardCharset,
 };
 
 pub mod cell;

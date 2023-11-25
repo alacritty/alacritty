@@ -78,10 +78,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
-        let build_key_sequence = Self::should_build_key_sequence(&key, text, mode, mods);
+        let build_key_sequence = Self::should_build_esc_key_sequence(&key, text, mode, mods);
 
         let bytes = if build_key_sequence {
-            build_keyboard_esc_sequence(key, mods, mode)
+            build_key_esc_sequence(key, mods, mode)
         } else {
             let mut bytes = Vec::with_capacity(text.len() + 1);
             if self.alt_send_esc() && text.len() == 1 {
@@ -100,7 +100,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     /// Check whether we should try to build escape sequence for the [`KeyEvent`].
-    fn should_build_key_sequence(
+    fn should_build_esc_key_sequence(
         key: &KeyEvent,
         text: &str,
         mode: TermMode,
@@ -113,8 +113,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let is_escape = key.logical_key == Key::Named(NamedKey::Escape);
             is_escape || (!mods.is_empty() && mods != ModifiersState::SHIFT) || on_numpad
         } else {
-            // `Delete` key has always text attached to it, but it's a named key, thus needs
-            // to be excluded here as well.
+            // `Delete` key always has text attached to it, but it's a named key, thus needs to be
+            // excluded here as well.
             text.is_empty() || key.logical_key == Key::Named(NamedKey::Delete)
         }
     }
@@ -188,7 +188,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 // KEYBOARD_REPORT_ALL_KEYS_AS_ESC is used, we build proper escapes for
                 // the keys below.
                 _ if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) => {
-                    build_keyboard_esc_sequence(key, mods, mode).into()
+                    build_key_esc_sequence(key, mods, mode).into()
                 },
                 // Winit uses different keys for `Backspace` so we expliictly specify the
                 // values, instead of using what was passed to us from it.
@@ -196,7 +196,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 Key::Named(NamedKey::Enter) => [b'\r'].as_slice().into(),
                 Key::Named(NamedKey::Backspace) => [b'\x7f'].as_slice().into(),
                 Key::Named(NamedKey::Escape) => [b'\x1b'].as_slice().into(),
-                _ => build_keyboard_esc_sequence(key, mods, mode).into(),
+                _ => build_key_esc_sequence(key, mods, mode).into(),
             };
 
             self.ctx.write_to_pty(bytes);
@@ -215,11 +215,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 }
 
-/// Build the keyboard escape sequence based on the given `key`, `mods`, and `mode`.
+/// Build a key's keyboard escape sequence based on the given `key`, `mods`, and `mode`.
 ///
 /// The key sequences for `APP_KEYPAD` and alike are handled inside the bindings.
 #[inline(never)]
-fn build_keyboard_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8> {
+fn build_key_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8> {
     let modifiers = mods.into();
 
     let kitty_seq = mode.intersects(
@@ -244,10 +244,12 @@ fn build_keyboard_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMo
     let sequence_base = context
         .prepare_numpad_base(&key)
         .or_else(|| context.prepare_named_base(&key))
+        .or_else(|| context.prepare_control_and_mods(&key))
         .or_else(|| context.prepare_text_base(&key));
 
-    let Some(KeyEscSequenceBase { payload, terminator }) = sequence_base else {
-        return Vec::new();
+    let (payload, terminator) = match sequence_base {
+        Some(KeyEscSequenceBase { payload, terminator }) => (payload, terminator),
+        _ => return Vec::new(),
     };
 
     let mut payload = format!("\x1b[{}", payload);
@@ -260,7 +262,7 @@ fn build_keyboard_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMo
         payload.push_str(&format!(";{}", modifiers.esc_sequence_encoded()));
     }
 
-    // Push event types.
+    // Push event type.
     if kitty_event_type {
         payload.push(':');
         let event_type = match key.state {
@@ -308,40 +310,39 @@ pub struct KeyEscSequenceBuildingContext {
 impl KeyEscSequenceBuildingContext {
     /// Prepare key with the text attached to it.
     fn prepare_text_base(&self, key: &KeyEvent) -> Option<KeyEscSequenceBase> {
-        match key.logical_key.as_ref() {
-            Key::Character(character) => {
-                // We could have compose sequience, which has more than one character. Thus
-                // ignore it when we have to encode all.
-                if self.kitty_encode_all && character.chars().count() > 1 {
-                    Some(KeyEscSequenceBase::new("0".into(), 'u'))
-                } else {
-                    let character = character.chars().next().unwrap();
-                    let base_character = character.to_lowercase().next().unwrap();
+        let character = match key.logical_key.as_ref() {
+            Key::Character(character) => character,
+            _ => return None,
+        };
 
-                    let codepoint = u32::from(character);
-                    let base_codepoint = u32::from(base_character);
+        // Character from winit is non-empty.
+        if character.chars().count() == 1 {
+            let character = character.chars().next().unwrap();
+            let base_character = character.to_lowercase().next().unwrap();
 
-                    // NOTE Base layouts are ignored, since winit doesn't expose this information
-                    // yet.
-                    let payload = if self.mode.contains(TermMode::REPORT_ALTERNATE_KEYS)
-                        && codepoint != base_codepoint
-                    {
-                        format!("{codepoint}:{base_codepoint}")
-                    } else {
-                        codepoint.to_string()
-                    };
+            let codepoint = u32::from(character);
+            let base_codepoint = u32::from(base_character);
 
-                    Some(KeyEscSequenceBase::new(payload.into(), 'u'))
-                }
-            },
-            _ => {
-                // When encoding all the keys, we should also encode unknown keys.
-                if self.kitty_encode_all && key.text.is_some() {
-                    Some(KeyEscSequenceBase::new("0".into(), 'u'))
-                } else {
-                    None
-                }
-            },
+            // NOTE: Base layouts are ignored, since winit doesn't expose this information
+            // yet.
+            let payload = if self.mode.contains(TermMode::REPORT_ALTERNATE_KEYS)
+                && codepoint != base_codepoint
+            {
+                format!("{codepoint}:{base_codepoint}")
+            } else {
+                codepoint.to_string()
+            };
+
+            Some(KeyEscSequenceBase::new(payload.into(), 'u'))
+        } else if self.kitty_encode_all
+            && self.mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
+            && key.text.is_some()
+        {
+            // When associated text is requested along the encode all and we have more than one
+            // character, we should use codepoint '0' with 'u' suffix.
+            Some(KeyEscSequenceBase::new("0".into(), 'u'))
+        } else {
+            None
         }
     }
 
@@ -382,7 +383,7 @@ impl KeyEscSequenceBuildingContext {
                 NamedKey::End => "57424",
                 NamedKey::Insert => "57425",
                 NamedKey::Delete => "57426",
-                // NOTE we don't know where these keys actually are in winit input,
+                // NOTE: we don't know where these keys actually are in winit input,
                 // but once we know, the values are the following:
                 // KP_SEPARATOR => "57415",
                 // KP_BEGIN => "57427",
@@ -396,24 +397,49 @@ impl KeyEscSequenceBuildingContext {
 
     /// Prepare [`NamedKey`] key.
     fn prepare_named_base(&self, key: &KeyEvent) -> Option<KeyEscSequenceBase> {
-        let Key::Named(named) = key.logical_key else {
-            return None;
+        let named = match key.logical_key {
+            Key::Named(named) => named,
+            _ => return None,
         };
 
         let omit_base = self.modifiers.is_empty() && !self.kitty_event_type;
         let (base, suffix) = match named {
-            NamedKey::ArrowLeft => (if omit_base { "" } else { "1" }, 'D'),
-            NamedKey::ArrowRight => (if omit_base { "" } else { "1" }, 'C'),
-            NamedKey::ArrowUp => (if omit_base { "" } else { "1" }, 'A'),
-            NamedKey::ArrowDown => (if omit_base { "" } else { "1" }, 'B'),
-            NamedKey::Home => (if omit_base { "" } else { "1" }, 'H'),
-            NamedKey::End => (if omit_base { "" } else { "1" }, 'F'),
+            NamedKey::ArrowLeft => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'D')
+            },
+            NamedKey::ArrowRight => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'C')
+            },
+            NamedKey::ArrowUp => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'A')
+            },
+            NamedKey::ArrowDown => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'B')
+            },
+            NamedKey::Home => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'H')
+            },
+            NamedKey::End => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'F')
+            },
             NamedKey::PageUp => ("5", '~'),
             NamedKey::PageDown => ("6", '~'),
             NamedKey::Insert => ("2", '~'),
             NamedKey::Delete => ("3", '~'),
-            NamedKey::F1 => (if self.kitty_seq && omit_base { "" } else { "1" }, 'P'),
-            NamedKey::F2 => (if self.kitty_seq && omit_base { "" } else { "1" }, 'Q'),
+            NamedKey::F1 => {
+                let base = if self.kitty_seq && omit_base { "" } else { "1" };
+                (base, 'P')
+            },
+            NamedKey::F2 => {
+                let base = if self.kitty_seq && omit_base { "" } else { "1" };
+                (base, 'Q')
+            },
             NamedKey::F3 => {
                 // F3 diverges from alacritty's terminfo for kitty protocol.
                 if self.kitty_seq {
@@ -422,7 +448,10 @@ impl KeyEscSequenceBuildingContext {
                     ("1", 'R')
                 }
             },
-            NamedKey::F4 => (if self.kitty_seq && omit_base { "" } else { "1" }, 'S'),
+            NamedKey::F4 => {
+                let base = if self.kitty_seq && omit_base { "" } else { "1" };
+                (base, 'S')
+            },
             NamedKey::F5 => ("15", '~'),
             NamedKey::F6 => ("17", '~'),
             NamedKey::F7 => ("18", '~'),
@@ -470,80 +499,55 @@ impl KeyEscSequenceBuildingContext {
             NamedKey::AudioVolumeDown => ("57438", 'u'),
             NamedKey::AudioVolumeUp => ("57439", 'u'),
             NamedKey::AudioVolumeMute => ("57440", 'u'),
-            named => {
-                if !self.kitty_encode_all && !self.kitty_seq {
-                    return None;
-                }
-
-                let mut base = match named {
-                    NamedKey::Tab => "9",
-                    NamedKey::Enter => "13",
-                    NamedKey::Escape => "27",
-                    NamedKey::Space => "32",
-                    NamedKey::Backspace => "127",
-                    _ => "",
-                };
-
-                if self.kitty_encode_all {
-                    let left = key.location == KeyLocation::Left;
-                    base = match named {
-                        NamedKey::CapsLock => "57358",
-                        NamedKey::NumLock => "57360",
-                        NamedKey::Shift => {
-                            if left {
-                                "57441"
-                            } else {
-                                "57447"
-                            }
-                        },
-                        NamedKey::Control => {
-                            if left {
-                                "57442"
-                            } else {
-                                "57448"
-                            }
-                        },
-                        NamedKey::Alt => {
-                            if left {
-                                "57443"
-                            } else {
-                                "57449"
-                            }
-                        },
-                        NamedKey::Super => {
-                            if left {
-                                "57444"
-                            } else {
-                                "57450"
-                            }
-                        },
-                        NamedKey::Hyper => {
-                            if left {
-                                "57445"
-                            } else {
-                                "57451"
-                            }
-                        },
-                        NamedKey::Meta => {
-                            if left {
-                                "57446"
-                            } else {
-                                "57452"
-                            }
-                        },
-                        _ => base,
-                    };
-                }
-
-                if base.is_empty() {
-                    return None;
-                }
-
-                (base, 'u')
-            },
+            _ => return None,
         };
 
         Some(KeyEscSequenceBase::new(base.into(), suffix))
+    }
+
+    /// Prepare control characters (e.g. Enter) and modifiers.
+    fn prepare_control_and_mods(&self, key: &KeyEvent) -> Option<KeyEscSequenceBase> {
+        if !self.kitty_encode_all && !self.kitty_seq {
+            return None;
+        }
+
+        let named = match key.logical_key {
+            Key::Named(named) => named,
+            _ => return None,
+        };
+
+        let base = match named {
+            NamedKey::Tab => "9",
+            NamedKey::Enter => "13",
+            NamedKey::Escape => "27",
+            NamedKey::Space => "32",
+            NamedKey::Backspace => "127",
+            _ => "",
+        };
+
+        if !self.kitty_encode_all && base.is_empty() {
+            return None;
+        }
+
+        let left = key.location == KeyLocation::Left;
+        #[rustfmt::skip]
+        let base = match named {
+            NamedKey::CapsLock => "57358",
+            NamedKey::NumLock => "57360",
+            NamedKey::Shift => if left { "57441" } else { "57447" },
+            NamedKey::Control => if left { "57442" } else { "57448" },
+            NamedKey::Alt => if left { "57443" } else { "57449" },
+            NamedKey::Super => if left { "57444" } else { "57450" },
+            NamedKey::Hyper => if left { "57445" } else { "57451" },
+            NamedKey::Meta => if left { "57446" } else { "57452" },
+            _ => base,
+        };
+
+        if base.is_empty() {
+            None
+        } else {
+            Some(KeyEscSequenceBase::new(base.into(), 'u'))
+        }
     }
 }
 
@@ -561,14 +565,14 @@ impl KeyEscSequenceBase {
 }
 
 bitflags::bitflags! {
-    /// The modifiers encoding for escape sequnce
+    /// The modifiers encoding for escape sequence.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     struct EscSequenceModifiers : u8 {
         const SHIFT   = 0b0000_0001;
         const ALT     = 0b0000_0010;
         const CONTROL = 0b0000_0100;
         const SUPER   = 0b0000_1000;
-        // NOTE kitty protocol defines additional modiffiers to what is present here, like
+        // NOTE: kitty protocol defines additional modifiers to what is present here, like
         // Capslock, but it's not a modifier as per winit.
     }
 }
