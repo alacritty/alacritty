@@ -17,6 +17,8 @@ use crate::event::TYPING_SEARCH_DELAY;
 use crate::input::{ActionContext, Execute, Processor};
 use crate::scheduler::{TimerId, Topic};
 
+use KeyEscSequenceTerminator::{Kitty, Tinfo};
+
 impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     /// Process key input.
     pub fn key_input(&mut self, key: KeyEvent) {
@@ -276,7 +278,7 @@ fn build_key_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -
     // Associated text is not reported for the control/alt/logo key presses.
     if mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
         && key.state != ElementState::Released
-        && (modifiers.is_empty() || modifiers == EscSequenceModifiers::SHIFT)
+        && (modifiers.is_empty() || modifiers == KeyEscSequenceModifiers::SHIFT)
     {
         if let Some(text) = key.text {
             let mut codepoints = text.chars().map(u32::from);
@@ -290,7 +292,7 @@ fn build_key_esc_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -
         }
     }
 
-    payload.push(terminator);
+    payload.push(terminator.esc_sequence_encoded());
 
     payload.into_bytes()
 }
@@ -304,7 +306,7 @@ pub struct KeyEscSequenceBuildingContext {
     kitty_encode_all: bool,
     /// Report event types.
     kitty_event_type: bool,
-    modifiers: EscSequenceModifiers,
+    modifiers: KeyEscSequenceModifiers,
 }
 
 impl KeyEscSequenceBuildingContext {
@@ -315,7 +317,6 @@ impl KeyEscSequenceBuildingContext {
             _ => return None,
         };
 
-        // Character from winit is non-empty.
         if character.chars().count() == 1 {
             let character = character.chars().next().unwrap();
             let base_character = character.to_lowercase().next().unwrap();
@@ -333,14 +334,14 @@ impl KeyEscSequenceBuildingContext {
                 codepoint.to_string()
             };
 
-            Some(KeyEscSequenceBase::new(payload.into(), 'u'))
+            Some(KeyEscSequenceBase::new(payload.into(), Kitty))
         } else if self.kitty_encode_all
             && self.mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
             && key.text.is_some()
         {
-            // When associated text is requested along the encode all and we have more than one
-            // character, we should use codepoint '0' with 'u' suffix.
-            Some(KeyEscSequenceBase::new("0".into(), 'u'))
+            // Fallback when need to report text, but we don't have any key associated with this
+            // text.
+            Some(KeyEscSequenceBase::new("0".into(), Kitty))
         } else {
             None
         }
@@ -383,16 +384,12 @@ impl KeyEscSequenceBuildingContext {
                 NamedKey::End => "57424",
                 NamedKey::Insert => "57425",
                 NamedKey::Delete => "57426",
-                // NOTE: we don't know where these keys actually are in winit input,
-                // but once we know, the values are the following:
-                // KP_SEPARATOR => "57415",
-                // KP_BEGIN => "57427",
                 _ => return None,
             },
             _ => return None,
         };
 
-        Some(KeyEscSequenceBase::new(base.into(), 'u'))
+        Some(KeyEscSequenceBase::new(base.into(), Kitty))
     }
 
     /// Prepare [`NamedKey`] key.
@@ -402,107 +399,82 @@ impl KeyEscSequenceBuildingContext {
             _ => return None,
         };
 
-        let omit_base = self.modifiers.is_empty() && !self.kitty_event_type;
-        let (base, suffix) = match named {
-            NamedKey::PageUp => ("5", '~'),
-            NamedKey::PageDown => ("6", '~'),
-            NamedKey::Insert => ("2", '~'),
-            NamedKey::Delete => ("3", '~'),
-            NamedKey::Home => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'H')
-            },
-            NamedKey::End => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'F')
-            },
-            NamedKey::ArrowLeft => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'D')
-            },
-            NamedKey::ArrowRight => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'C')
-            },
-            NamedKey::ArrowUp => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'A')
-            },
-            NamedKey::ArrowDown => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'B')
-            },
-            NamedKey::F1 => {
-                let base = if self.kitty_seq && omit_base { "" } else { "1" };
-                (base, 'P')
-            },
-            NamedKey::F2 => {
-                let base = if self.kitty_seq && omit_base { "" } else { "1" };
-                (base, 'Q')
-            },
+        // Omit payload when the base is 1, since it's a common thing to do and some clients break
+        // if don't do so.
+        let one_based = if self.modifiers.is_empty() && !self.kitty_event_type { "" } else { "1" };
+        let (base, terminator) = match named {
+            NamedKey::PageUp => ("5", Tinfo('~')),
+            NamedKey::PageDown => ("6", Tinfo('~')),
+            NamedKey::Insert => ("2", Tinfo('~')),
+            NamedKey::Delete => ("3", Tinfo('~')),
+            NamedKey::Home => (one_based, Tinfo('H')),
+            NamedKey::End => (one_based, Tinfo('F')),
+            NamedKey::ArrowLeft => (one_based, Tinfo('D')),
+            NamedKey::ArrowRight => (one_based, Tinfo('C')),
+            NamedKey::ArrowUp => (one_based, Tinfo('A')),
+            NamedKey::ArrowDown => (one_based, Tinfo('B')),
+            NamedKey::F1 => (one_based, Tinfo('P')),
+            NamedKey::F2 => (one_based, Tinfo('Q')),
             NamedKey::F3 => {
-                // F3 diverges from alacritty's terminfo for kitty protocol.
+                // F3 in kitty protocol diverges from alacritty's terminfo.
                 if self.kitty_seq {
-                    ("13", '~')
+                    ("13", Tinfo('~'))
                 } else {
-                    ("1", 'R')
+                    (one_based, Tinfo('R'))
                 }
             },
-            NamedKey::F4 => {
-                let base = if self.kitty_seq && omit_base { "" } else { "1" };
-                (base, 'S')
-            },
-            NamedKey::F5 => ("15", '~'),
-            NamedKey::F6 => ("17", '~'),
-            NamedKey::F7 => ("18", '~'),
-            NamedKey::F8 => ("19", '~'),
-            NamedKey::F9 => ("20", '~'),
-            NamedKey::F10 => ("21", '~'),
-            NamedKey::F11 => ("23", '~'),
-            NamedKey::F12 => ("24", '~'),
-            NamedKey::F13 => ("57376", 'u'),
-            NamedKey::F14 => ("57377", 'u'),
-            NamedKey::F15 => ("57378", 'u'),
-            NamedKey::F16 => ("57379", 'u'),
-            NamedKey::F17 => ("57380", 'u'),
-            NamedKey::F18 => ("57381", 'u'),
-            NamedKey::F19 => ("57382", 'u'),
-            NamedKey::F20 => ("57383", 'u'),
-            NamedKey::F21 => ("57384", 'u'),
-            NamedKey::F22 => ("57385", 'u'),
-            NamedKey::F23 => ("57386", 'u'),
-            NamedKey::F24 => ("57387", 'u'),
-            NamedKey::F25 => ("57388", 'u'),
-            NamedKey::F26 => ("57389", 'u'),
-            NamedKey::F27 => ("57390", 'u'),
-            NamedKey::F28 => ("57391", 'u'),
-            NamedKey::F29 => ("57392", 'u'),
-            NamedKey::F30 => ("57393", 'u'),
-            NamedKey::F31 => ("57394", 'u'),
-            NamedKey::F32 => ("57395", 'u'),
-            NamedKey::F33 => ("57396", 'u'),
-            NamedKey::F34 => ("57397", 'u'),
-            NamedKey::F35 => ("57398", 'u'),
-            NamedKey::ScrollLock => ("57359", 'u'),
-            NamedKey::PrintScreen => ("57361", 'u'),
-            NamedKey::Pause => ("57362", 'u'),
-            NamedKey::ContextMenu => ("57363", 'u'),
-            NamedKey::MediaPlay => ("57428", 'u'),
-            NamedKey::MediaPause => ("57429", 'u'),
-            NamedKey::MediaPlayPause => ("57430", 'u'),
-            NamedKey::MediaStop => ("57432", 'u'),
-            NamedKey::MediaFastForward => ("57433", 'u'),
-            NamedKey::MediaRewind => ("57434", 'u'),
-            NamedKey::MediaTrackNext => ("57435", 'u'),
-            NamedKey::MediaTrackPrevious => ("57436", 'u'),
-            NamedKey::MediaRecord => ("57437", 'u'),
-            NamedKey::AudioVolumeDown => ("57438", 'u'),
-            NamedKey::AudioVolumeUp => ("57439", 'u'),
-            NamedKey::AudioVolumeMute => ("57440", 'u'),
+            NamedKey::F4 => (one_based, Tinfo('S')),
+            NamedKey::F5 => ("15", Tinfo('~')),
+            NamedKey::F6 => ("17", Tinfo('~')),
+            NamedKey::F7 => ("18", Tinfo('~')),
+            NamedKey::F8 => ("19", Tinfo('~')),
+            NamedKey::F9 => ("20", Tinfo('~')),
+            NamedKey::F10 => ("21", Tinfo('~')),
+            NamedKey::F11 => ("23", Tinfo('~')),
+            NamedKey::F12 => ("24", Tinfo('~')),
+            NamedKey::F13 => ("57376", Kitty),
+            NamedKey::F14 => ("57377", Kitty),
+            NamedKey::F15 => ("57378", Kitty),
+            NamedKey::F16 => ("57379", Kitty),
+            NamedKey::F17 => ("57380", Kitty),
+            NamedKey::F18 => ("57381", Kitty),
+            NamedKey::F19 => ("57382", Kitty),
+            NamedKey::F20 => ("57383", Kitty),
+            NamedKey::F21 => ("57384", Kitty),
+            NamedKey::F22 => ("57385", Kitty),
+            NamedKey::F23 => ("57386", Kitty),
+            NamedKey::F24 => ("57387", Kitty),
+            NamedKey::F25 => ("57388", Kitty),
+            NamedKey::F26 => ("57389", Kitty),
+            NamedKey::F27 => ("57390", Kitty),
+            NamedKey::F28 => ("57391", Kitty),
+            NamedKey::F29 => ("57392", Kitty),
+            NamedKey::F30 => ("57393", Kitty),
+            NamedKey::F31 => ("57394", Kitty),
+            NamedKey::F32 => ("57395", Kitty),
+            NamedKey::F33 => ("57396", Kitty),
+            NamedKey::F34 => ("57397", Kitty),
+            NamedKey::F35 => ("57398", Kitty),
+            NamedKey::ScrollLock => ("57359", Kitty),
+            NamedKey::PrintScreen => ("57361", Kitty),
+            NamedKey::Pause => ("57362", Kitty),
+            NamedKey::ContextMenu => ("57363", Kitty),
+            NamedKey::MediaPlay => ("57428", Kitty),
+            NamedKey::MediaPause => ("57429", Kitty),
+            NamedKey::MediaPlayPause => ("57430", Kitty),
+            NamedKey::MediaStop => ("57432", Kitty),
+            NamedKey::MediaFastForward => ("57433", Kitty),
+            NamedKey::MediaRewind => ("57434", Kitty),
+            NamedKey::MediaTrackNext => ("57435", Kitty),
+            NamedKey::MediaTrackPrevious => ("57436", Kitty),
+            NamedKey::MediaRecord => ("57437", Kitty),
+            NamedKey::AudioVolumeDown => ("57438", Kitty),
+            NamedKey::AudioVolumeUp => ("57439", Kitty),
+            NamedKey::AudioVolumeMute => ("57440", Kitty),
             _ => return None,
         };
 
-        Some(KeyEscSequenceBase::new(base.into(), suffix))
+        Some(KeyEscSequenceBase::new(base.into(), terminator))
     }
 
     /// Prepare control characters (e.g. Enter) and modifiers.
@@ -550,28 +522,45 @@ impl KeyEscSequenceBuildingContext {
         if base.is_empty() {
             None
         } else {
-            Some(KeyEscSequenceBase::new(base.into(), 'u'))
+            Some(KeyEscSequenceBase::new(base.into(), Kitty))
         }
     }
 }
 
 pub struct KeyEscSequenceBase {
-    /// The base of the payload.
+    /// The base of the payload, which is the `number` and optionally an alt base from the kitty
+    /// spec.
     payload: Cow<'static, str>,
-    /// The terminator used for escape, usually `u` or `~`.
-    terminator: char,
+    terminator: KeyEscSequenceTerminator,
 }
 
 impl KeyEscSequenceBase {
-    fn new(payload: Cow<'static, str>, suffix: char) -> Self {
-        Self { payload, terminator: suffix }
+    fn new(payload: Cow<'static, str>, terminator: KeyEscSequenceTerminator) -> Self {
+        Self { payload, terminator }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum KeyEscSequenceTerminator {
+    /// The terminator is based on terminfo.
+    Tinfo(char),
+    /// The terminator is for kitty escape sequence.
+    Kitty,
+}
+
+impl KeyEscSequenceTerminator {
+    fn esc_sequence_encoded(self) -> char {
+        match self {
+            KeyEscSequenceTerminator::Tinfo(char) => char,
+            KeyEscSequenceTerminator::Kitty => 'u',
+        }
     }
 }
 
 bitflags::bitflags! {
     /// The modifiers encoding for escape sequence.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    struct EscSequenceModifiers : u8 {
+    struct KeyEscSequenceModifiers : u8 {
         const SHIFT   = 0b0000_0001;
         const ALT     = 0b0000_0010;
         const CONTROL = 0b0000_0100;
@@ -581,14 +570,14 @@ bitflags::bitflags! {
     }
 }
 
-impl EscSequenceModifiers {
+impl KeyEscSequenceModifiers {
     /// Get the value which should be passed to escape sequence.
     pub fn esc_sequence_encoded(self) -> u8 {
         self.bits() + 1
     }
 }
 
-impl From<ModifiersState> for EscSequenceModifiers {
+impl From<ModifiersState> for KeyEscSequenceModifiers {
     fn from(mods: ModifiersState) -> Self {
         let mut modifiers = Self::empty();
         modifiers.set(Self::SHIFT, mods.shift_key());
