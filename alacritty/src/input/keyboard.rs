@@ -404,6 +404,18 @@ impl KeyEscSequenceBuildingContext {
 
         let omit_base = self.modifiers.is_empty() && !self.kitty_event_type;
         let (base, suffix) = match named {
+            NamedKey::PageUp => ("5", '~'),
+            NamedKey::PageDown => ("6", '~'),
+            NamedKey::Insert => ("2", '~'),
+            NamedKey::Delete => ("3", '~'),
+            NamedKey::Home => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'H')
+            },
+            NamedKey::End => {
+                let base = if omit_base { "" } else { "1" };
+                (base, 'F')
+            },
             NamedKey::ArrowLeft => {
                 let base = if omit_base { "" } else { "1" };
                 (base, 'D')
@@ -420,18 +432,6 @@ impl KeyEscSequenceBuildingContext {
                 let base = if omit_base { "" } else { "1" };
                 (base, 'B')
             },
-            NamedKey::Home => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'H')
-            },
-            NamedKey::End => {
-                let base = if omit_base { "" } else { "1" };
-                (base, 'F')
-            },
-            NamedKey::PageUp => ("5", '~'),
-            NamedKey::PageDown => ("6", '~'),
-            NamedKey::Insert => ("2", '~'),
-            NamedKey::Delete => ("3", '~'),
             NamedKey::F1 => {
                 let base = if self.kitty_seq && omit_base { "" } else { "1" };
                 (base, 'P')
@@ -529,17 +529,21 @@ impl KeyEscSequenceBuildingContext {
             return None;
         }
 
-        let left = key.location == KeyLocation::Left;
-        #[rustfmt::skip]
-        let base = match named {
-            NamedKey::CapsLock => "57358",
-            NamedKey::NumLock => "57360",
-            NamedKey::Shift => if left { "57441" } else { "57447" },
-            NamedKey::Control => if left { "57442" } else { "57448" },
-            NamedKey::Alt => if left { "57443" } else { "57449" },
-            NamedKey::Super => if left { "57444" } else { "57450" },
-            NamedKey::Hyper => if left { "57445" } else { "57451" },
-            NamedKey::Meta => if left { "57446" } else { "57452" },
+        let base = match (named, key.location) {
+            (NamedKey::Shift, KeyLocation::Left) => "57441",
+            (NamedKey::Control, KeyLocation::Left) => "57442",
+            (NamedKey::Alt, KeyLocation::Left) => "57443",
+            (NamedKey::Super, KeyLocation::Left) => "57444",
+            (NamedKey::Hyper, KeyLocation::Left) => "57445",
+            (NamedKey::Meta, KeyLocation::Left) => "57446",
+            (NamedKey::Shift, _) => "57447",
+            (NamedKey::Control, _) => "57448",
+            (NamedKey::Alt, _) => "57449",
+            (NamedKey::Super, _) => "57450",
+            (NamedKey::Hyper, _) => "57451",
+            (NamedKey::Meta, _) => "57452",
+            (NamedKey::CapsLock, _) => "57358",
+            (NamedKey::NumLock, _) => "57360",
             _ => base,
         };
 
