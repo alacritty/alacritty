@@ -30,8 +30,8 @@ active.
 ## Search
 
 Search allows you to find anything in Alacritty's scrollback buffer. You can
-search forward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd> and
-backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd>.
+search forward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd> (<kbd>Command</kbd> <kbd>f</kbd> on MacOS) and
+backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd> (<kbd>Command</kbd> <kbd>b</kbd> on MacOS).
 
 ### Vi Search
 
