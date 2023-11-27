@@ -273,7 +273,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"SearchForward"_
-|  _"/"_
+|  _"?"_
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"SearchBackward"_
