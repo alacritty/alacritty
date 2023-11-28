@@ -1922,7 +1922,7 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         self.event_proxy.send_event(Event::PtyWrite(format!(
-            "\x1b[?{};{}$p",
+            "\x1b[?{};{}$y",
             mode.raw(),
             state as u8,
         )));
@@ -1979,7 +1979,7 @@ impl<T: EventListener> Handler for Term<T> {
         };
 
         self.event_proxy.send_event(Event::PtyWrite(format!(
-            "\x1b[{};{}$p",
+            "\x1b[{};{}$y",
             mode.raw(),
             state as u8,
         )));
