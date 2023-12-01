@@ -268,8 +268,7 @@ impl RectRenderer {
         {
             Ok(dotted_program) => dotted_program,
             Err(err) => {
-                info!("Error compiling dotted shader: {err}");
-                info!("  falling back to underline");
+                info!("Error compiling dotted shader: {err}\n  falling back to underline");
                 RectShaderProgram::new(shader_version, RectKind::Normal)?
             },
         };
