@@ -7,8 +7,6 @@ use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 use toml::Value as SerdeValue;
 use winit::event::MouseButton;
-use winit::keyboard::Key::*;
-use winit::keyboard::NamedKey::*;
 use winit::keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey};
 use winit::platform::scancode::PhysicalKeyExtScancode;
 
@@ -378,7 +376,7 @@ macro_rules! bindings {
     (
         $ty:ident;
         $(
-            $key:expr
+            $key:tt$(::$button:ident)?
             $(=>$location:expr)?
             $(,$mods:expr)*
             $(,+$mode:expr)*
@@ -398,7 +396,7 @@ macro_rules! bindings {
             $(_notmode.insert($notmode);)*
 
             v.push($ty {
-                trigger: trigger!($ty, $key, $($location)?),
+                trigger: trigger!($ty, $key$(::$button)?, $($location)?),
                 mods: _mods,
                 mode: _mode,
                 notmode: _notmode,
@@ -412,16 +410,16 @@ macro_rules! bindings {
 
 macro_rules! trigger {
     (KeyBinding, $key:literal, $location:expr) => {{
-        BindingKey::Keycode { key: Character($key.into()), location: $location }
+        BindingKey::Keycode { key: Key::Character($key.into()), location: $location }
     }};
     (KeyBinding, $key:literal,) => {{
-        BindingKey::Keycode { key: Character($key.into()), location: KeyLocation::Standard }
+        BindingKey::Keycode { key: Key::Character($key.into()), location: KeyLocation::Standard }
     }};
-    (KeyBinding, $key:expr,) => {{
-        BindingKey::Keycode { key: Named($key), location: KeyLocation::Standard }
+    (KeyBinding, $key:ident,) => {{
+        BindingKey::Keycode { key: Key::Named(NamedKey::$key), location: KeyLocation::Standard }
     }};
-    ($ty:ident, $key:expr,) => {{
-        $key
+    (MouseBinding, $base:ident::$button:ident,) => {{
+        $base::$button
     }};
 }
 
@@ -735,15 +733,15 @@ impl<'a> Deserialize<'a> for BindingKey {
                 } else {
                     // Translate legacy winit codes into their modern counterparts.
                     match keycode.as_str() {
-                        "Up" => (Key::Named(ArrowUp), KeyLocation::Standard),
-                        "Back" => (Key::Named(Backspace), KeyLocation::Standard),
-                        "Down" => (Key::Named(ArrowDown), KeyLocation::Standard),
-                        "Left" => (Key::Named(ArrowLeft), KeyLocation::Standard),
-                        "Right" => (Key::Named(ArrowRight), KeyLocation::Standard),
+                        "Up" => (Key::Named(NamedKey::ArrowUp), KeyLocation::Standard),
+                        "Back" => (Key::Named(NamedKey::Backspace), KeyLocation::Standard),
+                        "Down" => (Key::Named(NamedKey::ArrowDown), KeyLocation::Standard),
+                        "Left" => (Key::Named(NamedKey::ArrowLeft), KeyLocation::Standard),
+                        "Right" => (Key::Named(NamedKey::ArrowRight), KeyLocation::Standard),
                         "At" => (Key::Character("@".into()), KeyLocation::Standard),
                         "Colon" => (Key::Character(":".into()), KeyLocation::Standard),
                         "Period" => (Key::Character(".".into()), KeyLocation::Standard),
-                        "Return" => (Key::Named(Enter), KeyLocation::Standard),
+                        "Return" => (Key::Named(NamedKey::Enter), KeyLocation::Standard),
                         "LBracket" => (Key::Character("[".into()), KeyLocation::Standard),
                         "RBracket" => (Key::Character("]".into()), KeyLocation::Standard),
                         "Semicolon" => (Key::Character(";".into()), KeyLocation::Standard),
@@ -766,7 +764,7 @@ impl<'a> Deserialize<'a> for BindingKey {
                         "Key0" => (Key::Character("0".into()), KeyLocation::Standard),
 
                         // Special case numpad.
-                        "NumpadEnter" => (Key::Named(Enter), KeyLocation::Numpad),
+                        "NumpadEnter" => (Key::Named(NamedKey::Enter), KeyLocation::Numpad),
                         "NumpadAdd" => (Key::Character("+".into()), KeyLocation::Numpad),
                         "NumpadComma" => (Key::Character(",".into()), KeyLocation::Numpad),
                         "NumpadDivide" => (Key::Character("/".into()), KeyLocation::Numpad),
