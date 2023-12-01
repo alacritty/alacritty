@@ -3,6 +3,7 @@ use std::mem;
 
 use ahash::RandomState;
 use crossfont::Metrics;
+use log::info;
 
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
@@ -261,7 +262,16 @@ impl RectRenderer {
 
         let rect_program = RectShaderProgram::new(shader_version, RectKind::Normal)?;
         let undercurl_program = RectShaderProgram::new(shader_version, RectKind::Undercurl)?;
-        let dotted_program = RectShaderProgram::new(shader_version, RectKind::DottedUnderline)?;
+        // This shader has way more ALU operations than other rect shaders, so use a fallback
+        // to underline just for it when we can't compile it.
+        let dotted_program = match RectShaderProgram::new(shader_version, RectKind::DottedUnderline)
+        {
+            Ok(dotted_program) => dotted_program,
+            Err(err) => {
+                info!("Error compiling dotted shader: {err}\n  falling back to underline");
+                RectShaderProgram::new(shader_version, RectKind::Normal)?
+            },
+        };
         let dashed_program = RectShaderProgram::new(shader_version, RectKind::DashedUnderline)?;
 
         unsafe {
