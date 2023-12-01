@@ -725,10 +725,9 @@ impl<T> Term<T> {
         }
 
         mem::swap(&mut self.keyboard_mode_stack, &mut self.inactive_keyboard_mode_stack);
-        self.set_keyboard_mode(
-            self.keyboard_mode_stack.last().copied().unwrap_or(KeyboardModes::NO_MODE).into(),
-            KeyboardModesApplyBehavior::Replace,
-        );
+        let keyboard_mode =
+            self.keyboard_mode_stack.last().copied().unwrap_or(KeyboardModes::NO_MODE).into();
+        self.set_keyboard_mode(keyboard_mode, KeyboardModesApplyBehavior::Replace);
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
@@ -1307,7 +1306,7 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        trace!("Attemting to pop {to_pop} keyboard mode from the stack");
+        trace!("Attemting to pop {to_pop} keyboard modes from the stack");
         let new_len = self.keyboard_mode_stack.len().saturating_sub(to_pop as usize);
         self.keyboard_mode_stack.truncate(new_len);
 
