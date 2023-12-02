@@ -256,7 +256,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
         || !modifiers.is_empty()
         || (mode.contains(TermMode::REPORT_ASSOCIATED_TEXT) && key.text.is_some())
     {
-        payload.push_str(&format!(";{}", modifiers.esc_sequence_encoded()));
+        payload.push_str(&format!(";{}", modifiers.encode_esc_sequence()));
     }
 
     // Push event type.
@@ -270,7 +270,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
         payload.push(event_type);
     }
 
-    // Associated text is not reported for the control/alt/logo key presses.
+    // Associated text is not reported when the control/alt/logo is pressesed.
     if mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
         && key.state != ElementState::Released
         && (modifiers.is_empty() || modifiers == SequenceModifiers::SHIFT)
@@ -280,14 +280,13 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
             if let Some(codepoint) = codepoints.next() {
                 payload.push_str(&format!(";{codepoint}"));
             }
-            // Push the rest of the chars.
             for codepoint in codepoints {
                 payload.push_str(&format!(":{codepoint}"));
             }
         }
     }
 
-    payload.push(terminator.esc_sequence_encoded());
+    payload.push(terminator.encode_esc_sequence());
 
     payload.into_bytes()
 }
@@ -305,7 +304,7 @@ pub struct SequenceBuildingContext {
 }
 
 impl SequenceBuildingContext {
-    /// Try building sequence from the event emitting text.
+    /// Try building sequence from the event's emitting text.
     fn try_from_textual(&self, key: &KeyEvent) -> Option<SequenceBase> {
         let character = match key.logical_key.as_ref() {
             Key::Character(character) => character,
@@ -344,7 +343,7 @@ impl SequenceBuildingContext {
 
     /// Try building from numpad key.
     ///
-    /// `None` is returned when the key neither known or numpad.
+    /// `None` is returned when the key is neither known nor numpad.
     fn try_from_numpad(&self, key: &KeyEvent) -> Option<SequenceBase> {
         if !self.kitty_seq || key.location != KeyLocation::Numpad {
             return None;
@@ -394,8 +393,7 @@ impl SequenceBuildingContext {
             _ => return None,
         };
 
-        // Omit payload when the base is 1, since it's a common thing to do and some clients break
-        // if don't do so.
+        // When the payload is 1 it should be omitted to not confuse clients.
         let one_based = if self.modifiers.is_empty() && !self.kitty_event_type { "" } else { "1" };
         let (base, terminator) = match named {
             NamedKey::PageUp => ("5", SequenceTerminator::Normal('~')),
@@ -492,6 +490,8 @@ impl SequenceBuildingContext {
             _ => "",
         };
 
+        // Fail when the key is not a named control character and the active mode prohibits us
+        // from encoding modifier keys.
         if !self.kitty_encode_all && base.is_empty() {
             return None;
         }
@@ -544,7 +544,7 @@ pub enum SequenceTerminator {
 }
 
 impl SequenceTerminator {
-    fn esc_sequence_encoded(self) -> char {
+    fn encode_esc_sequence(self) -> char {
         match self {
             SequenceTerminator::Normal(char) => char,
             SequenceTerminator::Kitty => 'u',
@@ -567,7 +567,7 @@ bitflags::bitflags! {
 
 impl SequenceModifiers {
     /// Get the value which should be passed to escape sequence.
-    pub fn esc_sequence_encoded(self) -> u8 {
+    pub fn encode_esc_sequence(self) -> u8 {
         self.bits() + 1
     }
 }

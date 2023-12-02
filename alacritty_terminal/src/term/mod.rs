@@ -90,23 +90,22 @@ bitflags! {
 impl From<KeyboardModes> for TermMode {
     fn from(value: KeyboardModes) -> Self {
         let mut mode = Self::empty();
-        mode.set(
-            TermMode::DISAMBIGUATE_ESC_CODES,
-            value.contains(KeyboardModes::DISAMBIGUATE_ESC_CODES),
-        );
-        mode.set(TermMode::REPORT_EVENT_TYPES, value.contains(KeyboardModes::REPORT_EVENT_TYPES));
-        mode.set(
-            TermMode::REPORT_ALTERNATE_KEYS,
-            value.contains(KeyboardModes::REPORT_ALTERNATE_KEYS),
-        );
-        mode.set(
-            TermMode::REPORT_ALL_KEYS_AS_ESC,
-            value.contains(KeyboardModes::REPORT_ALL_KEYS_AS_ESC),
-        );
-        mode.set(
-            TermMode::REPORT_ASSOCIATED_TEXT,
-            value.contains(KeyboardModes::REPORT_ASSOCIATED_TEXT),
-        );
+
+        let disambiguate_esc_codes = value.contains(KeyboardModes::DISAMBIGUATE_ESC_CODES);
+        mode.set(TermMode::DISAMBIGUATE_ESC_CODES, disambiguate_esc_codes);
+
+        let report_event_types = value.contains(KeyboardModes::REPORT_EVENT_TYPES);
+        mode.set(TermMode::REPORT_EVENT_TYPES, report_event_types);
+
+        let report_alternate_keys = value.contains(KeyboardModes::REPORT_ALTERNATE_KEYS);
+        mode.set(TermMode::REPORT_ALTERNATE_KEYS, report_alternate_keys);
+
+        let report_all_keys_as_esc = value.contains(KeyboardModes::REPORT_ALL_KEYS_AS_ESC);
+        mode.set(TermMode::REPORT_ALL_KEYS_AS_ESC, report_all_keys_as_esc);
+
+        let report_associated_text = value.contains(KeyboardModes::REPORT_ASSOCIATED_TEXT);
+        mode.set(TermMode::REPORT_ASSOCIATED_TEXT, report_associated_text);
+
         mode
     }
 }
@@ -1813,7 +1812,6 @@ impl<T: EventListener> Handler for Term<T> {
         self.scroll_region = Line(0)..Line(self.screen_lines() as i32);
         self.tabs = TabStops::new(self.columns());
         self.title_stack = Vec::new();
-        self.keyboard_mode_stack = Vec::new();
         self.title = None;
         self.selection = None;
         self.vi_mode_cursor = Default::default();
