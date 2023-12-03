@@ -47,8 +47,8 @@ use crate::scheduler::{Scheduler, TimerId, Topic};
 
 pub mod keyboard;
 
-/// Font size change interval.
-pub const FONT_SIZE_STEP: f32 = 0.5;
+/// Font size change interval in px.
+pub const FONT_SIZE_STEP: i32 = 1;
 
 /// Interval for mouse scrolling during selection outside of the boundaries.
 const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
@@ -98,7 +98,7 @@ pub trait ActionContext<T: EventListener> {
     fn create_new_window(&mut self, _tabbing_id: Option<String>) {}
     #[cfg(not(target_os = "macos"))]
     fn create_new_window(&mut self) {}
-    fn change_font_size(&mut self, _delta: f32) {}
+    fn change_font_size(&mut self, _delta: i32) {}
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
     fn message(&self) -> Option<&Message>;
@@ -321,7 +321,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
-            Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
+            Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp
             | Action::ScrollPageDown
@@ -865,7 +865,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             },
             TouchPurpose::Zoom(zoom) => {
                 let font_delta = zoom.font_delta(touch);
-                self.ctx.change_font_size(font_delta);
+                self.ctx.change_font_size(font_delta as i32);
             },
             TouchPurpose::Scroll(last_touch) => {
                 // Calculate delta and update last touch position.
