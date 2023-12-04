@@ -58,8 +58,6 @@ use crate::cli::MessageOptions;
 use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
-#[cfg(target_os = "macos")]
-use crate::macos::locale;
 
 fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(windows)]
@@ -156,10 +154,6 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Switch to home directory.
     #[cfg(target_os = "macos")]
     env::set_current_dir(home::home_dir().unwrap()).unwrap();
-
-    // Set macOS locale.
-    #[cfg(target_os = "macos")]
-    locale::set_locale_environment();
 
     // Create a config monitor when config was loaded from path.
     //
