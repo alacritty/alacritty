@@ -74,6 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi cursor position not redrawn on PageUp/PageDown without scrollback
 - Cursor not updating when blinking and viewport is scrolled
 - Failure to start with recent version of mesa's i915 driver
+- Error when using `chars` inside the mouse bindings
 
 ### Removed
 
