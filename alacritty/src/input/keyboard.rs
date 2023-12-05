@@ -231,7 +231,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
     );
 
     let kitty_encode_all = mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC);
-    // When the key event represents a `Press` it'll be encoded as `1`, so we can omit it.
+    // The default parameter is 1, so we can omit it.
     let kitty_event_type = mode.contains(TermMode::REPORT_EVENT_TYPES)
         && (key.repeat || key.state == ElementState::Released);
 
@@ -393,7 +393,7 @@ impl SequenceBuildingContext {
             _ => return None,
         };
 
-        // When the payload is 1 it should be omitted to not confuse clients.
+        // The default parameter is 1, so we can omit it.
         let one_based = if self.modifiers.is_empty() && !self.kitty_event_type { "" } else { "1" };
         let (base, terminator) = match named {
             NamedKey::PageUp => ("5", SequenceTerminator::Normal('~')),
