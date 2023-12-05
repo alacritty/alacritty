@@ -405,8 +405,8 @@ impl Display {
 
         let font_size = config.font.size().scale(scale_factor);
         debug!("Loading \"{}\" font", &config.font.normal().family);
-        let mut glyph_cache =
-            GlyphCache::new(rasterizer, &config.font.clone().with_size(font_size))?;
+        let font = config.font.clone().with_size(font_size);
+        let mut glyph_cache = GlyphCache::new(rasterizer, &font)?;
 
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
