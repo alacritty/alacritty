@@ -236,13 +236,13 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
         && (key.repeat || key.state == ElementState::Released);
 
     let context =
-        SequenceBuildingContext { mode, modifiers, kitty_seq, kitty_encode_all, kitty_event_type };
+        SequenceBuilder { mode, modifiers, kitty_seq, kitty_encode_all, kitty_event_type };
 
     let sequence_base = context
-        .try_from_numpad(&key)
-        .or_else(|| context.try_from_named(&key))
-        .or_else(|| context.try_from_control_char_or_mod(&key))
-        .or_else(|| context.try_from_textual(&key));
+        .try_build_numpad(&key)
+        .or_else(|| context.try_build_named(&key))
+        .or_else(|| context.try_build_control_char_or_mod(&key))
+        .or_else(|| context.try_build_textual(&key));
 
     let (payload, terminator) = match sequence_base {
         Some(SequenceBase { payload, terminator }) => (payload, terminator),
@@ -292,7 +292,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
 }
 
 /// Helper to build escape sequence payloads from [`KeyEvent`].
-pub struct SequenceBuildingContext {
+pub struct SequenceBuilder {
     mode: TermMode,
     /// The emitted sequence should follow the kitty keyboard protocol.
     kitty_seq: bool,
@@ -303,9 +303,9 @@ pub struct SequenceBuildingContext {
     modifiers: SequenceModifiers,
 }
 
-impl SequenceBuildingContext {
+impl SequenceBuilder {
     /// Try building sequence from the event's emitting text.
-    fn try_from_textual(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_textual(&self, key: &KeyEvent) -> Option<SequenceBase> {
         let character = match key.logical_key.as_ref() {
             Key::Character(character) => character,
             _ => return None,
@@ -344,7 +344,7 @@ impl SequenceBuildingContext {
     /// Try building from numpad key.
     ///
     /// `None` is returned when the key is neither known nor numpad.
-    fn try_from_numpad(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_numpad(&self, key: &KeyEvent) -> Option<SequenceBase> {
         if !self.kitty_seq || key.location != KeyLocation::Numpad {
             return None;
         }
@@ -387,7 +387,7 @@ impl SequenceBuildingContext {
     }
 
     /// Try building from [`NamedKey`].
-    fn try_from_named(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_named(&self, key: &KeyEvent) -> Option<SequenceBase> {
         let named = match key.logical_key {
             Key::Named(named) => named,
             _ => return None,
@@ -471,7 +471,7 @@ impl SequenceBuildingContext {
     }
 
     /// Try building escape from control characters (e.g. Enter) and modifiers.
-    fn try_from_control_char_or_mod(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_control_char_or_mod(&self, key: &KeyEvent) -> Option<SequenceBase> {
         if !self.kitty_encode_all && !self.kitty_seq {
             return None;
         }
