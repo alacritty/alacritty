@@ -899,7 +899,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
             type Value = MouseButtonWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("Left, Right, Middle, or a number from 0 to 65536")
+                f.write_str("Left, Right, Middle, Back, Forward, or a number from 0 to 65536")
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<MouseButtonWrapper, E>
@@ -920,6 +920,8 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                     "Left" => Ok(MouseButtonWrapper(MouseButton::Left)),
                     "Right" => Ok(MouseButtonWrapper(MouseButton::Right)),
                     "Middle" => Ok(MouseButtonWrapper(MouseButton::Middle)),
+                    "Back" => Ok(MouseButtonWrapper(MouseButton::Back)),
+                    "Forward" => Ok(MouseButtonWrapper(MouseButton::Forward)),
                     _ => Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }
             }
@@ -1134,7 +1136,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             chars = Some(map.next_value()?);
                         },
                         Field::Mouse => {
-                            if chars.is_some() {
+                            if mouse.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mouse"));
                             }
 
