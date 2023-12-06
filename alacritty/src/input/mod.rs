@@ -17,16 +17,12 @@ use std::time::{Duration, Instant};
 use log::debug;
 use winit::dpi::PhysicalPosition;
 use winit::event::{
-    ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta, Touch as TouchEvent,
-    TouchPhase,
+    ElementState, Modifiers, MouseButton, MouseScrollDelta, Touch as TouchEvent, TouchPhase,
 };
 use winit::event_loop::EventLoopWindowTarget;
+use winit::keyboard::ModifiersState;
 #[cfg(target_os = "macos")]
-use winit::keyboard::ModifiersKeyState;
-use winit::keyboard::{Key, ModifiersState};
-#[cfg(target_os = "macos")]
-use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+use winit::platform::macos::EventLoopWindowTargetExtMacOS;
 use winit::window::CursorIcon;
 
 use alacritty_terminal::event::EventListener;
@@ -39,18 +35,17 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
-use crate::config::{
-    Action, BindingKey, BindingMode, MouseAction, SearchAction, UiConfig, ViAction,
-};
+use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::event::{
     ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
-    TYPING_SEARCH_DELAY,
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
+
+pub mod keyboard;
 
 /// Font size change interval.
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -1019,132 +1014,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 }
             }
         }
-    }
-
-    /// Process key input.
-    pub fn key_input(&mut self, key: KeyEvent) {
-        // IME input will be applied on commit and shouldn't trigger key bindings.
-        if key.state == ElementState::Released || self.ctx.display().ime.preedit().is_some() {
-            return;
-        }
-
-        let text = key.text_with_all_modifiers().unwrap_or_default();
-
-        // All key bindings are disabled while a hint is being selected.
-        if self.ctx.display().hint_state.active() {
-            for character in text.chars() {
-                self.ctx.hint_input(character);
-            }
-            return;
-        }
-
-        // First key after inline search is captured.
-        let inline_state = self.ctx.inline_search_state();
-        if mem::take(&mut inline_state.char_pending) {
-            if let Some(c) = text.chars().next() {
-                inline_state.character = Some(c);
-
-                // Immediately move to the captured character.
-                self.ctx.inline_search_next();
-            }
-
-            // Ignore all other characters in `text`.
-            return;
-        }
-
-        // Reset search delay when the user is still typing.
-        if self.ctx.search_active() {
-            let timer_id = TimerId::new(Topic::DelayedSearch, self.ctx.window().id());
-            let scheduler = self.ctx.scheduler_mut();
-            if let Some(timer) = scheduler.unschedule(timer_id) {
-                scheduler.schedule(timer.event, TYPING_SEARCH_DELAY, false, timer.id);
-            }
-        }
-
-        // Key bindings suppress the character input.
-        if self.process_key_bindings(&key) {
-            return;
-        }
-
-        if self.ctx.search_active() {
-            for character in text.chars() {
-                self.ctx.search_input(character);
-            }
-
-            return;
-        }
-
-        // Vi mode on its own doesn't have any input, the search input was done before.
-        if self.ctx.terminal().mode().contains(TermMode::VI) || text.is_empty() {
-            return;
-        }
-
-        self.ctx.on_terminal_input_start();
-
-        let mut bytes = Vec::with_capacity(text.len() + 1);
-        if self.alt_send_esc() && text.len() == 1 {
-            bytes.push(b'\x1b');
-        }
-        bytes.extend_from_slice(text.as_bytes());
-
-        self.ctx.write_to_pty(bytes);
-    }
-
-    /// Whether we should send `ESC` due to `Alt` being pressed.
-    #[cfg(not(target_os = "macos"))]
-    fn alt_send_esc(&mut self) -> bool {
-        self.ctx.modifiers().state().alt_key()
-    }
-
-    #[cfg(target_os = "macos")]
-    fn alt_send_esc(&mut self) -> bool {
-        let option_as_alt = self.ctx.config().window.option_as_alt();
-        self.ctx.modifiers().state().alt_key()
-            && (option_as_alt == OptionAsAlt::Both
-                || (option_as_alt == OptionAsAlt::OnlyLeft
-                    && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
-                || (option_as_alt == OptionAsAlt::OnlyRight
-                    && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed))
-    }
-
-    /// Attempt to find a binding and execute its action.
-    ///
-    /// The provided mode, mods, and key must match what is allowed by a binding
-    /// for its action to be executed.
-    fn process_key_bindings(&mut self, key: &KeyEvent) -> bool {
-        let mode = BindingMode::new(self.ctx.terminal().mode(), self.ctx.search_active());
-        let mods = self.ctx.modifiers().state();
-
-        // Don't suppress char if no bindings were triggered.
-        let mut suppress_chars = None;
-
-        for i in 0..self.ctx.config().key_bindings().len() {
-            let binding = &self.ctx.config().key_bindings()[i];
-
-            // We don't want the key without modifier, because it means something else most of
-            // the time. However what we want is to manually lowercase the character to account
-            // for both small and capital letters on regular characters at the same time.
-            let logical_key = if let Key::Character(ch) = key.logical_key.as_ref() {
-                Key::Character(ch.to_lowercase().into())
-            } else {
-                key.logical_key.clone()
-            };
-
-            let key = match (&binding.trigger, logical_key) {
-                (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
-                (_, code) => BindingKey::Keycode { key: code, location: key.location },
-            };
-
-            if binding.is_triggered_by(mode, mods, &key) {
-                // Pass through the key if any of the bindings has the `ReceiveChar` action.
-                *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
-
-                // Binding was triggered; run the action.
-                binding.action.clone().execute(&mut self.ctx);
-            }
-        }
-
-        suppress_chars.unwrap_or(false)
     }
 
     /// Check mouse icon state in relation to the message bar.

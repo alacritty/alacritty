@@ -21,8 +21,9 @@ use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
 use crate::vte::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, NamedColor,
-    NamedMode, NamedPrivateMode, PrivateMode, Rgb, StandardCharset,
+    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, KeyboardModes,
+    KeyboardModesApplyBehavior, NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb,
+    StandardCharset,
 };
 
 pub mod cell;
@@ -43,33 +44,69 @@ const TITLE_STACK_MAX_DEPTH: usize = 4096;
 /// Default semantic escape characters.
 pub const SEMANTIC_ESCAPE_CHARS: &str = ",│`|:\"' ()[]{}<>\t";
 
+/// Max size of the keyboard modes.
+const KEYBOARD_MODE_STACK_MAX_DEPTH: usize = TITLE_STACK_MAX_DEPTH;
+
 /// Default tab interval, corresponding to terminfo `it` value.
 const INITIAL_TABSTOPS: usize = 8;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct TermMode: u32 {
-        const NONE                = 0;
-        const SHOW_CURSOR         = 0b0000_0000_0000_0000_0001;
-        const APP_CURSOR          = 0b0000_0000_0000_0000_0010;
-        const APP_KEYPAD          = 0b0000_0000_0000_0000_0100;
-        const MOUSE_REPORT_CLICK  = 0b0000_0000_0000_0000_1000;
-        const BRACKETED_PASTE     = 0b0000_0000_0000_0001_0000;
-        const SGR_MOUSE           = 0b0000_0000_0000_0010_0000;
-        const MOUSE_MOTION        = 0b0000_0000_0000_0100_0000;
-        const LINE_WRAP           = 0b0000_0000_0000_1000_0000;
-        const LINE_FEED_NEW_LINE  = 0b0000_0000_0001_0000_0000;
-        const ORIGIN              = 0b0000_0000_0010_0000_0000;
-        const INSERT              = 0b0000_0000_0100_0000_0000;
-        const FOCUS_IN_OUT        = 0b0000_0000_1000_0000_0000;
-        const ALT_SCREEN          = 0b0000_0001_0000_0000_0000;
-        const MOUSE_DRAG          = 0b0000_0010_0000_0000_0000;
-        const MOUSE_MODE          = 0b0000_0010_0000_0100_1000;
-        const UTF8_MOUSE          = 0b0000_0100_0000_0000_0000;
-        const ALTERNATE_SCROLL    = 0b0000_1000_0000_0000_0000;
-        const VI                  = 0b0001_0000_0000_0000_0000;
-        const URGENCY_HINTS       = 0b0010_0000_0000_0000_0000;
-        const ANY                 = u32::MAX;
+        const NONE                    = 0;
+        const SHOW_CURSOR             = 0b0000_0000_0000_0000_0000_0001;
+        const APP_CURSOR              = 0b0000_0000_0000_0000_0000_0010;
+        const APP_KEYPAD              = 0b0000_0000_0000_0000_0000_0100;
+        const MOUSE_REPORT_CLICK      = 0b0000_0000_0000_0000_0000_1000;
+        const BRACKETED_PASTE         = 0b0000_0000_0000_0000_0001_0000;
+        const SGR_MOUSE               = 0b0000_0000_0000_0000_0010_0000;
+        const MOUSE_MOTION            = 0b0000_0000_0000_0000_0100_0000;
+        const LINE_WRAP               = 0b0000_0000_0000_0000_1000_0000;
+        const LINE_FEED_NEW_LINE      = 0b0000_0000_0000_0001_0000_0000;
+        const ORIGIN                  = 0b0000_0000_0000_0010_0000_0000;
+        const INSERT                  = 0b0000_0000_0000_0100_0000_0000;
+        const FOCUS_IN_OUT            = 0b0000_0000_0000_1000_0000_0000;
+        const ALT_SCREEN              = 0b0000_0000_0001_0000_0000_0000;
+        const MOUSE_DRAG              = 0b0000_0000_0010_0000_0000_0000;
+        const MOUSE_MODE              = 0b0000_0000_0010_0000_0100_1000;
+        const UTF8_MOUSE              = 0b0000_0000_0100_0000_0000_0000;
+        const ALTERNATE_SCROLL        = 0b0000_0000_1000_0000_0000_0000;
+        const VI                      = 0b0000_0001_0000_0000_0000_0000;
+        const URGENCY_HINTS           = 0b0000_0010_0000_0000_0000_0000;
+        const DISAMBIGUATE_ESC_CODES  = 0b0000_0100_0000_0000_0000_0000;
+        const REPORT_EVENT_TYPES      = 0b0000_1000_0000_0000_0000_0000;
+        const REPORT_ALTERNATE_KEYS   = 0b0001_0000_0000_0000_0000_0000;
+        const REPORT_ALL_KEYS_AS_ESC  = 0b0010_0000_0000_0000_0000_0000;
+        const REPORT_ASSOCIATED_TEXT  = 0b0100_0000_0000_0000_0000_0000;
+        const KITTY_KEYBOARD_PROTOCOL = Self::DISAMBIGUATE_ESC_CODES.bits()
+                                      | Self::REPORT_EVENT_TYPES.bits()
+                                      | Self::REPORT_ALTERNATE_KEYS.bits()
+                                      | Self::REPORT_ALL_KEYS_AS_ESC.bits()
+                                      | Self::REPORT_ASSOCIATED_TEXT.bits();
+         const ANY                    = u32::MAX;
+    }
+}
+
+impl From<KeyboardModes> for TermMode {
+    fn from(value: KeyboardModes) -> Self {
+        let mut mode = Self::empty();
+
+        let disambiguate_esc_codes = value.contains(KeyboardModes::DISAMBIGUATE_ESC_CODES);
+        mode.set(TermMode::DISAMBIGUATE_ESC_CODES, disambiguate_esc_codes);
+
+        let report_event_types = value.contains(KeyboardModes::REPORT_EVENT_TYPES);
+        mode.set(TermMode::REPORT_EVENT_TYPES, report_event_types);
+
+        let report_alternate_keys = value.contains(KeyboardModes::REPORT_ALTERNATE_KEYS);
+        mode.set(TermMode::REPORT_ALTERNATE_KEYS, report_alternate_keys);
+
+        let report_all_keys_as_esc = value.contains(KeyboardModes::REPORT_ALL_KEYS_AS_ESC);
+        mode.set(TermMode::REPORT_ALL_KEYS_AS_ESC, report_all_keys_as_esc);
+
+        let report_associated_text = value.contains(KeyboardModes::REPORT_ASSOCIATED_TEXT);
+        mode.set(TermMode::REPORT_ASSOCIATED_TEXT, report_associated_text);
+
+        mode
     }
 }
 
@@ -279,6 +316,12 @@ pub struct Term<T> {
     /// term is set.
     title_stack: Vec<Option<String>>,
 
+    /// The stack for the keyboard modes.
+    keyboard_mode_stack: Vec<KeyboardModes>,
+
+    /// Currently inactive keyboard mode stack.
+    inactive_keyboard_mode_stack: Vec<KeyboardModes>,
+
     /// Information about damaged cells.
     damage: TermDamageState,
 
@@ -303,6 +346,9 @@ pub struct Config {
     /// The default value is [`SEMANTIC_ESCAPE_CHARS`].
     pub semantic_escape_chars: String,
 
+    /// Whether to enable kitty keyboard protocol.
+    pub kitty_keyboard: bool,
+
     /// OSC52 support mode.
     pub osc52: Osc52,
 }
@@ -314,6 +360,7 @@ impl Default for Config {
             semantic_escape_chars: SEMANTIC_ESCAPE_CHARS.to_owned(),
             default_cursor_style: Default::default(),
             vi_mode_cursor_style: Default::default(),
+            kitty_keyboard: Default::default(),
             osc52: Default::default(),
         }
     }
@@ -388,7 +435,9 @@ impl<T> Term<T> {
             event_proxy,
             is_focused: true,
             title: None,
-            title_stack: Vec::new(),
+            title_stack: Default::default(),
+            keyboard_mode_stack: Default::default(),
+            inactive_keyboard_mode_stack: Default::default(),
             selection: None,
             damage,
             config: options,
@@ -451,7 +500,7 @@ impl<T> Term<T> {
     where
         T: EventListener,
     {
-        self.config = options;
+        let old_config = mem::replace(&mut self.config, options);
 
         let title_event = match &self.title {
             Some(title) => Event::Title(title.clone()),
@@ -464,6 +513,12 @@ impl<T> Term<T> {
             self.inactive_grid.update_history(self.config.scrolling_history);
         } else {
             self.grid.update_history(self.config.scrolling_history);
+        }
+
+        if self.config.kitty_keyboard != old_config.kitty_keyboard {
+            self.keyboard_mode_stack = Vec::new();
+            self.inactive_keyboard_mode_stack = Vec::new();
+            self.mode.remove(TermMode::KITTY_KEYBOARD_PROTOCOL);
         }
 
         // Damage everything on config updates.
@@ -667,6 +722,11 @@ impl<T> Term<T> {
             // Reset alternate screen contents.
             self.inactive_grid.reset_region(..);
         }
+
+        mem::swap(&mut self.keyboard_mode_stack, &mut self.inactive_keyboard_mode_stack);
+        let keyboard_mode =
+            self.keyboard_mode_stack.last().copied().unwrap_or(KeyboardModes::NO_MODE).into();
+        self.set_keyboard_mode(keyboard_mode, KeyboardModesApplyBehavior::Replace);
 
         mem::swap(&mut self.grid, &mut self.inactive_grid);
         self.mode ^= TermMode::ALT_SCREEN;
@@ -959,6 +1019,19 @@ impl<T> Term<T> {
             Point::new(self.grid.cursor.point.line.0 as usize, self.grid.cursor.point.column);
         self.damage.damage_point(point);
     }
+
+    #[inline]
+    fn set_keyboard_mode(&mut self, mode: TermMode, apply: KeyboardModesApplyBehavior) {
+        let active_mode = self.mode & TermMode::KITTY_KEYBOARD_PROTOCOL;
+        self.mode &= !TermMode::KITTY_KEYBOARD_PROTOCOL;
+        let new_mode = match apply {
+            KeyboardModesApplyBehavior::Replace => mode,
+            KeyboardModesApplyBehavior::Union => active_mode.union(mode),
+            KeyboardModesApplyBehavior::Difference => active_mode.difference(mode),
+        };
+        trace!("Setting keyboard mode to {new_mode:?}");
+        self.mode |= new_mode;
+    }
 }
 
 impl<T> Dimensions for Term<T> {
@@ -1191,6 +1264,63 @@ impl<T: EventListener> Handler for Term<T> {
             },
             _ => debug!("Unsupported device attributes intermediate"),
         }
+    }
+
+    #[inline]
+    fn report_keyboard_mode(&mut self) {
+        if !self.config.kitty_keyboard {
+            return;
+        }
+
+        trace!("Reporting active keyboard mode");
+        let current_mode =
+            self.keyboard_mode_stack.last().unwrap_or(&KeyboardModes::NO_MODE).bits();
+        let text = format!("\x1b[?{current_mode}u");
+        self.event_proxy.send_event(Event::PtyWrite(text));
+    }
+
+    #[inline]
+    fn push_keyboard_mode(&mut self, mode: KeyboardModes) {
+        if !self.config.kitty_keyboard {
+            return;
+        }
+
+        trace!("Pushing `{mode:?}` keyboard mode into the stack");
+
+        if self.keyboard_mode_stack.len() >= KEYBOARD_MODE_STACK_MAX_DEPTH {
+            let removed = self.title_stack.remove(0);
+            trace!(
+                "Removing '{:?}' from bottom of keyboard mode stack that exceeds its maximum depth",
+                removed
+            );
+        }
+
+        self.keyboard_mode_stack.push(mode);
+        self.set_keyboard_mode(mode.into(), KeyboardModesApplyBehavior::Replace);
+    }
+
+    #[inline]
+    fn pop_keyboard_modes(&mut self, to_pop: u16) {
+        if !self.config.kitty_keyboard {
+            return;
+        }
+
+        trace!("Attemting to pop {to_pop} keyboard modes from the stack");
+        let new_len = self.keyboard_mode_stack.len().saturating_sub(to_pop as usize);
+        self.keyboard_mode_stack.truncate(new_len);
+
+        // Reload active mode.
+        let mode = self.keyboard_mode_stack.last().copied().unwrap_or(KeyboardModes::NO_MODE);
+        self.set_keyboard_mode(mode.into(), KeyboardModesApplyBehavior::Replace);
+    }
+
+    #[inline]
+    fn set_keyboard_mode(&mut self, mode: KeyboardModes, apply: KeyboardModesApplyBehavior) {
+        if !self.config.kitty_keyboard {
+            return;
+        }
+
+        self.set_keyboard_mode(mode.into(), apply);
     }
 
     #[inline]
@@ -1685,6 +1815,8 @@ impl<T: EventListener> Handler for Term<T> {
         self.title = None;
         self.selection = None;
         self.vi_mode_cursor = Default::default();
+        self.keyboard_mode_stack = Default::default();
+        self.inactive_keyboard_mode_stack = Default::default();
 
         // Preserve vi mode across resets.
         self.mode &= TermMode::VI;
