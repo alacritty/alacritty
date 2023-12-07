@@ -110,13 +110,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return true;
         }
 
-        let disambiguate = if mode.contains(TermMode::DISAMBIGUATE_ESC_CODES) {
+        let mut disambiguate = false;
+        if mode.contains(TermMode::DISAMBIGUATE_ESC_CODES) {
             let on_numpad = key.location == KeyLocation::Numpad;
             let is_escape = key.logical_key == Key::Named(NamedKey::Escape);
-            is_escape || (!mods.is_empty() && mods != ModifiersState::SHIFT) || on_numpad
-        } else {
-            false
-        };
+            disambiguate =
+                is_escape || (!mods.is_empty() && mods != ModifiersState::SHIFT) || on_numpad;
+        }
 
         match key.logical_key {
             _ if disambiguate => true,
