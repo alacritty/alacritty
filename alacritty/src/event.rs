@@ -1,7 +1,7 @@
 //! Process window events.
 
 use std::borrow::Cow;
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
 use ahash::RandomState;
-use crossfont::{self, Size};
+use crossfont::Size as FontSize;
 use glutin::display::{Display as GlutinDisplay, GetGlDisplay};
 use log::{debug, error, info, warn};
 use raw_window_handle::HasRawDisplayHandle;
@@ -222,7 +222,6 @@ pub struct ActionContext<'a, N, T> {
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
-    pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
     pub preserve_title: bool,
@@ -464,15 +463,19 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    fn change_font_size(&mut self, delta: f32) {
-        *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        let font = self.config.font.clone().with_size(*self.font_size);
+    fn change_font_size(&mut self, delta: i32) {
+        let new_size = (self.display.font_size.as_px() as i32 + delta).clamp(1, u16::MAX as i32);
+        self.display.font_size = FontSize::from_px(new_size as u16);
+        let font = self.config.font.clone().with_size(self.display.font_size);
         self.display.pending_update.set_font(font);
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.config.font.size();
-        self.display.pending_update.set_font(self.config.font.clone());
+        let scale_factor = self.display.window.scale_factor as f32;
+        self.display.font_size = self.config.font.size().scale(scale_factor);
+        self.display
+            .pending_update
+            .set_font(self.config.font.clone().with_size(self.display.font_size));
     }
 
     #[inline]
@@ -1165,7 +1168,8 @@ impl TouchZoom {
 
         // Calculate font change in `FONT_SIZE_STEP` increments.
         let delta = (self.distance() - old_distance) * TOUCH_ZOOM_FACTOR + self.fractions;
-        let font_delta = (delta.abs() / FONT_SIZE_STEP).floor() * FONT_SIZE_STEP * delta.signum();
+        let font_delta =
+            (delta.abs() / FONT_SIZE_STEP as f32).floor() * FONT_SIZE_STEP as f32 * delta.signum();
         self.fractions = delta - font_delta;
 
         font_delta
@@ -1354,13 +1358,17 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 match event {
                     WindowEvent::CloseRequested => self.ctx.terminal.exit(),
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                        self.ctx.window().scale_factor = scale_factor;
+                        let old_scale_factor =
+                            mem::replace(&mut self.ctx.window().scale_factor, scale_factor);
 
                         let display_update_pending = &mut self.ctx.display.pending_update;
 
-                        // Push current font to update its scale factor.
+                        // Rescale font size for the new factor.
+                        let font_scale = scale_factor as f32 / old_scale_factor as f32;
+                        self.ctx.display.font_size = self.ctx.display.font_size.scale(font_scale);
+
                         let font = self.ctx.config.font.clone();
-                        display_update_pending.set_font(font.with_size(*self.ctx.font_size));
+                        display_update_pending.set_font(font.with_size(self.ctx.display.font_size));
                     },
                     WindowEvent::Resized(size) => {
                         // Ignore resize events to zero in any dimension, to avoid issues with Winit

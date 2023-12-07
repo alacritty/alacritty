@@ -9,7 +9,6 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crossfont::Size;
 use glutin::config::GetGlConfig;
 use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -56,7 +55,6 @@ pub struct WindowContext {
     inline_search_state: InlineSearchState,
     search_state: SearchState,
     notifier: Notifier,
-    font_size: Size,
     mouse: Mouse,
     touch: TouchPurpose,
     occluded: bool,
@@ -239,12 +237,9 @@ impl WindowContext {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
 
-        let font_size = config.font.size();
-
         // Create context for the Alacritty window.
         Ok(WindowContext {
             preserve_title,
-            font_size,
             terminal,
             display,
             #[cfg(not(windows))]
@@ -283,12 +278,13 @@ impl WindowContext {
         }
 
         if old_config.font != self.config.font {
+            let scale_factor = self.display.window.scale_factor as f32;
             // Do not update font size if it has been changed at runtime.
-            if self.font_size == old_config.font.size() {
-                self.font_size = self.config.font.size();
+            if self.display.font_size == old_config.font.size().scale(scale_factor) {
+                self.display.font_size = self.config.font.size().scale(scale_factor);
             }
 
-            let font = self.config.font.clone().with_size(self.font_size);
+            let font = self.config.font.clone().with_size(self.display.font_size);
             self.display.pending_update.set_font(font);
         }
 
@@ -435,7 +431,6 @@ impl WindowContext {
             inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
-            font_size: &mut self.font_size,
             notifier: &mut self.notifier,
             display: &mut self.display,
             mouse: &mut self.mouse,

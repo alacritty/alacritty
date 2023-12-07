@@ -43,7 +43,7 @@ dependencies = [
  "clap_complete",
  "cocoa",
  "copypasta",
- "crossfont",
+ "crossfont 0.6.0",
  "dirs",
  "embed-resource",
  "gl_generator",
@@ -566,6 +566,29 @@ name = "crossfont"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eb5a3822b594afc99b503cc1859b94686d3c3efdd60507a28587dab80ee1071"
+dependencies = [
+ "cocoa",
+ "core-foundation",
+ "core-foundation-sys",
+ "core-graphics",
+ "core-text",
+ "dwrote",
+ "foreign-types",
+ "freetype-rs",
+ "libc",
+ "log",
+ "objc",
+ "once_cell",
+ "pkg-config",
+ "servo-fontconfig",
+ "winapi",
+]
+
+[[package]]
+name = "crossfont"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80c5cf9f7d8f5478dbebc0e7a9ddcd350401e4cd9275d003481d8ec9613b7de1"
 dependencies = [
  "cocoa",
  "core-foundation",
@@ -1568,7 +1591,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1729a30a469de249c6effc17ec8d039b0aa29b3af79b819b7f51cb6ab8046a90"
 dependencies = [
- "crossfont",
+ "crossfont 0.5.2",
  "log",
  "smithay-client-toolkit",
  "tiny-skia",

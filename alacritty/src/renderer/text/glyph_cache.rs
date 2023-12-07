@@ -275,13 +275,8 @@ impl GlyphCache {
     ///
     /// NOTE: To reload the renderers's fonts [`Self::reset_glyph_cache`] should be called
     /// afterwards.
-    pub fn update_font_size(
-        &mut self,
-        font: &Font,
-        scale_factor: f64,
-    ) -> Result<(), crossfont::Error> {
+    pub fn update_font_size(&mut self, font: &Font) -> Result<(), crossfont::Error> {
         // Update dpi scaling.
-        self.rasterizer.update_dpr(scale_factor as f32);
         self.font_offset = font.offset;
         self.glyph_offset = font.glyph_offset;
 
@@ -296,7 +291,7 @@ impl GlyphCache {
         })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;
 
-        info!("Font size changed to {:?} with scale factor of {}", font.size(), scale_factor);
+        info!("Font size changed to {:?} px", font.size().as_px());
 
         self.font_size = font.size();
         self.font_key = regular;

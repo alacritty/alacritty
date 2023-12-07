@@ -20,7 +20,7 @@ use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
 use winit::window::CursorIcon;
 
-use crossfont::{self, Rasterize, Rasterizer};
+use crossfont::{self, Rasterize, Rasterizer, Size as FontSize};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::event::{EventListener, OnResize, WindowSize};
@@ -375,6 +375,9 @@ pub struct Display {
     /// Damage tracker for the given display.
     pub damage_tracker: DamageTracker,
 
+    /// Font size used by the window.
+    pub font_size: FontSize,
+
     // Mouse point position when highlighting hints.
     hint_mouse_point: Option<Point>,
 
@@ -398,10 +401,12 @@ impl Display {
         let raw_window_handle = window.raw_window_handle();
 
         let scale_factor = window.scale_factor as f32;
-        let rasterizer = Rasterizer::new(scale_factor)?;
+        let rasterizer = Rasterizer::new()?;
 
+        let font_size = config.font.size().scale(scale_factor);
         debug!("Loading \"{}\" font", &config.font.normal().family);
-        let mut glyph_cache = GlyphCache::new(rasterizer, &config.font)?;
+        let font = config.font.clone().with_size(font_size);
+        let mut glyph_cache = GlyphCache::new(rasterizer, &font)?;
 
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
@@ -509,6 +514,7 @@ impl Display {
             glyph_cache,
             hint_state,
             size_info,
+            font_size,
             window,
             pending_renderer_update: Default::default(),
             vi_highlighted_hint: Default::default(),
@@ -566,11 +572,10 @@ impl Display {
     /// This will return a tuple of the cell width and height.
     fn update_font_size(
         glyph_cache: &mut GlyphCache,
-        scale_factor: f64,
         config: &UiConfig,
         font: &Font,
     ) -> (f32, f32) {
-        let _ = glyph_cache.update_font_size(font, scale_factor);
+        let _ = glyph_cache.update_font_size(font);
 
         // Compute new cell sizes.
         compute_cell_size(config, &glyph_cache.font_metrics())
@@ -610,9 +615,7 @@ impl Display {
 
         // Update font size and cell dimensions.
         if let Some(font) = pending_update.font() {
-            let scale_factor = self.window.scale_factor;
-            let cell_dimensions =
-                Self::update_font_size(&mut self.glyph_cache, scale_factor, config, font);
+            let cell_dimensions = Self::update_font_size(&mut self.glyph_cache, config, font);
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
