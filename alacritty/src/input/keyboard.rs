@@ -107,15 +107,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         mods: ModifiersState,
     ) -> bool {
         if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) {
-            true
-        } else if mode.contains(TermMode::DISAMBIGUATE_ESC_CODES) {
-            let on_numpad = key.location == KeyLocation::Numpad;
-            let is_escape = key.logical_key == Key::Named(NamedKey::Escape);
-            is_escape || (!mods.is_empty() && mods != ModifiersState::SHIFT) || on_numpad
-        } else {
-            // `Delete` key always has text attached to it, but it's a named key, thus needs to be
-            // excluded here as well.
-            text.is_empty() || key.logical_key == Key::Named(NamedKey::Delete)
+            return true;
+        }
+
+        let disambiguate = mode.contains(TermMode::DISAMBIGUATE_ESC_CODES)
+            && (key.logical_key == Key::Named(NamedKey::Escape)
+                || (!mods.is_empty() && mods != ModifiersState::SHIFT)
+                || key.location == KeyLocation::Numpad);
+
+        match key.logical_key {
+            _ if disambiguate => true,
+            // Exclude all the named keys unless they have textual representation.
+            Key::Named(named) => named.to_text().is_none(),
+            _ => text.is_empty(),
         }
     }
 
