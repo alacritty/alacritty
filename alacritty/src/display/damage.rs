@@ -164,11 +164,19 @@ impl FrameDamage {
         self.full = true;
     }
 
-    /// Add a damage rectangle.
+    /// Add viewport rectangle to damage.
     ///
     /// This allows covering elements outside of the terminal viewport, like message bar.
     #[inline]
-    pub fn add_rect(&mut self, x: i32, y: i32, width: i32, height: i32) {
+    pub fn add_viewport_rect(
+        &mut self,
+        size_info: &SizeInfo,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) {
+        let y = viewport_y_to_damage_y(size_info, y, height);
         self.rects.push(Rect { x, y, width, height });
     }
 
@@ -181,6 +189,16 @@ impl FrameDamage {
             self.lines.push(LineDamageBounds::undamaged(line, num_cols));
         }
     }
+}
+
+/// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
+pub fn viewport_y_to_damage_y(size_info: &SizeInfo, y: i32, height: i32) -> i32 {
+    size_info.height() as i32 - y - height
+}
+
+/// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
+pub fn damage_y_to_viewport_y(size_info: &SizeInfo, rect: &Rect) -> i32 {
+    size_info.height() as i32 - rect.y - rect.height
 }
 
 /// Iterator which converts `alacritty_terminal` damage information into renderer damaged rects.
@@ -315,5 +333,25 @@ mod tests {
             ),
             rect
         );
+    }
+
+    #[test]
+    fn add_viewport_damage() {
+        let mut frame_damage = FrameDamage::default();
+        let viewport_height = 100.;
+        let x = 0;
+        let y = 40;
+        let height = 5;
+        let width = 10;
+        let size_info = SizeInfo::new(viewport_height, viewport_height, 5., 5., 0., 0., true);
+        frame_damage.add_viewport_rect(&size_info, x, y, width, height);
+        assert_eq!(frame_damage.rects[0], Rect {
+            x,
+            y: viewport_height as i32 - y - height,
+            width,
+            height
+        });
+        assert_eq!(frame_damage.rects[0].y, viewport_y_to_damage_y(&size_info, y, height));
+        assert_eq!(damage_y_to_viewport_y(&size_info, &frame_damage.rects[0]), y);
     }
 }

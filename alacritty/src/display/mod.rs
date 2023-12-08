@@ -43,7 +43,7 @@ use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
-use crate::display::damage::DamageTracker;
+use crate::display::damage::{damage_y_to_viewport_y, DamageTracker};
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
@@ -935,7 +935,7 @@ impl Display {
             rects.push(message_bar_rect);
 
             // Always damage message bar, since it could have messages of the same size in it.
-            self.damage_tracker.frame().add_rect(x, y as i32, width, height);
+            self.damage_tracker.frame().add_viewport_rect(&size_info, x, y as i32, width, height);
 
             // Draw rectangles.
             self.renderer.draw_rects(&size_info, &metrics, rects);
@@ -1327,7 +1327,7 @@ impl Display {
             let x = damage_rect.x as f32;
             let height = damage_rect.height as f32;
             let width = damage_rect.width as f32;
-            let y = self.size_info.height() - damage_rect.y as f32 - height;
+            let y = damage_y_to_viewport_y(&self.size_info, damage_rect) as f32;
             let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
 
             render_rects.push(render_rect);
