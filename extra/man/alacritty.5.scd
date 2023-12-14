@@ -245,7 +245,7 @@ macOS:     { family = _"Menlo"_,     style = _"Regular"_ }
 
 	Font size in points.
 
-	Default: _11.0_
+	Default: _11.25_
 
 *offset* = { x = _<integer>_, y = _<integer>_ }
 

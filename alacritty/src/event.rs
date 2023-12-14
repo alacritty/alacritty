@@ -463,9 +463,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
 
-    fn change_font_size(&mut self, delta: i32) {
-        let new_size = (self.display.font_size.as_px() as i32 + delta).clamp(1, u16::MAX as i32);
-        self.display.font_size = FontSize::from_px(new_size as u16);
+    fn change_font_size(&mut self, delta: f32) {
+        // Round to pick integral px steps, since fonts look better on them.
+        let new_size = self.display.font_size.as_px().round() + delta;
+        self.display.font_size = FontSize::from_px(new_size);
         let font = self.config.font.clone().with_size(self.display.font_size);
         self.display.pending_update.set_font(font);
     }
@@ -1168,8 +1169,7 @@ impl TouchZoom {
 
         // Calculate font change in `FONT_SIZE_STEP` increments.
         let delta = (self.distance() - old_distance) * TOUCH_ZOOM_FACTOR + self.fractions;
-        let font_delta =
-            (delta.abs() / FONT_SIZE_STEP as f32).floor() * FONT_SIZE_STEP as f32 * delta.signum();
+        let font_delta = (delta.abs() / FONT_SIZE_STEP).floor() * FONT_SIZE_STEP * delta.signum();
         self.fractions = delta - font_delta;
 
         font_delta

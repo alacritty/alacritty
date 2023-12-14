@@ -43,7 +43,7 @@ dependencies = [
  "clap_complete",
  "cocoa",
  "copypasta",
- "crossfont 0.6.0",
+ "crossfont 0.7.0",
  "dirs",
  "embed-resource",
  "gl_generator",
@@ -586,9 +586,9 @@ dependencies = [
 
 [[package]]
 name = "crossfont"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80c5cf9f7d8f5478dbebc0e7a9ddcd350401e4cd9275d003481d8ec9613b7de1"
+checksum = "e89c65306ecd118368d875f48d69394b5c3ff6bb7c57ae6deb638782735a093c"
 dependencies = [
  "cocoa",
  "core-foundation",
