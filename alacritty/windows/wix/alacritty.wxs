@@ -1,5 +1,5 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-   <Package Name="Alacritty" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.13.0-dev" Manufacturer="Alacritty" InstallerVersion="200">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+   <Package Name="Alacritty" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.14.0-dev" Manufacturer="Alacritty" InstallerVersion="200">
       <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
       <Icon Id="AlacrittyIco" SourceFile=".\alacritty\windows\alacritty.ico" />
       <WixVariable Id="WixUILicenseRtf" Value=".\alacritty\windows\wix\license.rtf" />
