@@ -545,12 +545,12 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
-        "c",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "v",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::VI;                       Action::Paste;
         "f",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchForward;
         "b",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchBackward;
         Insert, ModifiersState::SHIFT,                           ~BindingMode::VI;                       Action::PasteSelection;
         "c",    ModifiersState::CONTROL | ModifiersState::SHIFT;                                         Action::Copy;
+        "c",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "0",    ModifiersState::CONTROL;                                                                 Action::ResetFontSize;
         "=",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "+",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
@@ -579,7 +579,6 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
-        "c",    ModifiersState::SUPER, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert, ModifiersState::SHIFT, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1b[2;2~".into());
         // Tabbing api.
         "t",    ModifiersState::SUPER;                                         Action::CreateNewTab;
@@ -606,6 +605,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "n",    ModifiersState::SUPER;                                         Action::CreateNewWindow;
         "f",    ModifiersState::CONTROL | ModifiersState::SUPER;               Action::ToggleFullscreen;
         "c",    ModifiersState::SUPER;                                         Action::Copy;
+        "c",    ModifiersState::SUPER, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "h",    ModifiersState::SUPER;                                         Action::Hide;
         "h",    ModifiersState::SUPER   | ModifiersState::ALT;                 Action::HideOtherApplications;
         "m",    ModifiersState::SUPER;                                         Action::Minimize;
