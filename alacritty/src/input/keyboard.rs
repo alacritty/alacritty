@@ -122,6 +122,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 if named.to_text().is_some() {
                     alt_send_esc
                 } else {
+                    // Treat `Alt` as modifier for named keys without text, like ArrowUp.
                     self.ctx.modifiers().state().alt_key()
                 }
             },
