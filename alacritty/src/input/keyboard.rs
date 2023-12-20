@@ -78,13 +78,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             return;
         }
 
+        // Mask `Alt` modifier from input when we won't send esc.
+        let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
+
         let build_key_sequence = Self::should_build_sequence(&key, text, mode, mods);
 
         let bytes = if build_key_sequence {
             build_sequence(key, mods, mode)
         } else {
             let mut bytes = Vec::with_capacity(text.len() + 1);
-            if self.alt_send_esc() && text.len() == 1 {
+            if mods.alt_key() {
                 bytes.push(b'\x1b');
             }
 
@@ -96,6 +99,34 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if !bytes.is_empty() {
             self.ctx.on_terminal_input_start();
             self.ctx.write_to_pty(bytes);
+        }
+    }
+
+    fn alt_send_esc(&mut self, key: &KeyEvent, text: &str) -> bool {
+        #[cfg(not(target_os = "macos"))]
+        let alt_send_esc = self.ctx.modifiers().state().alt_key();
+
+        #[cfg(target_os = "macos")]
+        let alt_send_esc = {
+            let option_as_alt = self.ctx.config().window.option_as_alt();
+            self.ctx.modifiers().state().alt_key()
+                && (option_as_alt == OptionAsAlt::Both
+                    || (option_as_alt == OptionAsAlt::OnlyLeft
+                        && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
+                    || (option_as_alt == OptionAsAlt::OnlyRight
+                        && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed))
+        };
+
+        match key.logical_key {
+            Key::Named(named) => {
+                if named.to_text().is_some() {
+                    alt_send_esc
+                } else {
+                    // Treat `Alt` as modifier for named keys without text, like ArrowUp.
+                    self.ctx.modifiers().state().alt_key()
+                }
+            },
+            _ => text.len() == 1 && alt_send_esc,
         }
     }
 
@@ -121,23 +152,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             Key::Named(named) => named.to_text().is_none(),
             _ => text.is_empty(),
         }
-    }
-
-    /// Whether we should send `ESC` due to `Alt` being pressed.
-    #[cfg(not(target_os = "macos"))]
-    fn alt_send_esc(&mut self) -> bool {
-        self.ctx.modifiers().state().alt_key()
-    }
-
-    #[cfg(target_os = "macos")]
-    fn alt_send_esc(&mut self) -> bool {
-        let option_as_alt = self.ctx.config().window.option_as_alt();
-        self.ctx.modifiers().state().alt_key()
-            && (option_as_alt == OptionAsAlt::Both
-                || (option_as_alt == OptionAsAlt::OnlyLeft
-                    && self.ctx.modifiers().lalt_state() == ModifiersKeyState::Pressed)
-                || (option_as_alt == OptionAsAlt::OnlyRight
-                    && self.ctx.modifiers().ralt_state() == ModifiersKeyState::Pressed))
     }
 
     /// Attempt to find a binding and execute its action.
@@ -189,6 +203,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         {
             return;
         }
+
+        // Mask `Alt` modifier from input when we won't send esc.
+        let text = key.text_with_all_modifiers().unwrap_or_default();
+        let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
 
         let bytes: Cow<'static, [u8]> = match key.logical_key.as_ref() {
             // NOTE: Echo the key back on release to follow kitty/foot behavior. When
