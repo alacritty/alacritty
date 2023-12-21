@@ -410,7 +410,7 @@ impl Window {
     }
 
     pub fn set_ime_allowed(&self, allowed: bool) {
-        // NOTE: don't manipulate X11 IME at runtime since it tends to break with some IMEs.
+        // Skip runtime IME manipulation on X11 since it breaks some IMEs.
         if !self.is_x11 {
             self.window.set_ime_allowed(allowed);
         }
