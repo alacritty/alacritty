@@ -410,7 +410,10 @@ impl Window {
     }
 
     pub fn set_ime_allowed(&self, allowed: bool) {
-        self.window.set_ime_allowed(allowed);
+        // Skip runtime IME manipulation on X11 since it breaks some IMEs.
+        if !self.is_x11 {
+            self.window.set_ime_allowed(allowed);
+        }
     }
 
     /// Adjust the IME editor position according to the new location of the cursor.
