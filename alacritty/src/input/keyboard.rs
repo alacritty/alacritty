@@ -244,7 +244,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 /// The key sequences for `APP_KEYPAD` and alike are handled inside the bindings.
 #[inline(never)]
 fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8> {
-    let modifiers = mods.into();
+    let mut modifiers = mods.into();
 
     let kitty_seq = mode.intersects(
         TermMode::REPORT_ALL_KEYS_AS_ESC
@@ -263,7 +263,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
     let sequence_base = context
         .try_build_numpad(&key)
         .or_else(|| context.try_build_named(&key))
-        .or_else(|| context.try_build_control_char_or_mod(&key))
+        .or_else(|| context.try_build_control_char_or_mod(&key, &mut modifiers))
         .or_else(|| context.try_build_textual(&key));
 
     let (payload, terminator) = match sequence_base {
@@ -493,7 +493,11 @@ impl SequenceBuilder {
     }
 
     /// Try building escape from control characters (e.g. Enter) and modifiers.
-    fn try_build_control_char_or_mod(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_control_char_or_mod(
+        &self,
+        key: &KeyEvent,
+        mods: &mut SequenceModifiers,
+    ) -> Option<SequenceBase> {
         if !self.kitty_encode_all && !self.kitty_seq {
             return None;
         }
@@ -535,6 +539,19 @@ impl SequenceBuilder {
             (NamedKey::NumLock, _) => "57360",
             _ => base,
         };
+
+        // NOTE: Kitty's protocol mandates that the modifier state is applied before
+        // key press, however winit sends them after the key press, so for modifiers
+        // itself apply the state based on keysyms and not the _actual_ modifiers
+        // state, which is how kitty is doing so and what is suggested in such case.
+        let press = key.state.is_pressed();
+        match named {
+            NamedKey::Shift => mods.set(SequenceModifiers::SHIFT, press),
+            NamedKey::Control => mods.set(SequenceModifiers::CONTROL, press),
+            NamedKey::Alt => mods.set(SequenceModifiers::ALT, press),
+            NamedKey::Super => mods.set(SequenceModifiers::SUPER, press),
+            _ => (),
+        }
 
         if base.is_empty() {
             None
