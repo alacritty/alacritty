@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
+use std::fmt::{self, Formatter};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
@@ -349,6 +350,30 @@ impl event::OnResize for Notifier {
     }
 }
 
+#[derive(Debug)]
+pub enum EventLoopSendError {
+    Io(io::Error),
+    Send(mpsc::SendError),
+}
+
+impl Display for EventLoopSendError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            EventLoopSendError::Io(x) => x.fmt(f),
+            EventLoopSendError::Send(x) => x.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for EventLoopSendError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            EventLoopSendError::Io(x) => x,
+            EventLoopSendError::Send(x) => x,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct EventLoopSender {
     sender: Sender<Msg>,
@@ -356,9 +381,9 @@ pub struct EventLoopSender {
 }
 
 impl EventLoopSender {
-    pub fn send(&self, msg: Msg) {
-        let _ = self.sender.send(msg);
-        let _ = self.poller.notify();
+    pub fn send(&self, msg: Msg) -> Result<(), EventLoopSendError> {
+        self.sender.send(msg)?;
+        self.poller.notify()?;
     }
 }
 
