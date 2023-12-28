@@ -349,6 +349,7 @@ impl event::OnResize for Notifier {
     }
 }
 
+#[derive(Clone)]
 pub struct EventLoopSender {
     sender: Sender<Msg>,
     poller: Arc<polling::Poller>,
