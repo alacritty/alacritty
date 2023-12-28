@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::fmt::{self, Formatter};
+use std::fmt::{self, Formatter, Display};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
@@ -340,24 +340,24 @@ impl event::Notify for Notifier {
             return;
         }
 
-        self.0.send(Msg::Input(bytes));
+        let _ = self.0.send(Msg::Input(bytes));
     }
 }
 
 impl event::OnResize for Notifier {
     fn on_resize(&mut self, window_size: WindowSize) {
-        self.0.send(Msg::Resize(window_size));
+        let _ = self.0.send(Msg::Resize(window_size));
     }
 }
 
 #[derive(Debug)]
 pub enum EventLoopSendError {
     Io(io::Error),
-    Send(mpsc::SendError),
+    Send(mpsc::SendError<Msg>),
 }
 
 impl Display for EventLoopSendError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             EventLoopSendError::Io(x) => x.fmt(f),
             EventLoopSendError::Send(x) => x.fmt(f),
@@ -368,8 +368,8 @@ impl Display for EventLoopSendError {
 impl std::error::Error for EventLoopSendError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            EventLoopSendError::Io(x) => x,
-            EventLoopSendError::Send(x) => x,
+            EventLoopSendError::Io(x) => Some(x),
+            EventLoopSendError::Send(x) => Some(x),
         }
     }
 }
@@ -382,8 +382,8 @@ pub struct EventLoopSender {
 
 impl EventLoopSender {
     pub fn send(&self, msg: Msg) -> Result<(), EventLoopSendError> {
-        self.sender.send(msg)?;
-        self.poller.notify()?;
+        self.sender.send(msg).map_err(EventLoopSendError::Send)?;
+        self.poller.notify().map_err(EventLoopSendError::Io)
     }
 }
 
