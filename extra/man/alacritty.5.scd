@@ -143,6 +143,15 @@ This section documents the *[window]* table of the configuration file.
 
 	Startup mode (changes require restart)
 
+	*Windowed*
+		Regular window.
+	*Maximized*
+		The window will be maximized on startup.
+	*Fullscreen*
+		The window will be fullscreened on startup.
+	*SimpleFullscreen* _(macOS only)_
+		Same as _Fullscreen_, but you can stack windows on top.
+
 	Default: _"Windowed"_
 
 *title* = _"<string>"_
