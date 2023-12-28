@@ -96,7 +96,7 @@ fn migrate_config(
     if options.dry_run && !options.silent {
         // Output new content to STDOUT.
         println!(
-            "\nv-----Start TOML for {path:?}-----v\n\n{toml}\n^-----End TOML for {path:?}-----^"
+            "\nv-----Start TOML for {path:?}-----v\n\n{toml}\n^-----End TOML for {path:?}-----^\n"
         );
     } else if !options.dry_run {
         // Write the new toml configuration.
@@ -124,7 +124,23 @@ fn migrate_imports(
             Ok(import) => import,
             Err(err) => return Err(format!("import error: {err}")),
         };
+
+        // Keep yaml import if path does not exist.
+        if !import.exists() {
+            if options.dry_run {
+                eprintln!("Keeping yaml config for nonexistent import: {import:?}");
+            }
+            new_imports.push(Value::String(import.to_string_lossy().into()));
+            continue;
+        }
+
         let new_path = migrate_config(options, &import, recursion_limit - 1)?;
+
+        // Print new import path.
+        if options.dry_run {
+            println!("Successfully migrated import {import:?} to {new_path:?}");
+        }
+
         new_imports.push(Value::String(new_path));
     }
 

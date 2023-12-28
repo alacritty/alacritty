@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
+### Fixed
+
+- `alacritty migrate` failing with nonexistent imports
+
 ## 0.13.0
 
 ### Packaging
