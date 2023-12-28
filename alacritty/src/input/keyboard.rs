@@ -172,7 +172,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             // the time. However what we want is to manually lowercase the character to account
             // for both small and capital letters on regular characters at the same time.
             let logical_key = if let Key::Character(ch) = key.logical_key.as_ref() {
-                Key::Character(ch.to_lowercase().into())
+                // Match `Alt` bindings without `Alt` being applied, otherwise they use the
+                // composed chars, which are not intuitive to bind.
+                if cfg!(target_os = "macos") && mods.alt_key() {
+                    key.key_without_modifiers()
+                } else {
+                    Key::Character(ch.to_lowercase().into())
+                }
             } else {
                 key.logical_key.clone()
             };
