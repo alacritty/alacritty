@@ -352,15 +352,18 @@ impl event::OnResize for Notifier {
 
 #[derive(Debug)]
 pub enum EventLoopSendError {
+    /// Error polling the event loop.
     Io(io::Error),
+
+    /// Error sending a message to the event loop.
     Send(mpsc::SendError<Msg>),
 }
 
 impl Display for EventLoopSendError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            EventLoopSendError::Io(x) => x.fmt(f),
-            EventLoopSendError::Send(x) => x.fmt(f),
+            EventLoopSendError::Io(err) => err.fmt(f),
+            EventLoopSendError::Send(err) => err.fmt(f),
         }
     }
 }
@@ -368,8 +371,8 @@ impl Display for EventLoopSendError {
 impl std::error::Error for EventLoopSendError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            EventLoopSendError::Io(x) => Some(x),
-            EventLoopSendError::Send(x) => Some(x),
+            EventLoopSendError::Io(err) => err.source(),
+            EventLoopSendError::Send(err) => err.source(),
         }
     }
 }
