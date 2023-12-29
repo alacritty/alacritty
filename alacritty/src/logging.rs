@@ -8,12 +8,11 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 use std::{env, process};
 
 use log::{self, Level, LevelFilter};
-use once_cell::sync::Lazy;
 use winit::event_loop::EventLoopProxy;
 
 use crate::cli::Options;
@@ -35,10 +34,14 @@ pub const LOG_TARGET_CONFIG: &str = "alacritty_config_derive";
 const ALACRITTY_EXTRA_LOG_TARGETS_ENV: &str = "ALACRITTY_EXTRA_LOG_TARGETS";
 
 /// User configurable extra log targets to include.
-static EXTRA_LOG_TARGETS: Lazy<Vec<String>> = Lazy::new(|| {
-    env::var(ALACRITTY_EXTRA_LOG_TARGETS_ENV)
-        .map_or(Vec::new(), |targets| targets.split(';').map(ToString::to_string).collect())
-});
+fn extra_log_targets() -> &'static [String] {
+    static EXTRA_LOG_TARGETS: OnceLock<Vec<String>> = OnceLock::new();
+
+    EXTRA_LOG_TARGETS.get_or_init(|| {
+        env::var(ALACRITTY_EXTRA_LOG_TARGETS_ENV)
+            .map_or(Vec::new(), |targets| targets.split(';').map(ToString::to_string).collect())
+    })
+}
 
 /// List of targets which will be logged by Alacritty.
 const ALLOWED_TARGETS: &[&str] = &[
@@ -181,7 +184,7 @@ fn create_log_message(record: &log::Record<'_>, target: &str, start: Instant) ->
 fn is_allowed_target(level: Level, target: &str) -> bool {
     match (level, log::max_level()) {
         (Level::Error, LevelFilter::Trace) | (Level::Warn, LevelFilter::Trace) => true,
-        _ => ALLOWED_TARGETS.contains(&target) || EXTRA_LOG_TARGETS.iter().any(|t| t == target),
+        _ => ALLOWED_TARGETS.contains(&target) || extra_log_targets().iter().any(|t| t == target),
     }
 }
 
