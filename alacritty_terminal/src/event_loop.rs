@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::fmt::{self, Formatter, Display};
+use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
