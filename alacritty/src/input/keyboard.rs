@@ -350,17 +350,25 @@ impl SequenceBuilder {
             let character = character.chars().next().unwrap();
             let base_character = character.to_lowercase().next().unwrap();
 
-            let codepoint = u32::from(character);
-            let base_codepoint = u32::from(base_character);
+            let alternate_key_code = u32::from(character);
+            let mut unicode_key_code = u32::from(base_character);
+
+            // Try to get the base for keys which change based on modifier, like `1` for `!`.
+            match key.key_without_modifiers().as_ref() {
+                Key::Character(unmodded) if alternate_key_code == unicode_key_code => {
+                    unicode_key_code = u32::from(unmodded.chars().next().unwrap_or(base_character));
+                },
+                _ => (),
+            }
 
             // NOTE: Base layouts are ignored, since winit doesn't expose this information
             // yet.
             let payload = if self.mode.contains(TermMode::REPORT_ALTERNATE_KEYS)
-                && codepoint != base_codepoint
+                && alternate_key_code != unicode_key_code
             {
-                format!("{codepoint}:{base_codepoint}")
+                format!("{unicode_key_code}:{alternate_key_code}")
             } else {
-                codepoint.to_string()
+                alternate_key_code.to_string()
             };
 
             Some(SequenceBase::new(payload.into(), SequenceTerminator::Kitty))
