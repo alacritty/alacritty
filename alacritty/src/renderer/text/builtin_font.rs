@@ -523,8 +523,8 @@ fn powerline_drawing(
     // x = (H - 2) / (2 * slope).
     let x_intersection = (height as i32 + 1) / 2 - 1;
 
-    // Don't try to draw powerline symbols when we'll cut too much, for example when the font is
-    // really narrow.
+    // Don't use built-in font if we'd cut the tip too much, for example when the font is really
+    // narrow.
     if x_intersection - width as i32 > 1 {
         return None;
     }
