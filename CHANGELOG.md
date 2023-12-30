@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `alacritty migrate` failing with nonexistent imports
 - `Alt` bindings requiring composed key rather than pre-composed one on macOS
 - `Alt + Control` bindings not working on Windows
+- `chars = "\u000A"` action in bindings inserting `\n`
 
 ## 0.13.0
 
