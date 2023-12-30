@@ -560,6 +560,6 @@ impl WindowContext {
 impl Drop for WindowContext {
     fn drop(&mut self) {
         // Shutdown the terminal's PTY.
-        self.notifier.0.send(Msg::Shutdown);
+        let _ = self.notifier.0.send(Msg::Shutdown);
     }
 }
