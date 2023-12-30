@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - `alacritty migrate` failing with nonexistent imports
+- `Alt` bindings requiring composed key rather than pre-composed one on macOS
+- `Alt + Control` bindings not working on Windows
 
 ## 0.13.0
 
