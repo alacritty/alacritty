@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Alt` bindings requiring composed key rather than pre-composed one on macOS
 - `Alt + Control` bindings not working on Windows
 - `chars = "\u000A"` action in bindings inserting `\n`
+- Alternate keys not sent for `Shift + <number>` when using kitty protocol
+- Alternative keys being swapped in kitty protocol implementation
 
 ## 0.13.0
 
