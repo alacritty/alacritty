@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `chars = "\u000A"` action in bindings inserting `\n`
 - Alternate keys not sent for `Shift + <number>` when using kitty protocol
 - Alternative keys being swapped in kitty protocol implementation
+- Powerline glyphs being cut for narrow fonts
 
 ## 0.13.0
 

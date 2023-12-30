@@ -32,7 +32,7 @@ pub fn builtin_glyph(
         '\u{2500}'..='\u{259f}' => box_drawing(character, metrics, offset),
         // Powerline symbols: '','','',''
         POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
-            powerline_drawing(character, metrics, offset)
+            powerline_drawing(character, metrics, offset)?
         },
         _ => return None,
     };
@@ -503,7 +503,11 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
     }
 }
 
-fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+fn powerline_drawing(
+    character: char,
+    metrics: &Metrics,
+    offset: &Delta<i8>,
+) -> Option<RasterizedGlyph> {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
     let extra_thickness = calculate_stroke_size(width) as i32 - 1;
@@ -518,6 +522,12 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
     // g(x) = H - slope * x - 1 lines. The intersection happens when f(x) = g(x), which is at
     // x = (H - 2) / (2 * slope).
     let x_intersection = (height as i32 + 1) / 2 - 1;
+
+    // Don't use built-in font if we'd cut the tip too much, for example when the font is really
+    // narrow.
+    if x_intersection - width as i32 > 1 {
+        return None;
+    }
 
     let top_line = (0..x_intersection).map(|x| line_equation(slope, x, top_y));
     let bottom_line = (0..x_intersection).map(|x| line_equation(-slope, x, bottom_y));
@@ -555,7 +565,7 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
 
     let top = height as i32 + metrics.descent as i32;
     let buffer = BitmapBuffer::Rgb(canvas.into_raw());
-    RasterizedGlyph {
+    Some(RasterizedGlyph {
         character,
         top,
         left: 0,
@@ -563,7 +573,7 @@ fn powerline_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> 
         width: width as i32,
         buffer,
         advance: (width as i32, height as i32),
-    }
+    })
 }
 
 #[repr(packed)]
