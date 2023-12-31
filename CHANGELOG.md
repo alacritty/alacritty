@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Alternate keys not sent for `Shift + <number>` when using kitty protocol
 - Alternative keys being swapped in kitty protocol implementation
 - Powerline glyphs being cut for narrow fonts
+- Xmodmap not working on X11
+- Occasional slow startup on some X11 window managers
+- Blurry window when using `window.dimensions` on some Wayland compositors
+- IME input lagging behind on X11
+- xdotool modifiers input not working correctly on X11
 
 ## 0.13.0
 
