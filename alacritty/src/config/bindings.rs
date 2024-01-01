@@ -546,6 +546,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
         "v",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::VI;                       Action::Paste;
+        "v",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::SEARCH;                   Action::Paste;
         "f",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchForward;
         "b",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchBackward;
         Insert, ModifiersState::SHIFT,                           ~BindingMode::VI;                       Action::PasteSelection;
