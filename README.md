@@ -73,7 +73,8 @@ following locations:
 
 On Windows, the config file should be located at:
 
-`%APPDATA%\alacritty\alacritty.toml`
+1. `%APPDATA%\Roaming\alacritty\alacritty.toml`
+2. `%APPDATA%\alacritty\alacritty.toml`
 
 ## Contributing
 
