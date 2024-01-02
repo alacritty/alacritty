@@ -1,5 +1,6 @@
-//! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf)
-//! and [block elements](https://www.unicode.org/charts/PDF/U2580.pdf), and also powerline symbols.
+//! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf),
+//! [block elements](https://www.unicode.org/charts/PDF/U2580.pdf)
+//! and [sextants](https://www.unicode.org/charts/PDF/U1FB00.pdf), and also powerline symbols.
 
 use std::{cmp, mem, ops};
 
@@ -498,7 +499,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             let y_third = (height as f32 / 3.).round().max(1.);
             let y_last_third = height as f32 - 2. * y_third;
 
-            let (w_1, h_1) = match character {
+            let (w_top_left, h_top_left) = match character {
                 '\u{1fb00}' | '\u{1fb02}' | '\u{1fb04}' | '\u{1fb06}' | '\u{1fb08}'
                 | '\u{1fb0a}' | '\u{1fb0c}' | '\u{1fb0e}' | '\u{1fb10}' | '\u{1fb12}'
                 | '\u{1fb15}' | '\u{1fb17}' | '\u{1fb19}' | '\u{1fb1b}' | '\u{1fb1d}'
@@ -509,7 +510,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_2, h_2) = match character {
+            let (w_top_right, h_top_right) = match character {
                 '\u{1fb01}' | '\u{1fb02}' | '\u{1fb05}' | '\u{1fb06}' | '\u{1fb09}'
                 | '\u{1fb0a}' | '\u{1fb0d}' | '\u{1fb0e}' | '\u{1fb11}' | '\u{1fb12}'
                 | '\u{1fb14}' | '\u{1fb15}' | '\u{1fb18}' | '\u{1fb19}' | '\u{1fb1c}'
@@ -520,7 +521,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_3, h_3) = match character {
+            let (w_mid_left, h_mid_left) = match character {
                 '\u{1fb03}' | '\u{1fb04}' | '\u{1fb05}' | '\u{1fb06}' | '\u{1fb0b}'
                 | '\u{1fb0c}' | '\u{1fb0d}' | '\u{1fb0e}' | '\u{1fb13}' | '\u{1fb14}'
                 | '\u{1fb15}' | '\u{1fb1a}' | '\u{1fb1b}' | '\u{1fb1c}' | '\u{1fb1d}'
@@ -531,7 +532,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_4, h_4) = match character {
+            let (w_mid_right, h_mid_right) = match character {
                 '\u{1fb07}' | '\u{1fb08}' | '\u{1fb09}' | '\u{1fb0a}' | '\u{1fb0b}'
                 | '\u{1fb0c}' | '\u{1fb0d}' | '\u{1fb0e}' | '\u{1fb16}' | '\u{1fb17}'
                 | '\u{1fb18}' | '\u{1fb19}' | '\u{1fb1a}' | '\u{1fb1b}' | '\u{1fb1c}'
@@ -542,7 +543,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_5, h_5) = match character {
+            let (w_bottom_left, h_bottom_right) = match character {
                 '\u{1fb0f}' | '\u{1fb10}' | '\u{1fb11}' | '\u{1fb12}' | '\u{1fb13}'
                 | '\u{1fb14}' | '\u{1fb15}' | '\u{1fb16}' | '\u{1fb17}' | '\u{1fb18}'
                 | '\u{1fb19}' | '\u{1fb1a}' | '\u{1fb1b}' | '\u{1fb1c}' | '\u{1fb1d}'
@@ -565,11 +566,11 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 _ => (0., 0.),
             };
 
-            canvas.draw_rect(0., 0., w_1, h_1, COLOR_FILL);
-            canvas.draw_rect(x_center, 0., w_2, h_2, COLOR_FILL);
-            canvas.draw_rect(0., y_third, w_3, h_3, COLOR_FILL);
-            canvas.draw_rect(x_center, y_third, w_4, h_4, COLOR_FILL);
-            canvas.draw_rect(0., y_third * 2., w_5, h_5, COLOR_FILL);
+            canvas.draw_rect(0., 0., w_top_left, h_top_left, COLOR_FILL);
+            canvas.draw_rect(x_center, 0., w_top_right, h_top_right, COLOR_FILL);
+            canvas.draw_rect(0., y_third, w_mid_left, h_mid_left, COLOR_FILL);
+            canvas.draw_rect(x_center, y_third, w_mid_right, h_mid_right, COLOR_FILL);
+            canvas.draw_rect(0., y_third * 2., w_bottom_left, h_bottom_right, COLOR_FILL);
             canvas.draw_rect(x_center, y_third * 2., w_6, h_6, COLOR_FILL);
         },
         _ => unreachable!(),
