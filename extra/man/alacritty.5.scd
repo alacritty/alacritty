@@ -272,7 +272,7 @@ macOS:     { family = _"Menlo"_,     style = _"Regular"_ }
 *builtin_box_drawing* = _true_ | _false_
 
 	When _true_, Alacritty will use a custom built-in font for box drawing
-	characters (Unicode points _U+2500_ - _U+259F_) and powerline symbols
+	characters (Unicode points _U+2500_ - _U+259F_, _1FB00_ - _U+1FB3B_) and powerline symbols
 	(Unicode points _U+E0B0_ - _U+E0B3_).
 
 	Default: _true_
