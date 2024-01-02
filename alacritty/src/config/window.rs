@@ -3,10 +3,10 @@ use std::fmt::{self, Formatter};
 use log::{error, warn};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-use winit::window::{Fullscreen, Theme};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
+use winit::window::{Fullscreen, Theme as WinitTheme};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
@@ -30,9 +30,6 @@ pub struct WindowConfig {
     /// XEmbed parent.
     #[config(skip)]
     pub embed: Option<u32>,
-
-    /// System decorations theme variant.
-    pub decorations_theme_variant: Option<Theme>,
 
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
@@ -62,6 +59,9 @@ pub struct WindowConfig {
 
     /// Initial dimensions.
     dimensions: Dimensions,
+
+    /// System decorations theme variant.
+    decorations_theme_variant: Option<Theme>,
 }
 
 impl Default for WindowConfig {
@@ -148,6 +148,10 @@ impl WindowConfig {
             OptionAsAlt::Both => WinitOptionAsAlt::Both,
             OptionAsAlt::None => WinitOptionAsAlt::None,
         }
+    }
+
+    pub fn theme(&self) -> Option<WinitTheme> {
+        self.decorations_theme_variant.map(WinitTheme::from)
     }
 }
 
@@ -291,4 +295,20 @@ pub enum OptionAsAlt {
     /// No special handling is applied for `Option` key.
     #[default]
     None,
+}
+
+/// System decorations theme variant.
+#[derive(ConfigDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Theme {
+    Light,
+    Dark,
+}
+
+impl From<Theme> for WinitTheme {
+    fn from(theme: Theme) -> Self {
+        match theme {
+            Theme::Light => WinitTheme::Light,
+            Theme::Dark => WinitTheme::Dark,
+        }
+    }
 }
