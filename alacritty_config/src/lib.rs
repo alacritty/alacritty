@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::error::Error;
+use std::path::PathBuf;
 
 use log::LevelFilter;
+use winit::platform::wayland::Theme;
 use serde::Deserialize;
 use toml::Value;
 
@@ -9,6 +11,7 @@ pub trait SerdeReplace {
     fn replace(&mut self, value: Value) -> Result<(), Box<dyn Error>>;
 }
 
+#[macro_export]
 macro_rules! impl_replace {
     ($($ty:ty),*$(,)*) => {
         $(
@@ -29,7 +32,9 @@ impl_replace!(
     bool,
     char,
     String,
+    PathBuf,
     LevelFilter,
+    Theme,
 );
 
 fn replace_simple<'de, D>(data: &mut D, value: Value) -> Result<(), Box<dyn Error>>
@@ -47,14 +52,44 @@ impl<'de, T: Deserialize<'de>> SerdeReplace for Vec<T> {
     }
 }
 
-impl<'de, T: Deserialize<'de>> SerdeReplace for Option<T> {
+impl<'de, T: SerdeReplace + Deserialize<'de>> SerdeReplace for Option<T> {
     fn replace(&mut self, value: Value) -> Result<(), Box<dyn Error>> {
-        replace_simple(self, value)
+        match self {
+            Some(inner) => inner.replace(value),
+            None => replace_simple(self, value),
+        }
     }
 }
 
 impl<'de, T: Deserialize<'de>> SerdeReplace for HashMap<String, T> {
     fn replace(&mut self, value: Value) -> Result<(), Box<dyn Error>> {
         replace_simple(self, value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate as alacritty_config;
+    use alacritty_config_derive::ConfigDeserialize;
+
+    #[test]
+    fn replace_option() {
+        #[derive(ConfigDeserialize, Default, PartialEq, Eq, Debug)]
+        struct ReplaceOption {
+            a: usize,
+            b: usize,
+        }
+
+        let mut subject: Option<ReplaceOption> = None;
+
+        let value: Value = toml::from_str("a=1").unwrap();
+        SerdeReplace::replace(&mut subject, value).unwrap();
+
+        let value: Value = toml::from_str("b=2").unwrap();
+        SerdeReplace::replace(&mut subject, value).unwrap();
+
+        assert_eq!(subject, Some(ReplaceOption { a: 1, b: 2 }));
     }
 }
