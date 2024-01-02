@@ -42,13 +42,14 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :[
 :  _"ClearLogNotice"_
+|  _"Paste"_
+:[
+:  _"Vi|Search"_
+:  _"Paste"_
 |  _"L"_
 :  _"Control"_
 :  _"~Vi|~Search"_
 :  *chars*: _"\\u000c"_
-|  _"Paste"_
-:  _"Vi|Search"_
-:  _"Paste"_
 |  _"PageUp"_
 :  _"Shift"_
 :  _"~Alt"_
