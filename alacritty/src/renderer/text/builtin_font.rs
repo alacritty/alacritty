@@ -496,6 +496,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
         '\u{1fb00}'..='\u{1fb3b}' => {
             let x_center = canvas.x_center().round().max(1.);
             let y_third = (height as f32 / 3.).round().max(1.);
+            let y_last_third = height as f32 - 2. * y_third;
 
             let (w_1, h_1) = match character {
                 '\u{1fb00}' | '\u{1fb02}' | '\u{1fb04}' | '\u{1fb06}' | '\u{1fb08}'
@@ -548,7 +549,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 | '\u{1fb2d}' | '\u{1fb2e}' | '\u{1fb2f}' | '\u{1fb30}' | '\u{1fb31}'
                 | '\u{1fb32}' | '\u{1fb33}' | '\u{1fb34}' | '\u{1fb35}' | '\u{1fb36}'
                 | '\u{1fb37}' | '\u{1fb38}' | '\u{1fb39}' | '\u{1fb3a}' | '\u{1fb3b}' => {
-                    (x_center, y_third)
+                    (x_center, y_last_third)
                 },
                 _ => (0., 0.),
             };
@@ -559,7 +560,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 | '\u{1fb2d}' | '\u{1fb2e}' | '\u{1fb2f}' | '\u{1fb30}' | '\u{1fb31}'
                 | '\u{1fb32}' | '\u{1fb33}' | '\u{1fb34}' | '\u{1fb35}' | '\u{1fb36}'
                 | '\u{1fb37}' | '\u{1fb38}' | '\u{1fb39}' | '\u{1fb3a}' | '\u{1fb3b}' => {
-                    (x_center, y_third)
+                    (x_center, y_last_third)
                 },
                 _ => (0., 0.),
             };
