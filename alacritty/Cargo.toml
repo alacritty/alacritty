@@ -3,7 +3,7 @@ name = "alacritty"
 version = "0.14.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
-description = "A fast, cross-platform, OpenGL terminal emulator"
+description = "Fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
@@ -86,3 +86,19 @@ wayland = [
     "winit/wayland-csd-adwaita-crossfont",
 ]
 nightly = []
+
+[package.metadata.deb]
+maintainer = "David Campbell <dcampbell24@gmail.com>"
+assets = [
+    ["target/release/alacritty", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/alacritty/", "644"],
+    ["../target/debian/alacritty-bindings.5.gz", "usr/share/man/man5/", "644"],
+    ["../target/debian/alacritty-msg.1.gz", "usr/share/man/man1/", "644"],
+    ["../target/debian/alacritty.1.gz", "usr/share/man/man1/", "644"],
+    ["../target/debian/alacritty.5.gz", "usr/share/man/man5/", "644"],
+    ["extra/linux/Alacritty.desktop", "usr/share/applications/", "644"],
+    ["extra/logo/alacritty-term.svg", "usr/share/icons/hicolor/scalable/apps/Alacritty.svg", "644"],
+    ["extra/logo/compat/alacritty-term.png", "usr/share/icons/hicolor/64x64/apps/Alacritty.png", "644"],
+]
+#changelog = "changelog.Debian"
+section = "utils"
