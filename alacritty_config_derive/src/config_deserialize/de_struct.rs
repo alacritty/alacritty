@@ -58,7 +58,8 @@ pub fn derive_deserialize<T>(
 
                 // Warn about unused keys.
                 for key in unused.keys() {
-                    log::warn!(target: #LOG_TARGET, "Unused config key: {}", key);
+                    log::warn!(target: #LOG_TARGET,
+                    "Unused config key: {}\nRemove it or comment out to suppress the warning", key);
                 }
 
                 Ok(config)
