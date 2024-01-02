@@ -165,7 +165,7 @@ impl Window {
 
         let window = window_builder
             .with_title(&identity.title)
-            .with_theme(config.window.decorations_theme_variant)
+            .with_theme(config.window.theme())
             .with_visible(false)
             .with_transparent(true)
             .with_blur(config.window.blur)

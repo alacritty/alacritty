@@ -12,7 +12,6 @@ rust-version = "1.70.0"
 log = { version = "0.4.17", features = ["serde"] }
 serde = "1.0.163"
 toml = "0.8.2"
-winit = { version = "0.29.7", features = ["serde"] }
 
 [dev-dependencies]
 alacritty_config_derive = { path = "../alacritty_config_derive" }

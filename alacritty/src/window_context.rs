@@ -289,7 +289,7 @@ impl WindowContext {
         }
 
         // Always reload the theme to account for auto-theme switching.
-        self.display.window.set_theme(self.config.window.decorations_theme_variant);
+        self.display.window.set_theme(self.config.window.theme());
 
         // Update display if either padding options or resize increments were changed.
         let window_config = &old_config.window;

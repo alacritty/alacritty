@@ -3,7 +3,6 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use log::LevelFilter;
-use winit::platform::wayland::Theme;
 use serde::Deserialize;
 use toml::Value;
 
@@ -34,7 +33,6 @@ impl_replace!(
     String,
     PathBuf,
     LevelFilter,
-    Theme,
 );
 
 fn replace_simple<'de, D>(data: &mut D, value: Value) -> Result<(), Box<dyn Error>>
