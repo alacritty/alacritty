@@ -230,7 +230,8 @@ pub fn deserialize_config(path: &Path) -> Result<Value> {
             "YAML config {path:?} is deprecated, please migrate to TOML using `alacritty migrate`"
         );
 
-        let value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
+        let mut value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
+        prune_yaml_nulls(&mut value);
         contents = toml::to_string(&value)?;
     }
 
@@ -318,6 +319,26 @@ pub fn imports(
     Ok(import_paths)
 }
 
+/// Prune the nulls from the YAML.
+fn prune_yaml_nulls(value: &mut serde_yaml::Value) {
+    fn walk(value: &mut serde_yaml::Value) -> bool {
+        if let Some(mapping) = value.as_mapping_mut() {
+            mapping.retain(|_, value| !walk(value));
+            mapping.is_empty()
+        } else if let Some(sequence) = value.as_sequence_mut() {
+            sequence.retain_mut(|value| !walk(value));
+            sequence.is_empty()
+        } else {
+            value.is_null()
+        }
+    }
+
+    if walk(value) {
+        // When the value itself is null return the mapping.
+        *value = serde_yaml::Value::Mapping(Default::default());
+    }
+}
+
 /// Get the location of the first found default config file paths
 /// according to the following order:
 ///
@@ -369,5 +390,44 @@ mod tests {
     #[test]
     fn empty_config() {
         toml::from_str::<UiConfig>("").unwrap();
+    }
+
+    fn yaml_to_toml(contents: &str) -> String {
+        let mut value: serde_yaml::Value = serde_yaml::from_str(contents).unwrap();
+        prune_yaml_nulls(&mut value);
+        toml::to_string(&value).unwrap()
+    }
+
+    #[test]
+    fn yaml_with_nulls() {
+        let contents = r#"
+        window:
+            blinking: Always
+            cursor:
+            not_blinking: Always
+            some_array:
+              - { window: }
+              - { window: "Hello" }
+
+        "#;
+        let toml = yaml_to_toml(contents);
+        assert_eq!(
+            toml.trim(),
+            r#"[window]
+blinking = "Always"
+not_blinking = "Always"
+
+[[window.some_array]]
+window = "Hello""#
+        );
+    }
+
+    #[test]
+    fn empty_yaml_to_toml() {
+        let contents = r#"
+
+        "#;
+        let toml = yaml_to_toml(contents);
+        assert!(toml.is_empty());
     }
 }
