@@ -298,7 +298,7 @@ pub enum OptionAsAlt {
 }
 
 /// System decorations theme variant.
-#[derive(ConfigDeserialize,  Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Theme {
     Light,
     Dark,
