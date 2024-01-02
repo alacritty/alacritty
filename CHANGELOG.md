@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME input lagging behind on X11
 - xdotool modifiers input not working correctly on X11
 - Parsing numbers fails for mouse bindings
+- Some config options overriding each other in CLI/IPC
 
 ## 0.13.0
 
