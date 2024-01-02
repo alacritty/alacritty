@@ -860,6 +860,16 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
                 f.write_str("Left, Right, Middle, Back, Forward, or a number from 0 to 65536")
             }
 
+            fn visit_i64<E>(self, value: i64) -> Result<MouseButtonWrapper, E>
+            where
+                E: de::Error,
+            {
+                match value {
+                    0..=65536 => Ok(MouseButtonWrapper(MouseButton::Other(value as u16))),
+                    _ => Err(E::invalid_value(Unexpected::Signed(value), &self)),
+                }
+            }
+
             fn visit_u64<E>(self, value: u64) -> Result<MouseButtonWrapper, E>
             where
                 E: de::Error,
