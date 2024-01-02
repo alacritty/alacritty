@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
+### Added
+
+- Support for pasting in Vi + Search mode
+
 ### Fixed
 
 - `alacritty migrate` failing with nonexistent imports
@@ -22,9 +26,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - IME input lagging behind on X11
 - xdotool modifiers input not working correctly on X11
 
-### Added
-
-- Support for pasting in Vi + Search mode
 
 ## 0.13.0
 
