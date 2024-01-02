@@ -1,7 +1,5 @@
 use log::LevelFilter;
 
-use serde::Deserialize;
-
 use alacritty_config_derive::ConfigDeserialize;
 
 /// Debugging options.
@@ -47,17 +45,17 @@ impl Default for Debug {
 }
 
 /// The renderer configuration options.
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RendererPreference {
     /// OpenGL 3.3 renderer.
-    #[serde(rename = "glsl3")]
+    #[config(rename = "glsl3")]
     Glsl3,
 
     /// GLES 2 renderer, with optional extensions like dual source blending.
-    #[serde(rename = "gles2")]
+    #[config(rename = "gles2")]
     Gles2,
 
     /// Pure GLES 2 renderer.
-    #[serde(rename = "gles2_pure")]
+    #[config(rename = "gles2_pure")]
     Gles2Pure,
 }

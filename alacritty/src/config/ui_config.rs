@@ -1,9 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use alacritty_config::SerdeReplace;
 use alacritty_terminal::term::Config as TermConfig;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
@@ -653,6 +655,14 @@ impl From<Program> for Shell {
             Program::Just(program) => Shell::new(program, Vec::new()),
             Program::WithArgs { program, args } => Shell::new(program, args),
         }
+    }
+}
+
+impl SerdeReplace for Program {
+    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn Error>> {
+        *self = Self::deserialize(value)?;
+
+        Ok(())
     }
 }
 
