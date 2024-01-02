@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Blurry window when using `window.dimensions` on some Wayland compositors
 - IME input lagging behind on X11
 - xdotool modifiers input not working correctly on X11
+- Parsing numbers fails for mouse bindings
 
 ## 0.13.0
 
