@@ -207,7 +207,7 @@ fn parse_config(
     config_paths.push(path.to_owned());
 
     // Deserialize the configuration file.
-    let config = deserialize_config(path)?;
+    let config = deserialize_config(path, false)?;
 
     // Merge config with imports.
     let imports = load_imports(&config, config_paths, recursion_limit);
@@ -215,7 +215,7 @@ fn parse_config(
 }
 
 /// Deserialize a configuration file.
-pub fn deserialize_config(path: &Path) -> Result<Value> {
+pub fn deserialize_config(path: &Path, warn_pruned: bool) -> Result<Value> {
     let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM.
@@ -231,7 +231,7 @@ pub fn deserialize_config(path: &Path) -> Result<Value> {
         );
 
         let mut value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
-        prune_yaml_nulls(&mut value);
+        prune_yaml_nulls(&mut value, warn_pruned);
         contents = toml::to_string(&value)?;
     }
 
@@ -320,20 +320,26 @@ pub fn imports(
 }
 
 /// Prune the nulls from the YAML.
-fn prune_yaml_nulls(value: &mut serde_yaml::Value) {
-    fn walk(value: &mut serde_yaml::Value) -> bool {
+fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
+    fn walk(value: &mut serde_yaml::Value, warn_pruned: bool) -> bool {
         if let Some(mapping) = value.as_mapping_mut() {
-            mapping.retain(|_, value| !walk(value));
+            mapping.retain(|key, value| {
+                let retain = !walk(value, warn_pruned);
+                if let Some(key_name) = key.as_str().filter(|_| !retain && warn_pruned) {
+                    eprintln!("Removing null key \"{key_name}\" from the end config");
+                }
+                retain
+            });
             mapping.is_empty()
         } else if let Some(sequence) = value.as_sequence_mut() {
-            sequence.retain_mut(|value| !walk(value));
+            sequence.retain_mut(|value| !walk(value, warn_pruned));
             sequence.is_empty()
         } else {
             value.is_null()
         }
     }
 
-    if walk(value) {
+    if walk(value, warn_pruned) {
         // When the value itself is null return the mapping.
         *value = serde_yaml::Value::Mapping(Default::default());
     }
@@ -394,7 +400,7 @@ mod tests {
 
     fn yaml_to_toml(contents: &str) -> String {
         let mut value: serde_yaml::Value = serde_yaml::from_str(contents).unwrap();
-        prune_yaml_nulls(&mut value);
+        prune_yaml_nulls(&mut value, false);
         toml::to_string(&value).unwrap()
     }
 
