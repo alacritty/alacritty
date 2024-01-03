@@ -1,6 +1,7 @@
 //! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf),
 //! [block elements](https://www.unicode.org/charts/PDF/U2580.pdf)
-//! and [sextants](https://www.unicode.org/charts/PDF/U1FB00.pdf), and also powerline symbols.
+//! and [symbols for legacy computing](https://www.unicode.org/charts/PDF/U1FB00.pdf),
+//! and also powerline symbols.
 
 use std::{cmp, mem, ops};
 
