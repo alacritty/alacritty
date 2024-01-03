@@ -38,6 +38,9 @@ use crate::logging::LOG_TARGET_CONFIG;
 /// Maximum number of depth for the configuration file imports.
 pub const IMPORT_RECURSION_LIMIT: usize = 5;
 
+/// Maximum number of depth for fields in the yaml config when replacing nulls.
+pub const YAML_TO_TOML_RECURSION_LIMIT: u32 = 10;
+
 /// Result from config loading.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -319,12 +322,16 @@ pub fn imports(
     Ok(import_paths)
 }
 
-/// Prune the nulls from the YAML.
+/// Prune the nulls from the YAML to ensure TOML compatibility.
 fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
-    fn walk(value: &mut serde_yaml::Value, warn_pruned: bool) -> bool {
+    fn walk(value: &mut serde_yaml::Value, depth: u32, warn_pruned: bool) -> bool {
+        if depth > YAML_TO_TOML_RECURSION_LIMIT {
+            return false;
+        }
+
         if let Some(mapping) = value.as_mapping_mut() {
             mapping.retain(|key, value| {
-                let retain = !walk(value, warn_pruned);
+                let retain = !walk(value, depth + 1, warn_pruned);
                 if let Some(key_name) = key.as_str().filter(|_| !retain && warn_pruned) {
                     eprintln!("Removing null key \"{key_name}\" from the end config");
                 }
@@ -332,14 +339,14 @@ fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
             });
             mapping.is_empty()
         } else if let Some(sequence) = value.as_sequence_mut() {
-            sequence.retain_mut(|value| !walk(value, warn_pruned));
+            sequence.retain_mut(|value| !walk(value, depth + 1, warn_pruned));
             sequence.is_empty()
         } else {
             value.is_null()
         }
     }
 
-    if walk(value, warn_pruned) {
+    if walk(value, 0, warn_pruned) {
         // When the value itself is null return the mapping.
         *value = serde_yaml::Value::Mapping(Default::default());
     }

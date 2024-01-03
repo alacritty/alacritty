@@ -33,9 +33,7 @@ pub fn migrate(options: MigrateOptions) {
         let mut options = options.clone();
         options.silent = true;
         options.dry_run = true;
-        if let Err(err) =
-            migrate_config(&options, &config_path, config::IMPORT_RECURSION_LIMIT, false)
-        {
+        if let Err(err) = migrate_config(&options, &config_path, config::IMPORT_RECURSION_LIMIT) {
             eprintln!("Configuration file migration failed:");
             eprintln!("    {config_path:?}: {err}");
             std::process::exit(1);
@@ -43,7 +41,7 @@ pub fn migrate(options: MigrateOptions) {
     }
 
     // Migrate the root config.
-    match migrate_config(&options, &config_path, config::IMPORT_RECURSION_LIMIT, true) {
+    match migrate_config(&options, &config_path, config::IMPORT_RECURSION_LIMIT) {
         Ok(new_path) => {
             if !options.silent {
                 println!("Successfully migrated {config_path:?} to {new_path:?}");
@@ -62,7 +60,6 @@ fn migrate_config(
     options: &MigrateOptions,
     path: &Path,
     recursion_limit: usize,
-    warn_pruned: bool,
 ) -> Result<String, String> {
     // Ensure configuration file has an extension.
     let path_str = path.to_string_lossy();
@@ -77,14 +74,14 @@ fn migrate_config(
     }
 
     // Try to parse the configuration file.
-    let mut config = match config::deserialize_config(path, warn_pruned) {
+    let mut config = match config::deserialize_config(path, !options.dry_run) {
         Ok(config) => config,
         Err(err) => return Err(format!("parsing error: {err}")),
     };
 
     // Migrate config imports.
     if !options.skip_imports {
-        migrate_imports(options, &mut config, recursion_limit, warn_pruned)?;
+        migrate_imports(options, &mut config, recursion_limit)?;
     }
 
     // Migrate deprecated field names to their new location.
@@ -114,7 +111,6 @@ fn migrate_imports(
     options: &MigrateOptions,
     config: &mut Value,
     recursion_limit: usize,
-    warn_pruned: bool,
 ) -> Result<(), String> {
     let imports = match config::imports(config, recursion_limit) {
         Ok(imports) => imports,
@@ -138,7 +134,7 @@ fn migrate_imports(
             continue;
         }
 
-        let new_path = migrate_config(options, &import, recursion_limit - 1, warn_pruned)?;
+        let new_path = migrate_config(options, &import, recursion_limit - 1)?;
 
         // Print new import path.
         if options.dry_run {
