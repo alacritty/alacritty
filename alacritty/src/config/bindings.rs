@@ -445,6 +445,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Copy; Action::Copy;
         Copy,  +BindingMode::VI; Action::ClearSelection;
         Paste, ~BindingMode::VI; Action::Paste;
+        Paste, +BindingMode::VI, +BindingMode::SEARCH; Action::Paste;
         "l",       ModifiersState::CONTROL; Action::ClearLogNotice;
         "l",       ModifiersState::CONTROL; Action::ReceiveChar;
         Home,      ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToTop;
@@ -546,6 +547,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
         "v",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::VI;                       Action::Paste;
+        "v",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::VI, +BindingMode::SEARCH; Action::Paste;
         "f",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchForward;
         "b",    ModifiersState::CONTROL | ModifiersState::SHIFT, ~BindingMode::SEARCH;                   Action::SearchBackward;
         Insert, ModifiersState::SHIFT,                           ~BindingMode::VI;                       Action::PasteSelection;
@@ -602,6 +604,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         "k",    ModifiersState::SUPER, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x0c".into());
         "k",    ModifiersState::SUPER, ~BindingMode::VI, ~BindingMode::SEARCH; Action::ClearHistory;
         "v",    ModifiersState::SUPER, ~BindingMode::VI;                       Action::Paste;
+        "v",    ModifiersState::SUPER, +BindingMode::VI, +BindingMode::SEARCH; Action::Paste;
         "n",    ModifiersState::SUPER;                                         Action::CreateNewWindow;
         "f",    ModifiersState::CONTROL | ModifiersState::SUPER;               Action::ToggleFullscreen;
         "c",    ModifiersState::SUPER;                                         Action::Copy;
