@@ -42,6 +42,10 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control"_
 :[
 :  _"ClearLogNotice"_
+|  _"Paste"_
+:[
+:  _"Vi|Search"_
+:  _"Paste"_
 |  _"L"_
 :  _"Control"_
 :  _"~Vi|~Search"_
@@ -344,6 +348,10 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Control|Shift"_
 :  _"~Vi"_
 :  _"Paste"_
+|  _"V"_
+:  _"Control|Shift"_
+:  _"Vi|Search"_
+:  _"Paste"_
 |  _"C"_
 :  _"Control|Shift"_
 :[
@@ -440,7 +448,11 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"DecreaseFontSize"_
 |  _"V"_
 :  _"Command"_
-:[
+:  _"~Vi"_
+:  _"Paste"_
+|  _"V"_
+:  _"Command"_
+:  _"Vi|Search"_
 :  _"Paste"_
 |  _"C"_
 :  _"Command"_
