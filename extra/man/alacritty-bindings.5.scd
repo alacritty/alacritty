@@ -448,7 +448,7 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"DecreaseFontSize"_
 |  _"V"_
 :  _"Command"_
-:[
+:  _"~Vi"_
 :  _"Paste"_
 |  _"V"_
 :  _"Command"_
