@@ -207,7 +207,7 @@ fn parse_config(
     config_paths.push(path.to_owned());
 
     // Deserialize the configuration file.
-    let config = deserialize_config(path)?;
+    let config = deserialize_config(path, false)?;
 
     // Merge config with imports.
     let imports = load_imports(&config, config_paths, recursion_limit);
@@ -215,7 +215,7 @@ fn parse_config(
 }
 
 /// Deserialize a configuration file.
-pub fn deserialize_config(path: &Path) -> Result<Value> {
+pub fn deserialize_config(path: &Path, warn_pruned: bool) -> Result<Value> {
     let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM.
@@ -230,7 +230,8 @@ pub fn deserialize_config(path: &Path) -> Result<Value> {
             "YAML config {path:?} is deprecated, please migrate to TOML using `alacritty migrate`"
         );
 
-        let value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
+        let mut value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
+        prune_yaml_nulls(&mut value, warn_pruned);
         contents = toml::to_string(&value)?;
     }
 
@@ -318,6 +319,35 @@ pub fn imports(
     Ok(import_paths)
 }
 
+/// Prune the nulls from the YAML to ensure TOML compatibility.
+fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
+    fn walk(value: &mut serde_yaml::Value, warn_pruned: bool) -> bool {
+        match value {
+            serde_yaml::Value::Sequence(sequence) => {
+                sequence.retain_mut(|value| !walk(value, warn_pruned));
+                sequence.is_empty()
+            },
+            serde_yaml::Value::Mapping(mapping) => {
+                mapping.retain(|key, value| {
+                    let retain = !walk(value, warn_pruned);
+                    if let Some(key_name) = key.as_str().filter(|_| !retain && warn_pruned) {
+                        eprintln!("Removing null key \"{key_name}\" from the end config");
+                    }
+                    retain
+                });
+                mapping.is_empty()
+            },
+            serde_yaml::Value::Null => true,
+            _ => false,
+        }
+    }
+
+    if walk(value, warn_pruned) {
+        // When the value itself is null return the mapping.
+        *value = serde_yaml::Value::Mapping(Default::default());
+    }
+}
+
 /// Get the location of the first found default config file paths
 /// according to the following order:
 ///
@@ -369,5 +399,44 @@ mod tests {
     #[test]
     fn empty_config() {
         toml::from_str::<UiConfig>("").unwrap();
+    }
+
+    fn yaml_to_toml(contents: &str) -> String {
+        let mut value: serde_yaml::Value = serde_yaml::from_str(contents).unwrap();
+        prune_yaml_nulls(&mut value, false);
+        toml::to_string(&value).unwrap()
+    }
+
+    #[test]
+    fn yaml_with_nulls() {
+        let contents = r#"
+        window:
+            blinking: Always
+            cursor:
+            not_blinking: Always
+            some_array:
+              - { window: }
+              - { window: "Hello" }
+
+        "#;
+        let toml = yaml_to_toml(contents);
+        assert_eq!(
+            toml.trim(),
+            r#"[window]
+blinking = "Always"
+not_blinking = "Always"
+
+[[window.some_array]]
+window = "Hello""#
+        );
+    }
+
+    #[test]
+    fn empty_yaml_to_toml() {
+        let contents = r#"
+
+        "#;
+        let toml = yaml_to_toml(contents);
+        assert!(toml.is_empty());
     }
 }
