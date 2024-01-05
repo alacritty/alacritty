@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Support for pasting in Vi + Search mode
 
+### Changed
+
+- `alacritty migrate` will ignore null values in yaml instead of erroring out
+
 ### Fixed
 
 - `alacritty migrate` failing with nonexistent imports

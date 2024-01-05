@@ -74,7 +74,7 @@ fn migrate_config(
     }
 
     // Try to parse the configuration file.
-    let mut config = match config::deserialize_config(path) {
+    let mut config = match config::deserialize_config(path, !options.dry_run) {
         Ok(config) => config,
         Err(err) => return Err(format!("parsing error: {err}")),
     };
