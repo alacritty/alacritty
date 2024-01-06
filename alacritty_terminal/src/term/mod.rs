@@ -2710,6 +2710,7 @@ mod tests {
     /// This test is in the term module as opposed to the grid since we want to
     /// test this property with a T=Cell.
     #[test]
+    #[cfg(feature = "serde")]
     fn grid_serde() {
         let grid: Grid<Cell> = Grid::new(24, 80, 0);
         let serialized = serde_json::to_string(&grid).expect("ser");
