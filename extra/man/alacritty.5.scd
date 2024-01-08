@@ -129,7 +129,7 @@ This section documents the *[window]* table of the configuration file.
 *opacity* = _<float>_
 
 	Background opacity as a floating point number from _0.0_ to _1.0_. The value
-	\_0.0_ is completely transparent and _1.0_ is opaque.
+	_0.0_ is completely transparent and _1.0_ is opaque.
 
 	Default: _1.0_
 
@@ -519,7 +519,7 @@ This section documents the *[selection]* table of the configuration file.
 	This string contains all characters that are used as separators for
 	"semantic words" in Alacritty.
 
-	Default: _",│`|:\"' ()[]{}<>\t"_
+	Default: _",│`|:\\"' ()[]{}<>\\t"_
 
 *save_to_clipboard* = _true_ | _false_
 
