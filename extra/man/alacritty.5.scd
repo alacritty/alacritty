@@ -519,7 +519,7 @@ This section documents the *[selection]* table of the configuration file.
 	This string contains all characters that are used as separators for
 	"semantic words" in Alacritty.
 
-	Default: _",│`|:"' ()[]{}<>\\t"_
+	Default: _",│`|:\\"' ()[]{}<>\\t"_
 
 *save_to_clipboard* = _true_ | _false_
 
