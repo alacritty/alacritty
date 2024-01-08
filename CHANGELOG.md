@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
+## 0.13.1
+
 ### Added
 
 - Support for pasting in Vi + Search mode
