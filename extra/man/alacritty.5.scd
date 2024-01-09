@@ -996,7 +996,7 @@ relied upon.
 	Example:
 		_ALACRITTY_EXTRA_LOG_TARGETS="winit;vte" alacritty -vvv_
 
-*renderer* = _"glsl3"_ | _"gles2"_ | _"gles2_pure"_ | _"None"_
+*renderer* = _"glsl3"_ | _"gles2"_ | _"gles2pure"_ | _"None"_
 
 	Force use of a specific renderer, _"None"_ will use the highest available
 	one.
