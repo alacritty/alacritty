@@ -452,6 +452,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         End,       ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollToBottom;
         PageUp,    ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollPageUp;
         PageDown,  ModifiersState::SHIFT, ~BindingMode::ALT_SCREEN; Action::ScrollPageDown;
+        ArrowRight, ModifiersState::ALT; Action::Esc("\x1bF".into());
+        ArrowLeft,  ModifiersState::ALT; Action::Esc("\x1bB".into());
         // App cursor mode.
         Home,       +BindingMode::APP_CURSOR, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1bOH".into());
         End,        +BindingMode::APP_CURSOR, ~BindingMode::VI, ~BindingMode::SEARCH; Action::Esc("\x1bOF".into());
