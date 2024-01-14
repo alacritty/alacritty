@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- CLI env variables clearing configuration file variables
 - Vi inline search/semantic selection expanding across newlines
 
 ## 0.13.1
