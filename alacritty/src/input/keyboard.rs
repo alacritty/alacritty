@@ -165,34 +165,36 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         // Don't suppress char if no bindings were triggered.
         let mut suppress_chars = None;
 
+        // We don't want the key without modifier, because it means something else most of
+        // the time. However what we want is to manually lowercase the character to account
+        // for both small and capital letters on regular characters at the same time.
+        let logical_key = if let Key::Character(ch) = key.logical_key.as_ref() {
+            // Match `Alt` bindings without `Alt` being applied, otherwise they use the
+            // composed chars, which are not intuitive to bind.
+            //
+            // On Windows, the `Ctrl + Alt` mangles `logical_key` to unidentified values, thus
+            // preventing them from being used in bindings
+            //
+            // For more see https://github.com/rust-windowing/winit/issues/2945.
+            if (cfg!(target_os = "macos") || (cfg!(windows) && mods.control_key()))
+                && mods.alt_key()
+            {
+                key.key_without_modifiers()
+            } else {
+                Key::Character(ch.to_lowercase().into())
+            }
+        } else {
+            key.logical_key.clone()
+        };
+
         for i in 0..self.ctx.config().key_bindings().len() {
             let binding = &self.ctx.config().key_bindings()[i];
 
-            // We don't want the key without modifier, because it means something else most of
-            // the time. However what we want is to manually lowercase the character to account
-            // for both small and capital letters on regular characters at the same time.
-            let logical_key = if let Key::Character(ch) = key.logical_key.as_ref() {
-                // Match `Alt` bindings without `Alt` being applied, otherwise they use the
-                // composed chars, which are not intuitive to bind.
-                //
-                // On Windows, the `Ctrl + Alt` mangles `logical_key` to unidentified values, thus
-                // preventing them from being used in bindings
-                //
-                // For more see https://github.com/rust-windowing/winit/issues/2945.
-                if (cfg!(target_os = "macos") || (cfg!(windows) && mods.control_key()))
-                    && mods.alt_key()
-                {
-                    key.key_without_modifiers()
-                } else {
-                    Key::Character(ch.to_lowercase().into())
-                }
-            } else {
-                key.logical_key.clone()
-            };
-
-            let key = match (&binding.trigger, logical_key) {
+            let key = match (&binding.trigger, &logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
-                (_, code) => BindingKey::Keycode { key: code, location: key.location.into() },
+                (_, code) => {
+                    BindingKey::Keycode { key: code.clone(), location: key.location.into() }
+                },
             };
 
             if binding.is_triggered_by(mode, mods, &key) {

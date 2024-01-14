@@ -19,7 +19,7 @@ version = "0.2.3-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.3-dev"
+version = "0.2.1-dev"
 
 [dependencies]
 ahash = { version = "0.8.6", features = ["no-rng"] }
