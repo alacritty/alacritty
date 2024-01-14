@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
+### Fixed
+
+- CLI env variables clearing configuration file variables
+
 ## 0.13.1
 
 ### Added
