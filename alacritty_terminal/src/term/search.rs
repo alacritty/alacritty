@@ -540,14 +540,14 @@ impl<T> Term<T> {
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         while let Some(cell) = iter.prev() {
+            if cell.point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
+                break;
+            }
+
             point = cell.point;
 
             if !cell.flags.intersects(wide) && needles.contains(cell.c) {
                 return Ok(point);
-            }
-
-            if point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
-                break;
             }
         }
 
@@ -561,6 +561,11 @@ impl<T> Term<T> {
 
         let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         let last_column = self.columns() - 1;
+
+        // Immediately stop if start point in on line break.
+        if point.column == last_column && !self.grid[point].flags.contains(Flags::WRAPLINE) {
+            return Err(point);
+        }
 
         for cell in self.grid.iter_from(point) {
             point = cell.point;
@@ -1128,5 +1133,26 @@ mod tests {
         let start = Point::new(Line(0), Column(0));
         let end = Point::new(Line(0), Column(3));
         assert_eq!(term.regex_search_right(&mut regex, start, end), Some(start..=end));
+    }
+
+    #[test]
+    fn newline_breaking_semantic() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            test abc\r\n\
+            def test\
+        ");
+
+        // Start at last character.
+        let start = term.semantic_search_left(Point::new(Line(0), Column(7)));
+        let end = term.semantic_search_right(Point::new(Line(0), Column(7)));
+        assert_eq!(start, Point::new(Line(0), Column(5)));
+        assert_eq!(end, Point::new(Line(0), Column(7)));
+
+        // Start at first character.
+        let start = term.semantic_search_left(Point::new(Line(1), Column(0)));
+        let end = term.semantic_search_right(Point::new(Line(1), Column(0)));
+        assert_eq!(start, Point::new(Line(1), Column(0)));
+        assert_eq!(end, Point::new(Line(1), Column(2)));
     }
 }
