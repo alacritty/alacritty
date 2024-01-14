@@ -48,14 +48,11 @@ impl Default for Debug {
 #[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RendererPreference {
     /// OpenGL 3.3 renderer.
-    #[config(rename = "glsl3")]
     Glsl3,
 
     /// GLES 2 renderer, with optional extensions like dual source blending.
-    #[config(rename = "gles2")]
     Gles2,
 
     /// Pure GLES 2 renderer.
-    #[config(rename = "gles2_pure")]
     Gles2Pure,
 }
