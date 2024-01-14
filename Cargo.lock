@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config"
-version = "0.1.3-dev"
+version = "0.2.1-dev"
 dependencies = [
  "alacritty_config_derive",
  "log",
