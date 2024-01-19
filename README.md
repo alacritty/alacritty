@@ -102,7 +102,7 @@ usecases.
 
 Alacritty has many great features, but not every feature from every other
 terminal. This could be for a number of reasons, but sometimes it's just not a
-good fit for Alacritty. This means you won't find things like tabs or splits
+good fit for Alacritty. This means you won't find things like splits
 (which are best left to a window manager or [terminal multiplexer][tmux]) nor
 niceties like a GUI config editor.
 
