@@ -86,7 +86,7 @@ This section documents the *[window]* table of the configuration file.
 	least _2_, while using a value of _0_ for columns and lines will fall back
 	to the window manager's recommended size
 
-	Default: { column = _0_, lines = _0_ }
+	Default: { columns = _0_, lines = _0_ }
 
 *position* = _"None"_ | { x = _<integer>_, y = _<integer>_ }
 
