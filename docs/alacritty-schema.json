@@ -1,0 +1,1061 @@
+{
+  "$id": "alacritty-schema.json",
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$comment": "https://alacritty.org/config-alacritty.html",
+  "title": "Alacritty Configuration",
+  "description": "Configuration schema for [Alacritty](https://github.com/alacritty/alacritty), the GPU enhanced terminal emulator",
+  "definitions": {
+    "Alacritty.Cursor.Style": {
+      "type": "object",
+      "description": "Cursor Style",
+      "properties": {
+        "shape": {
+          "type": "string",
+          "default": "Block",
+          "description": "Cursor shape\n\n Values for `shape`:\n   - ▇ Block\n   - _ Underline\n   - | Beam",
+          "enum": ["Block", "Beam", "Underline"]
+        },
+        "blinking": {
+          "description": "# Cursor blinking state\n\n Values for `blinking`:\n   - Never: Prevent the cursor from ever blinking\n   - Off: Disable blinking by default\n   - On: Enable blinking by default\n   - Always: Force the cursor to always blink",
+          "type": "string",
+          "default": "Off",
+          "enum": ["Never", "Off", "On", "Always"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Alacritty.Command": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "program": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Alacritty.MouseBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mouse": {
+          "type": "string",
+          "enum": ["Left", "Middle", "Right"]
+        },
+        "action": {
+          "type": "string"
+        }
+      },
+      "required": ["mouse", "action"]
+    },
+    "Alacritty.KeyBindings.Key": {
+      "description": "Identifier of the key pressed.\n\n - A-Z\n - F1-F24\n - Key0-Key9\n\n A full list with available key codes can be found here:\n https://docs.rs/glutin/*/glutin/event/enum.VirtualKeyCode.html#variants\n\n Instead of using the name of the keys, the `key` field also supports using the scancode of the desired key. Scancodes have to be specified as a decimal number. This command will allow you to display the hex scancodes for certain keys:\n\n    `showkey --scancodes`.",
+      "type": "string"
+    },
+    "Alacritty.KeyBindings.Chars": {
+      "description": "The `chars` field writes the specified string to the terminal. This makes\n    it possible to pass escape sequences. To find escape codes for bindings\n    like `PageUp` (`\"\\x1b[5~\"`), you can run the command `showkey -a` outside\n    of tmux. Note that applications use terminfo to map escape sequences back\n    to keys. It is therefore required to update the terminfo when changing an\n    escape sequence.",
+      "type": "string"
+    },
+    "Alacritty.KeyBindings.Action": {
+      "description": "Execute a predefined action\n   - ToggleViMode\n   - SearchForward\n       Start searching toward the right of the search origin.\n   - SearchBackward\n       Start searching toward the left of the search origin.\n   - Copy\n   - Paste\n   - IncreaseFontSize\n   - DecreaseFontSize\n   - ResetFontSize\n   - ScrollPageUp\n   - ScrollPageDown\n   - ScrollHalfPageUp\n   - ScrollHalfPageDown\n   - ScrollLineUp\n   - ScrollLineDown\n   - ScrollToTop\n   - ScrollToBottom\n   - ClearHistory\n       Remove the terminal's scrollback history.\n   - Hide\n       Hide the Alacritty window.\n   - Minimize\n       Minimize the Alacritty window.\n   - Quit\n       Quit Alacritty.\n   - ToggleFullscreen\n   - SpawnNewInstance\n       Spawn a new instance of Alacritty.\n   - CreateNewWindow\n       Create a new Alacritty window from the current process.\n   - ClearLogNotice\n       Clear Alacritty's UI warning and error notice.\n   - ClearSelection\n       Remove the active selection.\n   - ReceiveChar\n   - None\n - Vi mode exclusive actions:\n   - Open\n       Perform the action of the first matching hint under the vi mode cursor\n       with `mouse.enabled` set to `true`.\n   - ToggleNormalSelection\n   - ToggleLineSelection\n   - ToggleBlockSelection\n   - ToggleSemanticSelection\n       Toggle semantic selection based on `selection.semantic_escape_chars`.\n   - CenterAroundViCursor\n       Center view around vi mode cursor\n - Vi mode exclusive cursor motion actions:\n   - Up\n       One line up.\n   - Down\n       One line down.\n   - Left\n       One character left.\n   - Right\n       One character right.\n   - First\n       First column, or beginning of the line when already at the first column.\n   - Last\n       Last column, or beginning of the line when already at the last column.\n   - FirstOccupied\n       First non-empty cell in this terminal row, or first non-empty cell of\n       the line when already at the first cell of the row.\n   - High\n       Top of the screen.\n   - Middle\n       Center of the screen.\n   - Low\n       Bottom of the screen.\n   - SemanticLeft\n       Start of the previous semantically separated word.\n   - SemanticRight\n       Start of the next semantically separated word.\n   - SemanticLeftEnd\n       End of the previous semantically separated word.\n   - SemanticRightEnd\n       End of the next semantically separated word.\n   - WordLeft\n       Start of the previous whitespace separated word.\n   - WordRight\n       Start of the next whitespace separated word.\n   - WordLeftEnd\n       End of the previous whitespace separated word.\n   - WordRightEnd\n       End of the next whitespace separated word.\n   - Bracket\n       Character matching the bracket at the cursor's location.\n   - SearchNext\n       Beginning of the next match.\n   - SearchPrevious\n       Beginning of the previous match.\n   - SearchStart\n       Start of the match to the left of the vi mode cursor.\n   - SearchEnd\n       End of the match to the right of the vi mode cursor.\n - Search mode exclusive actions:\n   - SearchFocusNext\n       Move the focus to the next search match.\n   - SearchFocusPrevious\n       Move the focus to the previous search match.\n   - SearchConfirm\n   - SearchCancel\n   - SearchClear\n       Reset the search regex.\n   - SearchDeleteWord\n       Delete the last word in the search regex.\n   - SearchHistoryPrevious\n       Go to the previous regex in the search history.\n   - SearchHistoryNext\n       Go to the next regex in the search history.\n - macOS exclusive actions:\n   - ToggleSimpleFullscreen\n       Enter fullscreen without occupying another space.\n - Linux/BSD exclusive actions:\n   - CopySelection\n       Copy from the selection buffer.\n   - PasteSelection\n       Paste from the selection buffer.\n ",
+      "type": "string",
+      "enum": [
+        "ToggleViMode",
+        "SearchForward",
+        "SearchBackward",
+        "Copy",
+        "Paste",
+        "IncreaseFontSize",
+        "DecreaseFontSize",
+        "ResetFontSize",
+        "ScrollPageUp",
+        "ScrollPageDown",
+        "ScrollHalfPageUp",
+        "ScrollHalfPageDown",
+        "ScrollLineUp",
+        "ScrollLineDown",
+        "ScrollToTop",
+        "ScrollToBottom",
+        "ClearHistory",
+        "Hide",
+        "Minimize",
+        "Quit",
+        "ToggleFullscreen",
+        "SpawnNewInstance",
+        "CreateNewWindow",
+        "ClearLogNotice",
+        "ClearSelection",
+        "ReceiveChar",
+        "None",
+        "Open",
+        "ToggleNormalSelection",
+        "ToggleLineSelection",
+        "ToggleBlockSelection",
+        "ToggleSemanticSelection",
+        "CenterAroundViCursor",
+        "Up",
+        "Down",
+        "Left",
+        "Right",
+        "First",
+        "Last",
+        "FirstOccupied",
+        "High",
+        "Middle",
+        "Low",
+        "SemanticLeft",
+        "SemanticRight",
+        "SemanticLeftEnd",
+        "SemanticRightEnd",
+        "WordLeft",
+        "WordRight",
+        "WordLeftEnd",
+        "WordRightEnd",
+        "Bracket",
+        "SearchNext",
+        "SearchPrevious",
+        "SearchStart",
+        "SearchEnd",
+        "SearchFocusNext",
+        "SearchFocusPrevious",
+        "SearchConfirm",
+        "SearchCancel",
+        "SearchClear",
+        "SearchDeleteWord",
+        "SearchHistoryPrevious",
+        "SearchHistoryNext",
+        "ToggleSimpleFullscreen",
+        "CopySelection",
+        "PasteSelection"
+      ]
+    },
+    "Alacritty.Mode": {
+      "type": "string",
+      "enum": [
+        "AppCursor",
+        "AppKeypad",
+        "Search",
+        "Alt",
+        "Vi",
+        "~AppCursor",
+        "~AppKeypad",
+        "~Search",
+        "~Alt",
+        "~Vi"
+      ]
+    },
+    "Alacritty.Mods": {
+      "type": "string",
+      "description": "Multiple modifiers can be combined using |, like this: \"Control | Shift\"",
+      "pattern": "(Command|Control|Option|Super|Shift|Alt)(\\s*\\|\\s*(Command|Control|Option|Super|Shift|Alt))*"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "import": {
+      "type": "array",
+      "description": "Import additional configuration files. \n Imports are loaded in order, skipping all missing files, with the importing file being loaded last. If a field is already present in a previous import, it will be replaced.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "shell": {
+      "description": "You can set shell.program to the path of your favorite shell, e.g. /bin/zsh. Entries in shell.args are passed as arguments to the shell",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "program": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "working_directory": {
+      "description": "Startup directory\n\n Directory the shell is started in. If this is unset, or `None`, the working\n directory of the parent process will be used.",
+      "type": "string",
+      "default": "None"
+    },
+    "live_config_reload": {
+      "type": "boolean",
+      "description": "Live config reload (changes require restart). Will make alacritty auto load new changes in the config file"
+    },
+    "ipc_socket": {
+      "type": "boolean",
+      "description": "Offer IPC using `alacritty msg` (unix only)"
+    },
+    "env": {
+      "description": "Any items in the `env` entry below will be added as environment variables. Some entries may override variables set by alacritty itself.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "description": "Window dimensions (changes require restart). \n Number of lines/columns (not pixels) in the terminal. Both lines and columns\n must be non-zero for this to take effect. The number of columns must be at\n least `2`, while using a value of `0` for columns and lines will fall back\n to the window manager's recommended size",
+          "type": "object",
+          "properties": {
+            "columns": {
+              "type": "number",
+              "minimum": 2
+            },
+            "lines": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "position": {
+          "description": "Window position (changes require restart)\nSpecified in number of pixels.\nIf the position is not set, the window manager will handle the placement.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        },
+        "padding": {
+          "description": "# Window padding (changes require restart)\n\n Blank space added around the window in pixels. This padding is scaled\n by DPI and the specified value is always added at both opposing sides.",
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          }
+        },
+        "dynamic_padding": {
+          "type": "boolean",
+          "description": "Spread additional padding evenly around the terminal content."
+        },
+        "decorations": {
+          "description": "Values for `decorations`: \n     - full: Borders and title bar \n     - none: Neither borders nor title bar \n\n Values for `decorations` (macOS only):\n     - transparent: Title bar, transparent background and title bar buttons\n     - buttonless: Title bar, transparent background and no title bar buttons",
+          "type": "string",
+          "enum": ["full", "none", "transparent", "buttonless"]
+        },
+        "opacity": {
+          "description": "Background opacity\n\n Window opacity as a floating point number from `0.0` to `1.0`.\n The value `0.0` is completely transparent and `1.0` is opaque.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "blur": {
+          "description": "Request compositor to blur content behind transparent windows",
+          "type": "boolean",
+          "default": "false"
+        },
+        "startup_mode": {
+          "description": "  # Startup Mode (changes require restart)\n\n Values for `startup_mode`:\n   - Windowed\n   - Maximized\n   - Fullscreen\n\n Values for `startup_mode` (macOS only):\n   - SimpleFullscreen",
+          "type": "string",
+          "enum": ["Windowed", "Maximized", "Fullscreen", "SimpleFullscreen"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Window Title"
+        },
+        "dynamic_title": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow terminal applications to change Alacritty's window title."
+        },
+        "class": {
+          "type": "object",
+          "description": "Window class (Linux/BSD only):",
+          "properties": {
+            "instance": {
+              "type": "string",
+              "default": "Alacritty"
+            },
+            "general": {
+              "type": "string",
+              "default": "Alacritty"
+            }
+          }
+        },
+        "decorations_theme_variant": {
+          "type": "string",
+          "description": "Decorations theme variant (Linux/BSD only)\n\nOverride the variant of the GTK theme/Wayland client side decorations.\n Commonly supported values are `dark` and `light`. Set this to `None` to use\n the default theme variant.",
+          "default": "None"
+        },
+        "resize_increments": {
+          "description": "Prefer resizing window by discrete steps equal to cell dimensions",
+          "type": "boolean",
+          "default": "false"
+        },
+        "option_as_alt": {
+          "description": "Make `Option` key behave as `Alt` (macos only)",
+          "type": "string",
+          "default": "None",
+          "enum": ["OnlyLeft", "OnlyRight", "Both", "None"]
+        }
+      }
+    },
+    "scrolling": {
+      "type": "object",
+      "properties": {
+        "history": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 10000,
+          "description": "Maximum number of lines in the scrollback buffer.\n Specifying '0' will disable scrolling."
+        },
+        "multiplier": {
+          "description": "Scrolling distance multiplier.",
+          "type": "integer",
+          "default": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "font": {
+      "type": "object",
+      "properties": {
+        "normal": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "description": "Font family\n\n Default:\n   - (macOS) Menlo\n   - (Linux/BSD) monospace\n   - (Windows) Consolas",
+              "type": "string"
+            },
+            "style": {
+              "description": "The `style` can be specified to pick a specific face.",
+              "type": "string"
+            }
+          }
+        },
+        "bold": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "description": "If the bold family is not specified, it will fall back to the\n value specified for the normal font.",
+              "type": "string"
+            },
+            "style": {
+              "description": "The `style` can be specified to pick a specific face.",
+              "type": "string"
+            }
+          }
+        },
+        "italic": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "description": "If the italic family is not specified, it will fall back to the\n value specified for the normal font.",
+              "type": "string"
+            },
+            "style": {
+              "description": "The `style` can be specified to pick a specific face.",
+              "type": "string"
+            }
+          }
+        },
+        "bold_italic": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "description": "If the bold_italic family is not specified, it will fall back to the\n value specified for the normal font.",
+              "type": "string"
+            },
+            "style": {
+              "description": "The `style` can be specified to pick a specific face.",
+              "type": "string"
+            }
+          }
+        },
+        "size": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Point size"
+        },
+        "offset": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Offset is the extra space around each character. `offset.y` can be thought\n of as modifying the line spacing, and `offset.x` as modifying the letter\n spacing.",
+          "properties": {
+            "x": {
+              "type": "number",
+              "default": 0
+            },
+            "y": {
+              "type": "number",
+              "default": 0
+            }
+          }
+        },
+        "glyph_offset": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Glyph offset determines the locations of the glyphs within their cells with\n the default being at the bottom. Increasing `x` moves the glyph to the\n right, increasing `y` moves the glyph upward.",
+          "properties": {
+            "x": {
+              "type": "number",
+              "default": 0
+            },
+            "y": {
+              "type": "number",
+              "default": 0
+            }
+          }
+        },
+        "builtin_box_drawing": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use built-in font for box drawing characters.\n\n If `true`, Alacritty will use a custom built-in font for box drawing\n characters (Unicode points 2500 - 259f)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "color": {
+      "properties": {
+        "primary": {
+          "type": "object",
+          "properties": {
+            "foreground": {
+              "default": "#d8d8d8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "background": {
+              "default": "#181818",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "dim_foreground": {
+              "default": "#828482",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string",
+              "description": "If this is not set, the color is automatically calculated based on the foreground color"
+            },
+            "bright_foreground": {
+              "default": "None",
+              "pattern": "#[a-z0-9]{6}|None",
+              "type": "string",
+              "description": "This color is only used when `draw_bold_text_with_bright_colors` is true. If this is not set, the normal foreground will be used"
+            }
+          }
+        },
+        "cursor": {
+          "type": "object",
+          "description": "Colors which should be used to draw the terminal cursor. Allowed values are hexadecimal colors like `#ff00ff`, or `CellForeground`/`CellBackground`, which references the affected cell",
+          "properties": {
+            "text": {
+              "default": "CellBackground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            },
+            "cursor": {
+              "default": "CellForeground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            }
+          }
+        },
+        "vi_mode_cursor": {
+          "type": "object",
+          "description": "Colors for the cursor when the vi mode is active. Allowed values are hexadecimal colors like `#ff00ff`, or `CellForeground`/`CellBackground`, which references the affected cell",
+          "properties": {
+            "text": {
+              "default": "CellBackground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            },
+            "cursor": {
+              "default": "CellForeground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            }
+          }
+        },
+        "search": {
+          "type": "object",
+          "properties": {
+            "matches": {
+              "type": "object",
+              "properties": {
+                "foreground": {
+                  "default": "#181818",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                },
+                "background": {
+                  "default": "#ac4242",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                }
+              }
+            },
+            "focused_match": {
+              "type": "object",
+              "properties": {
+                "foreground": {
+                  "default": "#181818",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                },
+                "background": {
+                  "default": "#f4bf75",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "hints": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "object",
+              "description": "First character in the hint label. Allowed values are hexadecimal colors like `#ff00ff`, or `CellForeground`/`CellBackground`, which references the affected cell",
+              "properties": {
+                "foreground": {
+                  "default": "#181818",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                },
+                "background": {
+                  "default": "#f4bf75",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                }
+              }
+            },
+            "end": {
+              "type": "object",
+              "description": "All characters after the first one in the hint label. Allowed values are hexadecimal colors like `#ff00ff`, or `CellForeground`/`CellBackground`, which references the affected cell",
+              "properties": {
+                "foreground": {
+                  "default": "#181818",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                },
+                "background": {
+                  "default": "#ac4242",
+                  "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "line_indicator": {
+          "type": "object",
+          "description": "Color used for the indicator displaying the position in history during search and vi mode",
+          "properties": {
+            "foreground": {
+              "default": "None",
+              "pattern": "#[a-z0-9]{6}|None",
+              "type": "string"
+            },
+            "background": {
+              "default": "None",
+              "pattern": "#[a-z0-9]{6}|None",
+              "type": "string"
+            }
+          }
+        },
+        "footer_bar": {
+          "type": "object",
+          "description": "Color used for the footer bar on the bottom, used by search regex input, hyperlink URI preview, etc",
+          "properties": {
+            "foreground": {
+              "default": "#181818",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "background": {
+              "default": "#d8d8d8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            }
+          }
+        },
+        "selection": {
+          "type": "object",
+          "description": "Colors used for drawing selections. Allowed values are hexadecimal colors like `#ff00ff`, or `CellForeground`/`CellBackground`, which references the affected cell",
+          "properties": {
+            "text": {
+              "default": "CellBackground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            },
+            "cursor": {
+              "default": "CellForeground",
+              "pattern": "#[a-z0-9]{6}|CellBackground|CellForeground",
+              "type": "string"
+            }
+          }
+        },
+        "normal": {
+          "type": "object",
+          "properties": {
+            "black": {
+              "default": "#181818",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "red": {
+              "default": "#ac4242",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "green": {
+              "default": "#90a959",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "yellow": {
+              "default": "#f4bf75",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "blue": {
+              "default": "#689fb5",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "megenta": {
+              "default": "#aa759f",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "cyan": {
+              "default": "#75b5aa",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "white": {
+              "default": "#d8d8d8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            }
+          }
+        },
+        "bright": {
+          "type": "object",
+          "properties": {
+            "black": {
+              "default": "#6b6b6b",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "red": {
+              "default": "#c55555",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "green": {
+              "default": "#aac474",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "yellow": {
+              "default": "#feca88",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "blue": {
+              "default": "#82b8c8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "megenta": {
+              "default": "#c28cb8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "cyan": {
+              "default": "#93d3c3",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "white": {
+              "default": "#f8f8f8",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            }
+          }
+        },
+        "dim": {
+          "type": "object",
+          "properties": {
+            "black": {
+              "default": "#0f0f0f",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "red": {
+              "default": "#712b2b",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "green": {
+              "default": "#5f6f3a",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "yellow": {
+              "default": "#a17e4d",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "blue": {
+              "default": "#456877",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "megenta": {
+              "default": "#704d68",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "cyan": {
+              "default": "#4d7770",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            },
+            "white": {
+              "default": "#8e8e8e",
+              "pattern": "#[a-z0-9]{6}",
+              "type": "string"
+            }
+          }
+        },
+        "indexed_colors": {
+          "type": "array",
+          "description": "The indexed colors include all colors from 16 to 256. When these are not set, they're filled with sensible defaults",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "color": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "transparent_background_colors": {
+          "type": "boolean",
+          "default": "false",
+          "description": "Whether or not `window.opacity` applies to all cell backgrounds, or only to the default background. When set to `true` all cells will be transparent regardless of their background color"
+        },
+        "draw_bold_text_with_bright_colors": {
+          "type": "boolean",
+          "default": "false",
+          "description": "If `true`, bold text is drawn using the bright color variants."
+        }
+      },
+      "additionalProperties": false
+    },
+    "bell": {
+      "type": "object",
+      "description": "The bell is rung every time the BEL control character is received.",
+      "additionalProperties": false,
+      "properties": {
+        "animation": {
+          "type": "string",
+          "enum": [
+            "Ease",
+            "EaseOut",
+            "EaseOutSine",
+            "EaseOutQuad",
+            "EaseOutCubic",
+            "EaseOutQuart",
+            "EaseOutQuint",
+            "EaseOutExpo",
+            "EaseOutCirc",
+            "Linear"
+          ],
+          "default": "Linear",
+          "description": "Animation effect for flashing the screen when the visual bell is rung."
+        },
+        "duration": {
+          "description": "Duration of the visual bell flash in milliseconds. A `duration` of `0` will\n disable the visual bell animation.",
+          "type": "integer",
+          "default": 0
+        },
+        "color": {
+          "type": "string",
+          "default": "#ffffff",
+          "pattern": "#[a-z0-9]{6}",
+          "description": "Visual bell animation color."
+        },
+        "command": {
+          "$ref": "#/definitions/Alacritty.Command"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "semantic_escape_chars": {
+          "type": "string",
+          "default": ",│`|:\"' ()[]{}<>\t",
+          "description": "This string contains all characters that are used as separators for \"semantic words\" in Alacritty."
+        },
+        "save_to_clipboard": {
+          "type": "boolean",
+          "default": false,
+          "description": "When set to `true`, selected text will be copied to the primary clipboard."
+        }
+      }
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "$ref": "#/definitions/Alacritty.Cursor.Style"
+        },
+        "vi_mode_style": {
+          "oneOf": [
+            { "$ref": "#/definitions/Alacritty.Cursor.Style" },
+            { "default": "None", "type": "string" }
+          ],
+          "description": "\nVi mode cursor style\n If the vi mode cursor style is `None` or not specified, it will fall back to\n the style of the active value of the normal cursor."
+        },
+        "blink_interval": {
+          "description": "Cursor blinking interval in milliseconds.",
+          "type": "integer",
+          "default": 750,
+          "minimum": 0
+        },
+        "blink_timeout": {
+          "type": "integer",
+          "description": "Time after which cursor stops blinking in seconds. \n\n Specifying '0' will disable timeout for blinking",
+          "default": 5
+        },
+        "unfocused_hollow": {
+          "type": "boolean",
+          "default": true,
+          "description": "If this is `true`, the cursor will be rendered as a hollow box when the window is not focused."
+        },
+        "thickness": {
+          "type": "number",
+          "description": "Thickness of the cursor relative to the cell width as floating point number from `0.0` to `1.0`.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "osc52": {
+        "description": "Controls the ability to write to the system clipboard with the OSC 52 escape sequence. While this escape sequence is useful to copy contents from the remote server, allowing any application to read from the clipboard can be easily abused while not providing significant benefits over explicitly pasting text",
+        "default": "OnlyCopy",
+        "enum": ["Disabled", "OnlyCopy", "OnlyPaste", "CopyPaste"]
+      }
+    },
+    "mouse": {
+      "type": "object",
+      "properties": {
+        "hide_when_typing": {
+          "description": "When this is `true`, the cursor is temporarily hidden when typing.",
+          "default": false,
+          "type": "boolean"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Alacritty.MouseBinding"
+          }
+        }
+      }
+    },
+    "hints": {
+      "description": "Terminal hints can be used to find text or hyperlinks in the visible part of the terminal and pipe it to other applications",
+      "type": "object",
+      "properties": {
+        "alphabet": {
+          "description": "Keys used for the hint labels",
+          "default": "jfkdls;ahgurieowpq",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Array with all available hints. Each hint must have at least one of `regex` or `hyperlinks` and either an `action` or a `command`",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "regex": {
+                "description": "Regex each line will be compared against",
+                "default": "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩`]+",
+                "type": "string"
+              },
+              "hyperlinks": {
+                "default": true,
+                "description": "When this is `true`, all OSC 8 escape sequence hyperlinks will be included in the hints",
+                "type": "boolean"
+              },
+              "post_processing": {
+                "default": true,
+                "description": "When this is `true`, heuristics will be used to shorten the match if there are characters likely not to be part of the hint (e.g. a trailing .). This is most useful for URIs and applies only to `regex` matches",
+                "type": "boolean"
+              },
+              "persist": {
+                "default": false,
+                "description": "When this is `true`, hints remain persistent after selection",
+                "type": "boolean"
+              },
+              "action": {
+                "description": "- Copy: Copy the hint's text to the clipboard\n- Paste: Paste the hint's text to the terminal or search\n- Select: Select the hint's text\n- MoveViModeCursor: Move the vi mode cursor to the beginning of the hint",
+                "enum": ["Copy", "Paste", "Select", "MoveViModeCursor"],
+                "type": "string"
+              },
+              "command": {
+                "description": "Command which will be executed when the hint is clicked or selected with the `binding`.\nThe hint's text is always attached as the last argument",
+                "oneOf": [
+                  { "type": "string" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "program": { "type": "string" },
+                      "args": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                ]
+              },
+              "binding": {
+                "description": "See `keyboard.bindings` for documentation on available values.\nThis controls which key binding is used to start the keyboard hint selection process",
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "$ref": "#/definitions/Alacritty.KeyBindings.Key",
+                    "default": "U"
+                  },
+                  "mods": {
+                    "$ref": "#/definitions/Alacritty.Mods",
+                    "default": "Control|Shift"
+                  },
+                  "mode": {
+                    "$ref": "#/definitions/Alacritty.Mode"
+                  }
+                }
+              },
+              "mouse": {
+                "description": "See `keyboard.bindings` for documentation on available mods",
+                "properties": {
+                  "mods": {
+                    "$ref": "#/definitions/Alacritty.Mods"
+                  },
+                  "enabled": {
+                    "default": true,
+                    "description": "The `enabled` field controls if the hint should be underlined when hovering over the hint text with all `mods` pressed",
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "key": {
+      "properties": {
+        "bindings": {
+          "type": "array",
+          "items": {
+            "description": "Key bindings are specified as a list of objects. For example, this is the default paste binding:\n `- { key: V, mods: Control|Shift, action: Paste }`",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "#/definitions/Alacritty.KeyBindings.Key"
+              },
+              "chars": {
+                "$ref": "#/definitions/Alacritty.KeyBindings.Chars"
+              },
+              "action": {
+                "$ref": "#/definitions/Alacritty.KeyBindings.Action"
+              },
+              "command": {
+                "$ref": "#/definitions/Alacritty.Command"
+              },
+              "mode": {
+                "$ref": "#/definitions/Alacritty.Mode"
+              },
+              "mods": {
+                "$ref": "#/definitions/Alacritty.Mods"
+              }
+            }
+          }
+        }
+      }
+    },
+    "debug": {
+      "type": "object",
+      "properties": {
+        "render_timer": {
+          "type": "boolean",
+          "description": "Display the time it takes to redraw each frame.",
+          "default": false
+        },
+        "persistent_logging": {
+          "type": "boolean",
+          "description": "Keep the log file after quitting Alacritty.",
+          "default": false
+        },
+        "log_level": {
+          "type": "string",
+          "description": "To add extra libraries to logging `ALACRITTY_EXTRA_LOG_TARGETS` variable can be used",
+          "enum": ["Off", "Error", "Warn", "Info", "Debug", "Trace"],
+          "default": "Warn"
+        },
+        "renderer": {
+          "type": "string",
+          "description": "Force use of a specific renderer, \"None\" will use the highest available one.",
+          "enum": ["glsl3", "gles2", "gles2_pure", "None"],
+          "default": "None"
+        },
+        "print_events": {
+          "type": "boolean",
+          "description": "Log all received window events",
+          "default": false
+        },
+        "highlight_damage": {
+          "type": "boolean",
+          "description": "Highlight window damage information.",
+          "default": false
+        },
+        "prefer_egl": {
+          "type": "boolean",
+          "description": "Use EGL as display API if the current platform allows it. Note that transparency may not work with EGL on Linux/BSD",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
