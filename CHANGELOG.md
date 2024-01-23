@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CLI env variables clearing configuration file variables
 - Vi inline search/semantic selection expanding across newlines
 
+### Changed
+
+- No unused-key warnings will be emitted for OS-specific config keys
+
 ## 0.13.1
 
 ### Added
