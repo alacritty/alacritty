@@ -275,11 +275,18 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
     let context =
         SequenceBuilder { mode, modifiers, kitty_seq, kitty_encode_all, kitty_event_type };
 
+    let associated_text = key.text_with_all_modifiers().filter(|text| {
+        mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
+            && key.state != ElementState::Released
+            && !text.is_empty()
+            && !is_control_character(text)
+    });
+
     let sequence_base = context
         .try_build_numpad(&key)
         .or_else(|| context.try_build_named(&key))
         .or_else(|| context.try_build_control_char_or_mod(&key, &mut modifiers))
-        .or_else(|| context.try_build_textual(&key));
+        .or_else(|| context.try_build_textual(&key, associated_text));
 
     let (payload, terminator) = match sequence_base {
         Some(SequenceBase { payload, terminator }) => (payload, terminator),
@@ -289,10 +296,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
     let mut payload = format!("\x1b[{}", payload);
 
     // Add modifiers information.
-    if kitty_event_type
-        || !modifiers.is_empty()
-        || (mode.contains(TermMode::REPORT_ASSOCIATED_TEXT) && key.text.is_some())
-    {
+    if kitty_event_type || !modifiers.is_empty() || associated_text.is_some() {
         payload.push_str(&format!(";{}", modifiers.encode_esc_sequence()));
     }
 
@@ -307,19 +311,13 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
         payload.push(event_type);
     }
 
-    // Associated text is not reported when the control/alt/logo is pressesed.
-    if mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
-        && key.state != ElementState::Released
-        && (modifiers.is_empty() || modifiers == SequenceModifiers::SHIFT)
-    {
-        if let Some(text) = key.text {
-            let mut codepoints = text.chars().map(u32::from);
-            if let Some(codepoint) = codepoints.next() {
-                payload.push_str(&format!(";{codepoint}"));
-            }
-            for codepoint in codepoints {
-                payload.push_str(&format!(":{codepoint}"));
-            }
+    if let Some(text) = associated_text {
+        let mut codepoints = text.chars().map(u32::from);
+        if let Some(codepoint) = codepoints.next() {
+            payload.push_str(&format!(";{codepoint}"));
+        }
+        for codepoint in codepoints {
+            payload.push_str(&format!(":{codepoint}"));
         }
     }
 
@@ -342,7 +340,11 @@ pub struct SequenceBuilder {
 
 impl SequenceBuilder {
     /// Try building sequence from the event's emitting text.
-    fn try_build_textual(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    fn try_build_textual(
+        &self,
+        key: &KeyEvent,
+        associated_text: Option<&str>,
+    ) -> Option<SequenceBase> {
         let character = match key.logical_key.as_ref() {
             Key::Character(character) => character,
             _ => return None,
@@ -374,10 +376,7 @@ impl SequenceBuilder {
             };
 
             Some(SequenceBase::new(payload.into(), SequenceTerminator::Kitty))
-        } else if self.kitty_encode_all
-            && self.mode.contains(TermMode::REPORT_ASSOCIATED_TEXT)
-            && key.text.is_some()
-        {
+        } else if self.kitty_encode_all && associated_text.is_some() {
             // Fallback when need to report text, but we don't have any key associated with this
             // text.
             Some(SequenceBase::new("0".into(), SequenceTerminator::Kitty))
@@ -643,4 +642,12 @@ impl From<ModifiersState> for SequenceModifiers {
         modifiers.set(Self::SUPER, mods.super_key());
         modifiers
     }
+}
+
+/// Check whether the `text` is `0x7f`, `C0` or `C1` control code.
+fn is_control_character(text: &str) -> bool {
+    // 0x7f (DEL) is included here since it has a dedicated control code (`^?`) which generally
+    // does not match the reported text (`^H`), despite not technically being part of C0 or C1.
+    let codepoint = text.bytes().next().unwrap();
+    text.len() == 1 && (codepoint < 0x20 || (0x7f..=0x9f).contains(&codepoint))
 }
