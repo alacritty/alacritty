@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - CLI env variables clearing configuration file variables
 - Vi inline search/semantic selection expanding across newlines
+- C0 and C1 codes being emitted in associated text when using kitty keyboard
 
 ### Changed
 
