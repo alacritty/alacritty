@@ -544,7 +544,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_bottom_left, h_bottom_right) = match character {
+            let (w_bottom_left, h_bottom_left) = match character {
                 '\u{1fb0f}' | '\u{1fb10}' | '\u{1fb11}' | '\u{1fb12}' | '\u{1fb13}'
                 | '\u{1fb14}' | '\u{1fb15}' | '\u{1fb16}' | '\u{1fb17}' | '\u{1fb18}'
                 | '\u{1fb19}' | '\u{1fb1a}' | '\u{1fb1b}' | '\u{1fb1c}' | '\u{1fb1d}'
@@ -555,7 +555,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
                 },
                 _ => (0., 0.),
             };
-            let (w_6, h_6) = match character {
+            let (w_bottom_right, h_bottom_right) = match character {
                 '\u{1fb1e}' | '\u{1fb1f}' | '\u{1fb20}' | '\u{1fb21}' | '\u{1fb22}'
                 | '\u{1fb23}' | '\u{1fb24}' | '\u{1fb25}' | '\u{1fb26}' | '\u{1fb27}'
                 | '\u{1fb28}' | '\u{1fb29}' | '\u{1fb2a}' | '\u{1fb2b}' | '\u{1fb2c}'
@@ -571,8 +571,8 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             canvas.draw_rect(x_center, 0., w_top_right, h_top_right, COLOR_FILL);
             canvas.draw_rect(0., y_third, w_mid_left, h_mid_left, COLOR_FILL);
             canvas.draw_rect(x_center, y_third, w_mid_right, h_mid_right, COLOR_FILL);
-            canvas.draw_rect(0., y_third * 2., w_bottom_left, h_bottom_right, COLOR_FILL);
-            canvas.draw_rect(x_center, y_third * 2., w_6, h_6, COLOR_FILL);
+            canvas.draw_rect(0., y_third * 2., w_bottom_left, h_bottom_left, COLOR_FILL);
+            canvas.draw_rect(x_center, y_third * 2., w_bottom_right, h_bottom_right, COLOR_FILL);
         },
         _ => unreachable!(),
     }
