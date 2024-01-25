@@ -1,7 +1,4 @@
-//! Hand-rolled drawing of unicode [box drawing](http://www.unicode.org/charts/PDF/U2500.pdf),
-//! [block elements](https://www.unicode.org/charts/PDF/U2580.pdf)
-//! and [symbols for legacy computing](https://www.unicode.org/charts/PDF/U1FB00.pdf),
-//! and also powerline symbols.
+//! Hand-rolled drawing of unicode characters that need to fully cover their character area.
 
 use std::{cmp, mem, ops};
 
