@@ -61,7 +61,15 @@ impl<'de, T: SerdeReplace + Deserialize<'de>> SerdeReplace for Option<T> {
 
 impl<'de, T: Deserialize<'de>> SerdeReplace for HashMap<String, T> {
     fn replace(&mut self, value: Value) -> Result<(), Box<dyn Error>> {
-        replace_simple(self, value)
+        // Deserialize replacement as HashMap.
+        let hashmap: HashMap<String, T> = Self::deserialize(value)?;
+
+        // Merge the two HashMaps, replacing existing values.
+        for (key, value) in hashmap {
+            self.insert(key, value);
+        }
+
+        Ok(())
     }
 }
 

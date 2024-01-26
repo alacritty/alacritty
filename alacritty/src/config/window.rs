@@ -48,7 +48,6 @@ pub struct WindowConfig {
     pub blur: bool,
 
     /// Controls which `Option` key should be treated as `Alt`.
-    #[cfg(target_os = "macos")]
     option_as_alt: OptionAsAlt,
 
     /// Resize increments.
@@ -80,7 +79,6 @@ impl Default for WindowConfig {
             dynamic_padding: Default::default(),
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
-            #[cfg(target_os = "macos")]
             option_as_alt: Default::default(),
         }
     }
@@ -176,7 +174,6 @@ pub enum StartupMode {
     Windowed,
     Maximized,
     Fullscreen,
-    #[cfg(target_os = "macos")]
     SimpleFullscreen,
 }
 
@@ -184,9 +181,7 @@ pub enum StartupMode {
 pub enum Decorations {
     #[default]
     Full,
-    #[cfg(target_os = "macos")]
     Transparent,
-    #[cfg(target_os = "macos")]
     Buttonless,
     None,
 }
@@ -280,7 +275,6 @@ impl<'de> Deserialize<'de> for Class {
     }
 }
 
-#[cfg(target_os = "macos")]
 #[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionAsAlt {
     /// The left `Option` key is treated as `Alt`.

@@ -86,7 +86,7 @@ This section documents the *[window]* table of the configuration file.
 	least _2_, while using a value of _0_ for columns and lines will fall back
 	to the window manager's recommended size
 
-	Default: { column = _0_, lines = _0_ }
+	Default: { columns = _0_, lines = _0_ }
 
 *position* = _"None"_ | { x = _<integer>_, y = _<integer>_ }
 
@@ -129,7 +129,7 @@ This section documents the *[window]* table of the configuration file.
 *opacity* = _<float>_
 
 	Background opacity as a floating point number from _0.0_ to _1.0_. The value
-	\_0.0_ is completely transparent and _1.0_ is opaque.
+	_0.0_ is completely transparent and _1.0_ is opaque.
 
 	Default: _1.0_
 
@@ -519,7 +519,7 @@ This section documents the *[selection]* table of the configuration file.
 	This string contains all characters that are used as separators for
 	"semantic words" in Alacritty.
 
-	Default: _",│`|:\"' ()[]{}<>\t"_
+	Default: _",│`|:\\"' ()[]{}<>\\t"_
 
 *save_to_clipboard* = _true_ | _false_
 
@@ -996,7 +996,7 @@ relied upon.
 	Example:
 		_ALACRITTY_EXTRA_LOG_TARGETS="winit;vte" alacritty -vvv_
 
-*renderer* = _"glsl3"_ | _"gles2"_ | _"gles2_pure"_ | _"None"_
+*renderer* = _"glsl3"_ | _"gles2"_ | _"gles2pure"_ | _"None"_
 
 	Force use of a specific renderer, _"None"_ will use the highest available
 	one.

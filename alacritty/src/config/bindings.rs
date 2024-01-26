@@ -120,7 +120,6 @@ pub enum Action {
     /// Store current selection into clipboard.
     Copy,
 
-    #[cfg(not(any(target_os = "macos", windows)))]
     /// Store current selection into selection buffer.
     CopySelection,
 
@@ -167,7 +166,6 @@ pub enum Action {
     Hide,
 
     /// Hide all windows other than Alacritty on macOS.
-    #[cfg(target_os = "macos")]
     HideOtherApplications,
 
     /// Minimize the Alacritty window.
@@ -182,58 +180,45 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
-    #[cfg(target_os = "macos")]
     /// Select next tab.
     SelectNextTab,
 
-    #[cfg(target_os = "macos")]
     /// Select previous tab.
     SelectPreviousTab,
 
-    #[cfg(target_os = "macos")]
     /// Select the first tab.
     SelectTab1,
 
-    #[cfg(target_os = "macos")]
     /// Select the second tab.
     SelectTab2,
 
-    #[cfg(target_os = "macos")]
     /// Select the third tab.
     SelectTab3,
 
-    #[cfg(target_os = "macos")]
     /// Select the fourth tab.
     SelectTab4,
 
-    #[cfg(target_os = "macos")]
     /// Select the fifth tab.
     SelectTab5,
 
-    #[cfg(target_os = "macos")]
     /// Select the sixth tab.
     SelectTab6,
 
-    #[cfg(target_os = "macos")]
     /// Select the seventh tab.
     SelectTab7,
 
-    #[cfg(target_os = "macos")]
     /// Select the eighth tab.
     SelectTab8,
 
-    #[cfg(target_os = "macos")]
     /// Select the ninth tab.
     SelectTab9,
 
-    #[cfg(target_os = "macos")]
     /// Select the last tab.
     SelectLastTab,
 
     /// Create a new Alacritty window.
     CreateNewWindow,
 
-    #[cfg(target_os = "macos")]
     /// Create new window in a tab.
     CreateNewTab,
 
@@ -244,7 +229,6 @@ pub enum Action {
     ToggleMaximized,
 
     /// Toggle simple fullscreen on macOS.
-    #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
 
     /// Clear active selection.

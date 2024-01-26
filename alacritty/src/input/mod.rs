@@ -410,7 +410,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::SelectTab9 => ctx.window().select_tab_at_index(8),
             #[cfg(target_os = "macos")]
             Action::SelectLastTab => ctx.window().select_last_tab(),
-            Action::ReceiveChar | Action::None => (),
+            _ => (),
         }
     }
 }
