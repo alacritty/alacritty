@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - `alacritty migrate` will ignore null values in yaml instead of erroring out
+- Use built-in font for sextant symbols from `U+1FB00` to `U+1FB3B`
 
 ### Fixed
 
