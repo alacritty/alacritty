@@ -609,10 +609,10 @@ This section documents the *[mouse]* table of the configuration file.
 
 	Default: _false_
 
-*bindings* = [{ *<mouse>*, *<mods>*, *<mode>*, *<action>* | *<chars>* },]
+*bindings* = [{ *<mouse>*, *<mods>*, *<mode>*, *<command>* | *<chars>* | *<action>* },]
 
-	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _action_,
-	and _chars_.
+	See _keyboard.bindings_ for full documentation on _mods_, _mode_, _command_,
+	_chars_, and _action_.
 
 	When an application running within Alacritty captures the mouse, the `Shift`
 	modifier can be used to suppress mouse reporting. If no action is found for
@@ -721,7 +721,7 @@ regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news
 
 This section documents the *[keyboard]* table of the configuration file.
 
-*bindings* = [{ *<key>*, *<mods>*, *<mode>*, *<action>* | *<chars>* },]
+*bindings* = [{ *<key>*, *<mods>*, *<mode>*, *<command>* | *<chars>* | *<action>* },]
 
 	To unset a default binding, you can use the action _"ReceiveChar"_ to remove
 	it or _"None"_ to inhibit any action.
@@ -759,6 +759,10 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 		the binding to take effect.
 
 		Multiple modes can be combined using _|_, like this: _"~Vi|Search"_.
+
+	*command* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
+
+		Fork and execute the specified command.
 
 	*chars* = _"<string>"_
 
