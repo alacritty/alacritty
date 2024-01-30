@@ -284,7 +284,8 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
 
     let sequence_base = context
         .try_build_numpad(&key)
-        .or_else(|| context.try_build_named(&key))
+        .or_else(|| context.try_build_named_kitty(&key))
+        .or_else(|| context.try_build_named_normal(&key))
         .or_else(|| context.try_build_control_char_or_mod(&key, &mut modifiers))
         .or_else(|| context.try_build_textual(&key, associated_text));
 
@@ -430,45 +431,17 @@ impl SequenceBuilder {
         Some(SequenceBase::new(base.into(), SequenceTerminator::Kitty))
     }
 
-    /// Try building from [`NamedKey`].
-    fn try_build_named(&self, key: &KeyEvent) -> Option<SequenceBase> {
+    /// Try building from [`NamedKey`] using the kitty keyboard protocol encoding
+    /// for functional keys.
+    fn try_build_named_kitty(&self, key: &KeyEvent) -> Option<SequenceBase> {
         let named = match key.logical_key {
-            Key::Named(named) => named,
+            Key::Named(named) if self.kitty_seq => named,
             _ => return None,
         };
 
-        // The default parameter is 1, so we can omit it.
-        let one_based = if self.modifiers.is_empty() && !self.kitty_event_type { "" } else { "1" };
         let (base, terminator) = match named {
-            NamedKey::PageUp => ("5", SequenceTerminator::Normal('~')),
-            NamedKey::PageDown => ("6", SequenceTerminator::Normal('~')),
-            NamedKey::Insert => ("2", SequenceTerminator::Normal('~')),
-            NamedKey::Delete => ("3", SequenceTerminator::Normal('~')),
-            NamedKey::Home => (one_based, SequenceTerminator::Normal('H')),
-            NamedKey::End => (one_based, SequenceTerminator::Normal('F')),
-            NamedKey::ArrowLeft => (one_based, SequenceTerminator::Normal('D')),
-            NamedKey::ArrowRight => (one_based, SequenceTerminator::Normal('C')),
-            NamedKey::ArrowUp => (one_based, SequenceTerminator::Normal('A')),
-            NamedKey::ArrowDown => (one_based, SequenceTerminator::Normal('B')),
-            NamedKey::F1 => (one_based, SequenceTerminator::Normal('P')),
-            NamedKey::F2 => (one_based, SequenceTerminator::Normal('Q')),
-            NamedKey::F3 => {
-                // F3 in kitty protocol diverges from alacritty's terminfo.
-                if self.kitty_seq {
-                    ("13", SequenceTerminator::Normal('~'))
-                } else {
-                    (one_based, SequenceTerminator::Normal('R'))
-                }
-            },
-            NamedKey::F4 => (one_based, SequenceTerminator::Normal('S')),
-            NamedKey::F5 => ("15", SequenceTerminator::Normal('~')),
-            NamedKey::F6 => ("17", SequenceTerminator::Normal('~')),
-            NamedKey::F7 => ("18", SequenceTerminator::Normal('~')),
-            NamedKey::F8 => ("19", SequenceTerminator::Normal('~')),
-            NamedKey::F9 => ("20", SequenceTerminator::Normal('~')),
-            NamedKey::F10 => ("21", SequenceTerminator::Normal('~')),
-            NamedKey::F11 => ("23", SequenceTerminator::Normal('~')),
-            NamedKey::F12 => ("24", SequenceTerminator::Normal('~')),
+            // F3 in kitty protocol diverges from alacritty's terminfo.
+            NamedKey::F3 => ("13", SequenceTerminator::Normal('~')),
             NamedKey::F13 => ("57376", SequenceTerminator::Kitty),
             NamedKey::F14 => ("57377", SequenceTerminator::Kitty),
             NamedKey::F15 => ("57378", SequenceTerminator::Kitty),
@@ -508,6 +481,52 @@ impl SequenceBuilder {
             NamedKey::AudioVolumeDown => ("57438", SequenceTerminator::Kitty),
             NamedKey::AudioVolumeUp => ("57439", SequenceTerminator::Kitty),
             NamedKey::AudioVolumeMute => ("57440", SequenceTerminator::Kitty),
+            _ => return None,
+        };
+
+        Some(SequenceBase::new(base.into(), terminator))
+    }
+
+    /// Try building from [`NamedKey`].
+    fn try_build_named_normal(&self, key: &KeyEvent) -> Option<SequenceBase> {
+        let named = match key.logical_key {
+            Key::Named(named) => named,
+            _ => return None,
+        };
+
+        // The default parameter is 1, so we can omit it.
+        let one_based = if self.modifiers.is_empty() && !self.kitty_event_type { "" } else { "1" };
+        let (base, terminator) = match named {
+            NamedKey::PageUp => ("5", SequenceTerminator::Normal('~')),
+            NamedKey::PageDown => ("6", SequenceTerminator::Normal('~')),
+            NamedKey::Insert => ("2", SequenceTerminator::Normal('~')),
+            NamedKey::Delete => ("3", SequenceTerminator::Normal('~')),
+            NamedKey::Home => (one_based, SequenceTerminator::Normal('H')),
+            NamedKey::End => (one_based, SequenceTerminator::Normal('F')),
+            NamedKey::ArrowLeft => (one_based, SequenceTerminator::Normal('D')),
+            NamedKey::ArrowRight => (one_based, SequenceTerminator::Normal('C')),
+            NamedKey::ArrowUp => (one_based, SequenceTerminator::Normal('A')),
+            NamedKey::ArrowDown => (one_based, SequenceTerminator::Normal('B')),
+            NamedKey::F1 => (one_based, SequenceTerminator::Normal('P')),
+            NamedKey::F2 => (one_based, SequenceTerminator::Normal('Q')),
+            NamedKey::F3 => (one_based, SequenceTerminator::Normal('R')),
+            NamedKey::F4 => (one_based, SequenceTerminator::Normal('S')),
+            NamedKey::F5 => ("15", SequenceTerminator::Normal('~')),
+            NamedKey::F6 => ("17", SequenceTerminator::Normal('~')),
+            NamedKey::F7 => ("18", SequenceTerminator::Normal('~')),
+            NamedKey::F8 => ("19", SequenceTerminator::Normal('~')),
+            NamedKey::F9 => ("20", SequenceTerminator::Normal('~')),
+            NamedKey::F10 => ("21", SequenceTerminator::Normal('~')),
+            NamedKey::F11 => ("23", SequenceTerminator::Normal('~')),
+            NamedKey::F12 => ("24", SequenceTerminator::Normal('~')),
+            NamedKey::F13 => ("25", SequenceTerminator::Normal('~')),
+            NamedKey::F14 => ("26", SequenceTerminator::Normal('~')),
+            NamedKey::F15 => ("28", SequenceTerminator::Normal('~')),
+            NamedKey::F16 => ("29", SequenceTerminator::Normal('~')),
+            NamedKey::F17 => ("31", SequenceTerminator::Normal('~')),
+            NamedKey::F18 => ("32", SequenceTerminator::Normal('~')),
+            NamedKey::F19 => ("33", SequenceTerminator::Normal('~')),
+            NamedKey::F20 => ("34", SequenceTerminator::Normal('~')),
             _ => return None,
         };
 
@@ -596,7 +615,7 @@ impl SequenceBase {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SequenceTerminator {
     /// The normal key esc sequence terminator defined by xterm/dec.
     Normal(char),
