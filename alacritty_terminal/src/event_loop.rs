@@ -214,8 +214,9 @@ where
             let mut interest = PollingEvent::readable(0);
 
             // Register TTY through EventedRW interface.
-            unsafe {
-                self.pty.register(&self.poll, interest, poll_opts).unwrap();
+            if let Err(err) = unsafe { self.pty.register(&self.poll, interest, poll_opts) } {
+                error!("EventLoop register error: {err:?}");
+                return (self, state);
             }
 
             let mut events = Events::with_capacity(NonZeroUsize::new(1024).unwrap());
@@ -236,7 +237,10 @@ where
                 if let Err(err) = self.poll.wait(&mut events, timeout) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
-                        _ => panic!("EventLoop polling error: {err:?}"),
+                        _ => {
+                            error!("EventLoop polling error: {err:?}");
+                            break 'event_loop;
+                        },
                     }
                 }
 
