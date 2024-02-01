@@ -67,10 +67,11 @@ where
         pty: T,
         hold: bool,
         ref_test: bool,
-    ) -> EventLoop<T, U> {
+    ) -> io::Result<EventLoop<T, U>> {
         let (tx, rx) = mpsc::channel();
-        EventLoop {
-            poll: polling::Poller::new().expect("create Poll").into(),
+        let poll = polling::Poller::new()?.into();
+        Ok(EventLoop {
+            poll,
             pty,
             tx,
             rx: PeekableReceiver::new(rx),
@@ -78,7 +79,7 @@ where
             event_proxy,
             hold,
             ref_test,
-        }
+        })
     }
 
     pub fn channel(&self) -> EventLoopSender {
