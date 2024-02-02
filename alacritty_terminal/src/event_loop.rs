@@ -215,7 +215,7 @@ where
 
             // Register TTY through EventedRW interface.
             if let Err(err) = unsafe { self.pty.register(&self.poll, interest, poll_opts) } {
-                error!("EventLoop register error: {err:?}");
+                error!("Event loop registration error: {}", err);
                 return (self, state);
             }
 
@@ -238,7 +238,7 @@ where
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
                         _ => {
-                            error!("EventLoop polling error: {err:?}");
+                            error!("Event loop polling error: {}", err);
                             break 'event_loop;
                         },
                     }
