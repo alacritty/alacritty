@@ -223,7 +223,7 @@ impl WindowContext {
             pty,
             pty_config.hold,
             config.debug.ref_test,
-        );
+        )?;
 
         // The event loop channel allows write requests from the event processor
         // to be sent to the pty loop and ultimately written to the pty.
