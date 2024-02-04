@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vi inline search/semantic selection expanding across newlines
 - C0 and C1 codes being emitted in associated text when using kitty keyboard
 - Occasional hang on startup with some Wayland compositors
+- Missing key for `NumpadDecimal` in key bindings
 
 ### Changed
 

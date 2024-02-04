@@ -704,6 +704,7 @@ impl<'a> Deserialize<'a> for BindingKey {
                         "NumpadEnter" => (Key::Named(NamedKey::Enter), KeyLocation::Numpad),
                         "NumpadAdd" => (Key::Character("+".into()), KeyLocation::Numpad),
                         "NumpadComma" => (Key::Character(",".into()), KeyLocation::Numpad),
+                        "NumpadDecimal" => (Key::Character(".".into()), KeyLocation::Numpad),
                         "NumpadDivide" => (Key::Character("/".into()), KeyLocation::Numpad),
                         "NumpadEquals" => (Key::Character("=".into()), KeyLocation::Numpad),
                         "NumpadSubtract" => (Key::Character("-".into()), KeyLocation::Numpad),

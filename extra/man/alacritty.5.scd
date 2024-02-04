@@ -739,8 +739,8 @@ This section documents the *[keyboard]* table of the configuration file.
 _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 
 		Numpad keys are prefixed by _Numpad_: _"NumpadEnter"_ | _"NumpadAdd"_ |
-		_"NumpadComma"_ | _"NumpadDivide"_ | _"NumpadEquals"_ | _"NumpadSubtract"_ |
-		_"NumpadMultiply"_ | _"Numpad[0-9]"_.
+		_"NumpadComma"_ | _"NumpadDecimal"_ | _"NumpadDivide"_ | _"NumpadEquals"_ |
+		_"NumpadSubtract"_ | _"NumpadMultiply"_ | _"Numpad[0-9]"_.
 
 		The _key_ field also supports using scancodes, which are specified as a
 		decimal number.
