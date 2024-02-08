@@ -280,9 +280,7 @@ pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<
                 set_nonblocking(master_fd);
             }
 
-            let mut pty = Pty { child, file: File::from(master), signals };
-            pty.on_resize(window_size);
-            Ok(pty)
+            Ok(Pty { child, file: File::from(master), signals })
         },
         Err(err) => Err(Error::new(
             err.kind(),
