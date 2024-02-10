@@ -917,10 +917,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.config
     }
 
-    fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
-        self.event_loop
-    }
-
     fn clipboard_mut(&mut self) -> &mut Clipboard {
         self.clipboard
     }
