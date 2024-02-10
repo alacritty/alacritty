@@ -18,6 +18,8 @@ const POWERLINE_TRIANGLE_LTR: char = '\u{e0b0}';
 const POWERLINE_ARROW_LTR: char = '\u{e0b1}';
 const POWERLINE_TRIANGLE_RTL: char = '\u{e0b2}';
 const POWERLINE_ARROW_RTL: char = '\u{e0b3}';
+const BRAILLE_EMPTY: char = '\u{2800}';
+const BRAILLE_FULL: char = '\u{28ff}';
 
 /// Returns the rasterized glyph if the character is part of the built-in font.
 pub fn builtin_glyph(
@@ -35,6 +37,7 @@ pub fn builtin_glyph(
         POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
             powerline_drawing(character, metrics, offset)?
         },
+        BRAILLE_EMPTY..=BRAILLE_FULL => braille_drawing(character, metrics, offset),
         _ => return None,
     };
 
@@ -660,6 +663,31 @@ fn powerline_drawing(
     })
 }
 
+fn braille_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+    let height = metrics.line_height as i32 + offset.y as i32;
+    let width = metrics.average_advance as i32 + offset.x as i32;
+    // The radius of dots as a fraction of the shorter axis of the 2x4 cell.
+    let size_wrt_cell = 0.66;
+    let r = (width as f32 / 4. * size_wrt_cell).min(height as f32 / 8. * size_wrt_cell);
+    let bitdots = (character as u32 - BRAILLE_EMPTY as u32) as u8;
+    // Unicode rules
+    static DOT_POSITIONS: [[u8; 2]; 4] = [[1, 4], [2, 5], [3, 6], [7, 8]];
+    let mut canvas = Canvas::new(width as usize, height as usize);
+    for (row_i, row) in DOT_POSITIONS.into_iter().enumerate() {
+        for (col_i, bit) in row.into_iter().enumerate() {
+            let mask = 1 << (bit - 1);
+            if bitdots & mask != 0 {
+                let xpos = width as f32 / 2. * col_i as f32 + width as f32 / 4.;
+                let ypos = height as f32 / 4. * row_i as f32 + height as f32 / 8.;
+                canvas.draw_dot(xpos, ypos, r);
+            }
+        }
+    }
+    let buffer = BitmapBuffer::Rgb(canvas.into_raw());
+    let top = height + metrics.descent as i32;
+    RasterizedGlyph { character, top, left: 0, height, width, buffer, advance: (height, width) }
+}
+
 #[repr(packed)]
 #[derive(Clone, Copy, Debug, Default)]
 struct Pixel {
@@ -958,6 +986,27 @@ impl Canvas {
         }
     }
 
+    /// Draw a filled circle
+    fn draw_dot(&mut self, xcent: f32, ycent: f32, r: f32) {
+        let xmin = 0.max((xcent - r).floor() as usize);
+        let ymin = 0.max((ycent - r).floor() as usize);
+        let xmax = self.width.min((xcent + r).ceil() as usize);
+        let ymax = self.height.min((ycent + r).ceil() as usize);
+        for x in xmin..=xmax {
+            let dxsq = (xcent - x as f32).powi(2);
+            for y in ymin..=ymax {
+                let dysq = (ycent - y as f32).powi(2);
+                let fill = r.powi(2) - (dxsq + dysq);
+                if 0. < fill {
+                    let color =
+                        if 1. <= fill { COLOR_FILL } else { Pixel::gray((255. * fill) as u8) };
+                    let idx = x + y * self.width;
+                    self.buffer[idx] = color;
+                }
+            }
+        }
+    }
+
     /// Fills the `Canvas` with the given `Color`.
     fn fill(&mut self, color: Pixel) {
         self.buffer.fill(color);
@@ -1031,6 +1080,17 @@ mod tests {
 
         for character in ('\u{e0a0}'..'\u{e0b0}').chain('\u{e0b4}'..'\u{e0c0}') {
             assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_none());
+        }
+    }
+
+    #[test]
+    fn builtin_braille_coverage() {
+        let offset = Default::default();
+        let glyph_offset = Default::default();
+
+        // Test coverage of box drawing characters.
+        for character in '\u{2800}'..='\u{28ff}' {
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_some());
         }
     }
 }
