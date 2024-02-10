@@ -301,6 +301,13 @@ pub fn imports(
 
     for import in imports {
         let mut path = match import {
+            Value::String(path) if path.contains("${") => {
+                let mut parsed_path = path.clone();
+                for (key, value) in std::env::vars() {
+                    parsed_path = parsed_path.replace(&format!("${{{}}}", key), &value);
+                }
+                PathBuf::from(parsed_path)
+            },
             Value::String(path) => PathBuf::from(path),
             _ => {
                 import_paths.push(Err("Invalid import element type: expected path string".into()));
