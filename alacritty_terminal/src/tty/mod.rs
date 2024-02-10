@@ -91,6 +91,8 @@ pub fn setup_env() {
     let terminfo = if terminfo_exists("alacritty") { "alacritty" } else { "xterm-256color" };
     env::set_var("TERM", terminfo);
 
+    env::set_var("OS", std::env::consts::OS);
+
     // Advertise 24-bit color support.
     env::set_var("COLORTERM", "truecolor");
 
