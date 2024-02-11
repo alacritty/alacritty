@@ -14,12 +14,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Stable
         run: cargo test
+      - name: Stable (no default features)
+        run: cargo test -p alacritty_terminal --no-default-features
       - name: Oldstable
         run: |
-          rustup default 1.60.0
+          rustup default 1.70.0
           cargo test
       - name: Clippy
         run: |
@@ -28,7 +30,7 @@ jobs:
   check-macos-arm:
     runs-on: macos-11
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install target
         run: rustup update && rustup target add aarch64-apple-darwin
       - name: Build

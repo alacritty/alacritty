@@ -1,11 +1,10 @@
 use std::collections::HashMap;
-use std::hash::BuildHasherDefault;
 
+use ahash::RandomState;
 use crossfont::{
     Error as RasterizerError, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph,
     Rasterizer, Size, Slant, Style, Weight,
 };
-use fnv::FnvHasher;
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
@@ -46,7 +45,7 @@ pub struct Glyph {
 /// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs.
-    cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
+    cache: HashMap<GlyphKey, Glyph, RandomState>,
 
     /// Rasterizer for loading new glyphs.
     rasterizer: Rasterizer,
@@ -91,7 +90,7 @@ impl GlyphCache {
         let metrics = rasterizer.metrics(regular, font.size())?;
 
         Ok(Self {
-            cache: HashMap::default(),
+            cache: Default::default(),
             rasterizer,
             font_size: font.size(),
             font_key: regular,
@@ -276,13 +275,8 @@ impl GlyphCache {
     ///
     /// NOTE: To reload the renderers's fonts [`Self::reset_glyph_cache`] should be called
     /// afterwards.
-    pub fn update_font_size(
-        &mut self,
-        font: &Font,
-        scale_factor: f64,
-    ) -> Result<(), crossfont::Error> {
+    pub fn update_font_size(&mut self, font: &Font) -> Result<(), crossfont::Error> {
         // Update dpi scaling.
-        self.rasterizer.update_dpr(scale_factor as f32);
         self.font_offset = font.offset;
         self.glyph_offset = font.glyph_offset;
 
@@ -297,7 +291,7 @@ impl GlyphCache {
         })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;
 
-        info!("Font size changed to {:?} with scale factor of {}", font.size(), scale_factor);
+        info!("Font size changed to {:?} px", font.size().as_px());
 
         self.font_size = font.size();
         self.font_key = regular;

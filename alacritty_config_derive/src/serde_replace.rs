@@ -28,11 +28,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 pub fn derive_direct(ident: Ident, generics: Generics) -> TokenStream2 {
     quote! {
         impl <#generics> alacritty_config::SerdeReplace for #ident <#generics> {
-            fn replace(&mut self, key: &str, value: serde_yaml::Value) -> Result<(), Box<dyn std::error::Error>> {
-                if !key.is_empty() {
-                    let error = format!("Fields \"{}\" do not exist", key);
-                    return Err(error.into());
-                }
+            fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
                 *self = serde::Deserialize::deserialize(value)?;
 
                 Ok(())
@@ -53,19 +49,23 @@ pub fn derive_recursive<T>(
     quote! {
         #[allow(clippy::extra_unused_lifetimes)]
         impl <'de, #constrained> alacritty_config::SerdeReplace for #ident <#unconstrained> {
-            fn replace(&mut self, key: &str, value: serde_yaml::Value) -> Result<(), Box<dyn std::error::Error>> {
-                if key.is_empty() {
-                    *self = serde::Deserialize::deserialize(value)?;
-                    return Ok(());
-                }
+            fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn std::error::Error>> {
+                match value.as_table() {
+                    Some(table) => {
+                        for (field, next_value) in table {
+                            let next_value = next_value.clone();
+                            let value = value.clone();
 
-                let (field, next_key) = key.split_once('.').unwrap_or((key, ""));
-                match field {
-                    #replace_arms
-                    _ => {
-                        let error = format!("Field \"{}\" does not exist", field);
-                        return Err(error.into());
+                            match field.as_str() {
+                                #replace_arms
+                                _ => {
+                                    let error = format!("Field \"{}\" does not exist", field);
+                                    return Err(error.into());
+                                },
+                            }
+                        }
                     },
+                    None => *self = serde::Deserialize::deserialize(value)?,
                 }
 
                 Ok(())
@@ -95,11 +95,11 @@ fn match_arms<T>(fields: &Punctuated<Field, T>) -> TokenStream2 {
             return Error::new(ident.span(), MULTIPLE_FLATTEN_ERROR).to_compile_error();
         } else if flatten {
             flattened_arm = Some(quote! {
-                _ => alacritty_config::SerdeReplace::replace(&mut self.#ident, key, value)?,
+                _ => alacritty_config::SerdeReplace::replace(&mut self.#ident, value)?,
             });
         } else {
             stream.extend(quote! {
-                #literal => alacritty_config::SerdeReplace::replace(&mut self.#ident, next_key, value)?,
+                #literal => alacritty_config::SerdeReplace::replace(&mut self.#ident, next_value)?,
             });
         }
     }

@@ -1,72 +1,67 @@
 [package]
 name = "alacritty"
-version = "0.13.0-dev"
+version = "0.14.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.18.1-dev"
-default-features = false
+version = "0.22.1-dev"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.2-dev"
+version = "0.2.3-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.1.2-dev"
+version = "0.2.1-dev"
 
 [dependencies]
-clap = { version = "3.0.0", features = ["derive", "env"] }
-log = { version = "0.4", features = ["std", "serde"] }
-fnv = "1"
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.8"
-serde_json = "1"
-glutin = { version = "0.30.4", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.28.1", default-features = false, features = ["serde"] }
-notify = "5.1.0"
-parking_lot = "0.12.0"
-crossfont = { version = "0.5.0", features = ["force_system_fontconfig"] }
-copypasta = { version = "0.8.1", default-features = false }
-raw-window-handle = "0.5.0"
+ahash = { version = "0.8.6", features = ["no-rng"] }
+bitflags = "2.2.1"
+clap = { version = "4.2.7", features = ["derive", "env"] }
+copypasta = { version = "0.10.0", default-features = false }
+crossfont = { version = "0.7.0", features = ["force_system_fontconfig"] }
+glutin = { version = "0.31.1", default-features = false, features = ["egl", "wgl"] }
+home = "0.5.5"
 libc = "0.2"
+log = { version = "0.4", features = ["std", "serde"] }
+memoffset = "0.9.0"
+notify = "6.1.1"
+parking_lot = "0.12.0"
+raw-window-handle = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9.25"
+smallvec = { version = "1.13.1", features = ["serde"] }
+toml = "0.8.2"
 unicode-width = "0.1"
-bitflags = "1"
-memoffset = "0.6.4"
-dirs = "4.0.0"
-once_cell = "1.12"
-smallvec = { version = "1.9.0", features = ["serde"] }
+winit = { version = "0.29.9", default-features = false, features = ["rwh_05", "serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"
 
 [dev-dependencies]
-clap_complete = "3.0.0"
+clap_complete = "4.2.3"
 
 [target.'cfg(not(windows))'.dependencies]
-xdg = "2.4.0"
+xdg = "2.5.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-raw-window-handle = "0.5.0"
-cocoa = "0.24.0"
+cocoa = "0.25.0"
 objc = "0.2.2"
 
-[target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
-x11-dl = { version = "2", optional = true }
-wayland-client = { version = "0.29.0", features = ["dlopen"], optional = true }
-
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.36", features = [
+dirs = "5.0.1"
+windows-sys = { version = "0.48", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
     "Win32_System_Console",
@@ -74,7 +69,7 @@ windows-sys = { version = "0.36", features = [
 ]}
 
 [target.'cfg(windows)'.build-dependencies]
-embed-resource = "1.7.2"
+embed-resource = "2.2.0"
 
 [features]
 default = ["wayland", "x11"]
@@ -83,13 +78,13 @@ x11 = [
     "winit/x11",
     "glutin/x11",
     "glutin/glx",
-    "x11-dl",
-    "png"]
+    "png",
+]
 wayland = [
     "copypasta/wayland",
     "glutin/wayland",
     "winit/wayland",
     "winit/wayland-dlopen",
     "winit/wayland-csd-adwaita-crossfont",
-    "wayland-client"]
+]
 nightly = []

@@ -42,7 +42,7 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.60.0. All patches are expected
+Please note that the minimum supported version of Alacritty is Rust 1.70.0. All patches are expected
 to work with the minimum supported version.
 
 Since `alacritty_terminal`'s version always tracks the next release, make sure that the version is
@@ -86,8 +86,7 @@ Latency is another important factor for Alacritty. On X11, Windows, and macOS th
 Code should be documented where appropriate. The existing code can be used as a guidance here and
 the general `rustfmt` rules can be followed for formatting.
 
-If any change has been made to the `config.rs` file, these changes should also be documented in the
-example configuration file `alacritty.yml`.
+If any change has been made to the `config.rs` file, it should also be documented in the man pages.
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to
 things like code refactorings or documentation/tests) additionally need to be documented in the
@@ -114,14 +113,14 @@ documentation comments.
 Alacritty's release process aims to provide stable and well tested releases without having to hold
 back new features during the testing period.
 
-To achieve these goals, a new branch is created for every new release. Both the release candidates
-and the final version are only comitted and tagged in this branch. The master branch only tracks
+To achieve these goals, a new branch is created for every major release. Both the release candidates
+and the final version are only committed and tagged in this branch. The master branch only tracks
 development versions, allowing us to keep the branches completely separate without merging releases
 back into master.
 
 The exact steps for an exemplary `0.2.0` release might look like this:
   1. Initially, the version on the latest master is `0.2.0-dev`
-  2. A new `v0.2.0` branch is created for the release
+  2. A new `v0.2` branch is created for the release
   3. In the branch, the version is bumped to `0.2.0-rc1`
   4. The new commit in the branch is tagged as `v0.2.0-rc1`
   5. The pre-release versions are published to crates.io
@@ -144,11 +143,11 @@ having to adjust the next planned release's version number.
 
 The exact steps for an exemplary `0.2.3` release might look like this:
  1. Initially, the version on the latest master is `0.3.0-dev` and the latest release was `0.2.2`
- 2. A new `v0.2.3` branch is forked from the `v0.2.2` branch
- 4. All bug fixes are cherry-picked from master into the `v0.2.3` branch
- 5. The version is bumped to `v0.2.3-rc1` and the changelog is updated to include all fixes
- 6. Follow Steps 4-13 of the regular release's example
- 7. The release's changelog is ported back to master, removing fixes from the `0.2.3` release
+ 2. The `v0.2` branch is checked out
+ 3. All bug fixes are cherry-picked from master into the `v0.2` branch
+ 4. The version is bumped to `v0.2.3-rc1` and the changelog is updated to include all fixes
+ 5. Follow Steps 4-13 of the regular release's example
+ 6. The release's changelog is ported back to master, removing fixes from the `0.2.3` release
 
 The `alacritty_terminal` crate is released in synchronization with `alacritty`, keeping the `-dev`
 and `-rcX` version suffix identical across the two crates. As soon as the new Alacritty stable

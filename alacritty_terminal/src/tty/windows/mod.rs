@@ -3,17 +3,26 @@ use std::io::{self, Error, ErrorKind, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
+use std::sync::Arc;
 
-use crate::config::{Program, PtyConfig};
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options, Shell};
 
+mod blocking;
 mod child;
 mod conpty;
 
+use blocking::{UnblockedReader, UnblockedWriter};
 use conpty::Conpty as Backend;
-use mio_anonymous_pipes::{EventedAnonRead as ReadPipe, EventedAnonWrite as WritePipe};
+use miow::pipe::{AnonRead, AnonWrite};
+use polling::{Event, Poller};
+
+pub const PTY_CHILD_EVENT_TOKEN: usize = 1;
+pub const PTY_READ_WRITE_TOKEN: usize = 2;
+
+type ReadPipe = UnblockedReader<AnonRead>;
+type WritePipe = UnblockedWriter<AnonWrite>;
 
 pub struct Pty {
     // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
@@ -21,13 +30,10 @@ pub struct Pty {
     backend: Backend,
     conout: ReadPipe,
     conin: WritePipe,
-    read_token: mio::Token,
-    write_token: mio::Token,
-    child_event_token: mio::Token,
     child_watcher: ChildExitWatcher,
 }
 
-pub fn new(config: &PtyConfig, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
+pub fn new(config: &Options, window_size: WindowSize, _window_id: u64) -> Result<Pty> {
     conpty::new(config, window_size)
         .ok_or_else(|| Error::new(ErrorKind::Other, "failed to spawn conpty"))
 }
@@ -39,16 +45,13 @@ impl Pty {
         conin: impl Into<WritePipe>,
         child_watcher: ChildExitWatcher,
     ) -> Self {
-        Self {
-            backend: backend.into(),
-            conout: conout.into(),
-            conin: conin.into(),
-            read_token: 0.into(),
-            write_token: 0.into(),
-            child_event_token: 0.into(),
-            child_watcher,
-        }
+        Self { backend: backend.into(), conout: conout.into(), conin: conin.into(), child_watcher }
     }
+}
+
+fn with_key(mut event: Event, key: usize) -> Event {
+    event.key = key;
+    event
 }
 
 impl EventedReadWrite for Pty {
@@ -56,34 +59,15 @@ impl EventedReadWrite for Pty {
     type Writer = WritePipe;
 
     #[inline]
-    fn register(
+    unsafe fn register(
         &mut self,
-        poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = mio::Token>,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        interest: polling::Event,
+        poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        self.read_token = token.next().unwrap();
-        self.write_token = token.next().unwrap();
-
-        if interest.is_readable() {
-            poll.register(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?
-        } else {
-            poll.register(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?
-        }
-        if interest.is_writable() {
-            poll.register(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?
-        } else {
-            poll.register(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?
-        }
-
-        self.child_event_token = token.next().unwrap();
-        poll.register(
-            self.child_watcher.event_rx(),
-            self.child_event_token,
-            mio::Ready::readable(),
-            poll_opts,
-        )?;
+        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
 
         Ok(())
     }
@@ -91,36 +75,23 @@ impl EventedReadWrite for Pty {
     #[inline]
     fn reregister(
         &mut self,
-        poll: &mio::Poll,
-        interest: mio::Ready,
-        poll_opts: mio::PollOpt,
+        poll: &Arc<Poller>,
+        interest: polling::Event,
+        poll_opts: polling::PollMode,
     ) -> io::Result<()> {
-        if interest.is_readable() {
-            poll.reregister(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?;
-        } else {
-            poll.reregister(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?;
-        }
-        if interest.is_writable() {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?;
-        } else {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
-        }
-
-        poll.reregister(
-            self.child_watcher.event_rx(),
-            self.child_event_token,
-            mio::Ready::readable(),
-            poll_opts,
-        )?;
+        self.conin.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.conout.register(poll, with_key(interest, PTY_READ_WRITE_TOKEN), poll_opts);
+        self.child_watcher.register(poll, with_key(interest, PTY_CHILD_EVENT_TOKEN));
 
         Ok(())
     }
 
     #[inline]
-    fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        poll.deregister(&self.conout)?;
-        poll.deregister(&self.conin)?;
-        poll.deregister(self.child_watcher.event_rx())?;
+    fn deregister(&mut self, _poll: &Arc<Poller>) -> io::Result<()> {
+        self.conin.deregister();
+        self.conout.deregister();
+        self.child_watcher.deregister();
+
         Ok(())
     }
 
@@ -130,26 +101,12 @@ impl EventedReadWrite for Pty {
     }
 
     #[inline]
-    fn read_token(&self) -> mio::Token {
-        self.read_token
-    }
-
-    #[inline]
     fn writer(&mut self) -> &mut Self::Writer {
         &mut self.conin
-    }
-
-    #[inline]
-    fn write_token(&self) -> mio::Token {
-        self.write_token
     }
 }
 
 impl EventedPty for Pty {
-    fn child_event_token(&self) -> mio::Token {
-        self.child_event_token
-    }
-
     fn next_child_event(&mut self) -> Option<ChildEvent> {
         match self.child_watcher.event_rx().try_recv() {
             Ok(ev) => Some(ev),
@@ -165,12 +122,12 @@ impl OnResize for Pty {
     }
 }
 
-fn cmdline(config: &PtyConfig) -> String {
-    let default_shell = Program::Just("powershell".to_owned());
+fn cmdline(config: &Options) -> String {
+    let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program())
-        .chain(shell.args().iter().map(|a| a.as_ref()))
+    once(shell.program.as_str())
+        .chain(shell.args.iter().map(|s| s.as_str()))
         .collect::<Vec<_>>()
         .join(" ")
 }

@@ -42,19 +42,24 @@ pub fn derive_deserialize<T>(
             {
                 let mut config = Self::Value::default();
 
-                // NOTE: This could be used to print unused keys.
-                let mut unused = serde_yaml::Mapping::new();
+                // Unused keys for flattening and warning.
+                let mut unused = toml::Table::new();
 
-                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
+                while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
                     match key.as_str() {
                         #match_assignments
                         _ => {
-                            unused.insert(serde_yaml::Value::String(key), value);
+                            unused.insert(key, value);
                         },
                     }
                 }
 
                 #flatten
+
+                // Warn about unused keys.
+                for key in unused.keys() {
+                    log::warn!(target: #LOG_TARGET, "Unused config key: {}", key);
+                }
 
                 Ok(config)
             }
@@ -109,13 +114,18 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
         match serde::Deserialize::deserialize(value) {
             Ok(value) => config.#ident = value,
             Err(err) => {
-                log::error!(target: #LOG_TARGET, "Config error: {}: {}", #literal, err);
+                log::error!(
+                    target: #LOG_TARGET,
+                    "Config error: {}: {}",
+                    #literal,
+                    err.to_string().trim(),
+                );
             },
         }
     };
 
     // Iterate over all #[config(...)] attributes.
-    for attr in field.attrs.iter().filter(|attr| crate::path_ends_with(&attr.path, "config")) {
+    for attr in field.attrs.iter().filter(|attr| attr.path().is_ident("config")) {
         let parsed = match attr.parse_args::<Attr>() {
             Ok(parsed) => parsed,
             Err(_) => continue,
@@ -133,8 +143,10 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
 
                 // Create the tokens to deserialize the flattened struct from the unused fields.
                 field_streams.flatten.extend(quote! {
-                    let unused = serde_yaml::Value::Mapping(unused);
-                    config.#ident = serde::Deserialize::deserialize(unused).unwrap_or_default();
+                    // Drain unused fields since they will be used for flattening.
+                    let flattened = std::mem::replace(&mut unused, toml::Table::new());
+
+                    config.#ident = serde::Deserialize::deserialize(flattened).unwrap_or_default();
                 });
             },
             "deprecated" | "removed" => {
@@ -161,7 +173,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
 
     // Create token stream for deserializing "none" string into `Option<T>`.
     if let Type::Path(type_path) = &field.ty {
-        if crate::path_ends_with(&type_path.path, "Option") {
+        if type_path.path.segments.iter().last().map_or(false, |s| s.ident == "Option") {
             match_assignment_stream = quote! {
                 if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
                     config.#ident = None;

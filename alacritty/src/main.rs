@@ -12,13 +12,11 @@
 #[cfg(not(any(feature = "x11", feature = "wayland", target_os = "macos", windows)))]
 compile_error!(r#"at least one of the "x11"/"wayland" features must be enabled"#);
 
-#[cfg(target_os = "macos")]
-use std::env;
 use std::error::Error;
 use std::fmt::Write as _;
-use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use log::info;
 #[cfg(windows)]
@@ -42,6 +40,7 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
 mod message_bar;
+mod migrate;
 #[cfg(windows)]
 mod panic;
 mod renderer;
@@ -54,9 +53,9 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use crate::cli::Options;
 #[cfg(unix)]
-use crate::cli::{MessageOptions, Subcommands};
+use crate::cli::MessageOptions;
+use crate::cli::{Options, Subcommands};
 use crate::config::{monitor, UiConfig};
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
@@ -77,14 +76,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Load command line options.
     let options = Options::new();
 
-    #[cfg(unix)]
     match options.subcommands {
-        Some(Subcommands::Msg(options)) => msg(options),
-        None => alacritty(options),
+        #[cfg(unix)]
+        Some(Subcommands::Msg(options)) => msg(options)?,
+        Some(Subcommands::Migrate(options)) => migrate::migrate(options),
+        None => alacritty(options)?,
     }
 
-    #[cfg(not(unix))]
-    alacritty(options)
+    Ok(())
 }
 
 /// `msg` subcommand entrypoint.
@@ -123,9 +122,9 @@ impl Drop for TemporaryFiles {
 ///
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
+fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
-    let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build();
+    let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build()?;
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
@@ -140,18 +139,23 @@ fn alacritty(options: Options) -> Result<(), Box<dyn Error>> {
     info!("Running on Wayland");
 
     // Load configuration file.
-    let config = config::load(&options);
+    let config = config::load(&mut options);
     log_config_path(&config);
 
     // Update the log level from config.
     log::set_max_level(config.debug.log_level);
 
-    // Set environment variables.
-    tty::setup_env(&config.terminal_config);
+    // Set tty environment variables.
+    tty::setup_env();
+
+    // Set env vars from config.
+    for (key, value) in config.env.iter() {
+        env::set_var(key, value);
+    }
 
     // Switch to home directory.
     #[cfg(target_os = "macos")]
-    env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
+    env::set_current_dir(home::home_dir().unwrap()).unwrap();
 
     // Set macOS locale.
     #[cfg(target_os = "macos")]

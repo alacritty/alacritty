@@ -1,8 +1,8 @@
 //! Convert a cursor into an iterator of rects.
 
-use alacritty_terminal::ansi::CursorShape;
-use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::vte::ansi::CursorShape;
 
+use crate::display::color::Rgb;
 use crate::display::content::RenderableCursor;
 use crate::display::SizeInfo;
 use crate::renderer::rects::RenderRect;

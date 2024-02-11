@@ -1,43 +1,64 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::error::Error;
 use std::fmt::{self, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use log::error;
+use alacritty_config::SerdeReplace;
+use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::tty::{Options as PtyOptions, Shell};
+use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
-use winit::event::{ModifiersState, VirtualKeyCode};
+use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::config::{
-    Config as TerminalConfig, Percentage, Program, LOG_TARGET_CONFIG,
-};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
-    self, Action, Binding, Key, KeyBinding, ModeWrapper, ModsWrapper, MouseBinding,
+    self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
+    MouseBinding,
 };
 use crate::config::color::Colors;
+use crate::config::cursor::Cursor;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
-use crate::config::mouse::Mouse;
+use crate::config::mouse::{Mouse, MouseBindings};
+use crate::config::scrolling::Scrolling;
+use crate::config::selection::Selection;
+use crate::config::terminal::Terminal;
 use crate::config::window::WindowConfig;
+use crate::config::LOG_TARGET_CONFIG;
 
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
-const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini:|gopher:|https:|http:|news:|file:|git:|ssh:|ftp:)\
+const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
 pub struct UiConfig {
+    /// Extra environment variables.
+    pub env: HashMap<String, String>,
+
+    /// How much scrolling history to keep.
+    pub scrolling: Scrolling,
+
+    /// Cursor configuration.
+    pub cursor: Cursor,
+
+    /// Selection configuration.
+    pub selection: Selection,
+
     /// Font configuration.
     pub font: Font,
 
     /// Window configuration.
     pub window: WindowConfig,
 
+    /// Mouse configuration.
     pub mouse: Mouse,
 
     /// Debug options.
@@ -57,9 +78,6 @@ pub struct UiConfig {
     /// RGB values for colors.
     pub colors: Colors,
 
-    /// Should draw bold text with brighter colors instead of bold font.
-    pub draw_bold_text_with_bright_colors: bool,
-
     /// Path where config was loaded from.
     #[config(skip)]
     pub config_paths: Vec<PathBuf>,
@@ -72,79 +90,149 @@ pub struct UiConfig {
     pub ipc_socket: bool,
 
     /// Config for the alacritty_terminal itself.
-    #[config(flatten)]
-    pub terminal_config: TerminalConfig,
+    pub terminal: Terminal,
+
+    /// Path to a shell program to run on startup.
+    pub shell: Option<Program>,
+
+    /// Shell startup directory.
+    pub working_directory: Option<PathBuf>,
+
+    /// Keyboard configuration.
+    keyboard: Keyboard,
+
+    /// Should draw bold text with brighter colors instead of bold font.
+    #[config(deprecated = "use colors.draw_bold_text_with_bright_colors instead")]
+    draw_bold_text_with_bright_colors: bool,
 
     /// Keybindings.
-    key_bindings: KeyBindings,
+    #[config(deprecated = "use keyboard.bindings instead")]
+    key_bindings: Option<KeyBindings>,
 
     /// Bindings for the mouse.
-    mouse_bindings: MouseBindings,
+    #[config(deprecated = "use mouse.bindings instead")]
+    mouse_bindings: Option<MouseBindings>,
 
-    /// Background opacity from 0.0 to 1.0.
-    #[config(deprecated = "use window.opacity instead")]
-    background_opacity: Option<Percentage>,
+    /// Configuration file imports.
+    ///
+    /// This is never read since the field is directly accessed through the config's
+    /// [`toml::Value`], but still present to prevent unused field warnings.
+    import: Vec<String>,
 }
 
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
             live_config_reload: true,
-            alt_send_esc: Default::default(),
             #[cfg(unix)]
             ipc_socket: true,
-            font: Default::default(),
-            window: Default::default(),
-            mouse: Default::default(),
-            debug: Default::default(),
+            draw_bold_text_with_bright_colors: Default::default(),
+            working_directory: Default::default(),
+            mouse_bindings: Default::default(),
             config_paths: Default::default(),
             key_bindings: Default::default(),
-            mouse_bindings: Default::default(),
-            terminal_config: Default::default(),
-            background_opacity: Default::default(),
-            bell: Default::default(),
+            alt_send_esc: Default::default(),
+            scrolling: Default::default(),
+            selection: Default::default(),
+            keyboard: Default::default(),
+            terminal: Default::default(),
+            import: Default::default(),
+            cursor: Default::default(),
+            window: Default::default(),
             colors: Default::default(),
-            draw_bold_text_with_bright_colors: Default::default(),
+            shell: Default::default(),
+            mouse: Default::default(),
+            debug: Default::default(),
             hints: Default::default(),
+            font: Default::default(),
+            bell: Default::default(),
+            env: Default::default(),
         }
     }
 }
 
 impl UiConfig {
+    /// Derive [`TermConfig`] from the config.
+    pub fn term_options(&self) -> TermConfig {
+        TermConfig {
+            semantic_escape_chars: self.selection.semantic_escape_chars.clone(),
+            scrolling_history: self.scrolling.history() as usize,
+            vi_mode_cursor_style: self.cursor.vi_mode_style(),
+            default_cursor_style: self.cursor.style(),
+            osc52: self.terminal.osc52.0,
+            kitty_keyboard: true,
+        }
+    }
+
+    /// Derive [`PtyOptions`] from the config.
+    pub fn pty_config(&self) -> PtyOptions {
+        let shell = self.shell.clone().map(Into::into);
+        PtyOptions { shell, working_directory: self.working_directory.clone(), hold: false }
+    }
+
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
+        // Check which key bindings is most likely to be the user's configuration.
+        //
+        // Both will be non-empty due to the presence of the default keybindings.
+        let key_bindings = if let Some(key_bindings) = self.key_bindings.as_mut() {
+            &mut key_bindings.0
+        } else {
+            &mut self.keyboard.bindings.0
+        };
+
         for hint in &self.hints.enabled {
-            let binding = match hint.binding {
+            let binding = match &hint.binding {
                 Some(binding) => binding,
                 None => continue,
             };
 
             let binding = KeyBinding {
-                trigger: binding.key,
+                trigger: binding.key.clone(),
                 mods: binding.mods.0,
                 mode: binding.mode.mode,
                 notmode: binding.mode.not_mode,
                 action: Action::Hint(hint.clone()),
             };
 
-            self.key_bindings.0.push(binding);
+            key_bindings.push(binding);
         }
     }
 
     #[inline]
     pub fn window_opacity(&self) -> f32 {
-        self.background_opacity.unwrap_or(self.window.opacity).as_f32()
+        self.window.opacity.as_f32()
     }
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        self.key_bindings.0.as_slice()
+        if let Some(key_bindings) = self.key_bindings.as_ref() {
+            &key_bindings.0
+        } else {
+            &self.keyboard.bindings.0
+        }
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        self.mouse_bindings.0.as_slice()
+        if let Some(mouse_bindings) = self.mouse_bindings.as_ref() {
+            &mouse_bindings.0
+        } else {
+            &self.mouse.bindings.0
+        }
     }
+
+    #[inline]
+    pub fn draw_bold_text_with_bright_colors(&self) -> bool {
+        self.colors.draw_bold_text_with_bright_colors || self.draw_bold_text_with_bright_colors
+    }
+}
+
+/// Keyboard configuration.
+#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
+struct Keyboard {
+    /// Keybindings.
+    bindings: KeyBindings,
 }
 
 #[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
@@ -165,34 +253,16 @@ impl<'de> Deserialize<'de> for KeyBindings {
     }
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
-struct MouseBindings(Vec<MouseBinding>);
-
-impl Default for MouseBindings {
-    fn default() -> Self {
-        Self(bindings::default_mouse_bindings())
-    }
-}
-
-impl<'de> Deserialize<'de> for MouseBindings {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(deserialize_bindings(deserializer, Self::default().0)?))
-    }
-}
-
-fn deserialize_bindings<'a, D, T>(
+pub fn deserialize_bindings<'a, D, T>(
     deserializer: D,
     mut default: Vec<Binding<T>>,
 ) -> Result<Vec<Binding<T>>, D::Error>
 where
     D: Deserializer<'a>,
-    T: Copy + Eq,
+    T: Clone + Eq,
     Binding<T>: Deserialize<'a>,
 {
-    let values = Vec::<serde_yaml::Value>::deserialize(deserializer)?;
+    let values = Vec::<toml::Value>::deserialize(deserializer)?;
 
     // Skip all invalid values.
     let mut bindings = Vec::with_capacity(values.len());
@@ -255,11 +325,15 @@ impl Default for Hints {
             enabled: vec![Hint {
                 content,
                 action,
+                persist: false,
                 post_processing: true,
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
-                    key: Key::Keycode(VirtualKeyCode::U),
-                    mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CTRL),
+                    key: BindingKey::Keycode {
+                        key: Key::Character("u".into()),
+                        location: KeyLocation::Standard,
+                    },
+                    mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
                     mode: Default::default(),
                 }),
             }],
@@ -347,6 +421,10 @@ pub struct Hint {
     #[serde(default)]
     pub post_processing: bool,
 
+    /// Persist hints after selection.
+    #[serde(default)]
+    pub persist: bool,
+
     /// Hint mouse highlighting.
     pub mouse: Option<HintMouse>,
 
@@ -388,7 +466,7 @@ impl<'de> Deserialize<'de> for HintContent {
             {
                 let mut content = Self::Value::default();
 
-                while let Some((key, value)) = map.next_entry::<String, serde_yaml::Value>()? {
+                while let Some((key, value)) = map.next_entry::<String, toml::Value>()? {
                     match key.as_str() {
                         "regex" => match Option::<LazyRegex>::deserialize(value) {
                             Ok(regex) => content.regex = regex,
@@ -408,7 +486,8 @@ impl<'de> Deserialize<'de> for HintContent {
                                 );
                             },
                         },
-                        _ => (),
+                        "command" | "action" => (),
+                        key => warn!(target: LOG_TARGET_CONFIG, "Unrecognized hint field: {key}"),
                     }
                 }
 
@@ -429,9 +508,10 @@ impl<'de> Deserialize<'de> for HintContent {
 }
 
 /// Binding for triggering a keyboard hint.
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct HintBinding {
-    pub key: Key,
+    pub key: BindingKey,
     #[serde(default)]
     pub mods: ModsWrapper,
     #[serde(default)]
@@ -454,11 +534,11 @@ pub struct LazyRegex(Rc<RefCell<LazyRegexVariant>>);
 
 impl LazyRegex {
     /// Execute a function with the compiled regex DFAs as parameter.
-    pub fn with_compiled<T, F>(&self, mut f: F) -> T
+    pub fn with_compiled<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnMut(&RegexSearch) -> T,
+        F: FnMut(&mut RegexSearch) -> T,
     {
-        f(self.0.borrow_mut().compiled())
+        self.0.borrow_mut().compiled().map(f)
     }
 }
 
@@ -477,6 +557,7 @@ impl<'de> Deserialize<'de> for LazyRegex {
 pub enum LazyRegexVariant {
     Compiled(Box<RegexSearch>),
     Pattern(String),
+    Uncompilable,
 }
 
 impl LazyRegexVariant {
@@ -484,27 +565,29 @@ impl LazyRegexVariant {
     ///
     /// If the regex is not already compiled, this will compile the DFAs and store them for future
     /// access.
-    fn compiled(&mut self) -> &RegexSearch {
+    fn compiled(&mut self) -> Option<&mut RegexSearch> {
         // Check if the regex has already been compiled.
         let regex = match self {
-            Self::Compiled(regex_search) => return regex_search,
+            Self::Compiled(regex_search) => return Some(regex_search),
+            Self::Uncompilable => return None,
             Self::Pattern(regex) => regex,
         };
 
         // Compile the regex.
         let regex_search = match RegexSearch::new(regex) {
             Ok(regex_search) => regex_search,
-            Err(error) => {
-                error!("hint regex is invalid: {}", error);
-                RegexSearch::new("").unwrap()
+            Err(err) => {
+                error!("could not compile hint regex: {err}");
+                *self = Self::Uncompilable;
+                return None;
             },
         };
         *self = Self::Compiled(Box::new(regex_search));
 
         // Return a reference to the compiled DFAs.
         match self {
-            Self::Compiled(dfas) => dfas,
-            Self::Pattern(_) => unreachable!(),
+            Self::Compiled(dfas) => Some(dfas),
+            _ => unreachable!(),
         }
     }
 }
@@ -518,3 +601,141 @@ impl PartialEq for LazyRegexVariant {
     }
 }
 impl Eq for LazyRegexVariant {}
+
+/// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
+#[derive(SerdeReplace, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Percentage(f32);
+
+impl Default for Percentage {
+    fn default() -> Self {
+        Percentage(1.0)
+    }
+}
+
+impl Percentage {
+    pub fn new(value: f32) -> Self {
+        Percentage(value.clamp(0., 1.))
+    }
+
+    pub fn as_f32(self) -> f32 {
+        self.0
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum Program {
+    Just(String),
+    WithArgs {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
+}
+
+impl Program {
+    pub fn program(&self) -> &str {
+        match self {
+            Program::Just(program) => program,
+            Program::WithArgs { program, .. } => program,
+        }
+    }
+
+    pub fn args(&self) -> &[String] {
+        match self {
+            Program::Just(_) => &[],
+            Program::WithArgs { args, .. } => args,
+        }
+    }
+}
+
+impl From<Program> for Shell {
+    fn from(value: Program) -> Self {
+        match value {
+            Program::Just(program) => Shell::new(program, Vec::new()),
+            Program::WithArgs { program, args } => Shell::new(program, args),
+        }
+    }
+}
+
+impl SerdeReplace for Program {
+    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn Error>> {
+        *self = Self::deserialize(value)?;
+
+        Ok(())
+    }
+}
+
+pub(crate) struct StringVisitor;
+impl<'de> serde::de::Visitor<'de> for StringVisitor {
+    type Value = String;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(s.to_lowercase())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use alacritty_terminal::term::test::mock_term;
+
+    use crate::display::hint::visible_regex_match_iter;
+
+    #[test]
+    fn positive_url_parsing_regex_test() {
+        for regular_url in [
+            "ipfs:s0mEhAsh",
+            "ipns:an0TherHash1234",
+            "magnet:?xt=urn:btih:L0UDHA5H12",
+            "mailto:example@example.org",
+            "gemini://gemini.example.org/",
+            "gopher://gopher.example.org",
+            "https://www.example.org",
+            "http://example.org",
+            "news:some.news.portal",
+            "file:///C:/Windows/",
+            "file:/home/user/whatever",
+            "git://github.com/user/repo.git",
+            "ssh:git@github.com:user/repo.git",
+            "ftp://ftp.example.org",
+        ] {
+            let term = mock_term(regular_url);
+            let mut regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &mut regex).collect::<Vec<_>>();
+            assert_eq!(
+                matches.len(),
+                1,
+                "Should have exactly one match url {regular_url}, but instead got: {matches:?}"
+            )
+        }
+    }
+
+    #[test]
+    fn negative_url_parsing_regex_test() {
+        for url_like in [
+            "http::trace::on_request::log_parameters",
+            "http//www.example.org",
+            "/user:example.org",
+            "mailto: example@example.org",
+            "http://<script>alert('xss')</script>",
+            "mailto:",
+        ] {
+            let term = mock_term(url_like);
+            let mut regex = RegexSearch::new(URL_REGEX).unwrap();
+            let matches = visible_regex_match_iter(&term, &mut regex).collect::<Vec<_>>();
+            assert!(
+                matches.is_empty(),
+                "Should not match url in string {url_like}, but instead got: {matches:?}"
+            )
+        }
+    }
+}

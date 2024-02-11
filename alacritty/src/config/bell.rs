@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use alacritty_config_derive::ConfigDeserialize;
 
-use alacritty_terminal::config::Program;
-use alacritty_terminal::term::color::Rgb;
+use crate::config::ui_config::Program;
+use crate::display::color::Rgb;
 
 #[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct BellConfig {
@@ -23,7 +23,7 @@ pub struct BellConfig {
 impl Default for BellConfig {
     fn default() -> Self {
         Self {
-            color: Rgb { r: 255, g: 255, b: 255 },
+            color: Rgb::new(255, 255, 255),
             animation: Default::default(),
             command: Default::default(),
             duration: Default::default(),
@@ -39,7 +39,7 @@ impl BellConfig {
 
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(ConfigDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BellAnimation {
     // CSS animation.
     Ease,
@@ -60,11 +60,6 @@ pub enum BellAnimation {
     // Penner animation.
     EaseOutCirc,
     // Penner animation.
+    #[default]
     Linear,
-}
-
-impl Default for BellAnimation {
-    fn default() -> Self {
-        BellAnimation::EaseOutExpo
-    }
 }

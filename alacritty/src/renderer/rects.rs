@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 use std::mem;
 
+use ahash::RandomState;
 use crossfont::Metrics;
+use log::info;
 
 use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::color::Rgb;
 
+use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
@@ -157,7 +159,7 @@ impl RenderLine {
 /// Lines for underline and strikeout.
 #[derive(Default)]
 pub struct RenderLines {
-    inner: HashMap<Flags, Vec<RenderLine>>,
+    inner: HashMap<Flags, Vec<RenderLine>, RandomState>,
 }
 
 impl RenderLines {
@@ -264,7 +266,16 @@ impl RectRenderer {
 
         let rect_program = RectShaderProgram::new(shader_version, RectKind::Normal)?;
         let undercurl_program = RectShaderProgram::new(shader_version, RectKind::Undercurl)?;
-        let dotted_program = RectShaderProgram::new(shader_version, RectKind::DottedUnderline)?;
+        // This shader has way more ALU operations than other rect shaders, so use a fallback
+        // to underline just for it when we can't compile it.
+        let dotted_program = match RectShaderProgram::new(shader_version, RectKind::DottedUnderline)
+        {
+            Ok(dotted_program) => dotted_program,
+            Err(err) => {
+                info!("Error compiling dotted shader: {err}\n  falling back to underline");
+                RectShaderProgram::new(shader_version, RectKind::Normal)?
+            },
+        };
         let dashed_program = RectShaderProgram::new(shader_version, RectKind::DashedUnderline)?;
 
         unsafe {
@@ -370,7 +381,7 @@ impl RectRenderer {
         let y = -rect.y / half_height + 1.0;
         let width = rect.width / half_width;
         let height = rect.height / half_height;
-        let Rgb { r, g, b } = rect.color;
+        let (r, g, b) = rect.color.as_tuple();
         let a = (rect.alpha * 255.) as u8;
 
         // Make quad vertices.

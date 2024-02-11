@@ -30,7 +30,7 @@ pub enum ShortenDirection {
 /// Iterator that yield shortened version of the text.
 pub struct StrShortener<'a> {
     chars: Skip<Chars<'a>>,
-    accumulted_len: usize,
+    accumulated_len: usize,
     max_width: usize,
     direction: ShortenDirection,
     shortener: Option<char>,
@@ -52,7 +52,7 @@ impl<'a> StrShortener<'a> {
         if direction == ShortenDirection::Right {
             return Self {
                 chars: text.chars().skip(0),
-                accumulted_len: 0,
+                accumulated_len: 0,
                 text_action: TextAction::Char,
                 max_width,
                 direction,
@@ -101,7 +101,7 @@ impl<'a> StrShortener<'a> {
 
         let chars = text.chars().skip(skip_chars);
 
-        Self { chars, accumulted_len: 0, text_action, max_width, direction, shortener }
+        Self { chars, accumulated_len: 0, text_action, max_width, direction, shortener }
     }
 }
 
@@ -134,12 +134,12 @@ impl<'a> Iterator for StrShortener<'a> {
                 let ch_width = ch.width().unwrap_or(1);
 
                 // Advance width.
-                self.accumulted_len += ch_width;
+                self.accumulated_len += ch_width;
 
-                if self.accumulted_len > self.max_width {
+                if self.accumulated_len > self.max_width {
                     self.text_action = TextAction::Terminate;
                     return self.shortener;
-                } else if self.accumulted_len == self.max_width && self.shortener.is_some() {
+                } else if self.accumulated_len == self.max_width && self.shortener.is_some() {
                     // Check if we have a next char.
                     let has_next = self.chars.clone().next().is_some();
 

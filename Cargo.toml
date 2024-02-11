@@ -5,8 +5,9 @@ members = [
     "alacritty_config",
     "alacritty_config_derive",
 ]
+resolver = "2"
 
 [profile.release]
-lto = true
+lto = "thin"
 debug = 1
 incremental = false

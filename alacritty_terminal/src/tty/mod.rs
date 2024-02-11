@@ -1,9 +1,10 @@
 //! TTY related functionality.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::{env, io};
 
-use crate::config::Config;
+use polling::{Event, PollMode, Poller};
 
 #[cfg(not(windows))]
 mod unix;
@@ -15,27 +16,52 @@ pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
 
+/// Configuration for the `Pty` interface.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Options {
+    /// Shell options.
+    ///
+    /// [`None`] will use the default shell.
+    pub shell: Option<Shell>,
+
+    /// Shell startup directory.
+    pub working_directory: Option<PathBuf>,
+
+    /// Remain open after child process exits.
+    pub hold: bool,
+}
+
+/// Shell options.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Shell {
+    /// Path to a shell program to run on startup.
+    pub(crate) program: String,
+    /// Arguments passed to shell.
+    pub(crate) args: Vec<String>,
+}
+
+impl Shell {
+    pub fn new(program: String, args: Vec<String>) -> Self {
+        Self { program, args }
+    }
+}
+
 /// This trait defines the behaviour needed to read and/or write to a stream.
-/// It defines an abstraction over mio's interface in order to allow either one
+/// It defines an abstraction over polling's interface in order to allow either one
 /// read/write object or a separate read and write object.
 pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;
 
-    fn register(
-        &mut self,
-        _: &mio::Poll,
-        _: &mut dyn Iterator<Item = mio::Token>,
-        _: mio::Ready,
-        _: mio::PollOpt,
-    ) -> io::Result<()>;
-    fn reregister(&mut self, _: &mio::Poll, _: mio::Ready, _: mio::PollOpt) -> io::Result<()>;
-    fn deregister(&mut self, _: &mio::Poll) -> io::Result<()>;
+    /// # Safety
+    ///
+    /// The underlying sources must outlive their registration in the `Poller`.
+    unsafe fn register(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
+    fn reregister(&mut self, _: &Arc<Poller>, _: Event, _: PollMode) -> io::Result<()>;
+    fn deregister(&mut self, _: &Arc<Poller>) -> io::Result<()>;
 
     fn reader(&mut self) -> &mut Self::Reader;
-    fn read_token(&self) -> mio::Token;
     fn writer(&mut self) -> &mut Self::Writer;
-    fn write_token(&self) -> mio::Token;
 }
 
 /// Events concerning TTY child processes.
@@ -51,8 +77,6 @@ pub enum ChildEvent {
 /// notified if the PTY child process does something we care about (other than writing to the TTY).
 /// In particular, this allows for race-free child exit notification on UNIX (cf. `SIGCHLD`).
 pub trait EventedPty: EventedReadWrite {
-    fn child_event_token(&self) -> mio::Token;
-
     /// Tries to retrieve an event.
     ///
     /// Returns `Some(event)` on success, or `None` if there are no events to retrieve.
@@ -60,7 +84,7 @@ pub trait EventedPty: EventedReadWrite {
 }
 
 /// Setup environment variables.
-pub fn setup_env(config: &Config) {
+pub fn setup_env() {
     // Default to 'alacritty' terminfo if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.
@@ -72,11 +96,7 @@ pub fn setup_env(config: &Config) {
 
     // Prevent child processes from inheriting startup notification env.
     env::remove_var("DESKTOP_STARTUP_ID");
-
-    // Set env vars from config.
-    for (key, value) in config.env.iter() {
-        env::set_var(key, value);
-    }
+    env::remove_var("XDG_ACTIVATION_TOKEN");
 }
 
 /// Check if a terminfo entry exists on the system.
@@ -98,7 +118,7 @@ fn terminfo_exists(terminfo: &str) -> bool {
 
     if let Some(dir) = env::var_os("TERMINFO") {
         check_path!(PathBuf::from(&dir));
-    } else if let Some(home) = dirs::home_dir() {
+    } else if let Some(home) = home::home_dir() {
         check_path!(home.join(".terminfo"));
     }
 

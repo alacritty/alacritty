@@ -3,18 +3,27 @@
 
 pub mod sixel;
 
-use std::mem;
+use std::collections::HashSet;
+use std::fmt::Write;
 use std::sync::{Arc, Weak};
+use std::{cmp, mem};
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::SmallVec;
 
+use crate::event::{Event, EventListener};
 use crate::grid::Dimensions;
-use crate::term::color::Rgb;
+use crate::index::{Column, Line};
+use crate::term::{Term, TermMode};
+use crate::vte::ansi::{Handler, Rgb};
+use crate::vte::Params;
 
 /// Max allowed dimensions (width, height) for the graphic, in pixels.
 pub const MAX_GRAPHIC_DIMENSIONS: [usize; 2] = [4096, 4096];
+
+/// Max. number of graphics stored in a single cell.
+const MAX_GRAPHICS_PER_CELL: usize = 20;
 
 /// Unique identifier for every graphic added to a grid.
 #[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug, Copy, Hash, PartialOrd, Ord)]
@@ -274,7 +283,7 @@ pub enum TextureOperation {
 }
 
 /// Track changes in the grid to add or to remove graphics.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Graphics {
     /// Last generated identifier.
     pub last_id: u64,
@@ -293,6 +302,9 @@ pub struct Graphics {
 
     /// Cell width in pixels.
     pub cell_width: f32,
+
+    /// Current Sixel parser.
+    pub sixel_parser: Option<Box<sixel::Parser>>,
 }
 
 impl Graphics {
@@ -345,6 +357,270 @@ impl Graphics {
         self.cell_height = size.cell_height();
         self.cell_width = size.cell_width();
     }
+
+    pub fn graphics_attribute<L: EventListener>(&self, event_proxy: &L, pi: u16, pa: u16) {
+        // From Xterm documentation:
+        //
+        //   CSI ? Pi ; Pa ; Pv S
+        //
+        //   Pi = 1  -> item is number of color registers.
+        //   Pi = 2  -> item is Sixel graphics geometry (in pixels).
+        //   Pi = 3  -> item is ReGIS graphics geometry (in pixels).
+        //
+        //   Pa = 1  -> read attribute.
+        //   Pa = 2  -> reset to default.
+        //   Pa = 3  -> set to value in Pv.
+        //   Pa = 4  -> read the maximum allowed value.
+        //
+        //   Pv is ignored by xterm except when setting (Pa == 3).
+        //   Pv = n <- A single integer is used for color registers.
+        //   Pv = width ; height <- Two integers for graphics geometry.
+        //
+        //   xterm replies with a control sequence of the same form:
+        //
+        //   CSI ? Pi ; Ps ; Pv S
+        //
+        //   where Ps is the status:
+        //   Ps = 0  <- success.
+        //   Ps = 1  <- error in Pi.
+        //   Ps = 2  <- error in Pa.
+        //   Ps = 3  <- failure.
+        //
+        //   On success, Pv represents the value read or set.
+
+        fn generate_response(pi: u16, ps: u16, pv: &[usize]) -> String {
+            let mut text = format!("\x1b[?{};{}", pi, ps);
+            for item in pv {
+                let _ = write!(&mut text, ";{}", item);
+            }
+            text.push('S');
+            text
+        }
+
+        let (ps, pv) = match pi {
+            1 => {
+                match pa {
+                    1 => (0, &[sixel::MAX_COLOR_REGISTERS][..]), // current value is always the
+                    // maximum
+                    2 => (3, &[][..]), // Report unsupported
+                    3 => (3, &[][..]), // Report unsupported
+                    4 => (0, &[sixel::MAX_COLOR_REGISTERS][..]),
+                    _ => (2, &[][..]), // Report error in Pa
+                }
+            },
+
+            2 => {
+                match pa {
+                    1 => {
+                        event_proxy.send_event(Event::TextAreaSizeRequest(Arc::new(
+                            move |window_size| {
+                                let width = window_size.num_cols * window_size.cell_width;
+                                let height = window_size.num_lines * window_size.cell_height;
+                                let graphic_dimensions = [
+                                    cmp::min(width as usize, MAX_GRAPHIC_DIMENSIONS[0]),
+                                    cmp::min(height as usize, MAX_GRAPHIC_DIMENSIONS[1]),
+                                ];
+
+                                let (ps, pv) = (0, &graphic_dimensions[..]);
+                                generate_response(pi, ps, pv)
+                            },
+                        )));
+                        return;
+                    },
+                    2 => (3, &[][..]), // Report unsupported
+                    3 => (3, &[][..]), // Report unsupported
+                    4 => (0, &MAX_GRAPHIC_DIMENSIONS[..]),
+                    _ => (2, &[][..]), // Report error in Pa
+                }
+            },
+
+            3 => {
+                (1, &[][..]) // Report error in Pi (ReGIS unknown)
+            },
+
+            _ => {
+                (1, &[][..]) // Report error in Pi
+            },
+        };
+
+        event_proxy.send_event(Event::PtyWrite(generate_response(pi, ps, pv)));
+    }
+
+    pub fn start_sixel_graphic(&mut self, params: &Params) {
+        let palette = self.sixel_shared_palette.take();
+        self.sixel_parser = Some(Box::new(sixel::Parser::new(params, palette)));
+    }
+}
+
+pub fn parse_sixel<L: EventListener>(term: &mut Term<L>, parser: Box<sixel::Parser>) {
+    match parser.finish() {
+        Ok((graphic, palette)) => insert_graphic(term, graphic, Some(palette)),
+        Err(err) => log::warn!("Failed to parse Sixel data: {}", err),
+    }
+}
+
+pub fn insert_graphic<L: EventListener>(
+    term: &mut Term<L>,
+    graphic: GraphicData,
+    palette: Option<Vec<Rgb>>,
+) {
+    let cell_width = term.graphics.cell_width as usize;
+    let cell_height = term.graphics.cell_height as usize;
+
+    // Store last palette if we receive a new one, and it is shared.
+    if let Some(palette) = palette {
+        if !term.mode().contains(TermMode::SIXEL_PRIV_PALETTE) {
+            term.graphics.sixel_shared_palette = Some(palette);
+        }
+    }
+
+    if graphic.width > MAX_GRAPHIC_DIMENSIONS[0] || graphic.height > MAX_GRAPHIC_DIMENSIONS[1] {
+        return;
+    }
+
+    let width = graphic.width as u16;
+    let height = graphic.height as u16;
+
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    let graphic_id = term.graphics.next_id();
+
+    // If SIXEL_DISPLAY is disabled, the start of the graphic is the
+    // cursor position, and the grid can be scrolled if the graphic is
+    // larger than the screen. The cursor is moved to the next line
+    // after the graphic.
+    //
+    // If it is disabled, the graphic starts at (0, 0), the grid is never
+    // scrolled, and the cursor position is unmodified.
+
+    let scrolling = !term.mode().contains(TermMode::SIXEL_DISPLAY);
+
+    let leftmost = if scrolling { term.grid().cursor.point.column.0 } else { 0 };
+
+    // A very simple optimization is to detect is a new graphic is replacing
+    // completely a previous one. This happens if the following conditions
+    // are met:
+    //
+    // - Both graphics are attached to the same top-left cell.
+    // - Both graphics have the same size.
+    // - The new graphic does not contain transparent pixels.
+    //
+    // In this case, we will ignore cells with a reference to the replaced
+    // graphic.
+
+    let skip_textures = {
+        if graphic.maybe_transparent() {
+            HashSet::new()
+        } else {
+            let mut set = HashSet::new();
+
+            let line = if scrolling { term.grid().cursor.point.line } else { Line(0) };
+
+            if let Some(old_graphics) = term.grid()[line][Column(leftmost)].graphics() {
+                for graphic in old_graphics {
+                    let tex = &*graphic.texture;
+                    if tex.width == width && tex.height == height && tex.cell_height == cell_height
+                    {
+                        set.insert(tex.id);
+                    }
+                }
+            }
+
+            set
+        }
+    };
+
+    // Fill the cells under the graphic.
+    //
+    // The cell in the first column contains a reference to the
+    // graphic, with the offset from the start. The rest of the
+    // cells are not overwritten, allowing any text behind
+    // transparent portions of the image to be visible.
+
+    let texture = Arc::new(TextureRef {
+        id: graphic_id,
+        width,
+        height,
+        cell_height,
+        texture_operations: Arc::downgrade(&term.graphics.texture_operations),
+    });
+
+    for (top, offset_y) in (0..).zip((0..height).step_by(cell_height)) {
+        let line = if scrolling {
+            term.grid().cursor.point.line
+        } else {
+            // Check if the image is beyond the screen limit.
+            if top >= term.screen_lines() as i32 {
+                break;
+            }
+
+            Line(top)
+        };
+
+        // Store a reference to the graphic in the first column.
+        let row_len = term.grid()[line].len();
+        for (left, offset_x) in (leftmost..).zip((0..width).step_by(cell_width)) {
+            if left >= row_len {
+                break;
+            }
+
+            let texture_operations = Arc::downgrade(&term.graphics.texture_operations);
+            let graphic_cell =
+                GraphicCell { texture: texture.clone(), offset_x, offset_y, texture_operations };
+
+            let mut cell = term.grid().cursor.template.clone();
+            let cell_ref = &mut term.grid_mut()[line][Column(left)];
+
+            // If the cell contains any graphics, and the region of the cell
+            // is not fully filled by the new graphic, the old graphics are
+            // kept in the cell.
+            let graphics = match cell_ref.take_graphics() {
+                Some(mut old_graphics)
+                    if old_graphics
+                        .iter()
+                        .any(|graphic| !skip_textures.contains(&graphic.texture.id))
+                        && !graphic.is_filled(
+                            offset_x as usize,
+                            offset_y as usize,
+                            cell_width as usize,
+                            cell_height as usize,
+                        ) =>
+                {
+                    // Ensure that we don't exceed the graphics limit per cell.
+                    while old_graphics.len() >= MAX_GRAPHICS_PER_CELL {
+                        drop(old_graphics.remove(0));
+                    }
+
+                    old_graphics.push(graphic_cell);
+                    old_graphics
+                },
+
+                _ => smallvec::smallvec![graphic_cell],
+            };
+
+            cell.set_graphics(graphics);
+            *cell_ref = cell;
+        }
+
+        term.mark_line_damaged(line);
+
+        if scrolling && offset_y < height.saturating_sub(cell_height as u16) {
+            term.linefeed();
+        }
+    }
+
+    if term.mode().contains(TermMode::SIXEL_CURSOR_TO_THE_RIGHT) {
+        let graphic_columns = (graphic.width + cell_width - 1) / cell_width;
+        term.move_forward(graphic_columns);
+    } else if scrolling {
+        term.linefeed();
+        term.carriage_return();
+    }
+
+    // Add the graphic data to the pending queue.
+    term.graphics.pending.push(GraphicData { id: graphic_id, ..graphic });
 }
 
 #[test]

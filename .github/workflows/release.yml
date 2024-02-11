@@ -13,7 +13,9 @@ jobs:
     runs-on: macos-11
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: brew install scdoc
       - name: Install ARM target
         run: rustup update && rustup target add aarch64-apple-darwin
       - name: Test
@@ -35,7 +37,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Test
         run: cargo test --release
       - name: Build
@@ -46,14 +48,12 @@ jobs:
           ./.github/workflows/upload_asset.sh \
             ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
       - name: Install WiX
-        run: nuget install WiX
+        run: dotnet tool install --global wix --version 4.0.1
       - name: Crate msi installer
         run: |
-          ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension \
-            -out "./alacritty.wixobj" "alacritty/windows/wix/alacritty.wxs"
-          ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension \
-            -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" -sice:ICE61 -sice:ICE91 \
-            "./alacritty.wixobj"
+          wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
+          wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext \
+          -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" "alacritty/windows/wix/alacritty.wxs"
       - name: Upload msi installer
         run: |
           ./.github/workflows/upload_asset.sh \
@@ -63,26 +63,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
           sudo apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev \
-            libxcb-xfixes0-dev libxkbcommon-dev python3
+            libxcb-xfixes0-dev libxkbcommon-dev python3 scdoc
       - name: Test
         run: cargo test --release
-      - name: Gzip manpage
+      - name: Generate manpages
         run: |
-          gzip -c "./extra/alacritty.man" > "./alacritty.1.gz"
-          gzip -c "./extra/alacritty-msg.man" > "./alacritty-msg.1.gz"
+          scdoc < extra/man/alacritty.1.scd | gzip -c > "./alacritty.1.gz"
+          scdoc < extra/man/alacritty-msg.1.scd | gzip -c > "./alacritty-msg.1.gz"
+          scdoc < extra/man/alacritty.5.scd | gzip -c > "./alacritty.5.gz"
+          scdoc < extra/man/alacritty-bindings.5.scd | gzip -c > "./alacritty-bindings.5.gz"
       - name: Upload Assets
         run: |
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
           ./.github/workflows/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty-msg.1.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty.5.gz $GITHUB_TOKEN
+          ./.github/workflows/upload_asset.sh ./alacritty-bindings.5.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.bash $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/alacritty.fish $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/completions/_alacritty $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/linux/Alacritty.desktop $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./extra/alacritty.info $GITHUB_TOKEN
-          ./.github/workflows/upload_asset.sh ./alacritty.yml $GITHUB_TOKEN

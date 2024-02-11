@@ -14,8 +14,8 @@ opening URLs with the keyboard. By default you can launch it using
 ### Motion
 
 The cursor motions are setup by default to mimic vi, however they are fully
-configurable. If you don't like vi's bindings, take a look at the [configuration
-file] to change the various movements.
+configurable. If you don't like vi's bindings, take a look at the configuration
+file to change the various movements.
 
 ### Selection
 
@@ -30,8 +30,8 @@ active.
 ## Search
 
 Search allows you to find anything in Alacritty's scrollback buffer. You can
-search forward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd> and
-backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd>.
+search forward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>f</kbd> (<kbd>Command</kbd> <kbd>f</kbd> on MacOS) and
+backward using <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>b</kbd> (<kbd>Command</kbd> <kbd>b</kbd> on MacOS).
 
 ### Vi Search
 
@@ -81,8 +81,6 @@ that.
 
 Graphics can be added to the terminal using the Sixel protocol. Every graphic can
 have up to 1024 colors, and it is limited to 4096x4096 pixels.
-
-[configuration file]: ../alacritty.yml
 
 ## Multi-Window
 

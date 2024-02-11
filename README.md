@@ -5,9 +5,8 @@
 <h1 align="center">Alacritty - A fast, cross-platform, OpenGL terminal emulator</h1>
 
 <p align="center">
-  <img width="600"
-       alt="Alacritty - A fast, cross-platform, OpenGL terminal emulator"
-       src="https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png">
+  <img alt="Alacritty - A fast, cross-platform, OpenGL terminal emulator"
+       src="extra/promo/alacritty-readme.png">
 </p>
 
 ## About
@@ -23,6 +22,10 @@ a few missing features and bugs to be fixed, but it is already used by many as
 a daily driver.
 
 Precompiled binaries are available from the [GitHub releases page](https://github.com/alacritty/alacritty/releases).
+
+Join [`#alacritty`] on libera.chat if you have questions or looking for a quick help.
+
+[`#alacritty`]: https://web.libera.chat/gamja/?channels=#alacritty
 
 ## Features
 
@@ -52,22 +55,25 @@ For everyone else, the detailed instructions to install Alacritty can be found
 
 ## Configuration
 
-You can find the default configuration file with documentation for all available
-fields on the [GitHub releases page](https://github.com/alacritty/alacritty/releases) for each release.
+You can find the documentation for Alacritty's configuration in `man 5
+alacritty`, or by looking at [the website] if you do not have the manpages
+installed.
+
+[the website]: https://alacritty.org/config-alacritty.html
 
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations:
 
-1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
-2. `$XDG_CONFIG_HOME/alacritty.yml`
-3. `$HOME/.config/alacritty/alacritty.yml`
-4. `$HOME/.alacritty.yml`
+1. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
+2. `$XDG_CONFIG_HOME/alacritty.toml`
+3. `$HOME/.config/alacritty/alacritty.toml`
+4. `$HOME/.alacritty.toml`
 
 ### Windows
 
 On Windows, the config file should be located at:
 
-`%APPDATA%\alacritty\alacritty.yml`
+`%APPDATA%\alacritty\alacritty.toml`
 
 ## Contributing
 
@@ -100,13 +106,10 @@ good fit for Alacritty. This means you won't find things like tabs or splits
 (which are best left to a window manager or [terminal multiplexer][tmux]) nor
 niceties like a GUI config editor.
 
-## IRC
-
-Alacritty discussions can be found in `#alacritty` on Libera.Chat.
+[tmux]: https://github.com/tmux/tmux
 
 ## License
 
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/alacritty/alacritty/blob/master/LICENSE-APACHE
-[tmux]: https://github.com/tmux/tmux

@@ -15,13 +15,16 @@ fn main() {
     let dest = env::var("OUT_DIR").unwrap();
     let mut file = File::create(Path::new(&dest).join("gl_bindings.rs")).unwrap();
 
-    let extensions = ["GL_ARB_blend_func_extended", "GL_ARB_clear_texture"];
-    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, extensions)
-        .write_bindings(GlobalGenerator, &mut file)
-        .unwrap();
+    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, [
+        "GL_ARB_blend_func_extended",
+        "GL_ARB_clear_texture",
+        "GL_KHR_debug",
+    ])
+    .write_bindings(GlobalGenerator, &mut file)
+    .unwrap();
 
     #[cfg(windows)]
-    embed_resource::compile("./windows/alacritty.rc");
+    embed_resource::compile("./windows/alacritty.rc", embed_resource::NONE);
 }
 
 fn commit_hash() -> Option<String> {

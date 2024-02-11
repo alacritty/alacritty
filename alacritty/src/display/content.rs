@@ -2,21 +2,20 @@ use std::borrow::Cow;
 use std::ops::Deref;
 use std::{cmp, mem};
 
-use alacritty_terminal::ansi::{Color, CursorShape, NamedColor};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::graphics::GraphicId;
-use alacritty_terminal::grid::Indexed;
+use alacritty_terminal::grid::{Dimensions, Indexed};
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::selection::SelectionRange;
 use alacritty_terminal::term::cell::{Cell, Flags, Hyperlink};
-use alacritty_terminal::term::color::{CellRgb, Rgb};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term, TermMode};
+use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 
 use crate::config::UiConfig;
-use crate::display::color::{List, DIM_FACTOR};
+use crate::display::color::{CellRgb, List, Rgb, DIM_FACTOR};
 use crate::display::hint::{self, HintState};
-use crate::display::Display;
+use crate::display::{Display, SizeInfo};
 use crate::event::SearchState;
 
 use smallvec::SmallVec;
@@ -37,6 +36,7 @@ pub struct RenderableContent<'a> {
     config: &'a UiConfig,
     colors: &'a List,
     focused_match: Option<&'a Match>,
+    size: &'a SizeInfo,
 }
 
 impl<'a> RenderableContent<'a> {
@@ -44,7 +44,7 @@ impl<'a> RenderableContent<'a> {
         config: &'a UiConfig,
         display: &'a mut Display,
         term: &'a Term<T>,
-        search_state: &'a SearchState,
+        search_state: &'a mut SearchState,
     ) -> Self {
         let search = search_state.dfas().map(|dfas| HintMatches::visible_regex_matches(term, dfas));
         let focused_match = search_state.focused_match();
@@ -57,7 +57,7 @@ impl<'a> RenderableContent<'a> {
             || display.ime.preedit().is_some()
         {
             CursorShape::Hidden
-        } else if !term.is_focused && config.terminal_config.cursor.unfocused_hollow {
+        } else if !term.is_focused && config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
         } else {
             terminal_content.cursor.shape
@@ -77,6 +77,7 @@ impl<'a> RenderableContent<'a> {
 
         Self {
             colors: &display.colors,
+            size: &display.size_info,
             cursor: RenderableCursor::new_hidden(),
             terminal_content,
             focused_match,
@@ -103,7 +104,7 @@ impl<'a> RenderableContent<'a> {
 
     /// Get the RGB value for a color index.
     pub fn color(&self, color: usize) -> Rgb {
-        self.terminal_content.colors[color].unwrap_or(self.colors[color])
+        self.terminal_content.colors[color].map(Rgb).unwrap_or(self.colors[color])
     }
 
     pub fn selection_range(&self) -> Option<SelectionRange> {
@@ -118,13 +119,13 @@ impl<'a> RenderableContent<'a> {
         } else {
             self.config.colors.cursor
         };
-        let cursor_color =
-            self.terminal_content.colors[NamedColor::Cursor].map_or(color.background, CellRgb::Rgb);
+        let cursor_color = self.terminal_content.colors[NamedColor::Cursor]
+            .map_or(color.background, |c| CellRgb::Rgb(Rgb(c)));
         let text_color = color.foreground;
 
         let insufficient_contrast = (!matches!(cursor_color, CellRgb::Rgb(_))
             || !matches!(text_color, CellRgb::Rgb(_)))
-            && cell.fg.contrast(cell.bg) < MIN_CURSOR_CONTRAST;
+            && cell.fg.contrast(*cell.bg) < MIN_CURSOR_CONTRAST;
 
         // Convert from cell colors to RGB.
         let mut text_color = text_color.color(cell.fg, cell.bg);
@@ -216,7 +217,7 @@ pub struct RenderableCellExtra {
 }
 
 impl RenderableCell {
-    fn new<'a>(content: &mut RenderableContent<'a>, cell: Indexed<&Cell>) -> Self {
+    fn new(content: &mut RenderableContent<'_>, cell: Indexed<&Cell>) -> Self {
         // Lookup RGB values.
         let mut fg = Self::compute_fg_rgb(content, cell.fg, cell.flags);
         let mut bg = Self::compute_bg_rgb(content, cell.bg);
@@ -240,18 +241,27 @@ impl RenderableCell {
         let viewport_start = Point::new(Line(-(display_offset as i32)), Column(0));
         let colors = &content.config.colors;
         let mut character = cell.c;
+        let mut flags = cell.flags;
 
-        if let Some((c, is_first)) =
-            content.hint.as_mut().and_then(|hint| hint.advance(viewport_start, cell.point))
+        let num_cols = content.size.columns();
+        if let Some((c, is_first)) = content
+            .hint
+            .as_mut()
+            .and_then(|hint| hint.advance(viewport_start, num_cols, cell.point))
         {
-            let (config_fg, config_bg) = if is_first {
-                (colors.hints.start.foreground, colors.hints.start.background)
+            if is_first {
+                let (config_fg, config_bg) =
+                    (colors.hints.start.foreground, colors.hints.start.background);
+                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+            } else if c.is_some() {
+                let (config_fg, config_bg) =
+                    (colors.hints.end.foreground, colors.hints.end.background);
+                Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
             } else {
-                (colors.hints.end.foreground, colors.hints.end.background)
-            };
-            Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
+                flags.insert(Flags::UNDERLINE);
+            }
 
-            character = c;
+            character = c.unwrap_or(character);
         } else if is_selected {
             let config_fg = colors.selection.foreground;
             let config_bg = colors.selection.background;
@@ -273,11 +283,15 @@ impl RenderableCell {
             Self::compute_cell_rgb(&mut fg, &mut bg, &mut bg_alpha, config_fg, config_bg);
         }
 
+        // Apply transparency to all renderable cells if `transparent_background_colors` is set
+        if bg_alpha > 0. && content.config.colors.transparent_background_colors {
+            bg_alpha = content.config.window_opacity();
+        }
+
         // Convert cell point to viewport position.
         let cell_point = cell.point;
         let point = term::point_to_viewport(display_offset, cell_point).unwrap();
 
-        let flags = cell.flags;
         let underline = cell
             .underline_color()
             .map_or(fg, |underline| Self::compute_fg_rgb(content, underline, flags));
@@ -332,15 +346,18 @@ impl RenderableCell {
     }
 
     /// Get the RGB color from a cell's foreground color.
-    fn compute_fg_rgb(content: &mut RenderableContent<'_>, fg: Color, flags: Flags) -> Rgb {
+    fn compute_fg_rgb(content: &RenderableContent<'_>, fg: Color, flags: Flags) -> Rgb {
         let config = &content.config;
         match fg {
             Color::Spec(rgb) => match flags & Flags::DIM {
-                Flags::DIM => rgb * DIM_FACTOR,
-                _ => rgb,
+                Flags::DIM => {
+                    let rgb: Rgb = rgb.into();
+                    rgb * DIM_FACTOR
+                },
+                _ => rgb.into(),
             },
             Color::Named(ansi) => {
-                match (config.draw_bold_text_with_bright_colors, flags & Flags::DIM_BOLD) {
+                match (config.draw_bold_text_with_bright_colors(), flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist.
                     (_, Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
@@ -360,7 +377,7 @@ impl RenderableCell {
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    config.draw_bold_text_with_bright_colors,
+                    config.draw_bold_text_with_bright_colors(),
                     flags & Flags::DIM_BOLD,
                     idx,
                 ) {
@@ -377,9 +394,9 @@ impl RenderableCell {
 
     /// Get the RGB color from a cell's background color.
     #[inline]
-    fn compute_bg_rgb(content: &mut RenderableContent<'_>, bg: Color) -> Rgb {
+    fn compute_bg_rgb(content: &RenderableContent<'_>, bg: Color) -> Rgb {
         match bg {
-            Color::Spec(rgb) => rgb,
+            Color::Spec(rgb) => rgb.into(),
             Color::Named(ansi) => content.color(ansi as usize),
             Color::Indexed(idx) => content.color(idx as usize),
         }
@@ -461,7 +478,15 @@ impl<'a> Hint<'a> {
     /// this position will be returned.
     ///
     /// The tuple's [`bool`] will be `true` when the character is the first for this hint.
-    fn advance(&mut self, viewport_start: Point, point: Point) -> Option<(char, bool)> {
+    ///
+    /// The tuple's [`Option<char>`] will be [`None`] when the point is part of the match, but not
+    /// part of the hint label.
+    fn advance(
+        &mut self,
+        viewport_start: Point,
+        num_cols: usize,
+        point: Point,
+    ) -> Option<(Option<char>, bool)> {
         // Check if we're within a match at all.
         if !self.matches.advance(point) {
             return None;
@@ -471,15 +496,22 @@ impl<'a> Hint<'a> {
         let start = self
             .matches
             .get(self.matches.index)
-            .map(|bounds| cmp::max(*bounds.start(), viewport_start))
-            .filter(|start| start.line == point.line)?;
+            .map(|bounds| cmp::max(*bounds.start(), viewport_start))?;
 
         // Position within the hint label.
-        let label_position = point.column.0 - start.column.0;
+        let line_delta = point.line.0 - start.line.0;
+        let col_delta = point.column.0 as i32 - start.column.0 as i32;
+        let label_position = usize::try_from(line_delta * num_cols as i32 + col_delta).unwrap_or(0);
         let is_first = label_position == 0;
 
         // Hint label character.
-        self.labels[self.matches.index].get(label_position).copied().map(|c| (c, is_first))
+        let hint_char = self.labels[self.matches.index]
+            .get(label_position)
+            .copied()
+            .map(|c| (Some(c), is_first))
+            .unwrap_or((None, false));
+
+        Some(hint_char)
     }
 }
 
@@ -506,8 +538,8 @@ impl<'a> HintMatches<'a> {
         Self { matches: matches.into(), index: 0 }
     }
 
-    /// Create from regex matches on term visable part.
-    fn visible_regex_matches<T>(term: &Term<T>, dfas: &RegexSearch) -> Self {
+    /// Create from regex matches on term visible part.
+    fn visible_regex_matches<T>(term: &Term<T>, dfas: &mut RegexSearch) -> Self {
         let matches = hint::visible_regex_match_iter(term, dfas).collect::<Vec<_>>();
         Self::new(matches)
     }

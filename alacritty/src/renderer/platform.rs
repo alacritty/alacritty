@@ -10,6 +10,7 @@ use glutin::display::{Display, DisplayApiPreference, GetGlDisplay};
 use glutin::error::Result as GlutinResult;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
+use log::{debug, LevelFilter};
 
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::dpi::PhysicalSize;
@@ -20,15 +21,24 @@ use winit::platform::x11;
 pub fn create_gl_display(
     raw_display_handle: RawDisplayHandle,
     _raw_window_handle: Option<RawWindowHandle>,
+    _prefer_egl: bool,
 ) -> GlutinResult<Display> {
     #[cfg(target_os = "macos")]
     let preference = DisplayApiPreference::Cgl;
 
     #[cfg(windows)]
-    let preference = DisplayApiPreference::Wgl(Some(_raw_window_handle.unwrap()));
+    let preference = if _prefer_egl {
+        DisplayApiPreference::EglThenWgl(Some(_raw_window_handle.unwrap()))
+    } else {
+        DisplayApiPreference::WglThenEgl(Some(_raw_window_handle.unwrap()))
+    };
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    let preference = DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook));
+    let preference = if _prefer_egl {
+        DisplayApiPreference::EglThenGlx(Box::new(x11::register_xlib_error_hook))
+    } else {
+        DisplayApiPreference::GlxThenEgl(Box::new(x11::register_xlib_error_hook))
+    };
 
     #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
     let preference = DisplayApiPreference::Egl;
@@ -69,6 +79,24 @@ pub fn pick_gl_config(
         };
 
         if let Some(gl_config) = gl_config {
+            debug!(
+                r#"Picked GL Config:
+  buffer_type: {:?}
+  alpha_size: {}
+  num_samples: {}
+  hardware_accelerated: {:?}
+  supports_transparency: {:?}
+  config_api: {:?}
+  srgb_capable: {}"#,
+                gl_config.color_buffer_type(),
+                gl_config.alpha_size(),
+                gl_config.num_samples(),
+                gl_config.hardware_accelerated(),
+                gl_config.supports_transparency(),
+                gl_config.api(),
+                gl_config.srgb_capable(),
+            );
+
             return Ok(gl_config);
         }
     }
@@ -81,15 +109,19 @@ pub fn create_gl_context(
     gl_config: &Config,
     raw_window_handle: Option<RawWindowHandle>,
 ) -> GlutinResult<NotCurrentContext> {
+    let debug = log::max_level() >= LevelFilter::Debug;
     let mut profiles = [
         ContextAttributesBuilder::new()
+            .with_debug(debug)
             .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
             .build(raw_window_handle),
         // Try gles before OpenGL 2.1 as it tends to be more stable.
         ContextAttributesBuilder::new()
+            .with_debug(debug)
             .with_context_api(ContextApi::Gles(Some(Version::new(2, 0))))
             .build(raw_window_handle),
         ContextAttributesBuilder::new()
+            .with_debug(debug)
             .with_profile(GlProfile::Compatibility)
             .with_context_api(ContextApi::OpenGl(Some(Version::new(2, 1))))
             .build(raw_window_handle),

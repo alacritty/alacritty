@@ -86,20 +86,22 @@ fn config_deserialize() {
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Warn);
 
-    let test: Test = serde_yaml::from_str(
+    let test: Test = toml::from_str(
         r#"
-        field1: 3
-        field3: 32
-        nesting:
-          field1: "testing"
-          field2: None
-          field3: 99
-          aliased: 8
-        flatty: 123
-        enom_small: "one"
-        enom_big: "THREE"
-        enom_error: "HugaBuga"
-        gone: false
+        field1 = 3
+        field3 = 32
+
+        flatty = 123
+        enom_small = "one"
+        enom_big = "THREE"
+        enom_error = "HugaBuga"
+        gone = false
+
+        [nesting]
+        field1 = "testing"
+        field2 = "None"
+        field3 = 99
+        aliased = 8
     "#,
     )
     .unwrap();
@@ -121,15 +123,16 @@ fn config_deserialize() {
     // Verify all log messages are correct.
     let error_logs = logger.error_logs.lock().unwrap();
     assert_eq!(error_logs.as_slice(), [
-        "Config error: field1: invalid type: string \"testing\", expected usize",
         "Config error: enom_error: unknown variant `HugaBuga`, expected one of `One`, `Two`, \
          `Three`",
+        "Config error: field1: invalid type: string \"testing\", expected usize",
     ]);
     let warn_logs = logger.warn_logs.lock().unwrap();
     assert_eq!(warn_logs.as_slice(), [
         "Config warning: field1 has been deprecated; use field2 instead",
         "Config warning: enom_error has been deprecated",
         "Config warning: gone has been removed; it's gone",
+        "Unused config key: field3",
     ]);
 }
 
@@ -170,8 +173,8 @@ impl Log for Logger {
 fn field_replacement() {
     let mut test = Test::default();
 
-    let value = serde_yaml::to_value(13).unwrap();
-    test.replace("nesting.field2", value).unwrap();
+    let value = toml::from_str("nesting.field2=13").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.nesting.field2, Some(13));
 }
@@ -180,8 +183,8 @@ fn field_replacement() {
 fn replace_derive() {
     let mut test = Test::default();
 
-    let value = serde_yaml::to_value(9).unwrap();
-    test.replace("nesting.newtype", value).unwrap();
+    let value = toml::from_str("nesting.newtype=9").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.nesting.newtype, NewType(9));
 }
@@ -190,8 +193,8 @@ fn replace_derive() {
 fn replace_flatten() {
     let mut test = Test::default();
 
-    let value = serde_yaml::to_value(7).unwrap();
-    test.replace("flatty", value).unwrap();
+    let value = toml::from_str("flatty=7").unwrap();
+    test.replace(value).unwrap();
 
     assert_eq!(test.flatten.flatty, 7);
 }

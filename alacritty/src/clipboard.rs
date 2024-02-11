@@ -1,7 +1,5 @@
-#[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-use std::ffi::c_void;
-
 use log::{debug, warn};
+use raw_window_handle::RawDisplayHandle;
 
 use alacritty_terminal::term::ClipboardType;
 
@@ -21,20 +19,15 @@ pub struct Clipboard {
 }
 
 impl Clipboard {
-    #[cfg(any(not(feature = "wayland"), target_os = "macos", windows))]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-    pub unsafe fn new(display: Option<*mut c_void>) -> Self {
+    pub unsafe fn new(display: RawDisplayHandle) -> Self {
         match display {
-            Some(display) => {
+            #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
+            RawDisplayHandle::Wayland(display) => {
                 let (selection, clipboard) =
-                    wayland_clipboard::create_clipboards_from_external(display);
+                    wayland_clipboard::create_clipboards_from_external(display.display);
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
             },
-            None => Self::default(),
+            _ => Self::default(),
         }
     }
 

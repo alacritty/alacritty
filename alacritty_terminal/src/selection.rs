@@ -9,11 +9,11 @@ use std::cmp::min;
 use std::mem;
 use std::ops::{Bound, Range, RangeBounds};
 
-use crate::ansi::CursorShape;
 use crate::grid::{Dimensions, GridCell, Indexed};
 use crate::index::{Boundary, Column, Line, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
+use crate::vte::ansi::CursorShape;
 
 /// A Point and side within that point.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -285,6 +285,7 @@ impl Selection {
             return None;
         }
         start.point = start.point.grid_clamp(term, Boundary::Grid);
+        end.point = end.point.grid_clamp(term, Boundary::Grid);
 
         match self.ty {
             SelectionType::Simple => self.range_simple(start, end, columns),
@@ -395,14 +396,13 @@ impl Selection {
 mod tests {
     use super::*;
 
-    use crate::config::Config;
     use crate::index::{Column, Point, Side};
     use crate::term::test::TermSize;
-    use crate::term::Term;
+    use crate::term::{Config, Term};
 
     fn term(height: usize, width: usize) -> Term<()> {
         let size = TermSize::new(width, height);
-        Term::new(&Config::default(), &size, ())
+        Term::new(Config::default(), &size, ())
     }
 
     /// Test case of single cell selection.
@@ -469,6 +469,7 @@ mod tests {
         assert_eq!(selection.to_range(&term(1, 2)), None);
     }
 
+    #[rustfmt::skip]
     /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]
@@ -490,6 +491,7 @@ mod tests {
         });
     }
 
+    #[rustfmt::skip]
     /// Test selection across adjacent lines.
     ///
     /// 1.  [  ][  ][  ][  ][  ]

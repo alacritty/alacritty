@@ -2,9 +2,10 @@ TARGET = alacritty
 
 ASSETS_DIR = extra
 RELEASE_DIR = target/release
-MANPAGE = $(ASSETS_DIR)/alacritty.man
-MANPAGE-MSG = $(ASSETS_DIR)/alacritty-msg.man
-CONFIGFILE = alacritty.yml
+MANPAGE = $(ASSETS_DIR)/man/alacritty.1.scd
+MANPAGE-MSG = $(ASSETS_DIR)/man/alacritty-msg.1.scd
+MANPAGE-CONFIG = $(ASSETS_DIR)/man/alacritty.5.scd
+MANPAGE-CONFIG-BINDINGS = $(ASSETS_DIR)/man/alacritty-bindings.5.scd
 TERMINFO = $(ASSETS_DIR)/alacritty.info
 COMPLETIONS_DIR = $(ASSETS_DIR)/completions
 COMPLETIONS = $(COMPLETIONS_DIR)/_alacritty \
@@ -46,12 +47,13 @@ $(APP_NAME)-%: $(TARGET)-%
 	@mkdir -p $(APP_BINARY_DIR)
 	@mkdir -p $(APP_EXTRAS_DIR)
 	@mkdir -p $(APP_COMPLETIONS_DIR)
-	@gzip -c $(MANPAGE) > $(APP_EXTRAS_DIR)/alacritty.1.gz
-	@gzip -c $(MANPAGE-MSG) > $(APP_EXTRAS_DIR)/alacritty-msg.1.gz
+	@scdoc < $(MANPAGE) | gzip -c > $(APP_EXTRAS_DIR)/alacritty.1.gz
+	@scdoc < $(MANPAGE-MSG) | gzip -c > $(APP_EXTRAS_DIR)/alacritty-msg.1.gz
+	@scdoc < $(MANPAGE-CONFIG) | gzip -c > $(APP_EXTRAS_DIR)/alacritty.5.gz
+	@scdoc < $(MANPAGE-CONFIG-BINDINGS) | gzip -c > $(APP_EXTRAS_DIR)/alacritty-bindings.5.gz
 	@tic -xe alacritty,alacritty-direct -o $(APP_EXTRAS_DIR) $(TERMINFO)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
-	@cp -fp $(CONFIGFILE) $(APP_EXTRAS_DIR)/
 	@cp -fp $(COMPLETIONS) $(APP_COMPLETIONS_DIR)
 	@touch -r "$(APP_BINARY)" "$(APP_DIR)/$(APP_NAME)"
 	@codesign --remove-signature "$(APP_DIR)/$(APP_NAME)"

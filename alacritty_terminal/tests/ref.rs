@@ -1,3 +1,4 @@
+#![cfg(feature = "serde")]
 use serde::Deserialize;
 use serde_json as json;
 
@@ -5,14 +6,13 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
-use alacritty_terminal::ansi;
-use alacritty_terminal::config::Config;
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Grid};
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::test::TermSize;
-use alacritty_terminal::term::Term;
+use alacritty_terminal::term::{Config, Term};
+use alacritty_terminal::vte::ansi;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -105,11 +105,11 @@ fn ref_test(dir: &Path) {
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap();
 
-    let mut config = Config::default();
-    config.scrolling.set_history(ref_config.history_size);
+    let options =
+        Config { scrolling_history: ref_config.history_size as usize, ..Default::default() };
 
-    let mut terminal = Term::new(&config, &size, Mock);
-    let mut parser = ansi::Processor::new();
+    let mut terminal = Term::new(options, &size, Mock);
+    let mut parser: ansi::Processor = ansi::Processor::new();
 
     for byte in recording {
         parser.advance(&mut terminal, byte);

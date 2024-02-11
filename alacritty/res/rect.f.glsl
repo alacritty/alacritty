@@ -41,12 +41,17 @@ color_t draw_undercurl(float_t x, float_t y) {
   float_t undercurlTop = undercurl + max((underlineThickness - 1.), 0.) / 2.;
   float_t undercurlBottom = undercurl - max((underlineThickness - 1.), 0.) / 2.;
 
-  // Compute resulted alpha based on distance from `gl_FragCoord.y` to the
-  // cosine curve.
-  float_t alpha = 1.;
-  if (y > undercurlTop || y < undercurlBottom) {
-    alpha = 1. - min(abs(undercurlTop - y), abs(undercurlBottom - y));
-  }
+  // The distance to the curve boundary is always positive when it should
+  // be used for AA. When both `y - undercurlTop` and `undercurlBottom - y`
+  // expressions are negative, it means that the point is inside the curve
+  // and we should just use alpha 1. To do so, we max one value with 0
+  // so it'll use the alpha 1 in the end.
+  float_t dst = max(y - undercurlTop, max(undercurlBottom - y, 0.));
+
+  // Doing proper SDF is complicated for this shader, so just make AA
+  // stronger by 1/x^2, which renders preserving underline thickness and
+  // being bold enough.
+  float_t alpha = 1. - dst * dst;
 
   // The result is an alpha mask on a rect, which leaves only curve opaque.
   return vec4(color.rgb, alpha);

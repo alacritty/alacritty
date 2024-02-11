@@ -2,7 +2,8 @@ use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::iter;
 
-use winit::event::ModifiersState;
+use ahash::RandomState;
+use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point};
@@ -89,7 +90,8 @@ impl HintState {
 
                 // Apply post-processing and search for sub-matches if necessary.
                 if hint.post_processing {
-                    self.matches.extend(matches.flat_map(|rm| {
+                    let mut matches = matches.collect::<Vec<_>>();
+                    self.matches.extend(matches.drain(..).flat_map(|rm| {
                         HintPostProcessor::new(term, regex, rm).collect::<Vec<_>>()
                     }));
                 } else {
@@ -150,7 +152,12 @@ impl HintState {
             let bounds = self.matches[index].clone();
             let action = hint.action.clone();
 
-            self.stop();
+            // Exit hint mode unless it requires explicit dismissal.
+            if hint.persist {
+                self.keys.clear();
+            } else {
+                self.stop();
+            }
 
             // Hyperlinks take precedence over regex matches.
             let hyperlink = term.grid()[*bounds.start()].hyperlink();
@@ -283,7 +290,7 @@ impl HintLabels {
 /// Iterate over all visible regex matches.
 pub fn visible_regex_match_iter<'a, T>(
     term: &'a Term<T>,
-    regex: &'a RegexSearch,
+    regex: &'a mut RegexSearch,
 ) -> impl Iterator<Item = Match> + 'a {
     let viewport_start = Line(-(term.grid().display_offset() as i32));
     let viewport_end = viewport_start + term.bottommost_line();
@@ -302,7 +309,7 @@ pub fn visible_unique_hyperlinks_iter<T>(term: &Term<T>) -> impl Iterator<Item =
     let mut display_iter = term.grid().display_iter().peekable();
 
     // Avoid creating hints for the same hyperlinks, but from a different places.
-    let mut unique_hyperlinks = HashSet::new();
+    let mut unique_hyperlinks = HashSet::<Hyperlink, RandomState>::default();
 
     iter::from_fn(move || {
         // Find the start of the next unique hyperlink.
@@ -338,7 +345,7 @@ pub fn visible_unique_hyperlinks_iter<T>(term: &Term<T>) -> impl Iterator<Item =
 fn regex_match_at<T>(
     term: &Term<T>,
     point: Point,
-    regex: &RegexSearch,
+    regex: &mut RegexSearch,
     post_processing: bool,
 ) -> Option<Match> {
     let regex_match = visible_regex_match_iter(term, regex).find(|rm| rm.contains(&point))?;
@@ -381,9 +388,10 @@ pub fn highlighted_at<T>(
             });
         }
 
-        if let Some(bounds) = hint.content.regex.as_ref().and_then(|regex| {
+        let bounds = hint.content.regex.as_ref().and_then(|regex| {
             regex.with_compiled(|regex| regex_match_at(term, point, regex, hint.post_processing))
-        }) {
+        });
+        if let Some(bounds) = bounds.flatten() {
             return Some(HintMatch { bounds, action: hint.action.clone(), hyperlink: None });
         }
 
@@ -405,7 +413,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
     // Find adjacent lines that have the same `hyperlink`. The end purpose to highlight hyperlinks
     // that span across multiple lines or not directly attached to each other.
 
-    // Find the closest to the viewport start adjucent line.
+    // Find the closest to the viewport start adjacent line.
     while match_start.line > viewport_start {
         let next_line = match_start.line - 1i32;
         // Iterate over all the cells in the grid's line and check if any of those cells contains
@@ -443,7 +451,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
 /// Iterator over all post-processed matches inside an existing hint match.
 struct HintPostProcessor<'a, T> {
     /// Regex search DFAs.
-    regex: &'a RegexSearch,
+    regex: &'a mut RegexSearch,
 
     /// Terminal reference.
     term: &'a Term<T>,
@@ -460,7 +468,7 @@ struct HintPostProcessor<'a, T> {
 
 impl<'a, T> HintPostProcessor<'a, T> {
     /// Create a new iterator for an unprocessed match.
-    fn new(term: &'a Term<T>, regex: &'a RegexSearch, regex_match: Match) -> Self {
+    fn new(term: &'a Term<T>, regex: &'a mut RegexSearch, regex_match: Match) -> Self {
         let mut post_processor = Self {
             next_match: None,
             start: *regex_match.start(),
@@ -582,9 +590,9 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use alacritty_terminal::ansi::Handler;
     use alacritty_terminal::index::{Column, Line};
     use alacritty_terminal::term::test::mock_term;
+    use alacritty_terminal::vte::ansi::Handler;
 
     use super::*;
 
@@ -631,11 +639,11 @@ mod tests {
     fn closed_bracket_does_not_result_in_infinite_iterator() {
         let term = mock_term(" ) ");
 
-        let search = RegexSearch::new("[^/ ]").unwrap();
+        let mut search = RegexSearch::new("[^/ ]").unwrap();
 
         let count = HintPostProcessor::new(
             &term,
-            &search,
+            &mut search,
             Point::new(Line(0), Column(1))..=Point::new(Line(0), Column(1)),
         )
         .take(1)
@@ -647,25 +655,25 @@ mod tests {
     #[test]
     fn collect_unique_hyperlinks() {
         let mut term = mock_term("000\r\n111");
-        term.goto(Line(0), Column(0));
+        term.goto(0, 0);
 
-        let hyperlink_foo = Hyperlink::new(Some("1"), "foo");
-        let hyperlink_bar = Hyperlink::new(Some("2"), "bar");
+        let hyperlink_foo = Hyperlink::new(Some("1"), String::from("foo"));
+        let hyperlink_bar = Hyperlink::new(Some("2"), String::from("bar"));
 
         // Create 2 hyperlinks on the first line.
-        term.set_hyperlink(Some(hyperlink_foo.clone()));
+        term.set_hyperlink(Some(hyperlink_foo.clone().into()));
         term.input('b');
         term.input('a');
-        term.set_hyperlink(Some(hyperlink_bar.clone()));
+        term.set_hyperlink(Some(hyperlink_bar.clone().into()));
         term.input('r');
-        term.set_hyperlink(Some(hyperlink_foo.clone()));
-        term.goto(Line(1), Column(0));
+        term.set_hyperlink(Some(hyperlink_foo.clone().into()));
+        term.goto(1, 0);
 
         // Ditto for the second line.
-        term.set_hyperlink(Some(hyperlink_foo));
+        term.set_hyperlink(Some(hyperlink_foo.into()));
         term.input('b');
         term.input('a');
-        term.set_hyperlink(Some(hyperlink_bar));
+        term.set_hyperlink(Some(hyperlink_bar.into()));
         term.input('r');
         term.set_hyperlink(None);
 
@@ -687,9 +695,9 @@ mod tests {
         // The Term returned from this call will have a viewport starting at 0 and ending at 4096.
         // That's good enough for this test, since it only cares about visible content.
         let term = mock_term(&content);
-        let regex = RegexSearch::new("match!").unwrap();
+        let mut regex = RegexSearch::new("match!").unwrap();
 
-        // The interator should match everything in the viewport.
-        assert_eq!(visible_regex_match_iter(&term, &regex).count(), 4096);
+        // The iterator should match everything in the viewport.
+        assert_eq!(visible_regex_match_iter(&term, &mut regex).count(), 4096);
     }
 }

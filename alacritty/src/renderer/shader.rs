@@ -91,17 +91,17 @@ impl Shader {
     ) -> Result<Self, ShaderError> {
         let version_header = shader_version.shader_header();
         let mut sources = Vec::<*const GLchar>::with_capacity(3);
-        let mut lengthes = Vec::<GLint>::with_capacity(3);
+        let mut lengths = Vec::<GLint>::with_capacity(3);
         sources.push(version_header.as_ptr().cast());
-        lengthes.push(version_header.len() as GLint);
+        lengths.push(version_header.len() as GLint);
 
         if let Some(shader_header) = shader_header {
             sources.push(shader_header.as_ptr().cast());
-            lengthes.push(shader_header.len() as GLint);
+            lengths.push(shader_header.len() as GLint);
         }
 
         sources.push(source.as_ptr().cast());
-        lengthes.push(source.len() as GLint);
+        lengths.push(source.len() as GLint);
 
         let shader = unsafe { Self(gl::CreateShader(kind)) };
 
@@ -109,9 +109,9 @@ impl Shader {
         unsafe {
             gl::ShaderSource(
                 shader.id(),
-                lengthes.len() as GLint,
+                lengths.len() as GLint,
                 sources.as_ptr().cast(),
-                lengthes.as_ptr(),
+                lengths.as_ptr(),
             );
             gl::CompileShader(shader.id());
             gl::GetShaderiv(shader.id(), gl::COMPILE_STATUS, &mut success);
