@@ -131,7 +131,7 @@ pub struct CellExtra {
 
     hyperlink: Option<Hyperlink>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     graphics: Option<GraphicsCell>,
 }
 

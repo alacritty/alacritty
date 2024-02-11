@@ -8,8 +8,10 @@ use std::fmt::Write;
 use std::sync::{Arc, Weak};
 use std::{cmp, mem};
 
-use parking_lot::Mutex;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use parking_lot::Mutex;
 use smallvec::SmallVec;
 
 use crate::event::{Event, EventListener};
@@ -26,7 +28,8 @@ pub const MAX_GRAPHIC_DIMENSIONS: [usize; 2] = [4096, 4096];
 const MAX_GRAPHICS_PER_CELL: usize = 20;
 
 /// Unique identifier for every graphic added to a grid.
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug, Copy, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Clone, Debug, Copy, Hash, PartialOrd, Ord)]
 pub struct GraphicId(u64);
 
 /// Reference to a texture stored in the display.
@@ -110,7 +113,8 @@ impl Drop for GraphicCell {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
 struct GraphicCellSerde {
     texture: GraphicId,
     offset_x: u16,
@@ -120,6 +124,7 @@ struct GraphicCellSerde {
     tex_cell_height: usize,
 }
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for GraphicCell {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -148,6 +153,7 @@ impl<'de> Deserialize<'de> for GraphicCell {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for GraphicCell {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -175,7 +181,8 @@ impl GraphicCell {
 }
 
 /// Specifies the format of the pixel data.
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Clone, Debug, Copy)]
 pub enum ColorType {
     /// 3 bytes per pixel (red, green, blue).
     Rgb,
@@ -185,7 +192,8 @@ pub enum ColorType {
 }
 
 /// Defines a single graphic read from the PTY.
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct GraphicData {
     /// Graphics identifier.
     pub id: GraphicId,
@@ -247,7 +255,8 @@ impl GraphicData {
 }
 
 /// Operation to clear a subregion in an existing graphic.
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct ClearSubregion {
     /// Graphics identifier.
     pub id: GraphicId,
