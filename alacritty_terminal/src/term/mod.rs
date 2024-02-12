@@ -2335,7 +2335,7 @@ impl<T: EventListener> Handler for Term<T> {
     /// End of a device control string.
     fn dcs_unhook(&mut self) {
         if let Some(parser) = self.graphics.sixel_parser.take() {
-            crate::graphics::parse_sixel(self, parser);
+            crate::graphics::parse_sixel(self, *parser);
         } else {
             dbg!("[unhandled dcs_unhook]");
         }

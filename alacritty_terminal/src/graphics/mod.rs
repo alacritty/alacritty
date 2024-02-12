@@ -461,7 +461,7 @@ impl Graphics {
     }
 }
 
-pub fn parse_sixel<L: EventListener>(term: &mut Term<L>, parser: Box<sixel::Parser>) {
+pub fn parse_sixel<L: EventListener>(term: &mut Term<L>, parser: sixel::Parser) {
     match parser.finish() {
         Ok((graphic, palette)) => insert_graphic(term, graphic, Some(palette)),
         Err(err) => log::warn!("Failed to parse Sixel data: {}", err),
@@ -593,8 +593,8 @@ pub fn insert_graphic<L: EventListener>(
                         && !graphic.is_filled(
                             offset_x as usize,
                             offset_y as usize,
-                            cell_width as usize,
-                            cell_height as usize,
+                            cell_width,
+                            cell_height,
                         ) =>
                 {
                     // Ensure that we don't exceed the graphics limit per cell.
