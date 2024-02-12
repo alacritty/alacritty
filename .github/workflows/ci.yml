@@ -21,7 +21,7 @@ jobs:
         run: cargo test -p alacritty_terminal --no-default-features
       - name: Oldstable
         run: |
-          rustup default 1.70.0
+          rustup default $(cat alacritty/Cargo.toml | grep "rust-version" | sed 's/.*"\(.*\)".*/\1/')
           cargo test
       - name: Clippy
         run: |

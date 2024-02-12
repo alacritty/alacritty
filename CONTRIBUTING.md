@@ -42,8 +42,9 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.70.0. All patches are expected
-to work with the minimum supported version.
+You can find the minimum supported Rust version in Alacritty's manifest file
+(`cat alacritty/Cargo.toml | grep "rust-version"`). Alacritty **must** always
+build with the MSRV and bumping it should be avoided if possible.
 
 Since `alacritty_terminal`'s version always tracks the next release, make sure that the version is
 bumped according to semver when necessary.
