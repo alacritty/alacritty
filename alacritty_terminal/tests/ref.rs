@@ -71,6 +71,7 @@ ref_tests! {
     zerowidth
     zsh_tab_completion
     erase_in_line
+    scroll_in_region_up_preserves_history
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
