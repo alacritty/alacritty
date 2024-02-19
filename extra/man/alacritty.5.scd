@@ -890,7 +890,7 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Centers the screen around the vi mode cursor.
 		*InlineSearchForward*
 			Search forward within the current line.
-		*InlineSearchBcakward*
+		*InlineSearchBackward*
 			Search backward within the current line.
 		*InlineSearchForwardShort*
 			Search forward within the current line, stopping just short of the character.
