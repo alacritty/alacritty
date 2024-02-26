@@ -226,11 +226,11 @@ impl MotionState {
         }
     }
     
-    pub fn eval_count(&self) -> u32 {
+    pub fn eval_count(&self) -> usize {
         match self.history.parse() {
             Ok(n) => n,
             Err(e) => match e.kind() {
-                std::num::IntErrorKind::PosOverflow => u32::MAX,
+                std::num::IntErrorKind::PosOverflow => usize::MAX,
                 _ => 1,
             }
         }

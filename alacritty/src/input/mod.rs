@@ -180,7 +180,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
-                let count: u32 = ctx.motion_state().eval_count();
+                let count: usize = ctx.motion_state().eval_count();
                 *ctx.motion_state() = Default::default();
                 ctx.terminal_mut().vi_motion(*motion, count);
                 ctx.mark_dirty();

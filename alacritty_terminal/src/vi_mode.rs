@@ -67,7 +67,7 @@ impl ViModeCursor {
 
     /// Move vi mode cursor `count` times and apply it to `term`.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: u32) -> Self {
+    pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: usize) -> Self {
         for _ in 0..count {
             let new_point: Point = Self::motion_impl(self.point, term, motion);
             if self.point == new_point { break; }
