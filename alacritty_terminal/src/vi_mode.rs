@@ -69,65 +69,66 @@ impl ViModeCursor {
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: u32) -> Self {
         for _ in 0..count {
-            let old_self: Self = self;
-            self.motion_impl(term, motion);
-            if self == old_self { break; }
+            let new_point: Point = Self::motion_impl(self.point, term, motion);
+            if self.point == new_point { break; }
+            self.point = new_point;
         }
         term.scroll_to_point(self.point);
         self
     }
 
     /// Move vi mode cursor.
-    fn motion_impl<T: EventListener>(&mut self, term: &Term<T>, motion: ViMotion) {
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    fn motion_impl<T: EventListener>(mut point: Point, term: &Term<T>, motion: ViMotion) -> Point {
         match motion {
             ViMotion::Up => {
-                if self.point.line > term.topmost_line() {
-                    self.point.line -= 1;
+                if point.line > term.topmost_line() {
+                    point.line -= 1;
                 }
             },
             ViMotion::Down => {
-                if self.point.line + 1 < term.screen_lines() {
-                    self.point.line += 1;
+                if point.line + 1 < term.screen_lines() {
+                    point.line += 1;
                 }
             },
             ViMotion::Left => {
-                self.point = term.expand_wide(self.point, Direction::Left);
-                let wrap_point = Point::new(self.point.line - 1, term.last_column());
-                if self.point.column == 0
-                    && self.point.line > term.topmost_line()
+                point = term.expand_wide(point, Direction::Left);
+                let wrap_point = Point::new(point.line - 1, term.last_column());
+                if point.column == 0
+                    && point.line > term.topmost_line()
                     && is_wrap(term, wrap_point)
                 {
-                    self.point = wrap_point;
+                    point = wrap_point;
                 } else {
-                    self.point.column = Column(self.point.column.saturating_sub(1));
+                    point.column = Column(point.column.saturating_sub(1));
                 }
             },
             ViMotion::Right => {
-                self.point = term.expand_wide(self.point, Direction::Right);
-                if is_wrap(term, self.point) {
-                    self.point = Point::new(self.point.line + 1, Column(0));
+                point = term.expand_wide(point, Direction::Right);
+                if is_wrap(term, point) {
+                    point = Point::new(point.line + 1, Column(0));
                 } else {
-                    self.point.column = min(self.point.column + 1, term.last_column());
+                    point.column = min(point.column + 1, term.last_column());
                 }
             },
             ViMotion::First => {
-                self.point = term.expand_wide(self.point, Direction::Left);
-                while self.point.column == 0
-                    && self.point.line > term.topmost_line()
-                    && is_wrap(term, Point::new(self.point.line - 1, term.last_column()))
+                point = term.expand_wide(point, Direction::Left);
+                while point.column == 0
+                    && point.line > term.topmost_line()
+                    && is_wrap(term, Point::new(point.line - 1, term.last_column()))
                 {
-                    self.point.line -= 1;
+                    point.line -= 1;
                 }
-                self.point.column = Column(0);
+                point.column = Column(0);
             },
-            ViMotion::Last => self.point = last(term, self.point),
-            ViMotion::FirstOccupied => self.point = first_occupied(term, self.point),
+            ViMotion::Last => point = last(term, point),
+            ViMotion::FirstOccupied => point = first_occupied(term, point),
             ViMotion::High => {
                 let display_offset = term.grid().display_offset() as i32;
                 
                 let line = Line(-display_offset);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
-                self.point = Point::new(line, col);
+                point = Point::new(line, col);
             },
             ViMotion::Middle => {
                 let display_offset = term.grid().display_offset() as i32;
@@ -135,7 +136,7 @@ impl ViModeCursor {
                 
                 let line = Line(-display_offset + (screen_lines / 2) - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
-                self.point = Point::new(line, col);
+                point = Point::new(line, col);
             },
             ViMotion::Low => {
                 let display_offset = term.grid().display_offset() as i32;
@@ -143,34 +144,35 @@ impl ViModeCursor {
                 
                 let line = Line(-display_offset + screen_lines - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
-                self.point = Point::new(line, col);
+                point = Point::new(line, col);
             },
             ViMotion::SemanticLeft => {
-                self.point = semantic(term, self.point, Direction::Left, Side::Left);
+                point = semantic(term, point, Direction::Left, Side::Left);
             },
             ViMotion::SemanticRight => {
-                self.point = semantic(term, self.point, Direction::Right, Side::Left);
+                point = semantic(term, point, Direction::Right, Side::Left);
             },
             ViMotion::SemanticLeftEnd => {
-                self.point = semantic(term, self.point, Direction::Left, Side::Right);
+                point = semantic(term, point, Direction::Left, Side::Right);
             },
             ViMotion::SemanticRightEnd => {
-                self.point = semantic(term, self.point, Direction::Right, Side::Right);
+                point = semantic(term, point, Direction::Right, Side::Right);
             },
             ViMotion::WordLeft => {
-                self.point = word(term, self.point, Direction::Left, Side::Left);
+                point = word(term, point, Direction::Left, Side::Left);
             },
             ViMotion::WordRight => {
-                self.point = word(term, self.point, Direction::Right, Side::Left);
+                point = word(term, point, Direction::Right, Side::Left);
             },
             ViMotion::WordLeftEnd => {
-                self.point = word(term, self.point, Direction::Left, Side::Right);
+                point = word(term, point, Direction::Left, Side::Right);
             },
             ViMotion::WordRightEnd => {
-                self.point = word(term, self.point, Direction::Right, Side::Right);
+                point = word(term, point, Direction::Right, Side::Right);
             },
-            ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
+            ViMotion::Bracket => point = term.bracket_search(point).unwrap_or(point),
         }
+        point
     }
 
     /// Get target cursor point for vim-like page movement.
