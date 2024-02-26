@@ -65,17 +65,20 @@ impl ViModeCursor {
         Self { point }
     }
 
+    /// Move vi mode cursor `count` times and apply it to `term`.
     #[must_use = "this returns the result of the operation, without modifying the original"]
     pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: u32) -> Self {
         for _ in 0..count {
+            let old_self: Self = self;
             self.motion_impl(term, motion);
+            if self == old_self { break; }
         }
         term.scroll_to_point(self.point);
         self
     }
 
     /// Move vi mode cursor.
-    fn motion_impl<T: EventListener>(&mut self, term: &mut Term<T>, motion: ViMotion) {
+    fn motion_impl<T: EventListener>(&mut self, term: &Term<T>, motion: ViMotion) {
         match motion {
             ViMotion::Up => {
                 if self.point.line > term.topmost_line() {
