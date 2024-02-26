@@ -495,7 +495,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         ArrowDown,                          +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Down;
         ArrowLeft,                          +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Left;
         ArrowRight,                         +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Right;
-        "0",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::First;
         "$",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Last;
         Home,                               +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::First;
         End,                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Last;
