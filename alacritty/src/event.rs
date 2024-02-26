@@ -206,13 +206,19 @@ impl Default for InlineSearchState {
     }
 }
 
+#[derive(Default)]
 pub struct MotionState {
+    /// Digit history.
+    ///
+    /// When a `ViMotion` is processed or a non-digit character is added,
+    /// `MotionState` discards its history of entered digits.
     history: String,
 }
 
+/// Vi motion state for repeating actions.
 impl MotionState {
     pub fn add_character(&mut self, ch: char) {
-        if ch.is_digit(10) {
+        if ch.is_ascii_digit() {
             self.history.push(ch);
         }
         else {
@@ -227,14 +233,6 @@ impl MotionState {
                 std::num::IntErrorKind::PosOverflow => u32::MAX,
                 _ => 1,
             }
-        }
-    }
-}
-
-impl Default for MotionState {
-    fn default() -> Self {
-        Self {
-            history: Default::default(),
         }
     }
 }
