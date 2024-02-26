@@ -75,6 +75,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Vi mode on its own doesn't have any input, the search input was done before.
         if mode.contains(TermMode::VI) {
+            for character in text.chars() {
+                self.ctx.motion_state().add_character(character);
+            }
             return;
         }
 

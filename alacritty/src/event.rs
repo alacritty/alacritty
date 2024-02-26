@@ -206,6 +206,39 @@ impl Default for InlineSearchState {
     }
 }
 
+pub struct MotionState {
+    history: String,
+}
+
+impl MotionState {
+    pub fn add_character(&mut self, ch: char) {
+        if ch.is_digit(10) {
+            self.history.push(ch);
+        }
+        else {
+            self.history = Default::default();
+        }
+    }
+    
+    pub fn eval_count(&self) -> u32 {
+        match self.history.parse() {
+            Ok(n) => n,
+            Err(e) => match e.kind() {
+                std::num::IntErrorKind::PosOverflow => u32::MAX,
+                _ => 1,
+            }
+        }
+    }
+}
+
+impl Default for MotionState {
+    fn default() -> Self {
+        Self {
+            history: Default::default(),
+        }
+    }
+}
+
 pub struct ActionContext<'a, N, T> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term<T>,
@@ -222,6 +255,7 @@ pub struct ActionContext<'a, N, T> {
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
+    pub motion_state: &'a mut MotionState,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
     pub preserve_title: bool,
@@ -883,6 +917,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.terminal.toggle_vi_mode();
 
         *self.dirty = true;
+    }
+
+    fn motion_state(&mut self) -> &mut MotionState {
+        self.motion_state
     }
 
     /// Get vi inline search state.

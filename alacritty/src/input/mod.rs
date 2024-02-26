@@ -41,7 +41,7 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::event::{
-    ClickState, Event, EventType, InlineSearchState, Mouse, TouchPurpose, TouchZoom,
+    ClickState, Event, EventType, InlineSearchState, MotionState, Mouse, TouchPurpose, TouchZoom
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -122,6 +122,7 @@ pub trait ActionContext<T: EventListener> {
     fn search_active(&self) -> bool;
     fn on_typing_start(&mut self) {}
     fn toggle_vi_mode(&mut self) {}
+    fn motion_state(&mut self) -> &mut MotionState;
     fn inline_search_state(&mut self) -> &mut InlineSearchState;
     fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
     fn inline_search_next(&mut self) {}
@@ -179,7 +180,9 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
-                ctx.terminal_mut().vi_motion(*motion, 1);
+                let count: u32 = ctx.motion_state().eval_count();
+                *ctx.motion_state() = Default::default();
+                ctx.terminal_mut().vi_motion(*motion, count);
                 ctx.mark_dirty();
             },
             Action::Vi(ViAction::ToggleNormalSelection) => {
@@ -1140,6 +1143,10 @@ mod tests {
 
         fn search_direction(&self) -> Direction {
             Direction::Right
+        }
+        
+        fn motion_state(&mut self) -> &mut MotionState {
+            unimplemented!();
         }
 
         fn inline_search_state(&mut self) -> &mut InlineSearchState {
