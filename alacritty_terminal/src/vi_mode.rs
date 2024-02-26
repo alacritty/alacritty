@@ -83,7 +83,7 @@ impl ViModeCursor {
                 }
             },
             ViMotion::Down => {
-                if self.point.line + 1 < term.screen_lines() as i32 {
+                if self.point.line + 1 < term.screen_lines() {
                     self.point.line += 1;
                 }
             },
@@ -120,19 +120,25 @@ impl ViModeCursor {
             ViMotion::Last => self.point = last(term, self.point),
             ViMotion::FirstOccupied => self.point = first_occupied(term, self.point),
             ViMotion::High => {
-                let line = Line(-(term.grid().display_offset() as i32));
+                let display_offset = term.grid().display_offset() as i32;
+                
+                let line = Line(-display_offset);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
             ViMotion::Middle => {
                 let display_offset = term.grid().display_offset() as i32;
-                let line = Line(-display_offset + term.screen_lines() as i32 / 2 - 1);
+                let screen_lines = term.screen_lines() as i32;
+                
+                let line = Line(-display_offset + (screen_lines / 2) - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
             ViMotion::Low => {
                 let display_offset = term.grid().display_offset() as i32;
-                let line = Line(-display_offset + term.screen_lines() as i32 - 1);
+                let screen_lines = term.screen_lines() as i32;
+                
+                let line = Line(-display_offset + screen_lines - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 self.point = Point::new(line, col);
             },
