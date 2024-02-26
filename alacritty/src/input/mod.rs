@@ -41,7 +41,7 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, SizeInfo};
 use crate::event::{
-    ClickState, Event, EventType, InlineSearchState, MotionState, Mouse, TouchPurpose, TouchZoom
+    ClickState, Event, EventType, InlineSearchState, MotionState, Mouse, TouchPurpose, TouchZoom,
 };
 use crate::message_bar::{self, Message};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -1144,7 +1144,7 @@ mod tests {
         fn search_direction(&self) -> Direction {
             Direction::Right
         }
-        
+
         fn motion_state(&mut self) -> &mut MotionState {
             unimplemented!();
         }

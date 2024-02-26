@@ -35,7 +35,8 @@ use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
 use crate::event::{
-    ActionContext, Event, EventProxy, InlineSearchState, MotionState, Mouse, SearchState, TouchPurpose
+    ActionContext, Event, EventProxy, InlineSearchState, MotionState, Mouse, SearchState,
+    TouchPurpose,
 };
 #[cfg(unix)]
 use crate::logging::LOG_TARGET_IPC_CONFIG;

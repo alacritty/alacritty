@@ -67,10 +67,17 @@ impl ViModeCursor {
 
     /// Move vi mode cursor `count` times and apply it to `term`.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: usize) -> Self {
+    pub fn motion<T: EventListener>(
+        mut self,
+        term: &mut Term<T>,
+        motion: ViMotion,
+        count: usize,
+    ) -> Self {
         for _ in 0..count {
             let new_point: Point = Self::motion_impl(self.point, term, motion);
-            if self.point == new_point { break; }
+            if self.point == new_point {
+                break;
+            }
             self.point = new_point;
         }
         term.scroll_to_point(self.point);
@@ -125,7 +132,7 @@ impl ViModeCursor {
             ViMotion::FirstOccupied => point = first_occupied(term, point),
             ViMotion::High => {
                 let display_offset = term.grid().display_offset() as i32;
-                
+
                 let line = Line(-display_offset);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 point = Point::new(line, col);
@@ -133,7 +140,7 @@ impl ViModeCursor {
             ViMotion::Middle => {
                 let display_offset = term.grid().display_offset() as i32;
                 let screen_lines = term.screen_lines() as i32;
-                
+
                 let line = Line(-display_offset + (screen_lines / 2) - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 point = Point::new(line, col);
@@ -141,7 +148,7 @@ impl ViModeCursor {
             ViMotion::Low => {
                 let display_offset = term.grid().display_offset() as i32;
                 let screen_lines = term.screen_lines() as i32;
-                
+
                 let line = Line(-display_offset + screen_lines - 1);
                 let col = first_occupied_in_line(term, line).unwrap_or_default().column;
                 point = Point::new(line, col);
