@@ -65,9 +65,17 @@ impl ViModeCursor {
         Self { point }
     }
 
-    /// Move vi mode cursor.
     #[must_use = "this returns the result of the operation, without modifying the original"]
-    pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion) -> Self {
+    pub fn motion<T: EventListener>(mut self, term: &mut Term<T>, motion: ViMotion, count: u32) -> Self {
+        for _ in 0..count {
+            self.motion_impl(term, motion);
+        }
+        term.scroll_to_point(self.point);
+        self
+    }
+
+    /// Move vi mode cursor.
+    fn motion_impl<T: EventListener>(&mut self, term: &mut Term<T>, motion: ViMotion) {
         match motion {
             ViMotion::Up => {
                 if self.point.line > term.topmost_line() {
@@ -154,10 +162,6 @@ impl ViModeCursor {
             },
             ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
         }
-
-        term.scroll_to_point(self.point);
-
-        self
     }
 
     /// Get target cursor point for vim-like page movement.
@@ -398,16 +402,16 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Right);
+        cursor = cursor.motion(&mut term, ViMotion::Right, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Left);
+        cursor = cursor.motion(&mut term, ViMotion::Left, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Down);
+        cursor = cursor.motion(&mut term, ViMotion::Down, 1);
         assert_eq!(cursor.point, Point::new(Line(1), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Up);
+        cursor = cursor.motion(&mut term, ViMotion::Up, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -422,11 +426,11 @@ mod tests {
         term.grid_mut()[Line(0)][Column(3)].c = 'a';
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(1)));
-        cursor = cursor.motion(&mut term, ViMotion::Right);
+        cursor = cursor.motion(&mut term, ViMotion::Right, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
-        cursor = cursor.motion(&mut term, ViMotion::Left);
+        cursor = cursor.motion(&mut term, ViMotion::Left, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -436,10 +440,10 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Last);
+        cursor = cursor.motion(&mut term, ViMotion::Last, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(19)));
 
-        cursor = cursor.motion(&mut term, ViMotion::First);
+        cursor = cursor.motion(&mut term, ViMotion::First, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -457,10 +461,10 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(2), Column(1)));
 
-        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied);
+        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied, 1);
         assert_eq!(cursor.point, Point::new(Line(2), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied);
+        cursor = cursor.motion(&mut term, ViMotion::FirstOccupied, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
     }
 
@@ -470,13 +474,13 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::High);
+        cursor = cursor.motion(&mut term, ViMotion::High, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Middle);
+        cursor = cursor.motion(&mut term, ViMotion::Middle, 1);
         assert_eq!(cursor.point, Point::new(Line(9), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Low);
+        cursor = cursor.motion(&mut term, ViMotion::Low, 1);
         assert_eq!(cursor.point, Point::new(Line(19), Column(0)));
     }
 
@@ -489,10 +493,10 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Bracket);
+        cursor = cursor.motion(&mut term, ViMotion::Bracket, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
 
-        cursor = cursor.motion(&mut term, ViMotion::Bracket);
+        cursor = cursor.motion(&mut term, ViMotion::Bracket, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -525,25 +529,25 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(15)));
     }
 
@@ -553,25 +557,25 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(15)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -581,25 +585,25 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(15)));
     }
 
@@ -609,25 +613,25 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(15)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(13)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(10)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(9)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(8)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(6)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(3)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -638,19 +642,19 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(-5), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(-5), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
     }
@@ -668,11 +672,11 @@ mod tests {
         term.grid_mut()[Line(0)][Column(5)].c = 'a';
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
-        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(3)));
-        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 
@@ -688,22 +692,22 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordLeft);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordLeft);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordRight);
+        cursor = cursor.motion(&mut term, ViMotion::WordRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(1)));
     }
 
@@ -714,19 +718,19 @@ mod tests {
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
 
-        cursor = cursor.motion(&mut term, ViMotion::WordLeft);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(-5), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
-        cursor = cursor.motion(&mut term, ViMotion::WordRight);
+        cursor = cursor.motion(&mut term, ViMotion::WordRight, 1);
         assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
 
-        cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeftEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(-5), Column(0)));
         assert_eq!(term.grid().display_offset(), 5);
 
-        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd);
+        cursor = cursor.motion(&mut term, ViMotion::WordRightEnd, 1);
         assert_eq!(cursor.point, Point::new(Line(19), Column(19)));
         assert_eq!(term.grid().display_offset(), 0);
     }
@@ -744,11 +748,11 @@ mod tests {
         term.grid_mut()[Line(0)][Column(5)].c = 'a';
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
-        cursor = cursor.motion(&mut term, ViMotion::WordRight);
+        cursor = cursor.motion(&mut term, ViMotion::WordRight, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(5)));
 
         let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(3)));
-        cursor = cursor.motion(&mut term, ViMotion::WordLeft);
+        cursor = cursor.motion(&mut term, ViMotion::WordLeft, 1);
         assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 

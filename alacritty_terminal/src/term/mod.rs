@@ -836,7 +836,7 @@ impl<T> Term<T> {
 
     /// Move vi mode cursor.
     #[inline]
-    pub fn vi_motion(&mut self, motion: ViMotion)
+    pub fn vi_motion(&mut self, motion: ViMotion, count: u32)
     where
         T: EventListener,
     {
@@ -846,7 +846,7 @@ impl<T> Term<T> {
         }
 
         // Move cursor.
-        self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion);
+        self.vi_mode_cursor = self.vi_mode_cursor.motion(self, motion, count);
         self.vi_mode_recompute_selection();
     }
 

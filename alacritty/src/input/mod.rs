@@ -179,7 +179,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::ViMotion(motion) => {
                 ctx.on_typing_start();
-                ctx.terminal_mut().vi_motion(*motion);
+                ctx.terminal_mut().vi_motion(*motion, 1);
                 ctx.mark_dirty();
             },
             Action::Vi(ViAction::ToggleNormalSelection) => {
@@ -361,7 +361,7 @@ impl<T: EventListener> Execute<T> for Action {
                 // Move vi mode cursor.
                 let topmost_line = ctx.terminal().topmost_line();
                 ctx.terminal_mut().vi_mode_cursor.point.line = topmost_line;
-                ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied);
+                ctx.terminal_mut().vi_motion(ViMotion::FirstOccupied, 1);
                 ctx.mark_dirty();
             },
             Action::ScrollToBottom => {
@@ -372,8 +372,7 @@ impl<T: EventListener> Execute<T> for Action {
                 term.vi_mode_cursor.point.line = term.bottommost_line();
 
                 // Move to beginning twice, to always jump across linewraps.
-                term.vi_motion(ViMotion::FirstOccupied);
-                term.vi_motion(ViMotion::FirstOccupied);
+                term.vi_motion(ViMotion::FirstOccupied, 2);
                 ctx.mark_dirty();
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
