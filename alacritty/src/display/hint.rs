@@ -204,7 +204,8 @@ pub struct HintMatch {
 impl HintMatch {
     #[inline]
     pub fn should_highlight(&self, point: Point, pointed_hyperlink: Option<&Hyperlink>) -> bool {
-        self.bounds.contains(&point) && self.hyperlink.as_ref() == pointed_hyperlink
+        self.hyperlink.as_ref() == pointed_hyperlink
+            && (self.hyperlink.is_some() || self.bounds.contains(&point))
     }
 
     #[inline]
@@ -400,49 +401,30 @@ pub fn highlighted_at<T>(
 }
 
 /// Retrieve the hyperlink with its range, if there is one at the specified point.
+///
+/// This will only return contiguous cells, even if another hyperlink with the same ID exists.
 fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
     let hyperlink = term.grid()[point].hyperlink()?;
 
-    let viewport_start = Line(-(term.grid().display_offset() as i32));
-    let viewport_end = viewport_start + term.bottommost_line();
-
-    let mut match_start = Point::new(point.line, Column(0));
-    let mut match_end = Point::new(point.line, Column(term.columns() - 1));
     let grid = term.grid();
 
-    // Find adjacent lines that have the same `hyperlink`. The end purpose to highlight hyperlinks
-    // that span across multiple lines or not directly attached to each other.
-
-    // Find the closest to the viewport start adjacent line.
-    while match_start.line > viewport_start {
-        let next_line = match_start.line - 1i32;
-        // Iterate over all the cells in the grid's line and check if any of those cells contains
-        // the hyperlink we've found at original `point`.
-        let line_contains_hyperlink = grid[next_line]
-            .into_iter()
-            .any(|cell| cell.hyperlink().map_or(false, |h| h == hyperlink));
-
-        // There's no hyperlink on the next line, break.
-        if !line_contains_hyperlink {
+    let mut match_end = point;
+    for cell in grid.iter_from(point) {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_end = cell.point;
+        } else {
             break;
         }
-
-        match_start.line = next_line;
     }
 
-    // Ditto for the end.
-    while match_end.line < viewport_end {
-        let next_line = match_end.line + 1i32;
-
-        let line_contains_hyperlink = grid[next_line]
-            .into_iter()
-            .any(|cell| cell.hyperlink().map_or(false, |h| h == hyperlink));
-
-        if !line_contains_hyperlink {
+    let mut match_start = point;
+    let mut iter = grid.iter_from(point);
+    while let Some(cell) = iter.prev() {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_start = cell.point;
+        } else {
             break;
         }
-
-        match_end.line = next_line;
     }
 
     Some((hyperlink, match_start..=match_end))

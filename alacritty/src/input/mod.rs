@@ -1050,12 +1050,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
 
-        // Function to check if mouse is on top of a hint.
-        let hint_highlighted = |hint: &HintMatch| hint.should_highlight(point, hyperlink.as_ref());
-
         if let Some(mouse_state) = self.message_bar_cursor_state() {
             mouse_state
-        } else if self.ctx.display().highlighted_hint.as_ref().map_or(false, hint_highlighted) {
+        } else if hyperlink.is_some() {
             CursorIcon::Pointer
         } else if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             CursorIcon::Default
