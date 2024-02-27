@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
-use log::{self, error, LevelFilter};
+use log::{error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 

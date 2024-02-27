@@ -2389,10 +2389,8 @@ pub mod test {
 
     #[cfg(feature = "serde")]
     use serde::{Deserialize, Serialize};
-    use unicode_width::UnicodeWidthChar;
 
     use crate::event::VoidListener;
-    use crate::index::Column;
 
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct TermSize {
