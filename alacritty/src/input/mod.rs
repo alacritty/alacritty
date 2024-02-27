@@ -956,6 +956,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
             MouseButton::Middle => self.ctx.mouse_mut().middle_button_state = state,
             MouseButton::Right => self.ctx.mouse_mut().right_button_state = state,
+            MouseButton::Back => self.ctx.mouse_mut().back_button_state = state,
+            MouseButton::Forward => self.ctx.mouse_mut().forward_button_state = state,
             _ => self.ctx.mouse_mut().other_button_state = state,
         }
 
