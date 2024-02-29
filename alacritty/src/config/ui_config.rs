@@ -172,7 +172,7 @@ impl UiConfig {
             working_directory: self.working_directory.clone(),
             hold: false,
             #[cfg(not(windows))]
-            env: self.env.clone(),
+            env: HashMap::new(),
         }
     }
 
