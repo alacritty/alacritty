@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Modifiers occasionally getting desynced on X11
 - Autokey no longer working with alacritty on X11
 - Freeze when moving window between monitors on Xfwm
+- Mouse cursor not changing on Wayland when cursor theme uses legacy cursor icon names
 
 ### Changed
 
