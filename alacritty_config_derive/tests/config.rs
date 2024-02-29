@@ -23,7 +23,7 @@ impl Default for TestEnum {
 
 #[derive(ConfigDeserialize)]
 struct Test {
-    #[config(alias = "noalias")]
+    #[config(alias = "field1_alias")]
     #[config(deprecated = "use field2 instead")]
     field1: usize,
     #[config(deprecated = "shouldn't be hit")]
@@ -39,6 +39,9 @@ struct Test {
     enom_error: TestEnum,
     #[config(removed = "it's gone")]
     gone: bool,
+    #[config(alias = "multiple_alias1")]
+    #[config(alias = "multiple_alias2")]
+    multiple_alias_field: usize,
 }
 
 impl Default for Test {
@@ -53,6 +56,7 @@ impl Default for Test {
             enom_big: TestEnum::default(),
             enom_error: TestEnum::default(),
             gone: false,
+            multiple_alias_field: 0,
         }
     }
 }
@@ -70,6 +74,7 @@ struct Test2<T: Default> {
 
 #[derive(ConfigDeserialize, Default)]
 struct Test3 {
+    #[config(alias = "flatty_alias")]
     flatty: usize,
 }
 
@@ -190,10 +195,49 @@ fn replace_derive() {
 }
 
 #[test]
+fn replace_derive_using_alias() {
+    let mut test = Test::default();
+
+    assert_ne!(test.field1, 9);
+
+    let value = toml::from_str("field1_alias=9").unwrap();
+    test.replace(value).unwrap();
+
+    assert_eq!(test.field1, 9);
+}
+
+#[test]
+fn replace_derive_using_multiple_aliases() {
+    let mut test = Test::default();
+
+    let toml_value = toml::from_str("multiple_alias1=6").unwrap();
+    test.replace(toml_value).unwrap();
+
+    assert_eq!(test.multiple_alias_field, 6);
+
+    let toml_value = toml::from_str("multiple_alias1=7").unwrap();
+    test.replace(toml_value).unwrap();
+
+    assert_eq!(test.multiple_alias_field, 7);
+}
+
+#[test]
 fn replace_flatten() {
     let mut test = Test::default();
 
     let value = toml::from_str("flatty=7").unwrap();
+    test.replace(value).unwrap();
+
+    assert_eq!(test.flatten.flatty, 7);
+}
+
+#[test]
+fn replace_flatten_using_alias() {
+    let mut test = Test::default();
+
+    assert_ne!(test.flatten.flatty, 7);
+
+    let value = toml::from_str("flatty_alias=7").unwrap();
     test.replace(value).unwrap();
 
     assert_eq!(test.flatten.flatty, 7);
