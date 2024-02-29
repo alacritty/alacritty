@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -195,6 +196,8 @@ impl From<TerminalOptions> for PtyOptions {
             working_directory: options.working_directory.take(),
             shell: options.command().map(Into::into),
             hold: options.hold,
+            #[cfg(not(windows))]
+            env: HashMap::new(),
         }
     }
 }
