@@ -32,7 +32,7 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     }
 
     let event_tx: Box<_> = unsafe { Box::from_raw(ctx as *mut ChildExitSender) };
-    let _ = event_tx.sender.send(ChildEvent::Exited);
+    let _ = event_tx.sender.send(ChildEvent::Exited(None));
     let interest = event_tx.interest.lock().unwrap();
     if let Some(interest) = interest.as_ref() {
         interest.poller.post(CompletionPacket::new(interest.event)).ok();
@@ -145,6 +145,6 @@ mod tests {
         poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         assert_eq!(events.iter().next().unwrap().key, PTY_CHILD_EVENT_TOKEN);
         // Verify that at least one `ChildEvent::Exited` was received.
-        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
+        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited(None)));
     }
 }
