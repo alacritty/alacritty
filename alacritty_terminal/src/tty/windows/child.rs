@@ -8,7 +8,7 @@ use polling::{Event, Poller};
 
 use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
 use windows_sys::Win32::System::Threading::{
-    RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
+    GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
     WT_EXECUTEONLYONCE,
 };
 
@@ -42,6 +42,8 @@ pub struct ChildExitWatcher {
     wait_handle: AtomicPtr<c_void>,
     event_rx: mpsc::Receiver<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
+    child_handle: HANDLE,
+    pid: u32,
 }
 
 impl ChildExitWatcher {
@@ -66,10 +68,13 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
+            let pid = unsafe { GetProcessId(child_handle) };
             Ok(ChildExitWatcher {
                 wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
                 event_rx,
                 interest,
+                child_handle,
+                pid,
             })
         }
     }
@@ -84,6 +89,14 @@ impl ChildExitWatcher {
 
     pub fn deregister(&self) {
         *self.interest.lock().unwrap() = None;
+    }
+
+    pub fn fd(&self) -> isize {
+        self.child_handle
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.pid
     }
 }
 
