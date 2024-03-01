@@ -32,7 +32,6 @@ pub struct Options {
     pub hold: bool,
 
     /// Extra environment variables.
-    #[cfg(not(windows))]
     pub env: HashMap<String, String>,
 }
 

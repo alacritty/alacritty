@@ -1,9 +1,12 @@
 use log::info;
+use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::io::Error;
+use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::IntoRawHandle;
 use std::{mem, ptr};
 
-use windows_sys::core::{HRESULT, PWSTR};
+use windows_sys::core::{IInspectable, HRESULT, PWSTR};
 use windows_sys::Win32::Foundation::{HANDLE, S_OK};
 use windows_sys::Win32::System::Console::{
     ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole, COORD, HPCON,
@@ -13,8 +16,8 @@ use windows_sys::{s, w};
 
 use windows_sys::Win32::System::Threading::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
-    EXTENDED_STARTUPINFO_PRESENT, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
+    CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, PROCESS_INFORMATION,
+    PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW,
 };
 
 use crate::event::{OnResize, WindowSize};
@@ -200,7 +203,15 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
 
     let cmdline = win32_string(&cmdline(config));
     let cwd = config.working_directory.as_ref().map(win32_string);
-
+    let mut creation_flags = EXTENDED_STARTUPINFO_PRESENT;
+    let custom_env_block = convert_custom_env(&config.env);
+    let custom_env_block_pointer = match &custom_env_block {
+        Some(custom_env_block) => {
+            creation_flags |= CREATE_UNICODE_ENVIRONMENT;
+            custom_env_block.as_ptr() as IInspectable
+        },
+        None => ptr::null_mut(),
+    };
     let mut proc_info: PROCESS_INFORMATION = unsafe { mem::zeroed() };
     unsafe {
         success = CreateProcessW(
@@ -209,8 +220,8 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
             ptr::null_mut(),
             ptr::null_mut(),
             false as i32,
-            EXTENDED_STARTUPINFO_PRESENT,
-            ptr::null_mut(),
+            creation_flags,
+            custom_env_block_pointer,
             cwd.as_ref().map_or_else(ptr::null, |s| s.as_ptr()),
             &mut startup_info_ex.StartupInfo as *mut STARTUPINFOW,
             &mut proc_info as *mut PROCESS_INFORMATION,
@@ -228,6 +239,35 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     let conpty = Conpty { handle: pty_handle as HPCON, api };
 
     Some(Pty::new(conpty, conout, conin, child_watcher))
+}
+
+fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> {
+    let mut result = Vec::new();
+    if custom_env.is_empty() {
+        return None;
+    }
+
+    let mut all_env_keys = HashSet::new();
+    for (custom_key, custom_value) in custom_env {
+        let custom_key = OsStr::new(custom_key);
+        if all_env_keys.insert(custom_key.to_ascii_uppercase()) {
+            result.extend(custom_key.encode_wide());
+            result.push('=' as u16);
+            result.extend(OsStr::new(custom_value).encode_wide());
+            result.push(0);
+        }
+    }
+    for (inherited_key, inherited_value) in std::env::vars_os() {
+        if all_env_keys.insert(inherited_key.to_ascii_uppercase()) {
+            result.extend(inherited_key.encode_wide());
+            result.push('=' as u16);
+            result.extend(inherited_value.encode_wide());
+            result.push(0);
+        }
+    }
+    result.push(0);
+
+    Some(result)
 }
 
 // Panic with the last os error as message.

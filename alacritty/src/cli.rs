@@ -196,7 +196,6 @@ impl From<TerminalOptions> for PtyOptions {
             working_directory: options.working_directory.take(),
             shell: options.command().map(Into::into),
             hold: options.hold,
-            #[cfg(not(windows))]
             env: HashMap::new(),
         }
     }
