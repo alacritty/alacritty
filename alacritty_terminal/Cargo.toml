@@ -12,6 +12,8 @@ rust-version = "1.70.0"
 [features]
 default = ["serde"]
 serde = ["dep:serde", "bitflags/serde", "vte/serde"]
+# Support Bidi/RTL draft proposal from https://terminal-wg.pages.freedesktop.org/bidi
+bidi_draft = []
 
 [dependencies]
 base64 = "0.22.0"
@@ -23,7 +25,7 @@ parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.4.3"
 unicode-width = "0.1"
-vte = { version = "0.13.0", default-features = false, features = ["ansi", "serde"] }
+vte = { git = "https://github.com/MoSal/vte", branch = "scp" , default-features = false, features = ["ansi", "serde"] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [target.'cfg(unix)'.dependencies]

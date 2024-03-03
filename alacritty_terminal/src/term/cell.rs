@@ -36,6 +36,97 @@ bitflags! {
     }
 }
 
+#[cfg(feature = "bidi_draft")]
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    pub(super) struct BidiFlags: u8 {
+        /// Set with:
+        ///  `CSI 8 l`
+        ///
+        /// Reset with:
+        ///  `CSI 8 h`
+        ///
+        /// Yes, the default is the high state (implicit mode).
+        const EXPLICIT_DIRECTION = 0b0000_0001;
+        /// Set with:
+        ///  `CSI 2 SPACE k` (RTL).
+        ///  `CSI 1 SPACE k` (LTR)
+        ///
+        /// Reset with:
+        ///  `CSI 0 SPACE k` (default)
+        ///  `CSI SPACE k`   (default)
+        ///
+        /// Default paragraph direction is not to be confused with
+        /// auto-detection. The default is implementation defined, and
+        /// is often LTR.
+        const NON_DEFAULT_PARA_DIR = 0b0000_0010;
+        /// Set with:
+        ///  `CSI 2 SPACE k` (RTL)
+        ///
+        /// Reset with  with:
+        ///  `CSI 1 SPACE k` (LTR)
+        ///
+        ///  Only in effect when `NON_DEFAULT_PARA_DIR` is set.
+        ///  Only acts as fallback when `AUTO_PARA_DIR` is set.
+        const RTL_PARA_DIR = 0b0000_0100;
+        /// Set with:
+        ///  `CSI ? 2501 h` (auto)
+        ///
+        /// Reset with:
+        ///  `CSI ? 2501 l` (default or RTL/LTR)
+        ///
+        /// Set auto direction for paragraphs, based on their content's detected direction.
+        /// Implicit paragraph direction is used if no specific direction is detected.
+        /// This is ignored if `EXPLICIT_DIRECTION` is set.
+        const AUTO_PARA_DIR = 0b0000_1000;
+
+        /// Set with:
+        ///  `CSI ? 2500 h` (mirroring)
+        ///
+        /// Reset with:
+        ///  `CSI ? 2500 l` (no mirroring)
+        ///
+        /// Use mirrored glyphs of characters from the box drawing block
+        /// (U+2500 - U+257F) in RTL spans.
+        ///
+        /// Visually mirror-able characters from that range don't have the `Bidi_Mirrored` property
+        /// set. So a Bidi-aware shaper/renderer wouldn't mirror them on its own when detected in
+        /// RTL spans.
+        ///
+        /// More info:
+        ///  https://www.unicode.org/reports/tr9/#Mirroring
+        ///  https://www.unicode.org/reports/tr9/#HL6
+        ///
+        /// Note that this will have an effect in RTL spans, irregardless of paragraph direction.
+        const BOX_MIRRORING = 0b0001_0000;
+    }
+}
+
+#[cfg(feature = "bidi_draft")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BidiDir {
+    LTR,
+    RTL,
+    // Terminal-defined
+    Default,
+}
+
+#[cfg(feature = "bidi_draft")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BidiMode {
+    Explicit { forced_dir: BidiDir },
+    Implicit { para_dir: BidiDir },
+    Auto { fallback_para_dir: BidiDir },
+}
+
+#[cfg(feature = "bidi_draft")]
+impl Default for BidiMode {
+    fn default() -> Self {
+        Self::Implicit { para_dir: BidiDir::Default }
+    }
+}
+
 /// Counter for hyperlinks without explicit ID.
 static HYPERLINK_ID_SUFFIX: AtomicU32 = AtomicU32::new(0);
 
@@ -128,6 +219,9 @@ pub struct CellExtra {
     underline_color: Option<Color>,
 
     hyperlink: Option<Hyperlink>,
+
+    #[cfg(feature = "bidi_draft")]
+    pub(super) bidi_flags: BidiFlags,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -219,6 +313,67 @@ impl Cell {
     #[inline]
     pub fn hyperlink(&self) -> Option<Hyperlink> {
         self.extra.as_ref()?.hyperlink.clone()
+    }
+}
+
+#[cfg(feature = "bidi_draft")]
+impl Cell {
+    pub(super) fn remove_bidi_flag(&mut self, bidi_flag: BidiFlags) {
+        self.extra.as_mut().map(|extra| Arc::make_mut(extra).bidi_flags.remove(bidi_flag));
+        let is_default_inner =
+            self.extra.as_deref().map(|extra| *extra == Default::default()).unwrap_or(false);
+        if is_default_inner {
+            self.extra = None;
+        }
+    }
+
+    pub(super) fn insert_bidi_flag(&mut self, bidi_flag: BidiFlags) {
+        if bidi_flag.is_empty() && self.extra.is_none() {
+            return;
+        }
+
+        let extra = self.extra.get_or_insert(Default::default());
+        Arc::make_mut(extra).bidi_flags.insert(bidi_flag);
+    }
+
+    #[inline]
+    pub(super) fn set_bidi_flags(&mut self, bidi_flags: BidiFlags) {
+        if bidi_flags.is_empty() && self.extra.is_none() {
+            return;
+        }
+
+        let extra = self.extra.get_or_insert(Default::default());
+        Arc::make_mut(extra).bidi_flags = bidi_flags;
+    }
+
+    #[inline]
+    pub(super) fn bidi_flags(&self) -> BidiFlags {
+        self.extra.as_ref().map(|extra| extra.bidi_flags).unwrap_or_default()
+    }
+
+    #[inline]
+    pub fn bidi_mode(&self) -> BidiMode {
+        let bidi_flags = self.bidi_flags();
+        let dir = if !bidi_flags.contains(BidiFlags::NON_DEFAULT_PARA_DIR) {
+            BidiDir::Default
+        } else if bidi_flags.contains(BidiFlags::RTL_PARA_DIR) {
+            BidiDir::RTL
+        } else {
+            BidiDir::LTR
+        };
+
+        if bidi_flags.contains(BidiFlags::EXPLICIT_DIRECTION) {
+            BidiMode::Explicit { forced_dir: dir }
+        } else if bidi_flags.contains(BidiFlags::AUTO_PARA_DIR) {
+            BidiMode::Auto { fallback_para_dir: dir }
+        } else {
+            BidiMode::Implicit { para_dir: dir }
+        }
+    }
+
+    #[inline]
+    pub fn bidi_box_mirroring(&self) -> bool {
+        self.bidi_flags().contains(BidiFlags::BOX_MIRRORING)
     }
 }
 

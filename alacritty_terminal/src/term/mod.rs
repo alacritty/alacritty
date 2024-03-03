@@ -25,6 +25,8 @@ use crate::vte::ansi::{
     KeyboardModesApplyBehavior, NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb,
     StandardCharset,
 };
+#[cfg(feature = "bidi_draft")]
+use crate::vte::ansi::{ScpCharPath, ScpUpdateMode};
 
 pub mod cell;
 pub mod color;
@@ -274,6 +276,16 @@ pub struct Term<T> {
 
     pub selection: Option<Selection>,
 
+    #[cfg(feature = "bidi_draft")]
+    /// BiDi-supporting terminal emulators should swap the right and left arrow keys by
+    /// default when in RTL paragraph context. This is done to actually match the physical
+    /// movement of the cursor in RTL text in such contexts.
+    ///
+    /// This is a global (private) mode of the terminal. The escape sequence `\e[?1243l`
+    /// disables swapping and sets this field to `true`. The escape sequence `\e[?1243h`
+    /// restores the default, setting this field to `false` again.
+    pub bidi_disable_arrow_key_swapping: bool,
+
     /// Currently active grid.
     ///
     /// Tracks the screen buffer currently in use. While the alternate screen buffer is active,
@@ -441,6 +453,8 @@ impl<T> Term<T> {
             selection: None,
             damage,
             config: options,
+            #[cfg(feature = "bidi_draft")]
+            bidi_disable_arrow_key_swapping: false,
         }
     }
 
@@ -983,6 +997,9 @@ impl<T> Term<T> {
         let flags = self.grid.cursor.template.flags;
         let extra = self.grid.cursor.template.extra.clone();
 
+        #[cfg(feature = "bidi_draft")]
+        let bidi_flags = self.grid.cursor.template.bidi_flags();
+
         let mut cursor_cell = self.grid.cursor_cell();
 
         // Clear all related cells when overwriting a fullwidth cell.
@@ -1010,6 +1027,11 @@ impl<T> Term<T> {
         cursor_cell.bg = bg;
         cursor_cell.flags = flags;
         cursor_cell.extra = extra;
+
+        #[cfg(feature = "bidi_draft")]
+        {
+            cursor_cell.set_bidi_flags(bidi_flags);
+        }
     }
 
     #[inline]
@@ -1863,6 +1885,16 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::Reverse => cursor.template.flags.insert(Flags::INVERSE),
             Attr::CancelReverse => cursor.template.flags.remove(Flags::INVERSE),
             Attr::Bold => cursor.template.flags.insert(Flags::BOLD),
+            // For maximum compatibility with VTE's BiDi implementation, use `CancelBold`
+            // attribute as another way to set `DoubleUnderline`, which happens to be
+            // the behavior defined in ECMA-48 anyway.
+            #[cfg(feature = "bidi_draft")]
+            Attr::CancelBold => {
+                cursor.template.flags.remove(Flags::ALL_UNDERLINES);
+                cursor.template.flags.insert(Flags::DOUBLE_UNDERLINE);
+            },
+            // Keep `CancelBold` behavior if "bidi_draft" feature is not enabled.
+            #[cfg(not(feature = "bidi_draft"))]
             Attr::CancelBold => cursor.template.flags.remove(Flags::BOLD),
             Attr::Dim => cursor.template.flags.insert(Flags::DIM),
             Attr::CancelBoldDim => cursor.template.flags.remove(Flags::BOLD | Flags::DIM),
@@ -1899,11 +1931,62 @@ impl<T: EventListener> Handler for Term<T> {
         }
     }
 
+    #[cfg(feature = "bidi_draft")]
+    #[inline]
+    fn set_scp(&mut self, char_path: ScpCharPath, update_mode: ScpUpdateMode) {
+        use cell::BidiFlags;
+
+        if update_mode != ScpUpdateMode::ImplementationDependant {
+            debug!(
+                "Only SCP with zero/default second parameter is supported, as the BiDi draft only \
+                 operates in the data component."
+            );
+            return;
+        }
+
+        match char_path {
+            ScpCharPath::Default => {
+                trace!("Setting (implementation-defined) default paragraph direction");
+                self.grid.cursor.template.remove_bidi_flag(BidiFlags::NON_DEFAULT_PARA_DIR);
+            },
+            ScpCharPath::LTR => {
+                trace!("Setting LTR paragraph direction");
+                self.grid.cursor.template.insert_bidi_flag(BidiFlags::NON_DEFAULT_PARA_DIR);
+                self.grid.cursor.template.remove_bidi_flag(BidiFlags::RTL_PARA_DIR);
+            },
+            ScpCharPath::RTL => {
+                trace!("Setting RTL paragraph direction");
+                self.grid.cursor.template.insert_bidi_flag(BidiFlags::NON_DEFAULT_PARA_DIR);
+                self.grid.cursor.template.insert_bidi_flag(BidiFlags::RTL_PARA_DIR);
+            },
+        }
+    }
+
     #[inline]
     fn set_private_mode(&mut self, mode: PrivateMode) {
         let mode = match mode {
             PrivateMode::Named(mode) => mode,
             PrivateMode::Unknown(mode) => {
+                #[cfg(feature = "bidi_draft")]
+                {
+                    use cell::BidiFlags;
+                    match mode {
+                        1243 => {
+                            trace!("Re-enabling RTL arrow key swapping");
+                            self.bidi_disable_arrow_key_swapping = false;
+                        },
+                        2500 => {
+                            trace!("Enabling RTL box mirroring");
+                            self.grid.cursor.template.insert_bidi_flag(BidiFlags::BOX_MIRRORING);
+                        },
+                        2501 => {
+                            trace!("Enabling paragraph direction auto-detection");
+                            self.grid.cursor.template.insert_bidi_flag(BidiFlags::AUTO_PARA_DIR);
+                        },
+                        _ => debug!("Ignoring unknown mode {} in set_private_mode", mode),
+                    }
+                }
+                #[cfg(not(feature = "bidi_draft"))]
                 debug!("Ignoring unknown mode {} in set_private_mode", mode);
                 return;
             },
@@ -1964,6 +2047,26 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             PrivateMode::Named(mode) => mode,
             PrivateMode::Unknown(mode) => {
+                #[cfg(feature = "bidi_draft")]
+                {
+                    use cell::BidiFlags;
+                    match mode {
+                        1243 => {
+                            trace!("Disabling RTL arrow key swapping");
+                            self.bidi_disable_arrow_key_swapping = true;
+                        },
+                        2500 => {
+                            trace!("Disabling RTL box mirroring");
+                            self.grid.cursor.template.remove_bidi_flag(BidiFlags::BOX_MIRRORING);
+                        },
+                        2501 => {
+                            trace!("Disabling paragraph direction auto-detection");
+                            self.grid.cursor.template.remove_bidi_flag(BidiFlags::AUTO_PARA_DIR);
+                        },
+                        _ => debug!("Ignoring unknown mode {} in unset_private_mode", mode),
+                    }
+                }
+                #[cfg(not(feature = "bidi_draft"))]
                 debug!("Ignoring unknown mode {} in unset_private_mode", mode);
                 return;
             },
@@ -2065,6 +2168,15 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
             ansi::Mode::Unknown(mode) => {
+                #[cfg(feature = "bidi_draft")]
+                // BDSM
+                if mode == 8 {
+                    trace!("Re-enabling BiDi implicit mode");
+                    self.grid.cursor.template.remove_bidi_flag(cell::BidiFlags::EXPLICIT_DIRECTION);
+                } else {
+                    debug!("Ignoring unknown mode {} in set_mode", mode);
+                }
+                #[cfg(not(feature = "bidi_draft"))]
                 debug!("Ignoring unknown mode {} in set_mode", mode);
                 return;
             },
@@ -2082,6 +2194,15 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
             ansi::Mode::Unknown(mode) => {
+                #[cfg(feature = "bidi_draft")]
+                // BDSM
+                if mode == 8 {
+                    trace!("Enabling BiDi explicit mode");
+                    self.grid.cursor.template.insert_bidi_flag(cell::BidiFlags::EXPLICIT_DIRECTION);
+                } else {
+                    debug!("Ignorning unknown mode {} in unset_mode", mode);
+                }
+                #[cfg(not(feature = "bidi_draft"))]
                 debug!("Ignorning unknown mode {} in unset_mode", mode);
                 return;
             },
@@ -3270,4 +3391,276 @@ mod tests {
         assert_eq!(version_number("1.2.3-dev"), 1_02_03);
         assert_eq!(version_number("999.99.99"), 9_99_99_99);
     }
+}
+
+#[cfg(feature = "bidi_draft")]
+#[cfg(test)]
+mod bidi_tests {
+    use super::*;
+    use std::iter;
+
+    use crate::event::VoidListener;
+    use crate::index::{Column as C, Line as L, Point as P};
+    use crate::term::cell::{BidiDir, BidiMode};
+    use crate::term::test::TermSize;
+
+    fn line_input(term: &mut Term<VoidListener>, s: impl Into<String>) {
+        iter::repeat(s.into().chars()).flatten().take(term.columns()).for_each(|ch| term.input(ch));
+    }
+
+    fn line_match(term: &Term<VoidListener>, l: L, s: impl Into<String>) {
+        let s = s.into();
+        let text = term.bounds_to_string(P::new(l, C(0)), P::new(l, C(term.columns())));
+        assert_eq!(text, s.repeat(term.columns() / s.chars().count()));
+    }
+
+    #[test]
+    fn bidi_modes() {
+        let size = TermSize::new(20, 5);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        // Starts in implicit default (non-auto)
+        line_input(&mut term, 'D');
+
+        // Set auto-dir
+        term.set_private_mode(PrivateMode::Unknown(2501));
+        line_input(&mut term, 'A');
+
+        // Explicit overrides all
+        term.unset_mode(ansi::Mode::Unknown(8));
+        line_input(&mut term, 'E');
+
+        // Back to implicit auto
+        term.set_mode(ansi::Mode::Unknown(8));
+        line_input(&mut term, 'A');
+
+        // Unset auto
+        term.unset_private_mode(PrivateMode::Unknown(2501));
+        line_input(&mut term, 'D');
+
+        // ================================================== //
+        // ===================== Output ===================== //
+        // ================================================== //
+
+        // Default
+        line_match(&term, L(0), 'D');
+        assert_eq!(term.grid[L(0)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+
+        // Set auto
+        line_match(&term, L(1), 'A');
+        assert_eq!(term.grid[L(1)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+
+        // Unset implicit => explicit
+        line_match(&term, L(2), 'E');
+        assert_eq!(term.grid[L(2)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::Default
+        });
+
+        // Set implicit => auto again
+        line_match(&term, L(3), 'A');
+        assert_eq!(term.grid[L(3)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+
+        // Unset auto => default again
+        line_match(&term, L(4), 'D');
+        assert_eq!(term.grid[L(4)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+    }
+
+    #[test]
+    fn bidi_dirs() {
+        let size = TermSize::new(20, 18);
+        let mut term = Term::new(Config::default(), &size, VoidListener);
+
+        // === Implicit (default) mode === //
+
+        // Starts in Default dir
+        line_input(&mut term, "ID");
+
+        // Set LTR
+        term.set_scp(ScpCharPath::LTR, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "IL");
+
+        // Set RTL
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "IR");
+
+        // Back To Default
+        term.set_scp(ScpCharPath::Default, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "ID");
+
+        // Unhandled update modes (no effect)
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::DataToPresentation);
+        line_input(&mut term, "ID");
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::PresentationToData);
+        line_input(&mut term, "ID");
+
+        // === Implicit auto-dir === //
+        term.set_private_mode(PrivateMode::Unknown(2501));
+
+        // Starts in Default dir
+        line_input(&mut term, "AD");
+
+        // Set LTR
+        term.set_scp(ScpCharPath::LTR, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "AL");
+
+        // Set RTL
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "AR");
+
+        // Back To Default
+        term.set_scp(ScpCharPath::Default, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "AD");
+
+        // Unhandled update modes (no effect)
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::DataToPresentation);
+        line_input(&mut term, "AD");
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::PresentationToData);
+        line_input(&mut term, "AD");
+
+        // === Explicit === //
+        term.unset_mode(ansi::Mode::Unknown(8));
+
+        // Starts in Default dir
+        line_input(&mut term, "ED");
+
+        // Set LTR
+        term.set_scp(ScpCharPath::LTR, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "EL");
+
+        // Set RTL
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "ER");
+
+        // Back To Default
+        term.set_scp(ScpCharPath::Default, ScpUpdateMode::ImplementationDependant);
+        line_input(&mut term, "ED");
+
+        // Unhandled update modes (no effect)
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::DataToPresentation);
+        line_input(&mut term, "ED");
+        term.set_scp(ScpCharPath::RTL, ScpUpdateMode::PresentationToData);
+        line_input(&mut term, "ED");
+
+        // ================================================== //
+        // ===================== Output ===================== //
+        // ================================================== //
+
+        // === Implicit (default) mode === //
+
+        // Default
+        line_match(&term, L(0), "ID");
+        assert_eq!(term.grid[L(0)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+
+        // LTR
+        line_match(&term, L(1), "IL");
+        assert_eq!(term.grid[L(1)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::LTR
+        });
+
+        // RTL
+        line_match(&term, L(2), "IR");
+        assert_eq!(term.grid[L(2)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::RTL
+        });
+
+        // Back To Default
+        line_match(&term, L(3), "ID");
+        assert_eq!(term.grid[L(3)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+
+        // Unhandled update modes (no effect)
+        line_match(&term, L(4), "ID");
+        assert_eq!(term.grid[L(4)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+        line_match(&term, L(5), "ID");
+        assert_eq!(term.grid[L(5)][C(0)].bidi_mode(), BidiMode::Implicit {
+            para_dir: BidiDir::Default
+        });
+
+        // === Implicit auto-dir === //
+
+        // Default
+        line_match(&term, L(6), "AD");
+        assert_eq!(term.grid[L(6)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+
+        // LTR
+        line_match(&term, L(7), "AL");
+        assert_eq!(term.grid[L(7)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::LTR
+        });
+
+        // RTL
+        line_match(&term, L(8), "AR");
+        assert_eq!(term.grid[L(8)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::RTL
+        });
+
+        // Back To Default
+        line_match(&term, L(9), "AD");
+        assert_eq!(term.grid[L(9)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+
+        // Unhandled update modes (no effect)
+        line_match(&term, L(10), "AD");
+        assert_eq!(term.grid[L(10)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+        line_match(&term, L(11), "AD");
+        assert_eq!(term.grid[L(11)][C(0)].bidi_mode(), BidiMode::Auto {
+            fallback_para_dir: BidiDir::Default
+        });
+
+        // === Explicit === //
+
+        // Default
+        line_match(&term, L(12), "ED");
+        assert_eq!(term.grid[L(12)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::Default
+        });
+
+        // LTR
+        line_match(&term, L(13), "EL");
+        assert_eq!(term.grid[L(13)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::LTR
+        });
+
+        // RTL
+        line_match(&term, L(14), "ER");
+        assert_eq!(term.grid[L(14)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::RTL
+        });
+
+        // Back To Default
+        line_match(&term, L(15), "ED");
+        assert_eq!(term.grid[L(15)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::Default
+        });
+
+        // Unhandled update modes (no effect)
+        line_match(&term, L(16), "ED");
+        assert_eq!(term.grid[L(16)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::Default
+        });
+        line_match(&term, L(17), "ED");
+        assert_eq!(term.grid[L(17)][C(0)].bidi_mode(), BidiMode::Explicit {
+            forced_dir: BidiDir::Default
+        });
+    }
+
+    // TODO: box mirroring, arrow swapping
 }
