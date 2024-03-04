@@ -291,7 +291,7 @@ impl<T> Index<RangeToInclusive<Column>> for Row<T> {
 impl<T> IndexMut<RangeToInclusive<Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: RangeToInclusive<Column>) -> &mut [T] {
-        self.occ = max(self.occ, *index.end);
+        self.occ = max(self.occ, *index.end + 1);
         &mut self.inner[..=(index.end.0)]
     }
 }

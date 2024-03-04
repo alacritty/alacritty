@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.72.0
+
 ### Added
 
 - Default `Home`/`End` bindings in Vi mode mapped to `First`/`Last` respectively
@@ -18,6 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - C0 and C1 codes being emitted in associated text when using kitty keyboard
 - Occasional hang on startup with some Wayland compositors
 - Missing key for `NumpadDecimal` in key bindings
+- Scrolling content upwards moving lines into history when it shouldn't
+- Sticky keys not working sometimes on X11
+- Modifiers occasionally getting desynced on X11
+- Autokey no longer working with alacritty on X11
+- Freeze when moving window between monitors on Xfwm
+- Mouse cursor not changing on Wayland when cursor theme uses legacy cursor icon names
+- Config keys are available under proper names
+- Build failure when compiling with x11 feature on NetBSD
 
 ### Changed
 
