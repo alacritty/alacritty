@@ -6,7 +6,7 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::IntoRawHandle;
 use std::{mem, ptr};
 
-use windows_sys::core::{IInspectable, HRESULT, PWSTR};
+use windows_sys::core::{HRESULT, PWSTR};
 use windows_sys::Win32::Foundation::{HANDLE, S_OK};
 use windows_sys::Win32::System::Console::{
     ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole, COORD, HPCON,
@@ -208,7 +208,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     let custom_env_block_pointer = match &custom_env_block {
         Some(custom_env_block) => {
             creation_flags |= CREATE_UNICODE_ENVIRONMENT;
-            custom_env_block.as_ptr() as IInspectable
+            custom_env_block.as_ptr() as *mut std::ffi::c_void
         },
         None => ptr::null_mut(),
     };
