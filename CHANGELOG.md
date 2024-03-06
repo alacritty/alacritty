@@ -487,7 +487,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Performance of scrolling regions with offset from the bottom
 - Extra mouse buttons are no longer ignored on Wayland
 - Numpad arrow keys are now properly recognized on Wayland
-- Compilation when targetting aarch64-apple-darwin
+- Compilation when targeting aarch64-apple-darwin
 - Window not being completely opaque on Windows
 - Window being always on top during alt-tab on Windows
 - Cursor position not reported to apps when mouse is moved with button held outside of window
