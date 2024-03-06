@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::io::Error;
+use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -43,7 +44,7 @@ pub struct ChildExitWatcher {
     event_rx: mpsc::Receiver<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
     child_handle: HANDLE,
-    pid: u32,
+    pid: Option<NonZeroU32>,
 }
 
 impl ChildExitWatcher {
@@ -68,7 +69,7 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
-            let pid = unsafe { GetProcessId(child_handle) };
+            let pid = unsafe { NonZeroU32::new(GetProcessId(child_handle)) };
             Ok(ChildExitWatcher {
                 wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
                 event_rx,
@@ -102,7 +103,7 @@ impl ChildExitWatcher {
     }
 
     /// Retrieve the Process ID associated to the underlying child process.
-    pub fn pid(&self) -> u32 {
+    pub fn pid(&self) -> Option<NonZeroU32> {
         self.pid
     }
 }
