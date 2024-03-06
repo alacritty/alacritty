@@ -93,9 +93,11 @@ impl ChildExitWatcher {
     }
 
     /// Retrieve the process handle of the underlying child process.
+    ///
     /// This function does **not** pass ownership of the raw handle to you,
     /// and the handle is only guaranteed to be valid while the hosted application
     /// has not yet been destroyed.
+    ///
     /// If you terminate the process using this handle, the terminal will get a
     /// timeout error, and the child watcher will emit an `Exited` event.
     pub fn raw_handle(&self) -> HANDLE {
