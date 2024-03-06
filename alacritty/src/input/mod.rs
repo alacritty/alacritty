@@ -956,9 +956,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
             MouseButton::Middle => self.ctx.mouse_mut().middle_button_state = state,
             MouseButton::Right => self.ctx.mouse_mut().right_button_state = state,
-            MouseButton::Back => self.ctx.mouse_mut().back_button_state = state,
-            MouseButton::Forward => self.ctx.mouse_mut().forward_button_state = state,
-            _ => self.ctx.mouse_mut().other_button_state = state,
+            _ => {
+                let code = match button {
+                    MouseButton::Back => 8,
+                    MouseButton::Forward => 9,
+                    MouseButton::Other(x) => match x {
+                        6 | 7 => (x + 64) as u8,
+                        10 | 11 => (x + 128) as u8,
+                        _ => x as u8,
+                    },
+                    _ => return,
+                };
+                self.mouse_report(code, ElementState::Pressed)
+            },
         }
 
         // Skip normal mouse events if the message bar has been clicked.
