@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::io::Error;
+use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -8,7 +9,7 @@ use polling::{Event, Poller};
 
 use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
 use windows_sys::Win32::System::Threading::{
-    RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
+    GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
     WT_EXECUTEONLYONCE,
 };
 
@@ -42,6 +43,8 @@ pub struct ChildExitWatcher {
     wait_handle: AtomicPtr<c_void>,
     event_rx: mpsc::Receiver<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
+    child_handle: HANDLE,
+    pid: Option<NonZeroU32>,
 }
 
 impl ChildExitWatcher {
@@ -66,10 +69,13 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
+            let pid = unsafe { NonZeroU32::new(GetProcessId(child_handle)) };
             Ok(ChildExitWatcher {
                 wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
                 event_rx,
                 interest,
+                child_handle,
+                pid,
             })
         }
     }
@@ -84,6 +90,23 @@ impl ChildExitWatcher {
 
     pub fn deregister(&self) {
         *self.interest.lock().unwrap() = None;
+    }
+
+    /// Retrieve the process handle of the underlying child process.
+    ///
+    /// This function does **not** pass ownership of the raw handle to you,
+    /// and the handle is only guaranteed to be valid while the hosted application
+    /// has not yet been destroyed.
+    ///
+    /// If you terminate the process using this handle, the terminal will get a
+    /// timeout error, and the child watcher will emit an `Exited` event.
+    pub fn raw_handle(&self) -> HANDLE {
+        self.child_handle
+    }
+
+    /// Retrieve the Process ID associated to the underlying child process.
+    pub fn pid(&self) -> Option<NonZeroU32> {
+        self.pid
     }
 }
 
