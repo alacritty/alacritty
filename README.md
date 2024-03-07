@@ -40,10 +40,54 @@ You can find an overview over the features available in Alacritty [here](./docs/
 ## Installation
 
 Alacritty can be installed by using various package managers on Linux, BSD,
-macOS and Windows.
+macOS and Windows. 
+However, it is not in Debian's apt package manager.
+See the installation instructions below.
 
 Prebuilt binaries for macOS and Windows can also be downloaded from the
 [GitHub releases page](https://github.com/alacritty/alacritty/releases).
+
+#### Debian, and Debian-based distributions:
+
+#### 1. Run the installation script
+```sh
+curl -LO https://raw.githubusercontent.com/LinuxUser255/alacritty/master/scripts/alacritty_install.sh
+sh alacritty_install.sh
+```
+
+#### 2. Setting up the configuration file `alacritty.toml`
+
+The `alacritty.toml` goes in `~/.config/alacritty`.
+You will have to make the alacritty directory yourself.
+
+After you have made the `.config/alacritty` directory, then `curl -LO` which ever config you want listed below, and move it to `~/.config/alacritty`
+Remember, do this from your home directory.
+
+</br>
+
+Making the alacritty directory in your `.config` directory
+```sh
+mkdir .config/alacritty
+```
+</br>
+
+Move the `alacritty.toml` to the `.config/alacritty` directory
+```bash
+mv alacritty.toml -t  ~/.config/alacritty
+```
+</br>
+
+This is a generic `alacritty.toml`
+```sh
+curl -LO https://raw.githubusercontent.com/LinuxUser255/alacritty/master/config/alacritty.toml
+```
+</br>
+
+This is a custom config:
+```sh
+curl -LO https://raw.githubusercontent.com/LinuxUser255/BashAndLinux/main/Alacritty/alacritty.toml
+```
+</br>
 
 For everyone else, the detailed instructions to install Alacritty can be found
 [here](INSTALL.md).
