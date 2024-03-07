@@ -261,15 +261,15 @@ where
                         tty::PTY_CHILD_EVENT_TOKEN => {
                             if let Some(tty::ChildEvent::Exited(code)) = self.pty.next_child_event()
                             {
+                                if let Some(code) = code {
+                                    self.event_proxy.send_event(Event::ChildExit(code));
+                                }
                                 if self.hold {
                                     // With hold enabled, make sure the PTY is drained.
                                     let _ = self.pty_read(&mut state, &mut buf, pipe.as_mut());
                                 } else {
                                     // Without hold, shutdown the terminal.
                                     self.terminal.lock().exit();
-                                }
-                                if let Some(code) = code {
-                                    self.event_proxy.send_event(Event::ChildExit(code));
                                 }
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
