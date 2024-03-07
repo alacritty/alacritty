@@ -241,33 +241,51 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     Some(Pty::new(conpty, conout, conin, child_watcher))
 }
 
+// https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessa#parameters
+// https://learn.microsoft.com/sk-SK/previous-versions/troubleshoot/windows/win32/createprocess-cannot-eliminate-duplicate-variables#environment-variables
 fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> {
-    let mut result = Vec::new();
+    // Windows inherits parent's env when no `lpEnvironment` parameter is specified.
     if custom_env.is_empty() {
         return None;
     }
 
+    let mut converted_block = Vec::new();
     let mut all_env_keys = HashSet::new();
     for (custom_key, custom_value) in custom_env {
         let custom_key = OsStr::new(custom_key);
         if all_env_keys.insert(custom_key.to_ascii_uppercase()) {
-            result.extend(custom_key.encode_wide());
-            result.push('=' as u16);
-            result.extend(OsStr::new(custom_value).encode_wide());
-            result.push(0);
+            add_windows_env_key_value_to_block(
+                &mut converted_block,
+                &custom_key,
+                OsStr::new(&custom_value),
+            );
         }
     }
+
+    // Pull the current a process environment after to not overwrite user provided one.
     for (inherited_key, inherited_value) in std::env::vars_os() {
         if all_env_keys.insert(inherited_key.to_ascii_uppercase()) {
-            result.extend(inherited_key.encode_wide());
-            result.push('=' as u16);
-            result.extend(inherited_value.encode_wide());
-            result.push(0);
+            add_windows_env_key_value_to_block(
+                &mut converted_block,
+                &inherited_key,
+                &inherited_value,
+            );
         }
     }
-    result.push(0);
 
-    Some(result)
+    converted_block.push(0);
+    Some(converted_block)
+}
+
+// According to the `lpEnvironment` parameter description in the link above:
+// > An environment block consists of a null-terminated block of null-terminated strings. Each string is in the following form:
+// >
+// > name=value\0
+fn add_windows_env_key_value_to_block(block: &mut Vec<u16>, key: &OsStr, alue: &OsStr) {
+    block.extend(key.encode_wide());
+    block.push('=' as u16);
+    block.extend(value.encode_wide());
+    block.push(0);
 }
 
 // Panic with the last os error as message.
