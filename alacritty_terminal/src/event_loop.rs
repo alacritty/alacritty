@@ -259,7 +259,8 @@ where
                 for event in events.iter() {
                     match event.key {
                         tty::PTY_CHILD_EVENT_TOKEN => {
-                            if let Some(tty::ChildEvent::Exited(code)) = self.pty.next_child_event()
+                            if let Some(tty::ChildEvent::Exited(success)) =
+                                self.pty.next_child_event()
                             {
                                 if self.hold {
                                     // With hold enabled, make sure the PTY is drained.
@@ -268,9 +269,7 @@ where
                                     // Without hold, shutdown the terminal.
                                     self.terminal.lock().exit();
                                 }
-                                if let Some(code) = code {
-                                    self.event_proxy.send_event(Event::ExitCode(code));
-                                }
+                                self.event_proxy.send_event(Event::ChildExit(success));
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }
