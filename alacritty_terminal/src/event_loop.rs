@@ -269,7 +269,7 @@ where
                                     self.terminal.lock().exit();
                                 }
                                 if let Some(code) = code {
-                                    self.event_proxy.send_event(Event::ExitCode(code));
+                                    self.event_proxy.send_event(Event::ChildExit(code));
                                 }
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
