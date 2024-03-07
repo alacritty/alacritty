@@ -1,4 +1,5 @@
 # Configuration for Alacritty, the GPU enhanced terminal emulator.
+
 # Place in  ~/.config/alacritty
 # This is a generic config for Alacritty
 # Any items in the `env` entry below will be added as
