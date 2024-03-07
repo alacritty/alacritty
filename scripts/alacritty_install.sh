@@ -17,9 +17,9 @@
 # mkdir .config/alacritty
 #
 # This is a generic alacritty.toml
-# curl -LO https://raw.githubusercontent.com/LinuxUser255/BashAndLinux/main/Alacritty/configs/alacritty.toml
+# curl -LO https://raw.githubusercontent.com/LinuxUser255/alacritty/master/config/alacritty.toml
 #
-# This one is my custom config:
+# This is custom config:
 # curl -LO https://raw.githubusercontent.com/LinuxUser255/BashAndLinux/main/Alacritty/alacritty.toml
 #
 #
