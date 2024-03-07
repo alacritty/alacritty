@@ -36,8 +36,8 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     let child_handle = event_tx.child_handle.load(Ordering::Relaxed) as HANDLE;
     let mut exit_code = 0_u32;
     let status = unsafe { GetExitCodeProcess(child_handle, &mut exit_code) };
-    let sucess = status > 0 && exit_code == 0;
-    let _ = event_tx.sender.send(ChildEvent::Exited(sucess));
+    let exit_code = if status > 0 { Some(exit_code as i32) } else { None };
+    let _ = event_tx.sender.send(ChildEvent::Exited(exit_code));
     let interest = event_tx.interest.lock().unwrap();
     if let Some(interest) = interest.as_ref() {
         interest.poller.post(CompletionPacket::new(interest.event)).ok();
@@ -156,8 +156,8 @@ mod tests {
         // Verify that at least one `ChildEvent::Exited` was received.
         assert_eq!(
             child_exit_watcher.event_rx().try_recv(),
-            Ok(ChildEvent::Exited(false)),
-            "Killed process should report finishing unsuccessfully"
+            Ok(ChildEvent::Exited(Some(1))),
+            "Killed process should report non-zero exit code"
         );
     }
 }

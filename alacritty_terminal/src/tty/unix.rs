@@ -381,7 +381,7 @@ impl EventedPty for Pty {
                 None
             },
             Ok(None) => None,
-            Ok(exit_status) => Some(ChildEvent::Exited(exit_status.map_or(false, |s| s.success()))),
+            Ok(exit_status) => Some(ChildEvent::Exited(exit_status.and_then(|s| s.code()))),
         }
     }
 }

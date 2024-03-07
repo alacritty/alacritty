@@ -53,8 +53,8 @@ pub enum Event {
     /// Shutdown request.
     Exit,
 
-    /// Child process exited, successfully or not.
-    ChildExit(bool),
+    /// Child process exited with an error code.
+    ExitCode(i32),
 }
 
 impl Debug for Event {
@@ -72,7 +72,7 @@ impl Debug for Event {
             Event::Wakeup => write!(f, "Wakeup"),
             Event::Bell => write!(f, "Bell"),
             Event::Exit => write!(f, "Exit"),
-            Event::ChildExit(sucess) => write!(f, "ChildExit({sucess})"),
+            Event::ExitCode(code) => write!(f, "ExitCode({code})"),
         }
     }
 }
