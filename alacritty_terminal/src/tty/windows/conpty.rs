@@ -256,7 +256,7 @@ fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> 
         if all_env_keys.insert(custom_key.to_ascii_uppercase()) {
             add_windows_env_key_value_to_block(
                 &mut converted_block,
-                &custom_key,
+                custom_key,
                 OsStr::new(&custom_value),
             );
         }
@@ -278,10 +278,11 @@ fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> 
 }
 
 // According to the `lpEnvironment` parameter description in the link above:
-// > An environment block consists of a null-terminated block of null-terminated strings. Each string is in the following form:
+// > An environment block consists of a null-terminated block of null-terminated strings. Each
+// string is in the following form:
 // >
 // > name=value\0
-fn add_windows_env_key_value_to_block(block: &mut Vec<u16>, key: &OsStr, alue: &OsStr) {
+fn add_windows_env_key_value_to_block(block: &mut Vec<u16>, key: &OsStr, value: &OsStr) {
     block.extend(key.encode_wide());
     block.push('=' as u16);
     block.extend(value.encode_wide());
