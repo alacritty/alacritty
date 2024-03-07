@@ -47,6 +47,10 @@ impl Pty {
     ) -> Self {
         Self { backend: backend.into(), conout: conout.into(), conin: conin.into(), child_watcher }
     }
+
+    pub fn child_watcher(&self) -> &ChildExitWatcher {
+        &self.child_watcher
+    }
 }
 
 fn with_key(mut event: Event, key: usize) -> Event {
