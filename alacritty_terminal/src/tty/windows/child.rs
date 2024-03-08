@@ -7,7 +7,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use polling::os::iocp::{CompletionPacket, PollerIocpExt};
 use polling::{Event, Poller};
 
-use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
+use windows_sys::Win32::Foundation::{BOOLEAN, FALSE, HANDLE};
 use windows_sys::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE,
     WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
@@ -37,7 +37,7 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     let mut exit_code = 0_u32;
     let child_handle = event_tx.child_handle.load(Ordering::Relaxed) as HANDLE;
     let status = unsafe { GetExitCodeProcess(child_handle, &mut exit_code) };
-    let exit_code = if status > 0 { Some(exit_code as i32) } else { None };
+    let exit_code = if status == FALSE { None } else { Some(exit_code as i32) };
     event_tx.sender.send(ChildEvent::Exited(exit_code)).ok();
 
     let interest = event_tx.interest.lock().unwrap();
