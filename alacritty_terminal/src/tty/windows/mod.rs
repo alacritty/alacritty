@@ -115,7 +115,7 @@ impl EventedPty for Pty {
         match self.child_watcher.event_rx().try_recv() {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),
+            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited(None)),
         }
     }
 }
