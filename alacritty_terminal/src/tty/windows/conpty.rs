@@ -241,8 +241,9 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     Some(Pty::new(conpty, conout, conin, child_watcher))
 }
 
-// https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessa#parameters
-// https://learn.microsoft.com/sk-SK/previous-versions/troubleshoot/windows/win32/createprocess-cannot-eliminate-duplicate-variables#environment-variables
+// Windows environment variables are case-insensitive, and
+// https://learn.microsoft.com/en-us/previous-versions/troubleshoot/windows/win32/createprocess-cannot-eliminate-duplicate-variables#environment-variables
+// mentions that the caller is responsible for deduplicating environment variables, so do that here while converting.
 fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> {
     // Windows inherits parent's env when no `lpEnvironment` parameter is specified.
     if custom_env.is_empty() {
@@ -277,7 +278,9 @@ fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> 
     Some(converted_block)
 }
 
-// According to the `lpEnvironment` parameter description in the link above:
+// According to the `lpEnvironment` parameter description:
+// https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessa#parameters
+//
 // > An environment block consists of a null-terminated block of null-terminated strings. Each
 // string is in the following form:
 // >
