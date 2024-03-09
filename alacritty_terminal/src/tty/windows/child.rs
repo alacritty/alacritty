@@ -7,10 +7,10 @@ use std::sync::{mpsc, Arc, Mutex};
 use polling::os::iocp::{CompletionPacket, PollerIocpExt};
 use polling::{Event, Poller};
 
-use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
+use windows_sys::Win32::Foundation::{BOOLEAN, FALSE, HANDLE};
 use windows_sys::Win32::System::Threading::{
-    GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
-    WT_EXECUTEONLYONCE,
+    GetExitCodeProcess, GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE,
+    WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
 };
 
 use crate::tty::ChildEvent;
@@ -23,6 +23,7 @@ struct Interest {
 struct ChildExitSender {
     sender: mpsc::Sender<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
+    child_handle: AtomicPtr<c_void>,
 }
 
 /// WinAPI callback to run when child process exits.
@@ -32,7 +33,13 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     }
 
     let event_tx: Box<_> = unsafe { Box::from_raw(ctx as *mut ChildExitSender) };
-    let _ = event_tx.sender.send(ChildEvent::Exited);
+
+    let mut exit_code = 0_u32;
+    let child_handle = event_tx.child_handle.load(Ordering::Relaxed) as HANDLE;
+    let status = unsafe { GetExitCodeProcess(child_handle, &mut exit_code) };
+    let exit_code = if status == FALSE { None } else { Some(exit_code as i32) };
+    event_tx.sender.send(ChildEvent::Exited(exit_code)).ok();
+
     let interest = event_tx.interest.lock().unwrap();
     if let Some(interest) = interest.as_ref() {
         interest.poller.post(CompletionPacket::new(interest.event)).ok();
@@ -53,7 +60,11 @@ impl ChildExitWatcher {
 
         let mut wait_handle: HANDLE = 0;
         let interest = Arc::new(Mutex::new(None));
-        let sender_ref = Box::new(ChildExitSender { sender: event_tx, interest: interest.clone() });
+        let sender_ref = Box::new(ChildExitSender {
+            sender: event_tx,
+            interest: interest.clone(),
+            child_handle: AtomicPtr::from(child_handle as *mut c_void),
+        });
 
         let success = unsafe {
             RegisterWaitForSingleObject(
@@ -145,6 +156,6 @@ mod tests {
         poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         assert_eq!(events.iter().next().unwrap().key, PTY_CHILD_EVENT_TOKEN);
         // Verify that at least one `ChildEvent::Exited` was received.
-        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
+        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited(Some(1))));
     }
 }
