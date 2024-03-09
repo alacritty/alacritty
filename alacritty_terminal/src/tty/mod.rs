@@ -67,8 +67,8 @@ pub trait EventedReadWrite {
 /// Events concerning TTY child processes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
-    /// Indicates the child has exited.
-    Exited,
+    /// Indicates the child has exited, with an error code if available.
+    Exited(Option<i32>),
 }
 
 /// A pseudoterminal (or PTY).
