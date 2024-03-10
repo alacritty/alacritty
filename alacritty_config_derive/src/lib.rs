@@ -1,5 +1,5 @@
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use)]
-#![cfg_attr(feature = "cargo-clippy", deny(warnings))]
+#![cfg_attr(clippy, deny(warnings))]
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
