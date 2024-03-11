@@ -241,9 +241,9 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     Some(Pty::new(conpty, conout, conin, child_watcher))
 }
 
-// Windows environment variables are case-insensitive, and
+// Windows environment variables are case-insensitive, and the caller is responsible for deduplicating environment variables, so do that here while converting.
+//
 // https://learn.microsoft.com/en-us/previous-versions/troubleshoot/windows/win32/createprocess-cannot-eliminate-duplicate-variables#environment-variables
-// mentions that the caller is responsible for deduplicating environment variables, so do that here while converting.
 fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> {
     // Windows inherits parent's env when no `lpEnvironment` parameter is specified.
     if custom_env.is_empty() {
@@ -263,7 +263,7 @@ fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> 
         }
     }
 
-    // Pull the current a process environment after to not overwrite user provided one.
+    // Pull the current process environment after, to avoid overwriting the user provided one.
     for (inherited_key, inherited_value) in std::env::vars_os() {
         if all_env_keys.insert(inherited_key.to_ascii_uppercase()) {
             add_windows_env_key_value_to_block(
