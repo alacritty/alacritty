@@ -201,6 +201,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
         }
     }
 
+    // Prepare child process creation arguments.
     let cmdline = win32_string(&cmdline(config));
     let cwd = config.working_directory.as_ref().map(win32_string);
     let mut creation_flags = EXTENDED_STARTUPINFO_PRESENT;
@@ -212,6 +213,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
         },
         None => ptr::null_mut(),
     };
+
     let mut proc_info: PROCESS_INFORMATION = unsafe { mem::zeroed() };
     unsafe {
         success = CreateProcessW(
