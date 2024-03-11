@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::Error;
@@ -256,12 +256,17 @@ fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> 
     let mut converted_block = Vec::new();
     let mut all_env_keys = HashSet::new();
     for (custom_key, custom_value) in custom_env {
-        let custom_key = OsStr::new(custom_key);
-        if all_env_keys.insert(custom_key.to_ascii_uppercase()) {
+        let custom_key_os = OsStr::new(custom_key);
+        if all_env_keys.insert(custom_key_os.to_ascii_uppercase()) {
             add_windows_env_key_value_to_block(
                 &mut converted_block,
-                custom_key,
+                custom_key_os,
                 OsStr::new(&custom_value),
+            );
+        } else {
+            warn!(
+                "Omitting environment variable pair with duplicate key: \
+                 '{custom_key}={custom_value}'"
             );
         }
     }
