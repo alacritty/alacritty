@@ -41,7 +41,7 @@ serde_yaml = "0.9.25"
 smallvec = { version = "1.13.1", features = ["serde"] }
 toml = "0.8.2"
 unicode-width = "0.1"
-winit = { version = "0.29.12", default-features = false, features = ["rwh_05", "serde"] }
+winit = { version = "0.29.14", default-features = false, features = ["rwh_05", "serde"] }
 
 [build-dependencies]
 gl_generator = "0.14.0"

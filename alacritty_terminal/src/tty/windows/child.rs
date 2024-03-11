@@ -1,15 +1,16 @@
 use std::ffi::c_void;
 use std::io::Error;
+use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
 use polling::os::iocp::{CompletionPacket, PollerIocpExt};
 use polling::{Event, Poller};
 
-use windows_sys::Win32::Foundation::{BOOLEAN, HANDLE};
+use windows_sys::Win32::Foundation::{BOOLEAN, FALSE, HANDLE};
 use windows_sys::Win32::System::Threading::{
-    RegisterWaitForSingleObject, UnregisterWait, INFINITE, WT_EXECUTEINWAITTHREAD,
-    WT_EXECUTEONLYONCE,
+    GetExitCodeProcess, GetProcessId, RegisterWaitForSingleObject, UnregisterWait, INFINITE,
+    WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE,
 };
 
 use crate::tty::ChildEvent;
@@ -22,6 +23,7 @@ struct Interest {
 struct ChildExitSender {
     sender: mpsc::Sender<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
+    child_handle: AtomicPtr<c_void>,
 }
 
 /// WinAPI callback to run when child process exits.
@@ -31,7 +33,13 @@ extern "system" fn child_exit_callback(ctx: *mut c_void, timed_out: BOOLEAN) {
     }
 
     let event_tx: Box<_> = unsafe { Box::from_raw(ctx as *mut ChildExitSender) };
-    let _ = event_tx.sender.send(ChildEvent::Exited);
+
+    let mut exit_code = 0_u32;
+    let child_handle = event_tx.child_handle.load(Ordering::Relaxed) as HANDLE;
+    let status = unsafe { GetExitCodeProcess(child_handle, &mut exit_code) };
+    let exit_code = if status == FALSE { None } else { Some(exit_code as i32) };
+    event_tx.sender.send(ChildEvent::Exited(exit_code)).ok();
+
     let interest = event_tx.interest.lock().unwrap();
     if let Some(interest) = interest.as_ref() {
         interest.poller.post(CompletionPacket::new(interest.event)).ok();
@@ -42,6 +50,8 @@ pub struct ChildExitWatcher {
     wait_handle: AtomicPtr<c_void>,
     event_rx: mpsc::Receiver<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
+    child_handle: HANDLE,
+    pid: Option<NonZeroU32>,
 }
 
 impl ChildExitWatcher {
@@ -50,7 +60,11 @@ impl ChildExitWatcher {
 
         let mut wait_handle: HANDLE = 0;
         let interest = Arc::new(Mutex::new(None));
-        let sender_ref = Box::new(ChildExitSender { sender: event_tx, interest: interest.clone() });
+        let sender_ref = Box::new(ChildExitSender {
+            sender: event_tx,
+            interest: interest.clone(),
+            child_handle: AtomicPtr::from(child_handle as *mut c_void),
+        });
 
         let success = unsafe {
             RegisterWaitForSingleObject(
@@ -66,10 +80,13 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
+            let pid = unsafe { NonZeroU32::new(GetProcessId(child_handle)) };
             Ok(ChildExitWatcher {
                 wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
                 event_rx,
                 interest,
+                child_handle,
+                pid,
             })
         }
     }
@@ -84,6 +101,23 @@ impl ChildExitWatcher {
 
     pub fn deregister(&self) {
         *self.interest.lock().unwrap() = None;
+    }
+
+    /// Retrieve the process handle of the underlying child process.
+    ///
+    /// This function does **not** pass ownership of the raw handle to you,
+    /// and the handle is only guaranteed to be valid while the hosted application
+    /// has not yet been destroyed.
+    ///
+    /// If you terminate the process using this handle, the terminal will get a
+    /// timeout error, and the child watcher will emit an `Exited` event.
+    pub fn raw_handle(&self) -> HANDLE {
+        self.child_handle
+    }
+
+    /// Retrieve the Process ID associated to the underlying child process.
+    pub fn pid(&self) -> Option<NonZeroU32> {
+        self.pid
     }
 }
 
@@ -122,6 +156,6 @@ mod tests {
         poller.wait(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         assert_eq!(events.iter().next().unwrap().key, PTY_CHILD_EVENT_TOKEN);
         // Verify that at least one `ChildEvent::Exited` was received.
-        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
+        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited(Some(1))));
     }
 }

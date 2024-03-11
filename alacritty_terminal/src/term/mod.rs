@@ -1331,7 +1331,7 @@ impl<T: EventListener> Handler for Term<T> {
             return;
         }
 
-        trace!("Attemting to pop {to_pop} keyboard modes from the stack");
+        trace!("Attempting to pop {to_pop} keyboard modes from the stack");
         let new_len = self.keyboard_mode_stack.len().saturating_sub(to_pop as usize);
         self.keyboard_mode_stack.truncate(new_len);
 
