@@ -241,7 +241,8 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     Some(Pty::new(conpty, conout, conin, child_watcher))
 }
 
-// Windows environment variables are case-insensitive, and the caller is responsible for deduplicating environment variables, so do that here while converting.
+// Windows environment variables are case-insensitive, and the caller is responsible for
+// deduplicating environment variables, so do that here while converting.
 //
 // https://learn.microsoft.com/en-us/previous-versions/troubleshoot/windows/win32/createprocess-cannot-eliminate-duplicate-variables#environment-variables
 fn convert_custom_env(custom_env: &HashMap<String, String>) -> Option<Vec<u16>> {
