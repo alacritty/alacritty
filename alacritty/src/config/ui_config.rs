@@ -10,7 +10,7 @@ use alacritty_terminal::term::Config as TermConfig;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
-use serde::{self, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, ModifiersState};
 

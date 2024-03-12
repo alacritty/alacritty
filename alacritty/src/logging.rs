@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 use std::{env, process};
 
-use log::{self, Level, LevelFilter};
+use log::{Level, LevelFilter};
 use winit::event_loop::EventLoopProxy;
 
 use crate::cli::Options;
