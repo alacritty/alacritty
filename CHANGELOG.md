@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mouse cursor not changing on Wayland when cursor theme uses legacy cursor icon names
 - Config keys are available under proper names
 - Build failure when compiling with x11 feature on NetBSD
+- Hint `Select` action selecting the entire line for URL escapes
 
 ### Changed
 

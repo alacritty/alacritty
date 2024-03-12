@@ -1,4 +1,4 @@
-use std::cmp::{max, PartialEq};
+use std::cmp::max;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ops::{Index, IndexMut};
