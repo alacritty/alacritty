@@ -6,18 +6,16 @@ use std::sync::OnceLock;
 use std::{fmt, ptr};
 
 use ahash::RandomState;
+use alacritty_terminal::term::cell::Flags;
 use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
 use log::{debug, error, info, warn, LevelFilter};
-use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::index::Point;
-use alacritty_terminal::term::cell::Flags;
 
 use crate::config::debug::RendererPreference;
 use crate::display::color::Rgb;
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
 use crate::renderer::rects::{RectRenderer, RenderRect};
@@ -41,6 +39,8 @@ macro_rules! cstr {
     };
 }
 pub(crate) use cstr;
+
+use self::text_run::{TextRun, TextRunContent};
 
 /// Whether the OpenGL functions have been loaded.
 pub static GL_FUNS_LOADED: AtomicBool = AtomicBool::new(false);
@@ -179,18 +179,18 @@ impl Renderer {
         Ok(Self { text_renderer, rect_renderer })
     }
 
-    pub fn draw_cells<I: Iterator<Item = RenderableCell>>(
+    pub fn draw_text_runs<I: Iterator<Item = TextRun>>(
         &mut self,
         size_info: &SizeInfo,
         glyph_cache: &mut GlyphCache,
-        cells: I,
+        text_runs: I,
     ) {
         match &mut self.text_renderer {
             TextRendererProvider::Gles2(renderer) => {
-                renderer.draw_cells(size_info, glyph_cache, cells)
+                renderer.draw_text_runs(size_info, glyph_cache, text_runs)
             },
             TextRendererProvider::Glsl3(renderer) => {
-                renderer.draw_cells(size_info, glyph_cache, cells)
+                renderer.draw_text_runs(size_info, glyph_cache, text_runs)
             },
         }
     }
@@ -206,33 +206,21 @@ impl Renderer {
         size_info: &SizeInfo,
         glyph_cache: &mut GlyphCache,
     ) {
-        let mut skip_next = false;
-        let cells = string_chars.enumerate().filter_map(|(i, character)| {
-            if skip_next {
-                skip_next = false;
-                return None;
-            }
+        let string = string_chars.collect::<String>();
+        let count = string.chars().count();
 
-            let mut flags = Flags::empty();
-            if character.width() == Some(2) {
-                flags.insert(Flags::WIDE_CHAR);
-                // Wide character is always followed by a spacer, so skip it.
-                skip_next = true;
-            }
+        // TODO: Wide schar supports
+        let text_runs = [TextRun {
+            line: point.line,
+            span: (point.column, point.column + count - 1),
+            content: TextRunContent { text: string, zero_widths: Vec::new() },
+            fg,
+            bg,
+            bg_alpha: 1.0,
+            flags: Flags::empty(),
+        }];
 
-            Some(RenderableCell {
-                point: Point::new(point.line, point.column + i),
-                character,
-                extra: None,
-                flags: Flags::empty(),
-                bg_alpha: 1.0,
-                fg,
-                bg,
-                underline: fg,
-            })
-        });
-
-        self.draw_cells(size_info, glyph_cache, cells);
+        self.draw_text_runs(size_info, glyph_cache, text_runs.into_iter());
     }
 
     pub fn with_loader<F, T>(&mut self, func: F) -> T

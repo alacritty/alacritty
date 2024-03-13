@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 use std::mem;
 
-use ahash::RandomState;
 use crossfont::Metrics;
 use log::info;
 
@@ -10,12 +8,13 @@ use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 
 use crate::display::color::Rgb;
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderError, ShaderProgram, ShaderVersion};
 use crate::renderer::{self, cstr};
+
+use super::text_run::TextRun;
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {
@@ -31,6 +30,32 @@ pub struct RenderRect {
 impl RenderRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
         RenderRect { kind: RectKind::Normal, x, y, width, height, color, alpha }
+    }
+
+    pub fn from_text_run(
+        text_run: &TextRun,
+        (descent, position, thickness): (f32, f32, f32),
+        size: &SizeInfo,
+    ) -> Self {
+        let start_point = text_run.start_point();
+        let start_x = start_point.column.0 as f32 * size.cell_width();
+        let end_x = (text_run.end_point().column.0 + 1) as f32 * size.cell_width();
+        let width = end_x - start_x;
+        let line_bottom = (start_point.line as f32 + 1.) * size.cell_height();
+        let baseline = line_bottom + descent;
+        let height = thickness.max(1.);
+        let mut y = baseline - position - height / 2.;
+        let max_y = line_bottom - height;
+        y = y.min(max_y);
+
+        RenderRect::new(
+            start_x + size.padding_x(),
+            y + size.padding_y(),
+            width,
+            height,
+            text_run.fg,
+            1.,
+        )
     }
 }
 
@@ -153,77 +178,6 @@ impl RenderLine {
             color,
             1.,
         )
-    }
-}
-
-/// Lines for underline and strikeout.
-#[derive(Default)]
-pub struct RenderLines {
-    inner: HashMap<Flags, Vec<RenderLine>, RandomState>,
-}
-
-impl RenderLines {
-    #[inline]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[inline]
-    pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
-        self.inner
-            .iter()
-            .flat_map(|(flag, lines)| {
-                lines.iter().flat_map(move |line| line.rects(*flag, metrics, size))
-            })
-            .collect()
-    }
-
-    /// Update the stored lines with the next cell info.
-    #[inline]
-    pub fn update(&mut self, cell: &RenderableCell) {
-        self.update_flag(cell, Flags::UNDERLINE);
-        self.update_flag(cell, Flags::DOUBLE_UNDERLINE);
-        self.update_flag(cell, Flags::STRIKEOUT);
-        self.update_flag(cell, Flags::UNDERCURL);
-        self.update_flag(cell, Flags::DOTTED_UNDERLINE);
-        self.update_flag(cell, Flags::DASHED_UNDERLINE);
-    }
-
-    /// Update the lines for a specific flag.
-    fn update_flag(&mut self, cell: &RenderableCell, flag: Flags) {
-        if !cell.flags.contains(flag) {
-            return;
-        }
-
-        // The underline color escape does not apply to strikeout.
-        let color = if flag.contains(Flags::STRIKEOUT) { cell.fg } else { cell.underline };
-
-        // Include wide char spacer if the current cell is a wide char.
-        let mut end = cell.point;
-        if cell.flags.contains(Flags::WIDE_CHAR) {
-            end.column += 1;
-        }
-
-        // Check if there's an active line.
-        if let Some(line) = self.inner.get_mut(&flag).and_then(|lines| lines.last_mut()) {
-            if color == line.color
-                && cell.point.column == line.end.column + 1
-                && cell.point.line == line.end.line
-            {
-                // Update the length of the line.
-                line.end = end;
-                return;
-            }
-        }
-
-        // Start new line if there currently is none.
-        let line = RenderLine { start: cell.point, end, color };
-        match self.inner.get_mut(&flag) {
-            Some(lines) => lines.push(line),
-            None => {
-                self.inner.insert(flag, vec![line]);
-            },
-        }
     }
 }
 

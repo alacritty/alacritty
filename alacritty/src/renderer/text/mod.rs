@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use crossfont::{GlyphId, GlyphKey, RasterizedGlyph};
+use crossfont::{FontKey, GlyphId, GlyphKey, RasterizedGlyph};
 
 use alacritty_terminal::term::cell::Flags;
 
@@ -19,6 +19,8 @@ pub use gles2::Gles2Renderer;
 pub use glsl3::Glsl3Renderer;
 pub use glyph_cache::GlyphCache;
 use glyph_cache::{Glyph, LoadGlyph};
+
+use super::text_run::{TextRun, TextRunContent};
 
 // NOTE: These flags must be in sync with their usage in the text.*.glsl shaders.
 bitflags! {
@@ -54,16 +56,15 @@ pub trait TextRenderer<'a> {
     /// Get loader API for the renderer.
     fn loader_api(&mut self) -> LoaderApi<'_>;
 
-    /// Draw cells.
-    fn draw_cells<'b: 'a, I: Iterator<Item = RenderableCell>>(
+    fn draw_text_runs<'b: 'a, I: Iterator<Item = TextRun>>(
         &'b mut self,
         size_info: &'b SizeInfo,
         glyph_cache: &'a mut GlyphCache,
-        cells: I,
+        text_runs: I,
     ) {
         self.with_api(size_info, |mut api| {
-            for cell in cells {
-                api.draw_cell(cell, glyph_cache, size_info);
+            for text_run in text_runs {
+                api.draw_text_run(text_run, glyph_cache, size_info);
             }
         })
     }
@@ -131,43 +132,100 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
         }
     }
 
-    /// Draw cell.
-    fn draw_cell(
+    fn render_zero_widths<'r, I>(
         &mut self,
-        mut cell: RenderableCell,
+        zero_width_chars: I,
+        cell: &RenderableCell,
+        font_key: FontKey,
         glyph_cache: &mut GlyphCache,
         size_info: &SizeInfo,
-    ) {
-        // Get font key for cell.
-        let font_key = match cell.flags & Flags::BOLD_ITALIC {
+    ) where
+        I: Iterator<Item = &'r char>,
+    {
+        for c in zero_width_chars {
+            let glyph_key =
+                GlyphKey { font_key, size: glyph_cache.font_size, id: GlyphId::char(*c) };
+            let glyph = glyph_cache.get(glyph_key, self, false);
+
+            self.add_render_item(cell, &glyph, size_info);
+        }
+    }
+
+    fn draw_text_run(
+        &mut self,
+        text_run: TextRun,
+        glyph_cache: &mut GlyphCache,
+        size_info: &SizeInfo,
+    ) where
+        Self: Sized,
+    {
+        let TextRunContent { text, zero_widths } = &text_run.content;
+
+        // Get font key for cell
+        let font_key = match text_run.flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
-            Flags::ITALIC => glyph_cache.italic_key,
             Flags::BOLD => glyph_cache.bold_key,
+            Flags::ITALIC => glyph_cache.italic_key,
             _ => glyph_cache.font_key,
         };
 
-        // Ignore hidden cells and render tabs as spaces to prevent font issues.
-        let hidden = cell.flags.contains(Flags::HIDDEN);
-        if cell.character == '\t' || hidden {
-            cell.character = ' ';
-        }
+        let shaped_glyphs = if text_run.flags.contains(Flags::HIDDEN) {
+            GlyphIter::Hidden
+        } else {
+            GlyphIter::Shaped(
+                glyph_cache.shape_run(text, font_key, self).expect("read font").into_iter(),
+            )
+        };
 
-        let mut glyph_key =
-            GlyphKey { font_key, size: glyph_cache.font_size, id: GlyphId::char(cell.character) };
-
-        // Add cell to batch.
-        let glyph = glyph_cache.get(glyph_key, self, true);
-        self.add_render_item(&cell, &glyph, size_info);
-
-        // Render visible zero-width characters.
-        if let Some(zerowidth) =
-            cell.extra.as_mut().and_then(|extra| extra.zerowidth.take().filter(|_| !hidden))
+        for ((mut cell, glyph), zero_width_chars) in
+            text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
         {
-            for character in zerowidth {
-                glyph_key.id = GlyphId::char(character);
-                let glyph = glyph_cache.get(glyph_key, self, false);
-                self.add_render_item(&cell, &glyph, size_info);
+            // Ignore hidden cells and render tabs as spaces to prevent font issues.
+            let hidden = cell.flags.contains(Flags::HIDDEN);
+            if cell.character == '\t' || hidden {
+                cell.character = ' ';
             }
+
+            // Add cell to batch.
+            self.add_render_item(&cell, &glyph, size_info);
+
+            // Add empty spacer for full width characters
+            if text_run.flags.contains(Flags::WIDE_CHAR) {
+                cell.point.column += 1;
+                self.add_render_item(&cell, &Glyph::default(), size_info);
+                cell.point.column -= 1;
+            }
+
+            // Render visible zero-width characters.
+            self.render_zero_widths(
+                zero_width_chars.as_deref().unwrap_or(&[]).iter().filter(|c| **c != ' '),
+                &cell,
+                font_key,
+                glyph_cache,
+                size_info,
+            );
+        }
+    }
+}
+
+/// Abstracts iteration over a run of hidden glyphs or shaped glyphs.
+enum GlyphIter<I> {
+    /// Our run was not hidden and our glyphs were shaped
+    Shaped(I),
+    /// Our run is hidden and was not shaped
+    Hidden,
+}
+
+impl<I> Iterator for GlyphIter<I>
+where
+    I: Iterator<Item = Glyph>,
+{
+    type Item = Glyph;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            GlyphIter::Shaped(inner) => inner.next(),
+            GlyphIter::Hidden => Some(Glyph::default()),
         }
     }
 }

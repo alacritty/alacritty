@@ -1,13 +1,15 @@
 [workspace]
 members = [
-    "alacritty",
-    "alacritty_terminal",
-    "alacritty_config",
-    "alacritty_config_derive",
+  "alacritty",
+  "alacritty_terminal",
+  "alacritty_config",
+  "alacritty_config_derive",
 ]
 resolver = "2"
 
 [profile.release]
-lto = "thin"
-debug = 1
+codegen-units = 1
+debug = false
 incremental = false
+lto = "thin"
+opt-level = 3

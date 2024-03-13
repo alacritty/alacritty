@@ -38,6 +38,7 @@ pub struct StrShortener<'a> {
 }
 
 impl<'a> StrShortener<'a> {
+    #[allow(clippy::iter_skip_zero)]
     pub fn new(
         text: &'a str,
         max_width: usize,

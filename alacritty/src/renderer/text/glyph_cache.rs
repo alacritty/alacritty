@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use ahash::RandomState;
@@ -5,12 +6,13 @@ use crossfont::{
     Error as RasterizerError, FontDesc, FontKey, GlyphId, GlyphKey, Metrics, Rasterize,
     RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
-use harfbuzz_rs::{Feature, Owned};
+use harfbuzz_rs::{Feature, Owned, UnicodeBuffer};
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
 use crate::config::font::{Font, FontDescription};
 use crate::config::ui_config::Delta;
+use crate::config::UiConfig;
 use crate::gl::types::*;
 
 use super::builtin_font;
@@ -26,7 +28,7 @@ pub trait LoadGlyph {
     fn clear(&mut self);
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Glyph {
     pub tex_id: GLuint,
     pub multicolor: bool,
@@ -82,7 +84,11 @@ pub struct GlyphCache {
 }
 
 impl GlyphCache {
-    pub fn new(mut rasterizer: Rasterizer, font: &Font) -> Result<GlyphCache, crossfont::Error> {
+    pub fn new(
+        mut rasterizer: Rasterizer,
+        font: &Font,
+        config: &UiConfig,
+    ) -> Result<GlyphCache, crossfont::Error> {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
@@ -95,7 +101,11 @@ impl GlyphCache {
         })?;
 
         let metrics = rasterizer.metrics(regular, font.size())?;
-
+        let features: Box<[Feature]> = if config.font.ligatures {
+            Box::new([Feature::new(b"liga", 1, ..), Feature::new(b"calt", 1, ..)])
+        } else {
+            Box::new([])
+        };
         Ok(Self {
             cache: Default::default(),
             rasterizer,
@@ -109,8 +119,48 @@ impl GlyphCache {
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
             fonts: Default::default(),
-            font_features: Box::default(),
+            font_features: features,
         })
+    }
+
+    pub fn shape_run<L>(
+        &mut self,
+        text_run: &str,
+        font_key: FontKey,
+        loader: &mut L,
+    ) -> Result<Vec<Glyph>, Box<dyn std::error::Error>>
+    where
+        L: LoadGlyph,
+    {
+        if let Entry::Vacant(v) = self.fonts.entry(font_key) {
+            let path = self.rasterizer.font_path(font_key)?;
+            let face = harfbuzz_rs::Face::from_file(path, 0)?;
+            let font = harfbuzz_rs::Font::new(face);
+            v.insert(font);
+        };
+
+        let font = self.fonts.get(&font_key).unwrap();
+        let buffer = UnicodeBuffer::new().add_str(text_run);
+        let result = harfbuzz_rs::shape(font, buffer, &self.font_features);
+        Ok(result
+            .get_glyph_infos()
+            .iter()
+            .map(move |glyph_info| {
+                let codepoint = glyph_info.codepoint;
+
+                // Codepoint of 0 indicates a missing or undefined glyph
+                let id: crossfont::GlyphId = if codepoint == 0 {
+                    GlyphId::char(
+                        text_run.split_at(glyph_info.cluster as usize).1.chars().next().unwrap(),
+                    )
+                } else {
+                    GlyphId::with_glyph_index(codepoint)
+                };
+
+                let glyph_key = GlyphKey { id, font_key, size: self.font_size };
+                self.get(glyph_key, loader, true)
+            })
+            .collect())
     }
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {

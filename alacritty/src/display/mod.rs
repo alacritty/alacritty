@@ -49,7 +49,8 @@ use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
-use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
+use crate::renderer::rects::{RenderLine, RenderRect};
+use crate::renderer::text_run::{TextRun, TextRunIter};
 use crate::renderer::{self, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
@@ -406,7 +407,7 @@ impl Display {
         let font_size = config.font.size().scale(scale_factor);
         debug!("Loading \"{}\" font", &config.font.normal().family);
         let font = config.font.clone().with_size(font_size);
-        let mut glyph_cache = GlyphCache::new(rasterizer, &font)?;
+        let mut glyph_cache = GlyphCache::new(rasterizer, &font, config)?;
 
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
@@ -725,12 +726,15 @@ impl Display {
         config: &UiConfig,
         search_state: &mut SearchState,
     ) {
+        let highlighted_hint = self.highlighted_hint.as_ref().map(|m| m.bounds().clone());
+        let vi_highlighted_hint = self.vi_highlighted_hint.as_ref().map(|m| m.bounds().clone());
+
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
-        let mut grid_cells = Vec::new();
-        for cell in &mut content {
-            grid_cells.push(cell);
-        }
+        let grid_text_runs: Vec<TextRun> = {
+            TextRunIter::<()>::from_content(&mut content, highlighted_hint, vi_highlighted_hint)
+                .collect()
+        };
         let selection_range = content.selection_range();
         let foreground_color = content.color(NamedColor::Foreground as usize);
         let background_color = content.color(NamedColor::Background as usize);
@@ -783,7 +787,7 @@ impl Display {
         self.make_current();
 
         self.renderer.clear(background_color, config.window_opacity());
-        let mut lines = RenderLines::new();
+        let mut rects: Vec<RenderRect> = Vec::new();
 
         // Optimize loop hint comparator.
         let has_highlighted_hint =
@@ -798,43 +802,12 @@ impl Display {
             self.renderer.set_viewport(&size_info);
 
             let glyph_cache = &mut self.glyph_cache;
-            let highlighted_hint = &self.highlighted_hint;
-            let vi_highlighted_hint = &self.vi_highlighted_hint;
-            let damage_tracker = &mut self.damage_tracker;
 
-            self.renderer.draw_cells(
-                &size_info,
-                glyph_cache,
-                grid_cells.into_iter().map(|mut cell| {
-                    // Underline hints hovered by mouse or vi mode cursor.
-                    let point = term::viewport_to_point(display_offset, cell.point);
+            // TODO: Support damage tracking for text runs.
+            //let damage_tracker = &mut self.damage_tracker;
 
-                    if has_highlighted_hint {
-                        let hyperlink =
-                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
-                        if highlighted_hint
-                            .as_ref()
-                            .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                            || vi_highlighted_hint
-                                .as_ref()
-                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                        {
-                            cell.flags.insert(Flags::UNDERLINE);
-                            // Damage hints for the current and next frames.
-                            damage_tracker.frame().damage_point(cell.point);
-                            damage_tracker.next_frame().damage_point(cell.point);
-                        }
-                    }
-
-                    // Update underline/strikeout.
-                    lines.update(&cell);
-
-                    cell
-                }),
-            );
+            self.renderer.draw_text_runs(&size_info, glyph_cache, grid_text_runs.into_iter());
         }
-
-        let mut rects = lines.rects(&metrics, &size_info);
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
