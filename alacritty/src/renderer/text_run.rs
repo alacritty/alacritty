@@ -1,9 +1,9 @@
 use alacritty_terminal::index::{Column, Line, Point};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::search::Match;
 
 use crate::display::color::Rgb;
 use crate::display::content::{RenderableCell, RenderableContent};
+use crate::display::hint::HintMatch;
 
 #[derive(Debug)]
 struct RunStart {
@@ -100,8 +100,8 @@ pub struct TextRunIter<I> {
     run_start: Option<RunStart>,
     latest_col: Option<LatestCol>,
     display_offset: usize,
-    hint: Option<Match>,
-    vi_hint: Option<Match>,
+    hint: Option<HintMatch>,
+    vi_hint: Option<HintMatch>,
     buffer_text: String,
     buffer_zero_width: Vec<Option<Vec<char>>>,
 }
@@ -112,8 +112,8 @@ type TextRunIterFromContent<'a, 'c> =
 impl<I> TextRunIter<I> {
     pub fn from_content<'a, 'c>(
         content: &'a mut RenderableContent<'c>,
-        hint: Option<Match>,
-        vi_hint: Option<Match>,
+        hint: Option<HintMatch>,
+        vi_hint: Option<HintMatch>,
     ) -> TextRunIterFromContent<'a, 'c> {
         fn check(cell: &RenderableCell) -> bool {
             !cell.flags.contains(Flags::WIDE_CHAR_SPACER)
@@ -133,8 +133,8 @@ where
 {
     pub fn new(
         iter: I,
-        hint: Option<Match>,
-        vi_hint: Option<Match>,
+        hint: Option<HintMatch>,
+        vi_hint: Option<HintMatch>,
         display_offset: usize,
     ) -> Self {
         TextRunIter {
@@ -199,16 +199,17 @@ impl<I> TextRunIter<I> {
         TextRunContent { text, zero_widths }
     }
 
-    fn is_hinted(&self, point: Point<usize>) -> bool {
+    fn is_hinted(&self, cell: &RenderableCell) -> bool {
         fn viewport_to_point(display_offset: usize, point: Point<usize>) -> Point {
             let line = Line(point.line as i32) - display_offset;
             Point::new(line, point.column)
         }
 
-        let pt = viewport_to_point(self.display_offset, point);
+        let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
+        let pt = viewport_to_point(self.display_offset, cell.point);
 
-        self.hint.as_ref().map_or(false, |bounds| bounds.contains(&pt))
-            || self.vi_hint.as_ref().map_or(false, |bounds| bounds.contains(&pt))
+        self.hint.as_ref().map_or(false, |hint| hint.should_highlight(pt, hyperlink))
+            || self.vi_hint.as_ref().map_or(false, |hint| hint.should_highlight(pt, hyperlink))
     }
 
     /// Start a new run by setting latest_col, run_start, and buffering content of rc
@@ -268,9 +269,10 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
         while let Some(mut render_cell) = self.iter.next() {
-            if self.is_hinted(render_cell.point) {
+            if self.is_hinted(&render_cell) {
                 render_cell.flags.insert(Flags::UNDERLINE);
             }
+
             if self.latest_col.is_none() || self.run_start.is_none() {
                 // Initial state, this is should only be hit on the first next() call of
                 // iterator

@@ -726,8 +726,8 @@ impl Display {
         config: &UiConfig,
         search_state: &mut SearchState,
     ) {
-        let highlighted_hint = self.highlighted_hint.as_ref().map(|m| m.bounds().clone());
-        let vi_highlighted_hint = self.vi_highlighted_hint.as_ref().map(|m| m.bounds().clone());
+        let highlighted_hint = self.highlighted_hint.as_ref().cloned();
+        let vi_highlighted_hint = self.vi_highlighted_hint.as_ref().cloned();
 
         // Collect renderable content before the terminal is dropped.
         let mut content = RenderableContent::new(config, self, &terminal, search_state);
@@ -806,7 +806,38 @@ impl Display {
             // TODO: Support damage tracking for text runs.
             //let damage_tracker = &mut self.damage_tracker;
 
-            self.renderer.draw_text_runs(&size_info, glyph_cache, grid_text_runs.into_iter());
+            self.renderer.draw_text_runs(
+                &size_info,
+                glyph_cache,
+                grid_text_runs.into_iter().map(|text_run| {
+                    if text_run.flags.contains(Flags::UNDERLINE) {
+                        let underline_metrics = (
+                            metrics.descent,
+                            metrics.underline_position,
+                            metrics.underline_thickness,
+                        );
+                        rects.push(RenderRect::from_text_run(
+                            &text_run,
+                            underline_metrics,
+                            &size_info,
+                        ));
+                    }
+
+                    if text_run.flags.contains(Flags::STRIKEOUT) {
+                        let strikeout_metrics = (
+                            metrics.descent,
+                            metrics.strikeout_position,
+                            metrics.strikeout_thickness,
+                        );
+                        rects.push(RenderRect::from_text_run(
+                            &text_run,
+                            strikeout_metrics,
+                            &size_info,
+                        ));
+                    }
+                    text_run
+                }),
+            );
         }
 
         if let Some(vi_cursor_point) = vi_cursor_point {
