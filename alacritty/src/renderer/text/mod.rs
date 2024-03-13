@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use crossfont::{GlyphKey, RasterizedGlyph};
+use crossfont::{GlyphId, GlyphKey, RasterizedGlyph};
 
 use alacritty_terminal::term::cell::Flags;
 
@@ -153,7 +153,7 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
         }
 
         let mut glyph_key =
-            GlyphKey { font_key, size: glyph_cache.font_size, character: cell.character };
+            GlyphKey { font_key, size: glyph_cache.font_size, id: GlyphId::char(cell.character) };
 
         // Add cell to batch.
         let glyph = glyph_cache.get(glyph_key, self, true);
@@ -164,7 +164,7 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
             cell.extra.as_mut().and_then(|extra| extra.zerowidth.take().filter(|_| !hidden))
         {
             for character in zerowidth {
-                glyph_key.character = character;
+                glyph_key.id = GlyphId::char(character);
                 let glyph = glyph_cache.get(glyph_key, self, false);
                 self.add_render_item(&cell, &glyph, size_info);
             }

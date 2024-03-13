@@ -2,7 +2,7 @@
 
 use std::{cmp, mem, ops};
 
-use crossfont::{BitmapBuffer, Metrics, RasterizedGlyph};
+use crossfont::{BitmapBuffer, GlyphId, Metrics, RasterizedGlyph};
 
 use crate::config::ui_config::Delta;
 
@@ -95,7 +95,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
 
             let buffer = BitmapBuffer::Rgb(canvas.into_raw());
             return RasterizedGlyph {
-                character,
+                id: GlyphId::char(character),
                 top,
                 left: 0,
                 height: height as i32,
@@ -577,7 +577,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
     let top = height as i32 + metrics.descent as i32;
     let buffer = BitmapBuffer::Rgb(canvas.into_raw());
     RasterizedGlyph {
-        character,
+        id: GlyphId::char(character),
         top,
         left: 0,
         height: height as i32,
@@ -650,7 +650,7 @@ fn powerline_drawing(
     let top = height as i32 + metrics.descent as i32;
     let buffer = BitmapBuffer::Rgb(canvas.into_raw());
     Some(RasterizedGlyph {
-        character,
+        id: GlyphId::char(character),
         top,
         left: 0,
         height: height as i32,

@@ -25,6 +25,8 @@ pub struct Font {
     #[config(removed = "set the AppleFontSmoothing user default instead")]
     pub use_thin_strokes: bool,
 
+    pub ligatures: bool,
+
     /// Normal font face.
     normal: FontDescription,
 
@@ -80,6 +82,7 @@ impl Default for Font {
     fn default() -> Font {
         Self {
             builtin_box_drawing: true,
+            ligatures: true,
             glyph_offset: Default::default(),
             use_thin_strokes: Default::default(),
             bold_italic: Default::default(),

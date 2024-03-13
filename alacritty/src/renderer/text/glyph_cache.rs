@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use ahash::RandomState;
 use crossfont::{
-    Error as RasterizerError, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph,
-    Rasterizer, Size, Slant, Style, Weight,
+    Error as RasterizerError, FontDesc, FontKey, GlyphId, GlyphKey, Metrics, Rasterize,
+    RasterizedGlyph, Rasterizer, Size, Slant, Style, Weight,
 };
+use harfbuzz_rs::{Feature, Owned};
 use log::{error, info};
 use unicode_width::UnicodeWidthChar;
 
@@ -40,12 +41,14 @@ pub struct Glyph {
 }
 
 /// Naïve glyph cache.
-///
-/// Currently only keyed by `char`, and thus not possible to hold different
-/// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs.
     cache: HashMap<GlyphKey, Glyph, RandomState>,
+
+    /// A map of FontKey to harfbuzz Font.
+    fonts: HashMap<FontKey, Owned<harfbuzz_rs::Font<'static>>>,
+
+    font_features: Box<[Feature]>,
 
     /// Rasterizer for loading new glyphs.
     rasterizer: Rasterizer,
@@ -85,7 +88,11 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey {
+            font_key: regular,
+            id: GlyphId::char('m'),
+            size: font.size(),
+        })?;
 
         let metrics = rasterizer.metrics(regular, font.size())?;
 
@@ -101,6 +108,8 @@ impl GlyphCache {
             glyph_offset: font.glyph_offset,
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
+            fonts: Default::default(),
+            font_features: Box::default(),
         })
     }
 
@@ -109,7 +118,7 @@ impl GlyphCache {
 
         // Cache all ascii characters.
         for i in 32u8..=126u8 {
-            self.get(GlyphKey { font_key: font, character: i as char, size }, loader, true);
+            self.get(GlyphKey { font_key: font, id: GlyphId::char(i as char), size }, loader, true);
         }
     }
 
@@ -207,7 +216,7 @@ impl GlyphCache {
             .builtin_box_drawing
             .then(|| {
                 builtin_font::builtin_glyph(
-                    glyph_key.character,
+                    glyph_key.id.as_char().unwrap_or_default(),
                     &self.metrics,
                     &self.font_offset,
                     &self.glyph_offset,
@@ -221,7 +230,7 @@ impl GlyphCache {
             // Load fallback glyph.
             Err(RasterizerError::MissingGlyph(rasterized)) if show_missing => {
                 // Use `\0` as "missing" glyph to cache it only once.
-                let missing_key = GlyphKey { character: '\0', ..glyph_key };
+                let missing_key = GlyphKey { id: GlyphId::char('\0'), ..glyph_key };
                 if let Some(glyph) = self.cache.get(&missing_key) {
                     *glyph
                 } else {
@@ -255,7 +264,7 @@ impl GlyphCache {
         // right side of the preceding character. Since we render the
         // zero-width characters inside the preceding character, the
         // anchor has been moved to the right by one cell.
-        if glyph.character.width() == Some(0) {
+        if glyph.id.as_char().and_then(|c| c.width()) == Some(0) {
             glyph.left += self.metrics.average_advance as i32;
         }
 
@@ -286,7 +295,7 @@ impl GlyphCache {
 
         self.rasterizer.get_glyph(GlyphKey {
             font_key: regular,
-            character: 'm',
+            id: GlyphId::char('m'),
             size: font.size(),
         })?;
         let metrics = self.rasterizer.metrics(regular, font.size())?;

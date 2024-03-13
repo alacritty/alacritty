@@ -27,6 +27,7 @@ pub mod platform;
 pub mod rects;
 mod shader;
 mod text;
+pub mod text_run;
 
 pub use text::{GlyphCache, LoaderApi};
 

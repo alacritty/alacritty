@@ -1,13 +1,13 @@
 [package]
-name = "alacritty"
-version = "0.14.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
-license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
-readme = "README.md"
-homepage = "https://github.com/alacritty/alacritty"
 edition = "2021"
+homepage = "https://github.com/alacritty/alacritty"
+license = "Apache-2.0"
+name = "alacritty"
+readme = "README.md"
 rust-version = "1.72.0"
+version = "0.14.0-dev"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
@@ -22,24 +22,25 @@ path = "../alacritty_config"
 version = "0.2.1-dev"
 
 [dependencies]
-ahash = { version = "0.8.6", features = ["no-rng"] }
+ahash = {version = "0.8.6", features = ["no-rng"]}
 bitflags = "2.2.1"
-clap = { version = "4.2.7", features = ["derive", "env"] }
-copypasta = { version = "0.10.1", default-features = false }
-crossfont = { version = "0.7.0", features = ["force_system_fontconfig"] }
-glutin = { version = "0.31.1", default-features = false, features = ["egl", "wgl"] }
+clap = {version = "4.2.7", features = ["derive", "env"]}
+copypasta = {version = "0.10.1", default-features = false}
+crossfont = {git = "https://www.github.com/haoud/crossfont"}
+glutin = {version = "0.31.1", default-features = false, features = ["egl", "wgl"]}
+harfbuzz_rs = "2.0.1"
 home = "0.5.5"
 libc = "0.2"
-log = { version = "0.4", features = ["std", "serde"] }
+log = {version = "0.4", features = ["std", "serde"]}
 notify = "6.1.1"
 parking_lot = "0.12.0"
 raw-window-handle = "0.5"
-serde = { version = "1", features = ["derive"] }
+serde = {version = "1", features = ["derive"]}
 serde_json = "1"
 serde_yaml = "0.9.25"
 toml = "0.8.2"
 unicode-width = "0.1"
-winit = { version = "0.29.14", default-features = false, features = ["rwh_05", "serde"] }
+winit = {version = "0.29.14", default-features = false, features = ["rwh_05", "serde"]}
 
 [build-dependencies]
 gl_generator = "0.14.0"
@@ -51,7 +52,7 @@ clap_complete = "4.2.3"
 xdg = "2.5.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-png = { version = "0.17.5", default-features = false, optional = true }
+png = {version = "0.17.5", default-features = false, optional = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.25.0"
@@ -59,11 +60,11 @@ objc = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
 dirs = "5.0.1"
-windows-sys = { version = "0.48", features = [
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_System_Threading",
-    "Win32_System_Console",
-    "Win32_Foundation",
+windows-sys = {version = "0.48", features = [
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Threading",
+  "Win32_System_Console",
+  "Win32_Foundation",
 ]}
 
 [target.'cfg(windows)'.build-dependencies]
@@ -71,18 +72,18 @@ embed-resource = "2.2.0"
 
 [features]
 default = ["wayland", "x11"]
-x11 = [
-    "copypasta/x11",
-    "winit/x11",
-    "glutin/x11",
-    "glutin/glx",
-    "png",
-]
-wayland = [
-    "copypasta/wayland",
-    "glutin/wayland",
-    "winit/wayland",
-    "winit/wayland-dlopen",
-    "winit/wayland-csd-adwaita-crossfont",
-]
 nightly = []
+wayland = [
+  "copypasta/wayland",
+  "glutin/wayland",
+  "winit/wayland",
+  "winit/wayland-dlopen",
+  "winit/wayland-csd-adwaita-crossfont",
+]
+x11 = [
+  "copypasta/x11",
+  "winit/x11",
+  "glutin/x11",
+  "glutin/glx",
+  "png",
+]
