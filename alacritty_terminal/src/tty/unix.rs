@@ -11,7 +11,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::{env, ptr};
 
-use libc::{self, c_int, TIOCSCTTY};
+use libc::{c_int, TIOCSCTTY};
 use log::error;
 use polling::{Event, PollMode, Poller};
 use rustix_openpty::openpty;
