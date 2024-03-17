@@ -411,10 +411,12 @@ impl Display {
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
 
-        // Resize the window to account for the user configured size.
         // In macOS, for keeping the window position after resizing
         // at the top left window corner, it must be visible.
+        #[cfg(target_os = "macos")]
         window.set_visible(true);
+
+        // Resize the window to account for the user configured size.
         if let Some(dimensions) = config.window.dimensions() {
             let size = window_size(config, dimensions, cell_width, cell_height, scale_factor);
             window.request_inner_size(size);
@@ -481,6 +483,9 @@ impl Display {
         if config.window.resize_increments {
             window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
         }
+
+        #[cfg(not(target_os = "macos"))]
+        window.set_visible(true);
 
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
