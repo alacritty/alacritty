@@ -32,6 +32,7 @@ impl IntoRects for RenderableCursor {
             CursorShape::Beam => beam(x, y, height, thickness, self.color()),
             CursorShape::Underline => underline(x, y, width, height, thickness, self.color()),
             CursorShape::HollowBlock => hollow(x, y, width, height, thickness, self.color()),
+            CursorShape::Block => block(),
             _ => CursorRects::default(),
         }
     }
@@ -89,4 +90,10 @@ fn hollow(x: f32, y: f32, width: f32, height: f32, thickness: f32, color: Rgb) -
         rects: [Some(top_line), Some(bottom_line), Some(left_line), Some(right_line)],
         index: 0,
     }
+}
+
+/// for CursorShape::Block, drawing is done by changing 'bg' of cell,
+/// not drawing rect (see content.rs), so return default/empty value.
+fn block() -> CursorRects {
+    CursorRects::default()
 }
