@@ -92,7 +92,7 @@ fn hollow(x: f32, y: f32, width: f32, height: f32, thickness: f32, color: Rgb) -
     }
 }
 
-/// for CursorShape::Block, drawing is done by changing 'bg' of cell,
+/// For CursorShape::Block, drawing is done by changing 'bg' of cell,
 /// not drawing rect (see content.rs), so return default/empty value.
 fn block() -> CursorRects {
     CursorRects::default()
