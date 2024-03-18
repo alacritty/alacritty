@@ -167,7 +167,12 @@ impl UiConfig {
     /// Derive [`PtyOptions`] from the config.
     pub fn pty_config(&self) -> PtyOptions {
         let shell = self.shell.clone().map(Into::into);
-        PtyOptions { shell, working_directory: self.working_directory.clone(), hold: false }
+        PtyOptions {
+            shell,
+            working_directory: self.working_directory.clone(),
+            hold: false,
+            env: HashMap::new(),
+        }
     }
 
     /// Generate key bindings for all keyboard hints.
