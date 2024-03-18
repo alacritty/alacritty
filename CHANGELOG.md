@@ -7,10 +7,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.13.2-dev
 
-### Packaging
-
-- Minimum Rust version has been bumped to 1.72.0
-
 ### Added
 
 - Default `Home`/`End` bindings in Vi mode mapped to `First`/`Last` respectively
