@@ -1,5 +1,6 @@
 //! TTY related functionality.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{env, io};
@@ -29,6 +30,9 @@ pub struct Options {
 
     /// Remain open after child process exits.
     pub hold: bool,
+
+    /// Extra environment variables.
+    pub env: HashMap<String, String>,
 }
 
 /// Shell options.
