@@ -347,7 +347,7 @@ impl SequenceBuilder {
         associated_text: Option<&str>,
     ) -> Option<SequenceBase> {
         let character = match key.logical_key.as_ref() {
-            Key::Character(character) => character,
+            Key::Character(character) if self.kitty_seq => character,
             _ => return None,
         };
 
