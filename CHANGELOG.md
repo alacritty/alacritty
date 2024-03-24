@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
 - No unused-key warnings will be emitted for OS-specific config keys
 - Use built-in font for sextant symbols from `U+1FB00` to `U+1FB3B`
 - Kitty encoding is not used anymore for uncommon keys unless the protocol enabled

@@ -126,7 +126,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     self.ctx.modifiers().state().alt_key()
                 }
             },
-            _ => text.len() == 1 && alt_send_esc,
+            _ => alt_send_esc && text.chars().count() == 1,
         }
     }
 
