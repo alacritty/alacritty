@@ -14,7 +14,7 @@ default = ["serde"]
 serde = ["dep:serde", "bitflags/serde", "vte/serde"]
 
 [dependencies]
-base64 = "0.21.3"
+base64 = "0.22.0"
 bitflags = "2.4.1"
 home = "0.5.5"
 libc = "0.2"

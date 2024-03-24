@@ -7,10 +7,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.14.0-dev
 
-### Packaging
-
-- Minimum Rust version has been bumped to 1.72.0
-
 ### Added
 
 - Default `Home`/`End` bindings in Vi mode mapped to `First`/`Last` respectively
@@ -31,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Config keys are available under proper names
 - Build failure when compiling with x11 feature on NetBSD
 - Hint `Select` action selecting the entire line for URL escapes
+- Kitty encoding used for regular keys when they don't carry text
 
 ### Changed
 

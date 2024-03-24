@@ -217,9 +217,11 @@ pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<
     builder.env("ALACRITTY_WINDOW_ID", &window_id);
     builder.env("USER", user.user);
     builder.env("HOME", user.home);
-
     // Set Window ID for clients relying on X11 hacks.
     builder.env("WINDOWID", window_id);
+    for (key, value) in &config.env {
+        builder.env(key, value);
+    }
 
     unsafe {
         builder.pre_exec(move || {
