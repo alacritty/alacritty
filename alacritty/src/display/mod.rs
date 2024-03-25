@@ -16,6 +16,8 @@ use log::{debug, info};
 use parking_lot::MutexGuard;
 use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
+use winit::dpi::PhysicalPosition;
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
 use winit::window::CursorIcon;
@@ -420,6 +422,12 @@ impl Display {
         if let Some(dimensions) = config.window.dimensions() {
             let size = window_size(config, dimensions, cell_width, cell_height, scale_factor);
             window.request_inner_size(size);
+        }
+
+        // Set the window position to account for the user configured position.
+        #[cfg(target_os = "macos")]
+        if let Some(position) = config.window.position {
+            window.set_outer_position(PhysicalPosition::new(position.x as u32, position.y as u32));
         }
 
         // Create the GL surface to draw into.
