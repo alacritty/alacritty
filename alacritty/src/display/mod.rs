@@ -900,8 +900,8 @@ impl Display {
         };
 
         // Handle IME.
-        if self.ime.is_enabled() {
-            if let Some(point) = ime_position {
+        if let Some(point) = ime_position {
+            if self.ime.is_enabled() {
                 let (fg, bg) = if search_state.regex().is_some() {
                     (config.colors.footer_bar_foreground(), config.colors.footer_bar_background())
                 } else {
@@ -909,6 +909,8 @@ impl Display {
                 };
 
                 self.draw_ime_preview(point, fg, bg, &mut rects, config);
+            } else {
+                self.window.update_ime_position(point, &self.size_info);
             }
         }
 
