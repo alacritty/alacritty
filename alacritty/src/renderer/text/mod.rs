@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use crossfont::{GlyphKey, RasterizedGlyph};
+use crossfont::{Error as RasterizerError, GlyphKey, RasterizedGlyph};
 
 use alacritty_terminal::term::cell::Flags;
 
@@ -156,8 +156,19 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
             GlyphKey { font_key, size: glyph_cache.font_size, character: cell.character };
 
         // Add cell to batch.
-        let glyph = glyph_cache.get(glyph_key, self, true);
-        self.add_render_item(&cell, &glyph, size_info);
+        let glyph = match glyph_cache.get(glyph_key, self) {
+            Ok(glyph) => glyph,
+            Err(error) => {
+                let missing_glyph = if let RasterizerError::MissingGlyph(missing_glyph) = *error {
+                    Some(missing_glyph)
+                } else {
+                    None
+                };
+                glyph_cache.insert_missing_or_default(glyph_key, self, missing_glyph)
+            },
+        };
+
+        self.add_render_item(&cell, glyph, size_info);
 
         // Render visible zero-width characters.
         if let Some(zerowidth) =
@@ -165,8 +176,12 @@ pub trait TextRenderApi<T: TextRenderBatch>: LoadGlyph {
         {
             for character in zerowidth {
                 glyph_key.character = character;
-                let glyph = glyph_cache.get(glyph_key, self, false);
-                self.add_render_item(&cell, &glyph, size_info);
+                // Ignore the rendering errors for zerowidth to not obscure content.
+                let glyph = match glyph_cache.get(glyph_key, self) {
+                    Ok(glyph) => glyph,
+                    Err(_) => glyph_cache.insert_missing_or_default(glyph_key, self, None),
+                };
+                self.add_render_item(&cell, glyph, size_info);
             }
         }
     }
