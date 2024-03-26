@@ -150,7 +150,7 @@ dependencies = [
  "anstyle-query",
  "anstyle-wincon",
  "colorchoice",
- "utf8parse",
+ "utf8parse 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -165,7 +165,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c75ac65da39e5fe5ab759307499ddad880d724eed2f6ce5b5e8a26f4f387928c"
 dependencies = [
- "utf8parse",
+ "utf8parse 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1842,6 +1842,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
+name = "utf8parse"
+version = "0.2.1"
+source = "git+https://github.com/John-Toohey/vte.git?branch=apc#8e10a22e5688fc4a7309b1bb7ca9b3e7b6cc27d4"
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1870,22 +1875,20 @@ dependencies = [
 [[package]]
 name = "vte"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40eb22ae96f050e0c0d6f7ce43feeae26c348fc4dea56928ca81537cfaa6188b"
+source = "git+https://github.com/John-Toohey/vte.git?branch=apc#8e10a22e5688fc4a7309b1bb7ca9b3e7b6cc27d4"
 dependencies = [
  "bitflags 2.4.2",
  "cursor-icon",
  "log",
  "serde",
- "utf8parse",
+ "utf8parse 0.2.1 (git+https://github.com/John-Toohey/vte.git?branch=apc)",
  "vte_generate_state_changes",
 ]
 
 [[package]]
 name = "vte_generate_state_changes"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d257817081c7dffcdbab24b9e62d2def62e2ff7d00b1c20062551e6cccc145ff"
+source = "git+https://github.com/John-Toohey/vte.git?branch=apc#8e10a22e5688fc4a7309b1bb7ca9b3e7b6cc27d4"
 dependencies = [
  "proc-macro2",
  "quote",
