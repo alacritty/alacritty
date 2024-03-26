@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Build failure when compiling with x11 feature on NetBSD
 - Hint `Select` action selecting the entire line for URL escapes
 - Kitty encoding used for regular keys when they don't carry text
+- Configuration window position dependency on macOS window size
+- Limitation on the width of configuration windows on macOS
 
 ### Changed
 

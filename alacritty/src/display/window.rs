@@ -214,6 +214,12 @@ impl Window {
     }
 
     #[inline]
+    #[cfg(target_os = "macos")]
+    pub fn set_outer_position(&self, position: PhysicalPosition<u32>) {
+        self.window.set_outer_position(position);
+    }
+
+    #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
         self.window.inner_size()
     }

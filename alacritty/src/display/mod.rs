@@ -16,6 +16,8 @@ use log::{debug, info};
 use parking_lot::MutexGuard;
 use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
+use winit::dpi::PhysicalPosition;
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
 use winit::window::CursorIcon;
@@ -411,10 +413,21 @@ impl Display {
         let metrics = glyph_cache.font_metrics();
         let (cell_width, cell_height) = compute_cell_size(config, &metrics);
 
+        // In macOS, for keeping the window position after resizing
+        // at the top left window corner, it must be visible.
+        #[cfg(target_os = "macos")]
+        window.set_visible(true);
+
         // Resize the window to account for the user configured size.
         if let Some(dimensions) = config.window.dimensions() {
             let size = window_size(config, dimensions, cell_width, cell_height, scale_factor);
             window.request_inner_size(size);
+        }
+
+        // Set the window position to account for the user configured position.
+        #[cfg(target_os = "macos")]
+        if let Some(position) = config.window.position {
+            window.set_outer_position(PhysicalPosition::new(position.x as u32, position.y as u32));
         }
 
         // Create the GL surface to draw into.
@@ -479,6 +492,7 @@ impl Display {
             window.set_resize_increments(PhysicalSize::new(cell_width, cell_height));
         }
 
+        #[cfg(not(target_os = "macos"))]
         window.set_visible(true);
 
         #[allow(clippy::single_match)]
