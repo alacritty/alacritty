@@ -214,7 +214,6 @@ fn shrink_reflow_twice() {
     assert_eq!(grid[Line(0)][Column(1)], Cell::default());
 }
 
-
 /// Tests shrinking the Grid and then growing it back to its original size, to confirm we
 /// adjust the cursor appropriately.
 #[test]
@@ -246,7 +245,7 @@ fn shrink_grow_reflow_cursor_position() {
     // Scrollback history should have 1 row.
     assert_eq!(grid.history_size(), 1);
 
-    // Resize the Grid back to its original size of 3 rows and 8 columns. Results in a 
+    // Resize the Grid back to its original size of 3 rows and 8 columns. Results in a
     // grow_columns call.
     grid.resize(true, 3, 8);
 
