@@ -2,7 +2,8 @@
 
 use super::*;
 
-use crate::{index, term::cell::Cell};
+use crate::index;
+use crate::term::cell::Cell;
 
 impl GridCell for usize {
     fn is_empty(&self) -> bool {
