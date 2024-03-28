@@ -2,6 +2,7 @@
 
 use super::*;
 
+use crate::index;
 use crate::term::cell::Cell;
 
 impl GridCell for usize {
@@ -212,6 +213,49 @@ fn shrink_reflow_twice() {
     assert_eq!(grid[Line(0)].len(), 2);
     assert_eq!(grid[Line(0)][Column(0)], cell('5'));
     assert_eq!(grid[Line(0)][Column(1)], Cell::default());
+}
+
+/// Tests shrinking the Grid and then growing it back to its original size, to confirm we
+/// adjust the cursor appropriately.
+#[test]
+fn shrink_grow_reflow_cursor_position() {
+    // Create a Grid with 3 rows and 8 columns.
+    let mut grid = Grid::<Cell>::new(3, 8, 2);
+    grid[Line(0)][Column(0)] = cell('1');
+    grid[Line(0)][Column(1)] = cell('2');
+    grid[Line(0)][Column(2)] = cell('3');
+    grid[Line(0)][Column(3)] = cell('4');
+    grid[Line(0)][Column(4)] = cell('5');
+
+    // Set the cursor position to (0, 5). Note that NO rows are in scrollback currently.
+    grid.cursor.point.line = index::Line(0);
+    grid.cursor.point.column = index::Column(5);
+
+    // Confirm the cursor position and scrollback size is correct.
+    assert_eq!(grid.cursor.point.line, index::Line(0));
+    assert_eq!(grid.cursor.point.column, index::Column(5));
+    assert_eq!(grid.history_size(), 0);
+
+    // Resize the Grid to have 3 columns, instead of 8 columns. Results in a shrink_columns call.
+    grid.resize(true, 3, 3);
+
+    // Note that 1 row is now in scrollback history. Hence, the cursor should be at (0, 2), since
+    // it's in the "visible" coordinate system.
+    assert_eq!(grid.cursor.point.line, index::Line(0));
+    assert_eq!(grid.cursor.point.column, index::Column(2));
+    // Scrollback history should have 1 row.
+    assert_eq!(grid.history_size(), 1);
+
+    // Resize the Grid back to its original size of 3 rows and 8 columns. Results in a
+    // grow_columns call.
+    grid.resize(true, 3, 8);
+
+    // We expect the cursor to be back at (0, 5), as we grew the Grid back to its original size.
+    assert_eq!(grid.cursor.point.line, index::Line(0));
+    assert_eq!(grid.cursor.point.column, index::Column(5));
+    // We expect the scrollback history to be empty since we grew the Grid back to its original size
+    // and removed the row that was in scrollback history (it's "visible" once again).
+    assert_eq!(grid.history_size(), 0);
 }
 
 #[test]

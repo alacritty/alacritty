@@ -167,6 +167,14 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             let cursor_buffer_line = self.lines - self.cursor.point.line.0 as usize - 1;
 
             if i == cursor_buffer_line && reflow {
+                if row.is_clear() {
+                    // Rotate cursor down, if the line can be completely moved up (into history).
+                    // This allows us to correctly complete the subtraction of num_wrapped below
+                    // (and avoid hitting the Cursor boundary at (0, 0)
+                    // incorrectly).
+                    self.cursor.point.line += 1;
+                }
+
                 // Resize cursor's line and reflow the cursor if necessary.
                 let mut target = self.cursor.point.sub(self, Boundary::Cursor, num_wrapped);
 
@@ -182,6 +190,9 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
                 let line_delta = self.cursor.point.line - target.line;
 
                 if line_delta != 0 && row.is_clear() {
+                    // We move the cursor up a line, if the current row is being entirely reflowed
+                    // and removed.
+                    self.cursor.point.line -= line_delta;
                     continue;
                 }
 
