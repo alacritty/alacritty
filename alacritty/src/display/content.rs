@@ -48,13 +48,19 @@ impl<'a> RenderableContent<'a> {
         let terminal_content = term.renderable_content();
 
         let mut has_preedit_cursor_pos = false;
+        let mut preedit_cursor_delta: usize = 0;
+        let mut preedit_text_length: usize = 0;
 
         match display.ime.preedit() {
             None => {}
             Some(the_preedit) => {
                 match the_preedit.cursor_byte_offset {
                     None => {}
-                    Some(_) => has_preedit_cursor_pos = true
+                    Some(retriedved_offset) => {
+                        has_preedit_cursor_pos = true;
+                        preedit_cursor_delta = retriedved_offset;
+                        preedit_text_length = the_preedit.text.chars().count();
+                    }
                 }
             }
         }
@@ -75,7 +81,11 @@ impl<'a> RenderableContent<'a> {
         };
 
         // Convert terminal cursor point to viewport position.
-        let cursor_point = terminal_content.cursor.point;
+        let mut cursor_point = terminal_content.cursor.point;
+        if has_preedit_cursor_pos {
+            cursor_point.column += preedit_cursor_delta;
+            cursor_point.column -= preedit_text_length;
+        }
         let display_offset = terminal_content.display_offset;
         let cursor_point = term::point_to_viewport(display_offset, cursor_point).unwrap();
 
