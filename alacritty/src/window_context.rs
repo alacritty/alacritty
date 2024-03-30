@@ -144,7 +144,7 @@ impl WindowContext {
 
         #[cfg(target_os = "macos")]
         let config = if tabbed && config.window.startup_mode == StartupMode::Fullscreen {
-            let mut config = config.clone().as_ref().clone();
+            let mut config = config.as_ref().clone();
             config.window.startup_mode = StartupMode::Windowed;
             Rc::new(config)
         } else {
