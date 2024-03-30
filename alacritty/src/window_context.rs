@@ -31,6 +31,7 @@ use alacritty_terminal::tty;
 
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
+#[cfg(target_os = "macos")]
 use crate::config::window::StartupMode;
 use crate::config::UiConfig;
 use crate::display::window::Window;
