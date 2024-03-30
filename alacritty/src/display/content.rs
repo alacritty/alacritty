@@ -47,15 +47,29 @@ impl<'a> RenderableContent<'a> {
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
+        let mut has_preedit_cursor_pos = false;
+
+        match display.ime.preedit() {
+            None => {}
+            Some(the_preedit) => {
+                match the_preedit.cursor_byte_offset {
+                    None => {}
+                    Some(_) => has_preedit_cursor_pos = true
+                }
+            }
+        }
+
         // Find terminal cursor shape.
         let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
             || search_state.regex().is_some()
-            || display.ime.preedit().is_some()
+            || (display.ime.preedit().is_some() && !has_preedit_cursor_pos)
         {
             CursorShape::Hidden
         } else if !term.is_focused && config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
+        } else if has_preedit_cursor_pos {
+            CursorShape::Beam
         } else {
             terminal_content.cursor.shape
         };
