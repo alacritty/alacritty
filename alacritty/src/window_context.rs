@@ -31,6 +31,7 @@ use alacritty_terminal::tty;
 
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
+use crate::config::window::StartupMode;
 use crate::config::UiConfig;
 use crate::display::window::Window;
 use crate::display::Display;
@@ -135,6 +136,20 @@ impl WindowContext {
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);
 
+        // Check if new window will be opened as a tab.
+        #[cfg(target_os = "macos")]
+        let tabbed = options.window_tabbing_id.is_some();
+        #[cfg(not(target_os = "macos"))]
+        let tabbed = false;
+
+        let config = if tabbed && config.window.startup_mode == StartupMode::Fullscreen {
+            let mut config = config.clone().as_ref().clone();
+            config.window.startup_mode = StartupMode::Windowed;
+            Rc::new(config)
+        } else {
+            config
+        };
+
         let window = Window::new(
             event_loop,
             &config,
@@ -152,12 +167,6 @@ impl WindowContext {
             &gl_config,
             Some(raw_window_handle),
         )?;
-
-        // Check if new window will be opened as a tab.
-        #[cfg(target_os = "macos")]
-        let tabbed = options.window_tabbing_id.is_some();
-        #[cfg(not(target_os = "macos"))]
-        let tabbed = false;
 
         let display = Display::new(window, gl_context, &config, tabbed)?;
 
