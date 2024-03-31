@@ -163,6 +163,11 @@ impl Window {
             window_builder = window_builder.with_embed_parent_window(parent_window_id);
         }
 
+        #[cfg(target_os = "macos")]
+        let fullscreen = if tabbing_id.is_some() { None } else { config.window.fullscreen() };
+        #[cfg(not(target_os = "macos"))]
+        let fullscreen = config.window.fullscreen();
+
         let window = window_builder
             .with_title(&identity.title)
             .with_theme(config.window.theme())
@@ -170,7 +175,7 @@ impl Window {
             .with_transparent(true)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
-            .with_fullscreen(config.window.fullscreen())
+            .with_fullscreen(fullscreen)
             .build(event_loop)?;
 
         // Text cursor.
