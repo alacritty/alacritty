@@ -5,7 +5,8 @@ authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
-homepage = "https://github.com/alacritty/alacritty"
+homepage = "https://alacritty.org"
+repository = "https://github.com/alacritty/alacritty"
 edition = "2021"
 rust-version = "1.70.0"
 
