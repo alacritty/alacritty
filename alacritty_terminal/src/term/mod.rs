@@ -2082,7 +2082,7 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
             ansi::Mode::Unknown(mode) => {
-                debug!("Ignorning unknown mode {} in unset_mode", mode);
+                debug!("Ignoring unknown mode {} in unset_mode", mode);
                 return;
             },
         };
