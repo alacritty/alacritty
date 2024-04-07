@@ -80,7 +80,7 @@ drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
 #### Debian/Ubuntu
 
 If you'd like to build a local version manually, you need a few extra libraries
-to build Alacritty. Here's an apt command that should install all of them. If
+to build Alacritty. Here's an `apt` command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
