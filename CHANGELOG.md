@@ -5,7 +5,14 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+Notable changes to `alacritty_terminal` crate should be documented in its
+[CHANGELOG](./alacritty_terminal/CHANGELOG.md).
+
 ## 0.14.0-dev
+
+### Fixed
+
+- New window sometimes being treated as focused when it's not on Wayland
 
 ### Changed
 
