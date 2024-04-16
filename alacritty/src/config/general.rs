@@ -24,6 +24,7 @@ pub struct General {
 impl Default for General {
     fn default() -> Self {
         Self {
+            #[cfg(unix)]
             ipc_socket: true,
             live_config_reload: true,
             import: Default::default(),

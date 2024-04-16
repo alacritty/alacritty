@@ -4,8 +4,7 @@ use toml::Value;
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::Osc52;
 
-use crate::config::ui_config::Program;
-use crate::config::ui_config::StringVisitor;
+use crate::config::ui_config::{Program, StringVisitor};
 
 #[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
 pub struct Terminal {
