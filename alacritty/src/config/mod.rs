@@ -24,6 +24,8 @@ pub mod ui_config;
 pub mod window;
 
 mod bindings;
+mod general;
+mod instance;
 mod mouse;
 
 use crate::cli::Options;
@@ -286,7 +288,12 @@ pub fn imports(
     config: &Value,
     recursion_limit: usize,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
-    let imports = match config.get("import") {
+    let general = match config.get("general") {
+        Some(general) => general,
+        None => return Ok(Vec::new()),
+    };
+
+    let imports = match general.get("import") {
         Some(Value::Array(imports)) => imports,
         Some(_) => return Err("Invalid import type: expected a sequence".into()),
         None => return Ok(Vec::new()),

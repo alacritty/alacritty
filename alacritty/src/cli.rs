@@ -89,7 +89,7 @@ impl Options {
     pub fn override_config(&mut self, config: &mut UiConfig) {
         #[cfg(unix)]
         {
-            config.ipc_socket |= self.socket.is_some();
+            config.general.ipc_socket |= self.socket.is_some();
         }
 
         config.window.dynamic_title &= self.window_options.window_identity.title.is_none();

@@ -165,13 +165,13 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    if config.live_config_reload {
+    if config.instance.live_config_reload {
         monitor::watch(config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
     // Create the IPC socket listener.
     #[cfg(unix)]
-    let socket_path = if config.ipc_socket {
+    let socket_path = if config.general.ipc_socket {
         ipc::spawn_ipc_socket(&options, window_event_loop.create_proxy())
     } else {
         None
