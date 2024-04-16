@@ -40,7 +40,7 @@ use crate::config::LOG_TARGET_CONFIG;
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Default)]
 pub struct UiConfig {
     /// Extra environment variables.
     pub env: HashMap<String, String>,
@@ -112,32 +112,32 @@ pub struct UiConfig {
     mouse_bindings: Option<MouseBindings>,
 }
 
-impl Default for UiConfig {
-    fn default() -> Self {
-        Self {
-            general: Default::default(),
-            instance: Default::default(),
-            draw_bold_text_with_bright_colors: Default::default(),
-            mouse_bindings: Default::default(),
-            config_paths: Default::default(),
-            key_bindings: Default::default(),
-            alt_send_esc: Default::default(),
-            scrolling: Default::default(),
-            selection: Default::default(),
-            keyboard: Default::default(),
-            terminal: Default::default(),
-            cursor: Default::default(),
-            window: Default::default(),
-            colors: Default::default(),
-            mouse: Default::default(),
-            debug: Default::default(),
-            hints: Default::default(),
-            font: Default::default(),
-            bell: Default::default(),
-            env: Default::default(),
-        }
-    }
-}
+// impl Default for UiConfig {
+//     fn default() -> Self {
+//         Self {
+//             general: Default::default(),
+//             instance: Default::default(),
+//             draw_bold_text_with_bright_colors: Default::default(),
+//             mouse_bindings: Default::default(),
+//             config_paths: Default::default(),
+//             key_bindings: Default::default(),
+//             alt_send_esc: Default::default(),
+//             scrolling: Default::default(),
+//             selection: Default::default(),
+//             keyboard: Default::default(),
+//             terminal: Default::default(),
+//             cursor: Default::default(),
+//             window: Default::default(),
+//             colors: Default::default(),
+//             mouse: Default::default(),
+//             debug: Default::default(),
+//             hints: Default::default(),
+//             font: Default::default(),
+//             bell: Default::default(),
+//             env: Default::default(),
+//         }
+//     }
+// }
 
 impl UiConfig {
     /// Derive [`TermConfig`] from the config.
