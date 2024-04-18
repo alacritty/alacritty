@@ -387,12 +387,14 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CreateNewWindow => ctx.create_new_window(None),
             #[cfg(target_os = "macos")]
             Action::CreateNewTab => {
-                // attatching new windows as tabs only work with decorations enabled
-                if ctx.config().window.decorations == Decorations::None {
-                    ctx.create_new_window(None);
-                } else {
+                // attatching new windows as tabs doesn't work with decorations="none"
+                // really it is only a pleasing experience with decorations="full"
+                // tabs clip through buttonless and transparent mode
+                if ctx.config().window.decorations == Decorations::Full {
                     let tabbing_id = Some(ctx.window().tabbing_id());
                     ctx.create_new_window(tabbing_id);
+                } else {
+                    ctx.create_new_window(None);
                 }
             },
             #[cfg(target_os = "macos")]
