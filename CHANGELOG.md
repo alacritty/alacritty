@@ -104,9 +104,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mode-specific bindings can now be bound in any mode for easier macros
 - `--help` output is more compact now and uses more neutral palette
 - Configuration file now uses TOML instead of YAML
-  Run `alacritty migrate` to automatically convert all configuration files
+    Run `alacritty migrate` to automatically convert all configuration files
 - Deprecated config option `draw_bold_text_with_bright_colors`, use
-  `colors.draw_bold_text_with_bright_colors`
+    `colors.draw_bold_text_with_bright_colors`
 - Deprecated config option `key_bindings`, use `keyboard.bindings`
 - Deprecated config option `mouse_bindings`, use `mouse.bindings`
 - The default colorscheme is now based on base16 classic dark
@@ -117,7 +117,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Underline full hint during keyboard selection
 - Synchronized updates now use `CSI 2026` instead of legacy `DCS` variant
 - In mouse mode with `Shift` pressed, mouse bindings without `Shift` are only triggered
-  if no exact binding (i.e. one with `Shift`) is found.
+    if no exact binding (i.e. one with `Shift`) is found.
 - Use built-in font for powerline symbols from `U+E0B0` to `U+E0B3`
 - Default `bell.animation` is now `Linear`
 - `IncreaseFontSize/DecreaseFontSize` step is now 1px
@@ -312,7 +312,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 
 - `font.use_thin_strokes` config field; to use thin strokes on macOS, set
-  `AppleFontSmoothing` to 0 with `$ defaults write -g AppleFontSmoothing -int 0`
+    `AppleFontSmoothing` to 0 with `$ defaults write -g AppleFontSmoothing -int 0`
 
 ## 0.10.1
 
@@ -517,11 +517,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 
 - The following CLI arguments have been removed in favor of the `--option` flag:
-  - `--persistent-logging`
-  - `--live-config-reload`
-  - `--no-live-config-reload`
-  - `--dimensions`
-  - `--position`
+    * `--persistent-logging`
+    * `--live-config-reload`
+    * `--no-live-config-reload`
+    * `--dimensions`
+    * `--position`
 - `live-shader-reload` feature
 - Config option `dynamic_title`, you should use `window.dynamic_title` instead
 - Config option `scrolling.faux_multiplier`, which was replaced by escape `CSI ? 1007 h/l`
@@ -554,7 +554,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Cursors are now inverted when their fixed color is similar to the cell's background
 - Use the working directory of the terminal foreground process, instead of the shell's working
-  directory, for `SpawnNewInstance` action
+    directory, for `SpawnNewInstance` action
 - Fallback to normal underline for unsupported underline types in `CSI 4 : ? m` escapes
 - The user's background color is now used as the foreground for the render timer
 - Use yellow/red from the config for error and warning messages instead of fixed colors
@@ -640,7 +640,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Default binding replacement conditions
 - Adjusted selection clearing granularity to more accurately match content
 - To use the cell's text color for selection with a modified background, the `color.selection.text`
-  variable must now be set to `CellForeground` instead of omitting it
+    variable must now be set to `CellForeground` instead of omitting it
 - URLs are no longer highlighted without a clearly delimited scheme
 - Renamed config option `visual_bell` to `bell`
 - Moved config option `dynamic_title` to `window.dynamic_title`
@@ -902,7 +902,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Bindings for Super/Command + F1-F12
 - Automatic config generation
 - Deprecated `scrolling.faux_multiplier`, the alternate scroll escape can now be used to disable it
-  and `scrolling.multiplier` controls the number of scrolled lines
+    and `scrolling.multiplier` controls the number of scrolled lines
 
 ## 0.3.3
 
@@ -911,21 +911,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add appstream metadata, located at /extra/linux/io.alacritty.Alacritty.xml
 - The xclip dependency has been removed
 - On macOS, Alacritty now requests NSSystemAdministrationUsageDescription to
-  avoid permission failures
+   avoid permission failures
 - Minimum Rust version has been bumped to 1.32.0
 
 ### Added
 
 - Added ToggleFullscreen action
 - On macOS, there's a ToggleSimpleFullscreen action which allows switching to
-  fullscreen without occupying another space
+    fullscreen without occupying another space
 - A new window option `window.startup_mode` which controls how the window is created
 - `_NET_WM_ICON` property is set on X11 now, allowing for WMs to show icons in titlebars
 - Current Git commit hash to `alacritty --version`
 - Config options `window.title` and `window.class`
 - Config option `working_directory`
 - Config group `debug` with the options `debug.log_level`, `debug.print_events`
-  and `debug.ref_test`
+    and `debug.ref_test`
 - Select until next matching bracket when double-clicking a bracket
 - Added foreground/background escape code request sequences
 - Escape sequences now support 1, 3, and 4 digit hex colors
@@ -996,7 +996,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Packaging
 
 - On Linux, the .desktop file now uses `Alacritty` as icon name, which can be
-  found at `extra/logo/alacritty-term.svg`
+    found at `extra/logo/alacritty-term.svg`
 
 ### Added
 
@@ -1028,7 +1028,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Allow mouse presses and beginning of mouse selection in padding
 - Windows: Conpty backend could close immediately on startup in certain situations
 - FreeBSD: SpawnNewInstance will now open new instances in the shell's current
-  working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
+    working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
 - Fix lingering Alacritty window after child process has exited
 - Growing the terminal while scrolled up will no longer move the content down
 - Support for alternate keyboard layouts on macOS
@@ -1124,14 +1124,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - New configuration field `visual_bell.color` allows changing the visual bell color
 - Crashes on Windows are now also reported with a popup in addition to stderr
 - Windows: New configuration field `enable_experimental_conpty_backend` which enables support
-  for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
+    for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
 - New mouse and key action `SpawnNewInstance` for launching another instance of Alacritty
 
 ### Changed
 
 - Log messages are now consistent in style, and some have been removed
 - Windows configuration location has been moved from %USERPROFILE%\alacritty.yml
-  to %APPDATA%\alacritty\alacritty.yml
+    to %APPDATA%\alacritty\alacritty.yml
 - Windows default shell is now PowerShell instead of cmd
 - URL schemes have been limited to http, https, mailto, news, file, git, ssh and ftp
 
@@ -1158,7 +1158,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Display notice about errors and warnings inside Alacritty
 - Log all messages to both stderr and a log file in the system's temporary directory
 - New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
-  for keeping the log file after closing Alacritty
+    for keeping the log file after closing Alacritty
 - `ClearLogNotice` action for removing the warning and error message
 - Terminal bells on macOS will now request the user's attention in the window
 - Alacritty now requests privacy permissions on macOS
@@ -1227,7 +1227,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The `custom_cursor_colors` config field was deleted, remove the `colors.cursor.*` options
   to achieve the same behavior as setting it to `false`
 - The `scale_with_dpi` configuration value has been removed, on Linux the env
-  variable `WINIT_HIDPI_FACTOR=1` can be set instead to disable DPI scaling
+    variable `WINIT_HIDPI_FACTOR=1` can be set instead to disable DPI scaling
 
 ## Version 0.2.1
 
@@ -1237,9 +1237,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add support for macOS systemwide dark mode
 - Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support
 - On macOS, there are two new values for the config option `window.decorations`:
-  - `transparent` - This makes the title bar transparent and allows the
-    viewport to extend to the top of the window.
-  - `buttonless` - Similar to transparent but also removed the buttons.
+    - `transparent` - This makes the title bar transparent and allows the
+        viewport to extend to the top of the window.
+    - `buttonless` - Similar to transparent but also removed the buttons.
 - Add support for changing the colors from 16 to 256 in the `indexed_colors` config section
 - Add `save_to_clipboard` configuration option for copying selected text to the system clipboard
 - New terminfo entry, `alacritty-direct`, that advertises 24-bit color support
@@ -1255,7 +1255,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The default `TERM` value is no longer static; the `alacritty` entry is used if
   available, otherwise the `xterm-256color` entry is used instead
 - The values `true` and `false` for the config option `window.decorations` have been replaced with
-  `full` and `none`
+    `full` and `none`
 
 ### Fixed
 
