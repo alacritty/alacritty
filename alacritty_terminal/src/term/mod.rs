@@ -407,13 +407,13 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn new<D: Dimensions>(options: Config, dimensions: &D, event_proxy: T) -> Term<T> {
+    pub fn new<D: Dimensions>(config: Config, dimensions: &D, event_proxy: T) -> Term<T> {
         let num_cols = dimensions.columns();
         let num_lines = dimensions.screen_lines();
 
-        let history_size = options.scrolling_history;
+        let history_size = config.scrolling_history;
         let grid = Grid::new(num_lines, num_cols, history_size);
-        let alt = Grid::new(num_lines, num_cols, 0);
+        let inactive_grid = Grid::new(num_lines, num_cols, 0);
 
         let tabs = TabStops::new(grid.columns());
 
@@ -423,24 +423,24 @@ impl<T> Term<T> {
         let damage = TermDamageState::new(num_cols, num_lines);
 
         Term {
+            inactive_grid,
+            scroll_region,
+            event_proxy,
+            damage,
+            config,
             grid,
-            inactive_grid: alt,
+            tabs,
+            inactive_keyboard_mode_stack: Default::default(),
+            keyboard_mode_stack: Default::default(),
             active_charset: Default::default(),
             vi_mode_cursor: Default::default(),
-            tabs,
-            mode: Default::default(),
-            scroll_region,
+            cursor_style: Default::default(),
             colors: color::Colors::default(),
-            cursor_style: None,
-            event_proxy,
-            is_focused: true,
-            title: None,
             title_stack: Default::default(),
-            keyboard_mode_stack: Default::default(),
-            inactive_keyboard_mode_stack: Default::default(),
-            selection: None,
-            damage,
-            config: options,
+            is_focused: Default::default(),
+            selection: Default::default(),
+            title: Default::default(),
+            mode: Default::default(),
         }
     }
 
