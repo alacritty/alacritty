@@ -9,8 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Creating new tabs using `Cmd + T` on macOS is only enabled for decorations
-  set to full
+- Crash when trying to create a new tab without decorations enabled
 
 ### Changed
 
