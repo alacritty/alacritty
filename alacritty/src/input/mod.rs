@@ -387,7 +387,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CreateNewWindow => ctx.create_new_window(None),
             #[cfg(target_os = "macos")]
             Action::CreateNewTab => {
-                // tabs on macOS are not possible for decorations="none"
+                // Tabs on macOS are not possible without decorations.
                 if ctx.config().window.decorations != Decorations::None {
                     let tabbing_id = Some(ctx.window().tabbing_id());
                     ctx.create_new_window(tabbing_id);
