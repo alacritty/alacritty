@@ -263,13 +263,12 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
             },
         };
 
-        if !path.exists() {
-            info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
-            continue;
-        }
-
         match parse_config(&path, config_paths, recursion_limit - 1) {
             Ok(config) => merged = serde_utils::merge(merged, config),
+            Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
+                info!(target: LOG_TARGET_CONFIG, "Config import not found:\n  {:?}", path.display());
+                continue;
+            },
             Err(err) => {
                 error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
             },
