@@ -81,7 +81,7 @@ fn migrate_config(
 
     // Migrate config imports.
     if !options.skip_imports {
-        migrate_imports(options, &mut config, recursion_limit)?;
+        migrate_imports(options, &mut config, recursion_limit, path)?;
     }
 
     // Migrate deprecated field names to their new location.
@@ -111,8 +111,9 @@ fn migrate_imports(
     options: &MigrateOptions,
     config: &mut Value,
     recursion_limit: usize,
+    parent_path: &Path,
 ) -> Result<(), String> {
-    let imports = match config::imports(config, recursion_limit) {
+    let imports = match config::imports(config, recursion_limit, parent_path) {
         Ok(imports) => imports,
         Err(err) => return Err(format!("import error: {err}")),
     };

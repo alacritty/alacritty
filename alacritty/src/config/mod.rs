@@ -210,7 +210,7 @@ fn parse_config(
     let config = deserialize_config(path, false)?;
 
     // Merge config with imports.
-    let imports = load_imports(&config, config_paths, recursion_limit);
+    let imports = load_imports(&config, config_paths, recursion_limit, path);
     Ok(serde_utils::merge(imports, config))
 }
 
@@ -242,10 +242,15 @@ pub fn deserialize_config(path: &Path, warn_pruned: bool) -> Result<Value> {
 }
 
 /// Load all referenced configuration files.
-fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
+fn load_imports(
+    config: &Value,
+    config_paths: &mut Vec<PathBuf>,
+    recursion_limit: usize,
+    parent_path: &Path,
+) -> Value {
     // Get paths for all imports.
-    let import_paths = match imports(config, recursion_limit) {
-        Ok(import_paths) => import_paths,
+    let import_paths = match imports(config, recursion_limit, parent_path) {
+        Ok(import_paths) => dbg!(import_paths),
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "{err}");
             return Value::Table(Table::new());
@@ -285,6 +290,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
 pub fn imports(
     config: &Value,
     recursion_limit: usize,
+    parent_path: &Path,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
     let imports = match config.get("import") {
         Some(Value::Array(imports)) => imports,
@@ -311,6 +317,9 @@ pub fn imports(
         // Resolve paths relative to user's home directory.
         if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
             path = home_dir.join(stripped);
+        } else if path.is_relative() {
+            // Since the path has already been read as a file, it must have a parent.
+            path = parent_path.parent().unwrap().join(path);
         }
 
         import_paths.push(Ok(path));
