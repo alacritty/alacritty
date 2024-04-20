@@ -36,6 +36,8 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
+#[cfg(target_os = "macos")]
+use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -385,8 +387,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CreateNewWindow => ctx.create_new_window(None),
             #[cfg(target_os = "macos")]
             Action::CreateNewTab => {
-                let tabbing_id = Some(ctx.window().tabbing_id());
-                ctx.create_new_window(tabbing_id);
+                // Tabs on macOS are not possible without decorations.
+                if ctx.config().window.decorations != Decorations::None {
+                    let tabbing_id = Some(ctx.window().tabbing_id());
+                    ctx.create_new_window(tabbing_id);
+                }
             },
             #[cfg(target_os = "macos")]
             Action::SelectNextTab => ctx.window().select_next_tab(),

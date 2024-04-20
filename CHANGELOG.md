@@ -12,6 +12,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Fixed
 
+- Crash when trying to create a new tab without decorations enabled
 - New window being treated as focused when it's not on Wayland
 
 ### Changed
