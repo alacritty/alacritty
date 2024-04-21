@@ -1313,7 +1313,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::ResetTitle => {
                         let window_config = &self.ctx.config.window;
-                        if window_config.dynamic_title {
+                        if !self.ctx.preserve_title && window_config.dynamic_title {
                             self.ctx.display.window.set_title(window_config.identity.title.clone());
                         }
                     },
