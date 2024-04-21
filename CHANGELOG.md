@@ -10,14 +10,15 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.14.0-dev
 
+### Changed
+
+- Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
+
 ### Fixed
 
 - Crash when trying to create a new tab without decorations enabled
 - New window being treated as focused when it's not on Wayland
-
-### Changed
-
-- Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
+- IME preview blending into text below it
 
 ## 0.13.2
 
