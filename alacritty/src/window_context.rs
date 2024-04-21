@@ -399,7 +399,6 @@ impl WindowContext {
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
-        event_loop: &EventLoopWindowTarget<Event>,
         event_proxy: &EventLoopProxy<Event>,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
@@ -445,7 +444,6 @@ impl WindowContext {
             preserve_title: self.preserve_title,
             config: &self.config,
             event_proxy,
-            event_loop,
             clipboard,
             scheduler,
         };
