@@ -217,6 +217,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
+    #[cfg(target_os = "macos")]
     pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
@@ -1213,7 +1214,6 @@ pub struct Mouse {
     pub click_state: ClickState,
     pub accumulated_scroll: AccumulatedScroll,
     pub cell_side: Side,
-    pub lines_scrolled: f32,
     pub block_hint_launcher: bool,
     pub hint_highlight_dirty: bool,
     pub inside_text_area: bool,
@@ -1234,7 +1234,6 @@ impl Default for Mouse {
             hint_highlight_dirty: Default::default(),
             block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
-            lines_scrolled: Default::default(),
             accumulated_scroll: Default::default(),
             x: Default::default(),
             y: Default::default(),
@@ -1313,7 +1312,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     TerminalEvent::ResetTitle => {
                         let window_config = &self.ctx.config.window;
-                        if window_config.dynamic_title {
+                        if !self.ctx.preserve_title && window_config.dynamic_title {
                             self.ctx.display.window.set_title(window_config.identity.title.clone());
                         }
                     },
@@ -1694,6 +1693,7 @@ impl Processor {
                     };
 
                     window_context.handle_event(
+                        #[cfg(target_os = "macos")]
                         event_loop,
                         &proxy,
                         &mut clipboard,
@@ -1708,6 +1708,7 @@ impl Processor {
                     // Dispatch event to all windows.
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
+                            #[cfg(target_os = "macos")]
                             event_loop,
                             &proxy,
                             &mut clipboard,
@@ -1794,6 +1795,7 @@ impl Processor {
                 WinitEvent::UserEvent(event @ Event { window_id: None, .. }) => {
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
+                            #[cfg(target_os = "macos")]
                             event_loop,
                             &proxy,
                             &mut clipboard,
@@ -1807,6 +1809,7 @@ impl Processor {
                 | WinitEvent::UserEvent(Event { window_id: Some(window_id), .. }) => {
                     if let Some(window_context) = self.windows.get_mut(&window_id) {
                         window_context.handle_event(
+                            #[cfg(target_os = "macos")]
                             event_loop,
                             &proxy,
                             &mut clipboard,

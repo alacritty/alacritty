@@ -19,6 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Crash when trying to create a new tab without decorations enabled
 - New window being treated as focused when it's not on Wayland
 - IME preview blending into text below it
+- Dynamic title disabled for new windows when initial one has title as CLI option
 
 ## 0.13.2
 
