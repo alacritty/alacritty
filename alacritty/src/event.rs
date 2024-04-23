@@ -217,6 +217,8 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
+    #[cfg(target_os = "macos")]
+    pub event_loop: &'a EventLoopWindowTarget<Event>,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
@@ -1690,7 +1692,14 @@ impl Processor {
                         None => return,
                     };
 
-                    window_context.handle_event(&proxy, &mut clipboard, &mut scheduler, event);
+                    window_context.handle_event(
+                        #[cfg(target_os = "macos")]
+                        event_loop,
+                        &proxy,
+                        &mut clipboard,
+                        &mut scheduler,
+                        event,
+                    );
 
                     window_context.draw(&mut scheduler);
                 },
@@ -1699,6 +1708,8 @@ impl Processor {
                     // Dispatch event to all windows.
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
+                            #[cfg(target_os = "macos")]
+                            event_loop,
                             &proxy,
                             &mut clipboard,
                             &mut scheduler,
@@ -1784,6 +1795,8 @@ impl Processor {
                 WinitEvent::UserEvent(event @ Event { window_id: None, .. }) => {
                     for window_context in self.windows.values_mut() {
                         window_context.handle_event(
+                            #[cfg(target_os = "macos")]
+                            event_loop,
                             &proxy,
                             &mut clipboard,
                             &mut scheduler,
@@ -1795,7 +1808,14 @@ impl Processor {
                 WinitEvent::WindowEvent { window_id, .. }
                 | WinitEvent::UserEvent(Event { window_id: Some(window_id), .. }) => {
                     if let Some(window_context) = self.windows.get_mut(&window_id) {
-                        window_context.handle_event(&proxy, &mut clipboard, &mut scheduler, event);
+                        window_context.handle_event(
+                            #[cfg(target_os = "macos")]
+                            event_loop,
+                            &proxy,
+                            &mut clipboard,
+                            &mut scheduler,
+                            event,
+                        );
                     }
                 },
                 _ => (),
