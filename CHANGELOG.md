@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
+- Decorations use opaque style and system window background on macOS
 
 ### Fixed
 

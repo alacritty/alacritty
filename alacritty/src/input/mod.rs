@@ -20,10 +20,10 @@ use winit::event::{
     ElementState, Modifiers, MouseButton, MouseScrollDelta, Touch as TouchEvent, TouchPhase,
 };
 #[cfg(target_os = "macos")]
-use winit::event_loop::EventLoopWindowTarget;
+use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
 #[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopWindowTargetExtMacOS;
+use winit::platform::macos::ActiveEventLoopExtMacOS;
 use winit::window::CursorIcon;
 
 use alacritty_terminal::event::EventListener;
@@ -107,7 +107,7 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &UiConfig;
     #[cfg(target_os = "macos")]
-    fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
+    fn event_loop(&self) -> &ActiveEventLoop;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
@@ -1224,7 +1224,7 @@ mod tests {
         }
 
         #[cfg(target_os = "macos")]
-        fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
+        fn event_loop(&self) -> &ActiveEventLoop {
             unimplemented!();
         }
 

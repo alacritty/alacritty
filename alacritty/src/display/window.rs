@@ -1,16 +1,16 @@
 #[cfg(not(any(target_os = "macos", windows)))]
 use winit::platform::startup_notify::{
-    self, EventLoopExtStartupNotify, WindowBuilderExtStartupNotify,
+    self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
 };
 
 #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
-use winit::platform::wayland::WindowBuilderExtWayland;
+use winit::platform::wayland::WindowAttributesExtWayland;
 
 #[rustfmt::skip]
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use {
     std::io::Cursor,
-    winit::platform::x11::{WindowBuilderExtX11, EventLoopWindowTargetExtX11},
+    winit::platform::x11::{WindowAttributesExtX11, ActiveEventLoopExtX11},
     glutin::platform::x11::X11VisualInfo,
     winit::window::Icon,
     png::Decoder,
@@ -23,18 +23,18 @@ use {
     cocoa::appkit::NSColorSpace,
     cocoa::base::{id, nil, NO, YES},
     objc::{msg_send, sel, sel_impl},
-    winit::platform::macos::{OptionAsAlt, WindowBuilderExtMacOS, WindowExtMacOS},
+    winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event_loop::EventLoopWindowTarget;
+use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
-    WindowBuilder, WindowId,
+    WindowAttributes, WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -121,8 +121,8 @@ impl Window {
     /// Create a new window.
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new<E>(
-        event_loop: &EventLoopWindowTarget<E>,
+    pub fn new(
+        event_loop: &ActiveEventLoop,
         config: &UiConfig,
         identity: &Identity,
         #[rustfmt::skip]
@@ -133,7 +133,7 @@ impl Window {
         x11_visual: Option<X11VisualInfo>,
     ) -> Result<Window> {
         let identity = identity.clone();
-        let mut window_builder = Window::get_platform_window(
+        let mut window_attributes = Window::get_platform_window(
             &identity,
             &config.window,
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
@@ -143,14 +143,14 @@ impl Window {
         );
 
         if let Some(position) = config.window.position {
-            window_builder = window_builder
+            window_attributes = window_attributes
                 .with_position(PhysicalPosition::<i32>::from((position.x, position.y)));
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
         if let Some(token) = event_loop.read_token_from_env() {
             log::debug!("Activating window with token: {token:?}");
-            window_builder = window_builder.with_activation_token(token);
+            window_attributes = window_attributes.with_activation_token(token);
 
             // Remove the token from the env.
             startup_notify::reset_activation_token_env();
@@ -160,22 +160,23 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         if let Some(parent_window_id) = event_loop.is_x11().then_some(config.window.embed).flatten()
         {
-            window_builder = window_builder.with_embed_parent_window(parent_window_id);
+            window_attributes = window_attributes.with_embed_parent_window(parent_window_id);
         }
 
-        let window = window_builder
+        window_attributes = window_attributes
             .with_title(&identity.title)
             .with_theme(config.window.theme())
             .with_visible(false)
             .with_transparent(true)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
-            .with_fullscreen(config.window.fullscreen())
-            .build(event_loop)?;
+            .with_fullscreen(config.window.fullscreen());
+
+        let window = event_loop.create_window(window_attributes)?;
 
         // Text cursor.
         let current_mouse_cursor = CursorIcon::Text;
-        window.set_cursor_icon(current_mouse_cursor);
+        window.set_cursor(current_mouse_cursor);
 
         // Enable IME.
         window.set_ime_allowed(true);
@@ -248,7 +249,7 @@ impl Window {
     pub fn set_mouse_cursor(&mut self, cursor: CursorIcon) {
         if cursor != self.current_mouse_cursor {
             self.current_mouse_cursor = cursor;
-            self.window.set_cursor_icon(cursor);
+            self.window.set_cursor(cursor);
         }
     }
 
@@ -267,7 +268,7 @@ impl Window {
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))] x11_visual: Option<
             X11VisualInfo,
         >,
-    ) -> WindowBuilder {
+    ) -> WindowAttributes {
         #[cfg(feature = "x11")]
         let icon = {
             let mut decoder = Decoder::new(Cursor::new(WINDOW_ICON));
@@ -279,7 +280,7 @@ impl Window {
                 .expect("invalid embedded icon format")
         };
 
-        let builder = WindowBuilder::new()
+        let builder = WinitWindow::default_attributes()
             .with_name(&identity.class.general, &identity.class.instance)
             .with_decorations(window_config.decorations != Decorations::None);
 
@@ -296,10 +297,10 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
         let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
-        WindowBuilder::new()
+        WinitWindow::default_attributes()
             .with_decorations(window_config.decorations != Decorations::None)
             .with_window_icon(icon.ok())
     }
@@ -309,8 +310,9 @@ impl Window {
         _: &Identity,
         window_config: &WindowConfig,
         tabbing_id: &Option<String>,
-    ) -> WindowBuilder {
-        let mut window = WindowBuilder::new().with_option_as_alt(window_config.option_as_alt());
+    ) -> WindowAttributes {
+        let mut window =
+            WinitWindow::default_attributes().with_option_as_alt(window_config.option_as_alt());
 
         if let Some(tabbing_id) = tabbing_id {
             window = window.with_tabbing_identifier(tabbing_id);

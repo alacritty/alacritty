@@ -22,9 +22,7 @@ use winit::event::{
     ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
 };
-use winit::event_loop::{
-    ControlFlow, DeviceEvents, EventLoop, EventLoopProxy, EventLoopWindowTarget,
-};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
 use winit::window::WindowId;
 
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
@@ -218,7 +216,7 @@ pub struct ActionContext<'a, N, T> {
     pub config: &'a UiConfig,
     pub cursor_blink_timed_out: &'a mut bool,
     #[cfg(target_os = "macos")]
-    pub event_loop: &'a EventLoopWindowTarget<Event>,
+    pub event_loop: &'a ActiveEventLoop,
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
@@ -919,7 +917,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[cfg(target_os = "macos")]
-    fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
+    fn event_loop(&self) -> &ActiveEventLoop {
         self.event_loop
     }
 
@@ -1468,12 +1466,13 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     },
                     WindowEvent::KeyboardInput { is_synthetic: true, .. }
                     | WindowEvent::ActivationTokenDone { .. }
+                    | WindowEvent::DoubleTapGesture { .. }
                     | WindowEvent::TouchpadPressure { .. }
-                    | WindowEvent::TouchpadMagnify { .. }
-                    | WindowEvent::TouchpadRotate { .. }
-                    | WindowEvent::SmartMagnify { .. }
+                    | WindowEvent::RotationGesture { .. }
                     | WindowEvent::CursorEntered { .. }
+                    | WindowEvent::PinchGesture { .. }
                     | WindowEvent::AxisMotion { .. }
+                    | WindowEvent::PanGesture { .. }
                     | WindowEvent::HoveredFileCancelled
                     | WindowEvent::Destroyed
                     | WindowEvent::ThemeChanged(_)
@@ -1531,7 +1530,7 @@ impl Processor {
     /// will be used for the rest of the windows.
     pub fn create_initial_window(
         &mut self,
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
@@ -1547,7 +1546,7 @@ impl Processor {
     /// Create a new terminal window.
     pub fn create_window(
         &mut self,
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
