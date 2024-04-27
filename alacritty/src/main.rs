@@ -196,13 +196,14 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let window_options = options.window_options.clone();
-    let mut processor = Processor::new(config, options, &window_event_loop);
+    let processor = Processor::new(config, options, &window_event_loop);
 
     // Start event loop and block until shutdown.
-    let result = processor.run(window_event_loop, window_options);
+    let result = processor.run(window_event_loop);
 
-    // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
+    // `Processor` must be dropped before calling `FreeConsole`.
+    //
+    // This is needed for ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
     //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped
     //   - ConPTY is dropped when the last of processor and window context are dropped, because both
@@ -213,7 +214,6 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // order.
     //
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
-    drop(processor);
 
     // Terminate the config monitor.
     if let Some(config_monitor) = config_monitor.take() {
@@ -241,5 +241,5 @@ fn log_config_path(config: &UiConfig) {
         let _ = write!(msg, "\n  {:?}", path.display());
     }
 
-    info!("{}", msg);
+    info!("{msg}");
 }
