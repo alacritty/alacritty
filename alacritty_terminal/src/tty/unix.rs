@@ -4,6 +4,7 @@ use std::ffi::CStr;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
+use std::os::fd::OwnedFd;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
@@ -184,6 +185,11 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
 pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<Pty> {
     let pty = openpty(None, Some(&window_size.to_winsize()))?;
     let (master, slave) = (pty.controller, pty.user);
+    from_fd(config, window_id, master, slave)
+}
+
+/// Create a new TTY from a PTY's file descriptors.
+pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd) -> Result<Pty> {
     let master_fd = master.as_raw_fd();
     let slave_fd = slave.as_raw_fd();
 
