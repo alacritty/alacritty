@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added `tty::unix::from_fd()` to create a TTY from a pre-opened PTY's file-descriptors
+- `tty::unix::from_fd()` to create a TTY from a pre-opened PTY's file-descriptors
 
 ### Changed
 
