@@ -19,7 +19,7 @@ following locations on UNIX systems:
 . `$HOME/.config/alacritty/alacritty.toml`
 . `$HOME/.alacritty.toml`
 
-On Windows, the config file should be located at:
+On Windows, the config file will be looked for in:
 
 . `%APPDATA%\alacritty\alacritty.toml`
 
