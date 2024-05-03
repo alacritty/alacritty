@@ -56,7 +56,8 @@ mod gl {
 #[cfg(unix)]
 use crate::cli::MessageOptions;
 use crate::cli::{Options, Subcommands};
-use crate::config::{monitor, UiConfig};
+use crate::config::monitor::ConfigMonitor;
+use crate::config::UiConfig;
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
@@ -165,8 +166,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
+    let mut config_monitor = None;
     if config.live_config_reload {
-        monitor::watch(config.config_paths.clone(), window_event_loop.create_proxy());
+        config_monitor =
+            ConfigMonitor::new(config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
     // Create the IPC socket listener.
@@ -205,8 +208,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
 
-    // FIXME patch notify library to have a shutdown method.
-    // config_reloader.join().ok();
+    // Terminate the config monitor.
+    if let Some(config_monitor) = config_monitor.take() {
+        config_monitor.shutdown();
+    }
 
     // Without explicitly detaching the console cmd won't redraw it's prompt.
     #[cfg(windows)]
