@@ -17,7 +17,7 @@ use log::info;
 use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
-use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::WindowId;
 
 use alacritty_terminal::event::Event as TerminalEvent;
@@ -70,7 +70,7 @@ pub struct WindowContext {
 impl WindowContext {
     /// Create initial window context that does bootstrapping the graphics API we're going to use.
     pub fn initial(
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
@@ -120,7 +120,7 @@ impl WindowContext {
     /// Create additional context with the graphics platform other windows are using.
     pub fn additional(
         &self,
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
@@ -399,7 +399,7 @@ impl WindowContext {
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
-        #[cfg(target_os = "macos")] event_loop: &EventLoopWindowTarget<Event>,
+        #[cfg(target_os = "macos")] event_loop: &ActiveEventLoop,
         event_proxy: &EventLoopProxy<Event>,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,

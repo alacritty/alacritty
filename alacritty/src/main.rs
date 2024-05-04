@@ -19,11 +19,11 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use log::info;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
-use winit::event_loop::EventLoopBuilder as WinitEventLoopBuilder;
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use winit::platform::x11::EventLoopWindowTargetExtX11;
+use winit::event_loop::EventLoop;
 
 use alacritty_terminal::tty;
 
@@ -125,7 +125,7 @@ impl Drop for TemporaryFiles {
 /// config change monitor, and runs the main display loop.
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
-    let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build()?;
+    let window_event_loop = EventLoop::<Event>::with_user_event().build()?;
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
@@ -135,7 +135,14 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     info!("Version {}", env!("VERSION"));
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    info!("Running on {}", if window_event_loop.is_x11() { "X11" } else { "Wayland" });
+    info!(
+        "Running on {}",
+        if matches!(window_event_loop.raw_display_handle(), RawDisplayHandle::Wayland(_)) {
+            "Wayland"
+        } else {
+            "X11"
+        }
+    );
     #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
     info!("Running on Wayland");
 
@@ -189,13 +196,14 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let window_options = options.window_options.clone();
-    let mut processor = Processor::new(config, options, &window_event_loop);
+    let processor = Processor::new(config, options, &window_event_loop);
 
     // Start event loop and block until shutdown.
-    let result = processor.run(window_event_loop, window_options);
+    let result = processor.run(window_event_loop);
 
-    // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
+    // `Processor` must be dropped before calling `FreeConsole`.
+    //
+    // This is needed for ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
     //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped
     //   - ConPTY is dropped when the last of processor and window context are dropped, because both
@@ -206,7 +214,6 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // order.
     //
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
-    drop(processor);
 
     // Terminate the config monitor.
     if let Some(config_monitor) = config_monitor.take() {
@@ -234,5 +241,5 @@ fn log_config_path(config: &UiConfig) {
         let _ = write!(msg, "\n  {:?}", path.display());
     }
 
-    info!("{}", msg);
+    info!("{msg}");
 }
