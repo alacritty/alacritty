@@ -24,7 +24,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::ActiveEventLoopExtMacOS;
-use winit::window::CursorIcon;
+use winit::window::{CursorIcon, ResizeDirection};
 
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
@@ -74,6 +74,13 @@ const CLICK_THRESHOLD: Duration = Duration::from_millis(400);
 pub struct Processor<T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
     _phantom: PhantomData<T>,
+}
+
+struct PaddingHoverinfo {
+    pub north: bool,
+    pub east: bool,
+    pub south: bool,
+    pub west: bool,
 }
 
 pub trait ActionContext<T: EventListener> {
@@ -448,20 +455,18 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let inside_text_area = size_info.contains_point(x, y);
         let cell_side = self.cell_side(x);
+        let padding_hover = self.padding_hoverinfo(self.ctx.mouse(), &size_info);
 
-        if !inside_text_area && self.ctx.config().window.decorations == Decorations::None {
-            // North padding of borderless window allows to move the window.
-            if y < size_info.padding_y() as usize {
-                self.ctx.window().set_mouse_cursor(CursorIcon::Move);
-                return;
-            }
-            // South-east corner of padding of borderless window allows to resize the window.
-            else if y > size_info.height() as usize - size_info.padding_y() as usize
-                && x > size_info.width() as usize - size_info.padding_x() as usize
-            {
-                self.ctx.window().set_mouse_cursor(CursorIcon::SeResize);
-                return;
-            }
+        let mut padding_interaction = false;
+        if !inside_text_area
+            && !lmb_pressed
+            && !rmb_pressed
+            && self.ctx.config().window.decorations == Decorations::None
+        {
+            // North padding of borderless window allows to move the window, south-east and
+            // south-west corner allow resize.
+            padding_interaction = padding_hover.north
+                || (padding_hover.south && (padding_hover.east || padding_hover.west));
         }
 
         let point = self.ctx.mouse().point(&size_info, display_offset);
@@ -471,12 +476,14 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if !cell_changed
             && self.ctx.mouse().cell_side == cell_side
             && self.ctx.mouse().inside_text_area == inside_text_area
+            && self.ctx.mouse().padding_interaction == padding_interaction
         {
             return;
         }
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
+        self.ctx.mouse_mut().padding_interaction = padding_interaction;
 
         // Update mouse state and check for URL change.
         let mouse_state = self.cursor_state();
@@ -643,17 +650,20 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             let point = self.ctx.mouse().point(&size_info, display_offset);
 
             if self.ctx.config().window.decorations == Decorations::None {
+                let padding_hover = self.padding_hoverinfo(self.ctx.mouse(), &size_info);
                 // When clicking the north padding, drag window.
-                if self.ctx.mouse().y < size_info.padding_y() as usize {
+                if padding_hover.north {
                     self.ctx.window().drag_window();
                     return;
                 }
                 // When clicking the south-east padding corner, resize window.
-                if self.ctx.mouse().y > size_info.height() as usize - size_info.padding_y() as usize
-                    && self.ctx.mouse().x
-                        > size_info.width() as usize - size_info.padding_x() as usize
-                {
-                    self.ctx.window().drag_resize_window();
+                if padding_hover.south && padding_hover.east {
+                    self.ctx.window().drag_resize_window(ResizeDirection::SouthEast);
+                    return;
+                }
+                // When clicking the south-west padding corner, resize window.
+                if padding_hover.south && padding_hover.west {
+                    self.ctx.window().drag_resize_window(ResizeDirection::SouthWest);
                     return;
                 }
             }
@@ -1085,11 +1095,21 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let display_offset = self.ctx.terminal().grid().display_offset();
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
+        let padding_hover = self.padding_hoverinfo(self.ctx.mouse(), &self.ctx.size_info());
+        let padding_interaction_active = self.ctx.config().window.decorations == Decorations::None
+            && self.ctx.mouse().left_button_state == ElementState::Released
+            && self.ctx.mouse().right_button_state == ElementState::Released;
 
         // Function to check if mouse is on top of a hint.
         let hint_highlighted = |hint: &HintMatch| hint.should_highlight(point, hyperlink.as_ref());
 
-        if let Some(mouse_state) = self.message_bar_cursor_state() {
+        if padding_interaction_active && padding_hover.north {
+            CursorIcon::Move
+        } else if padding_interaction_active && padding_hover.south && padding_hover.east {
+            CursorIcon::SeResize
+        } else if padding_interaction_active && padding_hover.south && padding_hover.west {
+            CursorIcon::SwResize
+        } else if let Some(mouse_state) = self.message_bar_cursor_state() {
             mouse_state
         } else if self.ctx.display().highlighted_hint.as_ref().map_or(false, hint_highlighted) {
             CursorIcon::Pointer
@@ -1133,6 +1153,23 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let timer_id = TimerId::new(Topic::SelectionScrolling, window_id);
         scheduler.unschedule(timer_id);
         scheduler.schedule(event, SELECTION_SCROLLING_INTERVAL, true, timer_id);
+    }
+
+    /// Whether the padding is hovered in the north, east, south and west direction, respectively.
+    fn padding_hoverinfo(&self, mouse: &Mouse, size_info: &SizeInfo) -> PaddingHoverinfo {
+        let x = mouse.x;
+        let y = mouse.y;
+        let padding_x = size_info.padding_x() as usize;
+        let padding_y = size_info.padding_y() as usize;
+        let width = size_info.width() as usize;
+        let height = size_info.height() as usize;
+
+        PaddingHoverinfo {
+            north: y < padding_y,
+            east: x > width - padding_x,
+            south: y > height - padding_y,
+            west: x < padding_x,
+        }
     }
 }
 

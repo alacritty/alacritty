@@ -34,8 +34,8 @@ use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
 use winit::window::{
-    CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
-    WindowAttributes, WindowId,
+    CursorIcon, Fullscreen, ImePurpose, ResizeDirection, Theme, UserAttentionType,
+    Window as WinitWindow, WindowAttributes, WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -370,9 +370,8 @@ impl Window {
         }
     }
 
-    pub fn drag_resize_window(&self) {
-        if let Err(err) = self.window.drag_resize_window(winit::window::ResizeDirection::SouthEast)
-        {
+    pub fn drag_resize_window(&self, direction: ResizeDirection) {
+        if let Err(err) = self.window.drag_resize_window(direction) {
             debug!("Unable to initiate resizing the window: {}", err);
         }
     }

@@ -1582,6 +1582,7 @@ pub struct Mouse {
     pub block_hint_launcher: bool,
     pub hint_highlight_dirty: bool,
     pub inside_text_area: bool,
+    pub padding_interaction: bool,
     pub x: usize,
     pub y: usize,
 }
@@ -1599,6 +1600,7 @@ impl Default for Mouse {
             hint_highlight_dirty: Default::default(),
             block_hint_launcher: Default::default(),
             inside_text_area: Default::default(),
+            padding_interaction: Default::default(),
             accumulated_scroll: Default::default(),
             x: Default::default(),
             y: Default::default(),
