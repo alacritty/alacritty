@@ -16,6 +16,7 @@ use {
     png::Decoder,
 };
 
+use log::debug;
 use std::fmt::{self, Display, Formatter};
 
 #[cfg(target_os = "macos")]
@@ -361,6 +362,19 @@ impl Window {
 
     pub fn set_resize_increments(&self, increments: PhysicalSize<f32>) {
         self.window.set_resize_increments(Some(increments));
+    }
+
+    pub fn drag_window(&self) {
+        if let Err(err) = self.window.drag_window() {
+            debug!("Unable to initiate dragging the window: {}", err);
+        }
+    }
+
+    pub fn drag_resize_window(&self) {
+        if let Err(err) = self.window.drag_resize_window(winit::window::ResizeDirection::SouthEast)
+        {
+            debug!("Unable to initiate resizing the window: {}", err);
+        }
     }
 
     /// Toggle the window's fullscreen state.

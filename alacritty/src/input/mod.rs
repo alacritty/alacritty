@@ -36,7 +36,6 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
-#[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
@@ -450,6 +449,21 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let inside_text_area = size_info.contains_point(x, y);
         let cell_side = self.cell_side(x);
 
+        if !inside_text_area && self.ctx.config().window.decorations == Decorations::None {
+            // North padding of borderless window allows to move the window.
+            if y < size_info.padding_y() as usize {
+                self.ctx.window().set_mouse_cursor(CursorIcon::Move);
+                return;
+            }
+            // South-east corner of padding of borderless window allows to resize the window.
+            else if y > size_info.height() as usize - size_info.padding_y() as usize
+                && x > size_info.width() as usize - size_info.padding_x() as usize
+            {
+                self.ctx.window().set_mouse_cursor(CursorIcon::SeResize);
+                return;
+            }
+        }
+
         let point = self.ctx.mouse().point(&size_info, display_offset);
         let cell_changed = old_point != point;
 
@@ -625,7 +639,24 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
             // Load mouse point, treating message bar and padding as the closest cell.
             let display_offset = self.ctx.terminal().grid().display_offset();
-            let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+            let size_info = self.ctx.size_info();
+            let point = self.ctx.mouse().point(&size_info, display_offset);
+
+            if self.ctx.config().window.decorations == Decorations::None {
+                // When clicking the north padding, drag window.
+                if self.ctx.mouse().y < size_info.padding_y() as usize {
+                    self.ctx.window().drag_window();
+                    return;
+                }
+                // When clicking the south-east padding corner, resize window.
+                if self.ctx.mouse().y > size_info.height() as usize - size_info.padding_y() as usize
+                    && self.ctx.mouse().x
+                        > size_info.width() as usize - size_info.padding_x() as usize
+                {
+                    self.ctx.window().drag_resize_window();
+                    return;
+                }
+            }
 
             if let MouseButton::Left = button {
                 self.on_left_click(point)
