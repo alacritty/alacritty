@@ -22,6 +22,8 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - New window being treated as focused when it's not on Wayland
 - IME preview blending into text below it
 - Dynamic title disabled for new windows when initial one has title as CLI option
+- While terminal in mouse mode, mouse bindings that used the shift modifier and
+  had multiple actions only performed the first action
 
 ## 0.13.2
 

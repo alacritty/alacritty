@@ -1004,17 +1004,18 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mouse_bindings = self.ctx.config().mouse_bindings().to_owned();
 
         // If mouse mode is active, also look for bindings without shift.
-        let mut check_fallback = mouse_mode && mods.contains(ModifiersState::SHIFT);
+        let fallback_allowed = mouse_mode && mods.contains(ModifiersState::SHIFT);
+        let mut exact_match_found = false;
 
         for binding in &mouse_bindings {
             // Don't trigger normal bindings in mouse mode unless Shift is pressed.
-            if binding.is_triggered_by(mode, mods, &button) && (check_fallback || !mouse_mode) {
+            if binding.is_triggered_by(mode, mods, &button) && (fallback_allowed || !mouse_mode) {
                 binding.action.execute(&mut self.ctx);
-                check_fallback = false;
+                exact_match_found = true;
             }
         }
 
-        if check_fallback {
+        if fallback_allowed && !exact_match_found {
             let fallback_mods = mods & !ModifiersState::SHIFT;
             for binding in &mouse_bindings {
                 if binding.is_triggered_by(mode, fallback_mods, &button) {
