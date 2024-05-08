@@ -1111,6 +1111,10 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         match &hint.action() {
             // Launch an external program.
             HintAction::Command(command) => {
+                // Windows requires an escape character (^) before occurrences of ampersand (&)
+                #[cfg(windows)]
+                let text = text.replace('&', "^&");
+
                 let mut args = command.args().to_vec();
                 args.push(text);
                 self.spawn_daemon(command.program(), &args);
