@@ -510,6 +510,12 @@ This section documents the *[bell]* table of the configuration file.
 
 	Default: _0_
 
+*strength* = _<integer>_
+
+	Visual bell animation strength, in percentage.
+
+	Default: _100_
+
 *color* = _"<string>"_
 
 	Visual bell animation color.

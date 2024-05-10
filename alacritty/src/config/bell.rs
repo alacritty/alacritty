@@ -18,6 +18,9 @@ pub struct BellConfig {
 
     /// Visual bell duration in milliseconds.
     duration: u16,
+
+    /// Stength of visual effect, in percent.
+    strength: u16,
 }
 
 impl Default for BellConfig {
@@ -27,6 +30,7 @@ impl Default for BellConfig {
             animation: Default::default(),
             command: Default::default(),
             duration: Default::default(),
+            strength: 100,
         }
     }
 }
@@ -34,6 +38,10 @@ impl Default for BellConfig {
 impl BellConfig {
     pub fn duration(&self) -> Duration {
         Duration::from_millis(self.duration as u64)
+    }
+
+    pub fn strength(&self) -> f64 {
+        f64::from(self.strength) / 100f64
     }
 }
 

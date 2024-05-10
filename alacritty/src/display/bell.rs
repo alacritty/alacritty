@@ -11,6 +11,9 @@ pub struct VisualBell {
 
     /// The last time the visual bell rang, if at all.
     start_time: Option<Instant>,
+
+    /// Strength factor of the visual effect.
+    strength: f64,
 }
 
 impl VisualBell {
@@ -93,7 +96,8 @@ impl VisualBell {
 
                 // Since we want the `intensity` of the VisualBell to decay over
                 // `time`, we subtract the `inverse_intensity` from 1.0.
-                1.0 - inverse_intensity
+                // And finally, multiply the result with a `strength` factor.
+                self.strength * (1.0 - inverse_intensity)
             },
         }
     }
@@ -101,6 +105,7 @@ impl VisualBell {
     pub fn update_config(&mut self, bell_config: &BellConfig) {
         self.animation = bell_config.animation;
         self.duration = bell_config.duration();
+        self.strength = bell_config.strength();
     }
 }
 
@@ -110,6 +115,7 @@ impl From<&BellConfig> for VisualBell {
             animation: bell_config.animation,
             duration: bell_config.duration(),
             start_time: None,
+            strength: bell_config.strength(),
         }
     }
 }
