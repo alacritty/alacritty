@@ -349,7 +349,9 @@ impl Window {
     pub fn set_transparent(&self, transparent: bool) {
         self.window.set_transparent(transparent);
         #[cfg(target_os = "macos")]
-        set_background_transparent_macos(&self.window, transparent)
+        set_background_transparent_macos(&self.window, transparent);
+        #[cfg(target_os = "macos")]
+        set_titlebar_transparent_macos(&self.window, transparent);
     }
 
     pub fn set_blur(&self, blur: bool) {
@@ -521,4 +523,17 @@ fn set_background_transparent_macos(window: &WinitWindow, transparent: bool) {
         };
         let _: () = msg_send![raw_window, setBackgroundColor: bg_color];
     }
+}
+
+/// Set the transparency of the window titlebar on macOS.
+#[cfg(target_os = "macos")]
+fn set_titlebar_transparent_macos(window: &WinitWindow, transparent: bool) {
+    let raw_window = match window.raw_window_handle() {
+        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        _ => return,
+    };
+
+    let transparent = if transparent { YES } else { NO };
+
+    let _: () = unsafe { msg_send![raw_window, setTitlebarAppearsTransparent: transparent] };
 }
