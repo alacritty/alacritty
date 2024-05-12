@@ -201,7 +201,7 @@ pub struct NormalColors {
 impl Default for NormalColors {
     fn default() -> Self {
         NormalColors {
-            black: Rgb::new(0x18, 0x18, 0x18),
+            black: Rgb::new(0x33, 0x33, 0x33),
             red: Rgb::new(0xac, 0x42, 0x42),
             green: Rgb::new(0x90, 0xa9, 0x59),
             yellow: Rgb::new(0xf4, 0xbf, 0x75),
