@@ -255,10 +255,10 @@ impl ApplicationHandler<Event> for Processor {
         }
 
         // Handle events which don't mandate the WindowId.
-        match &event.payload {
+        match (&event.payload, event.window_id.as_ref()) {
             // Process IPC config update.
             #[cfg(unix)]
-            EventType::IpcConfig(ipc_config) => {
+            (EventType::IpcConfig(ipc_config), window_id) => {
                 // Try and parse options as toml.
                 let mut options = ParsedOptions::from_options(&ipc_config.options);
 
@@ -266,7 +266,7 @@ impl ApplicationHandler<Event> for Processor {
                 for (_, window_context) in self
                     .windows
                     .iter_mut()
-                    .filter(|(id, _)| event.window_id.is_none() || event.window_id == Some(**id))
+                    .filter(|(id, _)| window_id.is_none() || window_id == Some(*id))
                 {
                     if ipc_config.reset {
                         window_context.reset_window_config(self.config.clone());
@@ -276,7 +276,7 @@ impl ApplicationHandler<Event> for Processor {
                 }
 
                 // Persist global options for future windows.
-                if event.window_id.is_none() {
+                if window_id.is_none() {
                     if ipc_config.reset {
                         self.global_ipc_options.clear();
                     } else {
@@ -284,7 +284,7 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
-            EventType::ConfigReload(path) => {
+            (EventType::ConfigReload(path), _) => {
                 // Clear config logs from message bar for all terminals.
                 for window_context in self.windows.values_mut() {
                     if !window_context.message_buffer.is_empty() {
@@ -303,7 +303,7 @@ impl ApplicationHandler<Event> for Processor {
                 }
             },
             // Create a new terminal window.
-            EventType::CreateWindow(options) => {
+            (EventType::CreateWindow(options), _) => {
                 // XXX Ensure that no context is current when creating a new window,
                 // otherwise it may lock the backing buffer of the
                 // surface of current context when asking
@@ -316,27 +316,31 @@ impl ApplicationHandler<Event> for Processor {
                     error!("Could not open window: {:?}", err);
                 }
             },
-            _ => (),
-        };
-
-        let window_id = match event.window_id {
-            Some(window_id) => window_id,
-            None => return,
-        };
-
-        // Handle the rest of events which require WindowId.
-        match event.payload {
-            EventType::Terminal(TerminalEvent::Wakeup) => {
-                if let Some(window_context) = self.windows.get_mut(&window_id) {
+            // Process events affecting all windows.
+            (_, None) => {
+                let event = WinitEvent::UserEvent(event);
+                for window_context in self.windows.values_mut() {
+                    window_context.handle_event(
+                        #[cfg(target_os = "macos")]
+                        event_loop,
+                        &self.proxy,
+                        &mut self.clipboard,
+                        &mut self.scheduler,
+                        event.clone(),
+                    );
+                }
+            },
+            (EventType::Terminal(TerminalEvent::Wakeup), Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.dirty = true;
                     if window_context.display.window.has_frame {
                         window_context.display.window.request_redraw();
                     }
                 }
             },
-            EventType::Terminal(TerminalEvent::Exit) => {
+            (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
                 // Remove the closed terminal.
-                let window_context = match self.windows.remove(&window_id) {
+                let window_context = match self.windows.remove(window_id) {
                     Some(window_context) => window_context,
                     None => return,
                 };
@@ -355,16 +359,16 @@ impl ApplicationHandler<Event> for Processor {
                 }
             },
             // NOTE: This event bypasses batching to minimize input latency.
-            EventType::Frame => {
-                if let Some(window_context) = self.windows.get_mut(&window_id) {
+            (EventType::Frame, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.display.window.has_frame = true;
                     if window_context.dirty {
                         window_context.display.window.request_redraw();
                     }
                 }
             },
-            _ => {
-                if let Some(window_context) = self.windows.get_mut(&window_id) {
+            (_, Some(window_id)) => {
+                if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.handle_event(
                         #[cfg(target_os = "macos")]
                         event_loop,
@@ -375,7 +379,7 @@ impl ApplicationHandler<Event> for Processor {
                     );
                 }
             },
-        }
+        };
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
