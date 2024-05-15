@@ -1,11 +1,12 @@
 use std::cmp::max;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
-use log::{self, error, LevelFilter};
+use log::{error, LevelFilter};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
@@ -91,7 +92,6 @@ impl Options {
             config.ipc_socket |= self.socket.is_some();
         }
 
-        config.window.dynamic_title &= self.window_options.window_identity.title.is_none();
         config.window.embed = self.embed.as_ref().and_then(|embed| parse_hex_or_decimal(embed));
         config.debug.print_events |= self.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level());
@@ -195,6 +195,7 @@ impl From<TerminalOptions> for PtyOptions {
             working_directory: options.working_directory.take(),
             shell: options.command().map(Into::into),
             hold: options.hold,
+            env: HashMap::new(),
         }
     }
 }
@@ -421,19 +422,6 @@ mod tests {
         Options::default().override_config(&mut config);
 
         assert_eq!(old_dynamic_title, config.window.dynamic_title);
-    }
-
-    #[test]
-    fn dynamic_title_overridden_by_options() {
-        let mut config = UiConfig::default();
-
-        let title = Some(String::from("foo"));
-        let window_identity = WindowIdentity { title, ..WindowIdentity::default() };
-        let new_window_options = WindowOptions { window_identity, ..WindowOptions::default() };
-        let mut options = Options { window_options: new_window_options, ..Options::default() };
-        options.override_config(&mut config);
-
-        assert!(!config.window.dynamic_title);
     }
 
     #[test]

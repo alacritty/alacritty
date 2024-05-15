@@ -91,10 +91,11 @@ If any change has been made to the `config.rs` file, it should also be documente
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to
 things like code refactorings or documentation/tests) additionally need to be documented in the
-`CHANGELOG.md`. The existing entries should be used as a style guideline. The change log should be
-used to document changes from a user-perspective, instead of explaining the technical background
-(like commit messages). More information about Alacritty's change log format can be found
-[here](https://keepachangelog.com).
+`CHANGELOG.md`. When a notable change is made to `alacritty_terminal`, it should be documented in
+`alacritty_terminal/CHANGELOG.md` as well. The existing entries should be used as a style guideline.
+The change log should be used to document changes from a user-perspective, instead of explaining the
+technical background (like commit messages) More information about Alacritty's change log format can
+be found [here](https://keepachangelog.com).
 
 ### Style
 

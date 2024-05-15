@@ -5,11 +5,24 @@ The sections should follow the order `Packaging`, `Added`, `Changed`, `Fixed` an
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+Notable changes to the `alacritty_terminal` crate are documented in its
+[CHANGELOG](./alacritty_terminal/CHANGELOG.md).
+
 ## 0.14.0-dev
 
-### Packaging
+### Changed
 
-- Minimum Rust version has been bumped to 1.72.0
+- Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
+- Decorations use opaque style and system window background on macOS
+
+### Fixed
+
+- Crash when trying to create a new tab without decorations enabled
+- New window being treated as focused when it's not on Wayland
+- IME preview blending into text below it
+- Dynamic title disabled for new windows when initial one has title as CLI option
+
+## 0.13.2
 
 ### Added
 
@@ -30,6 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mouse cursor not changing on Wayland when cursor theme uses legacy cursor icon names
 - Config keys are available under proper names
 - Build failure when compiling with x11 feature on NetBSD
+- Hint `Select` action selecting the entire line for URL escapes
+- Kitty encoding used for regular keys when they don't carry text
 
 ### Changed
 

@@ -4,7 +4,8 @@ version = "0.2.1-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT OR Apache-2.0"
 description = "Alacritty configuration abstractions"
-homepage = "https://github.com/alacritty/alacritty"
+homepage = "https://alacritty.org"
+repository = "https://github.com/alacritty/alacritty"
 edition = "2021"
 rust-version = "1.70.0"
 

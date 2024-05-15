@@ -48,10 +48,10 @@ jobs:
           ./.github/workflows/upload_asset.sh \
             ./Alacritty-${GITHUB_REF##*/}-portable.exe $GITHUB_TOKEN
       - name: Install WiX
-        run: dotnet tool install --global wix --version 4.0.1
-      - name: Crate msi installer
+        run: dotnet tool install --global wix --version 4.0.5
+      - name: Create msi installer
         run: |
-          wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
+          wix extension add WixToolset.UI.wixext/4.0.5 WixToolset.Util.wixext/4.0.5
           wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext \
           -out "./Alacritty-${GITHUB_REF##*/}-installer.msi" "alacritty/windows/wix/alacritty.wxs"
       - name: Upload msi installer

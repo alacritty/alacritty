@@ -41,7 +41,7 @@
       <!-- Add context menu -->
       <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91" Directory="TARGETDIR">
          <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here\command">
-            <RegistryValue Type="string" Value="[AlacrittyProgramFiles]alacritty.exe" KeyPath="yes" />
+            <RegistryValue Type="string" Value='[AlacrittyProgramFiles]alacritty.exe --working-directory "%v"' KeyPath="yes" />
          </RegistryKey>
          <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
             <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe" />

@@ -1,11 +1,12 @@
 [package]
 name = "alacritty_terminal"
-version = "0.22.1-dev"
+version = "0.24.1-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
 readme = "../README.md"
-homepage = "https://github.com/alacritty/alacritty"
+homepage = "https://alacritty.org"
+repository = "https://github.com/alacritty/alacritty"
 edition = "2021"
 rust-version = "1.70.0"
 
@@ -14,7 +15,7 @@ default = ["serde"]
 serde = ["dep:serde", "bitflags/serde", "vte/serde"]
 
 [dependencies]
-base64 = "0.21.3"
+base64 = "0.22.0"
 bitflags = "2.4.1"
 home = "0.5.5"
 libc = "0.2"
@@ -34,7 +35,7 @@ signal-hook = "0.3.10"
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"
 miow = "0.6.0"
-windows-sys = { version = "0.48.0", features = [
+windows-sys = { version = "0.52.0", features = [
     "Win32_System_Console",
     "Win32_Foundation",
     "Win32_Security",

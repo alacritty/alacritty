@@ -10,7 +10,7 @@ use alacritty_terminal::term::Config as TermConfig;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
-use serde::{self, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, ModifiersState};
 
@@ -167,7 +167,12 @@ impl UiConfig {
     /// Derive [`PtyOptions`] from the config.
     pub fn pty_config(&self) -> PtyOptions {
         let shell = self.shell.clone().map(Into::into);
-        PtyOptions { shell, working_directory: self.working_directory.clone(), hold: false }
+        PtyOptions {
+            shell,
+            working_directory: self.working_directory.clone(),
+            hold: false,
+            env: HashMap::new(),
+        }
     }
 
     /// Generate key bindings for all keyboard hints.

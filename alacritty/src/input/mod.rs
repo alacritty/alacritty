@@ -20,10 +20,10 @@ use winit::event::{
     ElementState, Modifiers, MouseButton, MouseScrollDelta, Touch as TouchEvent, TouchPhase,
 };
 #[cfg(target_os = "macos")]
-use winit::event_loop::EventLoopWindowTarget;
+use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::ModifiersState;
 #[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopWindowTargetExtMacOS;
+use winit::platform::macos::ActiveEventLoopExtMacOS;
 use winit::window::CursorIcon;
 
 use alacritty_terminal::event::EventListener;
@@ -36,6 +36,8 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
+#[cfg(target_os = "macos")]
+use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
 use crate::display::hint::HintMatch;
 use crate::display::window::Window;
@@ -105,7 +107,7 @@ pub trait ActionContext<T: EventListener> {
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &UiConfig;
     #[cfg(target_os = "macos")]
-    fn event_loop(&self) -> &EventLoopWindowTarget<Event>;
+    fn event_loop(&self) -> &ActiveEventLoop;
     fn mouse_mode(&self) -> bool;
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
@@ -385,8 +387,11 @@ impl<T: EventListener> Execute<T> for Action {
             Action::CreateNewWindow => ctx.create_new_window(None),
             #[cfg(target_os = "macos")]
             Action::CreateNewTab => {
-                let tabbing_id = Some(ctx.window().tabbing_id());
-                ctx.create_new_window(tabbing_id);
+                // Tabs on macOS are not possible without decorations.
+                if ctx.config().window.decorations != Decorations::None {
+                    let tabbing_id = Some(ctx.window().tabbing_id());
+                    ctx.create_new_window(tabbing_id);
+                }
             },
             #[cfg(target_os = "macos")]
             Action::SelectNextTab => ctx.window().select_next_tab(),
@@ -1219,7 +1224,7 @@ mod tests {
         }
 
         #[cfg(target_os = "macos")]
-        fn event_loop(&self) -> &EventLoopWindowTarget<Event> {
+        fn event_loop(&self) -> &ActiveEventLoop {
             unimplemented!();
         }
 
