@@ -19,8 +19,8 @@ use rustix_openpty::openpty;
 use rustix_openpty::rustix::termios::Winsize;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use rustix_openpty::rustix::termios::{self, InputModes, OptionalActions};
-use signal_hook::consts as sigconsts;
-use signal_hook::low_level::pipe as signal_pipe;
+use signal_hook::low_level::{pipe as signal_pipe, unregister as unregister_signal};
+use signal_hook::{consts as sigconsts, SigId};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options};
@@ -102,6 +102,7 @@ pub struct Pty {
     child: Child,
     file: File,
     signals: UnixStream,
+    sig_id: SigId,
 }
 
 impl Pty {
@@ -260,13 +261,13 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     }
 
     // Prepare signal handling before spawning child.
-    let signals = {
+    let (signals, sig_id) = {
         let (sender, recv) = UnixStream::pair()?;
 
         // Register the recv end of the pipe for SIGCHLD.
-        signal_pipe::register(sigconsts::SIGCHLD, sender)?;
+        let sig_id = signal_pipe::register(sigconsts::SIGCHLD, sender)?;
         recv.set_nonblocking(true)?;
-        recv
+        (recv, sig_id)
     };
 
     match builder.spawn() {
@@ -277,7 +278,7 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
                 set_nonblocking(master_fd);
             }
 
-            Ok(Pty { child, file: File::from(master), signals })
+            Ok(Pty { child, file: File::from(master), signals, sig_id })
         },
         Err(err) => Err(Error::new(
             err.kind(),
@@ -296,6 +297,10 @@ impl Drop for Pty {
         unsafe {
             libc::kill(self.child.id() as i32, libc::SIGHUP);
         }
+
+        // Clear signal-hook handler.
+        unregister_signal(self.sig_id);
+
         let _ = self.child.wait();
     }
 }
