@@ -24,6 +24,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Dynamic title disabled for new windows when initial one has title as CLI option
 - While terminal in mouse mode, mouse bindings that used the shift modifier and
   had multiple actions only performed the first action
+- Leaking FDs when closing windows on Unix systems
 
 ## 0.13.2
 
