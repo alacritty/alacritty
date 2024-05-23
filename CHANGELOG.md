@@ -25,6 +25,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - While terminal in mouse mode, mouse bindings that used the shift modifier and
   had multiple actions only performed the first action
 - Leaking FDs when closing windows on Unix systems
+- Config emitting errors for non-existent import paths
 
 ## 0.13.2
 

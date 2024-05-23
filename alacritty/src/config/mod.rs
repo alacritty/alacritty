@@ -44,9 +44,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors occurring during config loading.
 #[derive(Debug)]
 pub enum Error {
-    /// Config file not found.
-    NotFound,
-
     /// Couldn't read $HOME environment variable.
     ReadingEnvHome(env::VarError),
 
@@ -66,7 +63,6 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::NotFound => None,
             Error::ReadingEnvHome(err) => err.source(),
             Error::Io(err) => err.source(),
             Error::Toml(err) => err.source(),
@@ -79,7 +75,6 @@ impl std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NotFound => write!(f, "Unable to locate config file"),
             Error::ReadingEnvHome(err) => {
                 write!(f, "Unable to read $HOME environment variable: {}", err)
             },
@@ -99,11 +94,7 @@ impl From<env::VarError> for Error {
 
 impl From<io::Error> for Error {
     fn from(val: io::Error) -> Self {
-        if val.kind() == io::ErrorKind::NotFound {
-            Error::NotFound
-        } else {
-            Error::Io(val)
-        }
+        Error::Io(val)
     }
 }
 
@@ -179,6 +170,10 @@ fn after_loading(config: &mut UiConfig, options: &mut Options) {
 fn load_from(path: &Path) -> Result<UiConfig> {
     match read_config(path) {
         Ok(config) => Ok(config),
+        Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: File not found", path);
+            Err(Error::Io(io))
+        },
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
             Err(err)
