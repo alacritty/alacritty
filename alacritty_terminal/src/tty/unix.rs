@@ -212,9 +212,6 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
-    // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
-    // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
-    // error on libc::close.).
     builder.stdin(rustix_openpty::rustix::io::dup(&slave)?);
     builder.stderr(rustix_openpty::rustix::io::dup(&slave)?);
     builder.stdout(slave);
