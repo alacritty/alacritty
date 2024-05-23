@@ -265,7 +265,6 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
                 continue;
             },
             Err(err) => {
-                println!("{:?}", err);
                 error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
             },
         }
