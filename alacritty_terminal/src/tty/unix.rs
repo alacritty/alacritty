@@ -212,8 +212,8 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
-    builder.stdin(rustix_openpty::rustix::io::dup(&slave)?);
-    builder.stderr(rustix_openpty::rustix::io::dup(&slave)?);
+    builder.stdin(slave.try_clone()?);
+    builder.stderr(slave.try_clone()?);
     builder.stdout(slave);
 
     // Setup shell environment.
