@@ -5,10 +5,10 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
 use std::os::fd::OwnedFd;
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 use std::sync::Arc;
 use std::{env, ptr};
 
@@ -212,12 +212,9 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
-    // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
-    // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
-    // error on libc::close.).
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave_fd) });
-    builder.stderr(unsafe { Stdio::from_raw_fd(slave_fd) });
-    builder.stdout(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stdin(slave.try_clone()?);
+    builder.stderr(slave.try_clone()?);
+    builder.stdout(slave);
 
     // Setup shell environment.
     let window_id = window_id.to_string();
