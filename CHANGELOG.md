@@ -26,6 +26,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
   had multiple actions only performed the first action
 - Leaking FDs when closing windows on Unix systems
 - Config emitting errors for non-existent import paths
+- Kitty keyboard protocol reporting shifted key codes
 
 ## 0.13.2
 
