@@ -34,7 +34,7 @@ introduced the regression helps out a lot.
 
 ## Patches / Pull Requests
 
-All patches have to be sent on Github as [pull requests](https://github.com/alacritty/alacritty/pulls).
+All patches have to be sent on GitHub as [pull requests](https://github.com/alacritty/alacritty/pulls).
 
 If you are looking for a place to start contributing to Alacritty, take a look at the
 [help wanted](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
