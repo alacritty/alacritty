@@ -1439,7 +1439,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.scheduler.unschedule(TimerId::new(Topic::BlinkCursor, window_id));
         self.scheduler.unschedule(TimerId::new(Topic::BlinkTimeout, window_id));
 
-        // Reset blinkinig timeout.
+        // Reset blinking timeout.
         *self.cursor_blink_timed_out = false;
 
         if blinking && self.terminal.is_focused {
