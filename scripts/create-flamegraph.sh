@@ -21,7 +21,7 @@ fi
 # Create flamegraph
 cargo flamegraph --bin=alacritty -- $@
 
-# Unintall cargo-flamegraph if it has been installed with this script
+# Uninstall cargo-flamegraph if it has been installed with this script
 if [ $installed_flamegraph == 1 ]; then
     read -p "Would you like to uninstall cargo-flamegraph? [Y/n] " -n 1 -r
     echo
