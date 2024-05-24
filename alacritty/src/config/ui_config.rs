@@ -499,7 +499,7 @@ impl<'de> Deserialize<'de> for HintContent {
                 // Require at least one of hyperlinks or regex trigger hint matches.
                 if content.regex.is_none() && !content.hyperlinks {
                     return Err(M::Error::custom(
-                        "Config error: At least on of the hint's regex or hint's hyperlinks must \
+                        "Config error: At least one of the hint's regex or hint's hyperlinks must \
                          be set",
                     ));
                 }
