@@ -674,7 +674,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Reflow of cursor during resize
 - Cursor color escape ignored when its color is set to inverted in the config
 - Fontconfig's `autohint` and `hinting` options being ignored
-- Ingoring of default FreeType properties
+- Ignoring of default FreeType properties
 - Alacritty crashing at startup when the configured font does not exist
 - Font size rounding error
 - Opening URLs while search is active
