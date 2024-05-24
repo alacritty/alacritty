@@ -124,7 +124,7 @@ struct ShellUser {
 
 impl ShellUser {
     /// look for shell, username, longname, and home dir in the respective environment variables
-    /// before falling back on looking in to `passwd`.
+    /// before falling back on looking into `passwd`.
     fn from_env() -> Result<Self> {
         let mut buf = [0; 1024];
         let pw = get_pw_entry(&mut buf);

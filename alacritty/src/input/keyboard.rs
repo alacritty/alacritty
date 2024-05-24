@@ -230,7 +230,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             _ if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) => {
                 build_sequence(key, mods, mode).into()
             },
-            // Winit uses different keys for `Backspace` so we expliictly specify the
+            // Winit uses different keys for `Backspace` so we explicitly specify the
             // values, instead of using what was passed to us from it.
             Key::Named(NamedKey::Tab) => [b'\t'].as_slice().into(),
             Key::Named(NamedKey::Enter) => [b'\r'].as_slice().into(),

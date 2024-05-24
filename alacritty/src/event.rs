@@ -142,7 +142,7 @@ impl Processor {
     ) -> Result<(), Box<dyn Error>> {
         let window = self.windows.iter().next().as_ref().unwrap().1;
 
-        // Overide config with CLI/IPC options.
+        // Override config with CLI/IPC options.
         let mut config_overrides = options.config_overrides();
         #[cfg(unix)]
         config_overrides.extend_from_slice(&self.global_ipc_options);
@@ -1439,7 +1439,7 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         self.scheduler.unschedule(TimerId::new(Topic::BlinkCursor, window_id));
         self.scheduler.unschedule(TimerId::new(Topic::BlinkTimeout, window_id));
 
-        // Reset blinkinig timeout.
+        // Reset blinking timeout.
         *self.cursor_blink_timed_out = false;
 
         if blinking && self.terminal.is_focused {
