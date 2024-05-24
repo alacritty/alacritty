@@ -142,7 +142,7 @@ impl Processor {
     ) -> Result<(), Box<dyn Error>> {
         let window = self.windows.iter().next().as_ref().unwrap().1;
 
-        // Overide config with CLI/IPC options.
+        // Override config with CLI/IPC options.
         let mut config_overrides = options.config_overrides();
         #[cfg(unix)]
         config_overrides.extend_from_slice(&self.global_ipc_options);
