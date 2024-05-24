@@ -342,7 +342,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - OSC 104 not clearing colors when second parameter is empty
 - Builtin font lines not contiguous when `font.offset` is used
 - `font.glyph_offset` is no longer applied on builtin font
-- Buili-in font arcs alignment
+- Built-in font arcs alignment
 - Repeated permission prompts on M1 macs
 - Colors being slightly off when using `colors.transparent_background_colors`
 
