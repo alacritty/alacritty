@@ -882,7 +882,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Block URL highlight while a selection is active
 - Bindings for Alt + F1-F12
 - Discard scrolling region escape with bottom above top
-- Opacity always applying to cells with their background color matching the teriminal background
+- Opacity always applying to cells with their background color matching the terminal background
 - Allow semicolons when setting titles using an OSC
 - Background always opaque on X11
 - Skipping redraws on PTY update
