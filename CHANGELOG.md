@@ -952,7 +952,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Fixed
 
-- Double-width characters in URLs only being highlit on the left half
+- Double-width characters in URLs only being highlighted on the left half
 - PTY size not getting updated when message bar is shown
 - Text Cursor disappearing
 - Incorrect positioning of zero-width characters over double-width characters
