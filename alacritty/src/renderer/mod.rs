@@ -205,30 +205,29 @@ impl Renderer {
         size_info: &SizeInfo,
         glyph_cache: &mut GlyphCache,
     ) {
-        let mut skip_next = false;
-        let cells = string_chars.enumerate().filter_map(|(i, character)| {
-            if skip_next {
-                skip_next = false;
-                return None;
-            }
+        let mut wide_char_spacer = false;
+        let cells = string_chars.enumerate().map(|(i, character)| {
+            let flags = if wide_char_spacer {
+                wide_char_spacer = false;
+                Flags::WIDE_CHAR_SPACER
+            } else if character.width() == Some(2) {
+                // The spacer is always following the wide char.
+                wide_char_spacer = true;
+                Flags::WIDE_CHAR
+            } else {
+                Flags::empty()
+            };
 
-            let mut flags = Flags::empty();
-            if character.width() == Some(2) {
-                flags.insert(Flags::WIDE_CHAR);
-                // Wide character is always followed by a spacer, so skip it.
-                skip_next = true;
-            }
-
-            Some(RenderableCell {
+            RenderableCell {
                 point: Point::new(point.line, point.column + i),
                 character,
                 extra: None,
-                flags: Flags::empty(),
+                flags,
                 bg_alpha: 1.0,
                 fg,
                 bg,
                 underline: fg,
-            })
+            }
         });
 
         self.draw_cells(size_info, glyph_cache, cells);
