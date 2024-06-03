@@ -111,7 +111,7 @@ dependencies = [
  "signal-hook",
  "smallvec",
  "unicode-width",
- "vte",
+ "vte-graphics",
  "windows-sys 0.52.0",
 ]
 
@@ -153,7 +153,7 @@ dependencies = [
  "anstyle-query",
  "anstyle-wincon",
  "colorchoice",
- "utf8parse 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "utf8parse",
 ]
 
 [[package]]
@@ -168,7 +168,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c75ac65da39e5fe5ab759307499ddad880d724eed2f6ce5b5e8a26f4f387928c"
 dependencies = [
- "utf8parse 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "utf8parse",
 ]
 
 [[package]]
@@ -1048,7 +1048,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -1921,11 +1921,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
-name = "utf8parse"
-version = "0.2.1"
-source = "git+https://github.com/ayosec/vte-graphics.git?branch=graphics#8caae0d38ced7700cf7fd11c9b24ca2c15c4ccd4"
-
-[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1952,22 +1947,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "vte"
+name = "vte-graphics"
 version = "0.13.0"
-source = "git+https://github.com/ayosec/vte-graphics.git?branch=graphics#8caae0d38ced7700cf7fd11c9b24ca2c15c4ccd4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2864755f49461b8296184ac43e06516a4bc47dab4d4d06396b8c852f3e7c1593"
 dependencies = [
  "bitflags 2.4.2",
  "cursor-icon",
  "log",
  "serde",
- "utf8parse 0.2.1 (git+https://github.com/ayosec/vte-graphics.git?branch=graphics)",
+ "utf8parse",
  "vte_generate_state_changes",
 ]
 
 [[package]]
 name = "vte_generate_state_changes"
 version = "0.1.1"
-source = "git+https://github.com/ayosec/vte-graphics.git?branch=graphics#8caae0d38ced7700cf7fd11c9b24ca2c15c4ccd4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d257817081c7dffcdbab24b9e62d2def62e2ff7d00b1c20062551e6cccc145ff"
 dependencies = [
  "proc-macro2",
  "quote",
