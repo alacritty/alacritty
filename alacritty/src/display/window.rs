@@ -168,6 +168,8 @@ impl Window {
             .with_title(&identity.title)
             .with_theme(config.window.theme())
             .with_visible(false)
+            // Needed on X11 and perhaps on Windows to enable configuring
+            // transparency later on.
             .with_transparent(true)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
