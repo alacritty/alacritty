@@ -17,13 +17,13 @@ use ahash::RandomState;
 use crossfont::Size as FontSize;
 use glutin::display::{Display as GlutinDisplay, GetGlDisplay};
 use log::{debug, error, info, warn};
-use raw_window_handle::HasRawDisplayHandle;
 use winit::application::ApplicationHandler;
 use winit::event::{
     ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
 };
 use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
+use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_terminal::event::{Event as TerminalEvent, EventListener, Notify};
@@ -99,7 +99,7 @@ impl Processor {
 
         // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
         // which is done in `loop_exiting`.
-        let clipboard = unsafe { Clipboard::new(event_loop.raw_display_handle()) };
+        let clipboard = unsafe { Clipboard::new(event_loop.display_handle().unwrap().as_raw()) };
 
         Processor {
             initial_window_options,

@@ -19,11 +19,11 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use log::info;
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use winit::event_loop::EventLoop;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
 use alacritty_terminal::tty;
 
@@ -137,7 +137,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     info!(
         "Running on {}",
-        if matches!(window_event_loop.raw_display_handle(), RawDisplayHandle::Wayland(_)) {
+        if matches!(
+            window_event_loop.display_handle().unwrap().as_raw(),
+            RawDisplayHandle::Wayland(_)
+        ) {
             "Wayland"
         } else {
             "X11"

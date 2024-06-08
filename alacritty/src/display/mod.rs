@@ -14,10 +14,10 @@ use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
 use log::{debug, info};
 use parking_lot::MutexGuard;
-use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
+use winit::raw_window_handle::RawWindowHandle;
 use winit::window::CursorIcon;
 
 use crossfont::{Rasterize, Rasterizer, Size as FontSize};

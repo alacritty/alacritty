@@ -1,5 +1,5 @@
 use log::{debug, warn};
-use raw_window_handle::RawDisplayHandle;
+use winit::raw_window_handle::RawDisplayHandle;
 
 use alacritty_terminal::term::ClipboardType;
 
@@ -23,7 +23,7 @@ impl Clipboard {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             RawDisplayHandle::Wayland(display) => {
                 let (selection, clipboard) =
-                    wayland_clipboard::create_clipboards_from_external(display.display);
+                    wayland_clipboard::create_clipboards_from_external(display.display.as_ptr());
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
             },
             _ => Self::default(),
