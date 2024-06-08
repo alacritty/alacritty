@@ -26,12 +26,12 @@ use {
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
 use winit::platform::windows::IconExtWindows;
+use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
     WindowAttributes, WindowId,
@@ -190,7 +190,7 @@ impl Window {
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
-        let is_x11 = matches!(window.raw_window_handle(), RawWindowHandle::Xlib(_));
+        let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
             requested_redraw: false,
@@ -206,7 +206,7 @@ impl Window {
 
     #[inline]
     pub fn raw_window_handle(&self) -> RawWindowHandle {
-        self.window.raw_window_handle()
+        self.window.window_handle().unwrap().as_raw()
     }
 
     #[inline]
@@ -444,14 +444,15 @@ impl Window {
     /// This prevents rendering artifacts from showing up when the window is transparent.
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
-        let raw_window = match self.raw_window_handle() {
-            RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        let ns_view = match self.raw_window_handle() {
+            RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
             _ => return,
         };
 
         let value = if has_shadows { YES } else { NO };
         unsafe {
-            let _: id = msg_send![raw_window, setHasShadow: value];
+            let ns_window: id = msg_send![ns_view, window];
+            let _: id = msg_send![ns_window, setHasShadow: value];
         }
     }
 
@@ -487,12 +488,13 @@ impl Window {
 
 #[cfg(target_os = "macos")]
 fn use_srgb_color_space(window: &WinitWindow) {
-    let raw_window = match window.raw_window_handle() {
-        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+    let ns_view = match window.window_handle().unwrap().as_raw() {
+        RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
         _ => return,
     };
 
     unsafe {
-        let _: () = msg_send![raw_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
+        let ns_window: id = msg_send![ns_view, window];
+        let _: () = msg_send![ns_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
     }
 }
