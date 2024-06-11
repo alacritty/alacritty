@@ -1701,12 +1701,16 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ClipboardStore(clipboard_type, content) => {
-                        if self.ctx.terminal.is_focused {
+                        if self.ctx.config.terminal.osc52_allow_without_focus
+                            || self.ctx.terminal.is_focused
+                        {
                             self.ctx.clipboard.store(clipboard_type, content);
                         }
                     },
                     TerminalEvent::ClipboardLoad(clipboard_type, format) => {
-                        if self.ctx.terminal.is_focused {
+                        if self.ctx.config.terminal.osc52_allow_without_focus
+                            || self.ctx.terminal.is_focused
+                        {
                             let text = format(self.ctx.clipboard.load(clipboard_type).as_str());
                             self.ctx.write_to_pty(text.into_bytes());
                         }

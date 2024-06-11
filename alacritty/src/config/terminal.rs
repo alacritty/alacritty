@@ -10,6 +10,9 @@ use crate::config::ui_config::StringVisitor;
 pub struct Terminal {
     /// OSC52 support mode.
     pub osc52: SerdeOsc52,
+
+    /// OSC52 - allow without focus
+    pub osc52_allow_without_focus: bool,
 }
 
 #[derive(SerdeReplace, Default, Copy, Clone, Debug, PartialEq)]
