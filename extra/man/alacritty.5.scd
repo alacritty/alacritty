@@ -613,6 +613,13 @@ This section documents the *[terminal]* table of the configuration file.
 
 	Default: _"OnlyCopy"_
 
+*osc52_allow_without_focus* = _true_ | _false_
+
+	When this is _true_, _OSC_52_ escape sequences will work even when the
+	application is not focused.
+
+	Default: _false_
+
 # MOUSE
 
 This section documents the *[mouse]* table of the configuration file.
