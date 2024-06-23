@@ -16,6 +16,7 @@ use {
     png::Decoder,
 };
 
+use log::debug;
 use std::fmt::{self, Display, Formatter};
 
 #[cfg(target_os = "macos")]
@@ -33,8 +34,8 @@ use winit::monitor::MonitorHandle;
 use winit::platform::windows::IconExtWindows;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::{
-    CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
-    WindowAttributes, WindowId,
+    CursorIcon, Fullscreen, ImePurpose, ResizeDirection, Theme, UserAttentionType,
+    Window as WinitWindow, WindowAttributes, WindowId,
 };
 
 use alacritty_terminal::index::Point;
@@ -361,6 +362,18 @@ impl Window {
 
     pub fn set_resize_increments(&self, increments: PhysicalSize<f32>) {
         self.window.set_resize_increments(Some(increments));
+    }
+
+    pub fn drag_window(&self) {
+        if let Err(err) = self.window.drag_window() {
+            debug!("Unable to initiate dragging the window: {}", err);
+        }
+    }
+
+    pub fn drag_resize_window(&self, direction: ResizeDirection) {
+        if let Err(err) = self.window.drag_resize_window(direction) {
+            debug!("Unable to initiate resizing the window: {}", err);
+        }
     }
 
     /// Toggle the window's fullscreen state.

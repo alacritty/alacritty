@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.14.0-dev
 
+### Added
+
+- Moving and resizing of windows without decorations by dragging the padding at the top or bottom-right
+
 ### Changed
 
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
