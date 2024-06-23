@@ -295,6 +295,16 @@ impl TermDimensions for SizeInfo {
     fn total_lines(&self) -> usize {
         self.screen_lines()
     }
+
+    #[inline]
+    fn cell_height(&self) -> f32 {
+        self.cell_height()
+    }
+
+    #[inline]
+    fn cell_width(&self) -> f32 {
+        self.cell_width()
+    }
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
@@ -758,6 +768,8 @@ impl Display {
             terminal.reset_damage();
         }
 
+        let graphics_queues = terminal.graphics_take_queues();
+
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
@@ -782,8 +794,13 @@ impl Display {
         // Make sure this window's OpenGL context is active.
         self.make_current();
 
+        if let Some(graphics_queues) = graphics_queues {
+            self.renderer.graphics_run_updates(graphics_queues, &size_info);
+        }
+
         self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
+        let mut graphics_list = renderer::graphics::RenderList::default();
 
         // Optimize loop hint comparator.
         let has_highlighted_hint =
@@ -809,6 +826,8 @@ impl Display {
                     // Underline hints hovered by mouse or vi mode cursor.
                     let point = term::viewport_to_point(display_offset, cell.point);
 
+                    let mut show_hint = false;
+
                     if has_highlighted_hint {
                         let hyperlink =
                             cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
@@ -819,6 +838,7 @@ impl Display {
                                 .as_ref()
                                 .map_or(false, |hint| hint.should_highlight(point, hyperlink))
                         {
+                            show_hint = true;
                             cell.flags.insert(Flags::UNDERLINE);
                             // Damage hints for the current and next frames.
                             damage_tracker.frame().damage_point(cell.point);
@@ -829,12 +849,17 @@ impl Display {
                     // Update underline/strikeout.
                     lines.update(&cell);
 
+                    // Track any graphic present in the cell.
+                    graphics_list.update(&cell, show_hint);
+
                     cell
                 }),
             );
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
+
+        self.renderer.graphics_draw(graphics_list, &size_info, &mut rects, &metrics);
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.

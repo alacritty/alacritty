@@ -24,8 +24,9 @@ parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.4.3"
 unicode-width = "0.1"
-vte = { version = "0.13.0", default-features = false, features = ["ansi", "serde"] }
+vte = { version = "0.13.0", package = "vte-graphics", default-features = false, features = ["ansi", "serde"] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
+smallvec = { version = "1.13.1", features = ["serde"] }
 
 [target.'cfg(unix)'.dependencies]
 rustix-openpty = "0.1.1"
