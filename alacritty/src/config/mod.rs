@@ -320,8 +320,8 @@ pub fn imports(
         }
 
         if path.is_relative() {
-            if let Some(config_path) = base_path.parent() {
-                path = config_path.join(path)
+            if let Some(base_path) = base_path.parent() {
+                path = base_path.join(path)
             }
         }
 
