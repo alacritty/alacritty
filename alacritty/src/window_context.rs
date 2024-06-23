@@ -14,10 +14,10 @@ use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
 use log::info;
-use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
-use winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
+use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_terminal::event::Event as TerminalEvent;
@@ -70,12 +70,12 @@ pub struct WindowContext {
 impl WindowContext {
     /// Create initial window context that does bootstrapping the graphics API we're going to use.
     pub fn initial(
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
     ) -> Result<Self, Box<dyn Error>> {
-        let raw_display_handle = event_loop.raw_display_handle();
+        let raw_display_handle = event_loop.display_handle().unwrap().as_raw();
 
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);
@@ -120,7 +120,7 @@ impl WindowContext {
     /// Create additional context with the graphics platform other windows are using.
     pub fn additional(
         &self,
-        event_loop: &EventLoopWindowTarget<Event>,
+        event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
@@ -399,7 +399,7 @@ impl WindowContext {
     /// Process events for this terminal window.
     pub fn handle_event(
         &mut self,
-        event_loop: &EventLoopWindowTarget<Event>,
+        #[cfg(target_os = "macos")] event_loop: &ActiveEventLoop,
         event_proxy: &EventLoopProxy<Event>,
         clipboard: &mut Clipboard,
         scheduler: &mut Scheduler,
@@ -445,6 +445,7 @@ impl WindowContext {
             preserve_title: self.preserve_title,
             config: &self.config,
             event_proxy,
+            #[cfg(target_os = "macos")]
             event_loop,
             clipboard,
             scheduler,

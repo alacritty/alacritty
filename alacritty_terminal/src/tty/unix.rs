@@ -5,22 +5,22 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Result};
 use std::mem::MaybeUninit;
 use std::os::fd::OwnedFd;
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command};
 use std::sync::Arc;
 use std::{env, ptr};
 
-use libc::{self, c_int, TIOCSCTTY};
+use libc::{c_int, TIOCSCTTY};
 use log::error;
 use polling::{Event, PollMode, Poller};
 use rustix_openpty::openpty;
 use rustix_openpty::rustix::termios::Winsize;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use rustix_openpty::rustix::termios::{self, InputModes, OptionalActions};
-use signal_hook::consts as sigconsts;
-use signal_hook::low_level::pipe as signal_pipe;
+use signal_hook::low_level::{pipe as signal_pipe, unregister as unregister_signal};
+use signal_hook::{consts as sigconsts, SigId};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options};
@@ -36,17 +36,6 @@ macro_rules! die {
         error!($($arg)*);
         std::process::exit(1);
     }}
-}
-
-/// Get raw fds for master/slave ends of a new PTY.
-fn make_pty(size: Winsize) -> Result<(OwnedFd, OwnedFd)> {
-    let mut window_size = size;
-    window_size.ws_xpixel = 0;
-    window_size.ws_ypixel = 0;
-
-    let ends = openpty(None, Some(&window_size))?;
-
-    Ok((ends.controller, ends.user))
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
@@ -113,6 +102,7 @@ pub struct Pty {
     child: Child,
     file: File,
     signals: UnixStream,
+    sig_id: SigId,
 }
 
 impl Pty {
@@ -134,7 +124,7 @@ struct ShellUser {
 
 impl ShellUser {
     /// look for shell, username, longname, and home dir in the respective environment variables
-    /// before falling back on looking in to `passwd`.
+    /// before falling back on looking into `passwd`.
     fn from_env() -> Result<Self> {
         let mut buf = [0; 1024];
         let pw = get_pw_entry(&mut buf);
@@ -188,13 +178,19 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
     // -p: Preserves the environment.
     //
     // XXX: we use zsh here over sh due to `exec -a`.
-    login_command.args(["-flp", user, "/bin/zsh", "-c", &exec]);
+    login_command.args(["-flp", user, "/bin/zsh", "-fc", &exec]);
     login_command
 }
 
 /// Create a new TTY and return a handle to interact with it.
 pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<Pty> {
-    let (master, slave) = make_pty(window_size.to_winsize())?;
+    let pty = openpty(None, Some(&window_size.to_winsize()))?;
+    let (master, slave) = (pty.controller, pty.user);
+    from_fd(config, window_id, master, slave)
+}
+
+/// Create a new TTY from a PTY's file descriptors.
+pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd) -> Result<Pty> {
     let master_fd = master.as_raw_fd();
     let slave_fd = slave.as_raw_fd();
 
@@ -216,21 +212,20 @@ pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
-    // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
-    // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
-    // error on libc::close.).
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave_fd) });
-    builder.stderr(unsafe { Stdio::from_raw_fd(slave_fd) });
-    builder.stdout(unsafe { Stdio::from_raw_fd(slave_fd) });
+    builder.stdin(slave.try_clone()?);
+    builder.stderr(slave.try_clone()?);
+    builder.stdout(slave);
 
     // Setup shell environment.
     let window_id = window_id.to_string();
     builder.env("ALACRITTY_WINDOW_ID", &window_id);
     builder.env("USER", user.user);
     builder.env("HOME", user.home);
-
     // Set Window ID for clients relying on X11 hacks.
     builder.env("WINDOWID", window_id);
+    for (key, value) in &config.env {
+        builder.env(key, value);
+    }
 
     unsafe {
         builder.pre_exec(move || {
@@ -263,13 +258,13 @@ pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<
     }
 
     // Prepare signal handling before spawning child.
-    let signals = {
+    let (signals, sig_id) = {
         let (sender, recv) = UnixStream::pair()?;
 
         // Register the recv end of the pipe for SIGCHLD.
-        signal_pipe::register(sigconsts::SIGCHLD, sender)?;
+        let sig_id = signal_pipe::register(sigconsts::SIGCHLD, sender)?;
         recv.set_nonblocking(true)?;
-        recv
+        (recv, sig_id)
     };
 
     match builder.spawn() {
@@ -280,9 +275,7 @@ pub fn new(config: &Options, window_size: WindowSize, window_id: u64) -> Result<
                 set_nonblocking(master_fd);
             }
 
-            let mut pty = Pty { child, file: File::from(master), signals };
-            pty.on_resize(window_size);
-            Ok(pty)
+            Ok(Pty { child, file: File::from(master), signals, sig_id })
         },
         Err(err) => Err(Error::new(
             err.kind(),
@@ -301,6 +294,10 @@ impl Drop for Pty {
         unsafe {
             libc::kill(self.child.id() as i32, libc::SIGHUP);
         }
+
+        // Clear signal-hook handler.
+        unregister_signal(self.sig_id);
+
         let _ = self.child.wait();
     }
 }
@@ -383,7 +380,7 @@ impl EventedPty for Pty {
                 None
             },
             Ok(None) => None,
-            Ok(_) => Some(ChildEvent::Exited),
+            Ok(exit_status) => Some(ChildEvent::Exited(exit_status.and_then(|s| s.code()))),
         }
     }
 }

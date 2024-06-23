@@ -1,5 +1,6 @@
 //! TTY related functionality.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{env, io};
@@ -29,6 +30,9 @@ pub struct Options {
 
     /// Remain open after child process exits.
     pub hold: bool,
+
+    /// Extra environment variables.
+    pub env: HashMap<String, String>,
 }
 
 /// Shell options.
@@ -67,8 +71,8 @@ pub trait EventedReadWrite {
 /// Events concerning TTY child processes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ChildEvent {
-    /// Indicates the child has exited.
-    Exited,
+    /// Indicates the child has exited, with an error code if available.
+    Exited(Option<i32>),
 }
 
 /// A pseudoterminal (or PTY).

@@ -69,11 +69,9 @@ following locations:
 3. `$HOME/.config/alacritty/alacritty.toml`
 4. `$HOME/.alacritty.toml`
 
-### Windows
+On Windows, the config file will be looked for in:
 
-On Windows, the config file should be located at:
-
-`%APPDATA%\alacritty\alacritty.toml`
+* `%APPDATA%\alacritty\alacritty.toml`
 
 ## Contributing
 

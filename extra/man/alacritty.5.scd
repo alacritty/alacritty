@@ -9,6 +9,20 @@ Alacritty - TOML configuration file format.
 Alacritty's configuration file uses the TOML format. The format's specification
 can be found at _https://toml.io/en/v1.0.0_.
 
+# LOCATION
+
+Alacritty doesn't create the config file for you, but it looks for one in the
+following locations on UNIX systems:
+
+. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
+. `$XDG_CONFIG_HOME/alacritty.toml`
+. `$HOME/.config/alacritty/alacritty.toml`
+. `$HOME/.alacritty.toml`
+
+On Windows, the config file will be looked for in:
+
+. `%APPDATA%\alacritty\alacritty.toml`
+
 # GENERAL
 
 This section documents the root level of the configuration file.
@@ -647,7 +661,7 @@ terminal and pipe it to other applications.
 
 	Default: _"jfkdls;ahgurieowpq"_
 
-*enabled* = [{ *<regex>*, *<hyperlinks>*, *<post_processing>*, *<persist>*, *<action>*, *<command>* *<binding>*, *<mouse>* },]
+*enabled* = [{ *<regex>*, *<hyperlinks>*, *<post_processing>*, *<persist>*, *<action>*, *<command>*, *<binding>*, *<mouse>* },]
 
 Array with all available hints.
 
@@ -890,7 +904,7 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Centers the screen around the vi mode cursor.
 		*InlineSearchForward*
 			Search forward within the current line.
-		*InlineSearchBcakward*
+		*InlineSearchBackward*
 			Search backward within the current line.
 		*InlineSearchForwardShort*
 			Search forward within the current line, stopping just short of the character.

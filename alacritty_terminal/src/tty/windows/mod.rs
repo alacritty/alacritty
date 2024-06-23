@@ -47,6 +47,10 @@ impl Pty {
     ) -> Self {
         Self { backend: backend.into(), conout: conout.into(), conin: conin.into(), child_watcher }
     }
+
+    pub fn child_watcher(&self) -> &ChildExitWatcher {
+        &self.child_watcher
+    }
 }
 
 fn with_key(mut event: Event, key: usize) -> Event {
@@ -111,7 +115,7 @@ impl EventedPty for Pty {
         match self.child_watcher.event_rx().try_recv() {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),
+            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited(None)),
         }
     }
 }

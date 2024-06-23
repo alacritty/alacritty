@@ -5,7 +5,6 @@ use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
-use std::marker::Send;
 use std::num::NonZeroUsize;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::Arc;
@@ -259,7 +258,11 @@ where
                 for event in events.iter() {
                     match event.key {
                         tty::PTY_CHILD_EVENT_TOKEN => {
-                            if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
+                            if let Some(tty::ChildEvent::Exited(code)) = self.pty.next_child_event()
+                            {
+                                if let Some(code) = code {
+                                    self.event_proxy.send_event(Event::ChildExit(code));
+                                }
                                 if self.hold {
                                     // With hold enabled, make sure the PTY is drained.
                                     let _ = self.pty_read(&mut state, &mut buf, pipe.as_mut());
@@ -267,7 +270,6 @@ where
                                     // Without hold, shutdown the terminal.
                                     self.terminal.lock().exit();
                                 }
-
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }

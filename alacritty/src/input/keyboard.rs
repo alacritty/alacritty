@@ -126,7 +126,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     self.ctx.modifiers().state().alt_key()
                 }
             },
-            _ => text.len() == 1 && alt_send_esc,
+            _ => alt_send_esc && text.chars().count() == 1,
         }
     }
 
@@ -230,7 +230,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             _ if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) => {
                 build_sequence(key, mods, mode).into()
             },
-            // Winit uses different keys for `Backspace` so we expliictly specify the
+            // Winit uses different keys for `Backspace` so we explicitly specify the
             // values, instead of using what was passed to us from it.
             Key::Named(NamedKey::Tab) => [b'\t'].as_slice().into(),
             Key::Named(NamedKey::Enter) => [b'\r'].as_slice().into(),
@@ -347,7 +347,7 @@ impl SequenceBuilder {
         associated_text: Option<&str>,
     ) -> Option<SequenceBase> {
         let character = match key.logical_key.as_ref() {
-            Key::Character(character) => character,
+            Key::Character(character) if self.kitty_seq => character,
             _ => return None,
         };
 
@@ -373,7 +373,7 @@ impl SequenceBuilder {
             {
                 format!("{unicode_key_code}:{alternate_key_code}")
             } else {
-                alternate_key_code.to_string()
+                unicode_key_code.to_string()
             };
 
             Some(SequenceBase::new(payload.into(), SequenceTerminator::Kitty))

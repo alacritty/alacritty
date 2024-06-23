@@ -34,7 +34,7 @@ introduced the regression helps out a lot.
 
 ## Patches / Pull Requests
 
-All patches have to be sent on Github as [pull requests](https://github.com/alacritty/alacritty/pulls).
+All patches have to be sent on GitHub as [pull requests](https://github.com/alacritty/alacritty/pulls).
 
 If you are looking for a place to start contributing to Alacritty, take a look at the
 [help wanted](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
@@ -42,8 +42,9 @@ and
 [easy](https://github.com/alacritty/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22)
 issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.70.0. All patches are expected
-to work with the minimum supported version.
+You can find the minimum supported Rust version in Alacritty's manifest file
+(`cat alacritty/Cargo.toml | grep "rust-version"`). Alacritty **must** always
+build with the MSRV and bumping it should be avoided if possible.
 
 Since `alacritty_terminal`'s version always tracks the next release, make sure that the version is
 bumped according to semver when necessary.
@@ -90,10 +91,11 @@ If any change has been made to the `config.rs` file, it should also be documente
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to
 things like code refactorings or documentation/tests) additionally need to be documented in the
-`CHANGELOG.md`. The existing entries should be used as a style guideline. The change log should be
-used to document changes from a user-perspective, instead of explaining the technical background
-(like commit messages). More information about Alacritty's change log format can be found
-[here](https://keepachangelog.com).
+`CHANGELOG.md`. When a notable change is made to `alacritty_terminal`, it should be documented in
+`alacritty_terminal/CHANGELOG.md` as well. The existing entries should be used as a style guideline.
+The change log should be used to document changes from a user-perspective, instead of explaining the
+technical background (like commit messages) More information about Alacritty's change log format can
+be found [here](https://keepachangelog.com).
 
 ### Style
 

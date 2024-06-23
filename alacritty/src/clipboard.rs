@@ -1,9 +1,8 @@
 use log::{debug, warn};
-use raw_window_handle::RawDisplayHandle;
+use winit::raw_window_handle::RawDisplayHandle;
 
 use alacritty_terminal::term::ClipboardType;
 
-#[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
 use copypasta::wayland_clipboard;
@@ -24,16 +23,15 @@ impl Clipboard {
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
             RawDisplayHandle::Wayland(display) => {
                 let (selection, clipboard) =
-                    wayland_clipboard::create_clipboards_from_external(display.display);
+                    wayland_clipboard::create_clipboards_from_external(display.display.as_ptr());
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
             },
             _ => Self::default(),
         }
     }
 
-    /// Used for tests and to handle missing clipboard provider when built without the `x11`
-    /// feature.
-    #[cfg(any(test, not(any(feature = "x11", target_os = "macos", windows))))]
+    /// Used for tests, to handle missing clipboard provider when built without the `x11`
+    /// feature, and as default clipboard value.
     pub fn new_nop() -> Self {
         Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
     }

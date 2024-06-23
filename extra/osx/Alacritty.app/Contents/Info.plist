@@ -54,5 +54,7 @@
     <string>An application in Alacritty would like to access your reminders.</string>
     <key>NSSystemAdministrationUsageDescription</key>
     <string>An application in Alacritty requires elevated permissions.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>An application in Alacritty wants to use Bluetooth.</string>
 </dict>
 </plist>

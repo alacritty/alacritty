@@ -2,7 +2,7 @@
 
 #![warn(rust_2018_idioms, future_incompatible)]
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use)]
-#![cfg_attr(feature = "cargo-clippy", deny(warnings))]
+#![cfg_attr(clippy, deny(warnings))]
 // With the default subsystem, 'console', windows creates an additional console
 // window for the program.
 // This is silently ignored on non-windows systems.
@@ -21,9 +21,9 @@ use std::{env, fs};
 use log::info;
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
-use winit::event_loop::EventLoopBuilder as WinitEventLoopBuilder;
+use winit::event_loop::EventLoop;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use winit::platform::x11::EventLoopWindowTargetExtX11;
+use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
 use alacritty_terminal::tty;
 
@@ -56,7 +56,8 @@ mod gl {
 #[cfg(unix)]
 use crate::cli::MessageOptions;
 use crate::cli::{Options, Subcommands};
-use crate::config::{monitor, UiConfig};
+use crate::config::monitor::ConfigMonitor;
+use crate::config::UiConfig;
 use crate::event::{Event, Processor};
 #[cfg(target_os = "macos")]
 use crate::macos::locale;
@@ -124,7 +125,7 @@ impl Drop for TemporaryFiles {
 /// config change monitor, and runs the main display loop.
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
-    let window_event_loop = WinitEventLoopBuilder::<Event>::with_user_event().build()?;
+    let window_event_loop = EventLoop::<Event>::with_user_event().build()?;
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
@@ -134,7 +135,17 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     info!("Version {}", env!("VERSION"));
 
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-    info!("Running on {}", if window_event_loop.is_x11() { "X11" } else { "Wayland" });
+    info!(
+        "Running on {}",
+        if matches!(
+            window_event_loop.display_handle().unwrap().as_raw(),
+            RawDisplayHandle::Wayland(_)
+        ) {
+            "Wayland"
+        } else {
+            "X11"
+        }
+    );
     #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
     info!("Running on Wayland");
 
@@ -165,8 +176,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
+    let mut config_monitor = None;
     if config.live_config_reload {
-        monitor::watch(config.config_paths.clone(), window_event_loop.create_proxy());
+        config_monitor =
+            ConfigMonitor::new(config.config_paths.clone(), window_event_loop.create_proxy());
     }
 
     // Create the IPC socket listener.
@@ -186,13 +199,14 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let window_options = options.window_options.clone();
-    let mut processor = Processor::new(config, options, &window_event_loop);
+    let processor = Processor::new(config, options, &window_event_loop);
 
     // Start event loop and block until shutdown.
-    let result = processor.run(window_event_loop, window_options);
+    let result = processor.run(window_event_loop);
 
-    // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
+    // `Processor` must be dropped before calling `FreeConsole`.
+    //
+    // This is needed for ConPTY backend. Otherwise a deadlock can occur.
     // The cause:
     //   - Drop for ConPTY will deadlock if the conout pipe has already been dropped
     //   - ConPTY is dropped when the last of processor and window context are dropped, because both
@@ -203,10 +217,11 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // order.
     //
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
-    drop(processor);
 
-    // FIXME patch notify library to have a shutdown method.
-    // config_reloader.join().ok();
+    // Terminate the config monitor.
+    if let Some(config_monitor) = config_monitor.take() {
+        config_monitor.shutdown();
+    }
 
     // Without explicitly detaching the console cmd won't redraw it's prompt.
     #[cfg(windows)]
@@ -229,5 +244,5 @@ fn log_config_path(config: &UiConfig) {
         let _ = write!(msg, "\n  {:?}", path.display());
     }
 
-    info!("{}", msg);
+    info!("{msg}");
 }
