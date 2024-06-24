@@ -47,21 +47,45 @@ impl<'a> RenderableContent<'a> {
         let focused_match = search_state.focused_match();
         let terminal_content = term.renderable_content();
 
+        let mut has_preedit_cursor_pos = false;
+        let mut preedit_cursor_delta: usize = 0;
+        let mut preedit_text_length: usize = 0;
+
+        match display.ime.preedit() {
+            None => {}
+            Some(the_preedit) => {
+                match the_preedit.cursor_byte_offset {
+                    None => {}
+                    Some(retriedved_offset) => {
+                        has_preedit_cursor_pos = true;
+                        preedit_cursor_delta = retriedved_offset;
+                        preedit_text_length = the_preedit.text.chars().count();
+                    }
+                }
+            }
+        }
+
         // Find terminal cursor shape.
         let cursor_shape = if terminal_content.cursor.shape == CursorShape::Hidden
             || display.cursor_hidden
             || search_state.regex().is_some()
-            || display.ime.preedit().is_some()
+            || (display.ime.preedit().is_some() && !has_preedit_cursor_pos)
         {
             CursorShape::Hidden
         } else if !term.is_focused && config.cursor.unfocused_hollow {
             CursorShape::HollowBlock
+        } else if has_preedit_cursor_pos {
+            CursorShape::Beam
         } else {
             terminal_content.cursor.shape
         };
 
         // Convert terminal cursor point to viewport position.
-        let cursor_point = terminal_content.cursor.point;
+        let mut cursor_point = terminal_content.cursor.point;
+        if has_preedit_cursor_pos {
+            cursor_point.column += preedit_cursor_delta;
+            cursor_point.column -= preedit_text_length;
+        }
         let display_offset = terminal_content.display_offset;
         let cursor_point = term::point_to_viewport(display_offset, cursor_point).unwrap();
 
