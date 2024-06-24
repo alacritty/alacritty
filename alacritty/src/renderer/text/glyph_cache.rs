@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use ahash::RandomState;
@@ -109,7 +110,14 @@ impl GlyphCache {
 
         // Cache all ascii characters.
         for i in 32u8..=126u8 {
-            self.get(GlyphKey { font_key: font, character: i as char, size }, loader, true);
+            let glyph_key = GlyphKey { font_key: font, character: i as char, size };
+            let missing_glyph = match self.get(glyph_key, loader).map_err(|err| *err) {
+                Ok(_) => continue,
+                Err(RasterizerError::MissingGlyph(glyph)) => Some(glyph),
+                _ => None,
+            };
+
+            let _ = self.insert_missing_or_default(glyph_key, loader, missing_glyph);
         }
     }
 
@@ -191,64 +199,84 @@ impl GlyphCache {
         &mut self,
         glyph_key: GlyphKey,
         loader: &mut L,
-        show_missing: bool,
-    ) -> Glyph
+    ) -> Result<&Glyph, Box<RasterizerError>>
     where
         L: LoadGlyph,
     {
         // Try to load glyph from cache.
-        if let Some(glyph) = self.cache.get(&glyph_key) {
-            return *glyph;
-        };
+        match self.cache.entry(glyph_key) {
+            Entry::Occupied(glyph) => Ok(glyph.into_mut()),
+            Entry::Vacant(vacant) => {
+                // // Rasterize the glyph using the built-in font for special characters or the
+                // user's font // for everything else.
+                let rasterized = self
+                    .builtin_box_drawing
+                    .then(|| {
+                        builtin_font::builtin_glyph(
+                            glyph_key.character,
+                            &self.metrics,
+                            &self.font_offset,
+                            &self.glyph_offset,
+                        )
+                    })
+                    .flatten()
+                    .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok)?;
 
-        // Rasterize the glyph using the built-in font for special characters or the user's font
-        // for everything else.
-        let rasterized = self
-            .builtin_box_drawing
-            .then(|| {
-                builtin_font::builtin_glyph(
-                    glyph_key.character,
-                    &self.metrics,
-                    &self.font_offset,
-                    &self.glyph_offset,
-                )
-            })
-            .flatten()
-            .map_or_else(|| self.rasterizer.get_glyph(glyph_key), Ok);
+                let glyph = Self::load_glyph(loader, rasterized, &self.glyph_offset, &self.metrics);
 
-        let glyph = match rasterized {
-            Ok(rasterized) => self.load_glyph(loader, rasterized),
-            // Load fallback glyph.
-            Err(RasterizerError::MissingGlyph(rasterized)) if show_missing => {
-                // Use `\0` as "missing" glyph to cache it only once.
+                // Cache rasterized glyph.
+                Ok(vacant.insert(glyph))
+            },
+        }
+    }
+
+    /// Insert the `missing_glyph` for the given `glyph_key` or the default glyph.
+    pub fn insert_missing_or_default<L: ?Sized>(
+        &mut self,
+        glyph_key: GlyphKey,
+        loader: &mut L,
+        missing_glyph: Option<RasterizedGlyph>,
+    ) -> &Glyph
+    where
+        L: LoadGlyph,
+    {
+        let to_insert = match missing_glyph {
+            Some(missing_glyph) => {
                 let missing_key = GlyphKey { character: '\0', ..glyph_key };
-                if let Some(glyph) = self.cache.get(&missing_key) {
-                    *glyph
-                } else {
-                    // If no missing glyph was loaded yet, insert it as `\0`.
-                    let glyph = self.load_glyph(loader, rasterized);
-                    self.cache.insert(missing_key, glyph);
-
-                    glyph
+                *match self.cache.entry(missing_key) {
+                    Entry::Occupied(glyph) => glyph.into_mut(),
+                    Entry::Vacant(glyph) => glyph.insert(Self::load_glyph(
+                        loader,
+                        missing_glyph,
+                        &self.glyph_offset,
+                        &self.metrics,
+                    )),
                 }
             },
-            Err(_) => self.load_glyph(loader, Default::default()),
+            None => Self::load_glyph(loader, Default::default(), &self.glyph_offset, &self.metrics),
         };
 
-        // Cache rasterized glyph.
-        *self.cache.entry(glyph_key).or_insert(glyph)
+        match self.cache.entry(glyph_key) {
+            Entry::Occupied(glyph) => glyph.into_mut(),
+            Entry::Vacant(glyph) => glyph.insert(to_insert),
+        }
     }
 
     /// Load glyph into the atlas.
     ///
     /// This will apply all transforms defined for the glyph cache to the rasterized glyph before
-    pub fn load_glyph<L: ?Sized>(&self, loader: &mut L, mut glyph: RasterizedGlyph) -> Glyph
+    pub fn load_glyph<L: ?Sized>(
+        loader: &mut L,
+        mut glyph: RasterizedGlyph,
+        glyph_offset: &Delta<i8>,
+        metrics: &Metrics,
+    ) -> Glyph
     where
         L: LoadGlyph,
     {
-        glyph.left += i32::from(self.glyph_offset.x);
-        glyph.top += i32::from(self.glyph_offset.y);
-        glyph.top -= self.metrics.descent as i32;
+        glyph.left += i32::from(glyph_offset.x);
+        glyph.top += i32::from(glyph_offset.y);
+        glyph.top -= metrics.descent as i32;
 
         // The metrics of zero-width characters are based on rendering
         // the character after the current cell, with the anchor at the
@@ -256,7 +284,7 @@ impl GlyphCache {
         // zero-width characters inside the preceding character, the
         // anchor has been moved to the right by one cell.
         if glyph.character.width() == Some(0) {
-            glyph.left += self.metrics.average_advance as i32;
+            glyph.left += metrics.average_advance as i32;
         }
 
         // Add glyph to cache.
