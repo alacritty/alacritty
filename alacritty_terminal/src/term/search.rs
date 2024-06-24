@@ -587,7 +587,7 @@ impl<T> Term<T> {
 	
 	match regex_match {
 	    Some(m) => {return Some(*(m.start()));},
-	    None => None
+	    None => {return None;}
 	}
 
 
