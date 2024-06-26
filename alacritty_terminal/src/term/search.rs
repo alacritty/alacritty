@@ -14,6 +14,7 @@ use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
+use crate::vi_mode::is_space;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
@@ -530,74 +531,15 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn search_current_forward(&mut self, point: Point) -> Option<Point> {
-        let grid = self.grid();
-        let mut iter = grid.iter_from(point);
-
-        if iter.cell().c.is_whitespace() {
-            //if search begins outside a word, find start of next word to the right
-            loop {
-                let cell = iter.next();
-                match cell {
-                    Some(_c) => {
-                        if !iter.cell().c.is_whitespace() {
-                            break; //now iter will be at the beginning of a word
-                        }
-                    },
-                    None => {
-                        return None; //or it will find that there is no word to its right
-                    },
-                }
-            }
-        } else if iter.point().column != 0 {
-            //if we're in the middle of a word, move to its beginning
-            loop {
-                let cell = iter.prev();
-                match cell {
-                    Some(_c) => {
-                        if iter.cell().c.is_whitespace() {
-                            iter.next(); //we moved one space before its start, so we go forward
-                            break;
-                        }
-                    },
-                    None => {
-                        iter.next();
-                        break;
-                    },
-                }
-            }
+    //identify semantic word at cursor and return its start and final point
+    pub fn get_current_word_bounds(&mut self, point: Point) -> Option<(Point, Point)> {
+        //for now, don't change cursor position to nearest word
+        if is_space(self, point) {
+            return None;
         }
-        let mut search_string = String::from("");
-        search_string.push(iter.cell().c);
-        loop {
-            let cell = iter.next();
-            match cell {
-                Some(_c) => {
-                    if iter.cell().c.is_whitespace() {
-                        break;
-                    } else {
-                        search_string.push(iter.cell().c);
-                    }
-                },
-                None => {
-                    //something should be done here to have iter point to a real place
-                    //move iter to start of grid?
-                    break;
-                },
-            }
-        }
-        let mut regex = RegexSearch::new(&search_string).unwrap();
-        let regex_match =
-            self.search_next(&mut regex, iter.point(), Direction::Right, Direction::Left, None);
-
-        match regex_match {
-            Some(m) => {
-                return Some(*(m.start()));
-            },
-            None => {
-                return None;
-            },
-        }
+        let semantic_start: Point = self.semantic_search_left(point);
+        let semantic_end: Point = self.semantic_search_right(semantic_start);
+        return Some((semantic_start, semantic_end));
     }
     /// Searching to the left, find the next character contained in `needles`.
     pub fn inline_search_left(&self, mut point: Point, needles: &str) -> Result<Point, Point> {

@@ -858,17 +858,23 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
     #[inline]
     fn search_current_forward(&mut self) {
-        let vi_point = self.terminal.vi_mode_cursor.point;
-        let search = self.terminal.cursor_search_forward_next(vi_point);
-        match search {
-            Some(s) => {
-                self.terminal.vi_goto_point(s);
-                self.mark_dirty();
-                return;
+        let bounds = self.terminal.get_current_word_bounds(self.terminal.vi_mode_cursor.point);
+        match bounds {
+            Some((start, end)) => {
+                let mut iter = self.terminal.grid().iter_from(start);
+                iter.prev(); //without this the first point is skipped during filter
+
+                //collect all characters between start and end into a vector
+                let chars: Vec<char> = iter
+                    .filter(|x| (start <= x.point) && (x.point <= end))
+                    .map(|x| x.cell.c)
+                    .collect();
+
+                self.start_search(Direction::Right);
+                chars.iter().for_each(|&c| self.search_input(c));
+                self.confirm_search();
             },
-            None => {
-                return;
-            },
+            None => return,
         }
     }
 
