@@ -126,7 +126,7 @@ pub trait ActionContext<T: EventListener> {
     fn toggle_vi_mode(&mut self) {}
     fn inline_search_state(&mut self) -> &mut InlineSearchState;
     fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
-    fn star_search(&mut self) {}
+    fn cursor_search_forward(&mut self) {}
     fn inline_search_next(&mut self) {}
     fn inline_search_previous(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
@@ -267,9 +267,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Vi(ViAction::InlineSearchForward) => {
                 ctx.start_inline_search(Direction::Right, false)
             },
-	    Action::Vi(ViAction::StarSearch) => {
-		ctx.star_search()
-	    },Action::Vi(ViAction::InlineSearchBackward) => {
+            Action::Vi(ViAction::CursorSearchForward) => ctx.cursor_search_forward(),
+            Action::Vi(ViAction::InlineSearchBackward) => {
                 ctx.start_inline_search(Direction::Left, false)
             },
             Action::Vi(ViAction::InlineSearchForwardShort) => {

@@ -857,19 +857,19 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
     #[inline]
-    fn star_search(&mut self){
-	let vi_point = self.terminal.vi_mode_cursor.point;
-	let search = self.terminal.star_search(vi_point);
-	match search {
-	    Some(s) =>{
-		self.terminal.vi_goto_point(s);
-		self.mark_dirty();
-		return;
-	    }None => {
-		return;
-	    }
-	}
-	
+    fn cursor_search_forward(&mut self) {
+        let vi_point = self.terminal.vi_mode_cursor.point;
+        let search = self.terminal.cursor_search_forward_next(vi_point);
+        match search {
+            Some(s) => {
+                self.terminal.vi_goto_point(s);
+                self.mark_dirty();
+                return;
+            },
+            None => {
+                return;
+            },
+        }
     }
 
     #[inline]
@@ -945,7 +945,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.exit_search();
     }
-  
+
     #[inline]
     fn search_input(&mut self, c: char) {
         match self.search_state.history_index {
@@ -974,7 +974,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             // Clear selection so we do not obstruct any matches.
             self.terminal.selection = None;
         }
-	
+
         self.update_search();
     }
 
@@ -1522,7 +1522,6 @@ impl<'a, N: Notify + 'a, T: EventListener> ActionContext<'a, N, T> {
         }
     }
 }
-
 
 /// Identified purpose of the touch input.
 #[derive(Debug)]

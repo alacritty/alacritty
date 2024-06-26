@@ -269,7 +269,7 @@ impl From<ViMotion> for Action {
 }
 
 impl From<SearchAction> for Action {
-    fn from(action: SearchAction) -> Self {	
+    fn from(action: SearchAction) -> Self {
         Self::Search(action)
     }
 }
@@ -327,8 +327,8 @@ pub enum ViAction {
     InlineSearchNext,
     /// Jump to the previous inline search match.
     InlineSearchPrevious,
-    ///Star search
-    StarSearch,
+    ///Jump to the next occurence of word under cursor
+    CursorSearchForward,
 }
 
 /// Search mode specific actions.
@@ -485,7 +485,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "z",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CenterAroundViCursor;
         "f",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForward;
         "f",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackward;
-	"*",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::StarSearch;
+        "*",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CursorSearchForward;
         "t",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForwardShort;
         "t",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackwardShort;
         ";",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchNext;
