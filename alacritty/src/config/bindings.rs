@@ -327,8 +327,8 @@ pub enum ViAction {
     InlineSearchNext,
     /// Jump to the previous inline search match.
     InlineSearchPrevious,
-    ///Jump to the next occurence of word under cursor
-    CursorSearchForward,
+     /// Start forward search for the word at the current cursor position.
+    SearchCurrentWordForward,
 }
 
 /// Search mode specific actions.
@@ -485,7 +485,7 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "z",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CenterAroundViCursor;
         "f",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForward;
         "f",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackward;
-        "*",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CursorSearchForward;
+        "*",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::SearchCurrentWordForward;
         "t",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchForwardShort;
         "t",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackwardShort;
         ";",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchNext;

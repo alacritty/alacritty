@@ -857,7 +857,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
     }
     #[inline]
-    fn cursor_search_forward(&mut self) {
+    fn search_current_forward(&mut self) {
         let vi_point = self.terminal.vi_mode_cursor.point;
         let search = self.terminal.cursor_search_forward_next(vi_point);
         match search {

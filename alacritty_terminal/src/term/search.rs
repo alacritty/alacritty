@@ -530,7 +530,7 @@ impl<T> Term<T> {
         }
     }
 
-    pub fn cursor_search_forward_next(&mut self, point: Point) -> Option<Point> {
+    pub fn search_current_forward(&mut self, point: Point) -> Option<Point> {
         let grid = self.grid();
         let mut iter = grid.iter_from(point);
 
