@@ -358,7 +358,7 @@ fn advance<T>(term: &Term<T>, point: Point, direction: Direction) -> Point {
 }
 
 /// Check if cell at point contains whitespace.
-fn is_space<T>(term: &Term<T>, point: Point) -> bool {
+pub fn is_space<T>(term: &Term<T>, point: Point) -> bool {
     let cell = &term.grid()[point.line][point.column];
     !cell.flags().intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         && (cell.c == ' ' || cell.c == '\t')

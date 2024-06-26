@@ -856,6 +856,27 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             self.message_buffer.pop();
         }
     }
+    #[inline]
+    fn search_current_forward(&mut self) {
+        let bounds = self.terminal.get_current_word_bounds(self.terminal.vi_mode_cursor.point);
+        match bounds {
+            Some((start, end)) => {
+                let mut iter = self.terminal.grid().iter_from(start);
+                iter.prev(); //without this the first point is skipped during filter
+
+                //collect all characters between start and end into a vector
+                let chars: Vec<char> = iter
+                    .filter(|x| (start <= x.point) && (x.point <= end))
+                    .map(|x| x.cell.c)
+                    .collect();
+
+                self.start_search(Direction::Right);
+                chars.iter().for_each(|&c| self.search_input(c));
+                self.confirm_search();
+            },
+            None => return,
+        }
+    }
 
     #[inline]
     fn start_search(&mut self, direction: Direction) {

@@ -14,6 +14,7 @@ use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
 use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
+use crate::vi_mode::is_space;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
@@ -486,7 +487,7 @@ impl<T> Term<T> {
         let mut iter = self.grid.iter_from(point);
 
         // For every character match that equals the starting bracket, we
-        // ignore one bracket of the opposite type.
+        // ignore one bracket of the opposite type.2
         let mut skip_pairs = 0;
 
         loop {
@@ -530,6 +531,16 @@ impl<T> Term<T> {
         }
     }
 
+    //identify semantic word at cursor and return its start and final point
+    pub fn get_current_word_bounds(&mut self, point: Point) -> Option<(Point, Point)> {
+        //for now, don't change cursor position to nearest word
+        if is_space(self, point) {
+            return None;
+        }
+        let semantic_start: Point = self.semantic_search_left(point);
+        let semantic_end: Point = self.semantic_search_right(semantic_start);
+        return Some((semantic_start, semantic_end));
+    }
     /// Searching to the left, find the next character contained in `needles`.
     pub fn inline_search_left(&self, mut point: Point, needles: &str) -> Result<Point, Point> {
         // Limit the starting point to the last line in the history
