@@ -15,6 +15,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
 - Decorations use opaque style and system window background on macOS
 - No longer source `~/.zshenv` on macOS
+- Support relative path imports from config files
 
 ### Fixed
 
@@ -57,7 +58,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - No unused-key warnings will be emitted for OS-specific config keys
 - Use built-in font for sextant symbols from `U+1FB00` to `U+1FB3B`
 - Kitty encoding is not used anymore for uncommon keys unless the protocol enabled
-- Support relative path imports from config files
 
 ## 0.13.1
 
