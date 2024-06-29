@@ -10,12 +10,14 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.14.0-dev
 
+### Added
+- Support relative path imports from config files
+
 ### Changed
 
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
 - Decorations use opaque style and system window background on macOS
 - No longer source `~/.zshenv` on macOS
-- Support relative path imports from config files
 
 ### Fixed
 
