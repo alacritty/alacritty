@@ -11,6 +11,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ## 0.14.0-dev
 
 ### Added
+
 - Support relative path imports from config files
 
 ### Changed
