@@ -35,13 +35,15 @@ This section documents the root level of the configuration file.
 	file being loaded last. If a field is already present in a previous import,
 	it will be replaced.
 
-	All imports must either be absolute paths starting with _/_, or paths
-	relative to the user's home directory starting with _~/_.
+	All imports must either be absolute paths starting with _/_, paths relative
+	to the user's home directory starting with _~/_, or paths relative from the
+	current config file.
 
 	Example:
 		import = [++
 	_"~/.config/alacritty/base16-dark.toml"_,++
 	_"~/.config/alacritty/keybindings.toml"_,++
+	_"alacritty-theme/themes/gruvbox_dark.toml"_,++
 ]
 
 *shell* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
