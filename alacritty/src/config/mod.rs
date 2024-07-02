@@ -205,7 +205,7 @@ fn parse_config(
     let config = deserialize_config(path, false)?;
 
     // Merge config with imports.
-    let imports = load_imports(&config, config_paths, recursion_limit);
+    let imports = load_imports(&config, path, config_paths, recursion_limit);
     Ok(serde_utils::merge(imports, config))
 }
 
@@ -237,9 +237,14 @@ pub fn deserialize_config(path: &Path, warn_pruned: bool) -> Result<Value> {
 }
 
 /// Load all referenced configuration files.
-fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
+fn load_imports(
+    config: &Value,
+    base_path: &Path,
+    config_paths: &mut Vec<PathBuf>,
+    recursion_limit: usize,
+) -> Value {
     // Get paths for all imports.
-    let import_paths = match imports(config, recursion_limit) {
+    let import_paths = match imports(config, base_path, recursion_limit) {
         Ok(import_paths) => import_paths,
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "{err}");
@@ -278,6 +283,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
 /// Get all import paths for a configuration.
 pub fn imports(
     config: &Value,
+    base_path: &Path,
     recursion_limit: usize,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
     let imports = match config.get("import") {
@@ -305,6 +311,12 @@ pub fn imports(
         // Resolve paths relative to user's home directory.
         if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
             path = home_dir.join(stripped);
+        }
+
+        if path.is_relative() {
+            if let Some(base_path) = base_path.parent() {
+                path = base_path.join(path)
+            }
         }
 
         import_paths.push(Ok(path));
