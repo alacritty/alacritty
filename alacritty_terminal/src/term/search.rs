@@ -293,12 +293,12 @@ impl<T> Term<T> {
         let mut state = regex.dfa.start_state_forward(&mut regex.cache, &input).unwrap();
 
         let mut iter = self.grid.iter_from(start);
-        let mut last_wrapped = false;
         let mut regex_match = None;
         let mut done = false;
 
         let mut cell = iter.cell();
         self.skip_fullwidth(&mut iter, &mut cell, regex.direction);
+        let mut last_wrapped = cell.flags.contains(Flags::WRAPLINE);
         let mut c = cell.c;
 
         let mut point = iter.point();
@@ -1154,5 +1154,21 @@ mod tests {
         let end = term.semantic_search_right(Point::new(Line(1), Column(0)));
         assert_eq!(start, Point::new(Line(1), Column(0)));
         assert_eq!(end, Point::new(Line(1), Column(2)));
+    }
+
+    #[test]
+    fn inline_word_search() {
+        #[rustfmt::skip]
+        let term = mock_term("\
+            word word word word w\n\
+            ord word word word\
+        ");
+
+        let mut regex = RegexSearch::new("word").unwrap();
+        let start = Point::new(Line(1), Column(4));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(0), Column(20));
+        let match_end = Point::new(Line(1), Column(2));
+        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_start..=match_end));
     }
 }
