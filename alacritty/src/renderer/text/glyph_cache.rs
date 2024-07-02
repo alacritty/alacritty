@@ -187,12 +187,7 @@ impl GlyphCache {
     ///
     /// This will fail when the glyph could not be rasterized. Usually this is due to the glyph
     /// not being present in any font.
-    pub fn get<L>(
-        &mut self,
-        glyph_key: GlyphKey,
-        loader: &mut L,
-        show_missing: bool,
-    ) -> Glyph
+    pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L, show_missing: bool) -> Glyph
     where
         L: LoadGlyph + ?Sized,
     {
