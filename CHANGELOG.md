@@ -31,6 +31,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Leaking FDs when closing windows on Unix systems
 - Config emitting errors for nonexistent import paths
 - Kitty keyboard protocol reporting shifted key codes
+- Broken search with words broken across line boundary on the first character
 
 ## 0.13.2
 
