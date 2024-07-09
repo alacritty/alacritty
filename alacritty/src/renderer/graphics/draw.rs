@@ -173,8 +173,8 @@ impl RenderList {
             );
             gl::Uniform2f(
                 renderer.program.u_view_dimensions,
-                size_info.width(),
-                size_info.height(),
+                size_info.width() - 2.0 * size_info.padding_x(),
+                size_info.height() - 2.0 * size_info.padding_y(),
             );
 
             gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
