@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use log::info;
+use menu::MenuBar;
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use winit::event_loop::EventLoop;
@@ -39,6 +40,7 @@ mod ipc;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos;
+mod menu;
 mod message_bar;
 mod migrate;
 #[cfg(windows)]
@@ -125,7 +127,11 @@ impl Drop for TemporaryFiles {
 /// config change monitor, and runs the main display loop.
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // Setup winit event loop.
-    let window_event_loop = EventLoop::<Event>::with_user_event().build()?;
+    let mut event_loop_builder = EventLoop::<Event>::with_user_event();
+    let mut menu_bar = MenuBar::new();
+    menu_bar.setup_event_loop(&mut event_loop_builder);
+    let window_event_loop = event_loop_builder.build().unwrap();
+    menu_bar.init();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
