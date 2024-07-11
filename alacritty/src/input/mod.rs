@@ -50,9 +50,6 @@ use crate::scheduler::{Scheduler, TimerId, Topic};
 
 pub mod keyboard;
 
-/// Font size change interval in px.
-pub const FONT_SIZE_STEP: f32 = 1.;
-
 /// Interval for mouse scrolling during selection outside of the boundaries.
 const SELECTION_SCROLLING_INTERVAL: Duration = Duration::from_millis(15);
 
@@ -324,8 +321,8 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
-            Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
-            Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
+            Action::IncreaseFontSize => ctx.change_font_size(ctx.config().window.font_size_step),
+            Action::DecreaseFontSize => ctx.change_font_size(-ctx.config().window.font_size_step),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp
             | Action::ScrollPageDown
@@ -844,6 +841,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle touch input movement.
     pub fn on_touch_motion(&mut self, touch: TouchEvent) {
+        let font_size_step = self.ctx.config().window.font_size_step;
         let touch_purpose = self.ctx.touch_purpose();
         match touch_purpose {
             TouchPurpose::None => (),
@@ -871,7 +869,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 }
             },
             TouchPurpose::Zoom(zoom) => {
-                let font_delta = zoom.font_delta(touch);
+                let font_delta = zoom.font_delta(touch, font_size_step);
                 self.ctx.change_font_size(font_delta);
             },
             TouchPurpose::Scroll(last_touch) => {

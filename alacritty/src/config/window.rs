@@ -61,6 +61,9 @@ pub struct WindowConfig {
 
     /// System decorations theme variant.
     decorations_theme_variant: Option<Theme>,
+
+    /// Font size change interval in px.
+    pub font_size_step: f32,
 }
 
 impl Default for WindowConfig {
@@ -80,6 +83,7 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
+            font_size_step: 1.0,
         }
     }
 }
