@@ -5,6 +5,7 @@ use bitflags::bitflags;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::graphics::GraphicsCell;
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 use crate::vte::ansi::{Color, Hyperlink as VteHyperlink, NamedColor};
@@ -30,6 +31,7 @@ bitflags! {
         const UNDERCURL                 = 0b0001_0000_0000_0000;
         const DOTTED_UNDERLINE          = 0b0010_0000_0000_0000;
         const DASHED_UNDERLINE          = 0b0100_0000_0000_0000;
+        const GRAPHICS                  = 0b1000_0000_0000_0000;
         const ALL_UNDERLINES            = Self::UNDERLINE.bits() | Self::DOUBLE_UNDERLINE.bits()
                                         | Self::UNDERCURL.bits() | Self::DOTTED_UNDERLINE.bits()
                                         | Self::DASHED_UNDERLINE.bits();
@@ -128,6 +130,9 @@ pub struct CellExtra {
     underline_color: Option<Color>,
 
     hyperlink: Option<Hyperlink>,
+
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    graphics: Option<GraphicsCell>,
 }
 
 /// Content and attributes of a single cell in the terminal grid.
@@ -166,6 +171,33 @@ impl Cell {
     pub fn push_zerowidth(&mut self, character: char) {
         let extra = self.extra.get_or_insert(Default::default());
         Arc::make_mut(extra).zerowidth.push(character);
+    }
+
+    /// Graphic present in the cell.
+    #[inline]
+    pub fn graphics(&self) -> Option<&GraphicsCell> {
+        self.extra.as_deref().and_then(|extra| extra.graphics.as_ref())
+    }
+
+    /// Extract the graphics value from the cell.
+    #[inline]
+    pub fn take_graphics(&mut self) -> Option<GraphicsCell> {
+        if let Some(extra) = &mut self.extra {
+            if extra.graphics.is_some() {
+                return Arc::make_mut(extra).graphics.take();
+            }
+        }
+
+        None
+    }
+
+    /// Write the graphic data in the cell.
+    #[inline]
+    pub fn set_graphics(&mut self, graphics_cell: GraphicsCell) {
+        let extra = self.extra.get_or_insert_with(Default::default);
+        Arc::make_mut(extra).graphics = Some(graphics_cell);
+
+        self.flags_mut().insert(Flags::GRAPHICS);
     }
 
     /// Remove all wide char data from a cell.
@@ -234,7 +266,8 @@ impl GridCell for Cell {
                     | Flags::STRIKEOUT
                     | Flags::WRAPLINE
                     | Flags::WIDE_CHAR_SPACER
-                    | Flags::LEADING_WIDE_CHAR_SPACER,
+                    | Flags::LEADING_WIDE_CHAR_SPACER
+                    | Flags::GRAPHICS,
             )
             && self.extra.as_ref().map(|extra| extra.zerowidth.is_empty()) != Some(false)
     }
