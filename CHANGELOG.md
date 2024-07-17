@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.14.0-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.74.0
+
 ### Added
 
 - Support relative path imports from config files

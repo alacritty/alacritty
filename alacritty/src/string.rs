@@ -51,6 +51,7 @@ impl<'a> StrShortener<'a> {
 
         if direction == ShortenDirection::Right {
             return Self {
+                #[allow(clippy::iter_skip_zero)]
                 chars: text.chars().skip(0),
                 accumulated_len: 0,
                 text_action: TextAction::Char,
