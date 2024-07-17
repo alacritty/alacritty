@@ -7,7 +7,7 @@ description = "Failure resistant deserialization derive"
 homepage = "https://alacritty.org"
 repository = "https://github.com/alacritty/alacritty"
 edition = "2021"
-rust-version = "1.70.0"
+rust-version = "1.74.0"
 
 [lib]
 proc-macro = true
