@@ -14,7 +14,7 @@ _alacritty() {
     fi
 
     local context curcontext="$curcontext" state line
-    _arguments "${_arguments_options[@]}" \
+    _arguments "${_arguments_options[@]}" : \
 '--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED: ' \
 '--config-file=[Specify alternative configuration file \[default\: \$XDG_CONFIG_HOME/alacritty/alacritty.toml\]]:CONFIG_FILE:_files' \
 '--socket=[Path for IPC socket creation]:SOCKET:_files' \
@@ -45,7 +45,7 @@ _alacritty() {
         curcontext="${curcontext%:*:*}:alacritty-command-$line[1]:"
         case $line[1] in
             (msg)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-s+[IPC socket connection path override]:SOCKET:_files' \
 '--socket=[IPC socket connection path override]:SOCKET:_files' \
 '-h[Print help]' \
@@ -61,7 +61,7 @@ _arguments "${_arguments_options[@]}" \
         curcontext="${curcontext%:*:*}:alacritty-msg-command-$line[1]:"
         case $line[1] in
             (create-window)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
 '*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
 '*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
@@ -76,7 +76,7 @@ _arguments "${_arguments_options[@]}" \
 && ret=0
 ;;
 (config)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-w+[Window ID for the new config]:WINDOW_ID: ' \
 '--window-id=[Window ID for the new config]:WINDOW_ID: ' \
 '()-r[Clear all runtime configuration changes]' \
@@ -87,7 +87,7 @@ _arguments "${_arguments_options[@]}" \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 ":: :_alacritty__msg__help_commands" \
 "*::: :->help" \
 && ret=0
@@ -99,15 +99,15 @@ _arguments "${_arguments_options[@]}" \
         curcontext="${curcontext%:*:*}:alacritty-msg-help-command-$line[1]:"
         case $line[1] in
             (create-window)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (config)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
         esac
@@ -119,7 +119,7 @@ esac
 esac
 ;;
 (migrate)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 '-c+[Path to the configuration file]:CONFIG_FILE:_files' \
 '--config-file=[Path to the configuration file]:CONFIG_FILE:_files' \
 '-d[Only output TOML config to STDOUT]' \
@@ -134,7 +134,7 @@ _arguments "${_arguments_options[@]}" \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 ":: :_alacritty__help_commands" \
 "*::: :->help" \
 && ret=0
@@ -146,7 +146,7 @@ _arguments "${_arguments_options[@]}" \
         curcontext="${curcontext%:*:*}:alacritty-help-command-$line[1]:"
         case $line[1] in
             (msg)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 ":: :_alacritty__help__msg_commands" \
 "*::: :->msg" \
 && ret=0
@@ -158,11 +158,11 @@ _arguments "${_arguments_options[@]}" \
         curcontext="${curcontext%:*:*}:alacritty-help-msg-command-$line[1]:"
         case $line[1] in
             (create-window)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (config)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
         esac
@@ -170,11 +170,11 @@ _arguments "${_arguments_options[@]}" \
 esac
 ;;
 (migrate)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (help)
-_arguments "${_arguments_options[@]}" \
+_arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
         esac
@@ -195,36 +195,6 @@ _alacritty_commands() {
     )
     _describe -t commands 'alacritty commands' commands "$@"
 }
-(( $+functions[_alacritty__help__msg__config_commands] )) ||
-_alacritty__help__msg__config_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty help msg config commands' commands "$@"
-}
-(( $+functions[_alacritty__msg__config_commands] )) ||
-_alacritty__msg__config_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty msg config commands' commands "$@"
-}
-(( $+functions[_alacritty__msg__help__config_commands] )) ||
-_alacritty__msg__help__config_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty msg help config commands' commands "$@"
-}
-(( $+functions[_alacritty__help__msg__create-window_commands] )) ||
-_alacritty__help__msg__create-window_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty help msg create-window commands' commands "$@"
-}
-(( $+functions[_alacritty__msg__create-window_commands] )) ||
-_alacritty__msg__create-window_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty msg create-window commands' commands "$@"
-}
-(( $+functions[_alacritty__msg__help__create-window_commands] )) ||
-_alacritty__msg__help__create-window_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty msg help create-window commands' commands "$@"
-}
 (( $+functions[_alacritty__help_commands] )) ||
 _alacritty__help_commands() {
     local commands; commands=(
@@ -239,29 +209,10 @@ _alacritty__help__help_commands() {
     local commands; commands=()
     _describe -t commands 'alacritty help help commands' commands "$@"
 }
-(( $+functions[_alacritty__msg__help_commands] )) ||
-_alacritty__msg__help_commands() {
-    local commands; commands=(
-'create-window:Create a new window in the same Alacritty process' \
-'config:Update the Alacritty configuration' \
-'help:Print this message or the help of the given subcommand(s)' \
-    )
-    _describe -t commands 'alacritty msg help commands' commands "$@"
-}
-(( $+functions[_alacritty__msg__help__help_commands] )) ||
-_alacritty__msg__help__help_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty msg help help commands' commands "$@"
-}
 (( $+functions[_alacritty__help__migrate_commands] )) ||
 _alacritty__help__migrate_commands() {
     local commands; commands=()
     _describe -t commands 'alacritty help migrate commands' commands "$@"
-}
-(( $+functions[_alacritty__migrate_commands] )) ||
-_alacritty__migrate_commands() {
-    local commands; commands=()
-    _describe -t commands 'alacritty migrate commands' commands "$@"
 }
 (( $+functions[_alacritty__help__msg_commands] )) ||
 _alacritty__help__msg_commands() {
@@ -271,6 +222,21 @@ _alacritty__help__msg_commands() {
     )
     _describe -t commands 'alacritty help msg commands' commands "$@"
 }
+(( $+functions[_alacritty__help__msg__config_commands] )) ||
+_alacritty__help__msg__config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty help msg config commands' commands "$@"
+}
+(( $+functions[_alacritty__help__msg__create-window_commands] )) ||
+_alacritty__help__msg__create-window_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty help msg create-window commands' commands "$@"
+}
+(( $+functions[_alacritty__migrate_commands] )) ||
+_alacritty__migrate_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty migrate commands' commands "$@"
+}
 (( $+functions[_alacritty__msg_commands] )) ||
 _alacritty__msg_commands() {
     local commands; commands=(
@@ -279,6 +245,40 @@ _alacritty__msg_commands() {
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty msg commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__config_commands] )) ||
+_alacritty__msg__config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg config commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__create-window_commands] )) ||
+_alacritty__msg__create-window_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg create-window commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help_commands] )) ||
+_alacritty__msg__help_commands() {
+    local commands; commands=(
+'create-window:Create a new window in the same Alacritty process' \
+'config:Update the Alacritty configuration' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'alacritty msg help commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help__config_commands] )) ||
+_alacritty__msg__help__config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg help config commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help__create-window_commands] )) ||
+_alacritty__msg__help__create-window_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg help create-window commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help__help_commands] )) ||
+_alacritty__msg__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg help help commands' commands "$@"
 }
 
 if [ "$funcstack[1]" = "_alacritty" ]; then
