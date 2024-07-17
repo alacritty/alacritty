@@ -216,10 +216,10 @@ impl WindowIdentity {
     /// Override the [`WindowIdentity`]'s fields with the [`WindowOptions`].
     pub fn override_identity_config(&self, identity: &mut Identity) {
         if let Some(title) = &self.title {
-            identity.title = title.clone();
+            identity.title.clone_from(title);
         }
         if let Some(class) = &self.class {
-            identity.class = class.clone();
+            identity.class.clone_from(class);
         }
     }
 }
