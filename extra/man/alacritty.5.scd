@@ -104,7 +104,7 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: { columns = _0_, lines = _0_ }
 
-*position* = _"None"_ | { x = _<integer>_, y = _<integer>_ }
+*position* = _"None"_ | { x = _<integer>_, y = _<integer>_ } # _(has no effect on Wayland)_
 
 	Window startup position.
 
@@ -197,13 +197,13 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
-*resize_increments* = _true_ | _false_
+*resize_increments* = _true_ | _false_ # _(works on macOS/X11)_
 
 	Prefer resizing window by discrete steps equal to cell dimensions.
 
 	Default: _false_
 
-*option_as_alt* = _"OnlyLeft"_ | _"OnlyRight"_ | _"Both"_ | _"None"_ # _(macos only)_
+*option_as_alt* = _"OnlyLeft"_ | _"OnlyRight"_ | _"Both"_ | _"None"_ # _(macOS only)_
 
 	Make _Option_ key behave as _Alt_.
 
