@@ -319,7 +319,7 @@ impl ApplicationHandler<Event> for Processor {
                             ConfigMonitor::new(paths.clone(), self.proxy.clone())
                         } else {
                             Some(monitor)
-                        }
+                        };
                     }
 
                     for window_context in self.windows.values_mut() {
