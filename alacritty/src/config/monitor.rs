@@ -180,7 +180,7 @@ impl ConfigMonitor {
         // Sort files to avoid restart on order change.
         let mut sorted_files = [None; MAX_PATHS];
         for (i, file) in files.iter().enumerate() {
-            sorted_files[i] = Some(file.as_path());
+            sorted_files[i] = Some(file);
         }
         sorted_files.sort_unstable();
 
