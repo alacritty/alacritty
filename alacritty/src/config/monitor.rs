@@ -25,7 +25,7 @@ const FALLBACK_POLLING_TIMEOUT: Duration = Duration::from_secs(1);
 pub struct ConfigMonitor {
     thread: JoinHandle<()>,
     shutdown_tx: Sender<Result<NotifyEvent, NotifyError>>,
-    watched_hash: u64,
+    watched_hash: Option<u64>,
 }
 
 impl ConfigMonitor {
@@ -166,13 +166,27 @@ impl ConfigMonitor {
     /// This checks the supplied list of files against the monitored files to determine if a
     /// restart is necessary.
     pub fn needs_restart(&self, files: &[PathBuf]) -> bool {
-        self.watched_hash != Self::hash_paths(files)
+        Self::hash_paths(files).map_or(true, |hash| Some(hash) == self.watched_hash)
     }
 
     /// Generate the hash for a list of paths.
-    fn hash_paths(files: &[PathBuf]) -> u64 {
+    fn hash_paths(files: &[PathBuf]) -> Option<u64> {
+        // Use file count limit to avoid allocations.
+        const MAX_PATHS: usize = 1024;
+        if files.len() > MAX_PATHS {
+            return None;
+        }
+
+        // Sort files to avoid restart on order change.
+        let mut sorted_files = [None; MAX_PATHS];
+        for (i, file) in files.iter().enumerate() {
+            sorted_files[i] = Some(file.as_path());
+        }
+        sorted_files.sort_unstable();
+
+        // Calculate hash for the paths, regardless of order.
         let mut hasher = DefaultHasher::new();
-        Hash::hash_slice(files, &mut hasher);
-        hasher.finish()
+        Hash::hash_slice(&sorted_files, &mut hasher);
+        Some(hasher.finish())
     }
 }
