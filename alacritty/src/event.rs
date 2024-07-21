@@ -1,5 +1,6 @@
 //! Process window events.
 
+use crate::ConfigMonitor;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -70,6 +71,8 @@ const TOUCH_ZOOM_FACTOR: f32 = 0.01;
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor {
+    pub config_monitor: Option<ConfigMonitor>,
+
     clipboard: Clipboard,
     scheduler: Scheduler,
     initial_window_options: Option<WindowOptions>,
@@ -101,6 +104,16 @@ impl Processor {
         // which is done in `loop_exiting`.
         let clipboard = unsafe { Clipboard::new(event_loop.display_handle().unwrap().as_raw()) };
 
+        // Create a config monitor.
+        //
+        // The monitor watches the config file for changes and reloads it. Pending
+        // config changes are processed in the main loop.
+        let mut config_monitor = None;
+        if config.live_config_reload {
+            config_monitor =
+                ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
+        }
+
         Processor {
             initial_window_options,
             initial_window_error: None,
@@ -113,6 +126,7 @@ impl Processor {
             windows: Default::default(),
             #[cfg(unix)]
             global_ipc_options: Default::default(),
+            config_monitor,
         }
     }
 
@@ -160,8 +174,8 @@ impl Processor {
     /// Run the event loop.
     ///
     /// The result is exit code generate from the loop.
-    pub fn run(mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
-        let result = event_loop.run_app(&mut self);
+    pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
+        let result = event_loop.run_app(self);
         if let Some(initial_window_error) = self.initial_window_error.take() {
             Err(initial_window_error)
         } else {
@@ -296,6 +310,17 @@ impl ApplicationHandler<Event> for Processor {
                 // Load config and update each terminal.
                 if let Ok(config) = config::reload(path, &mut self.cli_options) {
                     self.config = Rc::new(config);
+
+                    // Restart config monitor if imports changed.
+                    if let Some(monitor) = self.config_monitor.take() {
+                        let paths = &self.config.config_paths;
+                        self.config_monitor = if monitor.needs_restart(paths) {
+                            monitor.shutdown();
+                            ConfigMonitor::new(paths.clone(), self.proxy.clone())
+                        } else {
+                            Some(monitor)
+                        };
+                    }
 
                     for window_context in self.windows.values_mut() {
                         window_context.update_config(self.config.clone());

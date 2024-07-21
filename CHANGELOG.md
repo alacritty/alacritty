@@ -36,6 +36,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Config emitting errors for nonexistent import paths
 - Kitty keyboard protocol reporting shifted key codes
 - Broken search with words broken across line boundary on the first character
+- Config import changes not being live reloaded
 
 ## 0.13.2
 

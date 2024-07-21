@@ -1,3 +1,5 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::thread::JoinHandle;
@@ -23,6 +25,7 @@ const FALLBACK_POLLING_TIMEOUT: Duration = Duration::from_secs(1);
 pub struct ConfigMonitor {
     thread: JoinHandle<()>,
     shutdown_tx: Sender<Result<NotifyEvent, NotifyError>>,
+    watched_hash: Option<u64>,
 }
 
 impl ConfigMonitor {
@@ -31,6 +34,9 @@ impl ConfigMonitor {
         if paths.is_empty() {
             return None;
         }
+
+        // Calculate the hash for the unmodified list of paths.
+        let watched_hash = Self::hash_paths(&paths);
 
         // Exclude char devices like `/dev/null`, sockets, and so on, by checking that file type is
         // a regular file.
@@ -139,7 +145,7 @@ impl ConfigMonitor {
             }
         });
 
-        Some(Self { thread: join_handle, shutdown_tx: tx })
+        Some(Self { watched_hash, thread: join_handle, shutdown_tx: tx })
     }
 
     /// Synchronously shut down the monitor.
@@ -153,5 +159,34 @@ impl ConfigMonitor {
         if let Err(err) = self.thread.join() {
             warn!("config monitor shutdown failed: {err:?}");
         }
+    }
+
+    /// Check if the config monitor needs to be restarted.
+    ///
+    /// This checks the supplied list of files against the monitored files to determine if a
+    /// restart is necessary.
+    pub fn needs_restart(&self, files: &[PathBuf]) -> bool {
+        Self::hash_paths(files).map_or(true, |hash| Some(hash) == self.watched_hash)
+    }
+
+    /// Generate the hash for a list of paths.
+    fn hash_paths(files: &[PathBuf]) -> Option<u64> {
+        // Use file count limit to avoid allocations.
+        const MAX_PATHS: usize = 1024;
+        if files.len() > MAX_PATHS {
+            return None;
+        }
+
+        // Sort files to avoid restart on order change.
+        let mut sorted_files = [None; MAX_PATHS];
+        for (i, file) in files.iter().enumerate() {
+            sorted_files[i] = Some(file);
+        }
+        sorted_files.sort_unstable();
+
+        // Calculate hash for the paths, regardless of order.
+        let mut hasher = DefaultHasher::new();
+        Hash::hash_slice(&sorted_files, &mut hasher);
+        Some(hasher.finish())
     }
 }
