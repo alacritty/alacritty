@@ -1241,7 +1241,7 @@ impl Display {
     fn draw_search(&mut self, config: &UiConfig, text: &str) {
         // Assure text length is at least num_cols.
         let num_cols = self.size_info.columns();
-        let text = format!("{:<1$}", text, num_cols);
+        let text = format!("{text:<num_cols$}");
 
         let point = Point::new(self.size_info.screen_lines(), Column(0));
 

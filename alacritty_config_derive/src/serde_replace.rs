@@ -112,11 +112,11 @@ fn match_arms<T>(fields: &Punctuated<Field, T>) -> Result<TokenStream2, syn::Err
                 .map(|parsed| {
                     let value = parsed
                         .param
-                        .ok_or_else(|| format!("Field \"{}\" has no alias value", ident))?
+                        .ok_or_else(|| format!("Field \"{ident}\" has no alias value"))?
                         .value();
 
                     if value.trim().is_empty() {
-                        return Err(format!("Field \"{}\" has an empty alias value", ident));
+                        return Err(format!("Field \"{ident}\" has an empty alias value"));
                     }
 
                     Ok(value)
