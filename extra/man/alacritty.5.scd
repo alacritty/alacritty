@@ -894,6 +894,12 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Move to end of whitespace separated word.
 		*Bracket*
 			Move to opposing bracket.
+		*ParagraphUp*
+			Move up to first empty row.
+		*ParagraphDown*
+			Move down to first empty row.
+		*VisualSelection*
+			Move to highlighted region opposite selection marker.
 		*ToggleNormalSelection*
 			Toggle normal vi selection.
 		*ToggleLineSelection*
@@ -926,6 +932,10 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Jump to the next inline search match.
 		*InlineSearchPrevious*
 			Jump to the previous inline search match.
+		*CurrentWordSearchForward*
+			Search forward for highlighted region or word under cursor.
+		*CurrentWordSearchBackward*
+			Search backward for highlighted region or word under cursor.
 
 		_Search actions:_
 

@@ -52,6 +52,12 @@ pub enum ViMotion {
     WordRightEnd,
     /// Move to opposing bracket.
     Bracket,
+    /// Move up to first empty row.
+    ParagraphUp,
+    /// Move down to first empty row.
+    ParagraphDown,
+    /// Move to highlighted region opposite selection marker.
+    VisualSelection,
 }
 
 /// Cursor tracking vi mode position.
@@ -153,6 +159,37 @@ impl ViModeCursor {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
             ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
+            ViMotion::ParagraphUp => {
+                self.point.column = Column(0);
+                while self.point.line > term.topmost_line()
+                    && term.grid()[self.point.line].is_clear()
+                {
+                    self.point.line -= 1;
+                }
+                while self.point.line > term.topmost_line()
+                    && !term.grid()[self.point.line].is_clear()
+                {
+                    self.point.line -= 1;
+                }
+            },
+            ViMotion::ParagraphDown => {
+                self.point.column = Column(0);
+                while self.point.line + 1 < term.screen_lines()
+                    && term.grid()[self.point.line].is_clear()
+                {
+                    self.point.line += 1;
+                }
+                while self.point.line + 1 < term.screen_lines()
+                    && !term.grid()[self.point.line].is_clear()
+                {
+                    self.point.line += 1;
+                }
+            },
+            ViMotion::VisualSelection => {
+                if let Some(selection) = &mut term.selection {
+                    self.point = selection.swap_anchors();
+                }
+            },
         }
 
         term.scroll_to_point(self.point);

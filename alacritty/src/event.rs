@@ -37,6 +37,7 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
+use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::NamedColor;
 
 #[cfg(unix)]
@@ -1006,6 +1007,49 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.update_search();
+    }
+
+    #[inline]
+    fn search_selection(&mut self, direction: Direction) {
+        if let Some(text) = self.terminal().selection_to_string() {
+            self.clear_selection();
+            self.start_search(direction);
+
+            // escape regex search characters
+            text.chars().for_each(|c| {
+                if ".*+^$?\\()[]{}|".contains(c) {
+                    self.search_input('\\');
+                }
+                self.search_input(c);
+            });
+
+            // mode-independent search
+            match self.terminal().mode().contains(TermMode::VI) {
+                true => self.confirm_search(),
+                false => self.advance_search_origin(direction),
+            }
+        }
+    }
+
+    #[inline]
+    fn search_current_word(&mut self, direction: Direction) {
+        if self.terminal.selection.as_ref().map_or(true, |s| s.is_empty()) {
+            let mut cursor = self.terminal_mut().vi_mode_cursor;
+            let origin = cursor.point;
+
+            // move forward to next semantic block if not already in one
+            let escape_chars = self.terminal.semantic_escape_chars().to_owned();
+            while escape_chars.contains(self.terminal().grid()[cursor.point].c) {
+                cursor = cursor.motion(self.terminal_mut(), ViMotion::SemanticRight);
+                // don't search if no semantic block is found after cursor
+                if cursor.point.line != origin.line {
+                    cursor.point = origin;
+                    return;
+                }
+            }
+            self.start_selection(SelectionType::Semantic, cursor.point, Side::Left);
+        }
+        self.search_selection(direction);
     }
 
     #[inline]

@@ -115,6 +115,8 @@ pub trait ActionContext<T: EventListener> {
     fn confirm_search(&mut self) {}
     fn cancel_search(&mut self) {}
     fn search_input(&mut self, _c: char) {}
+    fn search_selection(&mut self, _direction: Direction) {}
+    fn search_current_word(&mut self, _direction: Direction) {}
     fn search_pop_word(&mut self) {}
     fn search_history_previous(&mut self) {}
     fn search_history_next(&mut self) {}
@@ -278,6 +280,12 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
             Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
+            Action::Vi(ViAction::CurrentWordSearchForward) => {
+                ctx.search_current_word(Direction::Right)
+            },
+            Action::Vi(ViAction::CurrentWordSearchBackward) => {
+                ctx.search_current_word(Direction::Left)
+            },
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },
@@ -299,8 +307,24 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Search(SearchAction::SearchHistoryPrevious) => ctx.search_history_previous(),
             Action::Search(SearchAction::SearchHistoryNext) => ctx.search_history_next(),
             Action::Mouse(MouseAction::ExpandSelection) => ctx.expand_selection(),
-            Action::SearchForward => ctx.start_search(Direction::Right),
-            Action::SearchBackward => ctx.start_search(Direction::Left),
+            Action::SearchForward => {
+                if ctx.terminal().selection.is_some()
+                    && !ctx.terminal().mode().contains(TermMode::VI)
+                {
+                    ctx.search_selection(Direction::Right);
+                } else {
+                    ctx.start_search(Direction::Right);
+                }
+            },
+            Action::SearchBackward => {
+                if !ctx.terminal().mode().contains(TermMode::VI)
+                    && ctx.terminal().selection.is_some()
+                {
+                    ctx.search_selection(Direction::Left);
+                } else {
+                    ctx.start_search(Direction::Left);
+                }
+            },
             Action::Copy => ctx.copy_selection(ClipboardType::Clipboard),
             #[cfg(not(any(target_os = "macos", windows)))]
             Action::CopySelection => ctx.copy_selection(ClipboardType::Selection),
