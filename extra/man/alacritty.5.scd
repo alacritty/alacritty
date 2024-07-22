@@ -882,6 +882,8 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Move to end of previous whitespace separated word.
 		*WordRightEnd*
 			Move to end of whitespace separated word.
+		*VisualRegion*
+			Move to other side of highlighted region.
 		*Bracket*
 			Move to opposing bracket.
 		*ToggleNormalSelection*
@@ -916,6 +918,10 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Jump to the next inline search match.
 		*InlineSearchPrevious*
 			Jump to the previous inline search match.
+		*SearchCursorForward*
+			Search forward for highlighted region or word under cursor.
+		*SearchCursorBackward*
+			Search backward for highlighted region or word under cursor.
 
 		_Search actions:_
 
