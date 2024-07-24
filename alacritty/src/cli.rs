@@ -524,7 +524,7 @@ mod tests {
             let generated = String::from_utf8_lossy(&generated);
 
             let mut completion = String::new();
-            let mut file = File::open(format!("../extra/completions/{}", file)).unwrap();
+            let mut file = File::open(format!("../extra/completions/{file}")).unwrap();
             file.read_to_string(&mut completion).unwrap();
 
             assert_eq!(generated, completion);

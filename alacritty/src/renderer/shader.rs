@@ -196,9 +196,9 @@ impl std::error::Error for ShaderError {}
 impl fmt::Display for ShaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Compile(reason) => write!(f, "Failed compiling shader: {}", reason),
-            Self::Link(reason) => write!(f, "Failed linking shader: {}", reason),
-            Self::Uniform(name) => write!(f, "Failed to get uniform location of {:?}", name),
+            Self::Compile(reason) => write!(f, "Failed compiling shader: {reason}"),
+            Self::Link(reason) => write!(f, "Failed linking shader: {reason}"),
+            Self::Uniform(name) => write!(f, "Failed to get uniform location of {name:?}"),
         }
     }
 }

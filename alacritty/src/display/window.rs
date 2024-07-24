@@ -76,7 +76,7 @@ impl std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::WindowCreation(err) => write!(f, "Error creating GL context; {}", err),
+            Error::WindowCreation(err) => write!(f, "Error creating GL context; {err}"),
             Error::Font(err) => err.fmt(f),
         }
     }

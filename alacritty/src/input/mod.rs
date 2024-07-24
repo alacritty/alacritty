@@ -809,7 +809,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
             let chr = if is_focused { "I" } else { "O" };
 
-            let msg = format!("\x1b[{}", chr);
+            let msg = format!("\x1b[{chr}");
             self.ctx.write_to_pty(msg.into_bytes());
         }
     }

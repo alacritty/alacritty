@@ -76,12 +76,12 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Error::ReadingEnvHome(err) => {
-                write!(f, "Unable to read $HOME environment variable: {}", err)
+                write!(f, "Unable to read $HOME environment variable: {err}")
             },
-            Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Toml(err) => write!(f, "Config error: {}", err),
-            Error::TomlSe(err) => write!(f, "Yaml conversion error: {}", err),
-            Error::Yaml(err) => write!(f, "Config error: {}", err),
+            Error::Io(err) => write!(f, "Error reading config file: {err}"),
+            Error::Toml(err) => write!(f, "Config error: {err}"),
+            Error::TomlSe(err) => write!(f, "Yaml conversion error: {err}"),
+            Error::Yaml(err) => write!(f, "Config error: {err}"),
         }
     }
 }

@@ -94,7 +94,7 @@ pub fn foreground_process_path(
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "freebsd")))]
-    let link_path = format!("/proc/{}/cwd", pid);
+    let link_path = format!("/proc/{pid}/cwd");
     #[cfg(target_os = "freebsd")]
     let link_path = format!("/compat/linux/proc/{}/cwd", pid);
 
