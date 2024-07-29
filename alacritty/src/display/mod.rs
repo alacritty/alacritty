@@ -14,10 +14,10 @@ use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
 use log::{debug, info};
 use parking_lot::MutexGuard;
-use raw_window_handle::RawWindowHandle;
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
 use winit::keyboard::ModifiersState;
+use winit::raw_window_handle::RawWindowHandle;
 use winit::window::CursorIcon;
 
 use crossfont::{Rasterize, Rasterizer, Size as FontSize};
@@ -1266,7 +1266,7 @@ impl Display {
     fn draw_search(&mut self, config: &UiConfig, text: &str) {
         // Assure text length is at least num_cols.
         let num_cols = self.size_info.columns();
-        let text = format!("{:<1$}", text, num_cols);
+        let text = format!("{text:<num_cols$}");
 
         let point = Point::new(self.size_info.screen_lines(), Column(0));
 

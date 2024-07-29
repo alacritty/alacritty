@@ -19,11 +19,11 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use log::info;
-#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-use raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle};
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use winit::event_loop::EventLoop;
+#[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
 use alacritty_terminal::tty;
 
@@ -137,7 +137,10 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
     info!(
         "Running on {}",
-        if matches!(window_event_loop.raw_display_handle(), RawDisplayHandle::Wayland(_)) {
+        if matches!(
+            window_event_loop.display_handle().unwrap().as_raw(),
+            RawDisplayHandle::Wayland(_)
+        ) {
             "Wayland"
         } else {
             "X11"
@@ -169,16 +172,6 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
-    // Create a config monitor when config was loaded from path.
-    //
-    // The monitor watches the config file for changes and reloads it. Pending
-    // config changes are processed in the main loop.
-    let mut config_monitor = None;
-    if config.live_config_reload {
-        config_monitor =
-            ConfigMonitor::new(config.config_paths.clone(), window_event_loop.create_proxy());
-    }
-
     // Create the IPC socket listener.
     #[cfg(unix)]
     let socket_path = if config.ipc_socket {
@@ -196,7 +189,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     };
 
     // Event processor.
-    let processor = Processor::new(config, options, &window_event_loop);
+    let mut processor = Processor::new(config, options, &window_event_loop);
 
     // Start event loop and block until shutdown.
     let result = processor.run(window_event_loop);
@@ -216,7 +209,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
 
     // Terminate the config monitor.
-    if let Some(config_monitor) = config_monitor.take() {
+    if let Some(config_monitor) = processor.config_monitor.take() {
         config_monitor.shutdown();
     }
 

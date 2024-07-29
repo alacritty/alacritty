@@ -44,9 +44,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors occurring during config loading.
 #[derive(Debug)]
 pub enum Error {
-    /// Config file not found.
-    NotFound,
-
     /// Couldn't read $HOME environment variable.
     ReadingEnvHome(env::VarError),
 
@@ -66,7 +63,6 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::NotFound => None,
             Error::ReadingEnvHome(err) => err.source(),
             Error::Io(err) => err.source(),
             Error::Toml(err) => err.source(),
@@ -79,14 +75,13 @@ impl std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NotFound => write!(f, "Unable to locate config file"),
             Error::ReadingEnvHome(err) => {
-                write!(f, "Unable to read $HOME environment variable: {}", err)
+                write!(f, "Unable to read $HOME environment variable: {err}")
             },
-            Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Toml(err) => write!(f, "Config error: {}", err),
-            Error::TomlSe(err) => write!(f, "Yaml conversion error: {}", err),
-            Error::Yaml(err) => write!(f, "Config error: {}", err),
+            Error::Io(err) => write!(f, "Error reading config file: {err}"),
+            Error::Toml(err) => write!(f, "Config error: {err}"),
+            Error::TomlSe(err) => write!(f, "Yaml conversion error: {err}"),
+            Error::Yaml(err) => write!(f, "Config error: {err}"),
         }
     }
 }
@@ -99,11 +94,7 @@ impl From<env::VarError> for Error {
 
 impl From<io::Error> for Error {
     fn from(val: io::Error) -> Self {
-        if val.kind() == io::ErrorKind::NotFound {
-            Error::NotFound
-        } else {
-            Error::Io(val)
-        }
+        Error::Io(val)
     }
 }
 
@@ -179,6 +170,10 @@ fn after_loading(config: &mut UiConfig, options: &mut Options) {
 fn load_from(path: &Path) -> Result<UiConfig> {
     match read_config(path) {
         Ok(config) => Ok(config),
+        Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: File not found", path);
+            Err(Error::Io(io))
+        },
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
             Err(err)
@@ -210,7 +205,7 @@ fn parse_config(
     let config = deserialize_config(path, false)?;
 
     // Merge config with imports.
-    let imports = load_imports(&config, config_paths, recursion_limit);
+    let imports = load_imports(&config, path, config_paths, recursion_limit);
     Ok(serde_utils::merge(imports, config))
 }
 
@@ -242,9 +237,14 @@ pub fn deserialize_config(path: &Path, warn_pruned: bool) -> Result<Value> {
 }
 
 /// Load all referenced configuration files.
-fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit: usize) -> Value {
+fn load_imports(
+    config: &Value,
+    base_path: &Path,
+    config_paths: &mut Vec<PathBuf>,
+    recursion_limit: usize,
+) -> Value {
     // Get paths for all imports.
-    let import_paths = match imports(config, recursion_limit) {
+    let import_paths = match imports(config, base_path, recursion_limit) {
         Ok(import_paths) => import_paths,
         Err(err) => {
             error!(target: LOG_TARGET_CONFIG, "{err}");
@@ -283,6 +283,7 @@ fn load_imports(config: &Value, config_paths: &mut Vec<PathBuf>, recursion_limit
 /// Get all import paths for a configuration.
 pub fn imports(
     config: &Value,
+    base_path: &Path,
     recursion_limit: usize,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
     let imports = match config.get("import") {
@@ -310,6 +311,12 @@ pub fn imports(
         // Resolve paths relative to user's home directory.
         if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
             path = home_dir.join(stripped);
+        }
+
+        if path.is_relative() {
+            if let Some(base_path) = base_path.parent() {
+                path = base_path.join(path)
+            }
         }
 
         import_paths.push(Ok(path));

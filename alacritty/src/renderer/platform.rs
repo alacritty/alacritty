@@ -12,10 +12,10 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use log::{debug, LevelFilter};
 
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use winit::dpi::PhysicalSize;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use winit::platform::x11;
+use winit::raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 /// Create the GL display.
 pub fn create_gl_display(

@@ -14,10 +14,10 @@ use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
 use log::info;
-use raw_window_handle::HasRawDisplayHandle;
 use serde_json as json;
 use winit::event::{Event as WinitEvent, Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
 
 use alacritty_terminal::event::Event as TerminalEvent;
@@ -75,7 +75,7 @@ impl WindowContext {
         config: Rc<UiConfig>,
         options: WindowOptions,
     ) -> Result<Self, Box<dyn Error>> {
-        let raw_display_handle = event_loop.raw_display_handle();
+        let raw_display_handle = event_loop.display_handle().unwrap().as_raw();
 
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);

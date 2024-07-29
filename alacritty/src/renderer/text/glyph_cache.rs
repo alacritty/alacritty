@@ -187,14 +187,9 @@ impl GlyphCache {
     ///
     /// This will fail when the glyph could not be rasterized. Usually this is due to the glyph
     /// not being present in any font.
-    pub fn get<L: ?Sized>(
-        &mut self,
-        glyph_key: GlyphKey,
-        loader: &mut L,
-        show_missing: bool,
-    ) -> Glyph
+    pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L, show_missing: bool) -> Glyph
     where
-        L: LoadGlyph,
+        L: LoadGlyph + ?Sized,
     {
         // Try to load glyph from cache.
         if let Some(glyph) = self.cache.get(&glyph_key) {
@@ -242,9 +237,9 @@ impl GlyphCache {
     /// Load glyph into the atlas.
     ///
     /// This will apply all transforms defined for the glyph cache to the rasterized glyph before
-    pub fn load_glyph<L: ?Sized>(&self, loader: &mut L, mut glyph: RasterizedGlyph) -> Glyph
+    pub fn load_glyph<L>(&self, loader: &mut L, mut glyph: RasterizedGlyph) -> Glyph
     where
-        L: LoadGlyph,
+        L: LoadGlyph + ?Sized,
     {
         glyph.left += i32::from(self.glyph_offset.x);
         glyph.top += i32::from(self.glyph_offset.y);

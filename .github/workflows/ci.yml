@@ -27,11 +27,11 @@ jobs:
         run: |
           rustup component add clippy
           cargo clippy --all-targets
-  check-macos-arm:
-    runs-on: macos-11
+  check-macos-x86_64:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - name: Install target
-        run: rustup update && rustup target add aarch64-apple-darwin
+        run: rustup update && rustup target add x86_64-apple-darwin
       - name: Build
-        run: cargo build --target=aarch64-apple-darwin
+        run: cargo build --target=x86_64-apple-darwin

@@ -230,7 +230,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             _ if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) => {
                 build_sequence(key, mods, mode).into()
             },
-            // Winit uses different keys for `Backspace` so we expliictly specify the
+            // Winit uses different keys for `Backspace` so we explicitly specify the
             // values, instead of using what was passed to us from it.
             Key::Named(NamedKey::Tab) => [b'\t'].as_slice().into(),
             Key::Named(NamedKey::Enter) => [b'\r'].as_slice().into(),
@@ -294,7 +294,7 @@ fn build_sequence(key: KeyEvent, mods: ModifiersState, mode: TermMode) -> Vec<u8
         _ => return Vec::new(),
     };
 
-    let mut payload = format!("\x1b[{}", payload);
+    let mut payload = format!("\x1b[{payload}");
 
     // Add modifiers information.
     if kitty_event_type || !modifiers.is_empty() || associated_text.is_some() {
@@ -373,7 +373,7 @@ impl SequenceBuilder {
             {
                 format!("{unicode_key_code}:{alternate_key_code}")
             } else {
-                alternate_key_code.to_string()
+                unicode_key_code.to_string()
             };
 
             Some(SequenceBase::new(payload.into(), SequenceTerminator::Kitty))
