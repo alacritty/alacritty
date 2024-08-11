@@ -2,7 +2,7 @@ ALACRITTY-BINDINGS(5)
 
 # NAME
 
-Alacritty Bindings - Default configuration file bindings.
+alacritty-bindings - Default configuration file bindings.
 
 # SYNOPSIS
 
