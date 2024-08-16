@@ -236,7 +236,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
     let conin = UnblockedWriter::new(conin, PIPE_CAPACITY);
     let conout = UnblockedReader::new(conout, PIPE_CAPACITY);
 
-    let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
+    let child_watcher = ChildExitWatcher::new(proc_info.hProcess)?;
     let conpty = Conpty { handle: pty_handle as HPCON, api };
 
     Ok(Pty::new(conpty, conout, conin, child_watcher))
