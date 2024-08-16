@@ -1,6 +1,7 @@
 use log::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
+use std::io::{Error, Result};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::IntoRawHandle;
 use std::{mem, ptr};
@@ -106,7 +107,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
+pub fn new(config: &Options, window_size: WindowSize) -> Result<Pty> {
     let api = ConptyApi::new();
     let mut pty_handle: HPCON = 0;
 
@@ -153,7 +154,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
 
         // This call was expected to return false.
         if failure {
-            return Err(std::io::Error::last_os_error());
+            return Err(Error::last_os_error());
         }
     }
 
@@ -179,7 +180,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
         ) > 0;
 
         if !success {
-            return Err(std::io::Error::last_os_error());
+            return Err(Error::last_os_error());
         }
     }
 
@@ -196,7 +197,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
         ) > 0;
 
         if !success {
-            return Err(std::io::Error::last_os_error());
+            return Err(Error::last_os_error());
         }
     }
 
@@ -229,7 +230,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> std::io::Result<Pty> {
         ) > 0;
 
         if !success {
-            return Err(std::io::Error::last_os_error());
+            return Err(Error::last_os_error());
         }
     }
 
