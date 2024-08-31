@@ -280,6 +280,40 @@ impl SizeInfo<f32> {
     }
 }
 
+impl SizeInfo<f32> {
+    fn padding_left(&self) -> f32 {
+        self.padding_x
+    }
+
+    fn padding_right(&self) -> f32 {
+        self.width - (self.padding_x + self.viewport_width())
+    }
+
+    fn padding_top(&self) -> f32 {
+        self.padding_y
+    }
+
+    fn padding_bottom(&self) -> f32 {
+        self.height - (self.padding_y + self.viewport_height())
+    }
+
+    fn viewport_width(&self) -> f32 {
+        self.columns as f32 * self.cell_width
+    }
+
+    fn viewport_height(&self) -> f32 {
+        self.screen_lines as f32 * self.cell_height
+    }
+
+    fn line_coord(&self, line: usize) -> f32 {
+        self.padding_top() + line as f32 * self.cell_height()
+    }
+
+    fn column_coord(&self, column: usize) -> f32 {
+        self.padding_left() + column as f32 * self.cell_width()
+    }
+}
+
 impl TermDimensions for SizeInfo {
     #[inline]
     fn columns(&self) -> usize {
@@ -681,6 +715,63 @@ impl Display {
         self.size_info = new_size;
     }
 
+    /// Copy the background color of the edge cells to the neighbouring padding
+    fn add_padding_rects(
+        cell: &content::RenderableCell,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+    ) {
+        let p = cell.point;
+
+        // Padding to the left and right
+        if p.column == 0 || p.column == size_info.last_column() {
+            // Compute x and width
+            let x: f32;
+            let width: f32;
+            if p.column == 0 {
+                x = 0.0;
+                width = size_info.padding_left();
+            } else {
+                x = size_info.column_coord(size_info.columns());
+                width = size_info.padding_right();
+            }
+
+            // Compute y and height and extend to corner if first or last line
+            let mut y = size_info.line_coord(p.line);
+            let mut height = size_info.cell_height();
+            if p.line == 0 {
+                y = 0.0;
+                height += size_info.padding_top();
+            } else if p.line == size_info.screen_lines() - 1 {
+                height += size_info.padding_bottom();
+            }
+
+            // Add padding rect
+            rects.push(RenderRect::new(x, y, width, height, cell.bg, 1.0));
+        }
+
+        // Padding at top and bottom
+        if p.line == 0 || p.line == size_info.screen_lines() - 1 {
+            // Compute x and width
+            let x = size_info.column_coord(p.column.0);
+            let width = size_info.cell_width();
+
+            // Compute y and height
+            let y: f32;
+            let height: f32;
+            if p.line == 0 {
+                y = 0.0;
+                height = size_info.padding_top();
+            } else {
+                y = size_info.line_coord(size_info.screen_lines());
+                height = size_info.padding_bottom();
+            }
+
+            // Add padding rect
+            rects.push(RenderRect::new(x, y, width, height, cell.bg, 1.0))
+        }
+    }
+
     // NOTE: Renderer updates are split off, since platforms like Wayland require resize and other
     // OpenGL operations to be performed right before rendering. Otherwise they could lock the
     // back buffer and render with the previous state. This also solves flickering during resizes.
@@ -789,6 +880,8 @@ impl Display {
         let has_highlighted_hint =
             self.highlighted_hint.is_some() || self.vi_highlighted_hint.is_some();
 
+        let mut rects = lines.rects(&metrics, &size_info);
+
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
@@ -829,12 +922,11 @@ impl Display {
                     // Update underline/strikeout.
                     lines.update(&cell);
 
+                    Self::add_padding_rects(&cell, &size_info, &mut rects);
                     cell
                 }),
             );
         }
-
-        let mut rects = lines.rects(&metrics, &size_info);
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
