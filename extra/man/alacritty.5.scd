@@ -142,6 +142,17 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"Full"_
 
+*padding_color* = _"Background"_ | _"NearestCell"_
+
+	Padding color.
+
+	*Background*
+		Use the background color from the theme.
+	*NearestCell*
+		Use the color from the nearest cell.
+
+	Default: _"Background"_
+
 *opacity* = _<float>_
 
 	Background opacity as a floating point number from _0.0_ to _1.0_. The value

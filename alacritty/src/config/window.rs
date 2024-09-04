@@ -56,6 +56,9 @@ pub struct WindowConfig {
     /// Pixel padding.
     padding: Delta<u16>,
 
+    /// Controls how to color the padding.
+    pub padding_color: PaddingColor,
+
     /// Initial dimensions.
     dimensions: Dimensions,
 
@@ -80,6 +83,7 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
+            padding_color: Default::default(),
         }
     }
 }
@@ -289,6 +293,17 @@ pub enum OptionAsAlt {
     /// No special handling is applied for `Option` key.
     #[default]
     None,
+}
+
+/// Color to use for the window padding
+#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaddingColor {
+    /// The background color
+    #[default]
+    Background,
+
+    /// Color of the nearest cell
+    NearestCell,
 }
 
 /// System decorations theme variant.

@@ -35,9 +35,9 @@ use alacritty_terminal::term::{
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
+use crate::config::window::{Dimensions, PaddingColor};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
@@ -882,6 +882,13 @@ impl Display {
 
         let mut rects = lines.rects(&metrics, &size_info);
 
+        // Add padding rects with nearest cell bg
+        if config.window.padding_color == PaddingColor::NearestCell {
+            for cell in grid_cells.iter() {
+                Self::add_padding_rects(cell, &size_info, &mut rects);
+            }
+        }
+
         // Draw grid.
         {
             let _sampler = self.meter.sampler();
@@ -922,7 +929,6 @@ impl Display {
                     // Update underline/strikeout.
                     lines.update(&cell);
 
-                    Self::add_padding_rects(&cell, &size_info, &mut rects);
                     cell
                 }),
             );
