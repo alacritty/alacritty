@@ -34,6 +34,7 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
+use alacritty_terminal::vi_mode::ViMotion;
 
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
@@ -884,6 +885,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     #[inline]
     fn start_search(&mut self, direction: Direction) {
+        if self.terminal().selection.is_some() {
+            self.search_selection(direction);
+            return;
+        }
+
         // Only create new history entry if the previous regex wasn't empty.
         if self.search_state.history.front().map_or(true, |regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
@@ -986,6 +992,51 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         self.update_search();
+    }
+
+    #[inline]
+    fn search_cursor(&mut self, direction: Direction) {
+        if self.terminal().selection.as_ref().map_or(true, |s| s.is_empty())
+            && self.terminal().mode().contains(TermMode::VI)
+        {
+            let mut cursor = self.terminal_mut().vi_mode_cursor;
+            let origin = cursor.point;
+
+            // move forward to next semantic block if not already in one
+            let escape_chars = self.terminal().semantic_escape_chars().to_owned();
+            while escape_chars.contains(self.terminal().grid()[cursor.point].c) {
+                cursor = cursor.motion(self.terminal_mut(), ViMotion::SemanticRight);
+                // return to origin and exit if no semantic block found after cursor
+                if cursor.point.line != origin.line {
+                    cursor.point = origin;
+                    return;
+                }
+            }
+            self.start_selection(SelectionType::Semantic, cursor.point, Side::Left);
+        }
+        self.search_selection(direction);
+    }
+
+    #[inline]
+    fn search_selection(&mut self, direction: Direction) {
+        if let Some(text) = self.terminal().selection_to_string() {
+            self.clear_selection();
+            self.start_search(direction);
+
+            // escape regex search characters
+            text.chars().for_each(|c| {
+                if ".*+^$?\\()[]{}|".contains(c) {
+                    self.search_input('\\');
+                }
+                self.search_input(c);
+            });
+
+            // mode-independent search
+            match self.terminal().mode().contains(TermMode::VI) {
+                true => self.confirm_search(),
+                false => self.advance_search_origin(direction),
+            }
+        }
     }
 
     #[inline]

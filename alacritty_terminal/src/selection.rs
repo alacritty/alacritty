@@ -295,6 +295,14 @@ impl Selection {
         }
     }
 
+    /// Swap ends of highlighted region, returning new end of region location.
+    pub fn swap_anchors(&mut self) -> Point {
+        let (start, end) = (self.region.start, self.region.end);
+        self.region.start = Anchor::new(end.point, end.side);
+        self.region.end = Anchor::new(start.point, start.side);
+        start.point
+    }
+
     fn range_semantic<T>(term: &Term<T>, mut start: Point, mut end: Point) -> SelectionRange {
         if start == end {
             if let Some(matching) = term.bracket_search(start) {

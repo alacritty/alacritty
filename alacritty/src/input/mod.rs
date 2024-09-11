@@ -115,6 +115,8 @@ pub trait ActionContext<T: EventListener> {
     fn confirm_search(&mut self) {}
     fn cancel_search(&mut self) {}
     fn search_input(&mut self, _c: char) {}
+    fn search_cursor(&mut self, _direction: Direction) {}
+    fn search_selection(&mut self, _direction: Direction) {}
     fn search_pop_word(&mut self) {}
     fn search_history_previous(&mut self) {}
     fn search_history_next(&mut self) {}
@@ -277,6 +279,8 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
             Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
+            Action::Vi(ViAction::SearchCursorForward) => ctx.search_cursor(Direction::Right),
+            Action::Vi(ViAction::SearchCursorBackward) => ctx.search_cursor(Direction::Left),
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },

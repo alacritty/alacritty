@@ -50,6 +50,8 @@ pub enum ViMotion {
     WordLeftEnd,
     /// Move to end of whitespace separated word.
     WordRightEnd,
+    /// Move to other side of highlighted region.
+    VisualRegion,
     /// Move to opposing bracket.
     Bracket,
 }
@@ -152,6 +154,7 @@ impl ViModeCursor {
             ViMotion::WordRightEnd => {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
+            ViMotion::VisualRegion => self.point = visual_region(term, self.point),
             ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
         }
 
@@ -331,6 +334,13 @@ fn word<T: EventListener>(
         }
     }
 
+    point
+}
+
+fn visual_region<T>(term: &mut Term<T>, mut point: Point) -> Point {
+    if let Some(selection) = &mut term.selection {
+        point = selection.swap_anchors();
+    }
     point
 }
 

@@ -189,6 +189,14 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"InlineSearchPrevious"_
+|  _"\*"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"SearchCursorForward"_
+|  _"#"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"SearchCursorBackward"_
 |  _"K"_
 :[
 :  _"Vi|~Search"_
@@ -277,6 +285,10 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"WordRightEnd"_
+|  _"o"_
+:[
+:  _"Vi|~Search"_
+:  _"VisualRegion"_
 |  _"%"_
 :  _"Shift"_
 :  _"Vi|~Search"_
