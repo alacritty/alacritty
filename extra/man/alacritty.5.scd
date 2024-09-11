@@ -172,7 +172,7 @@ This section documents the *[window]* table of the configuration file.
 
 *run_in_background* = _true_ | _false_ # _(works on macOS)_
 
-	Run the application in the background, removing it from standard window management
+	Run the application in the background, removing it from standard window management,
 	allowing it to be accessed only programmatically or via a direct click.
 
 	Default: _false_
