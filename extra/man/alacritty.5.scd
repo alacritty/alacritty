@@ -170,6 +170,14 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"Windowed"_
 
+*run_in_background* = _true_ | _false_ # _(works on macOS)_
+
+	Run the application in the background, removing it from standard window management
+    (and on macOS, removing it from the dock), allowing it to be accessed only
+    programmatically or via a direct click.
+
+	Default: _false_
+
 *title* = _"<string>"_
 
 	Window title.

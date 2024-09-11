@@ -22,6 +22,8 @@ use log::info;
 #[cfg(windows)]
 use windows_sys::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use winit::event_loop::EventLoop;
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use winit::raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
 
@@ -124,8 +126,18 @@ impl Drop for TemporaryFiles {
 /// Creates a window, the terminal state, PTY, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
+    // Load configuration file.
+    let config = config::load(&mut options);
+    log_config_path(&config);
+
     // Setup winit event loop.
-    let window_event_loop = EventLoop::<Event>::with_user_event().build()?;
+    let mut window_event_loop_builder = EventLoop::<Event>::with_user_event();
+    #[cfg(target_os = "macos")]
+    if config.window.run_in_background {
+        window_event_loop_builder.with_activation_policy(ActivationPolicy::Accessory);
+    }
+
+    let window_event_loop = window_event_loop_builder.build()?;
 
     // Initialize the logger as soon as possible as to capture output from other subsystems.
     let log_file = logging::initialize(&options, window_event_loop.create_proxy())
@@ -148,10 +160,6 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
     );
     #[cfg(not(any(feature = "x11", target_os = "macos", windows)))]
     info!("Running on Wayland");
-
-    // Load configuration file.
-    let config = config::load(&mut options);
-    log_config_path(&config);
 
     // Update the log level from config.
     log::set_max_level(config.debug.log_level);

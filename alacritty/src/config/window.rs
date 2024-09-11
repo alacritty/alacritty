@@ -27,6 +27,9 @@ pub struct WindowConfig {
     /// Startup mode.
     pub startup_mode: StartupMode,
 
+    /// Whether Alacritty should run in the background
+    pub run_in_background: bool,
+
     /// XEmbed parent.
     #[config(skip)]
     pub embed: Option<u32>,
@@ -76,6 +79,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             decorations: Default::default(),
             startup_mode: Default::default(),
+            run_in_background: Default::default(),
             dynamic_padding: Default::default(),
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
