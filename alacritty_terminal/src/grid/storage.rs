@@ -215,6 +215,11 @@ impl<T> Storage<T> {
         buffer
     }
 
+    #[inline]
+    pub fn inner(&self) -> &Vec<Row<T>> {
+        &self.inner
+    }
+
     /// Compute actual index in underlying storage given the requested index.
     #[inline]
     fn compute_index(&self, requested: Line) -> usize {

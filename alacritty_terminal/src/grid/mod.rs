@@ -350,6 +350,11 @@ impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
             self.raw[line].reset(&self.cursor.template);
         }
     }
+
+    pub fn raw_data(&mut self) -> &Vec<Row<T>> {
+        self.raw.truncate();
+        self.raw.inner()
+    }
 }
 
 impl<T> Grid<T> {
