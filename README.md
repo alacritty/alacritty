@@ -71,7 +71,7 @@ following locations:
 
 On Windows, the config file will be looked for in (if not found, you should create it):
 
-* `%APPDATA%\roaming\alacritty\alacritty.toml`
+* `%APPDATA%\Roaming\alacritty\alacritty.toml`
 
 ## Contributing
 
