@@ -301,9 +301,20 @@ pub fn imports(
 
     for import in imports {
         let mut path = match import {
+            Value::Table(table) => {
+                if let Some(Value::String(path)) = table.get(env::consts::OS) {
+                    PathBuf::from(path)
+                } else {
+                    import_paths
+                        .push(Err("Invalid import element type: expected path string".into()));
+                    continue;
+                }
+            },
             Value::String(path) => PathBuf::from(path),
             _ => {
-                import_paths.push(Err("Invalid import element type: expected path string".into()));
+                import_paths.push(Err("Invalid import element type: expected path string or a \
+                                       table mapping OS names to strings"
+                    .into()));
                 continue;
             },
         };
