@@ -38,6 +38,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Broken search with words broken across line boundary on the first character
 - Config import changes not being live reloaded
 - Cursor color requests with default cursor colors
+- Fullwidth semantic escape characters
 
 ## 0.13.2
 

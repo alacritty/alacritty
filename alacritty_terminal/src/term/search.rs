@@ -516,7 +516,16 @@ impl<T> Term<T> {
     #[must_use]
     pub fn semantic_search_left(&self, point: Point) -> Point {
         match self.inline_search_left(point, self.semantic_escape_chars()) {
-            Ok(point) => self.grid.iter_from(point).next().map_or(point, |cell| cell.point),
+            // If we found a match, reverse for at least one cell, skipping over wide cell spacers.
+            Ok(point) => {
+                let wide_spacer = Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
+                for cell in self.grid.iter_from(point) {
+                    if !cell.flags.intersects(wide_spacer) {
+                        return cell.point;
+                    }
+                }
+                point
+            },
             Err(point) => point,
         }
     }
@@ -538,7 +547,7 @@ impl<T> Term<T> {
         let mut iter = self.grid.iter_from(point);
         let last_column = self.columns() - 1;
 
-        let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
+        let wide_spacer = Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         while let Some(cell) = iter.prev() {
             if cell.point.column == last_column && !cell.flags.contains(Flags::WRAPLINE) {
                 break;
@@ -546,7 +555,7 @@ impl<T> Term<T> {
 
             point = cell.point;
 
-            if !cell.flags.intersects(wide) && needles.contains(cell.c) {
+            if !cell.flags.intersects(wide_spacer) && needles.contains(cell.c) {
                 return Ok(point);
             }
         }
@@ -559,7 +568,7 @@ impl<T> Term<T> {
         // Limit the starting point to the last line in the history
         point.line = max(point.line, self.topmost_line());
 
-        let wide = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
+        let wide_spacer = Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         let last_column = self.columns() - 1;
 
         // Immediately stop if start point in on line break.
@@ -570,7 +579,7 @@ impl<T> Term<T> {
         for cell in self.grid.iter_from(point) {
             point = cell.point;
 
-            if !cell.flags.intersects(wide) && needles.contains(cell.c) {
+            if !cell.flags.intersects(wide_spacer) && needles.contains(cell.c) {
                 return Ok(point);
             }
 
@@ -1170,5 +1179,17 @@ mod tests {
         let match_start = Point::new(Line(0), Column(20));
         let match_end = Point::new(Line(1), Column(2));
         assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_start..=match_end));
+    }
+
+    #[test]
+    fn fullwidth_semantic() {
+        #[rustfmt::skip]
+        let mut term = mock_term("test－x－test");
+        term.config.semantic_escape_chars = "－".into();
+
+        let start = term.semantic_search_left(Point::new(Line(0), Column(6)));
+        let end = term.semantic_search_right(Point::new(Line(0), Column(6)));
+        assert_eq!(start, Point::new(Line(0), Column(6)));
+        assert_eq!(end, Point::new(Line(0), Column(6)));
     }
 }
