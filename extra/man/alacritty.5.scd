@@ -25,7 +25,7 @@ On Windows, the config file will be looked for in:
 
 # GENERAL
 
-This section documents the root level of the configuration file.
+This section documents the *[general]* table of the configuration file.
 
 *import* = [_"<string>"_,]
 
@@ -45,20 +45,6 @@ This section documents the root level of the configuration file.
 	_"~/.config/alacritty/keybindings.toml"_,++
 	_"alacritty-theme/themes/gruvbox_dark.toml"_,++
 ]
-
-*shell* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
-
-	You can set _shell.program_ to the path of your favorite shell, e.g.
-	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
-
-	Default:
-		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
-Windows: _"powershell"_
-
-	Example:
-		*[shell]*++
-program = _"/bin/zsh"_++
-args = [_"-l"_]
 
 *working_directory* = _"<string>"_ | _"None"_
 
@@ -604,6 +590,20 @@ This section documents the *[cursor]* table of the configuration file.
 # TERMINAL
 
 This section documents the *[terminal]* table of the configuration file.
+
+*shell* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
+
+	You can set _shell.program_ to the path of your favorite shell, e.g.
+	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
+
+	Default:
+		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
+Windows: _"powershell"_
+
+	Example:
+		*[shell]*++
+program = _"/bin/zsh"_++
+args = [_"-l"_]
 
 *osc52* = _"Disabled"_ | _"OnlyCopy"_ | _"OnlyPaste"_ | _"CopyPaste"_
 

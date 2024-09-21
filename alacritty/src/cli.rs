@@ -88,8 +88,8 @@ impl Options {
     /// Override configuration file with options from the CLI.
     pub fn override_config(&mut self, config: &mut UiConfig) {
         #[cfg(unix)]
-        {
-            config.ipc_socket |= self.socket.is_some();
+        if self.socket.is_some() {
+            config.ipc_socket = Some(true);
         }
 
         config.window.embed = self.embed.as_ref().and_then(|embed| parse_hex_or_decimal(embed));

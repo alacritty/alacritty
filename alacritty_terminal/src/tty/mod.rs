@@ -50,9 +50,10 @@ impl Shell {
     }
 }
 
-/// This trait defines the behaviour needed to read and/or write to a stream.
-/// It defines an abstraction over polling's interface in order to allow either one
-/// read/write object or a separate read and write object.
+/// Stream read and/or write behavior.
+///
+/// This defines an abstraction over polling's interface in order to allow either
+/// one read/write object or a separate read and write object.
 pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;

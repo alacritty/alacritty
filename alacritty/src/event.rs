@@ -110,7 +110,7 @@ impl Processor {
         // The monitor watches the config file for changes and reloads it. Pending
         // config changes are processed in the main loop.
         let mut config_monitor = None;
-        if config.live_config_reload {
+        if config.live_config_reload() {
             config_monitor =
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
