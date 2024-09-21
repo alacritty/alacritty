@@ -23,6 +23,9 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
 - Decorations use opaque style and system window background on macOS
 - No longer source `~/.zshenv` on macOS
+- Moved config options `import`, `working_directory`, `live_config_reload`, and `ipc_socket`
+    to the new `general` section
+- Moved config option `shell` to `terminal.shell`
 
 ### Fixed
 

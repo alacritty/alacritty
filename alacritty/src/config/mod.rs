@@ -15,6 +15,7 @@ pub mod color;
 pub mod cursor;
 pub mod debug;
 pub mod font;
+pub mod general;
 pub mod monitor;
 pub mod scrolling;
 pub mod selection;
@@ -278,15 +279,15 @@ fn load_imports(
     merged
 }
 
-// TODO: Merge back with `load_imports` once `alacritty migrate` is dropped.
-//
 /// Get all import paths for a configuration.
 pub fn imports(
     config: &Value,
     base_path: &Path,
     recursion_limit: usize,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
-    let imports = match config.get("import") {
+    let imports =
+        config.get("import").or_else(|| config.get("general").and_then(|g| g.get("import")));
+    let imports = match imports {
         Some(Value::Array(imports)) => imports,
         Some(_) => return Err("Invalid import type: expected a sequence".into()),
         None => return Ok(Vec::new()),

@@ -172,6 +172,13 @@ fn migrate_renames(config: &mut Value) -> Result<(), String> {
     // mouse_bindings -> mouse.bindings
     move_value(config_table, &["mouse_bindings"], &["mouse", "bindings"])?;
 
+    // Avoid warnings due to introduction of the new `general` section.
+    move_value(config_table, &["live_config_reload"], &["general", "live_config_reload"])?;
+    move_value(config_table, &["working_directory"], &["general", "working_directory"])?;
+    move_value(config_table, &["ipc_socket"], &["general", "ipc_socket"])?;
+    move_value(config_table, &["import"], &["general", "import"])?;
+    move_value(config_table, &["shell"], &["terminal", "shell"])?;
+
     Ok(())
 }
 
