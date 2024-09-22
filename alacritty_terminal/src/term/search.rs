@@ -519,12 +519,10 @@ impl<T> Term<T> {
             // If we found a match, reverse for at least one cell, skipping over wide cell spacers.
             Ok(point) => {
                 let wide_spacer = Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
-                for cell in self.grid.iter_from(point) {
-                    if !cell.flags.intersects(wide_spacer) {
-                        return cell.point;
-                    }
-                }
-                point
+                self.grid
+                    .iter_from(point)
+                    .find(|cell| !cell.flags.intersects(wide_spacer))
+                    .map_or(point, |cell| cell.point)
             },
             Err(point) => point,
         }
