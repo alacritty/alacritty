@@ -37,6 +37,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Kitty keyboard protocol reporting shifted key codes
 - Broken search with words broken across line boundary on the first character
 - Config import changes not being live reloaded
+- Cursor color requests with default cursor colors
 
 ## 0.13.2
 
