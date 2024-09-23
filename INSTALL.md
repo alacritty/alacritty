@@ -325,7 +325,20 @@ If you are having problems with Alacritty's logo, you can replace it with
 prerendered PNGs and simplified SVGs available in the `extra/logo/compat`
 directory.
 
-#### Default Application
+### Manual Page
+
+Installing the manual page requires the additional dependencies `gzip` and `scdoc`.
+
+```sh
+sudo mkdir -p /usr/local/share/man/man1
+sudo mkdir -p /usr/local/share/man/man5
+scdoc < extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+scdoc < extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
+scdoc < extra/man/alacritty.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty.5.gz > /dev/null
+scdoc < extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz > /dev/null
+```
+
+### Default Terminal Application
 Add Alacritty to list of terminal emulators by running the following command:
 
 ```sh
@@ -339,19 +352,6 @@ sudo update-alternatives --config x-terminal-emulator
 ```
 
 Type the number corresponding to Alacritty with `manual mode` and press Enter.
-
-### Manual Page
-
-Installing the manual page requires the additional dependencies `gzip` and `scdoc`.
-
-```sh
-sudo mkdir -p /usr/local/share/man/man1
-sudo mkdir -p /usr/local/share/man/man5
-scdoc < extra/man/alacritty.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
-scdoc < extra/man/alacritty-msg.1.scd | gzip -c | sudo tee /usr/local/share/man/man1/alacritty-msg.1.gz > /dev/null
-scdoc < extra/man/alacritty.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty.5.gz > /dev/null
-scdoc < extra/man/alacritty-bindings.5.scd | gzip -c | sudo tee /usr/local/share/man/man5/alacritty-bindings.5.gz > /dev/null
-```
 
 ### Shell completions
 
