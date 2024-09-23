@@ -325,6 +325,21 @@ If you are having problems with Alacritty's logo, you can replace it with
 prerendered PNGs and simplified SVGs available in the `extra/logo/compat`
 directory.
 
+#### Default Application
+Add Alacritty to list of terminal emulators by running the following command:
+
+```sh
+sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/local/bin/alacritty 50 # or where it was actually installed and added into $PATH
+```
+
+Select Alacritty as the default terminal emulator by running the following command:
+
+```sh
+sudo update-alternatives --config x-terminal-emulator
+```
+
+Type the number corresponding to Alacritty with `manual mode` and press Enter.
+
 ### Manual Page
 
 Installing the manual page requires the additional dependencies `gzip` and `scdoc`.
