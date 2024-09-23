@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Support relative path imports from config files
+- `alacritty migrate` support for TOML configuration changes
 
 ### Changed
 

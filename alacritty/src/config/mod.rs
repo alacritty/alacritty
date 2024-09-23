@@ -301,7 +301,7 @@ pub fn imports(
     let mut import_paths = Vec::new();
 
     for import in imports {
-        let mut path = match import {
+        let path = match import {
             Value::String(path) => PathBuf::from(path),
             _ => {
                 import_paths.push(Err("Invalid import element type: expected path string".into()));
@@ -309,21 +309,30 @@ pub fn imports(
             },
         };
 
-        // Resolve paths relative to user's home directory.
-        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
-            path = home_dir.join(stripped);
-        }
+        let normalized = normalize_import(base_path, path);
 
-        if path.is_relative() {
-            if let Some(base_path) = base_path.parent() {
-                path = base_path.join(path)
-            }
-        }
-
-        import_paths.push(Ok(path));
+        import_paths.push(Ok(normalized));
     }
 
     Ok(import_paths)
+}
+
+/// Normalize import paths.
+pub fn normalize_import(base_config_path: &Path, import_path: impl Into<PathBuf>) -> PathBuf {
+    let mut import_path = import_path.into();
+
+    // Resolve paths relative to user's home directory.
+    if let (Ok(stripped), Some(home_dir)) = (import_path.strip_prefix("~/"), home::home_dir()) {
+        import_path = home_dir.join(stripped);
+    }
+
+    if import_path.is_relative() {
+        if let Some(base_config_dir) = base_config_path.parent() {
+            import_path = base_config_dir.join(import_path)
+        }
+    }
+
+    import_path
 }
 
 /// Prune the nulls from the YAML to ensure TOML compatibility.
