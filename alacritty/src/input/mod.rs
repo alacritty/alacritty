@@ -36,6 +36,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
+use crate::config::scrolling::ScrollingUnit;
 #[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
@@ -699,7 +700,11 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let multiplier = self.ctx.config().scrolling.multiplier;
+        let lines = match self.ctx.config().scrolling.unit {
+            ScrollingUnit::Page => self.ctx.size_info().screen_lines(),
+            ScrollingUnit::Line => 1,
+        };
+        let multiplier = self.ctx.config().scrolling.multiplier * lines as f32;
         match delta {
             MouseScrollDelta::LineDelta(columns, lines) => {
                 let new_scroll_px_x = columns * self.ctx.size_info().cell_width();

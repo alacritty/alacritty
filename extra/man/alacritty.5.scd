@@ -228,11 +228,17 @@ Limited to _100000_.
 
 	Default: _10000_
 
-*multiplier* = _<integer>_
+*unit* = _"Line"_ | _"Page"_
 
-	Number of line scrolled for every input scroll increment.
+	The unit of measurement for input scroll increments.
 
-	Default: _3_
+	Default: _"Line"_
+
+*multiplier* = _<float>_
+
+	Number of units scrolled for every input scroll increment.
+
+	Default: _3.0_
 
 # FONT
 

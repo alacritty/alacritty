@@ -7,16 +7,18 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 pub const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
 /// Struct for scrolling related settings.
-#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq)]
 pub struct Scrolling {
-    pub multiplier: u8,
+    pub multiplier: f32,
+
+    pub unit: ScrollingUnit,
 
     history: ScrollingHistory,
 }
 
 impl Default for Scrolling {
     fn default() -> Self {
-        Self { multiplier: 3, history: Default::default() }
+        Self { multiplier: 3.0, unit: Default::default(), history: Default::default() }
     }
 }
 
@@ -24,6 +26,13 @@ impl Scrolling {
     pub fn history(self) -> u32 {
         self.history.0
     }
+}
+
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ScrollingUnit {
+    #[default]
+    Line,
+    Page,
 }
 
 #[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]
