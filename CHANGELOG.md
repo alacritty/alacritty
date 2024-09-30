@@ -39,6 +39,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Config import changes not being live reloaded
 - Cursor color requests with default cursor colors
 - Fullwidth semantic escape characters
+- Windows app icon now displays properly in old alt+tab on Windows
 
 ## 0.13.2
 
