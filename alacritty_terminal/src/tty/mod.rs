@@ -98,10 +98,6 @@ pub fn setup_env() {
 
     // Advertise 24-bit color support.
     env::set_var("COLORTERM", "truecolor");
-
-    // Prevent child processes from inheriting startup notification env.
-    env::remove_var("DESKTOP_STARTUP_ID");
-    env::remove_var("XDG_ACTIVATION_TOKEN");
 }
 
 /// Check if a terminfo entry exists on the system.
