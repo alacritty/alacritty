@@ -29,8 +29,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{
-    self, point_to_viewport, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS,
-    MIN_SCREEN_LINES,
+    self, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
@@ -746,38 +745,36 @@ impl Display {
         let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
 
         // Add damage from the terminal.
-        if self.collect_damage() {
-            match terminal.damage() {
-                TermDamage::Full => self.damage_tracker.frame().mark_fully_damaged(),
-                TermDamage::Partial(damaged_lines) => {
-                    for damage in damaged_lines {
-                        self.damage_tracker.frame().damage_line(damage);
-                    }
-                },
-            }
-            terminal.reset_damage();
+        match terminal.damage() {
+            TermDamage::Full => self.damage_tracker.frame().mark_fully_damaged(),
+            TermDamage::Partial(damaged_lines) => {
+                for damage in damaged_lines {
+                    self.damage_tracker.frame().damage_line(damage);
+                }
+            },
         }
+        terminal.reset_damage();
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
+        // Invalidate highlighted hints if grid has changed.
+        self.validate_hints(display_offset);
+
         // Add damage from alacritty's UI elements overlapping terminal.
-        if self.collect_damage() {
-            let requires_full_damage = self.visual_bell.intensity() != 0.
-                || self.hint_state.active()
-                || search_state.regex().is_some();
 
-            if requires_full_damage {
-                self.damage_tracker.frame().mark_fully_damaged();
-                self.damage_tracker.next_frame().mark_fully_damaged();
-            }
-
-            let vi_cursor_viewport_point =
-                vi_cursor_point.and_then(|cursor| point_to_viewport(display_offset, cursor));
-
-            self.damage_tracker.damage_vi_cursor(vi_cursor_viewport_point);
-            self.damage_tracker.damage_selection(selection_range, display_offset);
+        let requires_full_damage = self.visual_bell.intensity() != 0.
+            || self.hint_state.active()
+            || search_state.regex().is_some();
+        if requires_full_damage {
+            self.damage_tracker.frame().mark_fully_damaged();
+            self.damage_tracker.next_frame().mark_fully_damaged();
         }
+
+        let vi_cursor_viewport_point =
+            vi_cursor_point.and_then(|cursor| term::point_to_viewport(display_offset, cursor));
+        self.damage_tracker.damage_vi_cursor(vi_cursor_viewport_point);
+        self.damage_tracker.damage_selection(selection_range, display_offset);
 
         // Make sure this window's OpenGL context is active.
         self.make_current();
@@ -802,36 +799,27 @@ impl Display {
             let vi_highlighted_hint = &self.vi_highlighted_hint;
             let damage_tracker = &mut self.damage_tracker;
 
-            self.renderer.draw_cells(
-                &size_info,
-                glyph_cache,
-                grid_cells.into_iter().map(|mut cell| {
-                    // Underline hints hovered by mouse or vi mode cursor.
+            let cells = grid_cells.into_iter().map(|mut cell| {
+                // Underline hints hovered by mouse or vi mode cursor.
+                if has_highlighted_hint {
                     let point = term::viewport_to_point(display_offset, cell.point);
+                    let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
 
-                    if has_highlighted_hint {
-                        let hyperlink =
-                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
-                        if highlighted_hint
-                            .as_ref()
-                            .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                            || vi_highlighted_hint
-                                .as_ref()
-                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                        {
-                            cell.flags.insert(Flags::UNDERLINE);
-                            // Damage hints for the current and next frames.
-                            damage_tracker.frame().damage_point(cell.point);
-                            damage_tracker.next_frame().damage_point(cell.point);
-                        }
+                    let should_highlight = |hint: &Option<HintMatch>| {
+                        hint.as_ref().map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                    };
+                    if should_highlight(highlighted_hint) || should_highlight(vi_highlighted_hint) {
+                        damage_tracker.frame().damage_point(cell.point);
+                        cell.flags.insert(Flags::UNDERLINE);
                     }
+                }
 
-                    // Update underline/strikeout.
-                    lines.update(&cell);
+                // Update underline/strikeout.
+                lines.update(&cell);
 
-                    cell
-                }),
-            );
+                cell
+            });
+            self.renderer.draw_cells(&size_info, glyph_cache, cells);
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
@@ -1025,10 +1013,17 @@ impl Display {
         let mut dirty = vi_highlighted_hint != self.vi_highlighted_hint;
         self.vi_highlighted_hint = vi_highlighted_hint;
 
+        // Force full redraw if the vi mode highlight was cleared.
+        if dirty && self.vi_highlighted_hint.is_none() {
+            self.damage_tracker.frame().mark_fully_damaged();
+        }
+
         // Abort if mouse highlighting conditions are not met.
         if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
-            dirty |= self.highlighted_hint.is_some();
-            self.highlighted_hint = None;
+            if self.highlighted_hint.take().is_some() {
+                self.damage_tracker.frame().mark_fully_damaged();
+                dirty = true;
+            }
             return dirty;
         }
 
@@ -1052,8 +1047,14 @@ impl Display {
             }
         }
 
-        dirty |= self.highlighted_hint != highlighted_hint;
+        let mouse_highlight_dirty = self.highlighted_hint != highlighted_hint;
+        dirty |= mouse_highlight_dirty;
         self.highlighted_hint = highlighted_hint;
+
+        // Force full redraw if the mouse cursor highlight was cleared.
+        if mouse_highlight_dirty && self.highlighted_hint.is_none() {
+            self.damage_tracker.frame().mark_fully_damaged();
+        }
 
         dirty
     }
@@ -1113,7 +1114,7 @@ impl Display {
         );
 
         // Damage preedit inside the terminal viewport.
-        if self.collect_damage() && point.line < self.size_info.screen_lines() {
+        if point.line < self.size_info.screen_lines() {
             let damage = LineDamageBounds::new(start.line, 0, num_cols);
             self.damage_tracker.frame().damage_line(damage);
             self.damage_tracker.next_frame().damage_line(damage);
@@ -1224,13 +1225,11 @@ impl Display {
         let bg = config.colors.footer_bar_background();
         for (uri, point) in uris.into_iter().zip(uri_lines) {
             // Damage the uri preview.
-            if self.collect_damage() {
-                let damage = LineDamageBounds::new(point.line, point.column.0, num_cols);
-                self.damage_tracker.frame().damage_line(damage);
+            let damage = LineDamageBounds::new(point.line, point.column.0, num_cols);
+            self.damage_tracker.frame().damage_line(damage);
 
-                // Damage the uri preview for the next frame as well.
-                self.damage_tracker.next_frame().damage_line(damage);
-            }
+            // Damage the uri preview for the next frame as well.
+            self.damage_tracker.next_frame().damage_line(damage);
 
             self.renderer.draw_string(point, fg, bg, uri, &self.size_info, &mut self.glyph_cache);
         }
@@ -1270,12 +1269,10 @@ impl Display {
         let fg = config.colors.primary.background;
         let bg = config.colors.normal.red;
 
-        if self.collect_damage() {
-            let damage = LineDamageBounds::new(point.line, point.column.0, timing.len());
-            self.damage_tracker.frame().damage_line(damage);
-            // Damage the render timer for the next frame.
-            self.damage_tracker.next_frame().damage_line(damage);
-        }
+        // Damage render timer for current and next frame.
+        let damage = LineDamageBounds::new(point.line, point.column.0, timing.len());
+        self.damage_tracker.frame().damage_line(damage);
+        self.damage_tracker.next_frame().damage_line(damage);
 
         let glyph_cache = &mut self.glyph_cache;
         self.renderer.draw_string(point, fg, bg, timing.chars(), &self.size_info, glyph_cache);
@@ -1295,12 +1292,10 @@ impl Display {
         let column = Column(self.size_info.columns().saturating_sub(text.len()));
         let point = Point::new(0, column);
 
-        if self.collect_damage() {
-            let damage = LineDamageBounds::new(point.line, point.column.0, columns - 1);
-            self.damage_tracker.frame().damage_line(damage);
-            // Damage it on the next frame in case it goes away.
-            self.damage_tracker.next_frame().damage_line(damage);
-        }
+        // Damage the line indicator for current and next frame.
+        let damage = LineDamageBounds::new(point.line, point.column.0, columns - 1);
+        self.damage_tracker.frame().damage_line(damage);
+        self.damage_tracker.next_frame().damage_line(damage);
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
@@ -1311,12 +1306,6 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.draw_string(point, fg, bg, text.chars(), &self.size_info, glyph_cache);
         }
-    }
-
-    /// Returns `true` if damage information should be collected, `false` otherwise.
-    #[inline]
-    fn collect_damage(&self) -> bool {
-        matches!(self.raw_window_handle, RawWindowHandle::Wayland(_)) || self.damage_tracker.debug
     }
 
     /// Highlight damaged rects.
@@ -1331,6 +1320,34 @@ impl Display {
             let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
 
             render_rects.push(render_rect);
+        }
+    }
+
+    /// Check whether a hint highlight needs to be cleared.
+    fn validate_hints(&mut self, display_offset: usize) {
+        let frame = self.damage_tracker.frame();
+        for (hint, reset_mouse) in
+            [(&mut self.highlighted_hint, true), (&mut self.vi_highlighted_hint, false)]
+        {
+            let (start, end) = match hint {
+                Some(hint) => (*hint.bounds().start(), *hint.bounds().end()),
+                None => return,
+            };
+
+            // Convert hint bounds to viewport coordinates.
+            let start = term::point_to_viewport(display_offset, start).unwrap_or_default();
+            let end = term::point_to_viewport(display_offset, end).unwrap_or_else(|| {
+                Point::new(self.size_info.screen_lines() - 1, self.size_info.last_column())
+            });
+
+            // Clear invalidated hints.
+            if frame.intersects(start, end) {
+                if reset_mouse {
+                    self.window.set_mouse_cursor(CursorIcon::Default);
+                }
+                frame.mark_fully_damaged();
+                *hint = None;
+            }
         }
     }
 

@@ -45,6 +45,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Fullwidth semantic escape characters
 - Windows app icon now displays properly in old alt+tab on Windows
 - Alacritty not being properly activated with startup notify
+- Invalid URL highlights after terminal scrolling
 
 ## 0.13.2
 
