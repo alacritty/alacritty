@@ -189,6 +189,15 @@ impl FrameDamage {
             self.lines.push(LineDamageBounds::undamaged(line, num_cols));
         }
     }
+
+    /// Check if a range is damaged.
+    #[inline]
+    pub fn intersects(&self, start: Point<usize>, end: Point<usize>) -> bool {
+        self.full
+            || self.lines[start.line].left <= start.column
+            || self.lines[end.line].right >= end.column
+            || (start.line + 1..end.line).any(|line| self.lines[line].is_damaged())
+    }
 }
 
 /// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
