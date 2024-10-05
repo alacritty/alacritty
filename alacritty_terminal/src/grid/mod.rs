@@ -137,7 +137,7 @@ pub struct Grid<T> {
     max_scroll_limit: usize,
 }
 
-impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: GridCell + Default + PartialEq> Grid<T> {
     pub fn new(lines: usize, columns: usize, max_scroll_limit: usize) -> Grid<T> {
         Grid {
             raw: Storage::with_capacity(lines, columns),
@@ -356,7 +356,7 @@ impl<T> Grid<T> {
     /// Reset a visible region within the grid.
     pub fn reset_region<D, R: RangeBounds<Line>>(&mut self, bounds: R)
     where
-        T: ResetDiscriminant<D> + GridCell + Clone + Default,
+        T: ResetDiscriminant<D> + GridCell + Default,
         D: PartialEq,
     {
         let start = match bounds.start_bound() {
@@ -392,7 +392,7 @@ impl<T> Grid<T> {
     #[inline]
     pub fn initialize_all(&mut self)
     where
-        T: GridCell + Clone + Default,
+        T: GridCell + Default,
     {
         // Remove all cached lines to clear them of any content.
         self.truncate();

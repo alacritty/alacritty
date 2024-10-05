@@ -9,7 +9,7 @@ use crate::term::cell::{Flags, ResetDiscriminant};
 use crate::grid::row::Row;
 use crate::grid::{Dimensions, Grid, GridCell};
 
-impl<T: GridCell + Default + PartialEq + Clone> Grid<T> {
+impl<T: GridCell + Default + PartialEq> Grid<T> {
     /// Resize the grid's width and/or height.
     pub fn resize<D>(&mut self, reflow: bool, lines: usize, columns: usize)
     where
