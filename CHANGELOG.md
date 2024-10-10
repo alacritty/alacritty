@@ -27,6 +27,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Moved config options `import`, `working_directory`, `live_config_reload`, and `ipc_socket`
     to the new `general` section
 - Moved config option `shell` to `terminal.shell`
+- `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
 
 ### Fixed
 

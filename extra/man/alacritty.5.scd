@@ -730,7 +730,7 @@ hyperlinks      = _true_++
 post_processing = _true_++
 persist         = _false_++
 mouse.enabled   = _true_++
-binding         = { key = _"U"_, mods = _"Control|Shift"_ }++
+binding         = { key = _"O"_, mods = _"Control|Shift"_ }++
 regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+"_
 
 # KEYBOARD
