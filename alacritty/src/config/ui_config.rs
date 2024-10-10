@@ -282,7 +282,7 @@ impl Default for Hints {
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
-                        key: Key::Character("u".into()),
+                        key: Key::Character("o".into()),
                         location: KeyLocation::Standard,
                     },
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
