@@ -134,7 +134,11 @@ fn migrate_imports(
     recursion_limit: usize,
 ) -> Result<(), String> {
     // Check if any imports need to be processed.
-    let imports = match document["general"].get("import").and_then(|i| i.as_array()) {
+    let imports = match document
+        .get("general")
+        .and_then(|general| general.get("import"))
+        .and_then(|import| import.as_array())
+    {
         Some(array) if !array.is_empty() => array,
         _ => return Ok(()),
     };
@@ -314,5 +318,10 @@ root_value = 3
         "#;
 
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn migrate_empty() {
+        assert!(migrate_toml(String::new()).unwrap().to_string().is_empty());
     }
 }
