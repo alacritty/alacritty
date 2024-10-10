@@ -61,7 +61,7 @@ dependencies = [
  "tempfile",
  "toml",
  "toml_edit 0.22.21",
- "unicode-width",
+ "unicode-width-16",
  "windows-sys 0.52.0",
  "winit",
  "xdg",
@@ -108,7 +108,7 @@ dependencies = [
  "serde",
  "serde_json",
  "signal-hook",
- "unicode-width",
+ "unicode-width-16",
  "vte",
  "windows-sys 0.52.0",
 ]
@@ -2011,10 +2011,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
-name = "unicode-width"
-version = "0.1.13"
+name = "unicode-width-16"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0336d538f7abc86d282a4189614dfaa90810dfc2c6f6427eaf88e16311dd225d"
+checksum = "9eba15036aa0f5bf8ed6cd12a624ddb61fd50b0779b1c05d89b663bcaed7b5c2"
 
 [[package]]
 name = "unsafe-libyaml"
