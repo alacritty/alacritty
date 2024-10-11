@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::mem;
 
 use winit::event::{ElementState, KeyEvent};
 #[cfg(target_os = "macos")]
@@ -45,15 +44,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // First key after inline search is captured.
         let inline_state = self.ctx.inline_search_state();
-        if mem::take(&mut inline_state.char_pending) {
-            if let Some(c) = text.chars().next() {
-                inline_state.character = Some(c);
-
-                // Immediately move to the captured character.
-                self.ctx.inline_search_next();
-            }
-
-            // Ignore all other characters in `text`.
+        if inline_state.char_pending {
+            self.ctx.inline_search_input(text);
             return;
         }
 
