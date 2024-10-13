@@ -1,7 +1,7 @@
 use log::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
-use std::io::Error;
+use std::io::{Error, Result};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::IntoRawHandle;
 use std::{mem, ptr};
@@ -107,7 +107,7 @@ impl Drop for Conpty {
 // The ConPTY handle can be sent between threads.
 unsafe impl Send for Conpty {}
 
-pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
+pub fn new(config: &Options, window_size: WindowSize) -> Result<Pty> {
     let api = ConptyApi::new();
     let mut pty_handle: HPCON = 0;
 
@@ -115,8 +115,8 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
     // size to be used. There may be small performance and memory advantages
     // to be gained by tuning this in the future, but it's likely a reasonable
     // start point.
-    let (conout, conout_pty_handle) = miow::pipe::anonymous(0).unwrap();
-    let (conin_pty_handle, conin) = miow::pipe::anonymous(0).unwrap();
+    let (conout, conout_pty_handle) = miow::pipe::anonymous(0)?;
+    let (conin_pty_handle, conin) = miow::pipe::anonymous(0)?;
 
     // Create the Pseudo Console, using the pipes.
     let result = unsafe {
@@ -154,7 +154,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
 
         // This call was expected to return false.
         if failure {
-            panic_shell_spawn();
+            return Err(Error::last_os_error());
         }
     }
 
@@ -180,7 +180,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
         ) > 0;
 
         if !success {
-            panic_shell_spawn();
+            return Err(Error::last_os_error());
         }
     }
 
@@ -197,7 +197,7 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
         ) > 0;
 
         if !success {
-            panic_shell_spawn();
+            return Err(Error::last_os_error());
         }
     }
 
@@ -230,17 +230,17 @@ pub fn new(config: &Options, window_size: WindowSize) -> Option<Pty> {
         ) > 0;
 
         if !success {
-            panic_shell_spawn();
+            return Err(Error::last_os_error());
         }
     }
 
     let conin = UnblockedWriter::new(conin, PIPE_CAPACITY);
     let conout = UnblockedReader::new(conout, PIPE_CAPACITY);
 
-    let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
+    let child_watcher = ChildExitWatcher::new(proc_info.hProcess)?;
     let conpty = Conpty { handle: pty_handle as HPCON, api };
 
-    Some(Pty::new(conpty, conout, conin, child_watcher))
+    Ok(Pty::new(conpty, conout, conin, child_watcher))
 }
 
 // Windows environment variables are case-insensitive, and the caller is responsible for
@@ -298,11 +298,6 @@ fn add_windows_env_key_value_to_block(block: &mut Vec<u16>, key: &OsStr, value: 
     block.push('=' as u16);
     block.extend(value.encode_wide());
     block.push(0);
-}
-
-// Panic with the last os error as message.
-fn panic_shell_spawn() {
-    panic!("Unable to spawn shell: {}", Error::last_os_error());
 }
 
 impl OnResize for Conpty {

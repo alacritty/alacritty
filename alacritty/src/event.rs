@@ -34,6 +34,7 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
+use alacritty_terminal::vte::ansi::NamedColor;
 
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
@@ -109,7 +110,7 @@ impl Processor {
         // The monitor watches the config file for changes and reloads it. Pending
         // config changes are processed in the main loop.
         let mut config_monitor = None;
-        if config.live_config_reload {
+        if config.live_config_reload() {
             config_monitor =
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
@@ -1737,9 +1738,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ColorRequest(index, format) => {
-                        let color = self.ctx.terminal().colors()[index]
-                            .map(Rgb)
-                            .unwrap_or(self.ctx.display.colors[index]);
+                        let color = match self.ctx.terminal().colors()[index] {
+                            Some(color) => Rgb(color),
+                            // Ignore cursor color requests unless it was changed.
+                            None if index == NamedColor::Cursor as usize => return,
+                            None => self.ctx.display.colors[index],
+                        };
                         self.ctx.write_to_pty(format(color.0).into_bytes());
                     },
                     TerminalEvent::TextAreaSizeRequest(format) => {

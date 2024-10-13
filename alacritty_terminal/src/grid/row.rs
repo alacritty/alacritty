@@ -30,7 +30,7 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
-impl<T: Clone + Default> Row<T> {
+impl<T: Default> Row<T> {
     /// Create a new terminal row.
     ///
     /// Ideally the `template` should be `Copy` in all performance sensitive scenarios.

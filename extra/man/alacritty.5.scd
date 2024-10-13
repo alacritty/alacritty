@@ -14,18 +14,18 @@ can be found at _https://toml.io/en/v1.0.0_.
 Alacritty doesn't create the config file for you, but it looks for one in the
 following locations on UNIX systems:
 
-. `$XDG_CONFIG_HOME/alacritty/alacritty.toml`
-. `$XDG_CONFIG_HOME/alacritty.toml`
-. `$HOME/.config/alacritty/alacritty.toml`
-. `$HOME/.alacritty.toml`
+. _$XDG_CONFIG_HOME/alacritty/alacritty.toml_
+. _$XDG_CONFIG_HOME/alacritty.toml_
+. _$HOME/.config/alacritty/alacritty.toml_
+. _$HOME/.alacritty.toml_
 
 On Windows, the config file will be looked for in:
 
-. `%APPDATA%\alacritty\alacritty.toml`
+. _%APPDATA%\\alacritty\\alacritty.toml_
 
 # GENERAL
 
-This section documents the root level of the configuration file.
+This section documents the *[general]* table of the configuration file.
 
 *import* = [_"<string>"_,]
 
@@ -45,20 +45,6 @@ This section documents the root level of the configuration file.
 	_"~/.config/alacritty/keybindings.toml"_,++
 	_"alacritty-theme/themes/gruvbox_dark.toml"_,++
 ]
-
-*shell* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
-
-	You can set _shell.program_ to the path of your favorite shell, e.g.
-	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
-
-	Default:
-		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
-Windows: _"powershell"_
-
-	Example:
-		*[shell]*++
-program = _"/bin/zsh"_++
-args = [_"-l"_]
 
 *working_directory* = _"<string>"_ | _"None"_
 
@@ -605,6 +591,20 @@ This section documents the *[cursor]* table of the configuration file.
 
 This section documents the *[terminal]* table of the configuration file.
 
+*shell* = _"<string>"_ | { program = _"<string>"_, args = [_"<string>"_,] }
+
+	You can set _shell.program_ to the path of your favorite shell, e.g.
+	_/bin/zsh_. Entries in _shell.args_ are passed as arguments to the shell.
+
+	Default:
+		Linux/BSD/macOS: _$SHELL_ or the user's login shell, if _$SHELL_ is unset++
+Windows: _"powershell"_
+
+	Example:
+		*[shell]*++
+program = _"/bin/zsh"_++
+args = [_"-l"_]
+
 *osc52* = _"Disabled"_ | _"OnlyCopy"_ | _"OnlyPaste"_ | _"CopyPaste"_
 
 	Controls the ability to write to the system clipboard with the _OSC 52_
@@ -730,7 +730,7 @@ hyperlinks      = _true_++
 post_processing = _true_++
 persist         = _false_++
 mouse.enabled   = _true_++
-binding         = { key = _"U"_, mods = _"Control|Shift"_ }++
+binding         = { key = _"O"_, mods = _"Control|Shift"_ }++
 regex = _"(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)[^\\u0000-\\u001F\\u007F-\\u009F<>\\"\\\\s{-}\\\\^⟨⟩`]+"_
 
 # KEYBOARD
