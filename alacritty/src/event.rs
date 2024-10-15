@@ -1293,6 +1293,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.inline_search_state.stop_short = stop_short;
         self.inline_search_state.direction = direction;
         self.inline_search_state.char_pending = true;
+        self.inline_search_state.character = None;
     }
 
     /// Jump to the next matching character in the line.
