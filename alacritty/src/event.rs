@@ -342,12 +342,9 @@ impl ApplicationHandler<Event> for Processor {
                     if let Err(err) = self.create_initial_window(event_loop) {
                         self.initial_window_error = Some(err);
                         event_loop.exit();
-                        return;
                     }
-                } else {
-                    if let Err(err) = self.create_window(event_loop, options.clone()) {
-                        error!("Could not open window: {:?}", err);
-                    }
+                } else if let Err(err) = self.create_window(event_loop, options.clone()) {
+                    error!("Could not open window: {:?}", err);
                 }
             },
             // Process events affecting all windows.
