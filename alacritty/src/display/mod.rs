@@ -874,12 +874,9 @@ impl Display {
                 if self.ime.preedit().is_none() {
                     let fg = config.colors.footer_bar_foreground();
                     let shape = CursorShape::Underline;
-                    let cursor = RenderableCursor::new(
-                        Point::new(line, column),
-                        shape,
-                        fg,
-                        NonZeroU32::new(1).unwrap(),
-                    );
+                    let cursor_width = NonZeroU32::new(1).unwrap();
+                    let cursor =
+                        RenderableCursor::new(Point::new(line, column), shape, fg, cursor_width);
                     rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
                 }
 
@@ -1131,8 +1128,7 @@ impl Display {
 
         let ime_popup_point = match preedit.cursor_end_offset {
             Some(cursor_end_offset) => {
-                // Regular edit happens when the start == end, thus use Beam for it, however
-                // when multiple characters are changed at once use the `HollowBlock`.
+                // Use hollow block when multiple characters are changed at once.
                 let (shape, width) = if let Some(width) =
                     NonZeroU32::new((cursor_end_offset.0 - cursor_end_offset.1) as u32)
                 {
