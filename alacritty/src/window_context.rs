@@ -143,11 +143,8 @@ impl WindowContext {
 
         // Create context.
         let raw_window_handle = window.raw_window_handle();
-        let gl_context = renderer::platform::create_gl_context(
-            &gl_display,
-            &gl_config,
-            Some(raw_window_handle),
-        )?;
+        let gl_context =
+            renderer::platform::create_gl_context(&gl_display, gl_config, Some(raw_window_handle))?;
 
         // Check if new window will be opened as a tab.
         #[cfg(target_os = "macos")]
