@@ -175,7 +175,6 @@ fn move_value(document: &mut DocumentMut, origin: &[&str], target: &[&str]) -> R
             None => return Ok(()),
         };
 
-        dbg!(&key);
         origin_key = Some(key);
         origin_item = item;
 
