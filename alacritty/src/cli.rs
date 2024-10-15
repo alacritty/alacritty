@@ -26,7 +26,7 @@ pub struct Options {
     pub print_events: bool,
 
     /// Generates ref test.
-    #[clap(long)]
+    #[clap(long, conflicts_with("daemon"))]
     pub ref_test: bool,
 
     /// X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix).
