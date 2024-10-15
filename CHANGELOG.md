@@ -29,6 +29,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
     to the new `general` section
 - Moved config option `shell` to `terminal.shell`
 - `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
+- Use `Beam` cursor for single char cursor inside the IME preview
 
 ### Fixed
 
@@ -48,6 +49,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Windows app icon now displays properly in old alt+tab on Windows
 - Alacritty not being properly activated with startup notify
 - Invalid URL highlights after terminal scrolling
+- Hollow block cursor not spanning multiple chars being edited inside the IME preview
 
 ## 0.13.2
 

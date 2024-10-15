@@ -874,7 +874,9 @@ impl Display {
                 if self.ime.preedit().is_none() {
                     let fg = config.colors.footer_bar_foreground();
                     let shape = CursorShape::Underline;
-                    let cursor = RenderableCursor::new(Point::new(line, column), shape, fg, false);
+                    let cursor_width = NonZeroU32::new(1).unwrap();
+                    let cursor =
+                        RenderableCursor::new(Point::new(line, column), shape, fg, cursor_width);
                     rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
                 }
 
@@ -1081,8 +1083,8 @@ impl Display {
 
         // Get the visible preedit.
         let visible_text: String = match (preedit.cursor_byte_offset, preedit.cursor_end_offset) {
-            (Some(byte_offset), Some(end_offset)) if end_offset > num_cols => StrShortener::new(
-                &preedit.text[byte_offset..],
+            (Some(byte_offset), Some(end_offset)) if end_offset.0 > num_cols => StrShortener::new(
+                &preedit.text[byte_offset.0..],
                 num_cols,
                 ShortenDirection::Right,
                 Some(SHORTENER),
@@ -1125,19 +1127,21 @@ impl Display {
         rects.extend(underline.rects(Flags::UNDERLINE, &metrics, &self.size_info));
 
         let ime_popup_point = match preedit.cursor_end_offset {
-            Some(cursor_end_offset) if cursor_end_offset != 0 => {
-                let is_wide = preedit.text[preedit.cursor_byte_offset.unwrap_or_default()..]
-                    .chars()
-                    .next()
-                    .map(|ch| ch.width() == Some(2))
-                    .unwrap_or_default();
+            Some(cursor_end_offset) => {
+                // Use hollow block when multiple characters are changed at once.
+                let (shape, width) = if let Some(width) =
+                    NonZeroU32::new((cursor_end_offset.0 - cursor_end_offset.1) as u32)
+                {
+                    (CursorShape::HollowBlock, width)
+                } else {
+                    (CursorShape::Beam, NonZeroU32::new(1).unwrap())
+                };
 
                 let cursor_column = Column(
-                    (end.column.0 as isize - cursor_end_offset as isize + 1).max(0) as usize,
+                    (end.column.0 as isize - cursor_end_offset.0 as isize + 1).max(0) as usize,
                 );
                 let cursor_point = Point::new(point.line, cursor_column);
-                let cursor =
-                    RenderableCursor::new(cursor_point, CursorShape::HollowBlock, fg, is_wide);
+                let cursor = RenderableCursor::new(cursor_point, shape, fg, width);
                 rects.extend(cursor.rects(&self.size_info, config.cursor.thickness()));
                 cursor_point
             },
@@ -1436,20 +1440,22 @@ pub struct Preedit {
     /// Byte offset for cursor start into the preedit text.
     ///
     /// `None` means that the cursor is invisible.
-    cursor_byte_offset: Option<usize>,
+    cursor_byte_offset: Option<(usize, usize)>,
 
-    /// The cursor offset from the end of the preedit in char width.
-    cursor_end_offset: Option<usize>,
+    /// The cursor offset from the end of the start of the preedit in char width.
+    cursor_end_offset: Option<(usize, usize)>,
 }
 
 impl Preedit {
-    pub fn new(text: String, cursor_byte_offset: Option<usize>) -> Self {
+    pub fn new(text: String, cursor_byte_offset: Option<(usize, usize)>) -> Self {
         let cursor_end_offset = if let Some(byte_offset) = cursor_byte_offset {
             // Convert byte offset into char offset.
-            let cursor_end_offset =
-                text[byte_offset..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
+            let start_to_end_offset =
+                text[byte_offset.0..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
+            let end_to_end_offset =
+                text[byte_offset.1..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
 
-            Some(cursor_end_offset)
+            Some((start_to_end_offset, end_to_end_offset))
         } else {
             None
         };
