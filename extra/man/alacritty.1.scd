@@ -21,7 +21,7 @@ set of features with high performance.
 
 	Remain open after child process exits.
 
-*--embed*
+*--daemon*
 
 	Do not spawn an initial window.
 

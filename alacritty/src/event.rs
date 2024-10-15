@@ -170,8 +170,7 @@ impl Processor {
         let mut config = self.config.clone();
         config = config_overrides.override_config_rc(config);
 
-        #[allow(unused_mut)]
-        let mut window_context = WindowContext::additional(
+        let window_context = WindowContext::additional(
             gl_config,
             event_loop,
             self.proxy.clone(),
