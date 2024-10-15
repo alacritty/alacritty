@@ -1,6 +1,7 @@
 //! Process window events.
 
 use crate::ConfigMonitor;
+use glutin::config::GetGlConfig;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -16,7 +17,8 @@ use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::Size as FontSize;
-use glutin::display::{Display as GlutinDisplay, GetGlDisplay};
+use glutin::config::Config as GlutinConfig;
+use glutin::display::GetGlDisplay;
 use log::{debug, error, info, warn};
 use winit::application::ApplicationHandler;
 use winit::event::{
@@ -80,7 +82,7 @@ pub struct Processor {
     initial_window_error: Option<Box<dyn Error>>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
     proxy: EventLoopProxy<Event>,
-    gl_display: Option<GlutinDisplay>,
+    gl_config: Option<GlutinConfig>,
     #[cfg(unix)]
     global_ipc_options: ParsedOptions,
     cli_options: CliOptions,
@@ -121,7 +123,7 @@ impl Processor {
             cli_options,
             proxy,
             scheduler,
-            gl_display: None,
+            gl_config: None,
             config: Rc::new(config),
             clipboard,
             windows: Default::default(),
@@ -147,7 +149,7 @@ impl Processor {
         let window_context =
             WindowContext::initial(event_loop, self.proxy.clone(), self.config.clone(), options)?;
 
-        self.gl_display = Some(window_context.display.gl_context().display());
+        self.gl_config = Some(window_context.display.gl_context().config());
         self.windows.insert(window_context.id(), window_context);
 
         Ok(())
@@ -159,7 +161,7 @@ impl Processor {
         event_loop: &ActiveEventLoop,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let window = self.windows.iter().next().as_ref().unwrap().1;
+        let gl_config = self.gl_config.as_ref().unwrap();
 
         // Override config with CLI/IPC options.
         let mut config_overrides = options.config_overrides();
@@ -169,8 +171,14 @@ impl Processor {
         config = config_overrides.override_config_rc(config);
 
         #[allow(unused_mut)]
-        let mut window_context =
-            window.additional(event_loop, self.proxy.clone(), config, options, config_overrides)?;
+        let mut window_context = WindowContext::additional(
+            gl_config,
+            event_loop,
+            self.proxy.clone(),
+            config,
+            options,
+            config_overrides,
+        )?;
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
@@ -337,7 +345,7 @@ impl ApplicationHandler<Event> for Processor {
                     window_context.display.make_not_current();
                 }
 
-                if self.windows.is_empty() {
+                if self.gl_config.is_none() {
                     // Handle initial window creation in daemon mode.
                     if let Err(err) = self.create_initial_window(event_loop) {
                         self.initial_window_error = Some(err);
@@ -380,7 +388,7 @@ impl ApplicationHandler<Event> for Processor {
                 self.scheduler.unschedule_window(window_context.id());
 
                 // Shutdown if no more terminals are open.
-                if self.windows.is_empty() {
+                if self.windows.is_empty() && !self.cli_options.daemon {
                     // Write ref tests of last window to disk.
                     if self.config.debug.ref_test {
                         window_context.write_ref_test_results();
@@ -444,7 +452,7 @@ impl ApplicationHandler<Event> for Processor {
             info!("Exiting the event loop");
         }
 
-        match self.gl_display.take() {
+        match self.gl_config.take().map(|config| config.display()) {
             #[cfg(not(target_os = "macos"))]
             Some(glutin::display::Display::Egl(display)) => {
                 // Ensure that all the windows are dropped, so the destructors for

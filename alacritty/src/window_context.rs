@@ -9,7 +9,7 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use glutin::config::GetGlConfig;
+use glutin::config::Config as GlutinConfig;
 use glutin::display::GetGlDisplay;
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
 use glutin::platform::x11::X11GlConfigExt;
@@ -119,18 +119,14 @@ impl WindowContext {
 
     /// Create additional context with the graphics platform other windows are using.
     pub fn additional(
-        &self,
+        gl_config: &GlutinConfig,
         event_loop: &ActiveEventLoop,
         proxy: EventLoopProxy<Event>,
         config: Rc<UiConfig>,
         options: WindowOptions,
         config_overrides: ParsedOptions,
     ) -> Result<Self, Box<dyn Error>> {
-        // Get any window and take its GL config and display to build a new context.
-        let (gl_display, gl_config) = {
-            let gl_context = self.display.gl_context();
-            (gl_context.display(), gl_context.config())
-        };
+        let gl_display = gl_config.display();
 
         let mut identity = config.window.identity.clone();
         options.window_identity.override_identity_config(&mut identity);
