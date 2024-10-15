@@ -1218,6 +1218,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             for c in text.chars() {
                 self.search_input(c);
             }
+        } else if self.inline_search_state.char_pending {
+            self.inline_search_input(text);
         } else if bracketed && self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             self.on_terminal_input_start();
 
@@ -1291,6 +1293,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.inline_search_state.stop_short = stop_short;
         self.inline_search_state.direction = direction;
         self.inline_search_state.char_pending = true;
+        self.inline_search_state.character = None;
     }
 
     /// Jump to the next matching character in the line.
@@ -1303,6 +1306,22 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn inline_search_previous(&mut self) {
         let direction = self.inline_search_state.direction.opposite();
         self.inline_search(direction);
+    }
+
+    /// Process input during inline search.
+    fn inline_search_input(&mut self, text: &str) {
+        // Ignore input with empty text, like modifier keys.
+        let c = match text.chars().next() {
+            Some(c) => c,
+            None => return,
+        };
+
+        self.inline_search_state.char_pending = false;
+        self.inline_search_state.character = Some(c);
+        self.window().set_ime_allowed(false);
+
+        // Immediately move to the captured character.
+        self.inline_search_next();
     }
 
     fn message(&self) -> Option<&Message> {
