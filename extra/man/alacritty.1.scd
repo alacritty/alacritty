@@ -21,6 +21,10 @@ set of features with high performance.
 
 	Remain open after child process exits.
 
+*--daemon*
+
+	Do not spawn an initial window.
+
 *--print-events*
 
 	Print all events to STDOUT.
