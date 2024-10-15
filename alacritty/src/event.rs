@@ -1843,11 +1843,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {
-                            let preedit = if text.is_empty() {
-                                None
-                            } else {
-                                Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
-                            };
+                            let preedit =
+                                (!text.is_empty()).then(|| Preedit::new(text, cursor_offset));
 
                             if self.ctx.display.ime.preedit() != preedit.as_ref() {
                                 self.ctx.display.ime.set_preedit(preedit);
