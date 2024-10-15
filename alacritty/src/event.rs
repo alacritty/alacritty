@@ -138,8 +138,12 @@ impl Processor {
     pub fn create_initial_window(
         &mut self,
         event_loop: &ActiveEventLoop,
-        options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
+        let options = match self.initial_window_options.take() {
+            Some(options) => options,
+            None => return Ok(()),
+        };
+
         let window_context =
             WindowContext::initial(event_loop, self.proxy.clone(), self.config.clone(), options)?;
 
@@ -210,16 +214,11 @@ impl ApplicationHandler<Event> for Processor {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if cause != StartCause::Init {
+        if cause != StartCause::Init || self.cli_options.daemon {
             return;
         }
 
-        let initial_window_options = match self.initial_window_options.take() {
-            Some(initial_window_options) => initial_window_options,
-            None => return,
-        };
-
-        if let Err(err) = self.create_initial_window(event_loop, initial_window_options) {
+        if let Err(err) = self.create_initial_window(event_loop) {
             self.initial_window_error = Some(err);
             event_loop.exit();
             return;
@@ -338,8 +337,17 @@ impl ApplicationHandler<Event> for Processor {
                     window_context.display.make_not_current();
                 }
 
-                if let Err(err) = self.create_window(event_loop, options.clone()) {
-                    error!("Could not open window: {:?}", err);
+                if self.windows.is_empty() {
+                    // Handle initial window creation in daemon mode.
+                    if let Err(err) = self.create_initial_window(event_loop) {
+                        self.initial_window_error = Some(err);
+                        event_loop.exit();
+                        return;
+                    }
+                } else {
+                    if let Err(err) = self.create_window(event_loop, options.clone()) {
+                        error!("Could not open window: {:?}", err);
+                    }
                 }
             },
             // Process events affecting all windows.

@@ -62,6 +62,10 @@ pub struct Options {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     verbose: u8,
 
+    /// Do not spawn an initial window.
+    #[clap(long)]
+    pub daemon: bool,
+
     /// CLI options for config overrides.
     #[clap(skip)]
     pub config_options: ParsedOptions,
