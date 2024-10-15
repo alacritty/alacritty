@@ -1318,6 +1318,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.inline_search_state.char_pending = false;
         self.inline_search_state.character = Some(c);
+        self.window().set_ime_allowed(false);
 
         // Immediately move to the captured character.
         self.inline_search_next();

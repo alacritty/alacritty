@@ -884,8 +884,11 @@ impl Display {
             },
             None => {
                 let num_lines = self.size_info.screen_lines();
-                term::point_to_viewport(display_offset, cursor_point)
-                    .filter(|point| point.line < num_lines)
+                match vi_cursor_viewport_point {
+                    None => term::point_to_viewport(display_offset, cursor_point)
+                        .filter(|point| point.line < num_lines),
+                    point => point,
+                }
             },
         };
 

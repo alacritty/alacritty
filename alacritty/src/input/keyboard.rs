@@ -28,6 +28,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mods = self.ctx.modifiers().state();
 
         if key.state == ElementState::Released {
+            if self.ctx.inline_search_state().char_pending {
+                self.ctx.window().set_ime_allowed(true);
+            }
             self.key_release(key, mode, mods);
             return;
         }
