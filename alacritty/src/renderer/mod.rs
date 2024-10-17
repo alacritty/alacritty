@@ -12,6 +12,7 @@ use glutin::display::{GetGlDisplay, GlDisplay};
 use log::{debug, error, info, warn, LevelFilter};
 use unicode_width::UnicodeWidthChar;
 
+use alacritty_terminal::graphics::UpdateQueues;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 
@@ -20,9 +21,11 @@ use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
 use crate::gl;
+use crate::renderer::graphics::GraphicsRenderer;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 use crate::renderer::shader::ShaderError;
 
+pub mod graphics;
 pub mod platform;
 pub mod rects;
 mod shader;
@@ -97,6 +100,7 @@ enum TextRendererProvider {
 pub struct Renderer {
     text_renderer: TextRendererProvider,
     rect_renderer: RectRenderer,
+    graphics_renderer: GraphicsRenderer,
 }
 
 /// Wrapper around gl::GetString with error checking and reporting.
@@ -154,15 +158,17 @@ impl Renderer {
             None => (shader_version.as_ref() >= "3.3" && !is_gles_context, true),
         };
 
-        let (text_renderer, rect_renderer) = if use_glsl3 {
+        let (text_renderer, rect_renderer, graphics_renderer) = if use_glsl3 {
             let text_renderer = TextRendererProvider::Glsl3(Glsl3Renderer::new()?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Glsl3)?;
-            (text_renderer, rect_renderer)
+            let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Glsl3)?;
+            (text_renderer, rect_renderer, graphics_renderer)
         } else {
             let text_renderer =
                 TextRendererProvider::Gles2(Gles2Renderer::new(allow_dsb, is_gles_context)?);
             let rect_renderer = RectRenderer::new(ShaderVersion::Gles2)?;
-            (text_renderer, rect_renderer)
+            let graphics_renderer = GraphicsRenderer::new(ShaderVersion::Gles2)?;
+            (text_renderer, rect_renderer, graphics_renderer)
         };
 
         // Enable debug logging for OpenGL as well.
@@ -175,7 +181,7 @@ impl Renderer {
             }
         }
 
-        Ok(Self { text_renderer, rect_renderer })
+        Ok(Self { text_renderer, rect_renderer, graphics_renderer })
     }
 
     pub fn draw_cells<I: Iterator<Item = RenderableCell>>(
@@ -306,6 +312,38 @@ impl Renderer {
         match &self.text_renderer {
             TextRendererProvider::Gles2(renderer) => renderer.resize(size_info),
             TextRendererProvider::Glsl3(renderer) => renderer.resize(size_info),
+        }
+    }
+
+    /// Run the required actions to apply changes for the graphics in the grid.
+    #[inline]
+    pub fn graphics_run_updates(&mut self, update_queues: UpdateQueues, size_info: &SizeInfo) {
+        let result = self.graphics_renderer.run_updates(update_queues, size_info);
+
+        if result.contains(graphics::UpdateResult::NEED_RESET_ACTIVE_TEX) {
+            self.reset_active_tex();
+        }
+    }
+
+    /// Draw graphics visible in the display.
+    #[inline]
+    pub fn graphics_draw(
+        &mut self,
+        render_list: graphics::RenderList,
+        size_info: &SizeInfo,
+        rects: &mut Vec<RenderRect>,
+        metrics: &Metrics,
+    ) {
+        self.graphics_renderer.draw(render_list, size_info, rects, metrics);
+
+        self.reset_active_tex();
+    }
+
+    /// Reset the cached value of the active texture.
+    pub fn reset_active_tex(&mut self) {
+        match &mut self.text_renderer {
+            TextRendererProvider::Gles2(renderer) => renderer.reset_active_tex(),
+            TextRendererProvider::Glsl3(renderer) => renderer.reset_active_tex(),
         }
     }
 }

@@ -516,6 +516,18 @@ pub trait Dimensions {
     fn history_size(&self) -> usize {
         self.total_lines().saturating_sub(self.screen_lines())
     }
+
+    /// Cell height in pixels.
+    #[inline]
+    fn cell_height(&self) -> f32 {
+        0.0
+    }
+
+    /// Cell width in pixels.
+    #[inline]
+    fn cell_width(&self) -> f32 {
+        0.0
+    }
 }
 
 impl<G> Dimensions for Grid<G> {

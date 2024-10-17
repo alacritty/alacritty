@@ -25,6 +25,9 @@ use crate::vte::ansi::{
     KeyboardModesApplyBehavior, NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb,
     StandardCharset,
 };
+use crate::vte::Params;
+
+use crate::graphics::{Graphics, UpdateQueues};
 
 pub mod cell;
 pub mod color;
@@ -84,6 +87,10 @@ bitflags! {
                                       | Self::REPORT_ALL_KEYS_AS_ESC.bits()
                                       | Self::REPORT_ASSOCIATED_TEXT.bits();
          const ANY                    = u32::MAX;
+
+        const SIXEL_DISPLAY             = 1 << 28;
+        const SIXEL_PRIV_PALETTE        = 1 << 29;
+        const SIXEL_CURSOR_TO_THE_RIGHT = 1 << 31;
     }
 }
 
@@ -116,6 +123,7 @@ impl Default for TermMode {
             | TermMode::LINE_WRAP
             | TermMode::ALTERNATE_SCROLL
             | TermMode::URGENCY_HINTS
+            | TermMode::SIXEL_PRIV_PALETTE
     }
 }
 
@@ -316,6 +324,9 @@ pub struct Term<T> {
     /// term is set.
     title_stack: Vec<Option<String>>,
 
+    /// Data to add graphics to a grid.
+    pub(crate) graphics: Graphics,
+
     /// The stack for the keyboard modes.
     keyboard_mode_stack: Vec<KeyboardModes>,
 
@@ -431,6 +442,7 @@ impl<T> Term<T> {
             grid,
             tabs,
             inactive_keyboard_mode_stack: Default::default(),
+            graphics: Graphics::new(dimensions),
             keyboard_mode_stack: Default::default(),
             active_charset: Default::default(),
             vi_mode_cursor: Default::default(),
@@ -493,6 +505,11 @@ impl<T> Term<T> {
     #[inline]
     fn mark_fully_damaged(&mut self) {
         self.damage.full = true;
+    }
+
+    #[inline]
+    pub(crate) fn mark_line_damaged(&mut self, line: Line) {
+        self.damage.damage_line(line.0 as usize, 0, self.columns() - 1);
     }
 
     /// Set new options for the [`Term`].
@@ -651,6 +668,12 @@ impl<T> Term<T> {
         &mut self.grid
     }
 
+    /// Get queues to update graphic data. If both queues are empty, it returns
+    /// `None`.
+    pub fn graphics_take_queues(&mut self) -> Option<UpdateQueues> {
+        self.graphics.take_queues()
+    }
+
     /// Resize terminal to new dimensions.
     pub fn resize<S: Dimensions>(&mut self, size: S) {
         let old_cols = self.columns();
@@ -702,6 +725,9 @@ impl<T> Term<T> {
 
         // Resize damage information.
         self.damage.resize(num_cols, num_lines);
+
+        // Update size information for graphics.
+        self.graphics.resize(&size);
     }
 
     /// Active terminal modes.
@@ -1253,7 +1279,7 @@ impl<T: EventListener> Handler for Term<T> {
         match intermediate {
             None => {
                 trace!("Reporting primary device attributes");
-                let text = String::from("\x1b[?6c");
+                let text = String::from("\x1b[?62;4;6;22c");
                 self.event_proxy.send_event(Event::PtyWrite(text));
             },
             Some('>') => {
@@ -1903,6 +1929,25 @@ impl<T: EventListener> Handler for Term<T> {
     fn set_private_mode(&mut self, mode: PrivateMode) {
         let mode = match mode {
             PrivateMode::Named(mode) => mode,
+
+            // SixelDisplay
+            PrivateMode::Unknown(80) => {
+                self.mode.insert(TermMode::SIXEL_DISPLAY);
+                return;
+            },
+
+            // SixelPrivateColorRegisters
+            PrivateMode::Unknown(1070) => {
+                self.mode.insert(TermMode::SIXEL_PRIV_PALETTE);
+                return;
+            },
+
+            // SixelCursorToTheRight
+            PrivateMode::Unknown(8452) => {
+                self.mode.insert(TermMode::SIXEL_CURSOR_TO_THE_RIGHT);
+                return;
+            },
+
             PrivateMode::Unknown(mode) => {
                 debug!("Ignoring unknown mode {} in set_private_mode", mode);
                 return;
@@ -1963,6 +2008,26 @@ impl<T: EventListener> Handler for Term<T> {
     fn unset_private_mode(&mut self, mode: PrivateMode) {
         let mode = match mode {
             PrivateMode::Named(mode) => mode,
+
+            // SixelDisplay
+            PrivateMode::Unknown(80) => {
+                self.mode.remove(TermMode::SIXEL_DISPLAY);
+                return;
+            },
+
+            // SixelPrivateColorRegisters
+            PrivateMode::Unknown(1070) => {
+                self.graphics.sixel_shared_palette = None;
+                self.mode.remove(TermMode::SIXEL_PRIV_PALETTE);
+                return;
+            },
+
+            // SixelCursorToTheRight
+            PrivateMode::Unknown(8452) => {
+                self.mode.remove(TermMode::SIXEL_CURSOR_TO_THE_RIGHT);
+                return;
+            },
+
             PrivateMode::Unknown(mode) => {
                 debug!("Ignoring unknown mode {} in unset_private_mode", mode);
                 return;
@@ -2235,6 +2300,45 @@ impl<T: EventListener> Handler for Term<T> {
     fn text_area_size_chars(&mut self) {
         let text = format!("\x1b[8;{};{}t", self.screen_lines(), self.columns());
         self.event_proxy.send_event(Event::PtyWrite(text));
+    }
+
+    #[inline]
+    fn graphics_attribute(&mut self, pi: u16, pa: u16) {
+        self.graphics.graphics_attribute(&self.event_proxy, pi, pa);
+    }
+
+    /// Start of a device control string.
+    fn dcs_hook(&mut self, params: &Params, intermediates: &[u8], ignore: bool, action: char) {
+        match (action, intermediates) {
+            ('q', []) => {
+                self.graphics.start_sixel_graphic(params);
+            },
+            _ => debug!(
+                "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
+                params, intermediates, ignore, action
+            ),
+        }
+    }
+
+    /// Byte of a device control string.
+    fn dcs_put(&mut self, byte: u8) {
+        if let Some(parser) = &mut self.graphics.sixel_parser {
+            if let Err(err) = parser.put(byte) {
+                log::warn!("Failed to parse Sixel data: {}", err);
+                self.graphics.sixel_parser = None;
+            }
+        } else {
+            debug!("[unhandled put] byte={:?}", byte);
+        }
+    }
+
+    /// End of a device control string.
+    fn dcs_unhook(&mut self) {
+        if let Some(parser) = self.graphics.sixel_parser.take() {
+            crate::graphics::parse_sixel(self, *parser);
+        } else {
+            dbg!("[unhandled dcs_unhook]");
+        }
     }
 }
 
