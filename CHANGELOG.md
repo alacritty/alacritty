@@ -18,7 +18,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Support relative path imports from config files
 - `alacritty migrate` support for TOML configuration changes
-- Support for Unicode 16 characters
 - Headless mode using `alacritty --daemon`
 
 ### Changed
