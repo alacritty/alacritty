@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_config"
-version = "0.2.1-dev"
+version = "0.2.3-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 license = "MIT OR Apache-2.0"
 description = "Alacritty configuration abstractions"
@@ -15,5 +15,5 @@ serde = "1.0.163"
 toml = "0.8.2"
 
 [dev-dependencies]
-alacritty_config_derive = { version = "0.2.3-dev", path = "../alacritty_config_derive" }
+alacritty_config_derive = { version = "0.2.5-dev", path = "../alacritty_config_derive" }
 serde = { version = "1.0.163", features = ["derive"] }
