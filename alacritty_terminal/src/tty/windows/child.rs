@@ -58,7 +58,7 @@ impl ChildExitWatcher {
     pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
         let (event_tx, event_rx) = mpsc::channel();
 
-        let mut wait_handle: HANDLE = 0;
+        let mut wait_handle: HANDLE = ptr::null_mut();
         let interest = Arc::new(Mutex::new(None));
         let sender_ref = Box::new(ChildExitSender {
             sender: event_tx,
