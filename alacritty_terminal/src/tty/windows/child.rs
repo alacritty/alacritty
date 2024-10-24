@@ -1,6 +1,7 @@
 use std::ffi::c_void;
 use std::io::Error;
 use std::num::NonZeroU32;
+use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
