@@ -51,7 +51,7 @@ pub struct ChildExitWatcher {
     wait_handle: AtomicPtr<c_void>,
     event_rx: mpsc::Receiver<ChildEvent>,
     interest: Arc<Mutex<Option<Interest>>>,
-    child_handle: HANDLE,
+    child_handle: AtomicPtr<c_void>,
     pid: Option<NonZeroU32>,
 }
 
@@ -83,11 +83,11 @@ impl ChildExitWatcher {
         } else {
             let pid = unsafe { NonZeroU32::new(GetProcessId(child_handle)) };
             Ok(ChildExitWatcher {
-                wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
                 event_rx,
                 interest,
-                child_handle,
                 pid,
+                child_handle: AtomicPtr::from(child_handle as *mut c_void),
+                wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
             })
         }
     }
@@ -113,7 +113,7 @@ impl ChildExitWatcher {
     /// If you terminate the process using this handle, the terminal will get a
     /// timeout error, and the child watcher will emit an `Exited` event.
     pub fn raw_handle(&self) -> HANDLE {
-        self.child_handle
+        self.child_handle.load(Ordering::Relaxed) as HANDLE
     }
 
     /// Retrieve the Process ID associated to the underlying child process.
