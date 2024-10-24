@@ -64,7 +64,7 @@ impl ChildExitWatcher {
         let sender_ref = Box::new(ChildExitSender {
             sender: event_tx,
             interest: interest.clone(),
-            child_handle: AtomicPtr::from(child_handle as *mut c_void),
+            child_handle: AtomicPtr::from(child_handle),
         });
 
         let success = unsafe {
@@ -86,8 +86,8 @@ impl ChildExitWatcher {
                 event_rx,
                 interest,
                 pid,
-                child_handle: AtomicPtr::from(child_handle as *mut c_void),
-                wait_handle: AtomicPtr::from(wait_handle as *mut c_void),
+                child_handle: AtomicPtr::from(child_handle),
+                wait_handle: AtomicPtr::from(wait_handle),
             })
         }
     }
