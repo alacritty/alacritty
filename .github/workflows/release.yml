@@ -4,6 +4,9 @@ on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
 
+permissions:
+  contents: write
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   CARGO_TERM_COLOR: always
@@ -70,6 +73,8 @@ jobs:
             libxcb-xfixes0-dev libxkbcommon-dev python3 scdoc
       - name: Test
         run: cargo test --release
+      - name: Build
+        run: cargo build --release
       - name: Generate manpages
         run: |
           scdoc < extra/man/alacritty.1.scd | gzip -c > "./alacritty.1.gz"
@@ -78,7 +83,12 @@ jobs:
           scdoc < extra/man/alacritty-bindings.5.scd | gzip -c > "./alacritty-bindings.5.gz"
       - name: Upload Assets
         run: |
+          binpath="alacritty-linux-$(uname -m).gz"
+          gzip -9 --stdout target/release/alacritty > "$binpath"
+
           mv ./extra/logo/alacritty-term.svg ./Alacritty.svg
+
+          ./.github/workflows/upload_asset.sh "$binpath"
           ./.github/workflows/upload_asset.sh ./Alacritty.svg $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty.1.gz $GITHUB_TOKEN
           ./.github/workflows/upload_asset.sh ./alacritty-msg.1.gz $GITHUB_TOKEN
