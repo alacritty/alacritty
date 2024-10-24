@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.14.0-dev"
+version = "0.14.0"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -12,15 +12,15 @@ rust-version = "1.74.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.24.1-dev"
+version = "0.24.1"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.3-dev"
+version = "0.2.4"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.2.1-dev"
+version = "0.2.2"
 
 [dependencies]
 ahash = { version = "0.8.6", features = ["no-rng"] }
@@ -42,7 +42,7 @@ smallvec = { version = "1.13.1", features = ["serde"] }
 tempfile = "3.12.0"
 toml = "0.8.2"
 toml_edit = "0.22.21"
-unicode-width = { package = "unicode-width-16", version = "0.1.0" }
+unicode-width = "0.1"
 winit = { version = "0.30.4", default-features = false, features = ["rwh_06", "serde"] }
 
 [build-dependencies]

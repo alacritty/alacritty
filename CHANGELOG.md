@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.14.0-dev
+## 0.14.0
 
 ### Packaging
 
@@ -18,7 +18,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Support relative path imports from config files
 - `alacritty migrate` support for TOML configuration changes
-- Support for Unicode 16 characters
+- Headless mode using `alacritty --daemon`
 
 ### Changed
 
@@ -29,6 +29,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
     to the new `general` section
 - Moved config option `shell` to `terminal.shell`
 - `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
+- Use `Beam` cursor for single char cursor inside the IME preview
 
 ### Fixed
 
@@ -48,6 +49,8 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Windows app icon now displays properly in old alt+tab on Windows
 - Alacritty not being properly activated with startup notify
 - Invalid URL highlights after terminal scrolling
+- Hollow block cursor not spanning multiple chars being edited inside the IME preview
+- Vi inline search only working for direct key input without modifiers
 
 ## 0.13.2
 

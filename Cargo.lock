@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.14.0-dev"
+version = "0.14.0"
 dependencies = [
  "ahash",
  "alacritty_config",
@@ -63,7 +63,7 @@ dependencies = [
  "tempfile",
  "toml",
  "toml_edit 0.22.21",
- "unicode-width-16",
+ "unicode-width",
  "windows-sys 0.52.0",
  "winit",
  "xdg",
@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config"
-version = "0.2.1-dev"
+version = "0.2.2"
 dependencies = [
  "alacritty_config_derive",
  "log",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config_derive"
-version = "0.2.3-dev"
+version = "0.2.4"
 dependencies = [
  "alacritty_config",
  "log",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.24.1-dev"
+version = "0.24.1"
 dependencies = [
  "base64",
  "bitflags 2.6.0",
@@ -111,7 +111,7 @@ dependencies = [
  "serde_json",
  "signal-hook",
  "smallvec",
- "unicode-width-16",
+ "unicode-width",
  "vte-graphics",
  "windows-sys 0.52.0",
 ]
@@ -2026,10 +2026,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
-name = "unicode-width-16"
-version = "0.1.0"
+name = "unicode-width"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eba15036aa0f5bf8ed6cd12a624ddb61fd50b0779b1c05d89b663bcaed7b5c2"
+checksum = "0336d538f7abc86d282a4189614dfaa90810dfc2c6f6427eaf88e16311dd225d"
 
 [[package]]
 name = "unsafe-libyaml"
@@ -2641,9 +2641,9 @@ dependencies = [
 
 [[package]]
 name = "x11-clipboard"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b98785a09322d7446e28a13203d2cae1059a0dd3dfb32cb06d0a225f023d8286"
+checksum = "662d74b3d77e396b8e5beb00b9cad6a9eccf40b2ef68cc858784b14c41d535a3"
 dependencies = [
  "libc",
  "x11rb",

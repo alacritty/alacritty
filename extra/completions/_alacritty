@@ -27,9 +27,10 @@ _alacritty() {
 '*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
 '*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
 '--print-events[Print all events to STDOUT]' \
-'--ref-test[Generates ref test]' \
+'(--daemon)--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
+'--daemon[Do not spawn an initial window]' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help]' \
 '--help[Print help]' \

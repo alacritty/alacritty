@@ -127,6 +127,7 @@ pub trait ActionContext<T: EventListener> {
     fn inline_search_state(&mut self) -> &mut InlineSearchState;
     fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
     fn inline_search_next(&mut self) {}
+    fn inline_search_input(&mut self, _text: &str) {}
     fn inline_search_previous(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
