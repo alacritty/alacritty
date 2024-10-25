@@ -39,7 +39,7 @@ use winit::window::{
 
 use alacritty_terminal::index::Point;
 
-use crate::config::window::{Decorations, Identity, WindowConfig};
+use crate::config::window::{Decorations, Identity, WindowConfig, WindowLevel};
 use crate::config::UiConfig;
 use crate::display::SizeInfo;
 
@@ -170,7 +170,8 @@ impl Window {
             .with_transparent(true)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
-            .with_fullscreen(config.window.fullscreen());
+            .with_fullscreen(config.window.fullscreen())
+            .with_window_level(config.window.window_level.unwrap_or(WindowLevel::Normal).into());
 
         let window = event_loop.create_window(window_attributes)?;
 
@@ -298,7 +299,7 @@ impl Window {
 
     #[cfg(windows)]
     pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
-        let icon = winit::window::Icon::from_resource(IDI_ICON, None);
+        let icon: std::result::Result<winit::window::Icon, winit::window::BadIcon> = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WinitWindow::default_attributes()
             .with_decorations(window_config.decorations != Decorations::None)
@@ -401,6 +402,10 @@ impl Window {
         } else {
             self.window.set_fullscreen(None);
         }
+    }
+
+    pub fn set_window_level(&self, window_level: WindowLevel) {
+        self.window.set_window_level(window_level.into());
     }
 
     pub fn current_monitor(&self) -> Option<MonitorHandle> {
