@@ -61,7 +61,7 @@ pub struct WindowConfig {
 
     /// System decorations theme variant.
     decorations_theme_variant: Option<Theme>,
-    
+
     /// Window level Always OnTop, Start on Bottom, or Normal
     pub window_level: Option<WindowLevel>,
 }

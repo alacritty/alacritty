@@ -299,7 +299,8 @@ impl Window {
 
     #[cfg(windows)]
     pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
-        let icon: std::result::Result<winit::window::Icon, winit::window::BadIcon> = winit::window::Icon::from_resource(IDI_ICON, None);
+        let icon: std::result::Result<winit::window::Icon, winit::window::BadIcon> =
+            winit::window::Icon::from_resource(IDI_ICON, None);
 
         WinitWindow::default_attributes()
             .with_decorations(window_config.decorations != Decorations::None)
@@ -402,10 +403,6 @@ impl Window {
         } else {
             self.window.set_fullscreen(None);
         }
-    }
-
-    pub fn set_window_level(&self, window_level: WindowLevel) {
-        self.window.set_window_level(window_level.into());
     }
 
     pub fn current_monitor(&self) -> Option<MonitorHandle> {
