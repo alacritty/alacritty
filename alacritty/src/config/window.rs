@@ -316,7 +316,7 @@ impl From<Theme> for WinitTheme {
     }
 }
 
-/// WinitWindowLevel for AlwaysOnTop
+/// WindowLevel.
 #[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowLevel {
     #[default]
