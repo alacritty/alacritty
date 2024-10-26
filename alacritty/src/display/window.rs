@@ -39,7 +39,7 @@ use winit::window::{
 
 use alacritty_terminal::index::Point;
 
-use crate::config::window::{Decorations, Identity, WindowConfig, WindowLevel};
+use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
 use crate::display::SizeInfo;
 
