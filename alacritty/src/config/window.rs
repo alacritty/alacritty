@@ -158,7 +158,7 @@ impl WindowConfig {
 
     #[inline]
     pub fn window_level(&self) -> WinitWindowLevel {
-        self.window_level.unwrap_or(WindowLevel::Normal).into()
+        self.window_level.unwrap_or_default().into()
     }
 }
 
@@ -317,9 +317,9 @@ impl From<Theme> for WinitTheme {
 }
 
 /// WinitWindowLevel for AlwaysOnTop
-#[derive(ConfigDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowLevel {
-    AlwaysOnBottom,
+    #[default]
     Normal,
     AlwaysOnTop,
 }
@@ -327,7 +327,6 @@ pub enum WindowLevel {
 impl From<WindowLevel> for WinitWindowLevel {
     fn from(level: WindowLevel) -> Self {
         match level {
-            WindowLevel::AlwaysOnBottom => WinitWindowLevel::AlwaysOnBottom,
             WindowLevel::Normal => WinitWindowLevel::Normal,
             WindowLevel::AlwaysOnTop => WinitWindowLevel::AlwaysOnTop,
         }
