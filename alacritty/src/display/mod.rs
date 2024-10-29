@@ -1026,7 +1026,7 @@ impl Display {
         self.vi_highlighted_hint_age = 0;
 
         // Force full redraw if the vi mode highlight was cleared.
-        if dirty && self.vi_highlighted_hint.is_none() {
+        if dirty {
             self.damage_tracker.frame().mark_fully_damaged();
         }
 
@@ -1064,8 +1064,8 @@ impl Display {
         self.highlighted_hint = highlighted_hint;
         self.highlighted_hint_age = 0;
 
-        // Force full redraw if the mouse cursor highlight was cleared.
-        if mouse_highlight_dirty && self.highlighted_hint.is_none() {
+        // Force full redraw if the mouse cursor highlight was changed.
+        if mouse_highlight_dirty {
             self.damage_tracker.frame().mark_fully_damaged();
         }
 
