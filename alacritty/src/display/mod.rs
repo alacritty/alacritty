@@ -1351,9 +1351,8 @@ impl Display {
                 None => continue,
             };
 
-            *hint_age += 1;
-
             // Ignore hints that were created this frame.
+            *hint_age += 1;
             if *hint_age == 1 {
                 continue;
             }
