@@ -193,9 +193,11 @@ impl FrameDamage {
     /// Check if a range is damaged.
     #[inline]
     pub fn intersects(&self, start: Point<usize>, end: Point<usize>) -> bool {
+        let start_line = &self.lines[start.line];
+        let end_line = &self.lines[end.line];
         self.full
-            || self.lines[start.line].left <= start.column
-            || self.lines[end.line].right >= end.column
+            || (start_line.left..=start_line.right).contains(&start.column)
+            || (end_line.left..=end_line.right).contains(&end.column)
             || (start.line + 1..end.line).any(|line| self.lines[line].is_damaged())
     }
 }
