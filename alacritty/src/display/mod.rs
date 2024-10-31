@@ -484,6 +484,11 @@ impl Display {
 
         window.set_visible(true);
 
+        // On macOS, explicitly focus the new window in case Alacritty isn't the active app,
+        // otherwise it won't get focus automatically.
+        #[cfg(target_os = "macos")]
+        window.focus_window();
+
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
         if !_tabbed {
