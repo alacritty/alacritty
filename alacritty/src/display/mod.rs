@@ -33,6 +33,7 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::cli::WindowOptions;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -399,6 +400,7 @@ impl Display {
         window: Window,
         gl_context: NotCurrentContext,
         config: &UiConfig,
+        _options: &WindowOptions,
         _tabbed: bool,
     ) -> Result<Display, Error> {
         let raw_window_handle = window.raw_window_handle();
@@ -483,6 +485,10 @@ impl Display {
         }
 
         window.set_visible(true);
+        #[cfg(target_os = "macos")]
+        if _options.focus {
+            window.focus_window();
+        }
 
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]

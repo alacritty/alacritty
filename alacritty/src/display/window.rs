@@ -224,6 +224,12 @@ impl Window {
         self.window.set_visible(visibility);
     }
 
+    #[cfg(target_os = "macos")]
+    #[inline]
+    pub fn focus_window(&self) {
+        self.window.focus_window();
+    }
+
     /// Set the window title.
     #[inline]
     pub fn set_title(&mut self, title: String) {

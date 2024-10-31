@@ -112,7 +112,7 @@ impl WindowContext {
         let gl_context =
             renderer::platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)?;
 
-        let display = Display::new(window, gl_context, &config, false)?;
+        let display = Display::new(window, gl_context, &config, &options, false)?;
 
         Self::new(display, config, options, proxy)
     }
@@ -152,7 +152,7 @@ impl WindowContext {
         #[cfg(not(target_os = "macos"))]
         let tabbed = false;
 
-        let display = Display::new(window, gl_context, &config, tabbed)?;
+        let display = Display::new(window, gl_context, &config, &options, tabbed)?;
 
         let mut window_context = Self::new(display, config, options, proxy)?;
 

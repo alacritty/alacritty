@@ -300,6 +300,11 @@ pub struct WindowOptions {
     /// The window tabbing identifier to use when building a window.
     pub window_tabbing_id: Option<String>,
 
+    #[cfg(target_os = "macos")]
+    #[clap(long)]
+    /// Focus the window after creation.
+    pub focus: bool,
+
     /// Override configuration file options [example: 'cursor.style="Beam"'].
     #[clap(short = 'o', long, num_args = 1..)]
     option: Vec<String>,
