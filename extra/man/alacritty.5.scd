@@ -601,9 +601,7 @@ This section documents the *[terminal]* table of the configuration file.
 Windows: _"powershell"_
 
 	Example:
-		*[shell]*++
-program = _"/bin/zsh"_++
-args = [_"-l"_]
+		*shell* = { program = _"/bin/zsh"_, args = [_"-l"_] }
 
 *osc52* = _"Disabled"_ | _"OnlyCopy"_ | _"OnlyPaste"_ | _"CopyPaste"_
 
