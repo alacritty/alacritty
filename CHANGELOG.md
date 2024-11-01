@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+- Racing condition in hint opening
 
 ## 0.14.0
 

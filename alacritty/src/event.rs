@@ -1141,16 +1141,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         let hint_bounds = hint.bounds();
-        let text = match hint.hyperlink() {
-            Some(hyperlink) => hyperlink.uri().to_owned(),
-            None => self.terminal.bounds_to_string(*hint_bounds.start(), *hint_bounds.end()),
+        let text = match hint.text(&self.terminal) {
+            Some(text) => text,
+            None => return,
         };
 
         match &hint.action() {
             // Launch an external program.
             HintAction::Command(command) => {
                 let mut args = command.args().to_vec();
-                args.push(text);
+                args.push(text.into());
                 self.spawn_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.

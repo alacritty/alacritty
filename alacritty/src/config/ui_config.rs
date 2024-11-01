@@ -253,7 +253,7 @@ pub struct Hints {
     alphabet: HintsAlphabet,
 
     /// All configured terminal hints.
-    pub enabled: Vec<Hint>,
+    pub enabled: Vec<Rc<Hint>>,
 }
 
 impl Default for Hints {
@@ -274,7 +274,7 @@ impl Default for Hints {
         });
 
         Self {
-            enabled: vec![Hint {
+            enabled: vec![Rc::new(Hint {
                 content,
                 action,
                 persist: false,
@@ -288,7 +288,7 @@ impl Default for Hints {
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
                     mode: Default::default(),
                 }),
-            }],
+            })],
             alphabet: Default::default(),
         }
     }
