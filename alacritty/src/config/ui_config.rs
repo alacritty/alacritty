@@ -619,7 +619,7 @@ impl SerdeReplace for Program {
 }
 
 pub(crate) struct StringVisitor;
-impl<'de> serde::de::Visitor<'de> for StringVisitor {
+impl serde::de::Visitor<'_> for StringVisitor {
     type Value = String;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

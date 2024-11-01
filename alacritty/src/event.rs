@@ -1141,7 +1141,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         let hint_bounds = hint.bounds();
-        let text = match hint.text(&self.terminal) {
+        let text = match hint.text(self.terminal) {
             Some(text) => text,
             None => return,
         };

@@ -576,7 +576,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for HintPostProcessor<'a, T> {
+impl<T> Iterator for HintPostProcessor<'_, T> {
     type Item = Match;
 
     fn next(&mut self) -> Option<Self::Item> {
