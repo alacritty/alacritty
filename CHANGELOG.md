@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - AlwaysOnTop window level provides always on top window placement on platforms that support it.
 
+### Fixed
+
+- Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+
 ## 0.14.0
 
 ### Packaging
