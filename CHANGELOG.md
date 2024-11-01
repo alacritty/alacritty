@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.15.0-dev
 
+### Added
+
+- AlwaysOnTop window level provides always on top window placement on platforms that support it.
+
 ## 0.14.0
 
 ### Packaging
