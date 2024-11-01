@@ -63,7 +63,7 @@ pub struct WindowConfig {
     decorations_theme_variant: Option<Theme>,
 
     /// Window level.
-    pub window_level: Option<WindowLevel>,
+    pub window_level: WindowLevel,
 }
 
 impl Default for WindowConfig {
@@ -158,7 +158,7 @@ impl WindowConfig {
 
     #[inline]
     pub fn window_level(&self) -> WinitWindowLevel {
-        self.window_level.unwrap_or_default().into()
+        self.window_level.into()
     }
 }
 
