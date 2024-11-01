@@ -316,7 +316,6 @@ impl From<Theme> for WinitTheme {
     }
 }
 
-/// WindowLevel.
 #[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowLevel {
     #[default]

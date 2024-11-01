@@ -299,8 +299,7 @@ impl Window {
 
     #[cfg(windows)]
     pub fn get_platform_window(_: &Identity, window_config: &WindowConfig) -> WindowAttributes {
-        let icon: std::result::Result<winit::window::Icon, winit::window::BadIcon> =
-            winit::window::Icon::from_resource(IDI_ICON, None);
+        let icon = winit::window::Icon::from_resource(IDI_ICON, None);
 
         WinitWindow::default_attributes()
             .with_decorations(window_config.decorations != Decorations::None)
