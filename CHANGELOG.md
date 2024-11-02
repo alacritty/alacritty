@@ -12,7 +12,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Changed
 
-- Automatically focus new windows on macOS, even if no Alacritty windows are currently focused
+- Always focus new windows on macOS
 
 ### Fixed
 
