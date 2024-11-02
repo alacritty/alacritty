@@ -484,7 +484,7 @@ impl Display {
 
         window.set_visible(true);
 
-        // Automatically focus new windows, even if no Alacritty windows are currently focused.
+        // Always focus new windows, even if no Alacritty window is currently focused.
         #[cfg(target_os = "macos")]
         window.focus_window();
 
