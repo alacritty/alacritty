@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.15.0-dev
 
+### Changed
+
+- Automatically focus new windows on macOS, even if no Alacritty windows are currently focused
+
 ### Fixed
 
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
