@@ -244,7 +244,7 @@ enum Migration<'a> {
     Yaml((&'a Path, String)),
 }
 
-impl<'a> Migration<'a> {
+impl Migration<'_> {
     /// Get the success message for this migration.
     fn success_message(&self, import: bool) -> String {
         match self {

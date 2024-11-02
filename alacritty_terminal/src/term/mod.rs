@@ -199,7 +199,7 @@ impl<'a> TermDamageIterator<'a> {
     }
 }
 
-impl<'a> Iterator for TermDamageIterator<'a> {
+impl Iterator for TermDamageIterator<'_> {
     type Item = LineDamageBounds;
 
     fn next(&mut self) -> Option<Self::Item> {

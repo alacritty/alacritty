@@ -251,7 +251,7 @@ impl<'a> RenderDamageIterator<'a> {
     }
 }
 
-impl<'a> Iterator for RenderDamageIterator<'a> {
+impl Iterator for RenderDamageIterator<'_> {
     type Item = Rect;
 
     fn next(&mut self) -> Option<Rect> {

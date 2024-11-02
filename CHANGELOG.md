@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+- Hint launcher opening arbitrary text, when terminal content changed while opening
 
 ## 0.14.0
 
