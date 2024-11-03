@@ -15,6 +15,7 @@ pub mod color;
 pub mod cursor;
 pub mod debug;
 pub mod font;
+pub mod general;
 pub mod monitor;
 pub mod scrolling;
 pub mod selection;
@@ -76,12 +77,12 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Error::ReadingEnvHome(err) => {
-                write!(f, "Unable to read $HOME environment variable: {}", err)
+                write!(f, "Unable to read $HOME environment variable: {err}")
             },
-            Error::Io(err) => write!(f, "Error reading config file: {}", err),
-            Error::Toml(err) => write!(f, "Config error: {}", err),
-            Error::TomlSe(err) => write!(f, "Yaml conversion error: {}", err),
-            Error::Yaml(err) => write!(f, "Config error: {}", err),
+            Error::Io(err) => write!(f, "Error reading config file: {err}"),
+            Error::Toml(err) => write!(f, "Config error: {err}"),
+            Error::TomlSe(err) => write!(f, "Yaml conversion error: {err}"),
+            Error::Yaml(err) => write!(f, "Config error: {err}"),
         }
     }
 }
@@ -278,15 +279,15 @@ fn load_imports(
     merged
 }
 
-// TODO: Merge back with `load_imports` once `alacritty migrate` is dropped.
-//
 /// Get all import paths for a configuration.
 pub fn imports(
     config: &Value,
     base_path: &Path,
     recursion_limit: usize,
 ) -> StdResult<Vec<StdResult<PathBuf, String>>, String> {
-    let imports = match config.get("import") {
+    let imports =
+        config.get("import").or_else(|| config.get("general").and_then(|g| g.get("import")));
+    let imports = match imports {
         Some(Value::Array(imports)) => imports,
         Some(_) => return Err("Invalid import type: expected a sequence".into()),
         None => return Ok(Vec::new()),
@@ -300,7 +301,7 @@ pub fn imports(
     let mut import_paths = Vec::new();
 
     for import in imports {
-        let mut path = match import {
+        let path = match import {
             Value::String(path) => PathBuf::from(path),
             _ => {
                 import_paths.push(Err("Invalid import element type: expected path string".into()));
@@ -308,21 +309,30 @@ pub fn imports(
             },
         };
 
-        // Resolve paths relative to user's home directory.
-        if let (Ok(stripped), Some(home_dir)) = (path.strip_prefix("~/"), home::home_dir()) {
-            path = home_dir.join(stripped);
-        }
+        let normalized = normalize_import(base_path, path);
 
-        if path.is_relative() {
-            if let Some(base_path) = base_path.parent() {
-                path = base_path.join(path)
-            }
-        }
-
-        import_paths.push(Ok(path));
+        import_paths.push(Ok(normalized));
     }
 
     Ok(import_paths)
+}
+
+/// Normalize import paths.
+pub fn normalize_import(base_config_path: &Path, import_path: impl Into<PathBuf>) -> PathBuf {
+    let mut import_path = import_path.into();
+
+    // Resolve paths relative to user's home directory.
+    if let (Ok(stripped), Some(home_dir)) = (import_path.strip_prefix("~/"), home::home_dir()) {
+        import_path = home_dir.join(stripped);
+    }
+
+    if import_path.is_relative() {
+        if let Some(base_config_dir) = base_config_path.parent() {
+            import_path = base_config_dir.join(import_path)
+        }
+    }
+
+    import_path
 }
 
 /// Prune the nulls from the YAML to ensure TOML compatibility.

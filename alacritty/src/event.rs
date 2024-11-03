@@ -1,6 +1,7 @@
 //! Process window events.
 
 use crate::ConfigMonitor;
+use glutin::config::GetGlConfig;
 use std::borrow::Cow;
 use std::cmp::min;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -16,7 +17,8 @@ use std::{env, f32, mem};
 
 use ahash::RandomState;
 use crossfont::Size as FontSize;
-use glutin::display::{Display as GlutinDisplay, GetGlDisplay};
+use glutin::config::Config as GlutinConfig;
+use glutin::display::GetGlDisplay;
 use log::{debug, error, info, warn};
 use winit::application::ApplicationHandler;
 use winit::event::{
@@ -34,6 +36,7 @@ use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
+use alacritty_terminal::vte::ansi::NamedColor;
 
 #[cfg(unix)]
 use crate::cli::{IpcConfig, ParsedOptions};
@@ -79,7 +82,7 @@ pub struct Processor {
     initial_window_error: Option<Box<dyn Error>>,
     windows: HashMap<WindowId, WindowContext, RandomState>,
     proxy: EventLoopProxy<Event>,
-    gl_display: Option<GlutinDisplay>,
+    gl_config: Option<GlutinConfig>,
     #[cfg(unix)]
     global_ipc_options: ParsedOptions,
     cli_options: CliOptions,
@@ -109,7 +112,7 @@ impl Processor {
         // The monitor watches the config file for changes and reloads it. Pending
         // config changes are processed in the main loop.
         let mut config_monitor = None;
-        if config.live_config_reload {
+        if config.live_config_reload() {
             config_monitor =
                 ConfigMonitor::new(config.config_paths.clone(), event_loop.create_proxy());
         }
@@ -120,7 +123,7 @@ impl Processor {
             cli_options,
             proxy,
             scheduler,
-            gl_display: None,
+            gl_config: None,
             config: Rc::new(config),
             clipboard,
             windows: Default::default(),
@@ -137,12 +140,16 @@ impl Processor {
     pub fn create_initial_window(
         &mut self,
         event_loop: &ActiveEventLoop,
-        options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
+        let options = match self.initial_window_options.take() {
+            Some(options) => options,
+            None => return Ok(()),
+        };
+
         let window_context =
             WindowContext::initial(event_loop, self.proxy.clone(), self.config.clone(), options)?;
 
-        self.gl_display = Some(window_context.display.gl_context().display());
+        self.gl_config = Some(window_context.display.gl_context().config());
         self.windows.insert(window_context.id(), window_context);
 
         Ok(())
@@ -154,7 +161,7 @@ impl Processor {
         event_loop: &ActiveEventLoop,
         options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let window = self.windows.iter().next().as_ref().unwrap().1;
+        let gl_config = self.gl_config.as_ref().unwrap();
 
         // Override config with CLI/IPC options.
         let mut config_overrides = options.config_overrides();
@@ -163,9 +170,14 @@ impl Processor {
         let mut config = self.config.clone();
         config = config_overrides.override_config_rc(config);
 
-        #[allow(unused_mut)]
-        let mut window_context =
-            window.additional(event_loop, self.proxy.clone(), config, options, config_overrides)?;
+        let window_context = WindowContext::additional(
+            gl_config,
+            event_loop,
+            self.proxy.clone(),
+            config,
+            options,
+            config_overrides,
+        )?;
 
         self.windows.insert(window_context.id(), window_context);
         Ok(())
@@ -209,16 +221,11 @@ impl ApplicationHandler<Event> for Processor {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if cause != StartCause::Init {
+        if cause != StartCause::Init || self.cli_options.daemon {
             return;
         }
 
-        let initial_window_options = match self.initial_window_options.take() {
-            Some(initial_window_options) => initial_window_options,
-            None => return,
-        };
-
-        if let Err(err) = self.create_initial_window(event_loop, initial_window_options) {
+        if let Err(err) = self.create_initial_window(event_loop) {
             self.initial_window_error = Some(err);
             event_loop.exit();
             return;
@@ -337,7 +344,13 @@ impl ApplicationHandler<Event> for Processor {
                     window_context.display.make_not_current();
                 }
 
-                if let Err(err) = self.create_window(event_loop, options.clone()) {
+                if self.gl_config.is_none() {
+                    // Handle initial window creation in daemon mode.
+                    if let Err(err) = self.create_initial_window(event_loop) {
+                        self.initial_window_error = Some(err);
+                        event_loop.exit();
+                    }
+                } else if let Err(err) = self.create_window(event_loop, options.clone()) {
                     error!("Could not open window: {:?}", err);
                 }
             },
@@ -374,7 +387,7 @@ impl ApplicationHandler<Event> for Processor {
                 self.scheduler.unschedule_window(window_context.id());
 
                 // Shutdown if no more terminals are open.
-                if self.windows.is_empty() {
+                if self.windows.is_empty() && !self.cli_options.daemon {
                     // Write ref tests of last window to disk.
                     if self.config.debug.ref_test {
                         window_context.write_ref_test_results();
@@ -438,7 +451,7 @@ impl ApplicationHandler<Event> for Processor {
             info!("Exiting the event loop");
         }
 
-        match self.gl_display.take() {
+        match self.gl_config.take().map(|config| config.display()) {
             #[cfg(not(target_os = "macos"))]
             Some(glutin::display::Display::Egl(display)) => {
                 // Ensure that all the windows are dropped, so the destructors for
@@ -1128,16 +1141,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         }
 
         let hint_bounds = hint.bounds();
-        let text = match hint.hyperlink() {
-            Some(hyperlink) => hyperlink.uri().to_owned(),
-            None => self.terminal.bounds_to_string(*hint_bounds.start(), *hint_bounds.end()),
+        let text = match hint.text(self.terminal) {
+            Some(text) => text,
+            None => return,
         };
 
         match &hint.action() {
             // Launch an external program.
             HintAction::Command(command) => {
                 let mut args = command.args().to_vec();
-                args.push(text);
+                args.push(text.into());
                 self.spawn_daemon(command.program(), &args);
             },
             // Copy the text to the clipboard.
@@ -1217,6 +1230,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             for c in text.chars() {
                 self.search_input(c);
             }
+        } else if self.inline_search_state.char_pending {
+            self.inline_search_input(text);
         } else if bracketed && self.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             self.on_terminal_input_start();
 
@@ -1290,6 +1305,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         self.inline_search_state.stop_short = stop_short;
         self.inline_search_state.direction = direction;
         self.inline_search_state.char_pending = true;
+        self.inline_search_state.character = None;
     }
 
     /// Jump to the next matching character in the line.
@@ -1302,6 +1318,22 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn inline_search_previous(&mut self) {
         let direction = self.inline_search_state.direction.opposite();
         self.inline_search(direction);
+    }
+
+    /// Process input during inline search.
+    fn inline_search_input(&mut self, text: &str) {
+        // Ignore input with empty text, like modifier keys.
+        let c = match text.chars().next() {
+            Some(c) => c,
+            None => return,
+        };
+
+        self.inline_search_state.char_pending = false;
+        self.inline_search_state.character = Some(c);
+        self.window().set_ime_allowed(false);
+
+        // Immediately move to the captured character.
+        self.inline_search_next();
     }
 
     fn message(&self) -> Option<&Message> {
@@ -1737,9 +1769,12 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
                     },
                     TerminalEvent::ColorRequest(index, format) => {
-                        let color = self.ctx.terminal().colors()[index]
-                            .map(Rgb)
-                            .unwrap_or(self.ctx.display.colors[index]);
+                        let color = match self.ctx.terminal().colors()[index] {
+                            Some(color) => Rgb(color),
+                            // Ignore cursor color requests unless it was changed.
+                            None if index == NamedColor::Cursor as usize => return,
+                            None => self.ctx.display.colors[index],
+                        };
                         self.ctx.write_to_pty(format(color.0).into_bytes());
                     },
                     TerminalEvent::TextAreaSizeRequest(format) => {
@@ -1839,11 +1874,8 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             self.ctx.update_cursor_blinking();
                         },
                         Ime::Preedit(text, cursor_offset) => {
-                            let preedit = if text.is_empty() {
-                                None
-                            } else {
-                                Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
-                            };
+                            let preedit =
+                                (!text.is_empty()).then(|| Preedit::new(text, cursor_offset));
 
                             if self.ctx.display.ime.preedit() != preedit.as_ref() {
                                 self.ctx.display.ime.set_preedit(preedit);

@@ -20,13 +20,13 @@ const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
 /// Create an IPC socket.
 pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
-    // Create the IPC socket and export its path as env variable if necessary.
+    // Create the IPC socket and export its path as env.
+
     let socket_path = options.socket.clone().unwrap_or_else(|| {
         let mut path = socket_dir();
         path.push(format!("{}-{}.sock", socket_prefix(), process::id()));
         path
     });
-    env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
 
     let listener = match UnixListener::bind(&socket_path) {
         Ok(listener) => listener,
@@ -35,6 +35,11 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
             return None;
         },
     };
+
+    env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
+    if options.daemon {
+        println!("ALACRITTY_SOCKET={}; export ALACRITTY_SOCKET", socket_path.display());
+    }
 
     // Spawn a thread to listen on the IPC socket.
     thread::spawn_named("socket listener", move || {
@@ -111,7 +116,7 @@ fn find_socket(socket_path: Option<PathBuf>) -> IoResult<UnixStream> {
     if let Some(socket_path) = socket_path {
         // Ensure we inform the user about an invalid path.
         return UnixStream::connect(&socket_path).map_err(|err| {
-            let message = format!("invalid socket path {:?}", socket_path);
+            let message = format!("invalid socket path {socket_path:?}");
             IoError::new(err.kind(), message)
         });
     }

@@ -127,6 +127,7 @@ pub trait ActionContext<T: EventListener> {
     fn inline_search_state(&mut self) -> &mut InlineSearchState;
     fn start_inline_search(&mut self, _direction: Direction, _stop_short: bool) {}
     fn inline_search_next(&mut self) {}
+    fn inline_search_input(&mut self, _text: &str) {}
     fn inline_search_previous(&mut self) {}
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
@@ -809,7 +810,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
             let chr = if is_focused { "I" } else { "O" };
 
-            let msg = format!("\x1b[{}", chr);
+            let msg = format!("\x1b[{chr}");
             self.ctx.write_to_pty(msg.into_bytes());
         }
     }
@@ -1135,7 +1136,7 @@ mod tests {
         inline_search_state: &'a mut InlineSearchState,
     }
 
-    impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
+    impl<T: EventListener> super::ActionContext<T> for ActionContext<'_, T> {
         fn search_next(
             &mut self,
             _origin: Point,

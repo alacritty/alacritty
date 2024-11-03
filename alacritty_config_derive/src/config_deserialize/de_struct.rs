@@ -155,6 +155,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
                 if let Some(warning) = parsed.param {
                     message = format!("{}; {}", message, warning.value());
                 }
+                message.push_str("\nUse `alacritty migrate` to automatically resolve it");
 
                 // Append stream to log deprecation/removal warning.
                 match_assignment_stream.extend(quote! {

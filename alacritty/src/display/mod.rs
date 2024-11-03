@@ -29,8 +29,7 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{
-    self, point_to_viewport, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS,
-    MIN_SCREEN_LINES,
+    self, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
@@ -343,9 +342,13 @@ pub struct Display {
 
     /// Hint highlighted by the mouse.
     pub highlighted_hint: Option<HintMatch>,
+    /// Frames since hint highlight was created.
+    highlighted_hint_age: usize,
 
     /// Hint highlighted by the vi mode cursor.
     pub vi_highlighted_hint: Option<HintMatch>,
+    /// Frames since hint highlight was created.
+    vi_highlighted_hint_age: usize,
 
     pub raw_window_handle: RawWindowHandle,
 
@@ -481,6 +484,10 @@ impl Display {
 
         window.set_visible(true);
 
+        // Always focus new windows, even if no Alacritty window is currently focused.
+        #[cfg(target_os = "macos")]
+        window.focus_window();
+
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
         if !_tabbed {
@@ -517,6 +524,8 @@ impl Display {
             font_size,
             window,
             pending_renderer_update: Default::default(),
+            vi_highlighted_hint_age: Default::default(),
+            highlighted_hint_age: Default::default(),
             vi_highlighted_hint: Default::default(),
             highlighted_hint: Default::default(),
             hint_mouse_point: Default::default(),
@@ -746,38 +755,36 @@ impl Display {
         let vi_cursor_point = if vi_mode { Some(terminal.vi_mode_cursor.point) } else { None };
 
         // Add damage from the terminal.
-        if self.collect_damage() {
-            match terminal.damage() {
-                TermDamage::Full => self.damage_tracker.frame().mark_fully_damaged(),
-                TermDamage::Partial(damaged_lines) => {
-                    for damage in damaged_lines {
-                        self.damage_tracker.frame().damage_line(damage);
-                    }
-                },
-            }
-            terminal.reset_damage();
+        match terminal.damage() {
+            TermDamage::Full => self.damage_tracker.frame().mark_fully_damaged(),
+            TermDamage::Partial(damaged_lines) => {
+                for damage in damaged_lines {
+                    self.damage_tracker.frame().damage_line(damage);
+                }
+            },
         }
+        terminal.reset_damage();
 
         // Drop terminal as early as possible to free lock.
         drop(terminal);
 
+        // Invalidate highlighted hints if grid has changed.
+        self.validate_hint_highlights(display_offset);
+
         // Add damage from alacritty's UI elements overlapping terminal.
-        if self.collect_damage() {
-            let requires_full_damage = self.visual_bell.intensity() != 0.
-                || self.hint_state.active()
-                || search_state.regex().is_some();
 
-            if requires_full_damage {
-                self.damage_tracker.frame().mark_fully_damaged();
-                self.damage_tracker.next_frame().mark_fully_damaged();
-            }
-
-            let vi_cursor_viewport_point =
-                vi_cursor_point.and_then(|cursor| point_to_viewport(display_offset, cursor));
-
-            self.damage_tracker.damage_vi_cursor(vi_cursor_viewport_point);
-            self.damage_tracker.damage_selection(selection_range, display_offset);
+        let requires_full_damage = self.visual_bell.intensity() != 0.
+            || self.hint_state.active()
+            || search_state.regex().is_some();
+        if requires_full_damage {
+            self.damage_tracker.frame().mark_fully_damaged();
+            self.damage_tracker.next_frame().mark_fully_damaged();
         }
+
+        let vi_cursor_viewport_point =
+            vi_cursor_point.and_then(|cursor| term::point_to_viewport(display_offset, cursor));
+        self.damage_tracker.damage_vi_cursor(vi_cursor_viewport_point);
+        self.damage_tracker.damage_selection(selection_range, display_offset);
 
         // Make sure this window's OpenGL context is active.
         self.make_current();
@@ -802,36 +809,27 @@ impl Display {
             let vi_highlighted_hint = &self.vi_highlighted_hint;
             let damage_tracker = &mut self.damage_tracker;
 
-            self.renderer.draw_cells(
-                &size_info,
-                glyph_cache,
-                grid_cells.into_iter().map(|mut cell| {
-                    // Underline hints hovered by mouse or vi mode cursor.
+            let cells = grid_cells.into_iter().map(|mut cell| {
+                // Underline hints hovered by mouse or vi mode cursor.
+                if has_highlighted_hint {
                     let point = term::viewport_to_point(display_offset, cell.point);
+                    let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
 
-                    if has_highlighted_hint {
-                        let hyperlink =
-                            cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
-                        if highlighted_hint
-                            .as_ref()
-                            .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                            || vi_highlighted_hint
-                                .as_ref()
-                                .map_or(false, |hint| hint.should_highlight(point, hyperlink))
-                        {
-                            cell.flags.insert(Flags::UNDERLINE);
-                            // Damage hints for the current and next frames.
-                            damage_tracker.frame().damage_point(cell.point);
-                            damage_tracker.next_frame().damage_point(cell.point);
-                        }
+                    let should_highlight = |hint: &Option<HintMatch>| {
+                        hint.as_ref().map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                    };
+                    if should_highlight(highlighted_hint) || should_highlight(vi_highlighted_hint) {
+                        damage_tracker.frame().damage_point(cell.point);
+                        cell.flags.insert(Flags::UNDERLINE);
                     }
+                }
 
-                    // Update underline/strikeout.
-                    lines.update(&cell);
+                // Update underline/strikeout.
+                lines.update(&cell);
 
-                    cell
-                }),
-            );
+                cell
+            });
+            self.renderer.draw_cells(&size_info, glyph_cache, cells);
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
@@ -886,7 +884,9 @@ impl Display {
                 if self.ime.preedit().is_none() {
                     let fg = config.colors.footer_bar_foreground();
                     let shape = CursorShape::Underline;
-                    let cursor = RenderableCursor::new(Point::new(line, column), shape, fg, false);
+                    let cursor_width = NonZeroU32::new(1).unwrap();
+                    let cursor =
+                        RenderableCursor::new(Point::new(line, column), shape, fg, cursor_width);
                     rects.extend(cursor.rects(&size_info, config.cursor.thickness()));
                 }
 
@@ -894,8 +894,11 @@ impl Display {
             },
             None => {
                 let num_lines = self.size_info.screen_lines();
-                term::point_to_viewport(display_offset, cursor_point)
-                    .filter(|point| point.line < num_lines)
+                match vi_cursor_viewport_point {
+                    None => term::point_to_viewport(display_offset, cursor_point)
+                        .filter(|point| point.line < num_lines),
+                    point => point,
+                }
             },
         };
 
@@ -1024,11 +1027,19 @@ impl Display {
         };
         let mut dirty = vi_highlighted_hint != self.vi_highlighted_hint;
         self.vi_highlighted_hint = vi_highlighted_hint;
+        self.vi_highlighted_hint_age = 0;
+
+        // Force full redraw if the vi mode highlight was cleared.
+        if dirty {
+            self.damage_tracker.frame().mark_fully_damaged();
+        }
 
         // Abort if mouse highlighting conditions are not met.
         if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
-            dirty |= self.highlighted_hint.is_some();
-            self.highlighted_hint = None;
+            if self.highlighted_hint.take().is_some() {
+                self.damage_tracker.frame().mark_fully_damaged();
+                dirty = true;
+            }
             return dirty;
         }
 
@@ -1052,8 +1063,15 @@ impl Display {
             }
         }
 
-        dirty |= self.highlighted_hint != highlighted_hint;
+        let mouse_highlight_dirty = self.highlighted_hint != highlighted_hint;
+        dirty |= mouse_highlight_dirty;
         self.highlighted_hint = highlighted_hint;
+        self.highlighted_hint_age = 0;
+
+        // Force full redraw if the mouse cursor highlight was changed.
+        if mouse_highlight_dirty {
+            self.damage_tracker.frame().mark_fully_damaged();
+        }
 
         dirty
     }
@@ -1080,8 +1098,8 @@ impl Display {
 
         // Get the visible preedit.
         let visible_text: String = match (preedit.cursor_byte_offset, preedit.cursor_end_offset) {
-            (Some(byte_offset), Some(end_offset)) if end_offset > num_cols => StrShortener::new(
-                &preedit.text[byte_offset..],
+            (Some(byte_offset), Some(end_offset)) if end_offset.0 > num_cols => StrShortener::new(
+                &preedit.text[byte_offset.0..],
                 num_cols,
                 ShortenDirection::Right,
                 Some(SHORTENER),
@@ -1113,7 +1131,7 @@ impl Display {
         );
 
         // Damage preedit inside the terminal viewport.
-        if self.collect_damage() && point.line < self.size_info.screen_lines() {
+        if point.line < self.size_info.screen_lines() {
             let damage = LineDamageBounds::new(start.line, 0, num_cols);
             self.damage_tracker.frame().damage_line(damage);
             self.damage_tracker.next_frame().damage_line(damage);
@@ -1124,19 +1142,21 @@ impl Display {
         rects.extend(underline.rects(Flags::UNDERLINE, &metrics, &self.size_info));
 
         let ime_popup_point = match preedit.cursor_end_offset {
-            Some(cursor_end_offset) if cursor_end_offset != 0 => {
-                let is_wide = preedit.text[preedit.cursor_byte_offset.unwrap_or_default()..]
-                    .chars()
-                    .next()
-                    .map(|ch| ch.width() == Some(2))
-                    .unwrap_or_default();
+            Some(cursor_end_offset) => {
+                // Use hollow block when multiple characters are changed at once.
+                let (shape, width) = if let Some(width) =
+                    NonZeroU32::new((cursor_end_offset.0 - cursor_end_offset.1) as u32)
+                {
+                    (CursorShape::HollowBlock, width)
+                } else {
+                    (CursorShape::Beam, NonZeroU32::new(1).unwrap())
+                };
 
                 let cursor_column = Column(
-                    (end.column.0 as isize - cursor_end_offset as isize + 1).max(0) as usize,
+                    (end.column.0 as isize - cursor_end_offset.0 as isize + 1).max(0) as usize,
                 );
                 let cursor_point = Point::new(point.line, cursor_column);
-                let cursor =
-                    RenderableCursor::new(cursor_point, CursorShape::HollowBlock, fg, is_wide);
+                let cursor = RenderableCursor::new(cursor_point, shape, fg, width);
                 rects.extend(cursor.rects(&self.size_info, config.cursor.thickness()));
                 cursor_point
             },
@@ -1224,13 +1244,11 @@ impl Display {
         let bg = config.colors.footer_bar_background();
         for (uri, point) in uris.into_iter().zip(uri_lines) {
             // Damage the uri preview.
-            if self.collect_damage() {
-                let damage = LineDamageBounds::new(point.line, point.column.0, num_cols);
-                self.damage_tracker.frame().damage_line(damage);
+            let damage = LineDamageBounds::new(point.line, point.column.0, num_cols);
+            self.damage_tracker.frame().damage_line(damage);
 
-                // Damage the uri preview for the next frame as well.
-                self.damage_tracker.next_frame().damage_line(damage);
-            }
+            // Damage the uri preview for the next frame as well.
+            self.damage_tracker.next_frame().damage_line(damage);
 
             self.renderer.draw_string(point, fg, bg, uri, &self.size_info, &mut self.glyph_cache);
         }
@@ -1241,7 +1259,7 @@ impl Display {
     fn draw_search(&mut self, config: &UiConfig, text: &str) {
         // Assure text length is at least num_cols.
         let num_cols = self.size_info.columns();
-        let text = format!("{:<1$}", text, num_cols);
+        let text = format!("{text:<num_cols$}");
 
         let point = Point::new(self.size_info.screen_lines(), Column(0));
 
@@ -1270,12 +1288,10 @@ impl Display {
         let fg = config.colors.primary.background;
         let bg = config.colors.normal.red;
 
-        if self.collect_damage() {
-            let damage = LineDamageBounds::new(point.line, point.column.0, timing.len());
-            self.damage_tracker.frame().damage_line(damage);
-            // Damage the render timer for the next frame.
-            self.damage_tracker.next_frame().damage_line(damage);
-        }
+        // Damage render timer for current and next frame.
+        let damage = LineDamageBounds::new(point.line, point.column.0, timing.len());
+        self.damage_tracker.frame().damage_line(damage);
+        self.damage_tracker.next_frame().damage_line(damage);
 
         let glyph_cache = &mut self.glyph_cache;
         self.renderer.draw_string(point, fg, bg, timing.chars(), &self.size_info, glyph_cache);
@@ -1295,12 +1311,10 @@ impl Display {
         let column = Column(self.size_info.columns().saturating_sub(text.len()));
         let point = Point::new(0, column);
 
-        if self.collect_damage() {
-            let damage = LineDamageBounds::new(point.line, point.column.0, columns - 1);
-            self.damage_tracker.frame().damage_line(damage);
-            // Damage it on the next frame in case it goes away.
-            self.damage_tracker.next_frame().damage_line(damage);
-        }
+        // Damage the line indicator for current and next frame.
+        let damage = LineDamageBounds::new(point.line, point.column.0, columns - 1);
+        self.damage_tracker.frame().damage_line(damage);
+        self.damage_tracker.next_frame().damage_line(damage);
 
         let colors = &config.colors;
         let fg = colors.line_indicator.foreground.unwrap_or(colors.primary.background);
@@ -1311,12 +1325,6 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.draw_string(point, fg, bg, text.chars(), &self.size_info, glyph_cache);
         }
-    }
-
-    /// Returns `true` if damage information should be collected, `false` otherwise.
-    #[inline]
-    fn collect_damage(&self) -> bool {
-        matches!(self.raw_window_handle, RawWindowHandle::Wayland(_)) || self.damage_tracker.debug
     }
 
     /// Highlight damaged rects.
@@ -1331,6 +1339,42 @@ impl Display {
             let render_rect = RenderRect::new(x, y, width, height, DAMAGE_RECT_COLOR, 0.5);
 
             render_rects.push(render_rect);
+        }
+    }
+
+    /// Check whether a hint highlight needs to be cleared.
+    fn validate_hint_highlights(&mut self, display_offset: usize) {
+        let frame = self.damage_tracker.frame();
+        let hints = [
+            (&mut self.highlighted_hint, &mut self.highlighted_hint_age, true),
+            (&mut self.vi_highlighted_hint, &mut self.vi_highlighted_hint_age, false),
+        ];
+        for (hint, hint_age, reset_mouse) in hints {
+            let (start, end) = match hint {
+                Some(hint) => (*hint.bounds().start(), *hint.bounds().end()),
+                None => continue,
+            };
+
+            // Ignore hints that were created this frame.
+            *hint_age += 1;
+            if *hint_age == 1 {
+                continue;
+            }
+
+            // Convert hint bounds to viewport coordinates.
+            let start = term::point_to_viewport(display_offset, start).unwrap_or_default();
+            let end = term::point_to_viewport(display_offset, end).unwrap_or_else(|| {
+                Point::new(self.size_info.screen_lines() - 1, self.size_info.last_column())
+            });
+
+            // Clear invalidated hints.
+            if frame.intersects(start, end) {
+                if reset_mouse {
+                    self.window.set_mouse_cursor(CursorIcon::Default);
+                }
+                frame.mark_fully_damaged();
+                *hint = None;
+            }
         }
     }
 
@@ -1419,20 +1463,22 @@ pub struct Preedit {
     /// Byte offset for cursor start into the preedit text.
     ///
     /// `None` means that the cursor is invisible.
-    cursor_byte_offset: Option<usize>,
+    cursor_byte_offset: Option<(usize, usize)>,
 
-    /// The cursor offset from the end of the preedit in char width.
-    cursor_end_offset: Option<usize>,
+    /// The cursor offset from the end of the start of the preedit in char width.
+    cursor_end_offset: Option<(usize, usize)>,
 }
 
 impl Preedit {
-    pub fn new(text: String, cursor_byte_offset: Option<usize>) -> Self {
+    pub fn new(text: String, cursor_byte_offset: Option<(usize, usize)>) -> Self {
         let cursor_end_offset = if let Some(byte_offset) = cursor_byte_offset {
             // Convert byte offset into char offset.
-            let cursor_end_offset =
-                text[byte_offset..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
+            let start_to_end_offset =
+                text[byte_offset.0..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
+            let end_to_end_offset =
+                text[byte_offset.1..].chars().fold(0, |acc, ch| acc + ch.width().unwrap_or(1));
 
-            Some(cursor_end_offset)
+            Some((start_to_end_offset, end_to_end_offset))
         } else {
             None
         };

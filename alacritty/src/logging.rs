@@ -108,16 +108,16 @@ impl Logger {
         };
 
         #[cfg(not(windows))]
-        let env_var = format!("${}", ALACRITTY_LOG_ENV);
+        let env_var = format!("${ALACRITTY_LOG_ENV}");
         #[cfg(windows)]
         let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
 
         let message = format!(
-            "[{}] See log at {} ({}):\n{}",
+            "[{}] {}\nSee log at {} ({})",
             record.level(),
+            record.args(),
             logfile_path,
             env_var,
-            record.args(),
         );
 
         let mut message = Message::new(message, message_type);
@@ -227,7 +227,7 @@ impl OnDemandLogFile {
                         writeln!(io::stdout(), "Created log file at \"{}\"", self.path.display());
                 },
                 Err(e) => {
-                    let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);
+                    let _ = writeln!(io::stdout(), "Unable to create log file: {e}");
                     return Err(e);
                 },
             }

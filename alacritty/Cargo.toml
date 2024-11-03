@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.14.0-dev"
+version = "0.15.0-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "A fast, cross-platform, OpenGL terminal emulator"
@@ -12,15 +12,15 @@ rust-version = "1.74.0"
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"
-version = "0.24.1-dev"
+version = "0.24.2-dev"
 
 [dependencies.alacritty_config_derive]
 path = "../alacritty_config_derive"
-version = "0.2.3-dev"
+version = "0.2.5-dev"
 
 [dependencies.alacritty_config]
 path = "../alacritty_config"
-version = "0.2.1-dev"
+version = "0.2.3-dev"
 
 [dependencies]
 ahash = { version = "0.8.6", features = ["no-rng"] }
@@ -34,10 +34,12 @@ libc = "0.2"
 log = { version = "0.4", features = ["std", "serde"] }
 notify = "6.1.1"
 parking_lot = "0.12.0"
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9.25"
+tempfile = "3.12.0"
 toml = "0.8.2"
+toml_edit = "0.22.21"
 unicode-width = "0.1"
 winit = { version = "0.30.4", default-features = false, features = ["rwh_06", "serde"] }
 
@@ -54,7 +56,7 @@ xdg = "2.5.0"
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.25.0"
+cocoa = "0.26.0"
 objc = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]

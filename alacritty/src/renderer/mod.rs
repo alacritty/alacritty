@@ -66,10 +66,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Shader(err) => {
-                write!(f, "There was an error initializing the shaders: {}", err)
+                write!(f, "There was an error initializing the shaders: {err}")
             },
             Error::Other(err) => {
-                write!(f, "{}", err)
+                write!(f, "{err}")
             },
         }
     }
@@ -111,9 +111,9 @@ fn gl_get_string(
                 Ok(CStr::from_ptr(string_ptr as *const _).to_string_lossy())
             },
             gl::INVALID_ENUM => {
-                Err(format!("OpenGL error requesting {}: invalid enum", description).into())
+                Err(format!("OpenGL error requesting {description}: invalid enum").into())
             },
-            error_id => Err(format!("OpenGL error {} requesting {}", error_id, description).into()),
+            error_id => Err(format!("OpenGL error {error_id} requesting {description}").into()),
         }
     }
 }

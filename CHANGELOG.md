@@ -8,7 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.14.0-dev
+## 0.15.0-dev
+
+### Added
+
+- Option `font.builtin_box_thickness` to change thickness of the built-in box and powerline characters
+
+### Changed
+
+- Always focus new windows on macOS
+
+### Fixed
+
+- Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+- Hint launcher opening arbitrary text, when terminal content changed while opening
+
+## 0.14.0
 
 ### Packaging
 
@@ -17,13 +32,19 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Support relative path imports from config files
-- Option `font.builtin_box_thickness` to change thickness of the built-in box and powerline characters
+- `alacritty migrate` support for TOML configuration changes
+- Headless mode using `alacritty --daemon`
 
 ### Changed
 
 - Pressing `Alt` with unicode input will now add `ESC` like for ASCII input
 - Decorations use opaque style and system window background on macOS
 - No longer source `~/.zshenv` on macOS
+- Moved config options `import`, `working_directory`, `live_config_reload`, and `ipc_socket`
+    to the new `general` section
+- Moved config option `shell` to `terminal.shell`
+- `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
+- Use `Beam` cursor for single char cursor inside the IME preview
 
 ### Fixed
 
@@ -38,6 +59,13 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Kitty keyboard protocol reporting shifted key codes
 - Broken search with words broken across line boundary on the first character
 - Config import changes not being live reloaded
+- Cursor color requests with default cursor colors
+- Fullwidth semantic escape characters
+- Windows app icon now displays properly in old alt+tab on Windows
+- Alacritty not being properly activated with startup notify
+- Invalid URL highlights after terminal scrolling
+- Hollow block cursor not spanning multiple chars being edited inside the IME preview
+- Vi inline search only working for direct key input without modifiers
 
 ## 0.13.2
 

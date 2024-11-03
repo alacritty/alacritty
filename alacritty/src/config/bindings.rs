@@ -5,6 +5,7 @@ use std::fmt::{self, Debug, Display};
 use bitflags::bitflags;
 use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
+use std::rc::Rc;
 use toml::Value as SerdeValue;
 use winit::event::MouseButton;
 use winit::keyboard::{
@@ -96,7 +97,7 @@ pub enum Action {
 
     /// Regex keyboard hints.
     #[config(skip)]
-    Hint(Hint),
+    Hint(Rc<Hint>),
 
     /// Move vi mode cursor.
     #[config(skip)]
@@ -287,7 +288,7 @@ impl Display for Action {
             Action::ViMotion(motion) => motion.fmt(f),
             Action::Vi(action) => action.fmt(f),
             Action::Mouse(action) => action.fmt(f),
-            _ => write!(f, "{:?}", self),
+            _ => write!(f, "{self:?}"),
         }
     }
 }
@@ -790,7 +791,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
     {
         struct ModeVisitor;
 
-        impl<'a> Visitor<'a> for ModeVisitor {
+        impl Visitor<'_> for ModeVisitor {
             type Value = ModeWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -844,7 +845,7 @@ impl<'a> Deserialize<'a> for MouseButtonWrapper {
     {
         struct MouseButtonVisitor;
 
-        impl<'a> Visitor<'a> for MouseButtonVisitor {
+        impl Visitor<'_> for MouseButtonVisitor {
             type Value = MouseButtonWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -956,7 +957,7 @@ impl<'a> Deserialize<'a> for RawBinding {
             {
                 struct FieldVisitor;
 
-                impl<'a> Visitor<'a> for FieldVisitor {
+                impl Visitor<'_> for FieldVisitor {
                     type Value = Field;
 
                     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1024,8 +1025,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                                     },
                                     Err(_) => {
                                         return Err(<V::Error as Error>::custom(format!(
-                                            "Invalid key binding, scancode is too big: {}",
-                                            scancode
+                                            "Invalid key binding, scancode is too big: {scancode}"
                                         )));
                                     },
                                 },
@@ -1080,8 +1080,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                                             _ => return Err(err),
                                         };
                                         return Err(V::Error::custom(format!(
-                                            "unknown keyboard action `{}`",
-                                            value
+                                            "unknown keyboard action `{value}`"
                                         )));
                                     },
                                 }
@@ -1122,8 +1121,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                     (Some(action @ Action::Mouse(_)), None, None) => {
                         if mouse.is_none() {
                             return Err(V::Error::custom(format!(
-                                "action `{}` is only available for mouse bindings",
-                                action,
+                                "action `{action}` is only available for mouse bindings",
                             )));
                         }
                         action
@@ -1207,7 +1205,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
     {
         struct ModsVisitor;
 
-        impl<'a> Visitor<'a> for ModsVisitor {
+        impl Visitor<'_> for ModsVisitor {
             type Value = ModsWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
