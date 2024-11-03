@@ -293,6 +293,12 @@ macOS:     { family = _"Menlo"_,     style = _"Regular"_ }
 
 	Default: _true_
 
+*builtin_box_thickness* = _<integer>_
+
+	Thickness (in pixels) of the built-in box characters and powerline symbols.
+
+	Default: _1_
+
 # COLORS
 
 This section documents the *[colors]* table of the configuration file.

@@ -42,6 +42,9 @@ pub struct Font {
 
     /// Whether to use the built-in font for box drawing characters.
     pub builtin_box_drawing: bool,
+
+    /// Thickness of the built-in box characters.
+    pub builtin_box_thickness: i8,
 }
 
 impl Font {
@@ -80,6 +83,7 @@ impl Default for Font {
     fn default() -> Font {
         Self {
             builtin_box_drawing: true,
+            builtin_box_thickness: 1,
             glyph_offset: Default::default(),
             use_thin_strokes: Default::default(),
             bold_italic: Default::default(),

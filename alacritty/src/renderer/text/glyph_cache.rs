@@ -76,6 +76,9 @@ pub struct GlyphCache {
 
     /// Whether to use the built-in font for box drawing characters.
     builtin_box_drawing: bool,
+
+    /// Thickness of the built-in box characters.
+    builtin_box_thickness: i8,
 }
 
 impl GlyphCache {
@@ -101,6 +104,7 @@ impl GlyphCache {
             glyph_offset: font.glyph_offset,
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
+            builtin_box_thickness: font.builtin_box_thickness,
         })
     }
 
@@ -206,6 +210,7 @@ impl GlyphCache {
                     &self.metrics,
                     &self.font_offset,
                     &self.glyph_offset,
+                    self.builtin_box_thickness,
                 )
             })
             .flatten()
@@ -295,6 +300,7 @@ impl GlyphCache {
         self.bold_italic_key = bold_italic;
         self.metrics = metrics;
         self.builtin_box_drawing = font.builtin_box_drawing;
+        self.builtin_box_thickness = font.builtin_box_thickness;
 
         Ok(())
     }

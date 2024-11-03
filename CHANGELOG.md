@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Support relative path imports from config files
+- Option `font.builtin_box_thickness` to change thickness of the built-in box and powerline characters
 
 ### Changed
 

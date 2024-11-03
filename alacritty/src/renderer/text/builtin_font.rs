@@ -25,15 +25,16 @@ pub fn builtin_glyph(
     metrics: &Metrics,
     offset: &Delta<i8>,
     glyph_offset: &Delta<i8>,
+    box_thickness: i8,
 ) -> Option<RasterizedGlyph> {
     let mut glyph = match character {
         // Box drawing characters and block elements.
         '\u{2500}'..='\u{259f}' | '\u{1fb00}'..='\u{1fb3b}' => {
-            box_drawing(character, metrics, offset)
+            box_drawing(character, metrics, offset, box_thickness)
         },
         // Powerline symbols: '','','',''
         POWERLINE_TRIANGLE_LTR..=POWERLINE_ARROW_RTL => {
-            powerline_drawing(character, metrics, offset)?
+            powerline_drawing(character, metrics, offset, box_thickness)?
         },
         _ => return None,
     };
@@ -46,11 +47,16 @@ pub fn builtin_glyph(
     Some(glyph)
 }
 
-fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> RasterizedGlyph {
+fn box_drawing(
+    character: char,
+    metrics: &Metrics,
+    offset: &Delta<i8>,
+    thickness: i8,
+) -> RasterizedGlyph {
     // Ensure that width and height is at least one.
     let height = (metrics.line_height as i32 + offset.y as i32).max(1) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32).max(1) as usize;
-    let stroke_size = calculate_stroke_size(width);
+    let stroke_size = calculate_stroke_size(width, thickness);
     let heavy_stroke_size = stroke_size * 2;
 
     // Certain symbols require larger canvas than the cell itself, since for proper contiguous
@@ -591,10 +597,11 @@ fn powerline_drawing(
     character: char,
     metrics: &Metrics,
     offset: &Delta<i8>,
+    thickness: i8,
 ) -> Option<RasterizedGlyph> {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
-    let extra_thickness = calculate_stroke_size(width) as i32 - 1;
+    let extra_thickness = calculate_stroke_size(width, thickness) as i32 - 1;
 
     let mut canvas = Canvas::new(width, height);
 
@@ -978,9 +985,9 @@ impl Canvas {
 }
 
 /// Compute line width.
-fn calculate_stroke_size(cell_width: usize) -> usize {
+fn calculate_stroke_size(cell_width: usize, thickness: i8) -> usize {
     // Use one eight of the cell width, since this is used as a step size for block elements.
-    cmp::max((cell_width as f32 / 8.).round() as usize, 1)
+    cmp::max((cell_width as f32 / 8.).round() as usize, thickness as usize)
 }
 
 /// `f(x) = slope * x + offset` equation.
@@ -1011,11 +1018,11 @@ mod tests {
 
         // Test coverage of box drawing characters.
         for character in ('\u{2500}'..='\u{259f}').chain('\u{1fb00}'..='\u{1fb3b}') {
-            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_some());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset, 1).is_some());
         }
 
         for character in ('\u{2450}'..'\u{2500}').chain('\u{25a0}'..'\u{2600}') {
-            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_none());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset, 1).is_none());
         }
     }
 
@@ -1026,11 +1033,11 @@ mod tests {
 
         // Test coverage of box drawing characters.
         for character in '\u{e0b0}'..='\u{e0b3}' {
-            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_some());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset, 1).is_some());
         }
 
         for character in ('\u{e0a0}'..'\u{e0b0}').chain('\u{e0b4}'..'\u{e0c0}') {
-            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset).is_none());
+            assert!(builtin_glyph(character, &METRICS, &offset, &glyph_offset, 1).is_none());
         }
     }
 }
