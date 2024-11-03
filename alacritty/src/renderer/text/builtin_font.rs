@@ -25,7 +25,7 @@ pub fn builtin_glyph(
     metrics: &Metrics,
     offset: &Delta<i8>,
     glyph_offset: &Delta<i8>,
-    box_thickness: i8,
+    box_thickness: u8,
 ) -> Option<RasterizedGlyph> {
     let mut glyph = match character {
         // Box drawing characters and block elements.
@@ -51,7 +51,7 @@ fn box_drawing(
     character: char,
     metrics: &Metrics,
     offset: &Delta<i8>,
-    thickness: i8,
+    thickness: u8,
 ) -> RasterizedGlyph {
     // Ensure that width and height is at least one.
     let height = (metrics.line_height as i32 + offset.y as i32).max(1) as usize;
@@ -597,7 +597,7 @@ fn powerline_drawing(
     character: char,
     metrics: &Metrics,
     offset: &Delta<i8>,
-    thickness: i8,
+    thickness: u8,
 ) -> Option<RasterizedGlyph> {
     let height = (metrics.line_height as i32 + offset.y as i32) as usize;
     let width = (metrics.average_advance as i32 + offset.x as i32) as usize;
@@ -985,9 +985,9 @@ impl Canvas {
 }
 
 /// Compute line width.
-fn calculate_stroke_size(cell_width: usize, thickness: i8) -> usize {
+fn calculate_stroke_size(cell_width: usize, thickness: u8) -> usize {
     // Use one eight of the cell width, since this is used as a step size for block elements.
-    cmp::max((cell_width as f32 / 8.).round() as usize, thickness as usize)
+    cmp::max((cell_width as f32 / 8.).round() as usize, thickness.max(1) as usize)
 }
 
 /// `f(x) = slope * x + offset` equation.

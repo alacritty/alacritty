@@ -44,7 +44,7 @@ pub struct Font {
     pub builtin_box_drawing: bool,
 
     /// Thickness of the built-in box characters.
-    pub builtin_box_thickness: i8,
+    pub builtin_box_thickness: u8,
 }
 
 impl Font {

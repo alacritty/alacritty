@@ -78,7 +78,7 @@ pub struct GlyphCache {
     builtin_box_drawing: bool,
 
     /// Thickness of the built-in box characters.
-    builtin_box_thickness: i8,
+    builtin_box_thickness: u8,
 }
 
 impl GlyphCache {
