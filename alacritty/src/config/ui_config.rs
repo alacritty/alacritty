@@ -71,6 +71,9 @@ pub struct UiConfig {
     /// Bell configuration.
     pub bell: BellConfig,
 
+    /// Monochrome configuration.
+    pub monochrome: bool,
+
     /// RGB values for colors.
     pub colors: Colors,
 

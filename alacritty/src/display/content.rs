@@ -32,6 +32,7 @@ pub struct RenderableContent<'a> {
     search: Option<HintMatches<'a>>,
     hint: Option<Hint<'a>>,
     config: &'a UiConfig,
+    monochrome: &'a bool,
     colors: &'a List,
     focused_match: Option<&'a Match>,
     size: &'a SizeInfo,
@@ -74,6 +75,7 @@ impl<'a> RenderableContent<'a> {
         };
 
         Self {
+            monochrome: &display.monochrome,
             colors: &display.colors,
             size: &display.size_info,
             cursor: RenderableCursor::new_hidden(),
@@ -217,6 +219,12 @@ impl RenderableCell {
         } else {
             Self::compute_bg_alpha(content.config, cell.bg)
         };
+
+        if *content.monochrome {
+            fg = Rgb::new(0, 0, 0);
+            bg = Rgb::new(255, 255, 255);
+            bg_alpha = 1.0;
+        }
 
         let is_selected = content.terminal_content.selection.map_or(false, |selection| {
             selection.contains_cell(

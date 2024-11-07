@@ -887,6 +887,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             .set_font(self.config.font.clone().with_size(self.display.font_size));
     }
 
+    fn toggle_monochrome(&mut self) {
+        self.display.monochrome = !self.display.monochrome;
+        self.display
+            .pending_update
+            .set_font(self.config.font.clone().with_size(self.display.font_size));
+    }
+
     #[inline]
     fn pop_message(&mut self) {
         if !self.message_buffer.is_empty() {

@@ -357,6 +357,8 @@ pub struct Display {
 
     pub visual_bell: VisualBell,
 
+    pub monochrome: bool,
+
     /// Mapped RGB values for each terminal color.
     pub colors: List,
 
@@ -514,6 +516,7 @@ impl Display {
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
             surface: ManuallyDrop::new(surface),
+            monochrome: false,
             colors: List::from(&config.colors),
             frame_timer: FrameTimer::new(),
             raw_window_handle,

@@ -136,6 +136,9 @@ pub enum Action {
     /// Reset font size to the config value.
     ResetFontSize,
 
+    /// Toggle monochrome mode.
+    ToggleMonochrome,
+
     /// Scroll exactly one page up.
     ScrollPageUp,
 
@@ -542,6 +545,7 @@ fn common_keybindings() -> Vec<KeyBinding> {
         "c",    ModifiersState::CONTROL | ModifiersState::SHIFT;                                         Action::Copy;
         "c",    ModifiersState::CONTROL | ModifiersState::SHIFT, +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "0",    ModifiersState::CONTROL;                                                                 Action::ResetFontSize;
+        "g",    ModifiersState::CONTROL;                                                                 Action::ToggleMonochrome;
         "=",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "+",    ModifiersState::CONTROL;                                                                 Action::IncreaseFontSize;
         "-",    ModifiersState::CONTROL;                                                                 Action::DecreaseFontSize;
