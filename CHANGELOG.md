@@ -14,6 +14,15 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - window.level sets preferred window level (Normal, AlwaysOnTop).
 
+### Changed
+
+- Always focus new windows on macOS
+
+### Fixed
+
+- Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+- Hint launcher opening arbitrary text, when terminal content changed while opening
+
 ## 0.14.0
 
 ### Packaging
