@@ -155,11 +155,6 @@ impl WindowConfig {
     pub fn theme(&self) -> Option<WinitTheme> {
         self.decorations_theme_variant.map(WinitTheme::from)
     }
-
-    #[inline]
-    pub fn level(&self) -> WindowLevel {
-        self.level.into()
-    }
 }
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
