@@ -195,6 +195,12 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
+*level* = _"Normal"_ | _"AlwaysOnTop"_
+
+	Sets the window level (Normal, AlwaysOnTop).
+
+	Default: _"Normal"_
+
 Example:
 	*[window]*++
 padding = { x = _3_, y = _3_ }++
