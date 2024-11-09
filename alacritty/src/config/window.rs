@@ -63,7 +63,7 @@ pub struct WindowConfig {
     decorations_theme_variant: Option<Theme>,
 
     /// Window level.
-    pub window_level: WindowLevel,
+    pub level: WindowLevel,
 }
 
 impl Default for WindowConfig {
@@ -83,7 +83,7 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
-            window_level: Default::default(),
+            level: Default::default(),
         }
     }
 }
@@ -157,8 +157,8 @@ impl WindowConfig {
     }
 
     #[inline]
-    pub fn window_level(&self) -> WinitWindowLevel {
-        self.window_level.into()
+    pub fn level(&self) -> WindowLevel {
+        self.level.into()
     }
 }
 

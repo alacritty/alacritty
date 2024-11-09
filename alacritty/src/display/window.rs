@@ -171,7 +171,7 @@ impl Window {
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
             .with_fullscreen(config.window.fullscreen())
-            .with_window_level(config.window.window_level.into());
+            .with_window_level(config.window.level.into());
 
         let window = event_loop.create_window(window_attributes)?;
 
