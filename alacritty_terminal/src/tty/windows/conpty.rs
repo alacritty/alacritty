@@ -72,7 +72,7 @@ impl ConptyApi {
         type LoadedFn = unsafe extern "system" fn() -> isize;
         unsafe {
             let hmodule = LoadLibraryW(w!("conpty.dll"));
-            if hmodule == 0 {
+            if hmodule.is_null() {
                 return None;
             }
             let create_fn = GetProcAddress(hmodule, s!("CreatePseudoConsole"))?;

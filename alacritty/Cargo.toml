@@ -56,7 +56,7 @@ xdg = "2.5.0"
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.25.0"
+cocoa = "0.26.0"
 objc = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
