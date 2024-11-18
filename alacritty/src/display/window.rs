@@ -20,9 +20,7 @@ use std::fmt::{self, Display, Formatter};
 
 #[cfg(target_os = "macos")]
 use {
-    cocoa::appkit::NSColorSpace,
-    cocoa::base::{id, nil, NO, YES},
-    objc::{msg_send, sel, sel_impl},
+    objc2_app_kit::{NSColorSpace, NSView},
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
@@ -451,16 +449,12 @@ impl Window {
     /// This prevents rendering artifacts from showing up when the window is transparent.
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
-        let ns_view = match self.raw_window_handle() {
-            RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
+        let view = match self.raw_window_handle() {
+            RawWindowHandle::AppKit(handle) => unsafe { handle.ns_view.cast::<NSView>().as_ref() },
             _ => return,
         };
 
-        let value = if has_shadows { YES } else { NO };
-        unsafe {
-            let ns_window: id = msg_send![ns_view, window];
-            let _: id = msg_send![ns_window, setHasShadow: value];
-        }
+        view.window().unwrap().setHasShadow(has_shadows);
     }
 
     /// Select tab at the given `index`.
@@ -495,13 +489,12 @@ impl Window {
 
 #[cfg(target_os = "macos")]
 fn use_srgb_color_space(window: &WinitWindow) {
-    let ns_view = match window.window_handle().unwrap().as_raw() {
-        RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
+    let view = match window.window_handle().unwrap().as_raw() {
+        RawWindowHandle::AppKit(handle) => unsafe { handle.ns_view.cast::<NSView>().as_ref() },
         _ => return,
     };
 
     unsafe {
-        let ns_window: id = msg_send![ns_view, window];
-        let _: () = msg_send![ns_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
+        view.window().unwrap().setColorSpace(Some(&NSColorSpace::sRGBColorSpace()));
     }
 }
