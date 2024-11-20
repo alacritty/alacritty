@@ -66,7 +66,7 @@ fn system_locale() -> String {
             if let Some(country_code) = locale.countryCode() {
                 format!("{}_{}.UTF-8", language_code, country_code)
             } else {
-                // Fall back to en_US in case the country code is not available
+                // Fall back to en_US in case the country code is not available.
                 "en_US.UTF-8".into()
             }
         } else {
