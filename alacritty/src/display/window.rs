@@ -21,6 +21,7 @@ use std::fmt::{self, Display, Formatter};
 #[cfg(target_os = "macos")]
 use {
     objc2_app_kit::{NSColorSpace, NSView},
+    objc2_foundation::is_main_thread,
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
@@ -450,7 +451,10 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
         let view = match self.raw_window_handle() {
-            RawWindowHandle::AppKit(handle) => unsafe { handle.ns_view.cast::<NSView>().as_ref() },
+            RawWindowHandle::AppKit(handle) => {
+                assert!(is_main_thread());
+                unsafe { handle.ns_view.cast::<NSView>().as_ref() }
+            },
             _ => return,
         };
 
@@ -490,7 +494,10 @@ impl Window {
 #[cfg(target_os = "macos")]
 fn use_srgb_color_space(window: &WinitWindow) {
     let view = match window.window_handle().unwrap().as_raw() {
-        RawWindowHandle::AppKit(handle) => unsafe { handle.ns_view.cast::<NSView>().as_ref() },
+        RawWindowHandle::AppKit(handle) => {
+            assert!(is_main_thread());
+            unsafe { handle.ns_view.cast::<NSView>().as_ref() }
+        },
         _ => return,
     };
 
