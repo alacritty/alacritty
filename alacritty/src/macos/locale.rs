@@ -63,8 +63,12 @@ fn system_locale() -> String {
         if is_language_code_supported && is_country_code_supported {
             let language_code = locale.languageCode();
             #[allow(deprecated)]
-            let country_code = locale.countryCode().unwrap();
-            format!("{}_{}.UTF-8", language_code, country_code)
+            if let Some(country_code) = locale.countryCode() {
+                format!("{}_{}.UTF-8", language_code, country_code)
+            } else {
+                // Fall back to en_US in case the country code is not available
+                "en_US.UTF-8".into()
+            }
         } else {
             locale.localeIdentifier().to_string() + ".UTF-8"
         }
