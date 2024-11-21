@@ -56,8 +56,19 @@ xdg = "2.5.0"
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.26.0"
-objc = "0.2.2"
+objc2 = "0.5.2"
+objc2-foundation = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "NSString",
+    "NSLocale",
+] }
+objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "NSColorSpace",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }
 
 [target.'cfg(windows)'.dependencies]
 dirs = "5.0.1"
