@@ -18,6 +18,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
 - Hint launcher opening arbitrary text, when terminal content changed while opening
+- `SemanticRight`/`SemanticLeft` vi motions breaking with wide semantic escape characters
 
 ## 0.14.0
 
