@@ -930,6 +930,11 @@ impl<T> Term<T> {
         &self.config.semantic_escape_chars
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_semantic_escape_chars(&mut self, semantic_escape_chars: &str) {
+        self.config.semantic_escape_chars = semantic_escape_chars.into();
+    }
+
     /// Active terminal cursor style.
     ///
     /// While vi mode is active, this will automatically return the vi mode cursor style.
