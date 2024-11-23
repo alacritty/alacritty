@@ -12,7 +12,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Added
 
-- window.level sets preferred window level (Normal, AlwaysOnTop).
+- Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
 
 ### Changed
 

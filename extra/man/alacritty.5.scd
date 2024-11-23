@@ -197,7 +197,12 @@ This section documents the *[window]* table of the configuration file.
 
 *level* = _"Normal"_ | _"AlwaysOnTop"_
 
-	Sets the window level (Normal, AlwaysOnTop).
+	Sets window level.
+
+	*Normal*
+		Window adheres to system's default z-order.
+	*AlwaysOnTop*
+		Window is a toplevel window.
 
 	Default: _"Normal"_
 
