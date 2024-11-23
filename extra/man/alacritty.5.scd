@@ -195,6 +195,17 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
+*level* = _"Normal"_ | _"AlwaysOnTop"_
+
+	Sets window level.
+
+	*Normal*
+		Window adheres to system's default z-order.
+	*AlwaysOnTop*
+		Window is a toplevel window.
+
+	Default: _"Normal"_
+
 Example:
 	*[window]*++
 padding = { x = _3_, y = _3_ }++

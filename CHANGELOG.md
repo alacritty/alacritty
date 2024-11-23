@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.15.0-dev
 
+### Added
+
+- Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
+
 ### Changed
 
 - Always focus new windows on macOS
