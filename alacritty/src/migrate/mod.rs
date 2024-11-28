@@ -151,6 +151,14 @@ fn migrate_imports(
     // Migrate each import.
     for import in imports.into_iter().filter_map(|item| item.as_str()) {
         let normalized_path = config::normalize_import(path, import);
+
+        if !normalized_path.exists() {
+            if options.dry_run {
+                println!("Skipping migration for nonexistent path: {}", normalized_path.display());
+            }
+            continue;
+        }
+
         let migration = migrate_config(options, &normalized_path, recursion_limit - 1)?;
         if options.dry_run {
             println!("{}", migration.success_message(true));
