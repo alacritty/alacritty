@@ -536,7 +536,8 @@ This section documents the *[selection]* table of the configuration file.
 
 *save_to_clipboard* = _true_ | _false_
 
-	When set to _true_, selected text will be copied to the primary clipboard.
+	When set to _true_, selected text will be copied to the _CLIPBOARD_
+    selection, and not only to the _PRIMARY_ selection.
 
 	Default: _false_
 
