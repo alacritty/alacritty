@@ -15,6 +15,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
 - Hint launcher opening arbitrary text, when terminal content changed while opening
 - `SemanticRight`/`SemanticLeft` vi motions breaking with wide semantic escape characters
+- `alacritty migrate` crashing with recursive toml imports
 
 ## 0.14.0
 
