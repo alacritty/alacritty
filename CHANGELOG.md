@@ -24,6 +24,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Hint launcher opening arbitrary text, when terminal content changed while opening
 - `SemanticRight`/`SemanticLeft` vi motions breaking with wide semantic escape characters
 - `alacritty migrate` crashing with recursive toml imports
+- Migrating nonexistent toml import breaking the entire migration
 
 ## 0.14.0
 
