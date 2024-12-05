@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.24.3-dev"
+version = "0.25.0-dev"
 dependencies = [
  "base64",
  "bitflags 2.6.0",
@@ -2045,23 +2045,23 @@ dependencies = [
 
 [[package]]
 name = "vte"
-version = "0.13.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a0b683b20ef64071ff03745b14391751f6beab06a54347885459b77a3f2caa5"
+checksum = "5507b53f7756f79bdb968d038a8f8db570d88028aee3c3cdc20427a8fb3482f4"
 dependencies = [
  "bitflags 2.6.0",
  "cursor-icon",
  "log",
+ "memchr",
  "serde",
- "utf8parse",
  "vte_generate_state_changes",
 ]
 
 [[package]]
 name = "vte_generate_state_changes"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e369bee1b05d510a7b4ed645f5faa90619e05437111783ea5848f28d97d3c2e"
+checksum = "e658bbb246cd98d720db0b7553764f7e841e25d9ac0c9ecfbc09452dc95a8cce"
 dependencies = [
  "proc-macro2",
  "quote",
