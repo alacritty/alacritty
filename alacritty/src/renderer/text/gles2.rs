@@ -20,8 +20,8 @@ use super::{
 };
 
 // Shader source.
-static TEXT_SHADER_F: &str = include_str!("../../../res/gles2/text.f.glsl");
-static TEXT_SHADER_V: &str = include_str!("../../../res/gles2/text.v.glsl");
+const TEXT_SHADER_F: &str = include_str!("../../../res/gles2/text.f.glsl");
+const TEXT_SHADER_V: &str = include_str!("../../../res/gles2/text.v.glsl");
 
 #[derive(Debug)]
 pub struct Gles2Renderer {
