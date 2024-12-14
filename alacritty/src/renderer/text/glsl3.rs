@@ -215,7 +215,7 @@ pub struct RenderApi<'a> {
     program: &'a mut TextShaderProgram,
 }
 
-impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
+impl TextRenderApi<Batch> for RenderApi<'_> {
     fn batch(&mut self) -> &mut Batch {
         self.batch
     }
@@ -261,7 +261,7 @@ impl<'a> TextRenderApi<Batch> for RenderApi<'a> {
     }
 }
 
-impl<'a> LoadGlyph for RenderApi<'a> {
+impl LoadGlyph for RenderApi<'_> {
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
         Atlas::load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
@@ -271,7 +271,7 @@ impl<'a> LoadGlyph for RenderApi<'a> {
     }
 }
 
-impl<'a> Drop for RenderApi<'a> {
+impl Drop for RenderApi<'_> {
     fn drop(&mut self) {
         if !self.batch.is_empty() {
             self.render_batch();

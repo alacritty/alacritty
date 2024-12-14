@@ -57,7 +57,7 @@ impl<'a> Sampler<'a> {
     }
 }
 
-impl<'a> Drop for Sampler<'a> {
+impl Drop for Sampler<'_> {
     fn drop(&mut self) {
         self.meter.add_sample(self.alive_duration());
     }

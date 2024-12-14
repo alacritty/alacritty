@@ -1136,7 +1136,7 @@ mod tests {
         inline_search_state: &'a mut InlineSearchState,
     }
 
-    impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
+    impl<T: EventListener> super::ActionContext<T> for ActionContext<'_, T> {
         fn search_next(
             &mut self,
             _origin: Point,

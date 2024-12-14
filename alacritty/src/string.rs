@@ -106,7 +106,7 @@ impl<'a> StrShortener<'a> {
     }
 }
 
-impl<'a> Iterator for StrShortener<'a> {
+impl Iterator for StrShortener<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {

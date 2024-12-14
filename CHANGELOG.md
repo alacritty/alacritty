@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
+## 0.14.1-rc1
+
+### Fixed
+
+- Mouse/Vi cursor hint highlighting broken on the terminal cursor line
+- Hint launcher opening arbitrary text, when terminal content changed while opening
+- `SemanticRight`/`SemanticLeft` vi motions breaking with wide semantic escape characters
+- `alacritty migrate` crashing with recursive toml imports
+- Migrating nonexistent toml import breaking the entire migration
+
 ## 0.14.0
 
 ### Packaging

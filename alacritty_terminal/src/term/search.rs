@@ -656,7 +656,7 @@ impl<'a, T> RegexIter<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for RegexIter<'a, T> {
+impl<T> Iterator for RegexIter<'_, T> {
     type Item = Match;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -144,7 +144,7 @@ impl<'de> Deserialize<'de> for Size {
         D: Deserializer<'de>,
     {
         struct NumVisitor;
-        impl<'v> Visitor<'v> for NumVisitor {
+        impl Visitor<'_> for NumVisitor {
             type Value = Size;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -265,13 +265,13 @@ fn semantic<T: EventListener>(
         }
     };
 
-    // Make sure we jump above wide chars.
-    point = term.expand_wide(point, direction);
-
     // Move to word boundary.
     if direction != side && !is_boundary(term, point, direction) {
         point = expand_semantic(point);
     }
+
+    // Make sure we jump above wide chars.
+    point = term.expand_wide(point, direction);
 
     // Skip whitespace.
     let mut next_point = advance(term, point, direction);
@@ -283,6 +283,11 @@ fn semantic<T: EventListener>(
     // Assure minimum movement of one cell.
     if !is_boundary(term, point, direction) {
         point = advance(term, point, direction);
+
+        // Skip over wide cell spacers.
+        if direction == Direction::Left {
+            point = term.expand_wide(point, direction);
+        }
     }
 
     // Move to word boundary.
@@ -819,5 +824,43 @@ mod tests {
 
         cursor = cursor.scroll(&term, -20);
         assert_eq!(cursor.point, Point::new(Line(19), Column(0)));
+    }
+
+    #[test]
+    fn wide_semantic_char() {
+        let mut term = term();
+        term.set_semantic_escape_chars("－");
+        term.grid_mut()[Line(0)][Column(0)].c = 'x';
+        term.grid_mut()[Line(0)][Column(1)].c = 'x';
+        term.grid_mut()[Line(0)][Column(2)].c = '－';
+        term.grid_mut()[Line(0)][Column(2)].flags.insert(Flags::WIDE_CHAR);
+        term.grid_mut()[Line(0)][Column(3)].c = ' ';
+        term.grid_mut()[Line(0)][Column(3)].flags.insert(Flags::WIDE_CHAR_SPACER);
+        term.grid_mut()[Line(0)][Column(4)].c = 'x';
+        term.grid_mut()[Line(0)][Column(5)].c = 'x';
+
+        // Test motion to the right.
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(0)));
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
+        cursor = cursor.motion(&mut term, ViMotion::SemanticRight);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
+
+        // Test motion to the left.
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(5)));
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(4)));
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(4)));
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(2)));
+
+        let mut cursor = ViModeCursor::new(Point::new(Line(0), Column(2)));
+        cursor = cursor.motion(&mut term, ViMotion::SemanticLeft);
+        assert_eq!(cursor.point, Point::new(Line(0), Column(0)));
     }
 }
