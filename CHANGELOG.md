@@ -48,6 +48,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Moved config option `shell` to `terminal.shell`
 - `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
 - Use `Beam` cursor for single char cursor inside the IME preview
+- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
 
 ### Fixed
 
