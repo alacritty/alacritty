@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.15.0-dev
 
+### Changed
+
+- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
+
 ### Fixed
 
 - Mouse/Vi cursor hint highlighting broken on the terminal cursor line
