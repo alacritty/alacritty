@@ -21,6 +21,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - `SemanticRight`/`SemanticLeft` vi motions breaking with wide semantic escape characters
 - `alacritty migrate` crashing with recursive toml imports
 - Migrating nonexistent toml import breaking the entire migration
+- Crash when pressing certain modifier keys on macOS 15+
 
 ## 0.14.0
 
