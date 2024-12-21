@@ -70,6 +70,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Invalid URL highlights after terminal scrolling
 - Hollow block cursor not spanning multiple chars being edited inside the IME preview
 - Vi inline search only working for direct key input without modifiers
+- Crash when pressing certain modifier keys on macOS 15+
 
 ## 0.13.2
 
