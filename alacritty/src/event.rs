@@ -140,14 +140,14 @@ impl Processor {
     pub fn create_initial_window(
         &mut self,
         event_loop: &ActiveEventLoop,
+        window_options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let options = match self.initial_window_options.take() {
-            Some(options) => options,
-            None => return Ok(()),
-        };
-
-        let window_context =
-            WindowContext::initial(event_loop, self.proxy.clone(), self.config.clone(), options)?;
+        let window_context = WindowContext::initial(
+            event_loop,
+            self.proxy.clone(),
+            self.config.clone(),
+            window_options,
+        )?;
 
         self.gl_config = Some(window_context.display.gl_context().config());
         self.windows.insert(window_context.id(), window_context);
@@ -225,10 +225,12 @@ impl ApplicationHandler<Event> for Processor {
             return;
         }
 
-        if let Err(err) = self.create_initial_window(event_loop) {
-            self.initial_window_error = Some(err);
-            event_loop.exit();
-            return;
+        if let Some(window_options) = self.initial_window_options.take() {
+            if let Err(err) = self.create_initial_window(event_loop, window_options) {
+                self.initial_window_error = Some(err);
+                event_loop.exit();
+                return;
+            }
         }
 
         info!("Initialisation complete");
@@ -276,7 +278,7 @@ impl ApplicationHandler<Event> for Processor {
         }
 
         // Handle events which don't mandate the WindowId.
-        match (&event.payload, event.window_id.as_ref()) {
+        match (event.payload, event.window_id.as_ref()) {
             // Process IPC config update.
             #[cfg(unix)]
             (EventType::IpcConfig(ipc_config), window_id) => {
@@ -315,7 +317,7 @@ impl ApplicationHandler<Event> for Processor {
                 }
 
                 // Load config and update each terminal.
-                if let Ok(config) = config::reload(path, &mut self.cli_options) {
+                if let Ok(config) = config::reload(&path, &mut self.cli_options) {
                     self.config = Rc::new(config);
 
                     // Restart config monitor if imports changed.
@@ -346,17 +348,17 @@ impl ApplicationHandler<Event> for Processor {
 
                 if self.gl_config.is_none() {
                     // Handle initial window creation in daemon mode.
-                    if let Err(err) = self.create_initial_window(event_loop) {
+                    if let Err(err) = self.create_initial_window(event_loop, options) {
                         self.initial_window_error = Some(err);
                         event_loop.exit();
                     }
-                } else if let Err(err) = self.create_window(event_loop, options.clone()) {
+                } else if let Err(err) = self.create_window(event_loop, options) {
                     error!("Could not open window: {:?}", err);
                 }
             },
             // Process events affecting all windows.
-            (_, None) => {
-                let event = WinitEvent::UserEvent(event);
+            (payload, None) => {
+                let event = WinitEvent::UserEvent(Event::new(payload, None));
                 for window_context in self.windows.values_mut() {
                     window_context.handle_event(
                         #[cfg(target_os = "macos")]
@@ -405,7 +407,7 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
-            (_, Some(window_id)) => {
+            (payload, Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.handle_event(
                         #[cfg(target_os = "macos")]
@@ -413,7 +415,7 @@ impl ApplicationHandler<Event> for Processor {
                         &self.proxy,
                         &mut self.clipboard,
                         &mut self.scheduler,
-                        WinitEvent::UserEvent(event),
+                        WinitEvent::UserEvent(Event::new(payload, *window_id)),
                     );
                 }
             },
