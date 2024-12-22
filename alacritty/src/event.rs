@@ -140,15 +140,14 @@ impl Processor {
     pub fn create_initial_window(
         &mut self,
         event_loop: &ActiveEventLoop,
-        window_options: Option<WindowOptions>,
+        window_options: WindowOptions,
     ) -> Result<(), Box<dyn Error>> {
-        let options = match window_options {
-            Some(options) => options,
-            None => return Ok(()),
-        };
-
-        let window_context =
-            WindowContext::initial(event_loop, self.proxy.clone(), self.config.clone(), options)?;
+        let window_context = WindowContext::initial(
+            event_loop,
+            self.proxy.clone(),
+            self.config.clone(),
+            window_options,
+        )?;
 
         self.gl_config = Some(window_context.display.gl_context().config());
         self.windows.insert(window_context.id(), window_context);
@@ -226,11 +225,12 @@ impl ApplicationHandler<Event> for Processor {
             return;
         }
 
-        let window_options = self.initial_window_options.take();
-        if let Err(err) = self.create_initial_window(event_loop, window_options) {
-            self.initial_window_error = Some(err);
-            event_loop.exit();
-            return;
+        if let Some(window_options) = self.initial_window_options.take() {
+            if let Err(err) = self.create_initial_window(event_loop, window_options) {
+                self.initial_window_error = Some(err);
+                event_loop.exit();
+                return;
+            }
         }
 
         info!("Initialisation complete");
@@ -348,7 +348,7 @@ impl ApplicationHandler<Event> for Processor {
 
                 if self.gl_config.is_none() {
                     // Handle initial window creation in daemon mode.
-                    if let Err(err) = self.create_initial_window(event_loop, Some(options)) {
+                    if let Err(err) = self.create_initial_window(event_loop, options) {
                         self.initial_window_error = Some(err);
                         event_loop.exit();
                     }
