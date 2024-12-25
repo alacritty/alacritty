@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
+- Support `CSI n I` to move the cursor forward by n tabs
 
 ### Changed
 

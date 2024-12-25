@@ -1377,6 +1377,7 @@ impl<T: EventListener> Handler for Term<T> {
             let cell = self.grid.cursor_cell();
             if cell.c == ' ' {
                 cell.c = c;
+                self.damage_cursor();
             }
 
             loop {
@@ -1586,7 +1587,9 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_forward_tabs(&mut self, count: u16) {
-        trace!("[unimplemented] Moving forward {} tabs", count);
+        trace!("Moving forward {} tabs", count);
+
+        self.put_tab(count);
     }
 
     #[inline]
