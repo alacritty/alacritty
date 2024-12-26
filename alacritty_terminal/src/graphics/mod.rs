@@ -621,7 +621,7 @@ pub fn insert_graphic<L: EventListener>(
     }
 
     if term.mode().contains(TermMode::SIXEL_CURSOR_TO_THE_RIGHT) {
-        let graphic_columns = (graphic.width + cell_width - 1) / cell_width;
+        let graphic_columns = graphic.width.div_ceil(cell_width);
         term.move_forward(graphic_columns);
     } else if scrolling {
         term.linefeed();

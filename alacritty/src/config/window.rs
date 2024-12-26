@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
-use winit::window::{Fullscreen, Theme as WinitTheme};
+use winit::window::{Fullscreen, Theme as WinitTheme, WindowLevel as WinitWindowLevel};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
@@ -61,6 +61,9 @@ pub struct WindowConfig {
 
     /// System decorations theme variant.
     decorations_theme_variant: Option<Theme>,
+
+    /// Window level.
+    pub level: WindowLevel,
 }
 
 impl Default for WindowConfig {
@@ -80,6 +83,7 @@ impl Default for WindowConfig {
             resize_increments: Default::default(),
             decorations_theme_variant: Default::default(),
             option_as_alt: Default::default(),
+            level: Default::default(),
         }
     }
 }
@@ -303,6 +307,22 @@ impl From<Theme> for WinitTheme {
         match theme {
             Theme::Light => WinitTheme::Light,
             Theme::Dark => WinitTheme::Dark,
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowLevel {
+    #[default]
+    Normal,
+    AlwaysOnTop,
+}
+
+impl From<WindowLevel> for WinitWindowLevel {
+    fn from(level: WindowLevel) -> Self {
+        match level {
+            WindowLevel::Normal => WinitWindowLevel::Normal,
+            WindowLevel::AlwaysOnTop => WinitWindowLevel::AlwaysOnTop,
         }
     }
 }

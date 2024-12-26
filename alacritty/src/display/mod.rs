@@ -297,12 +297,12 @@ impl TermDimensions for SizeInfo {
 
     #[inline]
     fn cell_height(&self) -> f32 {
-        self.cell_height()
+        self.cell_height
     }
 
     #[inline]
     fn cell_width(&self) -> f32 {
-        self.cell_width()
+        self.cell_width
     }
 }
 
@@ -352,9 +352,13 @@ pub struct Display {
 
     /// Hint highlighted by the mouse.
     pub highlighted_hint: Option<HintMatch>,
+    /// Frames since hint highlight was created.
+    highlighted_hint_age: usize,
 
     /// Hint highlighted by the vi mode cursor.
     pub vi_highlighted_hint: Option<HintMatch>,
+    /// Frames since hint highlight was created.
+    vi_highlighted_hint_age: usize,
 
     pub raw_window_handle: RawWindowHandle,
 
@@ -490,6 +494,10 @@ impl Display {
 
         window.set_visible(true);
 
+        // Always focus new windows, even if no Alacritty window is currently focused.
+        #[cfg(target_os = "macos")]
+        window.focus_window();
+
         #[allow(clippy::single_match)]
         #[cfg(not(windows))]
         if !_tabbed {
@@ -526,6 +534,8 @@ impl Display {
             font_size,
             window,
             pending_renderer_update: Default::default(),
+            vi_highlighted_hint_age: Default::default(),
+            highlighted_hint_age: Default::default(),
             vi_highlighted_hint: Default::default(),
             highlighted_hint: Default::default(),
             hint_mouse_point: Default::default(),
@@ -771,7 +781,7 @@ impl Display {
         drop(terminal);
 
         // Invalidate highlighted hints if grid has changed.
-        self.validate_hints(display_offset);
+        self.validate_hint_highlights(display_offset);
 
         // Add damage from alacritty's UI elements overlapping terminal.
 
@@ -1042,9 +1052,10 @@ impl Display {
         };
         let mut dirty = vi_highlighted_hint != self.vi_highlighted_hint;
         self.vi_highlighted_hint = vi_highlighted_hint;
+        self.vi_highlighted_hint_age = 0;
 
         // Force full redraw if the vi mode highlight was cleared.
-        if dirty && self.vi_highlighted_hint.is_none() {
+        if dirty {
             self.damage_tracker.frame().mark_fully_damaged();
         }
 
@@ -1080,9 +1091,10 @@ impl Display {
         let mouse_highlight_dirty = self.highlighted_hint != highlighted_hint;
         dirty |= mouse_highlight_dirty;
         self.highlighted_hint = highlighted_hint;
+        self.highlighted_hint_age = 0;
 
-        // Force full redraw if the mouse cursor highlight was cleared.
-        if mouse_highlight_dirty && self.highlighted_hint.is_none() {
+        // Force full redraw if the mouse cursor highlight was changed.
+        if mouse_highlight_dirty {
             self.damage_tracker.frame().mark_fully_damaged();
         }
 
@@ -1356,15 +1368,23 @@ impl Display {
     }
 
     /// Check whether a hint highlight needs to be cleared.
-    fn validate_hints(&mut self, display_offset: usize) {
+    fn validate_hint_highlights(&mut self, display_offset: usize) {
         let frame = self.damage_tracker.frame();
-        for (hint, reset_mouse) in
-            [(&mut self.highlighted_hint, true), (&mut self.vi_highlighted_hint, false)]
-        {
+        let hints = [
+            (&mut self.highlighted_hint, &mut self.highlighted_hint_age, true),
+            (&mut self.vi_highlighted_hint, &mut self.vi_highlighted_hint_age, false),
+        ];
+        for (hint, hint_age, reset_mouse) in hints {
             let (start, end) = match hint {
                 Some(hint) => (*hint.bounds().start(), *hint.bounds().end()),
-                None => return,
+                None => continue,
             };
+
+            // Ignore hints that were created this frame.
+            *hint_age += 1;
+            if *hint_age == 1 {
+                continue;
+            }
 
             // Convert hint bounds to viewport coordinates.
             let start = term::point_to_viewport(display_offset, start).unwrap_or_default();

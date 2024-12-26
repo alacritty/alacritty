@@ -153,7 +153,7 @@ impl<'a> RenderableContent<'a> {
     }
 }
 
-impl<'a> Iterator for RenderableContent<'a> {
+impl Iterator for RenderableContent<'_> {
     type Item = RenderableCell;
 
     /// Gets the next renderable cell.
@@ -482,7 +482,7 @@ struct Hint<'a> {
     labels: &'a Vec<Vec<char>>,
 }
 
-impl<'a> Hint<'a> {
+impl Hint<'_> {
     /// Advance the hint iterator.
     ///
     /// If the point is within a hint, the keyboard shortcut character that should be displayed at
@@ -572,7 +572,7 @@ impl<'a> HintMatches<'a> {
     }
 }
 
-impl<'a> Deref for HintMatches<'a> {
+impl Deref for HintMatches<'_> {
     type Target = [Match];
 
     fn deref(&self) -> &Self::Target {

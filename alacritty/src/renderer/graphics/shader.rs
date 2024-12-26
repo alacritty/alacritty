@@ -54,8 +54,8 @@ pub struct Vertex {
 }
 
 /// Sources for the graphics rendering program.
-static GRAPHICS_SHADER_F: &str = include_str!("../../../res/graphics.f.glsl");
-static GRAPHICS_SHADER_V: &str = include_str!("../../../res/graphics.v.glsl");
+const GRAPHICS_SHADER_F: &str = include_str!("../../../res/graphics.f.glsl");
+const GRAPHICS_SHADER_V: &str = include_str!("../../../res/graphics.v.glsl");
 
 /// Graphics rendering program.
 #[derive(Debug)]
