@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## 0.24.2-dev
 
+### Added
+
+- Escape sequence to move cursor forward tabs ( CSI Ps I )
+
 ## 0.24.1
 
 ### Changed
