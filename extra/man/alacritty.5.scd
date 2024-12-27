@@ -195,6 +195,17 @@ This section documents the *[window]* table of the configuration file.
 
 	Default: _"None"_
 
+*level* = _"Normal"_ | _"AlwaysOnTop"_
+
+	Sets window level.
+
+	*Normal*
+		Window adheres to system's default z-order.
+	*AlwaysOnTop*
+		Window is a toplevel window.
+
+	Default: _"Normal"_
+
 Example:
 	*[window]*++
 padding = { x = _3_, y = _3_ }++
@@ -601,9 +612,7 @@ This section documents the *[terminal]* table of the configuration file.
 Windows: _"powershell"_
 
 	Example:
-		*[shell]*++
-program = _"/bin/zsh"_++
-args = [_"-l"_]
+		*shell* = { program = _"/bin/zsh"_, args = [_"-l"_] }
 
 *osc52* = _"Disabled"_ | _"OnlyCopy"_ | _"OnlyPaste"_ | _"CopyPaste"_
 

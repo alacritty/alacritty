@@ -20,9 +20,8 @@ use std::fmt::{self, Display, Formatter};
 
 #[cfg(target_os = "macos")]
 use {
-    cocoa::appkit::NSColorSpace,
-    cocoa::base::{id, nil, NO, YES},
-    objc::{msg_send, sel, sel_impl},
+    objc2_app_kit::{NSColorSpace, NSView},
+    objc2_foundation::is_main_thread,
     winit::platform::macos::{OptionAsAlt, WindowAttributesExtMacOS, WindowExtMacOS},
 };
 
@@ -45,7 +44,7 @@ use crate::display::SizeInfo;
 
 /// Window icon for `_NET_WM_ICON` property.
 #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
-static WINDOW_ICON: &[u8] = include_bytes!("../../extra/logo/compat/alacritty-term.png");
+const WINDOW_ICON: &[u8] = include_bytes!("../../extra/logo/compat/alacritty-term.png");
 
 /// This should match the definition of IDI_ICON from `alacritty.rc`.
 #[cfg(windows)]
@@ -170,7 +169,8 @@ impl Window {
             .with_transparent(true)
             .with_blur(config.window.blur)
             .with_maximized(config.window.maximized())
-            .with_fullscreen(config.window.fullscreen());
+            .with_fullscreen(config.window.fullscreen())
+            .with_window_level(config.window.level.into());
 
         let window = event_loop.create_window(window_attributes)?;
 
@@ -222,6 +222,12 @@ impl Window {
     #[inline]
     pub fn set_visible(&self, visibility: bool) {
         self.window.set_visible(visibility);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[inline]
+    pub fn focus_window(&self) {
+        self.window.focus_window();
     }
 
     /// Set the window title.
@@ -445,16 +451,15 @@ impl Window {
     /// This prevents rendering artifacts from showing up when the window is transparent.
     #[cfg(target_os = "macos")]
     pub fn set_has_shadow(&self, has_shadows: bool) {
-        let ns_view = match self.raw_window_handle() {
-            RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
+        let view = match self.raw_window_handle() {
+            RawWindowHandle::AppKit(handle) => {
+                assert!(is_main_thread());
+                unsafe { handle.ns_view.cast::<NSView>().as_ref() }
+            },
             _ => return,
         };
 
-        let value = if has_shadows { YES } else { NO };
-        unsafe {
-            let ns_window: id = msg_send![ns_view, window];
-            let _: id = msg_send![ns_window, setHasShadow: value];
-        }
+        view.window().unwrap().setHasShadow(has_shadows);
     }
 
     /// Select tab at the given `index`.
@@ -489,13 +494,15 @@ impl Window {
 
 #[cfg(target_os = "macos")]
 fn use_srgb_color_space(window: &WinitWindow) {
-    let ns_view = match window.window_handle().unwrap().as_raw() {
-        RawWindowHandle::AppKit(handle) => handle.ns_view.as_ptr() as id,
+    let view = match window.window_handle().unwrap().as_raw() {
+        RawWindowHandle::AppKit(handle) => {
+            assert!(is_main_thread());
+            unsafe { handle.ns_view.cast::<NSView>().as_ref() }
+        },
         _ => return,
     };
 
     unsafe {
-        let ns_window: id = msg_send![ns_view, window];
-        let _: () = msg_send![ns_window, setColorSpace: NSColorSpace::sRGBColorSpace(nil)];
+        view.window().unwrap().setColorSpace(Some(&NSColorSpace::sRGBColorSpace()));
     }
 }

@@ -627,7 +627,7 @@ pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
 }
 
-impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
+impl<T> BidirectionalIterator for GridIterator<'_, T> {
     fn prev(&mut self) -> Option<Self::Item> {
         let topmost_line = self.grid.topmost_line();
         let last_column = self.grid.last_column();

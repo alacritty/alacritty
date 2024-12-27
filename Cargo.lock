@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.14.0"
+version = "0.15.0-dev"
 dependencies = [
  "ahash",
  "alacritty_config",
@@ -41,7 +41,6 @@ dependencies = [
  "bitflags 2.6.0",
  "clap",
  "clap_complete",
- "cocoa",
  "copypasta",
  "crossfont",
  "dirs",
@@ -53,7 +52,9 @@ dependencies = [
  "log",
  "memoffset",
  "notify",
- "objc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "parking_lot",
  "png",
  "serde",
@@ -71,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config"
-version = "0.2.2"
+version = "0.2.3-dev"
 dependencies = [
  "alacritty_config_derive",
  "log",
@@ -81,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_config_derive"
-version = "0.2.4"
+version = "0.2.5-dev"
 dependencies = [
  "alacritty_config",
  "log",
@@ -94,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.24.1"
+version = "0.24.2-dev"
 dependencies = [
  "base64",
  "bitflags 2.6.0",
@@ -113,7 +114,7 @@ dependencies = [
  "smallvec",
  "unicode-width",
  "vte-graphics",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -304,9 +305,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.5"
+version = "1.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c31a0499c1dc64f458ad13872de75c0eb7e3fdb0e67964610c914b034fc5956e"
+checksum = "8d6dbb628b8f8555f86d0323c2eb39e3ec81901f4b83e091db8a6a76d316a333"
 dependencies = [
  "jobserver",
  "libc",
@@ -1584,9 +1585,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5b9d34b8991d19d98081b46eacdd8eb58c6f2b201139f7c5f643cc155a633af"
+checksum = "0e4dccaaaf89514f546c693ddc140f729f958c247918a13380cccc6078391acc"
 dependencies = [
  "proc-macro2",
 ]
@@ -1884,9 +1885,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.91"
+version = "2.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d53cbcb5a243bd33b7858b1d7f4aca2153490815872d86d955d6ea29f743c035"
+checksum = "70ae51629bf965c5c098cc9e87908a3df5301051a9e087d6f9bef5c9771ed126"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2540,9 +2541,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winit"
-version = "0.30.6"
+version = "0.30.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c3d72dfa0f47e429290cd0d236884ca02f22dbd5dd33a43ad2b8bf4d79b6c18"
+checksum = "dba50bc8ef4b6f1a75c9274fb95aa9a8f63fbc66c56f391bd85cf68d51e7b1a3"
 dependencies = [
  "ahash",
  "android-activity",
