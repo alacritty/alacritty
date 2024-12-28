@@ -1566,11 +1566,15 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_backward_tabs(&mut self, count: u16) {
         trace!("Moving backward {} tabs", count);
-        self.damage_cursor();
 
         let old_col = self.grid.cursor.point.column.0;
         for _ in 0..count {
             let mut col = self.grid.cursor.point.column;
+
+            if col == 0 {
+                break;
+            }
+
             for i in (0..(col.0)).rev() {
                 if self.tabs[index::Column(i)] {
                     col = index::Column(i);
@@ -1586,7 +1590,29 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_forward_tabs(&mut self, count: u16) {
-        trace!("[unimplemented] Moving forward {} tabs", count);
+        trace!("Moving forward {} tabs", count);
+
+        let num_cols = self.columns();
+        let old_col = self.grid.cursor.point.column.0;
+        for _ in 0..count {
+            let mut col = self.grid.cursor.point.column;
+
+            if col == num_cols - 1 {
+                break;
+            }
+
+            for i in col.0 + 1..num_cols {
+                col = index::Column(i);
+                if self.tabs[col] {
+                    break;
+                }
+            }
+
+            self.grid.cursor.point.column = col;
+        }
+
+        let line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(line, old_col, self.grid.cursor.point.column.0);
     }
 
     #[inline]
