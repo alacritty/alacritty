@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.14.1-rc1
 
+### Added
+
+- Escape sequence to move cursor forward tabs ( CSI Ps I )
+
 ### Changed
 
 - Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
