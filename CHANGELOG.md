@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
+- Don't switch to semantic/line selection when control is pressed
 
 ### Fixed
 
