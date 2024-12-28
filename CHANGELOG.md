@@ -18,6 +18,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Always focus new windows on macOS
+- Don't switch to semantic/line selection when control is pressed
 
 ### Fixed
 
