@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Stable
         run: cargo test
       - name: Stable (no default features)
@@ -30,7 +30,7 @@ jobs:
   check-macos-x86_64:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install target
         run: rustup update && rustup target add x86_64-apple-darwin
       - name: Build

@@ -228,8 +228,8 @@ impl RenderLines {
 }
 
 /// Shader sources for rect rendering program.
-static RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
-static RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
+const RECT_SHADER_F: &str = include_str!("../../res/rect.f.glsl");
+const RECT_SHADER_V: &str = include_str!("../../res/rect.v.glsl");
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]

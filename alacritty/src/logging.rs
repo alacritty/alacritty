@@ -113,11 +113,11 @@ impl Logger {
         let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
 
         let message = format!(
-            "[{}] See log at {} ({}):\n{}",
+            "[{}] {}\nSee log at {} ({})",
             record.level(),
+            record.args(),
             logfile_path,
             env_var,
-            record.args(),
         );
 
         let mut message = Message::new(message, message_type);

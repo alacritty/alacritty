@@ -24,9 +24,7 @@ impl IntoRects for RenderableCursor {
 
         let thickness = (thickness * width).round().max(1.);
 
-        if self.is_wide() {
-            width *= 2.;
-        }
+        width *= self.width().get() as f32;
 
         match self.shape() {
             CursorShape::Beam => beam(x, y, height, thickness, self.color()),

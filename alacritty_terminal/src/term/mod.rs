@@ -54,30 +54,30 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct TermMode: u32 {
         const NONE                    = 0;
-        const SHOW_CURSOR             = 0b0000_0000_0000_0000_0000_0001;
-        const APP_CURSOR              = 0b0000_0000_0000_0000_0000_0010;
-        const APP_KEYPAD              = 0b0000_0000_0000_0000_0000_0100;
-        const MOUSE_REPORT_CLICK      = 0b0000_0000_0000_0000_0000_1000;
-        const BRACKETED_PASTE         = 0b0000_0000_0000_0000_0001_0000;
-        const SGR_MOUSE               = 0b0000_0000_0000_0000_0010_0000;
-        const MOUSE_MOTION            = 0b0000_0000_0000_0000_0100_0000;
-        const LINE_WRAP               = 0b0000_0000_0000_0000_1000_0000;
-        const LINE_FEED_NEW_LINE      = 0b0000_0000_0000_0001_0000_0000;
-        const ORIGIN                  = 0b0000_0000_0000_0010_0000_0000;
-        const INSERT                  = 0b0000_0000_0000_0100_0000_0000;
-        const FOCUS_IN_OUT            = 0b0000_0000_0000_1000_0000_0000;
-        const ALT_SCREEN              = 0b0000_0000_0001_0000_0000_0000;
-        const MOUSE_DRAG              = 0b0000_0000_0010_0000_0000_0000;
-        const MOUSE_MODE              = 0b0000_0000_0010_0000_0100_1000;
-        const UTF8_MOUSE              = 0b0000_0000_0100_0000_0000_0000;
-        const ALTERNATE_SCROLL        = 0b0000_0000_1000_0000_0000_0000;
-        const VI                      = 0b0000_0001_0000_0000_0000_0000;
-        const URGENCY_HINTS           = 0b0000_0010_0000_0000_0000_0000;
-        const DISAMBIGUATE_ESC_CODES  = 0b0000_0100_0000_0000_0000_0000;
-        const REPORT_EVENT_TYPES      = 0b0000_1000_0000_0000_0000_0000;
-        const REPORT_ALTERNATE_KEYS   = 0b0001_0000_0000_0000_0000_0000;
-        const REPORT_ALL_KEYS_AS_ESC  = 0b0010_0000_0000_0000_0000_0000;
-        const REPORT_ASSOCIATED_TEXT  = 0b0100_0000_0000_0000_0000_0000;
+        const SHOW_CURSOR             = 1;
+        const APP_CURSOR              = 1 << 1;
+        const APP_KEYPAD              = 1 << 2;
+        const MOUSE_REPORT_CLICK      = 1 << 3;
+        const BRACKETED_PASTE         = 1 << 4;
+        const SGR_MOUSE               = 1 << 5;
+        const MOUSE_MOTION            = 1 << 6;
+        const LINE_WRAP               = 1 << 7;
+        const LINE_FEED_NEW_LINE      = 1 << 8;
+        const ORIGIN                  = 1 << 9;
+        const INSERT                  = 1 << 10;
+        const FOCUS_IN_OUT            = 1 << 11;
+        const ALT_SCREEN              = 1 << 12;
+        const MOUSE_DRAG              = 1 << 13;
+        const UTF8_MOUSE              = 1 << 14;
+        const ALTERNATE_SCROLL        = 1 << 15;
+        const VI                      = 1 << 16;
+        const URGENCY_HINTS           = 1 << 17;
+        const DISAMBIGUATE_ESC_CODES  = 1 << 18;
+        const REPORT_EVENT_TYPES      = 1 << 19;
+        const REPORT_ALTERNATE_KEYS   = 1 << 20;
+        const REPORT_ALL_KEYS_AS_ESC  = 1 << 21;
+        const REPORT_ASSOCIATED_TEXT  = 1 << 22;
+        const MOUSE_MODE              = Self::MOUSE_REPORT_CLICK.bits() | Self::MOUSE_MOTION.bits() | Self::MOUSE_DRAG.bits();
         const KITTY_KEYBOARD_PROTOCOL = Self::DISAMBIGUATE_ESC_CODES.bits()
                                       | Self::REPORT_EVENT_TYPES.bits()
                                       | Self::REPORT_ALTERNATE_KEYS.bits()
@@ -199,7 +199,7 @@ impl<'a> TermDamageIterator<'a> {
     }
 }
 
-impl<'a> Iterator for TermDamageIterator<'a> {
+impl Iterator for TermDamageIterator<'_> {
     type Item = LineDamageBounds;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -930,6 +930,11 @@ impl<T> Term<T> {
         &self.config.semantic_escape_chars
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_semantic_escape_chars(&mut self, semantic_escape_chars: &str) {
+        self.config.semantic_escape_chars = semantic_escape_chars.into();
+    }
+
     /// Active terminal cursor style.
     ///
     /// While vi mode is active, this will automatically return the vi mode cursor style.
@@ -1561,11 +1566,15 @@ impl<T: EventListener> Handler for Term<T> {
     #[inline]
     fn move_backward_tabs(&mut self, count: u16) {
         trace!("Moving backward {} tabs", count);
-        self.damage_cursor();
 
         let old_col = self.grid.cursor.point.column.0;
         for _ in 0..count {
             let mut col = self.grid.cursor.point.column;
+
+            if col == 0 {
+                break;
+            }
+
             for i in (0..(col.0)).rev() {
                 if self.tabs[index::Column(i)] {
                     col = index::Column(i);
@@ -1581,7 +1590,29 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_forward_tabs(&mut self, count: u16) {
-        trace!("[unimplemented] Moving forward {} tabs", count);
+        trace!("Moving forward {} tabs", count);
+
+        let num_cols = self.columns();
+        let old_col = self.grid.cursor.point.column.0;
+        for _ in 0..count {
+            let mut col = self.grid.cursor.point.column;
+
+            if col == num_cols - 1 {
+                break;
+            }
+
+            for i in col.0 + 1..num_cols {
+                col = index::Column(i);
+                if self.tabs[col] {
+                    break;
+                }
+            }
+
+            self.grid.cursor.point.column = col;
+        }
+
+        let line = self.grid.cursor.point.line.0 as usize;
+        self.damage.damage_line(line, old_col, self.grid.cursor.point.column.0);
     }
 
     #[inline]

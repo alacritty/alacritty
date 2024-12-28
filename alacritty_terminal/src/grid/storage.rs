@@ -66,7 +66,7 @@ impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(visible_lines: usize, columns: usize) -> Storage<T>
     where
-        T: Clone + Default,
+        T: Default,
     {
         // Initialize visible lines; the scrollback buffer is initialized dynamically.
         let mut inner = Vec::with_capacity(visible_lines);
@@ -79,7 +79,7 @@ impl<T> Storage<T> {
     #[inline]
     pub fn grow_visible_lines(&mut self, next: usize)
     where
-        T: Clone + Default,
+        T: Default,
     {
         // Number of lines the buffer needs to grow.
         let additional_lines = next - self.visible_lines;
@@ -125,7 +125,7 @@ impl<T> Storage<T> {
     #[inline]
     pub fn initialize(&mut self, additional_rows: usize, columns: usize)
     where
-        T: Clone + Default,
+        T: Default,
     {
         if self.len + additional_rows > self.inner.len() {
             self.rezero();

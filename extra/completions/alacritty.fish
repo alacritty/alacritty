@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_alacritty_global_optspecs
-	string join \n print-events ref-test embed= config-file= socket= q v working-directory= hold e/command= T/title= class= o/option= h/help V/version
+	string join \n print-events ref-test embed= config-file= socket= q v daemon working-directory= hold e/command= T/title= class= o/option= h/help V/version
 end
 
 function __fish_alacritty_needs_command
@@ -36,6 +36,7 @@ complete -c alacritty -n "__fish_alacritty_needs_command" -l print-events -d 'Pr
 complete -c alacritty -n "__fish_alacritty_needs_command" -l ref-test -d 'Generates ref test'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s q -d 'Reduces the level of verbosity (the min level is -qq)'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s v -d 'Increases the level of verbosity (the max level is -vvv)'
+complete -c alacritty -n "__fish_alacritty_needs_command" -l daemon -d 'Do not spawn an initial window'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l hold -d 'Remain open after child process exit'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s h -l help -d 'Print help'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s V -l version -d 'Print version'

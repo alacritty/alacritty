@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use log::{Level, Log, Metadata, Record};
 use serde::Deserialize;
@@ -83,10 +83,8 @@ struct NewType(usize);
 
 #[test]
 fn config_deserialize() {
-    let logger = unsafe {
-        LOGGER = Some(Logger::default());
-        LOGGER.as_mut().unwrap()
-    };
+    static LOGGER: OnceLock<Logger> = OnceLock::new();
+    let logger = LOGGER.get_or_init(Logger::default);
 
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Warn);
@@ -134,14 +132,15 @@ fn config_deserialize() {
     ]);
     let warn_logs = logger.warn_logs.lock().unwrap();
     assert_eq!(warn_logs.as_slice(), [
-        "Config warning: field1 has been deprecated; use field2 instead",
-        "Config warning: enom_error has been deprecated",
-        "Config warning: gone has been removed; it's gone",
+        "Config warning: field1 has been deprecated; use field2 instead\nUse `alacritty migrate` \
+         to automatically resolve it",
+        "Config warning: enom_error has been deprecated\nUse `alacritty migrate` to automatically \
+         resolve it",
+        "Config warning: gone has been removed; it's gone\nUse `alacritty migrate` to \
+         automatically resolve it",
         "Unused config key: field3",
     ]);
 }
-
-static mut LOGGER: Option<Logger> = None;
 
 /// Logger storing all messages for later validation.
 #[derive(Default)]

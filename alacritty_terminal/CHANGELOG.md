@@ -8,7 +8,25 @@ sections should follow the order `Added`, `Changed`, `Deprecated`, `Fixed` and
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.24.1-dev
+## 0.24.2-dev
+
+### Added
+
+- Escape sequence to move cursor forward tabs ( CSI Ps I )
+
+## 0.24.1
+
+### Changed
+
+- Shell RCs are no longer sourced on macOs
+
+### Fixed
+
+- Semantic search handling of fullwidth characters
+- Inline search ignoring line wrapping flag
+- Clearing of `XDG_ACTIVATION_TOKEN` and `DESKTOP_STARTUP_ID` in the main process
+- FD leaks when closing PTYs on Unix
+- Crash when ConPTY creation failed
 
 ## 0.24.0
 

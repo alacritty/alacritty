@@ -189,6 +189,17 @@ impl FrameDamage {
             self.lines.push(LineDamageBounds::undamaged(line, num_cols));
         }
     }
+
+    /// Check if a range is damaged.
+    #[inline]
+    pub fn intersects(&self, start: Point<usize>, end: Point<usize>) -> bool {
+        let start_line = &self.lines[start.line];
+        let end_line = &self.lines[end.line];
+        self.full
+            || (start_line.left..=start_line.right).contains(&start.column)
+            || (end_line.left..=end_line.right).contains(&end.column)
+            || (start.line + 1..end.line).any(|line| self.lines[line].is_damaged())
+    }
 }
 
 /// Convert viewport `y` coordinate to [`Rect`] damage coordinate.
@@ -240,7 +251,7 @@ impl<'a> RenderDamageIterator<'a> {
     }
 }
 
-impl<'a> Iterator for RenderDamageIterator<'a> {
+impl Iterator for RenderDamageIterator<'_> {
     type Item = Rect;
 
     fn next(&mut self) -> Option<Rect> {

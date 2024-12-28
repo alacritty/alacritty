@@ -21,6 +21,10 @@ set of features with high performance.
 
 	Remain open after child process exits.
 
+*--daemon*
+
+	Do not spawn an initial window.
+
 *--print-events*
 
 	Print all events to STDOUT.
@@ -61,13 +65,17 @@ set of features with high performance.
 
 	Specify alternative configuration file.
 
-	Alacritty looks for the configuration file at the following paths:
+	Alacritty doesn't create the config file for you, but it looks for one in the
+	following locations on UNIX systems:
+
 		. _$XDG_CONFIG_HOME/alacritty/alacritty.toml_
 		. _$XDG_CONFIG_HOME/alacritty.toml_
 		. _$HOME/.config/alacritty/alacritty.toml_
 		. _$HOME/.alacritty.toml_
 
-	On Windows, the configuration file is located at _%APPDATA%\\alacritty\\alacritty.toml_.
+	On Windows, the config file will be looked for in:
+
+		. _%APPDATA%\\alacritty\\alacritty.toml_
 
 *--embed* _<PARENT>_
 

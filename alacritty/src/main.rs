@@ -174,7 +174,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
 
     // Create the IPC socket listener.
     #[cfg(unix)]
-    let socket_path = if config.ipc_socket {
+    let socket_path = if config.ipc_socket() {
         ipc::spawn_ipc_socket(&options, window_event_loop.create_proxy())
     } else {
         None

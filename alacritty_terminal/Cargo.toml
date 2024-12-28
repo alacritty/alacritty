@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.24.1-dev"
+version = "0.24.2-dev"
 authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
@@ -24,7 +24,7 @@ parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.4.3"
 unicode-width = "0.1"
-vte = { version = "0.13.0", default-features = false, features = ["ansi", "serde"] }
+vte = { version = "0.13.0", default-features = false, features = ["ansi"] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -34,7 +34,7 @@ signal-hook = "0.3.10"
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"
 miow = "0.6.0"
-windows-sys = { version = "0.52.0", features = [
+windows-sys = { version = "0.59.0", features = [
     "Win32_System_Console",
     "Win32_Foundation",
     "Win32_Security",

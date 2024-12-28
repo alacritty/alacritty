@@ -26,7 +26,7 @@ pub struct Options {
     pub print_events: bool,
 
     /// Generates ref test.
-    #[clap(long)]
+    #[clap(long, conflicts_with("daemon"))]
     pub ref_test: bool,
 
     /// X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix).
@@ -62,6 +62,10 @@ pub struct Options {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     verbose: u8,
 
+    /// Do not spawn an initial window.
+    #[clap(long)]
+    pub daemon: bool,
+
     /// CLI options for config overrides.
     #[clap(skip)]
     pub config_options: ParsedOptions,
@@ -88,8 +92,8 @@ impl Options {
     /// Override configuration file with options from the CLI.
     pub fn override_config(&mut self, config: &mut UiConfig) {
         #[cfg(unix)]
-        {
-            config.ipc_socket |= self.socket.is_some();
+        if self.socket.is_some() {
+            config.ipc_socket = Some(true);
         }
 
         config.window.embed = self.embed.as_ref().and_then(|embed| parse_hex_or_decimal(embed));

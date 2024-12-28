@@ -26,7 +26,8 @@ use crate::config::color::Colors;
 use crate::config::cursor::Cursor;
 use crate::config::debug::Debug;
 use crate::config::font::Font;
-use crate::config::mouse::{Mouse, MouseBindings};
+use crate::config::general::General;
+use crate::config::mouse::Mouse;
 use crate::config::scrolling::Scrolling;
 use crate::config::selection::Selection;
 use crate::config::terminal::Terminal;
@@ -38,8 +39,11 @@ use crate::config::LOG_TARGET_CONFIG;
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
 pub struct UiConfig {
+    /// Miscellaneous configuration options.
+    pub general: General,
+
     /// Extra environment variables.
     pub env: HashMap<String, String>,
 
@@ -64,14 +68,6 @@ pub struct UiConfig {
     /// Debug options.
     pub debug: Debug,
 
-    /// Send escape sequences using the alt key.
-    #[config(removed = "It's now always set to 'true'. If you're on macOS use \
-                        'window.option_as_alt' to alter behavior of Option")]
-    pub alt_send_esc: Option<bool>,
-
-    /// Live config reload.
-    pub live_config_reload: bool,
-
     /// Bell configuration.
     pub bell: BellConfig,
 
@@ -85,70 +81,35 @@ pub struct UiConfig {
     /// Regex hints for interacting with terminal content.
     pub hints: Hints,
 
-    /// Offer IPC through a unix socket.
-    #[cfg(unix)]
-    pub ipc_socket: bool,
-
     /// Config for the alacritty_terminal itself.
     pub terminal: Terminal,
-
-    /// Path to a shell program to run on startup.
-    pub shell: Option<Program>,
-
-    /// Shell startup directory.
-    pub working_directory: Option<PathBuf>,
 
     /// Keyboard configuration.
     keyboard: Keyboard,
 
-    /// Should draw bold text with brighter colors instead of bold font.
-    #[config(deprecated = "use colors.draw_bold_text_with_bright_colors instead")]
-    draw_bold_text_with_bright_colors: bool,
-
-    /// Keybindings.
-    #[config(deprecated = "use keyboard.bindings instead")]
-    key_bindings: Option<KeyBindings>,
-
-    /// Bindings for the mouse.
-    #[config(deprecated = "use mouse.bindings instead")]
-    mouse_bindings: Option<MouseBindings>,
+    /// Path to a shell program to run on startup.
+    #[config(deprecated = "use terminal.shell instead")]
+    shell: Option<Program>,
 
     /// Configuration file imports.
     ///
     /// This is never read since the field is directly accessed through the config's
     /// [`toml::Value`], but still present to prevent unused field warnings.
-    import: Vec<String>,
-}
+    #[config(deprecated = "use general.import instead")]
+    import: Option<Vec<String>>,
 
-impl Default for UiConfig {
-    fn default() -> Self {
-        Self {
-            live_config_reload: true,
-            #[cfg(unix)]
-            ipc_socket: true,
-            draw_bold_text_with_bright_colors: Default::default(),
-            working_directory: Default::default(),
-            mouse_bindings: Default::default(),
-            config_paths: Default::default(),
-            key_bindings: Default::default(),
-            alt_send_esc: Default::default(),
-            scrolling: Default::default(),
-            selection: Default::default(),
-            keyboard: Default::default(),
-            terminal: Default::default(),
-            import: Default::default(),
-            cursor: Default::default(),
-            window: Default::default(),
-            colors: Default::default(),
-            shell: Default::default(),
-            mouse: Default::default(),
-            debug: Default::default(),
-            hints: Default::default(),
-            font: Default::default(),
-            bell: Default::default(),
-            env: Default::default(),
-        }
-    }
+    /// Shell startup directory.
+    #[config(deprecated = "use general.working_directory instead")]
+    working_directory: Option<PathBuf>,
+
+    /// Live config reload.
+    #[config(deprecated = "use general.live_config_reload instead")]
+    live_config_reload: Option<bool>,
+
+    /// Offer IPC through a unix socket.
+    #[cfg(unix)]
+    #[config(deprecated = "use general.ipc_socket instead")]
+    pub ipc_socket: Option<bool>,
 }
 
 impl UiConfig {
@@ -166,26 +127,14 @@ impl UiConfig {
 
     /// Derive [`PtyOptions`] from the config.
     pub fn pty_config(&self) -> PtyOptions {
-        let shell = self.shell.clone().map(Into::into);
-        PtyOptions {
-            shell,
-            working_directory: self.working_directory.clone(),
-            hold: false,
-            env: HashMap::new(),
-        }
+        let shell = self.terminal.shell.clone().or_else(|| self.shell.clone()).map(Into::into);
+        let working_directory =
+            self.working_directory.clone().or_else(|| self.general.working_directory.clone());
+        PtyOptions { working_directory, shell, hold: false, env: HashMap::new() }
     }
 
     /// Generate key bindings for all keyboard hints.
     pub fn generate_hint_bindings(&mut self) {
-        // Check which key bindings is most likely to be the user's configuration.
-        //
-        // Both will be non-empty due to the presence of the default keybindings.
-        let key_bindings = if let Some(key_bindings) = self.key_bindings.as_mut() {
-            &mut key_bindings.0
-        } else {
-            &mut self.keyboard.bindings.0
-        };
-
         for hint in &self.hints.enabled {
             let binding = match &hint.binding {
                 Some(binding) => binding,
@@ -200,7 +149,7 @@ impl UiConfig {
                 action: Action::Hint(hint.clone()),
             };
 
-            key_bindings.push(binding);
+            self.keyboard.bindings.0.push(binding);
         }
     }
 
@@ -211,25 +160,23 @@ impl UiConfig {
 
     #[inline]
     pub fn key_bindings(&self) -> &[KeyBinding] {
-        if let Some(key_bindings) = self.key_bindings.as_ref() {
-            &key_bindings.0
-        } else {
-            &self.keyboard.bindings.0
-        }
+        &self.keyboard.bindings.0
     }
 
     #[inline]
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
-        if let Some(mouse_bindings) = self.mouse_bindings.as_ref() {
-            &mouse_bindings.0
-        } else {
-            &self.mouse.bindings.0
-        }
+        &self.mouse.bindings.0
     }
 
     #[inline]
-    pub fn draw_bold_text_with_bright_colors(&self) -> bool {
-        self.colors.draw_bold_text_with_bright_colors || self.draw_bold_text_with_bright_colors
+    pub fn live_config_reload(&self) -> bool {
+        self.live_config_reload.unwrap_or(self.general.live_config_reload)
+    }
+
+    #[cfg(unix)]
+    #[inline]
+    pub fn ipc_socket(&self) -> bool {
+        self.ipc_socket.unwrap_or(self.general.ipc_socket)
     }
 }
 
@@ -306,7 +253,7 @@ pub struct Hints {
     alphabet: HintsAlphabet,
 
     /// All configured terminal hints.
-    pub enabled: Vec<Hint>,
+    pub enabled: Vec<Rc<Hint>>,
 }
 
 impl Default for Hints {
@@ -327,7 +274,7 @@ impl Default for Hints {
         });
 
         Self {
-            enabled: vec![Hint {
+            enabled: vec![Rc::new(Hint {
                 content,
                 action,
                 persist: false,
@@ -335,13 +282,13 @@ impl Default for Hints {
                 mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
-                        key: Key::Character("u".into()),
+                        key: Key::Character("o".into()),
                         location: KeyLocation::Standard,
                     },
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
                     mode: Default::default(),
                 }),
-            }],
+            })],
             alphabet: Default::default(),
         }
     }
@@ -672,7 +619,7 @@ impl SerdeReplace for Program {
 }
 
 pub(crate) struct StringVisitor;
-impl<'de> serde::de::Visitor<'de> for StringVisitor {
+impl serde::de::Visitor<'_> for StringVisitor {
     type Value = String;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

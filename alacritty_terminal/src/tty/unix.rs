@@ -227,6 +227,10 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
         builder.env(key, value);
     }
 
+    // Prevent child processes from inheriting linux-specific startup notification env.
+    builder.env_remove("XDG_ACTIVATION_TOKEN");
+    builder.env_remove("DESKTOP_STARTUP_ID");
+
     unsafe {
         builder.pre_exec(move || {
             // Create a new process group.

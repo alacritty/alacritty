@@ -15,21 +15,22 @@ _alacritty() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED: ' \
+'--embed=[X11 window ID to embed Alacritty within (decimal or hexadecimal with "0x" prefix)]:EMBED:_default' \
 '--config-file=[Specify alternative configuration file \[default\: \$XDG_CONFIG_HOME/alacritty/alacritty.toml\]]:CONFIG_FILE:_files' \
 '--socket=[Path for IPC socket creation]:SOCKET:_files' \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
-'*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
-'*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
-'-T+[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
-'--title=[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
-'--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance: ' \
-'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
-'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
+'*-e+[Command and args to execute (must be last argument)]:COMMAND:_default' \
+'*--command=[Command and args to execute (must be last argument)]:COMMAND:_default' \
+'-T+[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
+'--title=[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
+'--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance:_default' \
+'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
+'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '--print-events[Print all events to STDOUT]' \
-'--ref-test[Generates ref test]' \
+'(--daemon)--ref-test[Generates ref test]' \
 '(-v)*-q[Reduces the level of verbosity (the min level is -qq)]' \
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
+'--daemon[Do not spawn an initial window]' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -63,13 +64,13 @@ _arguments "${_arguments_options[@]}" : \
             (create-window)
 _arguments "${_arguments_options[@]}" : \
 '--working-directory=[Start the shell in the specified working directory]:WORKING_DIRECTORY:_files' \
-'*-e+[Command and args to execute (must be last argument)]:COMMAND: ' \
-'*--command=[Command and args to execute (must be last argument)]:COMMAND: ' \
-'-T+[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
-'--title=[Defines the window title \[default\: Alacritty\]]:TITLE: ' \
-'--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance: ' \
-'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
-'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION: ' \
+'*-e+[Command and args to execute (must be last argument)]:COMMAND:_default' \
+'*--command=[Command and args to execute (must be last argument)]:COMMAND:_default' \
+'-T+[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
+'--title=[Defines the window title \[default\: Alacritty\]]:TITLE:_default' \
+'--class=[Defines window class/app_id on X11/Wayland \[default\: Alacritty\]]:general> | <general>,<instance:_default' \
+'*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
+'*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '--hold[Remain open after child process exit]' \
 '-h[Print help]' \
 '--help[Print help]' \
@@ -77,13 +78,13 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (config)
 _arguments "${_arguments_options[@]}" : \
-'-w+[Window ID for the new config]:WINDOW_ID: ' \
-'--window-id=[Window ID for the new config]:WINDOW_ID: ' \
+'-w+[Window ID for the new config]:WINDOW_ID:_default' \
+'--window-id=[Window ID for the new config]:WINDOW_ID:_default' \
 '()-r[Clear all runtime configuration changes]' \
 '()--reset[Clear all runtime configuration changes]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
-'*::options -- Configuration file options \[example\: '\''cursor.style="Beam"'\''\]:' \
+'*::options -- Configuration file options \[example\: '\''cursor.style="Beam"'\''\]:_default' \
 && ret=0
 ;;
 (help)
