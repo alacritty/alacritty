@@ -30,4 +30,5 @@
   <url type="bugtracker">https://github.com/alacritty/alacritty/issues</url>
   <update_contact>https://github.com/alacritty/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
   <developer_name>Christian Duerr</developer_name>
+  <launchable type="desktop-id">Alacritty.desktop</launchable>
 </component>
