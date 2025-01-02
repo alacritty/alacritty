@@ -4,8 +4,8 @@
   <id>org.alacritty.Alacritty</id>
   <!-- Translators: The application name -->
   <name>Alacritty</name>
-  <project_license>APACHE-2.0</project_license>
-  <metadata_license>APACHE-2.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <metadata_license>Apache-2.0</metadata_license>
   <!-- Translators: The application's summary / tagline -->
   <summary>A fast, cross-platform, OpenGL terminal emulator</summary>
   <description>
