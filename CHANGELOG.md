@@ -28,6 +28,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Migrating nonexistent toml import breaking the entire migration
 - Crash when pressing certain modifier keys on macOS 15+
 - First daemon mode window ignoring window options passed through CLI
+- Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
 
 ## 0.14.0
 
