@@ -300,6 +300,11 @@ pub struct WindowOptions {
     /// The window tabbing identifier to use when building a window.
     pub window_tabbing_id: Option<String>,
 
+    #[clap(skip)]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    /// `ActivationToken` that we pass to winit.
+    pub activation_token: Option<String>,
+
     /// Override configuration file options [example: 'cursor.style="Beam"'].
     #[clap(short = 'o', long, num_args = 1..)]
     option: Vec<String>,
