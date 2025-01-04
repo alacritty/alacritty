@@ -218,20 +218,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let text = key.text_with_all_modifiers().unwrap_or_default();
         let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
 
-        let bytes: Cow<'static, [u8]> = match key.logical_key.as_ref() {
-            // NOTE: Echo the key back on release to follow kitty/foot behavior. When
-            // KEYBOARD_REPORT_ALL_KEYS_AS_ESC is used, we build proper escapes for
-            // the keys below.
-            _ if mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) => {
-                build_sequence(key, mods, mode).into()
+        let bytes = match key.logical_key.as_ref() {
+            Key::Named(NamedKey::Enter)
+            | Key::Named(NamedKey::Tab)
+            | Key::Named(NamedKey::Backspace)
+                if !mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) =>
+            {
+                return
             },
-            // Winit uses different keys for `Backspace` so we explicitly specify the
-            // values, instead of using what was passed to us from it.
-            Key::Named(NamedKey::Tab) => [b'\t'].as_slice().into(),
-            Key::Named(NamedKey::Enter) => [b'\r'].as_slice().into(),
-            Key::Named(NamedKey::Backspace) => [b'\x7f'].as_slice().into(),
-            Key::Named(NamedKey::Escape) => [b'\x1b'].as_slice().into(),
-            _ => build_sequence(key, mods, mode).into(),
+            _ => build_sequence(key, mods, mode),
         };
 
         self.ctx.write_to_pty(bytes);
