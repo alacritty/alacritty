@@ -14,6 +14,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
 - Escape sequence to move cursor forward tabs ( CSI Ps I )
+- Pass activation token in `alacritty msg create-window` on Wayland/X11
 
 ### Changed
 
