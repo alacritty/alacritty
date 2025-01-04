@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Escape sequence to move cursor forward tabs ( CSI Ps I )
+- Pass activation token in `alacritty msg create-window` on Wayland/X11
 
 ### Changed
 

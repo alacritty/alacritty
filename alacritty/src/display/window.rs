@@ -2,6 +2,8 @@
 use winit::platform::startup_notify::{
     self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
 };
+#[cfg(not(any(target_os = "macos", windows)))]
+use winit::window::ActivationToken;
 
 #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
 use winit::platform::wayland::WindowAttributesExtWayland;
@@ -39,6 +41,7 @@ use winit::window::{
 
 use alacritty_terminal::index::Point;
 
+use crate::cli::WindowOptions;
 use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
 use crate::display::SizeInfo;
@@ -125,9 +128,7 @@ impl Window {
         event_loop: &ActiveEventLoop,
         config: &UiConfig,
         identity: &Identity,
-        #[rustfmt::skip]
-        #[cfg(target_os = "macos")]
-        tabbing_id: &Option<String>,
+        _options: &mut WindowOptions,
         #[rustfmt::skip]
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
@@ -139,7 +140,7 @@ impl Window {
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             x11_visual,
             #[cfg(target_os = "macos")]
-            tabbing_id,
+            &_options.window_tabbing_id.take(),
         );
 
         if let Some(position) = config.window.position {
@@ -148,7 +149,12 @@ impl Window {
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        if let Some(token) = event_loop.read_token_from_env() {
+        if let Some(token) = _options
+            .activation_token
+            .take()
+            .map(ActivationToken::from_raw)
+            .or_else(|| event_loop.read_token_from_env())
+        {
             log::debug!("Activating window with token: {token:?}");
             window_attributes = window_attributes.with_activation_token(token);
 
