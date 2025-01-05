@@ -20,6 +20,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Always focus new windows on macOS
 - Don't switch to semantic/line selection when control is pressed
+- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
 
 ### Fixed
 
@@ -30,6 +31,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Migrating nonexistent toml import breaking the entire migration
 - First daemon mode window ignoring window options passed through CLI
 - Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
+- Crash when pressing certain modifier keys on macOS 15+
 
 ## 0.14.0
 
@@ -53,7 +55,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Moved config option `shell` to `terminal.shell`
 - `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
 - Use `Beam` cursor for single char cursor inside the IME preview
-- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
 
 ### Fixed
 
@@ -75,7 +76,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Invalid URL highlights after terminal scrolling
 - Hollow block cursor not spanning multiple chars being edited inside the IME preview
 - Vi inline search only working for direct key input without modifiers
-- Crash when pressing certain modifier keys on macOS 15+
 
 ## 0.13.2
 
