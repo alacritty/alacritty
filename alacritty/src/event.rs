@@ -1183,17 +1183,13 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     /// Expand the selection to the current mouse cursor position.
     #[inline]
     fn expand_selection(&mut self) {
+        let control = self.modifiers().state().control_key();
         let selection_type = match self.mouse().click_state {
-            ClickState::Click => {
-                if self.modifiers().state().control_key() {
-                    SelectionType::Block
-                } else {
-                    SelectionType::Simple
-                }
-            },
+            ClickState::None => return,
+            _ if control => SelectionType::Block,
+            ClickState::Click => SelectionType::Simple,
             ClickState::DoubleClick => SelectionType::Semantic,
             ClickState::TripleClick => SelectionType::Lines,
-            ClickState::None => return,
         };
 
         // Load mouse point, treating message bar and padding as the closest cell.

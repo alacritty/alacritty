@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2016-2022 Joe Wilm, The Alacritty Project Contributors -->
+<!-- SPDX-License-Identifier: MIT -->
 <component type="desktop-application">
   <id>org.alacritty.Alacritty</id>
-  <!-- Translators: The application name -->
+
+  <developer_name>Christian Duerr</developer_name>
+  <developer id="org.alacritty">
+    <name>Christian Duerr</name>
+  </developer>
+
   <name>Alacritty</name>
-  <project_license>APACHE-2.0</project_license>
-  <metadata_license>APACHE-2.0</metadata_license>
-  <!-- Translators: The application's summary / tagline -->
-  <summary>A fast, cross-platform, OpenGL terminal emulator</summary>
+
+  <project_license>Apache-2.0</project_license>
+  <metadata_license>MIT</metadata_license>
+
+  <summary>A cross-platform, OpenGL terminal emulator</summary>
   <description>
     <p>
       Alacritty is a modern terminal emulator that comes with sensible defaults,
@@ -15,19 +21,28 @@
       applications, rather than reimplementing their functionality, it manages
       to provide a flexible set of features with high performance.
     </p>
+    <ul>
+      <li>Wayland native</li>
+      <li>X11 native</li>
+      <li>DE agnostic</li>
+    </ul>
   </description>
+
+  <categories>
+    <category>TerminalEmulator</category>
+  </categories>
+
   <screenshots>
     <screenshot type="default">
-      <image>https://user-images.githubusercontent.com/8886672/103264352-5ab0d500-49a2-11eb-8961-02f7da66c855.png</image>
-      <caption>Alacritty - A fast, cross-platform, OpenGL terminal emulator</caption>
+      <image>https://raw.githubusercontent.com/alacritty/alacritty/0a1e735cf6b13da1dbe5d161d17c8aa6c1692204/extra/promo/alacritty-readme.png</image>
+      <caption>Alacritty with default theme showing neovim</caption>
     </screenshot>
   </screenshots>
-  <keywords>
-    <keyword>terminal emulator</keyword>
-    <keyword>GPU</keyword>
-  </keywords>
+
   <url type="homepage">https://github.com/alacritty/alacritty</url>
   <url type="bugtracker">https://github.com/alacritty/alacritty/issues</url>
-  <update_contact>https://github.com/alacritty/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
-  <developer_name>Christian Duerr</developer_name>
+
+  <launchable type="desktop-id">Alacritty.desktop</launchable>
+
+  <content_rating type="oars-1.0" />
 </component>

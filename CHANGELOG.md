@@ -13,10 +13,12 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Added
 
 - Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
+- Escape sequence to move cursor forward tabs ( CSI Ps I )
 
 ### Changed
 
 - Always focus new windows on macOS
+- Don't switch to semantic/line selection when control is pressed
 
 ### Fixed
 
@@ -26,6 +28,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - `alacritty migrate` crashing with recursive toml imports
 - Migrating nonexistent toml import breaking the entire migration
 - First daemon mode window ignoring window options passed through CLI
+- Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
 
 ## 0.14.0
 

@@ -2060,9 +2060,9 @@ dependencies = [
 
 [[package]]
 name = "vte-graphics"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2864755f49461b8296184ac43e06516a4bc47dab4d4d06396b8c852f3e7c1593"
+checksum = "7a567531be6ebf19138eed358a880b7959f206cb79dec94a83d145797aedc4bd"
 dependencies = [
  "bitflags 2.6.0",
  "cursor-icon",
@@ -2541,9 +2541,9 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "winit"
-version = "0.30.7"
+version = "0.30.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dba50bc8ef4b6f1a75c9274fb95aa9a8f63fbc66c56f391bd85cf68d51e7b1a3"
+checksum = "f5d74280aabb958072864bff6cfbcf9025cf8bfacdde5e32b5e12920ef703b0f"
 dependencies = [
  "ahash",
  "android-activity",
