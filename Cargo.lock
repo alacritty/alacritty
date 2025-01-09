@@ -50,6 +50,7 @@ dependencies = [
  "home",
  "libc",
  "log",
+ "memoffset",
  "notify",
  "objc2",
  "objc2-app-kit",
@@ -59,6 +60,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "smallvec",
  "tempfile",
  "toml",
  "toml_edit",
@@ -109,8 +111,9 @@ dependencies = [
  "serde",
  "serde_json",
  "signal-hook",
+ "smallvec",
  "unicode-width",
- "vte",
+ "vte-graphics",
  "windows-sys 0.59.0",
 ]
 
@@ -1091,6 +1094,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memoffset"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1810,6 +1822,9 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -2044,10 +2059,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "vte"
+name = "vte-graphics"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a0b683b20ef64071ff03745b14391751f6beab06a54347885459b77a3f2caa5"
+checksum = "7a567531be6ebf19138eed358a880b7959f206cb79dec94a83d145797aedc4bd"
 dependencies = [
  "bitflags 2.6.0",
  "cursor-icon",
