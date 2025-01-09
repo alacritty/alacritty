@@ -17,8 +17,8 @@ use polling::{Event as PollingEvent, Events, PollMode};
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
 use crate::term::Term;
+use crate::vte::ansi;
 use crate::{thread, tty};
-use vte::ansi;
 
 /// Max bytes to read from the PTY before forced terminal synchronization.
 pub(crate) const READ_BUFFER_SIZE: usize = 0x10_0000;
@@ -151,7 +151,9 @@ where
             }
 
             // Parse the incoming bytes.
-            state.parser.advance(&mut **terminal, &buf[..unprocessed]);
+            for byte in &buf[..unprocessed] {
+                state.parser.advance(&mut **terminal, *byte);
+            }
 
             processed += unprocessed;
             unprocessed = 0;
