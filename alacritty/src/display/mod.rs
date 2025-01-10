@@ -8,7 +8,10 @@ use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 use std::time::{Duration, Instant};
 
+use glutin::config::GetGlConfig;
 use glutin::context::{NotCurrentContext, PossiblyCurrentContext};
+use glutin::display::GetGlDisplay;
+use glutin::error::ErrorKind;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
@@ -33,6 +36,7 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -385,6 +389,7 @@ pub struct Display {
     hint_mouse_point: Option<Point>,
 
     renderer: ManuallyDrop<Renderer>,
+    renderer_preference: Option<RendererPreference>,
 
     surface: ManuallyDrop<Surface<WindowSurface>>,
 
@@ -513,6 +518,7 @@ impl Display {
             context: ManuallyDrop::new(Replaceable::new(context)),
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
+            renderer_preference: config.debug.renderer,
             surface: ManuallyDrop::new(surface),
             colors: List::from(&config.colors),
             frame_timer: FrameTimer::new(),
@@ -552,9 +558,59 @@ impl Display {
         }
     }
 
-    pub fn make_current(&self) {
-        if !self.context.get().is_current() {
-            self.context.make_current(&self.surface).expect("failed to make context current")
+    pub fn make_current(&mut self, recover: bool) {
+        let is_current = self.context.get().is_current();
+        if is_current && !recover {
+            return;
+        }
+
+        let mut was_context_reset = if is_current {
+            false
+        } else {
+            match self.context.make_current(&self.surface) {
+                Err(err) if err.error_kind() == ErrorKind::ContextLost => {
+                    info!("Context lost for window {:?}", self.window.id());
+                    true
+                },
+                _ => false,
+            }
+        };
+
+        was_context_reset |= self.renderer.was_context_reset();
+
+        if was_context_reset && recover {
+            let gl_display = self.context.display();
+            let gl_config = self.context.config();
+            let raw_window_handle = Some(self.window.raw_window_handle());
+            let context =
+                renderer::platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)
+                    .expect("failed to recreate context.");
+
+            // Drop the old context and renderer.
+            unsafe {
+                ManuallyDrop::drop(&mut self.renderer);
+                ManuallyDrop::drop(&mut self.context);
+            }
+
+            // Activate new context.
+            let context = context.treat_as_possibly_current();
+            self.context = ManuallyDrop::new(Replaceable::new(context));
+            self.context
+                .make_current(&self.surface)
+                .expect("failed to reativate context after reset.");
+
+            // Recreate renderer.
+            let renderer = Renderer::new(&self.context, self.renderer_preference)
+                .expect("failed to recreate renderer after reset");
+            self.renderer = ManuallyDrop::new(renderer);
+
+            // Resize the renderer.
+            self.renderer.resize(&self.size_info);
+
+            self.reset_glyph_cache();
+            self.damage_tracker.frame().mark_fully_damaged();
+
+            debug!("Recovered window {:?} from gpu reset", self.window.id());
         }
     }
 
@@ -709,7 +765,7 @@ impl Display {
         }
 
         // Ensure we're modifying the correct OpenGL context.
-        self.make_current();
+        self.make_current(true);
 
         if renderer_update.clear_font_cache {
             self.reset_glyph_cache();
@@ -787,7 +843,7 @@ impl Display {
         self.damage_tracker.damage_selection(selection_range, display_offset);
 
         // Make sure this window's OpenGL context is active.
-        self.make_current();
+        self.make_current(true);
 
         self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
@@ -1413,7 +1469,7 @@ impl Drop for Display {
     fn drop(&mut self) {
         // Switch OpenGL context before dropping, otherwise objects (like programs) from other
         // contexts might be deleted when dropping renderer.
-        self.make_current();
+        self.make_current(false);
         unsafe {
             ManuallyDrop::drop(&mut self.renderer);
             ManuallyDrop::drop(&mut self.context);
