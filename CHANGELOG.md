@@ -34,6 +34,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - First daemon mode window ignoring window options passed through CLI
 - Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
 - Crash when pressing certain modifier keys on macOS 15+
+- Cut off wide characters in preedit string
 
 ## 0.14.0
 
