@@ -53,7 +53,7 @@ use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, Renderer};
+use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
@@ -426,7 +426,7 @@ impl Display {
         }
 
         // Create the GL surface to draw into.
-        let surface = renderer::platform::create_gl_surface(
+        let surface = platform::create_gl_surface(
             &gl_context,
             window.inner_size(),
             window.raw_window_handle(),
@@ -558,12 +558,10 @@ impl Display {
         }
     }
 
-    pub fn make_current(&mut self, recover: bool) {
+    pub fn make_current(&mut self) {
         let is_current = self.context.get().is_current();
-        if is_current && !recover {
-            return;
-        }
 
+        // Attempt to make the context current if it's not.
         let mut was_context_reset = if is_current {
             false
         } else {
@@ -578,40 +576,39 @@ impl Display {
 
         was_context_reset |= self.renderer.was_context_reset();
 
-        if was_context_reset && recover {
-            let gl_display = self.context.display();
-            let gl_config = self.context.config();
-            let raw_window_handle = Some(self.window.raw_window_handle());
-            let context =
-                renderer::platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)
-                    .expect("failed to recreate context.");
-
-            // Drop the old context and renderer.
-            unsafe {
-                ManuallyDrop::drop(&mut self.renderer);
-                ManuallyDrop::drop(&mut self.context);
-            }
-
-            // Activate new context.
-            let context = context.treat_as_possibly_current();
-            self.context = ManuallyDrop::new(Replaceable::new(context));
-            self.context
-                .make_current(&self.surface)
-                .expect("failed to reativate context after reset.");
-
-            // Recreate renderer.
-            let renderer = Renderer::new(&self.context, self.renderer_preference)
-                .expect("failed to recreate renderer after reset");
-            self.renderer = ManuallyDrop::new(renderer);
-
-            // Resize the renderer.
-            self.renderer.resize(&self.size_info);
-
-            self.reset_glyph_cache();
-            self.damage_tracker.frame().mark_fully_damaged();
-
-            debug!("Recovered window {:?} from gpu reset", self.window.id());
+        if !was_context_reset {
+            return;
         }
+
+        let gl_display = self.context.display();
+        let gl_config = self.context.config();
+        let raw_window_handle = Some(self.window.raw_window_handle());
+        let context = platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)
+            .expect("failed to recreate context.");
+
+        // Drop the old context and renderer.
+        unsafe {
+            ManuallyDrop::drop(&mut self.renderer);
+            ManuallyDrop::drop(&mut self.context);
+        }
+
+        // Activate new context.
+        let context = context.treat_as_possibly_current();
+        self.context = ManuallyDrop::new(Replaceable::new(context));
+        self.context.make_current(&self.surface).expect("failed to reativate context after reset.");
+
+        // Recreate renderer.
+        let renderer = Renderer::new(&self.context, self.renderer_preference)
+            .expect("failed to recreate renderer after reset");
+        self.renderer = ManuallyDrop::new(renderer);
+
+        // Resize the renderer.
+        self.renderer.resize(&self.size_info);
+
+        self.reset_glyph_cache();
+        self.damage_tracker.frame().mark_fully_damaged();
+
+        debug!("Recovered window {:?} from gpu reset", self.window.id());
     }
 
     fn swap_buffers(&self) {
@@ -765,7 +762,7 @@ impl Display {
         }
 
         // Ensure we're modifying the correct OpenGL context.
-        self.make_current(true);
+        self.make_current();
 
         if renderer_update.clear_font_cache {
             self.reset_glyph_cache();
@@ -843,7 +840,7 @@ impl Display {
         self.damage_tracker.damage_selection(selection_range, display_offset);
 
         // Make sure this window's OpenGL context is active.
-        self.make_current(true);
+        self.make_current();
 
         self.renderer.clear(background_color, config.window_opacity());
         let mut lines = RenderLines::new();
@@ -1469,7 +1466,7 @@ impl Drop for Display {
     fn drop(&mut self) {
         // Switch OpenGL context before dropping, otherwise objects (like programs) from other
         // contexts might be deleted when dropping renderer.
-        self.make_current(false);
+        self.make_current();
         unsafe {
             ManuallyDrop::drop(&mut self.renderer);
             ManuallyDrop::drop(&mut self.context);
