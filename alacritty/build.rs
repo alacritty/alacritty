@@ -17,6 +17,7 @@ fn main() {
 
     Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, [
         "GL_ARB_blend_func_extended",
+        "GL_KHR_robustness",
         "GL_KHR_debug",
     ])
     .write_bindings(GlobalGenerator, &mut file)

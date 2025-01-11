@@ -8,7 +8,10 @@ use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut};
 use std::time::{Duration, Instant};
 
+use glutin::config::GetGlConfig;
 use glutin::context::{NotCurrentContext, PossiblyCurrentContext};
+use glutin::display::GetGlDisplay;
+use glutin::error::ErrorKind;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
@@ -33,6 +36,7 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -49,7 +53,7 @@ use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, Renderer};
+use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
@@ -385,6 +389,7 @@ pub struct Display {
     hint_mouse_point: Option<Point>,
 
     renderer: ManuallyDrop<Renderer>,
+    renderer_preference: Option<RendererPreference>,
 
     surface: ManuallyDrop<Surface<WindowSurface>>,
 
@@ -421,7 +426,7 @@ impl Display {
         }
 
         // Create the GL surface to draw into.
-        let surface = renderer::platform::create_gl_surface(
+        let surface = platform::create_gl_surface(
             &gl_context,
             window.inner_size(),
             window.raw_window_handle(),
@@ -513,6 +518,7 @@ impl Display {
             context: ManuallyDrop::new(Replaceable::new(context)),
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
+            renderer_preference: config.debug.renderer,
             surface: ManuallyDrop::new(surface),
             colors: List::from(&config.colors),
             frame_timer: FrameTimer::new(),
@@ -552,10 +558,55 @@ impl Display {
         }
     }
 
-    pub fn make_current(&self) {
-        if !self.context.get().is_current() {
-            self.context.make_current(&self.surface).expect("failed to make context current")
+    pub fn make_current(&mut self) {
+        let is_current = self.context.get().is_current();
+
+        // Attempt to make the context current if it's not.
+        let context_loss = if is_current {
+            self.renderer.was_context_reset()
+        } else {
+            match self.context.make_current(&self.surface) {
+                Err(err) if err.error_kind() == ErrorKind::ContextLost => {
+                    info!("Context lost for window {:?}", self.window.id());
+                    true
+                },
+                _ => false,
+            }
+        };
+
+        if !context_loss {
+            return;
         }
+
+        let gl_display = self.context.display();
+        let gl_config = self.context.config();
+        let raw_window_handle = Some(self.window.raw_window_handle());
+        let context = platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)
+            .expect("failed to recreate context.");
+
+        // Drop the old context and renderer.
+        unsafe {
+            ManuallyDrop::drop(&mut self.renderer);
+            ManuallyDrop::drop(&mut self.context);
+        }
+
+        // Activate new context.
+        let context = context.treat_as_possibly_current();
+        self.context = ManuallyDrop::new(Replaceable::new(context));
+        self.context.make_current(&self.surface).expect("failed to reativate context after reset.");
+
+        // Recreate renderer.
+        let renderer = Renderer::new(&self.context, self.renderer_preference)
+            .expect("failed to recreate renderer after reset");
+        self.renderer = ManuallyDrop::new(renderer);
+
+        // Resize the renderer.
+        self.renderer.resize(&self.size_info);
+
+        self.reset_glyph_cache();
+        self.damage_tracker.frame().mark_fully_damaged();
+
+        debug!("Recovered window {:?} from gpu reset", self.window.id());
     }
 
     fn swap_buffers(&self) {
