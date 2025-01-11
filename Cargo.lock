@@ -2046,25 +2046,13 @@ dependencies = [
 [[package]]
 name = "vte"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5507b53f7756f79bdb968d038a8f8db570d88028aee3c3cdc20427a8fb3482f4"
+source = "git+https://github.com/alacritty/vte?branch=need_for_speed_2#377a58bcb885f2c994816dfc8277c9820b8fd881"
 dependencies = [
  "bitflags 2.6.0",
  "cursor-icon",
  "log",
  "memchr",
  "serde",
- "vte_generate_state_changes",
-]
-
-[[package]]
-name = "vte_generate_state_changes"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e658bbb246cd98d720db0b7553764f7e841e25d9ac0c9ecfbc09452dc95a8cce"
-dependencies = [
- "proc-macro2",
- "quote",
 ]
 
 [[package]]
