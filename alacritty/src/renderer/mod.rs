@@ -287,7 +287,7 @@ impl Renderer {
 
     /// Get the context reset status.
     pub fn was_context_reset(&self) -> bool {
-        // If robustness is not supproted, don't use its functions.
+        // If robustness is not supported, don't use its functions.
         if !self.robustness {
             return false;
         }

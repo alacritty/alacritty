@@ -562,8 +562,8 @@ impl Display {
         let is_current = self.context.get().is_current();
 
         // Attempt to make the context current if it's not.
-        let mut was_context_reset = if is_current {
-            false
+        let context_loss = if is_current {
+            self.renderer.was_context_reset()
         } else {
             match self.context.make_current(&self.surface) {
                 Err(err) if err.error_kind() == ErrorKind::ContextLost => {
@@ -574,9 +574,7 @@ impl Display {
             }
         };
 
-        was_context_reset |= self.renderer.was_context_reset();
-
-        if !was_context_reset {
+        if !context_loss {
             return;
         }
 
