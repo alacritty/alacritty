@@ -5,7 +5,7 @@ use std::cmp;
 use std::fmt::{self, Formatter};
 use std::mem::{self, ManuallyDrop};
 use std::num::NonZeroU32;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use std::time::{Duration, Instant};
 
 use glutin::config::GetGlConfig;
@@ -393,7 +393,7 @@ pub struct Display {
 
     surface: ManuallyDrop<Surface<WindowSurface>>,
 
-    context: ManuallyDrop<Replaceable<PossiblyCurrentContext>>,
+    context: ManuallyDrop<PossiblyCurrentContext>,
 
     glyph_cache: GlyphCache,
     meter: Meter,
@@ -515,7 +515,7 @@ impl Display {
         }
 
         Ok(Self {
-            context: ManuallyDrop::new(Replaceable::new(context)),
+            context: ManuallyDrop::new(context),
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
             renderer_preference: config.debug.renderer,
@@ -544,22 +544,17 @@ impl Display {
 
     #[inline]
     pub fn gl_context(&self) -> &PossiblyCurrentContext {
-        self.context.get()
+        &self.context
     }
 
     pub fn make_not_current(&mut self) {
-        if self.context.get().is_current() {
-            self.context.replace_with(|context| {
-                context
-                    .make_not_current()
-                    .expect("failed to disable context")
-                    .treat_as_possibly_current()
-            });
+        if self.context.is_current() {
+            self.context.make_not_current_in_place().expect("failed to disable context");
         }
     }
 
     pub fn make_current(&mut self) {
-        let is_current = self.context.get().is_current();
+        let is_current = self.context.is_current();
 
         // Attempt to make the context current if it's not.
         let context_loss = if is_current {
@@ -592,7 +587,7 @@ impl Display {
 
         // Activate new context.
         let context = context.treat_as_possibly_current();
-        self.context = ManuallyDrop::new(Replaceable::new(context));
+        self.context = ManuallyDrop::new(context);
         self.context.make_current(&self.surface).expect("failed to reativate context after reset.");
 
         // Recreate renderer.
@@ -611,7 +606,7 @@ impl Display {
 
     fn swap_buffers(&self) {
         #[allow(clippy::single_match)]
-        let res = match (self.surface.deref(), &self.context.get()) {
+        let res = match (self.surface.deref(), &self.context.deref()) {
             #[cfg(not(any(target_os = "macos", windows)))]
             (Surface::Egl(surface), PossiblyCurrentContext::Egl(context))
                 if matches!(self.raw_window_handle, RawWindowHandle::Wayland(_))
@@ -1553,47 +1548,6 @@ pub struct RendererUpdate {
 
     /// Clear font caches.
     clear_font_cache: bool,
-}
-
-/// Struct for safe in-place replacement.
-///
-/// This struct allows easily replacing struct fields that provide `self -> Self` methods in-place,
-/// without having to deal with constantly unwrapping the underlying [`Option`].
-struct Replaceable<T>(Option<T>);
-
-impl<T> Replaceable<T> {
-    pub fn new(inner: T) -> Self {
-        Self(Some(inner))
-    }
-
-    /// Replace the contents of the container.
-    pub fn replace_with<F: FnMut(T) -> T>(&mut self, f: F) {
-        self.0 = self.0.take().map(f);
-    }
-
-    /// Get immutable access to the wrapped value.
-    pub fn get(&self) -> &T {
-        self.0.as_ref().unwrap()
-    }
-
-    /// Get mutable access to the wrapped value.
-    pub fn get_mut(&mut self) -> &mut T {
-        self.0.as_mut().unwrap()
-    }
-}
-
-impl<T> Deref for Replaceable<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.get()
-    }
-}
-
-impl<T> DerefMut for Replaceable<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_mut()
-    }
 }
 
 /// The frame timer state.
