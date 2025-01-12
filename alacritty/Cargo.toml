@@ -28,7 +28,7 @@ bitflags = "2.2.1"
 clap = { version = "4.2.7", features = ["derive", "env"] }
 copypasta = { version = "0.10.1", default-features = false }
 crossfont = "0.8.0"
-glutin = { version = "0.32.0", default-features = false, features = ["egl", "wgl"] }
+glutin = { version = "0.32.2", default-features = false, features = ["egl", "wgl"] }
 home = "0.5.5"
 libc = "0.2"
 log = { version = "0.4", features = ["std", "serde"] }
