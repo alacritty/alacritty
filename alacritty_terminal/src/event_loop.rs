@@ -50,7 +50,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
-    hold: bool,
+    drain_on_exit: bool,
     ref_test: bool,
 }
 
@@ -64,7 +64,7 @@ where
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
         pty: T,
-        hold: bool,
+        drain_on_exit: bool,
         ref_test: bool,
     ) -> io::Result<EventLoop<T, U>> {
         let (tx, rx) = mpsc::channel();
@@ -76,7 +76,7 @@ where
             rx: PeekableReceiver::new(rx),
             terminal,
             event_proxy,
-            hold,
+            drain_on_exit,
             ref_test,
         })
     }
@@ -261,13 +261,10 @@ where
                                 if let Some(code) = code {
                                     self.event_proxy.send_event(Event::ChildExit(code));
                                 }
-                                if self.hold {
-                                    // With hold enabled, make sure the PTY is drained.
+                                if self.drain_on_exit {
                                     let _ = self.pty_read(&mut state, &mut buf, pipe.as_mut());
-                                } else {
-                                    // Without hold, shutdown the terminal.
-                                    self.terminal.lock().exit();
                                 }
+                                self.terminal.lock().exit();
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }
