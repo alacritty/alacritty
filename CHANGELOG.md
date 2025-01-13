@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
+## 0.16.0-dev
+
+### Changed
+
+- Error out when socket fails to create with `--daemon`
+
 ## 0.15.0
 
 ### Added
