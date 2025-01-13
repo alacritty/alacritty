@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Changed
+
+- Error out when socket fails to create with `--daemon`
+
 ## 0.15.0
 
 ### Added
