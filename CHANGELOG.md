@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.15.0-rc1
+## 0.15.0
 
 ### Added
 
@@ -32,6 +32,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - First daemon mode window ignoring window options passed through CLI
 - Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
 - Crash when pressing certain modifier keys on macOS 15+
+- Cut off wide characters in preedit string
 
 ## 0.14.0
 

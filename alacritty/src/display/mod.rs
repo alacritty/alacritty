@@ -1349,6 +1349,8 @@ impl Display {
             (&mut self.highlighted_hint, &mut self.highlighted_hint_age, true),
             (&mut self.vi_highlighted_hint, &mut self.vi_highlighted_hint_age, false),
         ];
+
+        let num_lines = self.size_info.screen_lines();
         for (hint, hint_age, reset_mouse) in hints {
             let (start, end) = match hint {
                 Some(hint) => (*hint.bounds().start(), *hint.bounds().end()),
@@ -1362,10 +1364,12 @@ impl Display {
             }
 
             // Convert hint bounds to viewport coordinates.
-            let start = term::point_to_viewport(display_offset, start).unwrap_or_default();
-            let end = term::point_to_viewport(display_offset, end).unwrap_or_else(|| {
-                Point::new(self.size_info.screen_lines() - 1, self.size_info.last_column())
-            });
+            let start = term::point_to_viewport(display_offset, start)
+                .filter(|point| point.line < num_lines)
+                .unwrap_or_default();
+            let end = term::point_to_viewport(display_offset, end)
+                .filter(|point| point.line < num_lines)
+                .unwrap_or_else(|| Point::new(num_lines - 1, self.size_info.last_column()));
 
             // Clear invalidated hints.
             if frame.intersects(start, end) {
