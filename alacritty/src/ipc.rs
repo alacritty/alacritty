@@ -19,7 +19,10 @@ use crate::event::{Event, EventType};
 const ALACRITTY_SOCKET_ENV: &str = "ALACRITTY_SOCKET";
 
 /// Create an IPC socket.
-pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -> Option<PathBuf> {
+pub fn spawn_ipc_socket(
+    options: &Options,
+    event_proxy: EventLoopProxy<Event>,
+) -> IoResult<PathBuf> {
     // Create the IPC socket and export its path as env.
 
     let socket_path = options.socket.clone().unwrap_or_else(|| {
@@ -28,13 +31,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
         path
     });
 
-    let listener = match UnixListener::bind(&socket_path) {
-        Ok(listener) => listener,
-        Err(err) => {
-            warn!("Unable to create socket: {:?}", err);
-            return None;
-        },
-    };
+    let listener = UnixListener::bind(&socket_path)?;
 
     env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
     if options.daemon {
@@ -80,7 +77,7 @@ pub fn spawn_ipc_socket(options: &Options, event_proxy: EventLoopProxy<Event>) -
         }
     });
 
-    Some(socket_path)
+    Ok(socket_path)
 }
 
 /// Send a message to the active Alacritty socket.
