@@ -14,6 +14,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Error out when socket fails to create with `--daemon`
 
+### Fixed
+
+- Crash when OpenGL context resets
+
 ## 0.15.0
 
 ### Added
@@ -39,7 +43,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
 - Crash when pressing certain modifier keys on macOS 15+
 - Cut off wide characters in preedit string
-- Crash when OpenGL context resets
 
 ## 0.14.0
 
