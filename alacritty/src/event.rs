@@ -1800,7 +1800,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             WinitEvent::WindowEvent { event, .. } => {
                 match event {
                     WindowEvent::CloseRequested => {
-                        // User asked to hold the window, so no need to hold it.
+                        // User asked to close the window, so no need to hold it.
                         self.ctx.window().hold = false;
                         self.ctx.terminal.exit();
                     },
