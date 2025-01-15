@@ -324,7 +324,10 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(not(target_os = "macos"))]
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
-            Action::Quit => ctx.terminal_mut().exit(),
+            Action::Quit => {
+                ctx.window().hold = false;
+                ctx.terminal_mut().exit();
+            },
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
             Action::ResetFontSize => ctx.reset_font_size(),
