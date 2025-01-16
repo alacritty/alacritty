@@ -4,6 +4,7 @@ use crate::ConfigMonitor;
 use glutin::config::GetGlConfig;
 use std::borrow::Cow;
 use std::cmp::min;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
@@ -380,9 +381,14 @@ impl ApplicationHandler<Event> for Processor {
             },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
                 // Remove the closed terminal.
-                let window_context = match self.windows.remove(window_id) {
-                    Some(window_context) => window_context,
-                    None => return,
+                let window_context = match self.windows.entry(*window_id) {
+                    // Don't exit when terminal exits if user asked to hold the window.
+                    Entry::Occupied(window_context)
+                        if !window_context.get().display.window.hold =>
+                    {
+                        window_context.remove()
+                    },
+                    _ => return,
                 };
 
                 // Unschedule pending events.
@@ -1793,7 +1799,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             },
             WinitEvent::WindowEvent { event, .. } => {
                 match event {
-                    WindowEvent::CloseRequested => self.ctx.terminal.exit(),
+                    WindowEvent::CloseRequested => {
+                        // User asked to close the window, so no need to hold it.
+                        self.ctx.window().hold = false;
+                        self.ctx.terminal.exit();
+                    },
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         let old_scale_factor =
                             mem::replace(&mut self.ctx.window().scale_factor, scale_factor);

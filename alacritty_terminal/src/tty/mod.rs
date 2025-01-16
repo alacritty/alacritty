@@ -28,8 +28,8 @@ pub struct Options {
     /// Shell startup directory.
     pub working_directory: Option<PathBuf>,
 
-    /// Remain open after child process exits.
-    pub hold: bool,
+    /// Drain the child process output before exiting the terminal.
+    pub drain_on_exit: bool,
 
     /// Extra environment variables.
     pub env: HashMap<String, String>,
