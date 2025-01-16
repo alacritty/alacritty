@@ -130,7 +130,7 @@ impl UiConfig {
         let shell = self.terminal.shell.clone().or_else(|| self.shell.clone()).map(Into::into);
         let working_directory =
             self.working_directory.clone().or_else(|| self.general.working_directory.clone());
-        PtyOptions { working_directory, shell, hold: false, env: HashMap::new() }
+        PtyOptions { working_directory, shell, drain_on_exit: false, env: HashMap::new() }
     }
 
     /// Generate key bindings for all keyboard hints.

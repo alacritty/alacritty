@@ -109,6 +109,9 @@ pub struct Window {
     /// Flag indicating whether redraw was requested.
     pub requested_redraw: bool,
 
+    /// Hold the window when terminal exits.
+    pub hold: bool,
+
     window: WinitWindow,
 
     /// Current window title.
@@ -127,7 +130,7 @@ impl Window {
         event_loop: &ActiveEventLoop,
         config: &UiConfig,
         identity: &Identity,
-        _options: &mut WindowOptions,
+        options: &mut WindowOptions,
         #[rustfmt::skip]
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
@@ -139,7 +142,7 @@ impl Window {
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             x11_visual,
             #[cfg(target_os = "macos")]
-            &_options.window_tabbing_id.take(),
+            &options.window_tabbing_id.take(),
         );
 
         if let Some(position) = config.window.position {
@@ -148,7 +151,7 @@ impl Window {
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        if let Some(token) = _options
+        if let Some(token) = options
             .activation_token
             .take()
             .map(ActivationToken::from_raw)
@@ -199,6 +202,7 @@ impl Window {
         let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
+            hold: options.terminal_options.hold,
             requested_redraw: false,
             title: identity.title,
             current_mouse_cursor,

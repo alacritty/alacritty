@@ -8,7 +8,11 @@ sections should follow the order `Added`, `Changed`, `Deprecated`, `Fixed` and
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 0.24.3-dev
+## 0.25.0-dev
+
+### Changed
+
+- Replaced `Options::hold` with `Options::drain_on_exit` that drains, but doesn't hold, since holding can be done outside of alacritty_terminal
 
 ## 0.24.2
 

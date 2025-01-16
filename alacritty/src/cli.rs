@@ -189,7 +189,7 @@ impl TerminalOptions {
             pty_config.shell = Some(command.into());
         }
 
-        pty_config.hold |= self.hold;
+        pty_config.drain_on_exit |= self.hold;
     }
 }
 
@@ -198,7 +198,7 @@ impl From<TerminalOptions> for PtyOptions {
         PtyOptions {
             working_directory: options.working_directory.take(),
             shell: options.command().map(Into::into),
-            hold: options.hold,
+            drain_on_exit: options.hold,
             env: HashMap::new(),
         }
     }

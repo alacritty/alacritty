@@ -212,7 +212,7 @@ impl WindowContext {
             Arc::clone(&terminal),
             event_proxy.clone(),
             pty,
-            pty_config.hold,
+            pty_config.drain_on_exit,
             config.debug.ref_test,
         )?;
 
