@@ -37,7 +37,7 @@ use crate::config::LOG_TARGET_CONFIG;
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
-                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`\\\\]+";
 
 #[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
 pub struct UiConfig {
