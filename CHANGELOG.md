@@ -13,6 +13,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Error out when socket fails to create with `--daemon`
+- Default URL hints now stop before backslashes
 
 ## 0.15.0
 
