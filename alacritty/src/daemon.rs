@@ -4,6 +4,7 @@ use std::fs;
 use std::io;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 #[rustfmt::skip]
@@ -58,7 +59,12 @@ where
 {
     let mut command = Command::new(program);
     command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-    if let Ok(cwd) = foreground_process_path(master_fd, shell_pid) {
+    // If we set the cwd here and it doesn't exist, the stdlib
+    // will try to change to the directory and fail the
+    // exec. Since the directory is gone, let's do nothing and let the exec run.
+    if let Some(cwd) =
+        foreground_process_path(master_fd, shell_pid).ok().filter(|p| Path::is_dir(p))
+    {
         command.current_dir(cwd);
     }
     unsafe {

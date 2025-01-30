@@ -18,6 +18,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Crash when OpenGL context resets
+- Setting current working directory to non existent one when spawning a program
 
 ## 0.15.0
 

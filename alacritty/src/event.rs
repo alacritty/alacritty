@@ -875,7 +875,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         match result {
             Ok(_) => debug!("Launched {} with args {:?}", program, args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
+            Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }
 
