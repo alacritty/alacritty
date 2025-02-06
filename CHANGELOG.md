@@ -15,6 +15,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Error out when socket fails to create with `--daemon`
 - Default URL hints now stop before backslashes
 
+### Fixed
+
+- Modifiers being out of sync for fast/synthetic input on X11
+
 ## 0.15.0
 
 ### Added
