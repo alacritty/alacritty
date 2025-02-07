@@ -247,8 +247,8 @@ pub struct Scrollbar {
     pub color: Rgb,
     /// Scrollbar opacity from 0.0 (invisible) to 1.0 (opaque).
     pub opacity: Percentage,
-    /// Time (in seconds) the scrollbar fading takes.
-    pub fade_time_in_secs: f32,
+    /// Time (in miliseconds) the scrollbar fading takes.
+    pub duration: u32,
 }
 
 impl Default for Scrollbar {
@@ -257,7 +257,7 @@ impl Default for Scrollbar {
             mode: Default::default(),
             color: Rgb::new(0x7f, 0x7f, 0x7f),
             opacity: Percentage::new(0.5),
-            fade_time_in_secs: 2.0,
+            duration: 2000,
         }
     }
 }

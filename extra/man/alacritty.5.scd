@@ -1025,13 +1025,13 @@ The scrollbar is always one cell wide and at least two cells high.
 
 	Default: _0.5_
 
-*fade_time_in_secs* <float>
+*duration* = _<integer>_
 
-	Time (in seconds) the scrollbar takes to disappear in _"Fading"_-_mode_.
+	Duration in milliseconds the scrollbar takes to disappear in _"Fading"_-_mode_.
 	The scrollbar fades out linearly after 80% of this time has passed. This
 	property has no effect in other modes.
 
-	Default: _2.0_
+	Default: _2000_
 
 # DEBUG
 

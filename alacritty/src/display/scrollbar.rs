@@ -101,18 +101,19 @@ impl Scrollbar {
                     self.last_change = Some(Instant::now());
                 }
                 if let Some(last_scroll) = self.last_change_time() {
-                    let timeout = (Instant::now() - last_scroll).as_secs_f32();
-                    let fade_wait = self.config.fade_time_in_secs * 0.8;
-                    let fade_time = self.config.fade_time_in_secs - fade_wait;
+                    let timeout = (Instant::now() - last_scroll).as_millis();
+                    let fade_wait = (self.config.duration as f32 * 0.8).floor() as u128;
+                    let fade_time = self.config.duration as u128 - fade_wait;
                     if timeout <= fade_wait {
+                        let remaining = fade_wait - timeout;
                         let opacity = self.config.opacity.as_f32();
-                        let remaining_duration = Duration::from_secs_f32(fade_wait - timeout);
+                        let remaining_duration = Duration::from_millis(remaining as u64);
                         ScrollbarState::WaitForFading { opacity, remaining_duration }
                     } else {
                         let current_fade_time = timeout - fade_wait;
                         if current_fade_time < fade_time {
                             // Fading progress from 0.0 to 1.0.
-                            let fading_progress = current_fade_time / fade_time;
+                            let fading_progress = current_fade_time as f32 / fade_time as f32;
                             let opacity = (1.0 - fading_progress) * self.config.opacity.as_f32();
                             ScrollbarState::Fading { opacity }
                         } else {
