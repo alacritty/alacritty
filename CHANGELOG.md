@@ -19,7 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Crash when OpenGL context resets
 - Modifiers being out of sync for fast/synthetic input on X11
-- Spawning program and creating windows while inside the deleted directory
+- Child process creation failing while inside a deleted directory
 
 ## 0.15.0
 
