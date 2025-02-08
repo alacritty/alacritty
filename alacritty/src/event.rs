@@ -844,9 +844,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[cfg(not(windows))]
     fn create_new_window(&mut self, #[cfg(target_os = "macos")] tabbing_id: Option<String>) {
         let mut options = WindowOptions::default();
-        if let Ok(working_directory) = foreground_process_path(self.master_fd, self.shell_pid) {
-            options.terminal_options.working_directory = Some(working_directory);
-        }
+        options.terminal_options.working_directory =
+            foreground_process_path(self.master_fd, self.shell_pid).ok();
 
         #[cfg(target_os = "macos")]
         {
@@ -875,7 +874,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         match result {
             Ok(_) => debug!("Launched {} with args {:?}", program, args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
+            Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }
 
