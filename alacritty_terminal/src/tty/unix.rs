@@ -231,12 +231,18 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     builder.env_remove("XDG_ACTIVATION_TOKEN");
     builder.env_remove("DESKTOP_STARTUP_ID");
 
+    let working_directory = config.working_directory.clone();
     unsafe {
         builder.pre_exec(move || {
             // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
                 return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
+            }
+
+            // Set working directory, ignoring invalid paths.
+            if let Some(working_directory) = working_directory.as_ref() {
+                let _ = env::set_current_dir(working_directory);
             }
 
             set_controlling_terminal(slave_fd);
@@ -254,11 +260,6 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
 
             Ok(())
         });
-    }
-
-    // Handle set working directory option.
-    if let Some(dir) = &config.working_directory {
-        builder.current_dir(dir);
     }
 
     // Prepare signal handling before spawning child.
