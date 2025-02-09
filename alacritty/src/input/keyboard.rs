@@ -342,18 +342,21 @@ impl SequenceBuilder {
         };
 
         if character.chars().count() == 1 {
-            let character = character.chars().next().unwrap();
-            let base_character = character.to_lowercase().next().unwrap();
+            let shift = self.modifiers.contains(SequenceModifiers::SHIFT);
 
-            let alternate_key_code = u32::from(character);
-            let mut unicode_key_code = u32::from(base_character);
+            let ch = character.chars().next().unwrap();
+            let unshifted_ch = if shift { ch.to_lowercase().next().unwrap() } else { ch };
+
+            let alternate_key_code = u32::from(ch);
+            let mut unicode_key_code = u32::from(unshifted_ch);
 
             // Try to get the base for keys which change based on modifier, like `1` for `!`.
-            match key.key_without_modifiers().as_ref() {
-                Key::Character(unmodded) if alternate_key_code == unicode_key_code => {
-                    unicode_key_code = u32::from(unmodded.chars().next().unwrap_or(base_character));
-                },
-                _ => (),
+            //
+            // However it should only be performed when `SHIFT` is pressed.
+            if shift && alternate_key_code == unicode_key_code {
+                if let Key::Character(unmodded) = key.key_without_modifiers().as_ref() {
+                    unicode_key_code = u32::from(unmodded.chars().next().unwrap_or(unshifted_ch));
+                }
             }
 
             // NOTE: Base layouts are ignored, since winit doesn't expose this information
