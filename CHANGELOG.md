@@ -20,6 +20,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Crash when OpenGL context resets
 - Modifiers being out of sync for fast/synthetic input on X11
 - Child process creation failing while inside a deleted directory
+- Shifted key reported without a shift when using kitty keyboard protocol
 
 ## 0.15.0
 
