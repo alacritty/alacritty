@@ -1068,7 +1068,7 @@ impl Display {
         self.damage_tracker.debug = config.debug.highlight_damage;
         self.visual_bell.update_config(&config.bell);
         self.scrollbar.update_config(&config.scrollbar);
-        self.colors = List::from(&config.colors);
+        self.pending_update.dirty = true;
     }
 
     /// Update the mouse/vi mode cursor hint highlighting.
