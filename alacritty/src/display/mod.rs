@@ -454,7 +454,7 @@ impl Display {
         let viewport_size = window.inner_size();
 
         // Create new size with at least one column and row.
-        let size_info = SizeInfo::new(
+        let mut size_info = SizeInfo::new(
             viewport_size.width as f32,
             viewport_size.height as f32,
             cell_width,
@@ -463,6 +463,10 @@ impl Display {
             padding.1,
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
+
+        if config.scrollbar.mode == ScrollbarMode::Always && size_info.columns > 1 {
+            size_info.columns -= 1;
+        }
 
         info!("Cell size: {} x {}", cell_width, cell_height);
         info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
@@ -705,6 +709,10 @@ impl Display {
             padding.1,
             config.window.dynamic_padding,
         );
+
+        if config.scrollbar.mode == ScrollbarMode::Always && new_size.columns > 1 {
+            new_size.columns -= 1;
+        }
 
         // Update number of column/lines in the viewport.
         let search_active = search_state.history_index.is_some();
