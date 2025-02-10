@@ -1018,11 +1018,10 @@ The scrollbar is always one cell wide and at least two cells high.
 *opacity* <float>
 
 	Scrollbar opacity as a floating point number from _0.0_ to _1.0_. The value
-	\_0.0_ is completely transparent, and has the same effect as mode _"Never"_
-	with more computation. The value _1.0_ is opaque. Note, that the scrollbar
-	does not reduce the writable area in _"Fading"_ mode, so a value of _1.0_
-	could hide characters, if _window.padding.x_ allows characters behind the
-	scrollbar.
+	\_0.0_ is completely transparent, and has the same effect _"Never"_ with
+	more computation. The value _1.0_ is opaque. Note, that the scrollbar does
+	not reduce the writable area, so a value of _1.0_ could hide characters,
+	if _window.padding.x_ allows characters behind the scrollbar.
 
 	Default: _0.5_
 
