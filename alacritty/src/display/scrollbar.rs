@@ -129,13 +129,10 @@ impl Scrollbar {
     }
 
     pub fn bg_rect(&self, display_size: SizeInfo) -> Rect {
-        let scrollbar_margin_x = display_size.padding_right()
-            - self.config.additional_padding(display_size.cell_width, display_size.padding_left());
-
         let background_area_height: f32 = display_size.height;
 
         let scrollbar_width = display_size.cell_width;
-        let x = display_size.width - scrollbar_width - scrollbar_margin_x;
+        let x = display_size.width - scrollbar_width;
         Rect {
             x: x.floor() as i32,
             y: 0,
