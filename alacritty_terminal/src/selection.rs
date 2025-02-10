@@ -119,8 +119,6 @@ pub enum SelectionType {
 pub struct Selection {
     pub ty: SelectionType,
     region: Range<Anchor>,
-    // Whether the selection is not yet finished.
-    pub active: bool,
 }
 
 impl Selection {
@@ -128,7 +126,6 @@ impl Selection {
         Self {
             region: Range { start: Anchor::new(location, side), end: Anchor::new(location, side) },
             ty,
-            active: true,
         }
     }
 
