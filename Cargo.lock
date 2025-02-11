@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.15.0"
+version = "0.15.1-rc1"
 dependencies = [
  "ahash",
  "alacritty_config",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.24.2"
+version = "0.25.0-rc1"
 dependencies = [
  "base64",
  "bitflags 2.6.0",
