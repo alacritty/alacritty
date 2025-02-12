@@ -736,7 +736,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         point.line = min(point.line, self.terminal.bottommost_line());
 
         // Update selection.
-        selection.update(point, side);
+        if !self.display().scrollbar.is_dragging() {
+            selection.update(point, side);
+        }
 
         // Move vi cursor and expand selection.
         if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
