@@ -31,7 +31,7 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
-use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
+use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows, CornerPreference};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
@@ -180,6 +180,11 @@ impl Window {
             .with_maximized(config.window.maximized())
             .with_fullscreen(config.window.fullscreen())
             .with_window_level(config.window.level.into());
+
+        // Rounded Corners on windows
+        #[cfg(target_os = "windows")] {
+            window_attributes = window_attributes.with_corner_preference(CornerPreference::Round);
+        }
 
         let window = event_loop.create_window(window_attributes)?;
 
