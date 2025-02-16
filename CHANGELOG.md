@@ -10,6 +10,12 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Fixed
+
+- Crash when OpenGL context resets
+
+## 0.15.1
+
 ### Changed
 
 - Error out when socket fails to create with `--daemon`
@@ -17,7 +23,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Fixed
 
-- Crash when OpenGL context resets
 - Modifiers being out of sync for fast/synthetic input on X11
 - Child process creation failing while inside a deleted directory
 - Shifted key reported without a shift when using kitty keyboard protocol
