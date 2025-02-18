@@ -200,6 +200,7 @@ impl From<TerminalOptions> for PtyOptions {
             shell: options.command().map(Into::into),
             drain_on_exit: options.hold,
             env: HashMap::new(),
+            hush_login: false,
         }
     }
 }
