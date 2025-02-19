@@ -158,12 +158,12 @@ impl ShellUser {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn default_shell_command(shell: &str, _user: &str, _hush_login: bool) -> Command {
+fn default_shell_command(shell: &str, _user: &str) -> Command {
     Command::new(shell)
 }
 
 #[cfg(target_os = "macos")]
-fn default_shell_command(shell: &str, user: &str, hush_login: bool) -> Command {
+fn default_shell_command(shell: &str, user: &str) -> Command {
     let shell_name = shell.rsplit('/').next().unwrap();
 
     // On macOS, use the `login` command so the shell will appear as a tty session.
@@ -176,11 +176,9 @@ fn default_shell_command(shell: &str, user: &str, hush_login: bool) -> Command {
     // -f: Bypasses authentication for the already-logged-in user.
     // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
     // -p: Preserves the environment.
-    // -q: Act as if `.hushlogin` exists.
     //
     // XXX: we use zsh here over sh due to `exec -a`.
-    let flags = if hush_login { "-qflp" } else { "-flp" };
-    login_command.args([flags, user, "/bin/zsh", "-fc", &exec]);
+    login_command.args(["-flp", user, "/bin/zsh", "-fc", &exec]);
     login_command
 }
 
@@ -210,7 +208,7 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
         cmd.args(shell.args.as_slice());
         cmd
     } else {
-        default_shell_command(&user.shell, &user.user, config.hush_login)
+        default_shell_command(&user.shell, &user.user)
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.

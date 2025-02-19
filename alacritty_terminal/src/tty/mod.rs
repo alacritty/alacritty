@@ -33,9 +33,6 @@ pub struct Options {
 
     /// Extra environment variables.
     pub env: HashMap<String, String>,
-
-    /// Controls whether to pass the -q option to `login(1)`, on macOS.
-    pub hush_login: bool,
 }
 
 /// Shell options.
