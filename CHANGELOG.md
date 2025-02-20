@@ -12,7 +12,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Changed
 
--  Shell initialization on macOS to manually check the `~/.hushlogin` file
+- Hide login message if `~/.hushlogin` is present
 
 ### Fixed
 
