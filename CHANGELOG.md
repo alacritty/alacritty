@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Changed
+
+-  Shell initialization on macOS to manually check the `~/.hushlogin` file
+
 ### Fixed
 
 - Crash when OpenGL context resets
