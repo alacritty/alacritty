@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
--  Shell initialization on macOS to manually check the `~/.hushlogin` file
+- Pass `-q` to `login` on macOS if `~/.hushlogin` is present
 
 ## 0.25.0
 
