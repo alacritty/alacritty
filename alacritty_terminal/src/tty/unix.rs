@@ -8,6 +8,8 @@ use std::os::fd::OwnedFd;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
+#[cfg(target_os = "macos")]
+use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::Arc;
 use std::{env, ptr};
@@ -164,8 +166,6 @@ fn default_shell_command(shell: &str, _user: &str, _home: &str) -> Command {
 
 #[cfg(target_os = "macos")]
 fn default_shell_command(shell: &str, user: &str, home: &str) -> Command {
-    use std::path::Path;
-
     let shell_name = shell.rsplit('/').next().unwrap();
 
     // On macOS, use the `login` command so the shell will appear as a tty session.
