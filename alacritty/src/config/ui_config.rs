@@ -12,6 +12,7 @@ use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
+use winit::event::MouseButton;
 use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
@@ -279,7 +280,11 @@ impl Default for Hints {
                 action,
                 persist: false,
                 post_processing: true,
-                mouse: Some(HintMouse { enabled: true, mods: Default::default() }),
+                mouse: Some(HintMouse {
+                    enabled: true,
+                    mods: Default::default(),
+                    button: HintMouseButton::default(),
+                }),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
                         key: Key::Character("o".into()),
@@ -478,6 +483,26 @@ pub struct HintMouse {
 
     /// Required mouse modifiers for hint highlighting.
     pub mods: ModsWrapper,
+
+    /// Mouse button to run command.
+    pub button: HintMouseButton,
+}
+
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct HintMouseButton(pub MouseButton);
+
+impl Default for HintMouseButton {
+    fn default() -> Self {
+        Self(MouseButton::Left)
+    }
+}
+
+impl SerdeReplace for HintMouseButton {
+    fn replace(&mut self, value: toml::Value) -> Result<(), Box<dyn Error>> {
+        *self = Self::deserialize(value)?;
+
+        Ok(())
+    }
 }
 
 /// Lazy regex with interior mutability.
