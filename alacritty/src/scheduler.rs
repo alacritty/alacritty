@@ -29,6 +29,7 @@ pub enum Topic {
     BlinkCursor,
     BlinkTimeout,
     Frame,
+    ScrollbarRedraw,
 }
 
 /// Event scheduled to be emitted at a specific time.

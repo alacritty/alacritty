@@ -995,6 +995,43 @@ bindings = [++
 	{ key = _"L"_, mods = _"Control|Shift"_, chars = _"l"_ },++
 ]
 
+# Scrollbar
+
+This section documents the *[scrollbar]* table of the configuration file.
+The scrollbar is always one cell wide and at least two cells high.
+
+*mode* "Never" | "Fading" | "Always"
+
+	Determines when the scrollbar is shown. _"Fading"_ will show the scrollbar
+	after the visible area changed (e.g. by scrolling or writing new lines).
+	After _fade_wait_in_secs_, it will fade out. Only _"Always"_ will reserve
+	space for the scrollbar and padding. _"Fading"_ works as overlay.
+
+	Default: _"Never"_
+
+*color* <string>
+
+	The color of the scrollbar.
+
+	Default: _"#7f7f7f"_
+
+*opacity* <float>
+
+	Scrollbar opacity as a floating point number from _0.0_ to _1.0_. The value
+	\_0.0_ is completely transparent, and has the same effect _"Never"_ with
+	more computation. The value _1.0_ is opaque. Note, that the scrollbar does
+	not reduce the writable area, so a value of _1.0_ could hide characters,
+	if _window.padding.x_ allows characters behind the scrollbar.
+
+	Default: _0.5_
+
+*duration* = _<integer>_
+
+	Duration in milliseconds the scrollbar takes to disappear in _"Fading"_-_mode_.
+	The scrollbar fades out linearly after 80% of this time has passed. This
+	property has no effect in other modes.
+
+	Default: _2000_
 
 # DEBUG
 
