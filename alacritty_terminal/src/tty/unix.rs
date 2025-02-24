@@ -8,6 +8,8 @@ use std::os::fd::OwnedFd;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
+#[cfg(target_os = "macos")]
+use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::Arc;
 use std::{env, ptr};
@@ -158,12 +160,12 @@ impl ShellUser {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn default_shell_command(shell: &str, _user: &str) -> Command {
+fn default_shell_command(shell: &str, _user: &str, _home: &str) -> Command {
     Command::new(shell)
 }
 
 #[cfg(target_os = "macos")]
-fn default_shell_command(shell: &str, user: &str) -> Command {
+fn default_shell_command(shell: &str, user: &str, home: &str) -> Command {
     let shell_name = shell.rsplit('/').next().unwrap();
 
     // On macOS, use the `login` command so the shell will appear as a tty session.
@@ -173,12 +175,20 @@ fn default_shell_command(shell: &str, user: &str) -> Command {
     // `login` normally does this itself, but `-l` disables this.
     let exec = format!("exec -a -{} {}", shell_name, shell);
 
+    // Since we use -l, `login` will not change directory to the user's home. However,
+    // `login` only checks the current working directory for a .hushlogin file, causing
+    // it to miss any in the user's home directory. We can fix this by doing the check
+    // ourselves and passing `-q`
+    let has_home_hushlogin = Path::new(home).join(".hushlogin").exists();
+
     // -f: Bypasses authentication for the already-logged-in user.
     // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
     // -p: Preserves the environment.
+    // -q: Act as if `.hushlogin` exists.
     //
     // XXX: we use zsh here over sh due to `exec -a`.
-    login_command.args(["-flp", user, "/bin/zsh", "-fc", &exec]);
+    let flags = if has_home_hushlogin { "-qflp" } else { "-flp" };
+    login_command.args([flags, user, "/bin/zsh", "-fc", &exec]);
     login_command
 }
 
@@ -208,7 +218,7 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
         cmd.args(shell.args.as_slice());
         cmd
     } else {
-        default_shell_command(&user.shell, &user.user)
+        default_shell_command(&user.shell, &user.user, &user.home)
     };
 
     // Setup child stdin/stdout/stderr as slave fd of PTY.
@@ -231,12 +241,18 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
     builder.env_remove("XDG_ACTIVATION_TOKEN");
     builder.env_remove("DESKTOP_STARTUP_ID");
 
+    let working_directory = config.working_directory.clone();
     unsafe {
         builder.pre_exec(move || {
             // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
                 return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
+            }
+
+            // Set working directory, ignoring invalid paths.
+            if let Some(working_directory) = working_directory.as_ref() {
+                let _ = env::set_current_dir(working_directory);
             }
 
             set_controlling_terminal(slave_fd);
@@ -254,11 +270,6 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
 
             Ok(())
         });
-    }
-
-    // Handle set working directory option.
-    if let Some(dir) = &config.working_directory {
-        builder.current_dir(dir);
     }
 
     // Prepare signal handling before spawning child.

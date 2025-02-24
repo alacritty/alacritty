@@ -2,6 +2,8 @@
 use winit::platform::startup_notify::{
     self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
 };
+#[cfg(not(any(target_os = "macos", windows)))]
+use winit::window::ActivationToken;
 
 #[cfg(all(not(feature = "x11"), not(any(target_os = "macos", windows))))]
 use winit::platform::wayland::WindowAttributesExtWayland;
@@ -38,6 +40,7 @@ use winit::window::{
 
 use alacritty_terminal::index::Point;
 
+use crate::cli::WindowOptions;
 use crate::config::window::{Decorations, Identity, WindowConfig};
 use crate::config::UiConfig;
 use crate::display::SizeInfo;
@@ -106,6 +109,9 @@ pub struct Window {
     /// Flag indicating whether redraw was requested.
     pub requested_redraw: bool,
 
+    /// Hold the window when terminal exits.
+    pub hold: bool,
+
     window: WinitWindow,
 
     /// Current window title.
@@ -124,9 +130,7 @@ impl Window {
         event_loop: &ActiveEventLoop,
         config: &UiConfig,
         identity: &Identity,
-        #[rustfmt::skip]
-        #[cfg(target_os = "macos")]
-        tabbing_id: &Option<String>,
+        options: &mut WindowOptions,
         #[rustfmt::skip]
         #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
         x11_visual: Option<X11VisualInfo>,
@@ -138,7 +142,7 @@ impl Window {
             #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
             x11_visual,
             #[cfg(target_os = "macos")]
-            tabbing_id,
+            &options.window_tabbing_id.take(),
         );
 
         if let Some(position) = config.window.position {
@@ -147,7 +151,12 @@ impl Window {
         }
 
         #[cfg(not(any(target_os = "macos", windows)))]
-        if let Some(token) = event_loop.read_token_from_env() {
+        if let Some(token) = options
+            .activation_token
+            .take()
+            .map(ActivationToken::from_raw)
+            .or_else(|| event_loop.read_token_from_env())
+        {
             log::debug!("Activating window with token: {token:?}");
             window_attributes = window_attributes.with_activation_token(token);
 
@@ -193,6 +202,7 @@ impl Window {
         let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {
+            hold: options.terminal_options.hold,
             requested_redraw: false,
             title: identity.title,
             current_mouse_cursor,

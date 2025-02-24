@@ -4,6 +4,7 @@ use crate::ConfigMonitor;
 use glutin::config::GetGlConfig;
 use std::borrow::Cow;
 use std::cmp::min;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::ffi::OsStr;
@@ -380,9 +381,14 @@ impl ApplicationHandler<Event> for Processor {
             },
             (EventType::Terminal(TerminalEvent::Exit), Some(window_id)) => {
                 // Remove the closed terminal.
-                let window_context = match self.windows.remove(window_id) {
-                    Some(window_context) => window_context,
-                    None => return,
+                let window_context = match self.windows.entry(*window_id) {
+                    // Don't exit when terminal exits if user asked to hold the window.
+                    Entry::Occupied(window_context)
+                        if !window_context.get().display.window.hold =>
+                    {
+                        window_context.remove()
+                    },
+                    _ => return,
                 };
 
                 // Unschedule pending events.
@@ -838,9 +844,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[cfg(not(windows))]
     fn create_new_window(&mut self, #[cfg(target_os = "macos")] tabbing_id: Option<String>) {
         let mut options = WindowOptions::default();
-        if let Ok(working_directory) = foreground_process_path(self.master_fd, self.shell_pid) {
-            options.terminal_options.working_directory = Some(working_directory);
-        }
+        options.terminal_options.working_directory =
+            foreground_process_path(self.master_fd, self.shell_pid).ok();
 
         #[cfg(target_os = "macos")]
         {
@@ -869,7 +874,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         match result {
             Ok(_) => debug!("Launched {} with args {:?}", program, args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
+            Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }
 
@@ -1793,7 +1798,11 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
             },
             WinitEvent::WindowEvent { event, .. } => {
                 match event {
-                    WindowEvent::CloseRequested => self.ctx.terminal.exit(),
+                    WindowEvent::CloseRequested => {
+                        // User asked to close the window, so no need to hold it.
+                        self.ctx.window().hold = false;
+                        self.ctx.terminal.exit();
+                    },
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         let old_scale_factor =
                             mem::replace(&mut self.ctx.window().scale_factor, scale_factor);

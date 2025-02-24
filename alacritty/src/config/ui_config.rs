@@ -37,7 +37,7 @@ use crate::config::LOG_TARGET_CONFIG;
 /// Regex used for the default URL hint.
 #[rustfmt::skip]
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
-                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`\\\\]+";
 
 #[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
 pub struct UiConfig {
@@ -130,7 +130,7 @@ impl UiConfig {
         let shell = self.terminal.shell.clone().or_else(|| self.shell.clone()).map(Into::into);
         let working_directory =
             self.working_directory.clone().or_else(|| self.general.working_directory.clone());
-        PtyOptions { working_directory, shell, hold: false, env: HashMap::new() }
+        PtyOptions { working_directory, shell, drain_on_exit: false, env: HashMap::new() }
     }
 
     /// Generate key bindings for all keyboard hints.

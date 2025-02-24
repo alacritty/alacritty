@@ -189,7 +189,7 @@ impl TerminalOptions {
             pty_config.shell = Some(command.into());
         }
 
-        pty_config.hold |= self.hold;
+        pty_config.drain_on_exit |= self.hold;
     }
 }
 
@@ -198,7 +198,7 @@ impl From<TerminalOptions> for PtyOptions {
         PtyOptions {
             working_directory: options.working_directory.take(),
             shell: options.command().map(Into::into),
-            hold: options.hold,
+            drain_on_exit: options.hold,
             env: HashMap::new(),
         }
     }
@@ -299,6 +299,11 @@ pub struct WindowOptions {
     #[cfg(target_os = "macos")]
     /// The window tabbing identifier to use when building a window.
     pub window_tabbing_id: Option<String>,
+
+    #[clap(skip)]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    /// `ActivationToken` that we pass to winit.
+    pub activation_token: Option<String>,
 
     /// Override configuration file options [example: 'cursor.style="Beam"'].
     #[clap(short = 'o', long, num_args = 1..)]

@@ -5,10 +5,13 @@ use std::cmp;
 use std::fmt::{self, Formatter};
 use std::mem::{self, ManuallyDrop};
 use std::num::NonZeroU32;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use std::time::{Duration, Instant};
 
+use glutin::config::GetGlConfig;
 use glutin::context::{NotCurrentContext, PossiblyCurrentContext};
+use glutin::display::GetGlDisplay;
+use glutin::error::ErrorKind;
 use glutin::prelude::*;
 use glutin::surface::{Surface, SwapInterval, WindowSurface};
 
@@ -33,6 +36,7 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
@@ -49,7 +53,7 @@ use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
-use crate::renderer::{self, GlyphCache, Renderer};
+use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
@@ -395,10 +399,11 @@ pub struct Display {
     hint_mouse_point: Option<Point>,
 
     renderer: ManuallyDrop<Renderer>,
+    renderer_preference: Option<RendererPreference>,
 
     surface: ManuallyDrop<Surface<WindowSurface>>,
 
-    context: ManuallyDrop<Replaceable<PossiblyCurrentContext>>,
+    context: ManuallyDrop<PossiblyCurrentContext>,
 
     glyph_cache: GlyphCache,
     meter: Meter,
@@ -431,7 +436,7 @@ impl Display {
         }
 
         // Create the GL surface to draw into.
-        let surface = renderer::platform::create_gl_surface(
+        let surface = platform::create_gl_surface(
             &gl_context,
             window.inner_size(),
             window.raw_window_handle(),
@@ -520,9 +525,10 @@ impl Display {
         }
 
         Ok(Self {
-            context: ManuallyDrop::new(Replaceable::new(context)),
+            context: ManuallyDrop::new(context),
             visual_bell: VisualBell::from(&config.bell),
             renderer: ManuallyDrop::new(renderer),
+            renderer_preference: config.debug.renderer,
             surface: ManuallyDrop::new(surface),
             colors: List::from(&config.colors),
             frame_timer: FrameTimer::new(),
@@ -548,29 +554,69 @@ impl Display {
 
     #[inline]
     pub fn gl_context(&self) -> &PossiblyCurrentContext {
-        self.context.get()
+        &self.context
     }
 
     pub fn make_not_current(&mut self) {
-        if self.context.get().is_current() {
-            self.context.replace_with(|context| {
-                context
-                    .make_not_current()
-                    .expect("failed to disable context")
-                    .treat_as_possibly_current()
-            });
+        if self.context.is_current() {
+            self.context.make_not_current_in_place().expect("failed to disable context");
         }
     }
 
-    pub fn make_current(&self) {
-        if !self.context.get().is_current() {
-            self.context.make_current(&self.surface).expect("failed to make context current")
+    pub fn make_current(&mut self) {
+        let is_current = self.context.is_current();
+
+        // Attempt to make the context current if it's not.
+        let context_loss = if is_current {
+            self.renderer.was_context_reset()
+        } else {
+            match self.context.make_current(&self.surface) {
+                Err(err) if err.error_kind() == ErrorKind::ContextLost => {
+                    info!("Context lost for window {:?}", self.window.id());
+                    true
+                },
+                _ => false,
+            }
+        };
+
+        if !context_loss {
+            return;
         }
+
+        let gl_display = self.context.display();
+        let gl_config = self.context.config();
+        let raw_window_handle = Some(self.window.raw_window_handle());
+        let context = platform::create_gl_context(&gl_display, &gl_config, raw_window_handle)
+            .expect("failed to recreate context.");
+
+        // Drop the old context and renderer.
+        unsafe {
+            ManuallyDrop::drop(&mut self.renderer);
+            ManuallyDrop::drop(&mut self.context);
+        }
+
+        // Activate new context.
+        let context = context.treat_as_possibly_current();
+        self.context = ManuallyDrop::new(context);
+        self.context.make_current(&self.surface).expect("failed to reativate context after reset.");
+
+        // Recreate renderer.
+        let renderer = Renderer::new(&self.context, self.renderer_preference)
+            .expect("failed to recreate renderer after reset");
+        self.renderer = ManuallyDrop::new(renderer);
+
+        // Resize the renderer.
+        self.renderer.resize(&self.size_info);
+
+        self.reset_glyph_cache();
+        self.damage_tracker.frame().mark_fully_damaged();
+
+        debug!("Recovered window {:?} from gpu reset", self.window.id());
     }
 
     fn swap_buffers(&self) {
         #[allow(clippy::single_match)]
-        let res = match (self.surface.deref(), &self.context.get()) {
+        let res = match (self.surface.deref(), &self.context.deref()) {
             #[cfg(not(any(target_os = "macos", windows)))]
             (Surface::Egl(surface), PossiblyCurrentContext::Egl(context))
                 if matches!(self.raw_window_handle, RawWindowHandle::Wayland(_))
@@ -1374,6 +1420,8 @@ impl Display {
             (&mut self.highlighted_hint, &mut self.highlighted_hint_age, true),
             (&mut self.vi_highlighted_hint, &mut self.vi_highlighted_hint_age, false),
         ];
+
+        let num_lines = self.size_info.screen_lines();
         for (hint, hint_age, reset_mouse) in hints {
             let (start, end) = match hint {
                 Some(hint) => (*hint.bounds().start(), *hint.bounds().end()),
@@ -1387,10 +1435,12 @@ impl Display {
             }
 
             // Convert hint bounds to viewport coordinates.
-            let start = term::point_to_viewport(display_offset, start).unwrap_or_default();
-            let end = term::point_to_viewport(display_offset, end).unwrap_or_else(|| {
-                Point::new(self.size_info.screen_lines() - 1, self.size_info.last_column())
-            });
+            let start = term::point_to_viewport(display_offset, start)
+                .filter(|point| point.line < num_lines)
+                .unwrap_or_default();
+            let end = term::point_to_viewport(display_offset, end)
+                .filter(|point| point.line < num_lines)
+                .unwrap_or_else(|| Point::new(num_lines - 1, self.size_info.last_column()));
 
             // Clear invalidated hints.
             if frame.intersects(start, end) {
@@ -1523,47 +1573,6 @@ pub struct RendererUpdate {
 
     /// Clear font caches.
     clear_font_cache: bool,
-}
-
-/// Struct for safe in-place replacement.
-///
-/// This struct allows easily replacing struct fields that provide `self -> Self` methods in-place,
-/// without having to deal with constantly unwrapping the underlying [`Option`].
-struct Replaceable<T>(Option<T>);
-
-impl<T> Replaceable<T> {
-    pub fn new(inner: T) -> Self {
-        Self(Some(inner))
-    }
-
-    /// Replace the contents of the container.
-    pub fn replace_with<F: FnMut(T) -> T>(&mut self, f: F) {
-        self.0 = self.0.take().map(f);
-    }
-
-    /// Get immutable access to the wrapped value.
-    pub fn get(&self) -> &T {
-        self.0.as_ref().unwrap()
-    }
-
-    /// Get mutable access to the wrapped value.
-    pub fn get_mut(&mut self) -> &mut T {
-        self.0.as_mut().unwrap()
-    }
-}
-
-impl<T> Deref for Replaceable<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.get()
-    }
-}
-
-impl<T> DerefMut for Replaceable<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_mut()
-    }
 }
 
 /// The frame timer state.

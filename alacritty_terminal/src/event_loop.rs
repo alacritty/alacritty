@@ -17,8 +17,8 @@ use polling::{Event as PollingEvent, Events, PollMode};
 use crate::event::{self, Event, EventListener, WindowSize};
 use crate::sync::FairMutex;
 use crate::term::Term;
-use crate::vte::ansi;
 use crate::{thread, tty};
+use vte::ansi;
 
 /// Max bytes to read from the PTY before forced terminal synchronization.
 pub(crate) const READ_BUFFER_SIZE: usize = 0x10_0000;
@@ -50,7 +50,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
-    hold: bool,
+    drain_on_exit: bool,
     ref_test: bool,
 }
 
@@ -64,7 +64,7 @@ where
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
         pty: T,
-        hold: bool,
+        drain_on_exit: bool,
         ref_test: bool,
     ) -> io::Result<EventLoop<T, U>> {
         let (tx, rx) = mpsc::channel();
@@ -76,7 +76,7 @@ where
             rx: PeekableReceiver::new(rx),
             terminal,
             event_proxy,
-            hold,
+            drain_on_exit,
             ref_test,
         })
     }
@@ -151,9 +151,7 @@ where
             }
 
             // Parse the incoming bytes.
-            for byte in &buf[..unprocessed] {
-                state.parser.advance(&mut **terminal, *byte);
-            }
+            state.parser.advance(&mut **terminal, &buf[..unprocessed]);
 
             processed += unprocessed;
             unprocessed = 0;
@@ -263,13 +261,10 @@ where
                                 if let Some(code) = code {
                                     self.event_proxy.send_event(Event::ChildExit(code));
                                 }
-                                if self.hold {
-                                    // With hold enabled, make sure the PTY is drained.
+                                if self.drain_on_exit {
                                     let _ = self.pty_read(&mut state, &mut buf, pipe.as_mut());
-                                } else {
-                                    // Without hold, shutdown the terminal.
-                                    self.terminal.lock().exit();
                                 }
+                                self.terminal.lock().exit();
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }

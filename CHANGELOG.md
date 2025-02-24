@@ -8,17 +8,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Notable changes to the `alacritty_terminal` crate are documented in its
 [CHANGELOG](./alacritty_terminal/CHANGELOG.md).
 
-## 0.15.0-dev
+## 0.16.0-dev
+
+### Changed
+
+- Hide login message if `~/.hushlogin` is present
+
+### Fixed
+
+- Crash when OpenGL context resets
+
+## 0.15.1
+
+### Changed
+
+- Error out when socket fails to create with `--daemon`
+- Default URL hints now stop before backslashes
+
+### Fixed
+
+- Modifiers being out of sync for fast/synthetic input on X11
+- Child process creation failing while inside a deleted directory
+- Shifted key reported without a shift when using kitty keyboard protocol
+
+## 0.15.0
 
 ### Added
 
 - Config option `window.level = "AlwaysOnTop"` to force Alacritty to always be the toplevel window
 - Escape sequence to move cursor forward tabs ( CSI Ps I )
+- Pass activation token in `alacritty msg create-window` on Wayland/X11
 
 ### Changed
 
 - Always focus new windows on macOS
 - Don't switch to semantic/line selection when control is pressed
+- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
 
 ### Fixed
 
@@ -29,6 +54,8 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Migrating nonexistent toml import breaking the entire migration
 - First daemon mode window ignoring window options passed through CLI
 - Report of Enter/Tab/Backspace in kitty keyboard's report event types mode
+- Crash when pressing certain modifier keys on macOS 15+
+- Cut off wide characters in preedit string
 
 ## 0.14.0
 
@@ -52,7 +79,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Moved config option `shell` to `terminal.shell`
 - `ctrl+shift+u` binding to open links to `ctrl+shift+o` to avoid collisions with IMEs
 - Use `Beam` cursor for single char cursor inside the IME preview
-- Always emit `1` for the first parameter when having modifiers in kitty keyboard protocol
 
 ### Fixed
 
@@ -74,7 +100,6 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Invalid URL highlights after terminal scrolling
 - Hollow block cursor not spanning multiple chars being edited inside the IME preview
 - Vi inline search only working for direct key input without modifiers
-- Crash when pressing certain modifier keys on macOS 15+
 
 ## 0.13.2
 
