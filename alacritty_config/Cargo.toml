@@ -10,10 +10,10 @@ edition = "2021"
 rust-version = "1.74.0"
 
 [dependencies]
-log = { version = "0.4.17", features = ["serde"] }
-serde = "1.0.163"
-toml = "0.8.2"
+log = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+toml = { workspace = true }
 
 [dev-dependencies]
-alacritty_config_derive = { version = "0.2.5-dev", path = "../alacritty_config_derive" }
-serde = { version = "1.0.163", features = ["derive"] }
+alacritty_config_derive = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
