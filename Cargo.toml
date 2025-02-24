@@ -7,6 +7,39 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+ahash = "0.8.6"
+alacritty_config = { version = "0.2.3-dev", path = "alacritty_config" }
+alacritty_config_derive = { version = "0.2.5-dev", path = "alacritty_config_derive" }
+alacritty_terminal = { version = "0.25.1-dev", path = "alacritty_terminal" }
+base64 = "0.22.0"
+bitflags = "2.4.1"
+clap = "4.2.7"
+clap_complete = "4.2.3"
+copypasta = { version = "0.10.1", default-features = false }
+crossfont = "0.8.0"
+gl_generator = "0.14.0"
+glutin = { version = "0.32.2", default-features = false }
+home = "0.5.5"
+libc = "0.2"
+log = "0.4.17"
+notify = "6.1.1"
+parking_lot = "0.12.0"
+polling = "3.0.0"
+proc-macro2 = "1.0.24"
+quote = "1.0.7"
+regex-automata = "0.4.3"
+serde = "1.0.163"
+serde_json = "1.0.0"
+serde_yaml = "0.9.25"
+syn = { version = "2.0.16", default-features = false }
+tempfile = "3.12.0"
+toml = "0.8.2"
+toml_edit = "0.22.21"
+unicode-width = "0.1"
+vte = { version = "0.15.0", default-features = false }
+winit = { version = "0.30.9", default-features = false }
+
 [profile.release]
 lto = "thin"
 debug = 1

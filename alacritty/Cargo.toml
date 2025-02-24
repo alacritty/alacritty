@@ -10,44 +10,35 @@ repository = "https://github.com/alacritty/alacritty"
 edition = "2021"
 rust-version = "1.74.0"
 
-[dependencies.alacritty_terminal]
-path = "../alacritty_terminal"
-version = "0.25.1-dev"
-
-[dependencies.alacritty_config_derive]
-path = "../alacritty_config_derive"
-version = "0.2.5-dev"
-
-[dependencies.alacritty_config]
-path = "../alacritty_config"
-version = "0.2.3-dev"
-
 [dependencies]
-ahash = { version = "0.8.6", features = ["no-rng"] }
-bitflags = "2.2.1"
-clap = { version = "4.2.7", features = ["derive", "env"] }
-copypasta = { version = "0.10.1", default-features = false }
-crossfont = "0.8.0"
-glutin = { version = "0.32.2", default-features = false, features = ["egl", "wgl"] }
-home = "0.5.5"
-libc = "0.2"
-log = { version = "0.4", features = ["std", "serde"] }
-notify = "6.1.1"
-parking_lot = "0.12.0"
-serde_json = "1"
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9.25"
-tempfile = "3.12.0"
-toml = "0.8.2"
-toml_edit = "0.22.21"
-unicode-width = "0.1"
-winit = { version = "0.30.9", default-features = false, features = ["rwh_06", "serde"] }
+alacritty_terminal= { workspace = true }
+alacritty_config_derive= { workspace = true }
+alacritty_config= { workspace = true }
+ahash = { workspace = true, features = ["no-rng"] }
+bitflags = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+copypasta = { workspace = true }
+crossfont = { workspace = true }
+glutin = { workspace = true, features = ["egl", "wgl"] }
+home = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true, features = ["std", "serde"] }
+notify = { workspace = true }
+parking_lot = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = { workspace = true }
+tempfile = { workspace = true }
+toml = { workspace = true }
+toml_edit = { workspace = true }
+unicode-width = { workspace = true }
+winit = { workspace = true, features = ["rwh_06", "serde"] }
 
 [build-dependencies]
-gl_generator = "0.14.0"
+gl_generator = { workspace = true }
 
 [dev-dependencies]
-clap_complete = "4.2.3"
+clap_complete = { workspace = true }
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2.5.0"
