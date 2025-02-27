@@ -156,12 +156,12 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
     OsStr::new(value).encode_wide().chain(once(0)).collect()
 }
 
-fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
+fn find_pwsh_in_programfiles(find_alternate: bool, preview: bool) -> Option<PathBuf> {
     #[cfg(target_pointer_width = "64")]
-    let env_var = if !alt { "ProgramFiles" } else { "ProgramFiles(x86)" };
+    let env_var = if find_alternate { "ProgramFiles(x86)" } else { "ProgramFiles" };
 
     #[cfg(target_pointer_width = "32")]
-    let env_var = if !alt { "ProgramFiles" } else { "ProgramW6432" };
+    let env_var = if find_alternate { "ProgramW6432" } else { "ProgramFiles" };
 
     let install_base_dir = PathBuf::from(std::env::var_os(env_var)?).join("PowerShell");
     install_base_dir
@@ -174,7 +174,7 @@ fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
             let dir_name = dir_name.to_string_lossy();
 
             let version = if preview {
-                let Some(dash_index) = dir_name.find('-') else { return None };
+                let dash_index = dir_name.find('-')?;
                 if &dir_name[dash_index + 1..] != "preview" {
                     return None;
                 };
