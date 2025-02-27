@@ -40,7 +40,6 @@ signal-hook = "0.3.10"
 [target.'cfg(windows)'.dependencies]
 piper = "0.2.1"
 miow = "0.6.0"
-which = "7.0"
 windows-sys = { version = "0.59.0", features = [
     "Win32_System_Console",
     "Win32_Foundation",

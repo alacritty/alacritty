@@ -128,11 +128,14 @@ impl OnResize for Pty {
 
 fn cmdline(config: &Options) -> String {
     static DEFAULT_SHELL_NAME: LazyLock<String> = LazyLock::new(|| {
-        if which::which("pwsh.exe").is_ok() {
-            "pwsh.exe".to_owned()
-        } else {
-            "powershell.exe".to_owned()
-        }
+        find_pwsh_in_programfiles(false, false)
+            .or_else(|| find_pwsh_in_programfiles(true, false))
+            .or_else(|| find_pwsh_in_msix(false))
+            .or_else(|| find_pwsh_in_programfiles(false, true))
+            .or_else(|| find_pwsh_in_msix(true))
+            .or_else(|| find_pwsh_in_programfiles(true, true))
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or("powershell.exe".to_string())
     });
     let default_shell = Shell::new((*DEFAULT_SHELL_NAME).clone(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
