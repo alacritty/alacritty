@@ -1,10 +1,7 @@
 [package]
 name = "alacritty_terminal"
 version = "0.25.1-dev"
-authors = [
-    "Christian Duerr <contact@christianduerr.com>",
-    "Joe Wilm <joe@jwilm.com>",
-]
+authors = ["Christian Duerr <contact@christianduerr.com>", "Joe Wilm <joe@jwilm.com>",]
 license = "Apache-2.0"
 description = "Library for writing terminal emulators"
 readme = "../README.md"
@@ -27,10 +24,7 @@ parking_lot = "0.12.0"
 polling = "3.0.0"
 regex-automata = "0.4.3"
 unicode-width = "0.1"
-vte = { version = "0.15.0", default-features = false, features = [
-    "std",
-    "ansi",
-] }
+vte = { version = "0.15.0", default-features = false, features = ["std", "ansi",] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -47,7 +41,7 @@ windows-sys = { version = "0.59.0", features = [
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",
     "Win32_System_WindowsProgramming",
-] }
+]}
 
 [dev-dependencies]
 serde_json = "1.0.0"
