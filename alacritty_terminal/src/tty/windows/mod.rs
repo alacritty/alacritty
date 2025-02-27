@@ -2,6 +2,7 @@ use std::ffi::OsStr;
 use std::io::{self, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
+use std::path::PathBuf;
 use std::sync::mpsc::TryRecvError;
 use std::sync::{Arc, LazyLock};
 
@@ -146,4 +147,94 @@ fn cmdline(config: &Options) -> String {
 /// suffixed function variants, which accept UTF-16 encoded string values.
 pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
     OsStr::new(value).encode_wide().chain(once(0)).collect()
+}
+
+fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
+    #[cfg(target_pointer_width = "64")]
+    let program_folder = PathBuf::from(if !alt {
+        std::env::var_os("ProgramFiles")?
+    } else {
+        // We might be a 64-bit process looking for 32-bit program files
+        std::env::var_os("ProgramFiles(x86)")?
+    });
+    #[cfg(target_pointer_width = "32")]
+    let program_folder = PathBuf::from(if !alt {
+        std::env::var_os("ProgramFiles")?
+    } else {
+        // We might be a 32-bit process looking for 64-bit program files
+        std::env::var_os("ProgramW6432")?
+    });
+    let install_base_dir = program_folder.join("PowerShell");
+    let mut version = None;
+    let mut pwsh_path = None;
+    for entry in install_base_dir.read_dir().ok()? {
+        let entry = entry.ok()?;
+        if !entry.file_type().ok()?.is_dir() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        let current_version;
+        if preview {
+            let Some(dash_index) = file_name.find('-') else {
+                continue;
+            };
+            let int_part = &file_name[..dash_index];
+            let channel_part = &file_name[dash_index + 1..];
+            let Ok(ver) = int_part.parse::<u32>() else {
+                continue;
+            };
+            if !(channel_part == "preview") {
+                continue;
+            }
+            current_version = Some(ver);
+        } else {
+            let Ok(ver) = file_name.parse::<u32>() else {
+                continue;
+            };
+            current_version = Some(ver);
+        }
+        if current_version <= version {
+            continue;
+        }
+        let exe_path = entry.path().join("pwsh.exe");
+        if !exe_path.exists() {
+            continue;
+        }
+        version = current_version;
+        pwsh_path = Some(exe_path);
+    }
+    pwsh_path
+}
+
+fn find_pwsh_in_msix(preview: bool) -> Option<PathBuf> {
+    let msix_app_dir =
+        PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Microsoft\\WindowsApps");
+    if !msix_app_dir.exists() {
+        return None;
+    }
+    for entry in msix_app_dir.read_dir().ok()? {
+        let entry = entry.ok()?;
+        if !entry.file_type().ok()?.is_dir() {
+            continue;
+        }
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if preview {
+            if file_name.starts_with("Microsoft.PowerShellPreview_") {
+                let exe_path = entry.path().join("pwsh.exe");
+                if exe_path.exists() {
+                    return Some(exe_path);
+                }
+            }
+        } else {
+            if file_name.starts_with("Microsoft.PowerShell_") {
+                let exe_path = entry.path().join("pwsh.exe");
+                if exe_path.exists() {
+                    return Some(exe_path);
+                }
+            }
+        }
+    }
+    None
 }
