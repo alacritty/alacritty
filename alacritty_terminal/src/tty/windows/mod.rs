@@ -133,9 +133,7 @@ fn cmdline(config: &Options) -> String {
             "powershell.exe".to_owned()
         }
     });
-    let start = std::time::Instant::now();
     let default_shell = Shell::new((*DEFAULT_SHELL_NAME).clone(), Vec::new());
-    println!("--> start time: {:?}", start.elapsed());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_str())
