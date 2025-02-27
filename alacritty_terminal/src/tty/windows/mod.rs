@@ -4,7 +4,7 @@ use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::sync::mpsc::TryRecvError;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, OnceLock};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
@@ -24,17 +24,6 @@ pub const PTY_READ_WRITE_TOKEN: usize = 2;
 
 type ReadPipe = UnblockedReader<AnonRead>;
 type WritePipe = UnblockedWriter<AnonWrite>;
-
-pub static DEFAULT_SHELL_PATH: LazyLock<String> = LazyLock::new(|| {
-    find_pwsh_in_programfiles(false, false)
-        .or_else(|| find_pwsh_in_programfiles(true, false))
-        .or_else(|| find_pwsh_in_msix(false))
-        .or_else(|| find_pwsh_in_programfiles(false, true))
-        .or_else(|| find_pwsh_in_msix(true))
-        .or_else(|| find_pwsh_in_programfiles(true, true))
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or("powershell.exe".to_string())
-});
 
 pub struct Pty {
     // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
@@ -138,7 +127,21 @@ impl OnResize for Pty {
 }
 
 fn cmdline(config: &Options) -> String {
-    let default_shell = Shell::new((*DEFAULT_SHELL_PATH).clone(), Vec::new());
+    static DEFAULT_SHELL_PATH: OnceLock<String> = OnceLock::new();
+    let default_shell = Shell::new(
+        (*DEFAULT_SHELL_PATH.get_or_init(|| {
+            find_pwsh_in_programfiles(false, false)
+                .or_else(|| find_pwsh_in_programfiles(true, false))
+                .or_else(|| find_pwsh_in_msix(false))
+                .or_else(|| find_pwsh_in_programfiles(false, true))
+                .or_else(|| find_pwsh_in_msix(true))
+                .or_else(|| find_pwsh_in_programfiles(true, true))
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or("powershell.exe".to_string())
+        }))
+        .clone(),
+        Vec::new(),
+    );
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_str())
