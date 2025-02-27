@@ -3,7 +3,7 @@ use std::io::{self, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::mpsc::TryRecvError;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;
@@ -126,12 +126,14 @@ impl OnResize for Pty {
 }
 
 fn cmdline(config: &Options) -> String {
-    let default_shell_name = if which::which("pwsh.exe").is_ok() {
-        "pwsh.exe".to_owned()
-    } else {
-        "powershell.exe".to_owned()
-    };
-    let default_shell = Shell::new(default_shell_name, Vec::new());
+    static DEFAULT_SHELL_NAME: LazyLock<String> = LazyLock::new(|| {
+        if which::which("pwsh.exe").is_ok() {
+            "pwsh.exe".to_owned()
+        } else {
+            "powershell.exe".to_owned()
+        }
+    });
+    let default_shell = Shell::new((*DEFAULT_SHELL_NAME).clone(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_str())
