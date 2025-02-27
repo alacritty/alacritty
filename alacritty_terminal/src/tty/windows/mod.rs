@@ -165,7 +165,7 @@ fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
         std::env::var_os("ProgramW6432")?
     });
     let install_base_dir = program_folder.join("PowerShell");
-    let mut version = None;
+    let mut highest_version = 0;
     let mut pwsh_path = None;
     for entry in install_base_dir.read_dir().ok()? {
         let entry = entry.ok()?;
@@ -187,21 +187,21 @@ fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
             if !(channel_part == "preview") {
                 continue;
             }
-            current_version = Some(ver);
+            current_version = ver;
         } else {
             let Ok(ver) = file_name.parse::<u32>() else {
                 continue;
             };
-            current_version = Some(ver);
+            current_version = ver;
         }
-        if current_version <= version {
+        if current_version <= highest_version {
             continue;
         }
         let exe_path = entry.path().join("pwsh.exe");
         if !exe_path.exists() {
             continue;
         }
-        version = current_version;
+        highest_version = current_version;
         pwsh_path = Some(exe_path);
     }
     pwsh_path
