@@ -151,60 +151,40 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
 
 fn find_pwsh_in_programfiles(alt: bool, preview: bool) -> Option<PathBuf> {
     #[cfg(target_pointer_width = "64")]
-    let program_folder = PathBuf::from(if !alt {
-        std::env::var_os("ProgramFiles")?
-    } else {
-        // We might be a 64-bit process looking for 32-bit program files
-        std::env::var_os("ProgramFiles(x86)")?
-    });
+    let env_var = if !alt { "ProgramFiles" } else { "ProgramFiles(x86)" };
+
     #[cfg(target_pointer_width = "32")]
-    let program_folder = PathBuf::from(if !alt {
-        std::env::var_os("ProgramFiles")?
-    } else {
-        // We might be a 32-bit process looking for 64-bit program files
-        std::env::var_os("ProgramW6432")?
-    });
-    let install_base_dir = program_folder.join("PowerShell");
-    let mut highest_version = 0;
-    let mut pwsh_path = None;
-    for entry in install_base_dir.read_dir().ok()? {
-        let entry = entry.ok()?;
-        if !entry.file_type().ok()?.is_dir() {
-            continue;
-        }
-        let file_name = entry.file_name();
-        let file_name = file_name.to_string_lossy();
-        let current_version;
-        if preview {
-            let Some(dash_index) = file_name.find('-') else {
-                continue;
+    let env_var = if !alt { "ProgramFiles" } else { "ProgramW6432" };
+
+    let install_base_dir = PathBuf::from(std::env::var_os(env_var)?).join("PowerShell");
+    install_base_dir
+        .read_dir()
+        .ok()?
+        .filter_map(Result::ok)
+        .filter(|entry| matches!(entry.file_type(), Ok(ft) if ft.is_dir()))
+        .filter_map(|entry| {
+            let dir_name = entry.file_name();
+            let dir_name = dir_name.to_string_lossy();
+
+            let version = if preview {
+                let Some(dash_index) = dir_name.find('-') else { return None };
+                if &dir_name[dash_index + 1..] != "preview" {
+                    return None;
+                };
+                dir_name[..dash_index].parse::<u32>().ok()?
+            } else {
+                dir_name.parse::<u32>().ok()?
             };
-            let int_part = &file_name[..dash_index];
-            let channel_part = &file_name[dash_index + 1..];
-            let Ok(ver) = int_part.parse::<u32>() else {
-                continue;
-            };
-            if !(channel_part == "preview") {
-                continue;
+
+            let exe_path = entry.path().join("pwsh.exe");
+            if exe_path.exists() {
+                Some((version, exe_path))
+            } else {
+                None
             }
-            current_version = ver;
-        } else {
-            let Ok(ver) = file_name.parse::<u32>() else {
-                continue;
-            };
-            current_version = ver;
-        }
-        if current_version <= highest_version {
-            continue;
-        }
-        let exe_path = entry.path().join("pwsh.exe");
-        if !exe_path.exists() {
-            continue;
-        }
-        highest_version = current_version;
-        pwsh_path = Some(exe_path);
-    }
-    pwsh_path
+        })
+        .max_by_key(|(version, _)| *version)
+        .map(|(_, path)| path)
 }
 
 fn find_pwsh_in_msix(preview: bool) -> Option<PathBuf> {
@@ -213,28 +193,23 @@ fn find_pwsh_in_msix(preview: bool) -> Option<PathBuf> {
     if !msix_app_dir.exists() {
         return None;
     }
-    for entry in msix_app_dir.read_dir().ok()? {
-        let entry = entry.ok()?;
-        if !entry.file_type().ok()?.is_dir() {
-            continue;
-        }
-        let file_name = entry.file_name();
-        let file_name = file_name.to_string_lossy();
-        if preview {
-            if file_name.starts_with("Microsoft.PowerShellPreview_") {
-                let exe_path = entry.path().join("pwsh.exe");
-                if exe_path.exists() {
-                    return Some(exe_path);
-                }
+
+    let prefix = if preview { "Microsoft.PowerShellPreview_" } else { "Microsoft.PowerShell_" };
+    msix_app_dir
+        .read_dir()
+        .ok()?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if !matches!(entry.file_type(), Ok(ft) if ft.is_dir()) {
+                return None;
             }
-        } else {
-            if file_name.starts_with("Microsoft.PowerShell_") {
-                let exe_path = entry.path().join("pwsh.exe");
-                if exe_path.exists() {
-                    return Some(exe_path);
-                }
+
+            if !entry.file_name().to_string_lossy().starts_with(prefix) {
+                return None;
             }
-        }
-    }
-    None
+
+            let exe_path = entry.path().join("pwsh.exe");
+            exe_path.exists().then_some(exe_path)
+        })
+        .next()
 }
