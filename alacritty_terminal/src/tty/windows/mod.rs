@@ -156,7 +156,7 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
     OsStr::new(value).encode_wide().chain(once(0)).collect()
 }
 
-fn find_pwsh_in_programfiles(find_alternate: bool, preview: bool) -> Option<PathBuf> {
+fn find_pwsh_in_programfiles(find_alternate: bool, find_preview: bool) -> Option<PathBuf> {
     #[cfg(target_pointer_width = "64")]
     let env_var = if find_alternate { "ProgramFiles(x86)" } else { "ProgramFiles" };
 
@@ -173,7 +173,7 @@ fn find_pwsh_in_programfiles(find_alternate: bool, preview: bool) -> Option<Path
             let dir_name = entry.file_name();
             let dir_name = dir_name.to_string_lossy();
 
-            let version = if preview {
+            let version = if find_preview {
                 let dash_index = dir_name.find('-')?;
                 if &dir_name[dash_index + 1..] != "preview" {
                     return None;
@@ -194,14 +194,15 @@ fn find_pwsh_in_programfiles(find_alternate: bool, preview: bool) -> Option<Path
         .map(|(_, path)| path)
 }
 
-fn find_pwsh_in_msix(preview: bool) -> Option<PathBuf> {
+fn find_pwsh_in_msix(find_preview: bool) -> Option<PathBuf> {
     let msix_app_dir =
         PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Microsoft\\WindowsApps");
     if !msix_app_dir.exists() {
         return None;
     }
 
-    let prefix = if preview { "Microsoft.PowerShellPreview_" } else { "Microsoft.PowerShell_" };
+    let prefix =
+        if find_preview { "Microsoft.PowerShellPreview_" } else { "Microsoft.PowerShell_" };
     msix_app_dir
         .read_dir()
         .ok()?
