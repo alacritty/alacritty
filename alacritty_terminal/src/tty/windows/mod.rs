@@ -25,6 +25,17 @@ pub const PTY_READ_WRITE_TOKEN: usize = 2;
 type ReadPipe = UnblockedReader<AnonRead>;
 type WritePipe = UnblockedWriter<AnonWrite>;
 
+pub static DEFAULT_SHELL_PATH: LazyLock<String> = LazyLock::new(|| {
+    find_pwsh_in_programfiles(false, false)
+        .or_else(|| find_pwsh_in_programfiles(true, false))
+        .or_else(|| find_pwsh_in_msix(false))
+        .or_else(|| find_pwsh_in_programfiles(false, true))
+        .or_else(|| find_pwsh_in_msix(true))
+        .or_else(|| find_pwsh_in_programfiles(true, true))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or("powershell.exe".to_string())
+});
+
 pub struct Pty {
     // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
     // `conout` before `backend` will cause a deadlock (with Conpty).
@@ -127,17 +138,7 @@ impl OnResize for Pty {
 }
 
 fn cmdline(config: &Options) -> String {
-    static DEFAULT_SHELL_NAME: LazyLock<String> = LazyLock::new(|| {
-        find_pwsh_in_programfiles(false, false)
-            .or_else(|| find_pwsh_in_programfiles(true, false))
-            .or_else(|| find_pwsh_in_msix(false))
-            .or_else(|| find_pwsh_in_programfiles(false, true))
-            .or_else(|| find_pwsh_in_msix(true))
-            .or_else(|| find_pwsh_in_programfiles(true, true))
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or("powershell.exe".to_string())
-    });
-    let default_shell = Shell::new((*DEFAULT_SHELL_NAME).clone(), Vec::new());
+    let default_shell = Shell::new((*DEFAULT_SHELL_PATH).clone(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     once(shell.program.as_str())
