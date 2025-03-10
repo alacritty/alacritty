@@ -1187,7 +1187,9 @@ impl Display {
             ));
         }
 
-        if did_position_change || (config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32()){
+        if did_position_change
+            || (config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32())
+        {
             self.damage_tracker.frame().add_viewport_rect(
                 &self.size_info,
                 scrollbar_rect.x,

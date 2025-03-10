@@ -94,7 +94,6 @@ pub struct UiConfig {
 
     pub scrollbar: Scrollbar,
 
-
     /// Configuration file imports.
     ///
     /// This is never read since the field is directly accessed through the config's
