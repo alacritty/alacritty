@@ -58,7 +58,6 @@ use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
 use crate::renderer::{self, platform, GlyphCache, Renderer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
-use glutin::surface::Rect;
 
 pub mod color;
 pub mod content;
@@ -1188,21 +1187,13 @@ impl Display {
             ));
         }
 
-        if did_position_change {
+        if did_position_change || (config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32()){
             self.damage_tracker.frame().add_viewport_rect(
                 &self.size_info,
-                scrollbar_rect.x as i32,
+                scrollbar_rect.x,
                 y as i32,
-                scrollbar_rect.width as i32,
-                scrollbar_rect.height as i32,
-            );
-        } else if config.mode == ScrollbarMode::Fading && opacity < config.opacity.as_f32() {
-            self.damage_tracker.frame().add_viewport_rect(
-                &self.size_info,
-                scrollbar_rect.x as i32,
-                y as i32,
-                scrollbar_rect.width as i32,
-                scrollbar_rect.height as i32,
+                scrollbar_rect.width,
+                scrollbar_rect.height,
             );
         }
     }
