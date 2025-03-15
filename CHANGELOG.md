@@ -17,6 +17,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Crash when OpenGL context resets
+- Modifier keys clearing selection with kitty keyboard protocol enabled
 
 ## 0.15.1
 

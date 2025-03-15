@@ -77,6 +77,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
 
         let build_key_sequence = Self::should_build_sequence(&key, text, mode, mods);
+        let is_modifier_key = Self::is_modifier_key(&key);
 
         let bytes = if build_key_sequence {
             build_sequence(key, mods, mode)
@@ -92,7 +93,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Write only if we have something to write.
         if !bytes.is_empty() {
-            self.ctx.on_terminal_input_start();
+            // Don't clear selection/scroll down when writing escaped modifier keys.
+            if !is_modifier_key {
+                self.ctx.on_terminal_input_start();
+            }
             self.ctx.write_to_pty(bytes);
         }
     }
@@ -123,6 +127,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             },
             _ => alt_send_esc && text.chars().count() == 1,
         }
+    }
+
+    fn is_modifier_key(key: &KeyEvent) -> bool {
+        matches!(
+            key.logical_key.as_ref(),
+            Key::Named(NamedKey::Shift)
+                | Key::Named(NamedKey::Control)
+                | Key::Named(NamedKey::Alt)
+                | Key::Named(NamedKey::Super)
+        )
     }
 
     /// Check whether we should try to build escape sequence for the [`KeyEvent`].
