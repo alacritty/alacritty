@@ -36,6 +36,7 @@ use alacritty_terminal::vi_mode::ViMotion;
 use alacritty_terminal::vte::ansi::{ClearMode, Handler};
 
 use crate::clipboard::Clipboard;
+use crate::config::ui_config::ScrollbarMode;
 #[cfg(target_os = "macos")]
 use crate::config::window::Decorations;
 use crate::config::{Action, BindingMode, MouseAction, SearchAction, UiConfig, ViAction};
@@ -448,6 +449,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let x = x.clamp(0, size_info.width() as i32 - 1) as usize;
         let y = y.clamp(0, size_info.height() as i32 - 1) as usize;
+
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            let mouse_y_delta = y as f32 - self.ctx.mouse().y as f32;
+            if let Some(drag_event) = self.ctx.display().scrollbar.apply_mouse_delta(mouse_y_delta)
+            {
+                self.ctx.scroll(drag_event);
+            }
+        }
+
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -456,6 +466,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let point = self.ctx.mouse().point(&size_info, display_offset);
         let cell_changed = old_point != point;
+
+        // Update mouse state and check for URL change or whether we entered scrollbar.
+        let mouse_state = self.cursor_state();
+        self.ctx.window().set_mouse_cursor(mouse_state);
 
         // If the mouse hasn't changed cells, do nothing.
         if !cell_changed
@@ -467,10 +481,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         self.ctx.mouse_mut().inside_text_area = inside_text_area;
         self.ctx.mouse_mut().cell_side = cell_side;
-
-        // Update mouse state and check for URL change.
-        let mouse_state = self.cursor_state();
-        self.ctx.window().set_mouse_cursor(mouse_state);
 
         // Prompt hint highlight update.
         self.ctx.mouse_mut().hint_highlight_dirty = true;
@@ -639,6 +649,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle left click selection and vi mode cursor movement.
     fn on_left_click(&mut self, point: Point) {
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            let size_info = self.ctx.size_info();
+            let mouse_x = self.ctx.mouse().x;
+            let mouse_y = self.ctx.mouse().y;
+            if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
+                return;
+            };
+        }
+
         let side = self.ctx.mouse().cell_side;
         let control = self.ctx.modifiers().state().control_key();
 
@@ -675,6 +694,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     }
 
     fn on_mouse_release(&mut self, button: MouseButton) {
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never
+            && self.ctx.display().scrollbar.is_dragging()
+        {
+            self.ctx.display().scrollbar.stop_dragging();
+            // Mouse icon is different, when not scrolling.
+            let mouse_state = self.cursor_state();
+            self.ctx.window().set_mouse_cursor(mouse_state);
+        }
+
         if !self.ctx.modifiers().state().shift_key() && self.ctx.mouse_mode() {
             let code = match button {
                 MouseButton::Left => 0,
@@ -830,11 +858,29 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Handle beginning of touch input.
     pub fn on_touch_start(&mut self, touch: TouchEvent) {
-        let touch_purpose = self.ctx.touch_purpose();
-        *touch_purpose = match mem::take(touch_purpose) {
-            TouchPurpose::None => TouchPurpose::Tap(touch),
+        let old_touch_purpose = mem::take(self.ctx.touch_purpose());
+        let new_touch_purpose = match old_touch_purpose {
+            TouchPurpose::None => {
+                if self.ctx.config().scrollbar.mode == ScrollbarMode::Never {
+                    TouchPurpose::Tap(touch)
+                } else {
+                    let size_info = self.ctx.size_info();
+                    let mouse_x = touch.location.x as usize;
+                    let mouse_y = touch.location.y as usize;
+                    if self.ctx.display().scrollbar.try_start_drag(size_info, mouse_x, mouse_y) {
+                        TouchPurpose::ScrollbarDrag(touch)
+                    } else {
+                        TouchPurpose::Tap(touch)
+                    }
+                }
+            },
             TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
             TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
+            TouchPurpose::ScrollbarDrag(event) => {
+                let mut set = HashSet::default();
+                set.insert(event.id);
+                TouchPurpose::Invalid(set)
+            },
             TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
                 let mut set = HashSet::default();
                 set.insert(event.id);
@@ -845,6 +891,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 TouchPurpose::Invalid(slots)
             },
         };
+        *self.ctx.touch_purpose() = new_touch_purpose;
     }
 
     /// Handle touch input movement.
@@ -874,6 +921,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                     // Apply motion since touch start.
                     self.on_touch_motion(touch);
                 }
+            },
+            TouchPurpose::ScrollbarDrag(_) => {
+                // Don't handle drag as this is already done for WInitEvent::CursorMoved.
             },
             TouchPurpose::Zoom(zoom) => {
                 let font_delta = zoom.font_delta(touch);
@@ -907,6 +957,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_moved(start_location);
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
+            },
+            TouchPurpose::ScrollbarDrag { .. } => {
+                *touch_purpose = Default::default();
+                self.ctx.display().scrollbar.stop_dragging();
             },
             // Invalidate zoom once a finger was released.
             TouchPurpose::Zoom(zoom) => {
@@ -1057,6 +1111,18 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Icon state of the cursor.
     fn cursor_state(&mut self) -> CursorIcon {
+        if self.ctx.config().scrollbar.mode != ScrollbarMode::Never {
+            if self.ctx.display().scrollbar.is_dragging() {
+                return CursorIcon::RowResize;
+            }
+            let display_size = self.ctx.size_info();
+            let mouse_x = self.ctx.mouse().x;
+            let mouse_y = self.ctx.mouse().y;
+            if self.ctx.display().scrollbar.contains_mouse_pos(display_size, mouse_x, mouse_y) {
+                return CursorIcon::Default;
+            }
+        }
+
         let display_offset = self.ctx.terminal().grid().display_offset();
         let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
         let hyperlink = self.ctx.terminal().grid()[point].hyperlink();
