@@ -82,7 +82,7 @@ impl GlyphCache {
     pub fn new(mut rasterizer: Rasterizer, font: &Font) -> Result<GlyphCache, crossfont::Error> {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
-        let metrics = GlyphCache::get_offset_adjusted_metrics(&mut rasterizer, font, regular)?;
+        let metrics = GlyphCache::load_font_metrics(&mut rasterizer, font, regular)?;
         Ok(Self {
             cache: Default::default(),
             rasterizer,
@@ -98,8 +98,8 @@ impl GlyphCache {
         })
     }
 
-    // Get metrics adjusted for glyph offset.
-    fn get_offset_adjusted_metrics(
+    // Load font metrics and adjust for glyph offset.
+    fn load_font_metrics(
         rasterizer: &mut Rasterizer,
         font: &Font,
         key: FontKey,
@@ -289,7 +289,7 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        let metrics = GlyphCache::get_offset_adjusted_metrics(&mut self.rasterizer, font, regular)?;
+        let metrics = GlyphCache::load_font_metrics(&mut self.rasterizer, font, regular)?;
 
         info!("Font size changed to {:?} px", font.size().as_px());
 
