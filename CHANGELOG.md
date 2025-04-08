@@ -18,6 +18,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 - Crash when OpenGL context resets
 - Modifier keys clearing selection with kitty keyboard protocol enabled
+- `glyph_offset.y` not applied to strikeout
 
 ## 0.15.1
 

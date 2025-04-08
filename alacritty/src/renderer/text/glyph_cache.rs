@@ -82,13 +82,7 @@ impl GlyphCache {
     pub fn new(mut rasterizer: Rasterizer, font: &Font) -> Result<GlyphCache, crossfont::Error> {
         let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
-        // Need to load at least one glyph for the face before calling metrics.
-        // The glyph requested here ('m' at the time of writing) has no special
-        // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, character: 'm', size: font.size() })?;
-
-        let metrics = rasterizer.metrics(regular, font.size())?;
-
+        let metrics = GlyphCache::load_font_metrics(&mut rasterizer, font, regular)?;
         Ok(Self {
             cache: Default::default(),
             rasterizer,
@@ -102,6 +96,22 @@ impl GlyphCache {
             metrics,
             builtin_box_drawing: font.builtin_box_drawing,
         })
+    }
+
+    // Load font metrics and adjust for glyph offset.
+    fn load_font_metrics(
+        rasterizer: &mut Rasterizer,
+        font: &Font,
+        key: FontKey,
+    ) -> Result<Metrics, crossfont::Error> {
+        // Need to load at least one glyph for the face before calling metrics.
+        // The glyph requested here ('m' at the time of writing) has no special
+        // meaning.
+        rasterizer.get_glyph(GlyphKey { font_key: key, character: 'm', size: font.size() })?;
+
+        let mut metrics = rasterizer.metrics(key, font.size())?;
+        metrics.strikeout_position += font.glyph_offset.y as f32;
+        Ok(metrics)
     }
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
@@ -279,12 +289,7 @@ impl GlyphCache {
         let (regular, bold, italic, bold_italic) =
             Self::compute_font_keys(font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey {
-            font_key: regular,
-            character: 'm',
-            size: font.size(),
-        })?;
-        let metrics = self.rasterizer.metrics(regular, font.size())?;
+        let metrics = GlyphCache::load_font_metrics(&mut self.rasterizer, font, regular)?;
 
         info!("Font size changed to {:?} px", font.size().as_px());
 
