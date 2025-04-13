@@ -238,7 +238,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             | Key::Named(NamedKey::Backspace)
                 if !mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) =>
             {
-                return
+                return;
             },
             _ => build_sequence(key, mods, mode),
         };

@@ -660,7 +660,7 @@ fn powerline_drawing(
     })
 }
 
-#[repr(packed)]
+#[repr(C, packed)]
 #[derive(Clone, Copy, Debug, Default)]
 struct Pixel {
     _r: u8,

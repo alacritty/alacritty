@@ -13,3 +13,6 @@ newline_style = "Unix"
 format_strings = true
 wrap_comments = true
 comment_width = 100
+
+format_macro_bodies = true
+max_width = 100
