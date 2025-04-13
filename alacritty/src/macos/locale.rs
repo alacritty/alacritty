@@ -37,12 +37,12 @@ pub fn set_locale_environment() {
         let fallback_locale_c = CString::new(FALLBACK_LOCALE).unwrap();
         unsafe { setlocale(LC_CTYPE, fallback_locale_c.as_ptr()) };
 
-        env::set_var("LC_CTYPE", FALLBACK_LOCALE);
+        unsafe { env::set_var("LC_CTYPE", FALLBACK_LOCALE) };
     } else {
         // Use system locale.
         debug!("Using system locale: {}", system_locale);
 
-        env::set_var("LC_ALL", system_locale);
+        unsafe { env::set_var("LC_ALL", system_locale) };
     }
 }
 
