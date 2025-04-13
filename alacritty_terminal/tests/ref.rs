@@ -24,7 +24,7 @@ macro_rules! ref_tests {
                 ref_test(&test_path);
             }
         )*
-    }
+    };
 }
 
 ref_tests! {

@@ -33,7 +33,7 @@ pub fn spawn_ipc_socket(
 
     let listener = UnixListener::bind(&socket_path)?;
 
-    env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str());
+    unsafe { env::set_var(ALACRITTY_SOCKET_ENV, socket_path.as_os_str()) };
     if options.daemon {
         println!("ALACRITTY_SOCKET={}; export ALACRITTY_SOCKET", socket_path.display());
     }
@@ -85,7 +85,7 @@ pub fn send_message(socket: Option<PathBuf>, message: SocketMessage) -> IoResult
     let mut socket = find_socket(socket)?;
 
     let message = serde_json::to_string(&message)?;
-    socket.write_all(message[..].as_bytes())?;
+    socket.write_all(message.as_bytes())?;
     let _ = socket.flush();
 
     Ok(())
