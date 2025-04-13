@@ -6,15 +6,15 @@ use std::rc::Rc;
 
 use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
-use log::{error, LevelFilter};
+use log::{LevelFilter, error};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
 use alacritty_terminal::tty::Options as PtyOptions;
 
+use crate::config::UiConfig;
 use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
-use crate::config::UiConfig;
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 
 /// CLI options for the main Alacritty executable.
@@ -135,7 +135,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
     let (general, instance) = match input.split_once(',') {
         // Warn the user if they've passed too many values.
         Some((_, instance)) if instance.contains(',') => {
-            return Err(String::from("Too many parameters"))
+            return Err(String::from("Too many parameters"));
         },
         Some((general, instance)) => (general, instance),
         None => (input, input),

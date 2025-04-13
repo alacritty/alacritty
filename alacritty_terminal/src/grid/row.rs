@@ -83,11 +83,7 @@ impl<T: Default> Row<T> {
 
         self.occ = min(self.occ, columns);
 
-        if new_row.is_empty() {
-            None
-        } else {
-            Some(new_row)
-        }
+        if new_row.is_empty() { None } else { Some(new_row) }
     }
 
     /// Reset all cells in the row to the `template` cell.

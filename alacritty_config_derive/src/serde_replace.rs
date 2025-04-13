@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::{
-    parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields, Generics, Ident,
+    Data, DataStruct, DeriveInput, Error, Field, Fields, Generics, Ident, parse_macro_input,
 };
 
 use crate::{Attr, GenericsStreams, MULTIPLE_FLATTEN_ERROR};

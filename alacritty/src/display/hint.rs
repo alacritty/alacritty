@@ -13,8 +13,8 @@ use alacritty_terminal::term::cell::Hyperlink;
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
-use crate::config::ui_config::{Hint, HintAction};
 use crate::config::UiConfig;
+use crate::config::ui_config::{Hint, HintAction};
 
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 pub const MAX_SEARCH_LINES: usize = 100;
@@ -548,11 +548,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
             }
         }
 
-        if start > iter.point() {
-            None
-        } else {
-            Some(start..=iter.point())
-        }
+        if start > iter.point() { None } else { Some(start..=iter.point()) }
     }
 
     /// Loop over submatches until a non-empty post-processed match is found.

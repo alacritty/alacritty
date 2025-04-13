@@ -7,8 +7,8 @@ use std::{cmp, mem, ptr, slice, str};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use base64::engine::general_purpose::STANDARD as Base64;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD as Base64;
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
@@ -2282,11 +2282,7 @@ enum ModeState {
 
 impl From<bool> for ModeState {
     fn from(value: bool) -> Self {
-        if value {
-            Self::Set
-        } else {
-            Self::Reset
-        }
+        if value { Self::Set } else { Self::Reset }
     }
 }
 

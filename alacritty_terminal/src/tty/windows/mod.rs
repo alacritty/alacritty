@@ -2,8 +2,8 @@ use std::ffi::OsStr;
 use std::io::{self, Result};
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
-use std::sync::mpsc::TryRecvError;
 use std::sync::Arc;
+use std::sync::mpsc::TryRecvError;
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::windows::child::ChildExitWatcher;

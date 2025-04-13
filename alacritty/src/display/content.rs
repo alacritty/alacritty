@@ -13,7 +13,7 @@ use alacritty_terminal::term::{self, RenderableContent as TerminalContent, Term,
 use alacritty_terminal::vte::ansi::{Color, CursorShape, NamedColor};
 
 use crate::config::UiConfig;
-use crate::display::color::{CellRgb, List, Rgb, DIM_FACTOR};
+use crate::display::color::{CellRgb, DIM_FACTOR, List, Rgb};
 use crate::display::hint::{self, HintState};
 use crate::display::{Display, SizeInfo};
 use crate::event::SearchState;
