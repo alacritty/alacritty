@@ -26,6 +26,7 @@ use winit::event::{
     ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
 };
+use winit::event::WindowEvent::ActivationTokenDone;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
 use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
@@ -1824,7 +1825,27 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                             return;
                         }
 
-                        self.ctx.display.pending_update.set_dimensions(size);
+                        // Resize window
+                        let display_update_pending = &mut self.ctx.display.pending_update;
+                        display_update_pending.set_dimensions(size);
+
+                        let threshold_width = 1000;
+                        let threshold_height = 300;
+                        let enlarged_fontsize = 20f32;
+
+                        // If the new window size is above the configured threshold, then the font should
+                        // be scaled up. Otherwise, the font should be the configured font as-is.
+                        let font = self.ctx.config.font.clone();
+                        if size.width > threshold_width && size.height > threshold_height { // TODO move to another function
+                            // Use enlarged configured font.
+                            display_update_pending.set_font(
+                                font.with_size(FontSize::new(enlarged_fontsize))
+                            )
+                        }
+                        else {
+                            // Use normal-sized configured font.
+                            display_update_pending.set_font(font);
+                        }
                     },
                     WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => {
                         self.key_input(event);
