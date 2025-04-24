@@ -25,6 +25,7 @@ use crate::config::bindings::{
 use crate::config::color::Colors;
 use crate::config::cursor::Cursor;
 use crate::config::debug::Debug;
+use crate::config::dynamic_font_size::DynamicFontSize;
 use crate::config::font::Font;
 use crate::config::general::General;
 use crate::config::mouse::Mouse;
@@ -58,6 +59,9 @@ pub struct UiConfig {
 
     /// Font configuration.
     pub font: Font,
+
+    /// Dynamic font size.
+    pub dynamic_font_size: DynamicFontSize,
 
     /// Window configuration.
     pub window: WindowConfig,

@@ -45,7 +45,6 @@ use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
-use crate::config::font::DynamicFontThreshold;
 #[cfg(not(windows))]
 use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
@@ -1826,41 +1825,16 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         }
 
                         // Resize window
-                        let display_update_pending = &mut self.ctx.display.pending_update;
-                        display_update_pending.set_dimensions(size);
+                        self.ctx.display.pending_update.set_dimensions(size);
 
-                        // If the new window size is above the configured threshold, then the font should
-                        // be scaled up. Otherwise, the font should be the configured font as-is.
-                        let config_font = self.ctx.config.font.clone();
-                        let dynamic_font = config_font.dynamic_font().to_owned();
-                        let small_at = dynamic_font.small_at.unwrap_or(DynamicFontThreshold::new(100, 200));
-                        let large_at = dynamic_font.large_at.unwrap_or(DynamicFontThreshold::new(800, 200));
-                        let small_scale_factor = dynamic_font.small_scale_factor.unwrap_or(69) as f32;
-                        let large_scale_factor = dynamic_font.large_scale_factor.unwrap_or(420) as f32;
-
-                        let small_at = DynamicFontThreshold::new(400, 300);
-                        let large_at = DynamicFontThreshold::new(1100, 300);
-                        let small_scale_factor = 0.8;
-                        let large_scale_factor = 1.4;
-
-                        if size.width > large_at.window_width && size.height > large_at.window_height { // TODO move to another function
-                            // Use enlarged configured font.
-                            let large_font_size = config_font.size().scale(large_scale_factor);
-                            let large_font = config_font.with_size(large_font_size);
-                            self.ctx.display.font_size = large_font_size;
-                            display_update_pending.set_font(large_font);
-                        }
-                        else if size.width < small_at.window_width || size.height < small_at.window_height { // Did || on purpose
-                            // Use shrunk configured font.
-                            let small_font_size = config_font.size().scale(small_scale_factor); // TODO perhaps let the user define font size instaed of scale?
-                            let small_font = config_font.with_size(small_font_size);
-                            self.ctx.display.font_size = small_font_size;
-                            display_update_pending.set_font(small_font);
-                        }
-                        else {
-                            // Use normal-sized configured font.
-                            display_update_pending.set_font(config_font);
-                        }
+                        // If the user configured dynamic font sizes, we update the font size if the
+                        // resized window matches a dynamic font size.
+                        let normal_font = self.ctx.config.font.clone();
+                        let dynamic_font = self.ctx.config.dynamic_font_size.clone();
+                        let font_size = dynamic_font.determine_font_size(normal_font.size(), &size);
+                        let font = normal_font.with_size(font_size);
+                        self.ctx.display.font_size = font_size;
+                        self.ctx.display.pending_update.set_font(font);
                     },
                     WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => {
                         self.key_input(event);

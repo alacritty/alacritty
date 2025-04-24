@@ -15,6 +15,7 @@ pub mod color;
 pub mod cursor;
 pub mod debug;
 pub mod font;
+pub mod dynamic_font_size;
 pub mod general;
 pub mod monitor;
 pub mod scrolling;
