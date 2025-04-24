@@ -26,7 +26,6 @@ use winit::event::{
     ElementState, Event as WinitEvent, Ime, Modifiers, MouseButton, StartCause,
     Touch as TouchEvent, WindowEvent,
 };
-use winit::event::WindowEvent::ActivationTokenDone;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, DeviceEvents, EventLoop, EventLoopProxy};
 use winit::raw_window_handle::HasDisplayHandle;
 use winit::window::WindowId;
@@ -46,6 +45,7 @@ use crate::cli::{Options as CliOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::ui_config::{HintAction, HintInternalAction};
 use crate::config::{self, UiConfig};
+use crate::config::font::DynamicFontThreshold;
 #[cfg(not(windows))]
 use crate::daemon::foreground_process_path;
 use crate::daemon::spawn_daemon;
@@ -1829,22 +1829,37 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         let display_update_pending = &mut self.ctx.display.pending_update;
                         display_update_pending.set_dimensions(size);
 
-                        let threshold_width = 1000;
-                        let threshold_height = 300;
-                        let enlarged_fontsize = 20f32;
-
                         // If the new window size is above the configured threshold, then the font should
                         // be scaled up. Otherwise, the font should be the configured font as-is.
-                        let font = self.ctx.config.font.clone();
-                        if size.width > threshold_width && size.height > threshold_height { // TODO move to another function
+                        let config_font = self.ctx.config.font.clone();
+                        let dynamic_font = config_font.dynamic_font().to_owned();
+                        let small_at = dynamic_font.small_at.unwrap_or(DynamicFontThreshold::new(100, 200));
+                        let large_at = dynamic_font.large_at.unwrap_or(DynamicFontThreshold::new(800, 200));
+                        let small_scale_factor = dynamic_font.small_scale_factor.unwrap_or(69) as f32;
+                        let large_scale_factor = dynamic_font.large_scale_factor.unwrap_or(420) as f32;
+
+                        let small_at = DynamicFontThreshold::new(400, 300);
+                        let large_at = DynamicFontThreshold::new(1100, 300);
+                        let small_scale_factor = 0.8;
+                        let large_scale_factor = 1.4;
+
+                        if size.width > large_at.window_width && size.height > large_at.window_height { // TODO move to another function
                             // Use enlarged configured font.
-                            display_update_pending.set_font(
-                                font.with_size(FontSize::new(enlarged_fontsize))
-                            )
+                            let large_font_size = config_font.size().scale(large_scale_factor);
+                            let large_font = config_font.with_size(large_font_size);
+                            self.ctx.display.font_size = large_font_size;
+                            display_update_pending.set_font(large_font);
+                        }
+                        else if size.width < small_at.window_width || size.height < small_at.window_height { // Did || on purpose
+                            // Use shrunk configured font.
+                            let small_font_size = config_font.size().scale(small_scale_factor); // TODO perhaps let the user define font size instaed of scale?
+                            let small_font = config_font.with_size(small_font_size);
+                            self.ctx.display.font_size = small_font_size;
+                            display_update_pending.set_font(small_font);
                         }
                         else {
                             // Use normal-sized configured font.
-                            display_update_pending.set_font(font);
+                            display_update_pending.set_font(config_font);
                         }
                     },
                     WindowEvent::KeyboardInput { event, is_synthetic: false, .. } => {

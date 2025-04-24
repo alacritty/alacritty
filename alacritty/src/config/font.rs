@@ -3,9 +3,7 @@ use std::fmt;
 use crossfont::Size as FontSize;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
-
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-
 use crate::config::ui_config::Delta;
 
 /// Font config.
@@ -39,6 +37,9 @@ pub struct Font {
 
     /// Font size in points.
     size: Size,
+
+    /// Parameters which dynamically update the font to a specified font
+    dynamic_size: DynamicFontDescription, // TODO move to other config field
 
     /// Whether to use the built-in font for box drawing characters.
     pub builtin_box_drawing: bool,
@@ -74,6 +75,9 @@ impl Font {
     pub fn bold_italic(&self) -> FontDescription {
         self.bold_italic.desc(&self.normal)
     }
+
+    /// Get dynamic font description.
+    pub fn dynamic_font(&self) -> &DynamicFontDescription { &self.dynamic_size }
 }
 
 impl Default for Font {
@@ -87,6 +91,7 @@ impl Default for Font {
             offset: Default::default(),
             normal: Default::default(),
             bold: Default::default(),
+            dynamic_size: Default::default(),
             size: Default::default(),
         }
     }
@@ -128,6 +133,50 @@ impl SecondaryFontDescription {
         }
     }
 }
+
+// TODO set proper defaults
+#[derive(ConfigDeserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct DynamicFontThreshold {
+    pub window_width: u32,
+    pub window_height: u32,
+}
+
+impl DynamicFontThreshold {
+    pub fn new(window_width: u32, window_height: u32) -> DynamicFontThreshold {
+        DynamicFontThreshold { window_width, window_height }
+    }
+}
+
+/// Dynamic font threshold description.
+#[derive(ConfigDeserialize, Debug, Default, Clone, PartialEq, Eq)]
+pub struct DynamicFontDescription {
+    pub small_at: Option<DynamicFontThreshold>,
+    pub large_at: Option<DynamicFontThreshold>,
+    pub small_scale_factor: Option<u32>,
+    pub large_scale_factor: Option<u32>,
+}
+
+// TODO hide public fields with this
+// impl DynamicFontDescription {
+//     pub fn determine_current_font_size<T>(&self, window_size: PhysicalSize<T>, font_size: &FontSize){
+//         if window_size.width > self.large_at.width && window_size.height > self.large_at.height { // TODO move to another function
+//             // Use enlarged configured font.
+//             let large_font_window_size = FontSize::new(dynamic_font.large_scale_factor.unwrap());
+//             let large_font = config_font.with_window_size(large_font_window_size);
+//             display_update_pending.set_font(large_font);
+//         }
+//         else if window_size.width < small_at.width && window_size.height < small_at.height {
+//             // Use shrunk configured font.
+//             let small_font_window_size = FontSize::new(dynamic_font.small_scale_factor.unwrap());
+//             let small_font = config_font.with_window_size(small_font_window_size);
+//             display_update_pending.set_font(small_font);
+//         }
+//         else {
+//             // Use normal-window_sized configured font.
+//             display_update_pending.set_font(config_font);
+//         }
+//     }
+// }
 
 #[derive(SerdeReplace, Debug, Clone, PartialEq, Eq)]
 struct Size(FontSize);
