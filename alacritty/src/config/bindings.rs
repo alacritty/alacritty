@@ -830,10 +830,10 @@ impl<'a> Deserialize<'a> for ModeWrapper {
     }
 }
 
-struct MouseButtonWrapper(MouseButton);
+pub struct MouseButtonWrapper(MouseButton);
 
 impl MouseButtonWrapper {
-    fn into_inner(self) -> MouseButton {
+    pub fn into_inner(self) -> MouseButton {
         self.0
     }
 }

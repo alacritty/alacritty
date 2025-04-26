@@ -689,7 +689,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Trigger hints highlighted by the mouse.
         let hint = self.ctx.display().highlighted_hint.take();
-        if let Some(hint) = hint.as_ref().filter(|_| button == MouseButton::Left) {
+        if let Some(hint) =
+            hint.as_ref().filter(|hint_match| button == hint_match.get_hint_mouse_button())
+        {
+            self.ctx.mouse_mut().block_hint_launcher = false;
             self.ctx.trigger_hint(hint);
         }
         self.ctx.display().highlighted_hint = hint;

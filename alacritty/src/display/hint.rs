@@ -5,6 +5,7 @@ use std::iter;
 use std::rc::Rc;
 
 use ahash::RandomState;
+use winit::event::MouseButton;
 use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
@@ -223,6 +224,13 @@ impl HintMatch {
 
     pub fn hyperlink(&self) -> Option<&Hyperlink> {
         self.hyperlink.as_ref()
+    }
+
+    pub fn get_hint_mouse_button(&self) -> MouseButton {
+        match self.hint.mouse {
+            None => MouseButton::Left,
+            Some(c) => c.button.0,
+        }
     }
 
     /// Get the text content of the hint match.

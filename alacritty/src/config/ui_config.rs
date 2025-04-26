@@ -488,8 +488,19 @@ pub struct HintMouse {
     pub button: HintMouseButton,
 }
 
-#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouseButton(pub MouseButton);
+impl<'de> Deserialize<'de> for HintMouseButton {
+    // To avoid copy pasting, reusing MouseButtonWrapper Deserialize implementation
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use crate::config::bindings::MouseButtonWrapper;
+        let mouse_button = MouseButtonWrapper::deserialize(deserializer)?.into_inner();
+        Ok(Self(mouse_button))
+    }
+}
 
 impl Default for HintMouseButton {
     fn default() -> Self {
