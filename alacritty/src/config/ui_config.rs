@@ -19,10 +19,9 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
-use crate::config::bindings::MouseButtonWrapper;
 use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
-    MouseBinding,
+    MouseBinding, MouseButtonWrapper,
 };
 use crate::config::color::Colors;
 use crate::config::cursor::Cursor;
