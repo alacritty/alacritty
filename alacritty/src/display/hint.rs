@@ -227,9 +227,8 @@ impl HintMatch {
     }
 
     /// Returns the mouse button that is associated with the hint.
-    /// Defaults to MouseButton::Left if lf.hint.mouse is None
-    pub fn mouse_button(&self) -> MouseButton {
-        self.hint.mouse.map_or(MouseButton::Left, |hint_mouse| hint_mouse.button.0)
+    pub fn mouse_button(&self) -> Option<MouseButton> {
+        self.hint.mouse.and_then(|hint_mouse| hint_mouse.button.0)
     }
 
     /// Get the text content of the hint match.
@@ -404,7 +403,7 @@ pub fn highlighted_at<T>(
     config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
         let highlight = hint.mouse.map_or(false, |mouse| {
-            mouse.enabled
+            mouse.enabled()
                 && mouse_mods.contains(mouse.mods.0)
                 && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
         });

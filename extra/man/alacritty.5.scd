@@ -723,17 +723,18 @@ _action_ or a _command_.
 		This controls which key binding is used to start the keyboard hint
 		selection process.
 
-	*mouse* = { mods = _"<string>"_, enabled = _true_ | _false_, button = _"Left"_ | _"Right"_ | _"Middle"_ | _"Back"_ | _"Forward"_ | _<integer>_ }
+	*mouse* = { mods = _"<string>"_, enabled = _true_ | _false_ } | { mods = _"<string>"_, button = _"Left"_ | _"Right"_ | _"Middle"_ | _"Back"_ | _"Forward"_ | _<integer>_ | _"None"_ }
 
 		See _keyboard.bindings_ for documentation on available _mods_.
 
 		The _enabled_ field controls if the hint should be underlined when
-		hovering over the hint text with all _mods_ pressed.
+		hovering over the hint text with all _mods_ pressed. Setting this
+        to true is equivalent to button to _"Left"_.
 
 		The _button_ field is controls which mouse button which needs to be 
-		pressed to trigger this hint. If changed, it may be wise to unbind the
-		default bind for that button by setting the action to _"None"_ in
-		_mouse.bindings_.
+		pressed to trigger this hint. If set to _"None"_, mouse hints are
+        disabled. If changed, it may be wise to unbind the default bind for 
+        that button by setting the action to _"None"_ in _mouse.bindings_.
 
 	Default:
 		*[[hints.enabled]]*++
