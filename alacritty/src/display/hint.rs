@@ -226,11 +226,10 @@ impl HintMatch {
         self.hyperlink.as_ref()
     }
 
-    pub fn get_hint_mouse_button(&self) -> MouseButton {
-        match self.hint.mouse {
-            None => MouseButton::Left,
-            Some(c) => c.button.0,
-        }
+    /// Returns the mouse button that is associated with the hint.
+    /// Defaults to MouseButton::Left if lf.hint.mouse is None
+    pub fn mouse_button(&self) -> MouseButton {
+        self.hint.mouse.map_or(MouseButton::Left, |hint_mouse| hint_mouse.button.0)
     }
 
     /// Get the text content of the hint match.

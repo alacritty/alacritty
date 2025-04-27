@@ -19,6 +19,7 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::search::RegexSearch;
 
 use crate::config::bell::BellConfig;
+use crate::config::bindings::MouseButtonWrapper;
 use crate::config::bindings::{
     self, Action, Binding, BindingKey, KeyBinding, KeyLocation, ModeWrapper, ModsWrapper,
     MouseBinding,
@@ -283,7 +284,7 @@ impl Default for Hints {
                 mouse: Some(HintMouse {
                     enabled: true,
                     mods: Default::default(),
-                    button: HintMouseButton::default(),
+                    button: Default::default(),
                 }),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
@@ -484,19 +485,17 @@ pub struct HintMouse {
     /// Required mouse modifiers for hint highlighting.
     pub mods: ModsWrapper,
 
-    /// Mouse button to run command.
+    /// Mouse button which triggers the command.
     pub button: HintMouseButton,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouseButton(pub MouseButton);
 impl<'de> Deserialize<'de> for HintMouseButton {
-    // To avoid copy pasting, reusing MouseButtonWrapper Deserialize implementation
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        use crate::config::bindings::MouseButtonWrapper;
         let mouse_button = MouseButtonWrapper::deserialize(deserializer)?.into_inner();
         Ok(Self(mouse_button))
     }
