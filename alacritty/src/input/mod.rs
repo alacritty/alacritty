@@ -627,6 +627,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 _ => ClickState::Click,
             };
 
+            // Don'launch mouse hints if there is a selection active.
+            self.ctx.mouse_mut().block_hint_launcher = !self.ctx.selection_is_empty();
+
             // Load mouse point, treating message bar and padding as the closest cell.
             let display_offset = self.ctx.terminal().grid().display_offset();
             let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
@@ -644,9 +647,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         match self.ctx.mouse().click_state {
             ClickState::Click => {
-                // Don't launch URLs if this click cleared the selection.
-                self.ctx.mouse_mut().block_hint_launcher = !self.ctx.selection_is_empty();
-
                 self.ctx.clear_selection();
 
                 // Start new empty selection.
@@ -692,7 +692,6 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         if let Some(hint) =
             hint.as_ref().filter(|hint_match| Some(button) == hint_match.mouse_button())
         {
-            self.ctx.mouse_mut().block_hint_launcher = false;
             self.ctx.trigger_hint(hint);
         }
         self.ctx.display().highlighted_hint = hint;
