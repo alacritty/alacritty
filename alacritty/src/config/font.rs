@@ -3,7 +3,9 @@ use std::fmt;
 use crossfont::Size as FontSize;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
+
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
+
 use crate::config::ui_config::Delta;
 
 /// Font config.
@@ -126,7 +128,6 @@ impl SecondaryFontDescription {
         }
     }
 }
-
 
 #[derive(SerdeReplace, Debug, Clone, PartialEq, Eq)]
 struct Size(FontSize);
