@@ -1828,10 +1828,10 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                         self.ctx.display.pending_update.set_dimensions(size);
 
                         // If the user configured dynamic font sizes, we update the font size if the
-                        // resized window matches a dynamic font size.
+                        // new window size corresponds with a dynamic font size.
                         let normal_font = self.ctx.config.font.clone();
-                        let dynamic_font = self.ctx.config.dynamic_font_size.clone();
-                        let font_size = dynamic_font.determine_font_size(normal_font.size(), &size);
+                        let dynamic_font_size_config = self.ctx.config.dynamic_font_size.clone();
+                        let font_size = dynamic_font_size_config.determine_font_size(normal_font.size(), &size);
                         let font = normal_font.with_size(font_size);
                         self.ctx.display.font_size = font_size;
                         self.ctx.display.pending_update.set_font(font);
