@@ -477,7 +477,7 @@ pub struct HintMouse {
     /// Required mouse modifiers for hint highlighting.
     pub mods: ModsWrapper,
 
-    /// Mouse button which triggers the command. None to disable mouse hints
+    /// Mouse button which triggers the command.
     #[config(alias = "enabled")]
     pub button: HintMouseButton,
 }

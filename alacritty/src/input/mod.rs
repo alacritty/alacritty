@@ -627,7 +627,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 _ => ClickState::Click,
             };
 
-            // Don'launch mouse hints if there is a selection active.
+            // Don't launch mouse hints if there is a selection active.
             self.ctx.mouse_mut().block_hint_launcher = !self.ctx.selection_is_empty();
 
             // Load mouse point, treating message bar and padding as the closest cell.
