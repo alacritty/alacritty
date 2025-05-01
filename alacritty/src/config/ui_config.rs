@@ -280,7 +280,7 @@ impl Default for Hints {
                 action,
                 persist: false,
                 post_processing: true,
-                mouse: Some(HintMouse { mods: Default::default(), button: Default::default() }),
+                mouse: Some(Default::default()),
                 binding: Some(HintBinding {
                     key: BindingKey::Keycode {
                         key: Key::Character("o".into()),
