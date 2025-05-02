@@ -112,6 +112,7 @@ pub trait ActionContext<T: EventListener> {
     fn clipboard_mut(&mut self) -> &mut Clipboard;
     fn scheduler_mut(&mut self) -> &mut Scheduler;
     fn start_search(&mut self, _direction: Direction) {}
+    fn start_seeded_search(&mut self, _direction: Direction, _text: String) {}
     fn confirm_search(&mut self) {}
     fn cancel_search(&mut self) {}
     fn search_input(&mut self, _c: char) {}
@@ -132,6 +133,7 @@ pub trait ActionContext<T: EventListener> {
     fn hint_input(&mut self, _character: char) {}
     fn trigger_hint(&mut self, _hint: &HintMatch) {}
     fn expand_selection(&mut self) {}
+    fn semantic_word(&self, point: Point) -> String;
     fn on_terminal_input_start(&mut self) {}
     fn paste(&mut self, _text: &str, _bracketed: bool) {}
     fn spawn_daemon<I, S>(&self, _program: &str, _args: I)
@@ -278,6 +280,28 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
             Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
+            Action::Vi(ViAction::SemanticSearchForward) => {
+                let seed_text = match ctx.terminal().selection_to_string() {
+                    Some(selection) if !selection.is_empty() => selection,
+                    // Get semantic word at the vi cursor position.
+                    _ => ctx.semantic_word(ctx.terminal().vi_mode_cursor.point),
+                };
+
+                if !seed_text.is_empty() {
+                    ctx.start_seeded_search(Direction::Right, seed_text);
+                }
+            },
+            Action::Vi(ViAction::SemanticSearchBackward) => {
+                let seed_text = match ctx.terminal().selection_to_string() {
+                    Some(selection) if !selection.is_empty() => selection,
+                    // Get semantic word at the vi cursor position.
+                    _ => ctx.semantic_word(ctx.terminal().vi_mode_cursor.point),
+                };
+
+                if !seed_text.is_empty() {
+                    ctx.start_seeded_search(Direction::Left, seed_text);
+                }
+            },
             action @ Action::Search(_) if !ctx.search_active() => {
                 debug!("Ignoring {action:?}: Search mode inactive");
             },
@@ -1235,6 +1259,10 @@ mod tests {
         }
 
         fn scheduler_mut(&mut self) -> &mut Scheduler {
+            unimplemented!();
+        }
+
+        fn semantic_word(&self, _point: Point) -> String {
             unimplemented!();
         }
     }
