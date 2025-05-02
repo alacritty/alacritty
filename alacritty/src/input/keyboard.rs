@@ -152,8 +152,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let disambiguate = mode.contains(TermMode::DISAMBIGUATE_ESC_CODES)
             && (key.logical_key == Key::Named(NamedKey::Escape)
-                || (!mods.is_empty() && mods != ModifiersState::SHIFT)
-                || key.location == KeyLocation::Numpad);
+                || key.location == KeyLocation::Numpad
+                || (!mods.is_empty()
+                    && (mods != ModifiersState::SHIFT
+                        || matches!(
+                            key.logical_key,
+                            Key::Named(NamedKey::Tab)
+                                | Key::Named(NamedKey::Enter)
+                                | Key::Named(NamedKey::Backspace)
+                        ))));
 
         match key.logical_key {
             _ if disambiguate => true,
