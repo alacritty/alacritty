@@ -52,6 +52,10 @@ pub enum ViMotion {
     WordRightEnd,
     /// Move to opposing bracket.
     Bracket,
+    /// Move above the current paragraph.
+    ParagraphUp,
+    /// Move below the current paragraph.
+    ParagraphDown,
 }
 
 /// Cursor tracking vi mode position.
@@ -153,6 +157,27 @@ impl ViModeCursor {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
             ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
+            ViMotion::ParagraphUp => {
+                // Skip empty lines until we find the next paragraph,
+                // then skip over the paragraph until we reach the next empty line.
+                let topmost_line = term.topmost_line();
+                self.point.line = (*topmost_line..*self.point.line)
+                    .rev()
+                    .skip_while(|line| term.grid()[Line(*line)].is_clear())
+                    .find(|line| term.grid()[Line(*line)].is_clear())
+                    .map_or(topmost_line, Line);
+                self.point.column = Column(0);
+            },
+            ViMotion::ParagraphDown => {
+                // Skip empty lines until we find the next paragraph,
+                // then skip over the paragraph until we reach the next empty line.
+                let bottommost_line = term.bottommost_line();
+                self.point.line = (*self.point.line..*bottommost_line)
+                    .skip_while(|line| term.grid()[Line(*line)].is_clear())
+                    .find(|line| term.grid()[Line(*line)].is_clear())
+                    .map_or(bottommost_line, Line);
+                self.point.column = Column(0);
+            },
         }
 
         term.scroll_to_point(self.point);
