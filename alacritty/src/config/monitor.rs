@@ -42,7 +42,7 @@ impl ConfigMonitor {
         // a regular file.
         paths.retain(|path| {
             // Call `metadata` to resolve symbolic links.
-            path.metadata().map_or(false, |metadata| metadata.file_type().is_file())
+            path.metadata().is_ok_and(|metadata| metadata.file_type().is_file())
         });
 
         // Canonicalize paths, keeping the base paths for symlinks.
@@ -166,7 +166,7 @@ impl ConfigMonitor {
     /// This checks the supplied list of files against the monitored files to determine if a
     /// restart is necessary.
     pub fn needs_restart(&self, files: &[PathBuf]) -> bool {
-        Self::hash_paths(files).map_or(true, |hash| Some(hash) == self.watched_hash)
+        Self::hash_paths(files).is_none_or(|hash| Some(hash) == self.watched_hash)
     }
 
     /// Generate the hash for a list of paths.
