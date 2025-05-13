@@ -20,6 +20,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Modifier keys clearing selection with kitty keyboard protocol enabled
 - `glyph_offset.y` not applied to strikeout
 - `Enter`,`Tab`, `Backspace` not disambiguated with `shift` in kitty keyboard's disambiguate mode
+- Hint bindings not respecting IPC overrides
 
 ## 0.15.1
 
