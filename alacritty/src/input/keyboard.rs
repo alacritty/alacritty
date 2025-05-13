@@ -11,7 +11,7 @@ use alacritty_terminal::event::EventListener;
 use alacritty_terminal::term::TermMode;
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
-use crate::config::{Action, BindingKey, BindingMode};
+use crate::config::{Action, BindingKey, BindingMode, KeyBinding};
 use crate::event::TYPING_SEARCH_DELAY;
 use crate::input::{ActionContext, Execute, Processor};
 use crate::scheduler::{TimerId, Topic};
@@ -203,9 +203,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             key.logical_key.clone()
         };
 
-        for i in 0..self.ctx.config().key_bindings().len() {
-            let binding = &self.ctx.config().key_bindings()[i];
-
+        // Get the action of a key binding.
+        let mut binding_action = |binding: &KeyBinding| {
             let key = match (&binding.trigger, &logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
                 (_, code) => {
@@ -218,7 +217,30 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
                 // Binding was triggered; run the action.
-                binding.action.clone().execute(&mut self.ctx);
+                Some(binding.action.clone())
+            } else {
+                None
+            }
+        };
+
+        // Trigger matching key bindings.
+        for i in 0..self.ctx.config().key_bindings().len() {
+            let binding = &self.ctx.config().key_bindings()[i];
+            if let Some(action) = binding_action(binding) {
+                action.execute(&mut self.ctx);
+            }
+        }
+
+        // Trigger key bindings for hints.
+        for i in 0..self.ctx.config().hints.enabled.len() {
+            let hint = &self.ctx.config().hints.enabled[i];
+            let binding = match hint.binding.as_ref() {
+                Some(binding) => binding.key_binding(hint),
+                None => continue,
+            };
+
+            if let Some(action) = binding_action(binding) {
+                action.execute(&mut self.ctx);
             }
         }
 
