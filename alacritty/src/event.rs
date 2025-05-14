@@ -960,28 +960,30 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Leave search mode.
         self.confirm_search();
 
-        if self.terminal.mode().contains(TermMode::VI) {
-            // Find the target vi cursor point by going to the next match to the right of the
-            // origin, then jump to the next search match in the target direction.
-            let target = self.search_next(origin, Direction::Right, Side::Right).and_then(|rm| {
-                let regex_match = match direction {
-                    Direction::Right => {
-                        let origin = rm.end().add(self.terminal, Boundary::None, 1);
-                        self.search_next(origin, Direction::Right, Side::Left)?
-                    },
-                    Direction::Left => {
-                        let origin = rm.start().sub(self.terminal, Boundary::None, 1);
-                        self.search_next(origin, Direction::Left, Side::Left)?
-                    },
-                };
-                Some(*regex_match.start())
-            });
+        if !self.terminal.mode().contains(TermMode::VI) {
+            return;
+        }
 
-            // Move the vi cursor to the target position.
-            if let Some(target) = target {
-                self.terminal_mut().vi_goto_point(target);
-                self.mark_dirty();
-            }
+        // Find the target vi cursor point by going to the next match to the right of the origin,
+        // then jump to the next search match in the target direction.
+        let target = self.search_next(origin, Direction::Right, Side::Right).and_then(|rm| {
+            let regex_match = match direction {
+                Direction::Right => {
+                    let origin = rm.end().add(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Right, Side::Left)?
+                },
+                Direction::Left => {
+                    let origin = rm.start().sub(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Left, Side::Left)?
+                },
+            };
+            Some(*regex_match.start())
+        });
+
+        // Move the vi cursor to the target position.
+        if let Some(target) = target {
+            self.terminal_mut().vi_goto_point(target);
+            self.mark_dirty();
         }
     }
 
