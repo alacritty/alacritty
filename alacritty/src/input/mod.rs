@@ -280,7 +280,7 @@ impl<T: EventListener> Execute<T> for Action {
             },
             Action::Vi(ViAction::InlineSearchNext) => ctx.inline_search_next(),
             Action::Vi(ViAction::InlineSearchPrevious) => ctx.inline_search_previous(),
-            Action::Vi(ViAction::SemanticSearchForward) => {
+            Action::Vi(ViAction::SemanticSearchForward | ViAction::SemanticSearchBackward) => {
                 let seed_text = match ctx.terminal().selection_to_string() {
                     Some(selection) if !selection.is_empty() => selection,
                     // Get semantic word at the vi cursor position.
@@ -288,18 +288,11 @@ impl<T: EventListener> Execute<T> for Action {
                 };
 
                 if !seed_text.is_empty() {
-                    ctx.start_seeded_search(Direction::Right, seed_text);
-                }
-            },
-            Action::Vi(ViAction::SemanticSearchBackward) => {
-                let seed_text = match ctx.terminal().selection_to_string() {
-                    Some(selection) if !selection.is_empty() => selection,
-                    // Get semantic word at the vi cursor position.
-                    _ => ctx.semantic_word(ctx.terminal().vi_mode_cursor.point),
-                };
-
-                if !seed_text.is_empty() {
-                    ctx.start_seeded_search(Direction::Left, seed_text);
+                    let direction = match self {
+                        Action::Vi(ViAction::SemanticSearchForward) => Direction::Right,
+                        _ => Direction::Left,
+                    };
+                    ctx.start_seeded_search(direction, seed_text);
                 }
             },
             action @ Action::Search(_) if !ctx.search_active() => {
