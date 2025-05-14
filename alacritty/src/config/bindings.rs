@@ -328,6 +328,10 @@ pub enum ViAction {
     InlineSearchNext,
     /// Jump to the previous inline search match.
     InlineSearchPrevious,
+    /// Search forward for selection or word under the cursor.
+    SemanticSearchForward,
+    /// Search backward for selection or word under the cursor.
+    SemanticSearchBackward,
 }
 
 /// Search mode specific actions.
@@ -488,6 +492,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "t",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchBackwardShort;
         ";",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchNext;
         ",",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::InlineSearchPrevious;
+        "*",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::SemanticSearchForward;
+        "#",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::SemanticSearchBackward;
         "k",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Up;
         "j",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Down;
         "h",                                +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Left;
@@ -511,6 +517,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "w",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::WordRight;
         "e",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::WordRightEnd;
         "%",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::Bracket;
+        "{",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::ParagraphUp;
+        "}",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViMotion::ParagraphDown;
         Enter,                              +BindingMode::VI, +BindingMode::SEARCH; SearchAction::SearchConfirm;
         // Plain search.
         Escape,                             +BindingMode::SEARCH; SearchAction::SearchCancel;
