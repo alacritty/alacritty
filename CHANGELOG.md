@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Added
+
+- Config option `window.corners` to change how window corners are rendered on Windows 11.
+
 ### Changed
 
 - Hide login message if `~/.hushlogin` is present

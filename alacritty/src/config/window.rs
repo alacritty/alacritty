@@ -6,6 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::OptionAsAlt as WinitOptionAsAlt;
+#[cfg(windows)]
+use winit::platform::windows::CornerPreference;
 use winit::window::{Fullscreen, Theme as WinitTheme, WindowLevel as WinitWindowLevel};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
@@ -23,6 +25,9 @@ pub struct WindowConfig {
 
     /// Draw the window with title bar / borders.
     pub decorations: Decorations,
+
+    /// Window corner rounding mode (Windows only).
+    pub corners: Corners,
 
     /// Startup mode.
     pub startup_mode: StartupMode,
@@ -78,6 +83,7 @@ impl Default for WindowConfig {
             identity: Default::default(),
             dimensions: Default::default(),
             decorations: Default::default(),
+            corners: Default::default(),
             startup_mode: Default::default(),
             dynamic_padding: Default::default(),
             resize_increments: Default::default(),
@@ -188,6 +194,31 @@ pub enum Decorations {
     Transparent,
     Buttonless,
     None,
+}
+
+#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Corners {
+    /// Let the system decide. If decorations are disabled, this will act as `DoNotRound`.
+    #[default]
+    Default,
+    /// Always round corners.
+    Round,
+    /// Always round corners, with a smaller radius.
+    RoundSmall,
+    /// Never round corners.
+    DoNotRound,
+}
+
+impl Corners {
+    #[cfg(windows)]
+    pub fn as_corner_preference(&self) -> CornerPreference {
+        match self {
+            Corners::Default => CornerPreference::Default,
+            Corners::Round => CornerPreference::Round,
+            Corners::RoundSmall => CornerPreference::RoundSmall,
+            Corners::DoNotRound => CornerPreference::DoNotRound,
+        }
+    }
 }
 
 /// Window Dimensions.
