@@ -31,7 +31,7 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::monitor::MonitorHandle;
 #[cfg(windows)]
-use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
+use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows, WindowExtWindows};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::{
     CursorIcon, Fullscreen, ImePurpose, Theme, UserAttentionType, Window as WinitWindow,
@@ -196,6 +196,9 @@ impl Window {
 
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
+
+        #[cfg(windows)]
+        window.set_corner_preference(config.window.corners.as_corner_preference());
 
         let scale_factor = window.scale_factor();
         log::info!("Window scale factor: {}", scale_factor);
