@@ -1272,6 +1272,17 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Find the next semantic word boundary to the right.
         let mut end = terminal.semantic_search_right(point);
 
+        // Get point at which skipping over semantic characters has led us back to the
+        // original character.
+        let start_cell = &grid[point];
+        let search_end = if start_cell.flags.intersects(Flags::LEADING_WIDE_CHAR_SPACER) {
+            point.add(terminal, Boundary::None, 2)
+        } else if start_cell.flags.intersects(Flags::WIDE_CHAR) {
+            point.add(terminal, Boundary::None, 1)
+        } else {
+            point
+        };
+
         // Keep moving until we're not on top of a semantic escape character.
         let semantic_chars = terminal.semantic_escape_chars();
         loop {
@@ -1289,6 +1300,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             }
 
             end = terminal.semantic_search_right(end.add(terminal, Boundary::None, 1));
+
+            // Stop if the entire grid is only semantic escape characters.
+            if end == search_end {
+                return String::new();
+            }
         }
 
         // Find the beginning of the semantic word.
