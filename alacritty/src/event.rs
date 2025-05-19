@@ -1274,12 +1274,20 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         // Keep moving until we're not on top of a semantic escape character.
         let semantic_chars = terminal.semantic_escape_chars();
-        let wide_spacer = Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER;
         loop {
             let cell = &grid[end];
-            if !cell.flags.intersects(wide_spacer) && !semantic_chars.contains(cell.c) {
+
+            // Get cell's character, taking wide characters into account.
+            let c = if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+                grid[end.sub(terminal, Boundary::None, 1)].c
+            } else {
+                cell.c
+            };
+
+            if !semantic_chars.contains(c) {
                 break;
             }
+
             end = terminal.semantic_search_right(end.add(terminal, Boundary::None, 1));
         }
 
