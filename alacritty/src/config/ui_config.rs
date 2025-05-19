@@ -468,6 +468,16 @@ impl HintBinding {
     }
 }
 
+impl Debug for HintBinding {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HintBinding")
+            .field("key", &self.key)
+            .field("mods", &self.mods)
+            .field("mode", &self.mode)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Hint mouse highlighting.
 #[derive(ConfigDeserialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouse {
