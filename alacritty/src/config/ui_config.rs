@@ -441,7 +441,7 @@ impl<'de> Deserialize<'de> for HintContent {
 }
 
 /// Binding for triggering a keyboard hint.
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct HintBinding {
     pub key: BindingKey,
@@ -468,7 +468,7 @@ impl HintBinding {
     }
 }
 
-impl Debug for HintBinding {
+impl fmt::Debug for HintBinding {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("HintBinding")
             .field("key", &self.key)
