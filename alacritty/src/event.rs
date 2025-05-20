@@ -35,6 +35,7 @@ use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
@@ -941,6 +942,52 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
+    fn start_seeded_search(&mut self, direction: Direction, text: String) {
+        let origin = self.terminal.vi_mode_cursor.point;
+
+        // Start new search.
+        self.clear_selection();
+        self.start_search(direction);
+
+        // Enter initial selection text.
+        for c in text.chars() {
+            if let '$' | '('..='+' | '?' | '['..='^' | '{'..='}' = c {
+                self.search_input('\\');
+            }
+            self.search_input(c);
+        }
+
+        // Leave search mode.
+        self.confirm_search();
+
+        if !self.terminal.mode().contains(TermMode::VI) {
+            return;
+        }
+
+        // Find the target vi cursor point by going to the next match to the right of the origin,
+        // then jump to the next search match in the target direction.
+        let target = self.search_next(origin, Direction::Right, Side::Right).and_then(|rm| {
+            let regex_match = match direction {
+                Direction::Right => {
+                    let origin = rm.end().add(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Right, Side::Left)?
+                },
+                Direction::Left => {
+                    let origin = rm.start().sub(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Left, Side::Left)?
+                },
+            };
+            Some(*regex_match.start())
+        });
+
+        // Move the vi cursor to the target position.
+        if let Some(target) = target {
+            self.terminal_mut().vi_goto_point(target);
+            self.mark_dirty();
+        }
+    }
+
+    #[inline]
     fn confirm_search(&mut self) {
         // Just cancel search when not in vi mode.
         if !self.terminal.mode().contains(TermMode::VI) {
@@ -1215,6 +1262,55 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.terminal().mode().contains(TermMode::VI) && !self.search_active() {
             self.terminal_mut().vi_mode_cursor.point = point;
         }
+    }
+
+    /// Get the semantic word at the specified point.
+    fn semantic_word(&self, point: Point) -> String {
+        let terminal = self.terminal();
+        let grid = terminal.grid();
+
+        // Find the next semantic word boundary to the right.
+        let mut end = terminal.semantic_search_right(point);
+
+        // Get point at which skipping over semantic characters has led us back to the
+        // original character.
+        let start_cell = &grid[point];
+        let search_end = if start_cell.flags.intersects(Flags::LEADING_WIDE_CHAR_SPACER) {
+            point.add(terminal, Boundary::None, 2)
+        } else if start_cell.flags.intersects(Flags::WIDE_CHAR) {
+            point.add(terminal, Boundary::None, 1)
+        } else {
+            point
+        };
+
+        // Keep moving until we're not on top of a semantic escape character.
+        let semantic_chars = terminal.semantic_escape_chars();
+        loop {
+            let cell = &grid[end];
+
+            // Get cell's character, taking wide characters into account.
+            let c = if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+                grid[end.sub(terminal, Boundary::None, 1)].c
+            } else {
+                cell.c
+            };
+
+            if !semantic_chars.contains(c) {
+                break;
+            }
+
+            end = terminal.semantic_search_right(end.add(terminal, Boundary::None, 1));
+
+            // Stop if the entire grid is only semantic escape characters.
+            if end == search_end {
+                return String::new();
+            }
+        }
+
+        // Find the beginning of the semantic word.
+        let start = terminal.semantic_search_left(end);
+
+        terminal.bounds_to_string(start, end)
     }
 
     /// Handle beginning of terminal text input.
