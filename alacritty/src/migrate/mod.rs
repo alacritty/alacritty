@@ -123,7 +123,56 @@ fn migrate_toml(toml: String) -> Result<DocumentMut, String> {
     move_value(&mut document, &["import"], &["general", "import"])?;
     move_value(&mut document, &["shell"], &["terminal", "shell"])?;
 
+    migrate_mouse_hints(&mut document)?;
+
     Ok(document)
+}
+
+/// replaces hints.enabled.mouse.enabled by hints.enabled.mouse.button, changing the
+/// content to match
+fn migrate_mouse_hints(document: &mut DocumentMut) -> Result<(), String> {
+    fn map_hints_mouse(hints_mouse_enabled: Item) -> Item {
+        match hints_mouse_enabled {
+            // = true
+            Item::Value(v) if v.is_bool() && v.as_bool().unwrap() => {
+                Item::Value(toml_edit::Value::from("Left"))
+            },
+            // = false
+            Item::Value(v) if v.is_bool() && !v.as_bool().unwrap() => {
+                Item::Value(toml_edit::Value::from("None"))
+            },
+            other => other,
+        }
+    }
+
+    let table =
+        document.as_item_mut().as_table_like_mut().expect("Moving from unsupported TOML structure");
+    let hints_table = match table.get_key_value_mut("hints") {
+        Some((_, item)) => item.as_table_like_mut().expect("'hints' is expected to be a table"),
+        None => return Ok(()),
+    };
+    let enabled_hints = match hints_table.get_key_value_mut("enabled") {
+        Some((_, item)) => item
+            .as_array_of_tables_mut()
+            .expect("'hints.enabled' is expected to be an array of tables"),
+        None => return Ok(()),
+    };
+
+    for hint in enabled_hints.iter_mut() {
+        let hint_mouse_table = match hint.get_key_value_mut("mouse") {
+            Some((_, mouse)) => {
+                mouse.as_table_like_mut().expect("'mouse' is expected to be a table")
+            },
+            None => continue,
+        };
+        let value_enabled = match hint_mouse_table.remove("enabled") {
+            Some(value) => value,
+            None => continue,
+        };
+        hint_mouse_table.insert("button", map_hints_mouse(value_enabled));
+    }
+
+    Ok(())
 }
 
 /// Migrate TOML imports to the latest version.
@@ -325,6 +374,79 @@ root_value = 3
         "#;
 
         assert_eq!(output, expected);
+    }
+
+    fn mouse_hints_template(input: &str, expected: &str) {
+        let mut document = input.parse::<DocumentMut>().unwrap();
+
+        let _ = migrate_mouse_hints(&mut document);
+
+        let output = document.to_string();
+
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn mouse_hints() {
+        // true
+        mouse_hints_template(
+            r#"
+[other_stuff]
+foo = 5
+bar = 7
+
+[[hints.enabled]]
+mouse.enabled = true
+        "#,
+            r#"
+[other_stuff]
+foo = 5
+bar = 7
+
+[[hints.enabled]]
+mouse.button = "Left"
+        "#,
+        );
+
+        // false
+        mouse_hints_template(
+            r#"
+[other_stuff]
+foo = 5
+bar = 7
+
+[[hints.enabled]]
+mouse.enabled = false
+        "#,
+            r#"
+[other_stuff]
+foo = 5
+bar = 7
+
+[[hints.enabled]]
+mouse.button = "None"
+        "#,
+        );
+
+        // array (slightly unrealistic)
+        mouse_hints_template(
+            r#"
+[[hints.enabled]]
+mouse.enabled = false
+[[hints.enabled]]
+mouse.enabled = false
+[[hints.enabled]]
+mouse.enabled = true
+                "#,
+            r#"
+[[hints.enabled]]
+mouse.button = "None"
+[[hints.enabled]]
+mouse.button = "None"
+[[hints.enabled]]
+mouse.button = "Left"
+                "#,
+        );
     }
 
     #[test]

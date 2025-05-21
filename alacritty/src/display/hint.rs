@@ -5,6 +5,7 @@ use std::iter;
 use std::rc::Rc;
 
 use ahash::RandomState;
+use winit::event::MouseButton;
 use winit::keyboard::ModifiersState;
 
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions};
@@ -225,6 +226,11 @@ impl HintMatch {
         self.hyperlink.as_ref()
     }
 
+    /// Returns the mouse button that is associated with the hint.
+    pub fn mouse_button(&self) -> Option<MouseButton> {
+        self.hint.mouse.and_then(|hint_mouse| hint_mouse.button.0)
+    }
+
     /// Get the text content of the hint match.
     ///
     /// This will always revalidate the hint text, to account for terminal content
@@ -397,7 +403,7 @@ pub fn highlighted_at<T>(
     config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
         let highlight = hint.mouse.map_or(false, |mouse| {
-            mouse.enabled
+            mouse.enabled()
                 && mouse_mods.contains(mouse.mods.0)
                 && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
         });
