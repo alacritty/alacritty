@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{self, Formatter};
@@ -131,26 +131,6 @@ impl UiConfig {
         let working_directory =
             self.working_directory.clone().or_else(|| self.general.working_directory.clone());
         PtyOptions { working_directory, shell, drain_on_exit: false, env: HashMap::new() }
-    }
-
-    /// Generate key bindings for all keyboard hints.
-    pub fn generate_hint_bindings(&mut self) {
-        for hint in &self.hints.enabled {
-            let binding = match &hint.binding {
-                Some(binding) => binding,
-                None => continue,
-            };
-
-            let binding = KeyBinding {
-                trigger: binding.key.clone(),
-                mods: binding.mods.0,
-                mode: binding.mode.mode,
-                notmode: binding.mode.not_mode,
-                action: Action::Hint(hint.clone()),
-            };
-
-            self.keyboard.bindings.0.push(binding);
-        }
     }
 
     #[inline]
@@ -286,6 +266,7 @@ impl Default for Hints {
                         location: KeyLocation::Standard,
                     },
                     mods: ModsWrapper(ModifiersState::SHIFT | ModifiersState::CONTROL),
+                    cache: Default::default(),
                     mode: Default::default(),
                 }),
             })],
@@ -381,7 +362,7 @@ pub struct Hint {
     pub mouse: Option<HintMouse>,
 
     /// Binding required to search for this hint.
-    binding: Option<HintBinding>,
+    pub binding: Option<HintBinding>,
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
@@ -460,7 +441,7 @@ impl<'de> Deserialize<'de> for HintContent {
 }
 
 /// Binding for triggering a keyboard hint.
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct HintBinding {
     pub key: BindingKey,
@@ -468,6 +449,33 @@ pub struct HintBinding {
     pub mods: ModsWrapper,
     #[serde(default)]
     pub mode: ModeWrapper,
+
+    /// Cache for on-demand [`HintBinding`] to [`KeyBinding`] conversion.
+    #[serde(skip)]
+    cache: OnceCell<KeyBinding>,
+}
+
+impl HintBinding {
+    /// Get the key binding for a hint.
+    pub fn key_binding(&self, hint: &Rc<Hint>) -> &KeyBinding {
+        self.cache.get_or_init(|| KeyBinding {
+            trigger: self.key.clone(),
+            mods: self.mods.0,
+            mode: self.mode.mode,
+            notmode: self.mode.not_mode,
+            action: Action::Hint(hint.clone()),
+        })
+    }
+}
+
+impl fmt::Debug for HintBinding {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HintBinding")
+            .field("key", &self.key)
+            .field("mods", &self.mods)
+            .field("mode", &self.mode)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Hint mouse highlighting.
