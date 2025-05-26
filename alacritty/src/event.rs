@@ -681,7 +681,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
 
         // Update selection.
-        if vi_mode && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty()) {
+        if vi_mode && self.terminal.selection.as_ref().is_some_and(|s| !s.is_empty()) {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
             || self.mouse.right_button_state == ElementState::Pressed
@@ -722,7 +722,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         // Clear the selection on the terminal.
         let selection = self.terminal.selection.take();
         // Mark the terminal as dirty when selection wasn't empty.
-        *self.dirty |= selection.map_or(false, |s| !s.is_empty());
+        *self.dirty |= selection.is_some_and(|s| !s.is_empty());
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -2012,7 +2012,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Moved(_) => (),
                 }
             },
-            WinitEvent::Suspended { .. }
+            WinitEvent::Suspended
             | WinitEvent::NewEvents { .. }
             | WinitEvent::DeviceEvent { .. }
             | WinitEvent::LoopExiting

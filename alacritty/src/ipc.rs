@@ -85,7 +85,7 @@ pub fn send_message(socket: Option<PathBuf>, message: SocketMessage) -> IoResult
     let mut socket = find_socket(socket)?;
 
     let message = serde_json::to_string(&message)?;
-    socket.write_all(message[..].as_bytes())?;
+    socket.write_all(message.as_bytes())?;
     let _ = socket.flush();
 
     Ok(())
