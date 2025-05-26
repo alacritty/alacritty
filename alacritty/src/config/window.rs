@@ -10,8 +10,8 @@ use winit::window::{Fullscreen, Theme as WinitTheme, WindowLevel as WinitWindowL
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
-use crate::config::ui_config::{Delta, Percentage};
 use crate::config::LOG_TARGET_CONFIG;
+use crate::config::ui_config::{Delta, Percentage};
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";

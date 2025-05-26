@@ -4,16 +4,16 @@ use std::mem;
 use std::ops::RangeInclusive;
 
 use log::{debug, warn};
-use regex_automata::hybrid::dfa::{Builder, Cache, Config, DFA};
 pub use regex_automata::hybrid::BuildError;
+use regex_automata::hybrid::dfa::{Builder, Cache, Config, DFA};
 use regex_automata::nfa::thompson::Config as ThompsonConfig;
 use regex_automata::util::syntax::Config as SyntaxConfig;
 use regex_automata::{Anchored, Input, MatchKind};
 
 use crate::grid::{BidirectionalIterator, Dimensions, GridIterator, Indexed};
 use crate::index::{Boundary, Column, Direction, Point, Side};
-use crate::term::cell::{Cell, Flags};
 use crate::term::Term;
+use crate::term::cell::{Cell, Flags};
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
@@ -689,8 +689,8 @@ mod tests {
     use super::*;
 
     use crate::index::{Column, Line};
-    use crate::term::test::{mock_term, TermSize};
     use crate::term::Config;
+    use crate::term::test::{TermSize, mock_term};
 
     #[test]
     fn regex_right() {

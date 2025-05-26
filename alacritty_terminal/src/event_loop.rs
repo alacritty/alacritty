@@ -6,8 +6,8 @@ use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::num::NonZeroUsize;
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
@@ -338,7 +338,7 @@ impl event::Notify for Notifier {
     {
         let bytes = bytes.into();
         // Terminal hangs if we send 0 bytes through.
-        if bytes.len() == 0 {
+        if bytes.is_empty() {
             return;
         }
 

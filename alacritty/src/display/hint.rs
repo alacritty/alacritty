@@ -13,8 +13,8 @@ use alacritty_terminal::term::cell::Hyperlink;
 use alacritty_terminal::term::search::{Match, RegexIter, RegexSearch};
 use alacritty_terminal::term::{Term, TermMode};
 
-use crate::config::ui_config::{Hint, HintAction};
 use crate::config::UiConfig;
+use crate::config::ui_config::{Hint, HintAction};
 
 /// Maximum number of linewraps followed outside of the viewport during search highlighting.
 pub const MAX_SEARCH_LINES: usize = 100;
@@ -396,7 +396,7 @@ pub fn highlighted_at<T>(
 
     config.hints.enabled.iter().find_map(|hint| {
         // Check if all required modifiers are pressed.
-        let highlight = hint.mouse.map_or(false, |mouse| {
+        let highlight = hint.mouse.is_some_and(|mouse| {
             mouse.enabled
                 && mouse_mods.contains(mouse.mods.0)
                 && (!mouse_mode || mouse_mods.contains(ModifiersState::SHIFT))
@@ -432,7 +432,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
 
     let mut match_end = point;
     for cell in grid.iter_from(point) {
-        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+        if cell.hyperlink().is_some_and(|link| link == hyperlink) {
             match_end = cell.point;
         } else {
             break;
@@ -442,7 +442,7 @@ fn hyperlink_at<T>(term: &Term<T>, point: Point) -> Option<(Hyperlink, Match)> {
     let mut match_start = point;
     let mut iter = grid.iter_from(point);
     while let Some(cell) = iter.prev() {
-        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+        if cell.hyperlink().is_some_and(|link| link == hyperlink) {
             match_start = cell.point;
         } else {
             break;
@@ -548,11 +548,7 @@ impl<'a, T> HintPostProcessor<'a, T> {
             }
         }
 
-        if start > iter.point() {
-            None
-        } else {
-            Some(start..=iter.point())
-        }
+        if start > iter.point() { None } else { Some(start..=iter.point()) }
     }
 
     /// Loop over submatches until a non-empty post-processed match is found.
