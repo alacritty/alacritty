@@ -218,7 +218,7 @@ impl RenderableCell {
             Self::compute_bg_alpha(content.config, cell.bg)
         };
 
-        let is_selected = content.terminal_content.selection.map_or(false, |selection| {
+        let is_selected = content.terminal_content.selection.is_some_and(|selection| {
             selection.contains_cell(
                 &cell,
                 content.terminal_content.cursor.point,
@@ -262,8 +262,8 @@ impl RenderableCell {
                 bg = content.color(NamedColor::Foreground as usize);
                 bg_alpha = 1.0;
             }
-        } else if content.search.as_mut().map_or(false, |search| search.advance(cell.point)) {
-            let focused = content.focused_match.map_or(false, |fm| fm.contains(&cell.point));
+        } else if content.search.as_mut().is_some_and(|search| search.advance(cell.point)) {
+            let focused = content.focused_match.is_some_and(|fm| fm.contains(&cell.point));
             let (config_fg, config_bg) = if focused {
                 (colors.search.focused_match.foreground, colors.search.focused_match.background)
             } else {

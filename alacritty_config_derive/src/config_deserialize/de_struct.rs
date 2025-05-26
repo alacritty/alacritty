@@ -174,7 +174,7 @@ fn field_deserializer(field_streams: &mut FieldStreams, field: &Field) -> Result
 
     // Create token stream for deserializing "none" string into `Option<T>`.
     if let Type::Path(type_path) = &field.ty {
-        if type_path.path.segments.iter().last().map_or(false, |s| s.ident == "Option") {
+        if type_path.path.segments.iter().next_back().is_some_and(|s| s.ident == "Option") {
             match_assignment_stream = quote! {
                 if value.as_str().map_or(false, |s| s.eq_ignore_ascii_case("none")) {
                     config.#ident = None;
