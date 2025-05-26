@@ -374,13 +374,8 @@ pub fn installed_config(suffix: &str) -> Option<PathBuf> {
 
     // Try using XDG location by default.
     xdg::BaseDirectories::with_prefix("alacritty")
-        .ok()
-        .and_then(|xdg| xdg.find_config_file(&file_name))
-        .or_else(|| {
-            xdg::BaseDirectories::new()
-                .ok()
-                .and_then(|fallback| fallback.find_config_file(&file_name))
-        })
+        .find_config_file(&file_name)
+        .or_else(|| xdg::BaseDirectories::new().find_config_file(&file_name))
         .or_else(|| {
             if let Ok(home) = env::var("HOME") {
                 // Fallback path: $HOME/.config/alacritty/alacritty.toml.

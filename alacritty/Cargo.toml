@@ -32,7 +32,7 @@ glutin = { version = "0.32.2", default-features = false, features = ["egl", "wgl
 home = "0.5.5"
 libc = "0.2"
 log = { version = "0.4", features = ["std", "serde"] }
-notify = "6.1.1"
+notify = "8.0.0"
 parking_lot = "0.12.0"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
@@ -40,7 +40,7 @@ serde_yaml = "0.9.25"
 tempfile = "3.12.0"
 toml = "0.8.2"
 toml_edit = "0.22.21"
-unicode-width = "0.1"
+unicode-width = "0.2.0"
 winit = { version = "0.30.9", default-features = false, features = ["rwh_06", "serde"] }
 
 [build-dependencies]
@@ -50,19 +50,19 @@ gl_generator = "0.14.0"
 clap_complete = "4.2.3"
 
 [target.'cfg(not(windows))'.dependencies]
-xdg = "2.5.0"
+xdg = "3.0.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 png = { version = "0.17.5", default-features = false, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.5.2"
-objc2-foundation = { version = "0.2.2", default-features = false, features = [
+objc2 = "0.6.1"
+objc2-foundation = { version = "0.3.1", default-features = false, features = [
     "std",
     "NSString",
     "NSLocale",
 ] }
-objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+objc2-app-kit = { version = "0.3.1", default-features = false, features = [
     "std",
     "NSColorSpace",
     "NSResponder",
@@ -71,8 +71,8 @@ objc2-app-kit = { version = "0.2.2", default-features = false, features = [
 ] }
 
 [target.'cfg(windows)'.dependencies]
-dirs = "5.0.1"
-windows-sys = { version = "0.52", features = [
+dirs = "6.0.0"
+windows-sys = { version = "0.59", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
     "Win32_System_Console",
@@ -80,7 +80,7 @@ windows-sys = { version = "0.52", features = [
 ]}
 
 [target.'cfg(windows)'.build-dependencies]
-embed-resource = "2.2.0"
+embed-resource = "3.0.2"
 
 [features]
 default = ["wayland", "x11"]
