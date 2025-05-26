@@ -21,14 +21,15 @@ home = "0.5.5"
 libc = "0.2"
 log = "0.4"
 parking_lot = "0.12.0"
-polling = "3.0.0"
+polling = "3.8.0"
 regex-automata = "0.4.3"
-unicode-width = "0.1"
+unicode-width = "0.2.0"
 vte = { version = "0.15.0", default-features = false, features = ["std", "ansi"] }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
-rustix-openpty = "0.1.1"
+rustix-openpty = "0.2.0"
+rustix = { version = "1.0.0", default-features = false, features = ["std"] }
 signal-hook = "0.3.10"
 
 [target.'cfg(windows)'.dependencies]

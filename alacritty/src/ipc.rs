@@ -95,8 +95,9 @@ pub fn send_message(socket: Option<PathBuf>, message: SocketMessage) -> IoResult
 #[cfg(not(target_os = "macos"))]
 fn socket_dir() -> PathBuf {
     xdg::BaseDirectories::with_prefix("alacritty")
+        .get_runtime_directory()
+        .map(ToOwned::to_owned)
         .ok()
-        .and_then(|xdg| xdg.get_runtime_directory().map(ToOwned::to_owned).ok())
         .and_then(|path| fs::create_dir_all(&path).map(|_| path).ok())
         .unwrap_or_else(env::temp_dir)
 }
