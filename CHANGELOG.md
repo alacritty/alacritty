@@ -10,6 +10,10 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.81.0
+
 ### Added
 
 - Vi motions `*`, `#`, `{`, and `}`
