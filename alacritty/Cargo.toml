@@ -7,8 +7,8 @@ description = "A fast, cross-platform, OpenGL terminal emulator"
 readme = "README.md"
 homepage = "https://alacritty.org"
 repository = "https://github.com/alacritty/alacritty"
-edition = "2021"
-rust-version = "1.74.0"
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies.alacritty_terminal]
 path = "../alacritty_terminal"

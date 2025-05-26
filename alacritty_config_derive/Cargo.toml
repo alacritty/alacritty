@@ -6,8 +6,8 @@ license = "MIT OR Apache-2.0"
 description = "Failure resistant deserialization derive"
 homepage = "https://alacritty.org"
 repository = "https://github.com/alacritty/alacritty"
-edition = "2021"
-rust-version = "1.74.0"
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true
