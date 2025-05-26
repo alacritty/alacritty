@@ -298,8 +298,8 @@ impl<T> Term<T> {
 
         let mut cell = iter.cell();
         self.skip_fullwidth(&mut iter, &mut cell, regex.direction);
-        let mut last_wrapped = cell.flags.contains(Flags::WRAPLINE);
         let mut c = cell.c;
+        let mut last_wrapped = iter.cell().flags.contains(Flags::WRAPLINE);
 
         let mut point = iter.point();
         let mut last_point = point;
@@ -401,8 +401,8 @@ impl<T> Term<T> {
 
             self.skip_fullwidth(&mut iter, &mut cell, regex.direction);
 
-            let wrapped = cell.flags.contains(Flags::WRAPLINE);
             c = cell.c;
+            let wrapped = iter.cell().flags.contains(Flags::WRAPLINE);
 
             last_point = mem::replace(&mut point, iter.point());
 
@@ -1189,5 +1189,63 @@ mod tests {
         let end = term.semantic_search_right(Point::new(Line(0), Column(6)));
         assert_eq!(start, Point::new(Line(0), Column(6)));
         assert_eq!(end, Point::new(Line(0), Column(6)));
+    }
+
+    #[test]
+    fn fullwidth_across_lines() {
+        let term = mock_term("a🦇\n🦇b");
+
+        let mut regex = RegexSearch::new("🦇🦇").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(1), Column(2));
+        let match_start = Point::new(Line(0), Column(1));
+        let match_end = Point::new(Line(1), Column(1));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+
+        let mut regex = RegexSearch::new("🦇🦇").unwrap();
+        let start = Point::new(Line(1), Column(2));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(1), Column(1));
+        let match_end = Point::new(Line(0), Column(1));
+        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_end..=match_start));
+    }
+
+    #[test]
+    fn fullwidth_into_halfwidth_across_lines() {
+        let term = mock_term("a🦇\nxab");
+
+        let mut regex = RegexSearch::new("🦇x").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(1), Column(2));
+        let match_start = Point::new(Line(0), Column(1));
+        let match_end = Point::new(Line(1), Column(0));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+
+        let mut regex = RegexSearch::new("🦇x").unwrap();
+        let start = Point::new(Line(1), Column(2));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(0), Column(1));
+        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_end..=match_start));
+    }
+
+    #[test]
+    fn no_spacer_fullwidth_linewrap() {
+        let mut term = mock_term("abY\nxab");
+        term.grid_mut()[Line(0)][Column(2)].c = '🦇';
+
+        let mut regex = RegexSearch::new("🦇x").unwrap();
+        let start = Point::new(Line(0), Column(0));
+        let end = Point::new(Line(1), Column(2));
+        let match_start = Point::new(Line(0), Column(2));
+        let match_end = Point::new(Line(1), Column(0));
+        assert_eq!(term.regex_search_right(&mut regex, start, end), Some(match_start..=match_end));
+
+        let mut regex = RegexSearch::new("🦇x").unwrap();
+        let start = Point::new(Line(1), Column(2));
+        let end = Point::new(Line(0), Column(0));
+        let match_start = Point::new(Line(1), Column(0));
+        let match_end = Point::new(Line(0), Column(2));
+        assert_eq!(term.regex_search_left(&mut regex, start, end), Some(match_end..=match_start));
     }
 }
