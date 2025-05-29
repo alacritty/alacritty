@@ -343,9 +343,9 @@ pub struct IpcConfig {
 #[cfg(unix)]
 #[derive(Args, Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 pub struct IpcGetConfig {
-    /// Window ID for the new config.
+    /// Window ID for the config request.
     ///
-    /// Use `-1` to apply this change to all windows.
+    /// Use `-1` to get the global config.
     #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
     pub window_id: Option<i128>,
 }

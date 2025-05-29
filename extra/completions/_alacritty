@@ -89,8 +89,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (get-config)
 _arguments "${_arguments_options[@]}" : \
-'-w+[Window ID for the new config]:WINDOW_ID:_default' \
-'--window-id=[Window ID for the new config]:WINDOW_ID:_default' \
+'-w+[Window ID for the config request]:WINDOW_ID:_default' \
+'--window-id=[Window ID for the config request]:WINDOW_ID:_default' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
