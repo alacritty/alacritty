@@ -328,6 +328,11 @@ impl WindowContext {
         self.dirty = true;
     }
 
+    /// Get reference to the window's configuration.
+    pub fn config(&self) -> &UiConfig {
+        &self.config
+    }
+
     /// Clear the window config overrides.
     #[cfg(unix)]
     pub fn reset_window_config(&mut self, config: Rc<UiConfig>) {

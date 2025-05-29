@@ -40,11 +40,17 @@ _alacritty() {
             alacritty__help__msg,create-window)
                 cmd="alacritty__help__msg__create__window"
                 ;;
+            alacritty__help__msg,get-config)
+                cmd="alacritty__help__msg__get__config"
+                ;;
             alacritty__msg,config)
                 cmd="alacritty__msg__config"
                 ;;
             alacritty__msg,create-window)
                 cmd="alacritty__msg__create__window"
+                ;;
+            alacritty__msg,get-config)
+                cmd="alacritty__msg__get__config"
                 ;;
             alacritty__msg,help)
                 cmd="alacritty__msg__help"
@@ -54,6 +60,9 @@ _alacritty() {
                 ;;
             alacritty__msg__help,create-window)
                 cmd="alacritty__msg__help__create__window"
+                ;;
+            alacritty__msg__help,get-config)
+                cmd="alacritty__msg__help__get__config"
                 ;;
             alacritty__msg__help,help)
                 cmd="alacritty__msg__help__help"
@@ -198,7 +207,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__help__msg)
-            opts="create-window config"
+            opts="create-window config get-config"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -226,6 +235,20 @@ _alacritty() {
             return 0
             ;;
         alacritty__help__msg__create__window)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        alacritty__help__msg__get__config)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -284,7 +307,7 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg)
-            opts="-s -h --socket --help create-window config help"
+            opts="-s -h --socket --help create-window config get-config help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -406,8 +429,30 @@ _alacritty() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        alacritty__msg__get__config)
+            opts="-w -h --window-id --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --window-id)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -w)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         alacritty__msg__help)
-            opts="create-window config help"
+            opts="create-window config get-config help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -435,6 +480,20 @@ _alacritty() {
             return 0
             ;;
         alacritty__msg__help__create__window)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        alacritty__msg__help__get__config)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
