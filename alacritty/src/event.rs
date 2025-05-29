@@ -11,9 +11,11 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
+#[cfg(unix)]
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
