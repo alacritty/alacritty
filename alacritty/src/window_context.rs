@@ -329,6 +329,7 @@ impl WindowContext {
     }
 
     /// Get reference to the window's configuration.
+    #[cfg(unix)]
     pub fn config(&self) -> &UiConfig {
         &self.config
     }
