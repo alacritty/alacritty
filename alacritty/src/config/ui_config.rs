@@ -528,7 +528,7 @@ impl Serialize for LazyRegex {
             LazyRegexVariant::Uncompilable(regex) => regex,
             LazyRegexVariant::Pattern(regex) => regex,
         };
-        serializer.serialize_str(&regex)
+        serializer.serialize_str(regex)
     }
 }
 
