@@ -1,11 +1,13 @@
 use std::time::Duration;
 
+use serde::Serialize;
+
 use alacritty_config_derive::ConfigDeserialize;
 
 use crate::config::ui_config::Program;
 use crate::display::color::Rgb;
 
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct BellConfig {
     /// Visual bell animation function.
     pub animation: BellAnimation,
@@ -39,7 +41,7 @@ impl BellConfig {
 
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(ConfigDeserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BellAnimation {
     // CSS animation.
     Ease,

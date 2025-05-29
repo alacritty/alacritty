@@ -258,6 +258,9 @@ pub enum SocketMessage {
 
     /// Update the Alacritty configuration.
     Config(IpcConfig),
+
+    /// Read runtime Alacritty configuration.
+    GetConfig(IpcGetConfig),
 }
 
 /// Migrate the configuration file.
@@ -334,6 +337,17 @@ pub struct IpcConfig {
     /// Clear all runtime configuration changes.
     #[clap(short, long, conflicts_with = "options")]
     pub reset: bool,
+}
+
+/// Parameters to the `get-config` IPC subcommand.
+#[cfg(unix)]
+#[derive(Args, Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+pub struct IpcGetConfig {
+    /// Window ID for the config request.
+    ///
+    /// Use `-1` to get the global config.
+    #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
+    pub window_id: Option<i128>,
 }
 
 /// Parsed CLI config overrides.

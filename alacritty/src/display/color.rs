@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use log::trace;
 use serde::de::{Error as SerdeError, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use alacritty_config_derive::SerdeReplace;
 use alacritty_terminal::term::color::COUNT;
@@ -216,10 +216,7 @@ impl Add<Rgb> for Rgb {
     }
 }
 
-/// Deserialize an Rgb from a hex string.
-///
-/// This is *not* the deserialize impl for Rgb since we want a symmetric
-/// serialize/deserialize impl for ref tests.
+/// Deserialize Rgb color from a hex string.
 impl<'de> Deserialize<'de> for Rgb {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -267,6 +264,16 @@ impl<'de> Deserialize<'de> for Rgb {
     }
 }
 
+/// Serialize Rgb color to a hex string.
+impl Serialize for Rgb {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 impl Display for Rgb {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
@@ -300,10 +307,11 @@ impl FromStr for Rgb {
 }
 
 /// RGB color optionally referencing the cell's foreground or background.
-#[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CellRgb {
     CellForeground,
     CellBackground,
+    #[serde(untagged)]
     Rgb(Rgb),
 }
 

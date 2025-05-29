@@ -2,7 +2,7 @@ use std::fmt;
 
 use crossfont::Size as FontSize;
 use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
@@ -14,7 +14,7 @@ use crate::config::ui_config::Delta;
 /// field in this struct. It might be nice in the future to have defaults for
 /// each value independently. Alternatively, maybe erroring when the user
 /// doesn't provide complete config is Ok.
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Font {
     /// Extra spacing per character.
     pub offset: Delta<i8>,
@@ -93,7 +93,7 @@ impl Default for Font {
 }
 
 /// Description of the normal font.
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
@@ -114,7 +114,7 @@ impl Default for FontDescription {
 }
 
 /// Description of the italic and bold font.
-#[derive(ConfigDeserialize, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct SecondaryFontDescription {
     family: Option<String>,
     style: Option<String>,
@@ -161,5 +161,14 @@ impl<'de> Deserialize<'de> for Size {
         }
 
         deserializer.deserialize_any(NumVisitor)
+    }
+}
+
+impl Serialize for Size {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_f32(self.0.as_pt())
     }
 }

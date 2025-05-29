@@ -2,20 +2,21 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{self, Formatter};
+use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use alacritty_config::SerdeReplace;
-use alacritty_terminal::term::Config as TermConfig;
-use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 use log::{error, warn};
 use serde::de::{Error as SerdeError, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unicode_width::UnicodeWidthChar;
 use winit::keyboard::{Key, ModifiersState};
 
+use alacritty_config::SerdeReplace;
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 use alacritty_terminal::term::search::RegexSearch;
+use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 
 use crate::config::bell::BellConfig;
 use crate::config::bindings::{
@@ -39,7 +40,7 @@ use crate::config::LOG_TARGET_CONFIG;
 const URL_REGEX: &str = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
                          [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`\\\\]+";
 
-#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq)]
 pub struct UiConfig {
     /// Miscellaneous configuration options.
     pub general: General,
@@ -76,6 +77,7 @@ pub struct UiConfig {
 
     /// Path where config was loaded from.
     #[config(skip)]
+    #[serde(skip_serializing)]
     pub config_paths: Vec<PathBuf>,
 
     /// Regex hints for interacting with terminal content.
@@ -161,9 +163,10 @@ impl UiConfig {
 }
 
 /// Keyboard configuration.
-#[derive(ConfigDeserialize, Default, Clone, Debug, PartialEq)]
+#[derive(ConfigDeserialize, Serialize, Default, Clone, Debug, PartialEq)]
 struct Keyboard {
     /// Keybindings.
+    #[serde(skip_serializing)]
     bindings: KeyBindings,
 }
 
@@ -218,7 +221,7 @@ where
 }
 
 /// A delta for a point in a 2 dimensional plane.
-#[derive(ConfigDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Delta<T: Default> {
     /// Horizontal change.
     pub x: T,
@@ -227,7 +230,7 @@ pub struct Delta<T: Default> {
 }
 
 /// Regex terminal hints.
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hints {
     /// Characters for the hint labels.
     alphabet: HintsAlphabet,
@@ -282,7 +285,7 @@ impl Hints {
     }
 }
 
-#[derive(SerdeReplace, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Clone, Debug, PartialEq, Eq)]
 struct HintsAlphabet(String);
 
 impl Default for HintsAlphabet {
@@ -315,7 +318,7 @@ impl<'de> Deserialize<'de> for HintsAlphabet {
 }
 
 /// Built-in actions for hint mode.
-#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum HintInternalAction {
     /// Copy the text to the clipboard.
     Copy,
@@ -328,7 +331,7 @@ pub enum HintInternalAction {
 }
 
 /// Actions for hint bindings.
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum HintAction {
     /// Built-in hint action.
     #[serde(rename = "action")]
@@ -340,7 +343,7 @@ pub enum HintAction {
 }
 
 /// Hint configuration.
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
     /// Regex for finding matches.
     #[serde(flatten)]
@@ -362,10 +365,11 @@ pub struct Hint {
     pub mouse: Option<HintMouse>,
 
     /// Binding required to search for this hint.
+    #[serde(skip_serializing)]
     pub binding: Option<HintBinding>,
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct HintContent {
     /// Regex for finding matches.
     pub regex: Option<LazyRegex>,
@@ -479,12 +483,13 @@ impl fmt::Debug for HintBinding {
 }
 
 /// Hint mouse highlighting.
-#[derive(ConfigDeserialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HintMouse {
     /// Hint mouse highlighting availability.
     pub enabled: bool,
 
     /// Required mouse modifiers for hint highlighting.
+    #[serde(skip_serializing)]
     pub mods: ModsWrapper,
 }
 
@@ -512,12 +517,27 @@ impl<'de> Deserialize<'de> for LazyRegex {
     }
 }
 
+impl Serialize for LazyRegex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let variant = self.0.borrow();
+        let regex = match &*variant {
+            LazyRegexVariant::Compiled(regex, _) => regex,
+            LazyRegexVariant::Uncompilable(regex) => regex,
+            LazyRegexVariant::Pattern(regex) => regex,
+        };
+        serializer.serialize_str(regex)
+    }
+}
+
 /// Regex which is compiled on demand, to avoid expensive computations at startup.
 #[derive(Clone, Debug)]
 pub enum LazyRegexVariant {
-    Compiled(Box<RegexSearch>),
+    Compiled(String, Box<RegexSearch>),
     Pattern(String),
-    Uncompilable,
+    Uncompilable(String),
 }
 
 impl LazyRegexVariant {
@@ -528,25 +548,25 @@ impl LazyRegexVariant {
     fn compiled(&mut self) -> Option<&mut RegexSearch> {
         // Check if the regex has already been compiled.
         let regex = match self {
-            Self::Compiled(regex_search) => return Some(regex_search),
-            Self::Uncompilable => return None,
-            Self::Pattern(regex) => regex,
+            Self::Compiled(_, regex_search) => return Some(regex_search),
+            Self::Uncompilable(_) => return None,
+            Self::Pattern(regex) => mem::take(regex),
         };
 
         // Compile the regex.
-        let regex_search = match RegexSearch::new(regex) {
+        let regex_search = match RegexSearch::new(&regex) {
             Ok(regex_search) => regex_search,
             Err(err) => {
                 error!("could not compile hint regex: {err}");
-                *self = Self::Uncompilable;
+                *self = Self::Uncompilable(regex);
                 return None;
             },
         };
-        *self = Self::Compiled(Box::new(regex_search));
+        *self = Self::Compiled(regex, Box::new(regex_search));
 
         // Return a reference to the compiled DFAs.
         match self {
-            Self::Compiled(dfas) => Some(dfas),
+            Self::Compiled(_, dfas) => Some(dfas),
             _ => unreachable!(),
         }
     }
@@ -563,7 +583,7 @@ impl PartialEq for LazyRegexVariant {
 impl Eq for LazyRegexVariant {}
 
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
-#[derive(SerdeReplace, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(SerdeReplace, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct Percentage(f32);
 
 impl Default for Percentage {
@@ -582,7 +602,7 @@ impl Percentage {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Program {
     Just(String),

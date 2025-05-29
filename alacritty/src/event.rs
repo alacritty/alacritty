@@ -11,8 +11,12 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
+#[cfg(unix)]
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -54,6 +58,8 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+#[cfg(unix)]
+use crate::ipc::{self, SocketReply};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -309,6 +315,29 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
+            // Process IPC config requests.
+            #[cfg(unix)]
+            (EventType::IpcGetConfig(stream), window_id) => {
+                // Get the config for the requested window ID.
+                let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
+                    Some((_, window_context)) => window_context.config(),
+                    None => &self.global_ipc_options.override_config_rc(self.config.clone()),
+                };
+
+                // Convert config to JSON format.
+                let config_json = match serde_json::to_string(&config) {
+                    Ok(config_json) => config_json,
+                    Err(err) => {
+                        error!("Failed config serialization: {err}");
+                        return;
+                    },
+                };
+
+                // Send JSON config to the socket.
+                if let Ok(mut stream) = stream.try_clone() {
+                    ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
+                }
+            },
             (EventType::ConfigReload(path), _) => {
                 // Clear config logs from message bar for all terminals.
                 for window_context in self.windows.values_mut() {
@@ -514,6 +543,8 @@ pub enum EventType {
     CreateWindow(WindowOptions),
     #[cfg(unix)]
     IpcConfig(IpcConfig),
+    #[cfg(unix)]
+    IpcGetConfig(Arc<UnixStream>),
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
@@ -1886,7 +1917,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
                 },
                 #[cfg(unix)]
-                EventType::IpcConfig(_) => (),
+                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)

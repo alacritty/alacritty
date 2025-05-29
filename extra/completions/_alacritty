@@ -87,6 +87,14 @@ _arguments "${_arguments_options[@]}" : \
 '*::options -- Configuration file options \[example\: '\''cursor.style="Beam"'\''\]:_default' \
 && ret=0
 ;;
+(get-config)
+_arguments "${_arguments_options[@]}" : \
+'-w+[Window ID for the config request]:WINDOW_ID:_default' \
+'--window-id=[Window ID for the config request]:WINDOW_ID:_default' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_alacritty__msg__help_commands" \
@@ -104,6 +112,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (config)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get-config)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -166,6 +178,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(get-config)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -220,6 +236,7 @@ _alacritty__help__msg_commands() {
     local commands; commands=(
 'create-window:Create a new window in the same Alacritty process' \
 'config:Update the Alacritty configuration' \
+'get-config:Read runtime Alacritty configuration' \
     )
     _describe -t commands 'alacritty help msg commands' commands "$@"
 }
@@ -233,6 +250,11 @@ _alacritty__help__msg__create-window_commands() {
     local commands; commands=()
     _describe -t commands 'alacritty help msg create-window commands' commands "$@"
 }
+(( $+functions[_alacritty__help__msg__get-config_commands] )) ||
+_alacritty__help__msg__get-config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty help msg get-config commands' commands "$@"
+}
 (( $+functions[_alacritty__migrate_commands] )) ||
 _alacritty__migrate_commands() {
     local commands; commands=()
@@ -243,6 +265,7 @@ _alacritty__msg_commands() {
     local commands; commands=(
 'create-window:Create a new window in the same Alacritty process' \
 'config:Update the Alacritty configuration' \
+'get-config:Read runtime Alacritty configuration' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty msg commands' commands "$@"
@@ -257,11 +280,17 @@ _alacritty__msg__create-window_commands() {
     local commands; commands=()
     _describe -t commands 'alacritty msg create-window commands' commands "$@"
 }
+(( $+functions[_alacritty__msg__get-config_commands] )) ||
+_alacritty__msg__get-config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg get-config commands' commands "$@"
+}
 (( $+functions[_alacritty__msg__help_commands] )) ||
 _alacritty__msg__help_commands() {
     local commands; commands=(
 'create-window:Create a new window in the same Alacritty process' \
 'config:Update the Alacritty configuration' \
+'get-config:Read runtime Alacritty configuration' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'alacritty msg help commands' commands "$@"
@@ -275,6 +304,11 @@ _alacritty__msg__help__config_commands() {
 _alacritty__msg__help__create-window_commands() {
     local commands; commands=()
     _describe -t commands 'alacritty msg help create-window commands' commands "$@"
+}
+(( $+functions[_alacritty__msg__help__get-config_commands] )) ||
+_alacritty__msg__help__get-config_commands() {
+    local commands; commands=()
+    _describe -t commands 'alacritty msg help get-config commands' commands "$@"
 }
 (( $+functions[_alacritty__msg__help__help_commands] )) ||
 _alacritty__msg__help__help_commands() {
