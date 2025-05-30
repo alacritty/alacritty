@@ -78,6 +78,19 @@ making it possible to control Alacritty without directly accessing it.
 
 			Default: _$ALACRITTY_WINDOW_ID_
 
+*get-config*
+
+	Read runtime Alacritty configuration.
+
+	*OPTIONS*
+		*-w, --window-id* _<WINDOW_ID>_
+
+			Window ID for the config request.
+
+			Use _-1_ to get the global config.
+
+			Default: _$ALACRITTY_WINDOW_ID_
+
 # SEE ALSO
 
 *alacritty*(1), *alacritty*(5), *alacritty-bindings*(5)
