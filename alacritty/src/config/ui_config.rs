@@ -583,7 +583,7 @@ impl PartialEq for LazyRegexVariant {
 impl Eq for LazyRegexVariant {}
 
 /// Wrapper around f32 that represents a percentage value between 0.0 and 1.0.
-#[derive(SerdeReplace, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(SerdeReplace, Serialize, Clone, Copy, Debug, PartialEq)]
 pub struct Percentage(f32);
 
 impl Default for Percentage {
@@ -599,6 +599,15 @@ impl Percentage {
 
     pub fn as_f32(self) -> f32 {
         self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Percentage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Percentage::new(f32::deserialize(deserializer)?))
     }
 }
 
