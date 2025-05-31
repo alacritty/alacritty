@@ -435,10 +435,10 @@ impl ApplicationHandler<Event> for Processor {
                 }
             },
             // NOTE: This event bypasses batching to minimize input latency.
-            (EventType::Frame, Some(window_id)) => {
+            (EventType::Frame { force }, Some(window_id)) => {
                 if let Some(window_context) = self.windows.get_mut(window_id) {
                     window_context.display.window.has_frame = true;
-                    if window_context.dirty {
+                    if window_context.dirty || force {
                         window_context.display.window.request_redraw();
                     }
                 }
@@ -548,7 +548,9 @@ pub enum EventType {
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
-    Frame,
+    Frame {
+        force: bool,
+    },
 }
 
 impl From<TerminalEvent> for EventType {
@@ -766,7 +768,9 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         point.line = min(point.line, self.terminal.bottommost_line());
 
         // Update selection.
-        selection.update(point, side);
+        if !self.display().scrollbar.is_dragging() {
+            selection.update(point, side);
+        }
 
         // Move vi cursor and expand selection.
         if self.terminal.mode().contains(TermMode::VI) && !self.search_active() {
@@ -1701,6 +1705,7 @@ pub enum TouchPurpose {
     None,
     Select(TouchEvent),
     Scroll(TouchEvent),
+    ScrollbarDrag(TouchEvent),
     Zoom(TouchZoom),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
@@ -1921,7 +1926,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
-                | EventType::Frame => (),
+                | EventType::Frame { .. } => (),
             },
             WinitEvent::WindowEvent { event, .. } => {
                 match event {
