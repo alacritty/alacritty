@@ -18,15 +18,24 @@ pub struct Clipboard {
 }
 
 impl Clipboard {
-    pub unsafe fn new(display: RawDisplayHandle) -> Self {
-        match display {
+    pub unsafe fn new(display: RawDisplayHandle, force_x11: bool) -> Self {
+        match (display, force_x11) {
+            #[cfg(all(feature = "x11", not(any(target_os = "macos", windows))))]
+            (_, true) => Self {
+                clipboard: Box::new(ClipboardContext::new().unwrap()),
+                selection: Some(Box::new(
+                    X11ClipboardContext::<X11SelectionClipboard>::new().unwrap(),
+                )),
+            },
+
             #[cfg(all(feature = "wayland", not(any(target_os = "macos", windows))))]
-            RawDisplayHandle::Wayland(display) => {
+            (RawDisplayHandle::Wayland(display), false) => {
                 let (selection, clipboard) =
                     wayland_clipboard::create_clipboards_from_external(display.display.as_ptr());
                 Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) }
             },
-            _ => Self::default(),
+
+            _ => Self::new_nop(),
         }
     }
 

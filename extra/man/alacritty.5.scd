@@ -540,6 +540,12 @@ This section documents the *[selection]* table of the configuration file.
 
 	Default: _false_
 
+*force_x11* = _true_ | _false_
+
+	When set to _true_, copy selected text using the X11 clipboard backend.
+
+	Default: _false_
+
 # CURSOR
 
 This section documents the *[cursor]* table of the configuration file.

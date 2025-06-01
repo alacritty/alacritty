@@ -113,7 +113,12 @@ impl Processor {
 
         // SAFETY: Since this takes a pointer to the winit event loop, it MUST be dropped first,
         // which is done in `loop_exiting`.
-        let clipboard = unsafe { Clipboard::new(event_loop.display_handle().unwrap().as_raw()) };
+        let clipboard = unsafe {
+            Clipboard::new(
+                event_loop.display_handle().unwrap().as_raw(),
+                config.selection.force_x11,
+            )
+        };
 
         // Create a config monitor.
         //
