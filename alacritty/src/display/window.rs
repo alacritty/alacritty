@@ -2,6 +2,8 @@
 use winit::platform::startup_notify::{
     self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
 };
+#[cfg(windows)]
+use winit::platform::windows::{CornerPreference, WindowExtWindows};
 #[cfg(not(any(target_os = "macos", windows)))]
 use winit::window::ActivationToken;
 
@@ -193,6 +195,9 @@ impl Window {
 
         // Set initial transparency hint.
         window.set_transparent(config.window_opacity() < 1.);
+
+        #[cfg(windows)]
+        window.set_corner_preference(CornerPreference::Round);
 
         #[cfg(target_os = "macos")]
         use_srgb_color_space(&window);
