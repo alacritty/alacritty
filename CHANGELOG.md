@@ -31,6 +31,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - `Enter`,`Tab`, `Backspace` not disambiguated with `shift` in kitty keyboard's disambiguate mode
 - Hint bindings not respecting IPC overrides
 - Search matching a wrapping fullwidth character in the last column
+- Crash when `AppleFontSmoothing` option is not present on macOS
 
 ## 0.15.1
 

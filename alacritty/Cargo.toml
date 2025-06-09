@@ -27,7 +27,7 @@ ahash = { version = "0.8.6", features = ["no-rng"] }
 bitflags = "2.2.1"
 clap = { version = "4.2.7", features = ["derive", "env"] }
 copypasta = { version = "0.10.1", default-features = false }
-crossfont = "0.8.0"
+crossfont = "0.8.1"
 glutin = { version = "0.32.2", default-features = false, features = ["egl", "wgl"] }
 home = "0.5.5"
 libc = "0.2"
