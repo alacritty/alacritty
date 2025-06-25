@@ -1,6 +1,7 @@
 #![allow(clippy::enum_glob_use)]
 
 use std::fmt::{self, Debug, Display};
+use std::path::PathBuf;
 
 use bitflags::bitflags;
 use serde::de::{self, Error as SerdeError, MapAccess, Unexpected, Visitor};
@@ -163,6 +164,10 @@ pub enum Action {
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
+    /// Write the display buffer and all escape sequences to a file.
+    #[config(skip)]
+    WriteHistory(PathBuf),
+
     /// Hide the Alacritty window.
     Hide,
 
@@ -252,8 +257,8 @@ pub enum Action {
 }
 
 impl From<&'static str> for Action {
-    fn from(s: &'static str) -> Action {
-        Action::Esc(s.into())
+    fn from(s: &'static str) -> Self {
+        Self::Esc(s.into())
     }
 }
 
@@ -956,6 +961,7 @@ impl<'a> Deserialize<'a> for RawBinding {
             Chars,
             Mouse,
             Command,
+            WriteHistory,
         }
 
         impl<'a> Deserialize<'a> for Field {
@@ -984,6 +990,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
                             "command" => Ok(Field::Command),
+                            "write_history" => Ok(Field::WriteHistory),
                             _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
@@ -1013,6 +1020,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut not_mode: Option<BindingMode> = None;
                 let mut mouse: Option<MouseButton> = None;
                 let mut command: Option<Program> = None;
+                let mut write_history: Option<PathBuf> = None;
 
                 use de::Error;
 
@@ -1115,6 +1123,13 @@ impl<'a> Deserialize<'a> for RawBinding {
 
                             command = Some(map.next_value::<Program>()?);
                         },
+                        Field::WriteHistory => {
+                            if write_history.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("write_history"));
+                            }
+
+                            write_history = Some(map.next_value()?);
+                        },
                     }
                 }
 
@@ -1122,11 +1137,11 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let not_mode = not_mode.unwrap_or_else(BindingMode::empty);
                 let mods = mods.unwrap_or_default();
 
-                let action = match (action, chars, command) {
-                    (Some(action @ Action::ViMotion(_)), None, None)
-                    | (Some(action @ Action::Vi(_)), None, None) => action,
-                    (Some(action @ Action::Search(_)), None, None) => action,
-                    (Some(action @ Action::Mouse(_)), None, None) => {
+                let action = match (action, chars, command, write_history) {
+                    (Some(action @ Action::ViMotion(_)), None, None, None)
+                    | (Some(action @ Action::Vi(_)), None, None, None) => action,
+                    (Some(action @ Action::Search(_)), None, None, None) => action,
+                    (Some(action @ Action::Mouse(_)), None, None, None) => {
                         if mouse.is_none() {
                             return Err(V::Error::custom(format!(
                                 "action `{action}` is only available for mouse bindings",
@@ -1134,9 +1149,10 @@ impl<'a> Deserialize<'a> for RawBinding {
                         }
                         action
                     },
-                    (Some(action), None, None) => action,
-                    (None, Some(chars), None) => Action::Esc(chars),
-                    (None, None, Some(cmd)) => Action::Command(cmd),
+                    (Some(action), None, None, None) => action,
+                    (None, Some(chars), None, None) => Action::Esc(chars),
+                    (None, None, Some(cmd), None) => Action::Command(cmd),
+                    (None, None, None, Some(file)) => Action::WriteHistory(file),
                     _ => {
                         return Err(V::Error::custom(
                             "must specify exactly one of chars, action or command",
