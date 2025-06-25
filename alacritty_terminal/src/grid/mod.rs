@@ -1,6 +1,7 @@
 //! A specialized 2D grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min};
+use std::fmt::{Display, Formatter};
 use std::ops::{Bound, Deref, Index, IndexMut, Range, RangeBounds};
 
 #[cfg(feature = "serde")]
@@ -437,6 +438,12 @@ impl<T> Grid<T> {
     pub fn cursor_cell(&mut self) -> &mut T {
         let point = self.cursor.point;
         &mut self[point.line][point.column]
+    }
+}
+
+impl<T: Display + GridCell> Display for Grid<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.raw)
     }
 }
 

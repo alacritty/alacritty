@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::fmt::{Display, Formatter};
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ops::{Index, IndexMut};
@@ -6,8 +7,9 @@ use std::ops::{Index, IndexMut};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::Row;
+use super::{GridCell, Row};
 use crate::index::Line;
+use crate::term::cell::Flags;
 
 /// Maximum number of buffered lines outside of the grid for performance optimization.
 const MAX_CACHE_SIZE: usize = 1_000;
@@ -264,6 +266,30 @@ impl<T> IndexMut<Line> for Storage<T> {
     fn index_mut(&mut self, index: Line) -> &mut Self::Output {
         let index = self.compute_index(index);
         &mut self.inner[index]
+    }
+}
+
+impl<T: Display + GridCell> Display for Storage<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for idx in (0..self.len()).rev() {
+            let row = &self[Line(self.visible_lines as i32 - (idx as i32) - 1)];
+            let mut line = String::new();
+
+            let mut last = None;
+            for cell in row.into_iter() {
+                line.push_str(&format!("{cell}"));
+
+                last = Some(cell);
+            }
+
+            if last.is_some_and(|last| last.flags().contains(Flags::WRAPLINE)) {
+                write!(f, "{}", line)?;
+            } else {
+                writeln!(f, "{}", line.trim())?;
+            }
+        }
+
+        Ok(())
     }
 }
 
