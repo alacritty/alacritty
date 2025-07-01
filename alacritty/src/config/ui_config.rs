@@ -205,7 +205,7 @@ where
         match Binding::<T>::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Config error: {}; ignoring binding", err);
+                error!(target: LOG_TARGET_CONFIG, "Config error: {err}; ignoring binding");
             },
         }
     }
@@ -410,7 +410,7 @@ impl<'de> Deserialize<'de> for HintContent {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: hint's regex: {}", err
+                                    "Config error: hint's regex: {err}"
                                 );
                             },
                         },
@@ -419,7 +419,7 @@ impl<'de> Deserialize<'de> for HintContent {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: hint's hyperlinks: {}", err
+                                    "Config error: hint's hyperlinks: {err}"
                                 );
                             },
                         },

@@ -63,7 +63,7 @@ impl ConfigMonitor {
         ) {
             Ok(watcher) => watcher,
             Err(err) => {
-                error!("Unable to watch config file: {}", err);
+                error!("Unable to watch config file: {err}");
                 return None;
             },
         };
@@ -84,7 +84,7 @@ impl ConfigMonitor {
             // Watch all configuration file directories.
             for parent in &parents {
                 if let Err(err) = watcher.watch(parent, RecursiveMode::NonRecursive) {
-                    debug!("Unable to watch config directory {:?}: {}", parent, err);
+                    debug!("Unable to watch config directory {parent:?}: {err}");
                 }
             }
 
@@ -135,10 +135,10 @@ impl ConfigMonitor {
                         }
                     },
                     Ok(Err(err)) => {
-                        debug!("Config watcher errors: {:?}", err);
+                        debug!("Config watcher errors: {err:?}");
                     },
                     Err(err) => {
-                        debug!("Config watcher channel dropped unexpectedly: {}", err);
+                        debug!("Config watcher channel dropped unexpectedly: {err}");
                         break;
                     },
                 };

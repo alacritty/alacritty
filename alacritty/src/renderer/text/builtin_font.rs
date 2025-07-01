@@ -73,7 +73,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
             y_end += y_offset;
 
             let k = y_end / x_end;
-            let f_x = |x: f32, h: f32| -> f32 { -1. * k * x + h + y_offset };
+            let f_x = |x: f32, h: f32| -> f32 { -k * x + h + y_offset };
             let g_x = |x: f32, h: f32| -> f32 { k * x + h + y_offset };
 
             let from_x = 0.;

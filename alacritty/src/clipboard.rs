@@ -62,7 +62,7 @@ impl Clipboard {
         };
 
         clipboard.set_contents(text.into()).unwrap_or_else(|err| {
-            warn!("Unable to store text in clipboard: {}", err);
+            warn!("Unable to store text in clipboard: {err}");
         });
     }
 
@@ -74,7 +74,7 @@ impl Clipboard {
 
         match clipboard.get_contents() {
             Err(err) => {
-                debug!("Unable to load text from clipboard: {}", err);
+                debug!("Unable to load text from clipboard: {err}");
                 String::new()
             },
             Ok(text) => text,

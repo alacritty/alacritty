@@ -384,7 +384,7 @@ impl ApplicationHandler<Event> for Processor {
                         event_loop.exit();
                     }
                 } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {:?}", err);
+                    error!("Could not open window: {err:?}");
                 }
             },
             // Process events affecting all windows.
@@ -507,7 +507,7 @@ impl ApplicationHandler<Event> for Processor {
 
         // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
         // as a safe placeholder.
-        mem::swap(&mut self.clipboard, &mut Clipboard::new_nop());
+        self.clipboard = Clipboard::new_nop();
     }
 }
 
@@ -905,7 +905,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let result = spawn_daemon(program, args);
 
         match result {
-            Ok(_) => debug!("Launched {} with args {:?}", program, args),
+            Ok(_) => debug!("Launched {program} with args {args:?}"),
             Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }

@@ -58,7 +58,7 @@ pub fn spawn_ipc_socket(
             let message: SocketMessage = match serde_json::from_str(&data) {
                 Ok(message) => message,
                 Err(err) => {
-                    warn!("Failed to convert data from socket: {}", err);
+                    warn!("Failed to convert data from socket: {err}");
                     continue;
                 },
             };

@@ -170,7 +170,7 @@ impl GlyphCache {
         match rasterizer.load_font(description, size) {
             Ok(font) => Ok(font),
             Err(err) => {
-                error!("{}", err);
+                error!("{err}");
 
                 let fallback_desc =
                     Self::make_desc(Font::default().normal(), Slant::Normal, Weight::Normal);
