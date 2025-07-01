@@ -941,7 +941,7 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 		*SemanticSearchBackward*
 			Search backward for selection or word under the cursor.
 		*CopyLine*
-			Yank (copy) to end of line
+			Yank (copy) current of line
 
 		_Search actions:_
 
