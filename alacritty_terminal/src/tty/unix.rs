@@ -383,7 +383,7 @@ impl EventedPty for Pty {
         let mut buf = [0u8; 1];
         if let Err(err) = self.signals.read(&mut buf) {
             if err.kind() != ErrorKind::WouldBlock {
-                error!("Error reading from signal pipe: {}", err);
+                error!("Error reading from signal pipe: {err}");
             }
             return None;
         }
@@ -391,7 +391,7 @@ impl EventedPty for Pty {
         // Match on the child process.
         match self.child.try_wait() {
             Err(err) => {
-                error!("Error checking child process termination: {}", err);
+                error!("Error checking child process termination: {err}");
                 None
             },
             Ok(None) => None,

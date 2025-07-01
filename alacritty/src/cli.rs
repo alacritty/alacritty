@@ -181,7 +181,7 @@ impl TerminalOptions {
             if working_directory.is_dir() {
                 pty_config.working_directory = Some(working_directory.to_owned());
             } else {
-                error!("Invalid working directory: {:?}", working_directory);
+                error!("Invalid working directory: {working_directory:?}");
             }
         }
 
@@ -384,7 +384,7 @@ impl ParsedOptions {
                 Err(err) => {
                     error!(
                         target: LOG_TARGET_IPC_CONFIG,
-                        "Unable to override option '{}': {}", option, err
+                        "Unable to override option '{option}': {err}"
                     );
                     self.config_options.swap_remove(i);
                 },

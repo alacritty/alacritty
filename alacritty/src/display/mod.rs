@@ -458,7 +458,7 @@ impl Display {
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
 
-        info!("Cell size: {} x {}", cell_width, cell_height);
+        info!("Cell size: {cell_width} x {cell_height}");
         info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
         info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
@@ -511,7 +511,7 @@ impl Display {
 
         // Disable vsync.
         if let Err(err) = surface.set_swap_interval(&context, SwapInterval::DontWait) {
-            info!("Failed to disable vsync: {}", err);
+            info!("Failed to disable vsync: {err}");
         }
 
         Ok(Self {
@@ -618,7 +618,7 @@ impl Display {
             (surface, context) => surface.swap_buffers(context),
         };
         if let Err(err) = res {
-            debug!("error calling swap_buffers: {}", err);
+            debug!("error calling swap_buffers: {err}");
         }
     }
 
@@ -674,7 +674,7 @@ impl Display {
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
-            info!("Cell size: {} x {}", cell_width, cell_height);
+            info!("Cell size: {cell_width} x {cell_height}");
 
             // Mark entire terminal as damaged since glyph size could change without cell size
             // changes.

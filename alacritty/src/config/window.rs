@@ -110,10 +110,7 @@ impl WindowConfig {
             warn!(
                 target: LOG_TARGET_CONFIG,
                 "Both `lines` and `columns` must be non-zero for `window.dimensions` to take \
-                 effect. Configured value of `{}` is 0 while that of `{}` is {}",
-                zero_key,
-                non_zero_key,
-                non_zero_value,
+                 effect. Configured value of `{zero_key}` is 0 while that of `{non_zero_key}` is {non_zero_value}",
             );
 
             None
@@ -255,7 +252,7 @@ impl<'de> Deserialize<'de> for Class {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: class.instance: {}", err
+                                    "Config error: class.instance: {err}"
                                 );
                             },
                         },
@@ -264,7 +261,7 @@ impl<'de> Deserialize<'de> for Class {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: class.instance: {}", err
+                                    "Config error: class.instance: {err}"
                                 );
                             },
                         },

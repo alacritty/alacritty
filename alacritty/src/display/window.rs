@@ -198,7 +198,7 @@ impl Window {
         use_srgb_color_space(&window);
 
         let scale_factor = window.scale_factor();
-        log::info!("Window scale factor: {}", scale_factor);
+        log::info!("Window scale factor: {scale_factor}");
         let is_x11 = matches!(window.window_handle().unwrap().as_raw(), RawWindowHandle::Xlib(_));
 
         Ok(Self {

@@ -187,7 +187,7 @@ fn alacritty(mut options: Options) -> Result<(), Box<dyn Error>> {
             Ok(path) => Some(path),
             Err(err) if options.daemon => return Err(err.into()),
             Err(err) => {
-                log::warn!("Unable to create socket: {:?}", err);
+                log::warn!("Unable to create socket: {err:?}");
                 None
             },
         }
