@@ -223,12 +223,6 @@ impl<T: EventListener> Execute<T> for Action {
                     ctx.mark_dirty();
                 }
             },
-
-            Action::Vi(ViAction::CopyLine) => {
-                Self::toggle_selection(ctx, SelectionType::Lines);
-                ctx.copy_selection(ClipboardType::Selection);
-            },
-
             Action::Vi(ViAction::SearchPrevious) => {
                 ctx.on_typing_start();
 

@@ -940,8 +940,6 @@ _https://docs.rs/winit/latest/winit/keyboard/enum.Key.html#variant.Dead_
 			Search forward for selection or word under the cursor.
 		*SemanticSearchBackward*
 			Search backward for selection or word under the cursor.
-		*CopyLine*
-			Yank (copy) current of line
 
 		_Search actions:_
 

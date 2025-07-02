@@ -332,8 +332,6 @@ pub enum ViAction {
     SemanticSearchForward,
     /// Search backward for selection or word under the cursor.
     SemanticSearchBackward,
-    /// Yank (copy) to end of line
-    CopyLine,
 }
 
 /// Search mode specific actions.
@@ -480,7 +478,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         "y",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         "/",                                +BindingMode::VI, ~BindingMode::SEARCH; Action::SearchForward;
         "?",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; Action::SearchBackward;
-        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::CopyLine;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleLineSelection;
+        "y",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; Action::Copy;
         "v",                                +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleNormalSelection;
         "v",      ModifiersState::SHIFT,    +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleLineSelection;
         "v",      ModifiersState::CONTROL,  +BindingMode::VI, ~BindingMode::SEARCH; ViAction::ToggleBlockSelection;
