@@ -934,7 +934,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
             },
-            // Invalidate zoom once a finger was released.
+            // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {
                 let slots = zoom.slots();
                 let remaining = if slots.0.id == touch.id { slots.1 } else { slots.0 };
