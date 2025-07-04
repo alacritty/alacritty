@@ -540,12 +540,6 @@ This section documents the *[selection]* table of the configuration file.
 
 	Default: _false_
 
-*clear_after_save* = _true_ | _false_
-
-	When set to _true_, active selection will be cleared immediately after it
-	is copied to clipboard.
-
-	Default: _false_
 # CURSOR
 
 This section documents the *[cursor]* table of the configuration file.

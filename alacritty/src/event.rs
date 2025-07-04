@@ -741,10 +741,6 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         if ty == ClipboardType::Selection && self.config.selection.save_to_clipboard {
             self.clipboard.store(ClipboardType::Clipboard, text.clone());
-
-            if self.config.selection.clear_after_save {
-                self.clear_selection();
-            }
         }
         self.clipboard.store(ty, text);
     }
