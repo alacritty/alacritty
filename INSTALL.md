@@ -62,7 +62,7 @@ cd alacritty
 
 1. Install [`rustup.rs`](https://rustup.rs/).
 
-3. To make sure you have the right Rust compiler installed, run
+2. To make sure you have the right Rust compiler installed, run
 
    ```sh
    rustup override set stable
@@ -247,14 +247,14 @@ filling in this section of the README.
 
 ## Building
 
-### Linux / Windows / BSD
+### Linux / BSD
 
 ```sh
 cargo build --release
 ```
 
-On Linux/BSD, if it is desired to build Alacritty without support for either the
-X11 or Wayland rendering backend the following commands can be used.
+If you desire to build Alacritty without support for either the
+X11 or Wayland rendering backend, the following commands can be used.
 
 ```sh
 # Force support for only Wayland
@@ -265,6 +265,29 @@ cargo build --release --no-default-features --features=x11
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
+
+### Windows 
+
+```sh
+cargo build --release
+```
+
+If all goes well, this should place a (.exe) binary at `target/release/alacritty`.
+
+#### Build your own .msi Installer
+
+If you want to build your own global installer, you can do so by compiling it using the .NET SDK and WiX Toolset. 
+
+1. Install the prerequisites (in order)
+   - [.NET](https://dotnet.microsoft.com/en-us/download)
+   - `dotnet tool install --global wix`
+   - `wix extension add WixToolset.UI.wixext/4.0.5 WixToolset.Util.wixext/4.0.5`
+2. Navigate to the root of the project directory (e.g. /path/to/alacritty) 
+3. **NOTE:** If you're building for arm64 instead of x64, change the value of the `-arch` flag to: "arm64"
+   ```sh 
+   wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -out "./Alacritty-Installer.msi" "./alacritty/windows/wix/alacritty.wxs"
+   ```
+4. The .msi installer should now be created in the project root (the current directory you ran the command in).
 
 ### macOS
 
