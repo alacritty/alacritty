@@ -72,6 +72,7 @@ set of features with high performance.
 		. _$XDG_CONFIG_HOME/alacritty.toml_
 		. _$HOME/.config/alacritty/alacritty.toml_
 		. _$HOME/.alacritty.toml_
+		. _/etc/alacritty/alacritty.toml_
 
 	On Windows, the config file will be looked for in:
 
