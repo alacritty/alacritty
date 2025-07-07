@@ -19,6 +19,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Vi motions `*`, `#`, `{`, and `}`
 - IPC config retrieval using `alacritty msg get-config`
 - Multi-sequence touch zoom sequences
+- Vi action `Y` keybind, yank to the end of line
 
 ### Changed
 

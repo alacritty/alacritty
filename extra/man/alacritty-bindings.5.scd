@@ -141,6 +141,22 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ToggleNormalSelection"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"Last"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"Copy"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ClearSelection"_
 |  _"V"_
 :[
 :  _"Vi|~Search"_
