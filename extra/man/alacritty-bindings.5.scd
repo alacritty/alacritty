@@ -137,6 +137,10 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
+|  _"Copy"_
+:[
+:  _"Vi|~Search"_
+:  _"ClearSelection"_
 |  _"Y"_
 :  _"Shift"_
 :  _"Vi|~Search"_
