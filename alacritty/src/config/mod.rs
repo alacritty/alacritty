@@ -368,6 +368,7 @@ fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
 /// 2. $XDG_CONFIG_HOME/alacritty.toml
 /// 3. $HOME/.config/alacritty/alacritty.toml
 /// 4. $HOME/.alacritty.toml
+/// 5. /etc/alacritty/alacritty.toml
 #[cfg(not(windows))]
 pub fn installed_config(suffix: &str) -> Option<PathBuf> {
     let file_name = format!("alacritty.{suffix}");
@@ -390,7 +391,9 @@ pub fn installed_config(suffix: &str) -> Option<PathBuf> {
                     return Some(fallback);
                 }
             }
-            None
+
+            let fallback = PathBuf::from("/etc/alacritty").join(&file_name);
+            fallback.exists().then_some(fallback)
         })
 }
 
