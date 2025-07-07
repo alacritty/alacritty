@@ -1702,6 +1702,7 @@ pub enum TouchPurpose {
     Select(TouchEvent),
     Scroll(TouchEvent),
     Zoom(TouchZoom),
+    ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
 }
@@ -1744,11 +1745,8 @@ impl TouchZoom {
     }
 
     /// Get active touch slots.
-    pub fn slots(&self) -> HashSet<u64, RandomState> {
-        let mut set = HashSet::default();
-        set.insert(self.slots.0.id);
-        set.insert(self.slots.1.id);
-        set
+    pub fn slots(&self) -> (TouchEvent, TouchEvent) {
+        self.slots
     }
 
     /// Calculate distance between slots.

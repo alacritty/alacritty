@@ -851,7 +851,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         *touch_purpose = match mem::take(touch_purpose) {
             TouchPurpose::None => TouchPurpose::Tap(touch),
             TouchPurpose::Tap(start) => TouchPurpose::Zoom(TouchZoom::new((start, touch))),
-            TouchPurpose::Zoom(zoom) => TouchPurpose::Invalid(zoom.slots()),
+            TouchPurpose::ZoomPendingSlot(slot) => {
+                TouchPurpose::Zoom(TouchZoom::new((slot, touch)))
+            },
+            TouchPurpose::Zoom(zoom) => {
+                let slots = zoom.slots();
+                let mut set = HashSet::default();
+                set.insert(slots.0.id);
+                set.insert(slots.1.id);
+                TouchPurpose::Invalid(set)
+            },
             TouchPurpose::Scroll(event) | TouchPurpose::Select(event) => {
                 let mut set = HashSet::default();
                 set.insert(event.id);
@@ -905,7 +914,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.scroll_terminal(0., delta_y, 1.0);
             },
             TouchPurpose::Select(_) => self.mouse_moved(touch.location),
-            TouchPurpose::Invalid(_) => (),
+            TouchPurpose::ZoomPendingSlot(_) | TouchPurpose::Invalid(_) => (),
         }
     }
 
@@ -925,12 +934,13 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 self.mouse_input(ElementState::Pressed, MouseButton::Left);
                 self.mouse_input(ElementState::Released, MouseButton::Left);
             },
-            // Invalidate zoom once a finger was released.
+            // Transition zoom to pending state once a finger was released.
             TouchPurpose::Zoom(zoom) => {
-                let mut slots = zoom.slots();
-                slots.remove(&touch.id);
-                *touch_purpose = TouchPurpose::Invalid(slots);
+                let slots = zoom.slots();
+                let remaining = if slots.0.id == touch.id { slots.1 } else { slots.0 };
+                *touch_purpose = TouchPurpose::ZoomPendingSlot(remaining);
             },
+            TouchPurpose::ZoomPendingSlot(_) => *touch_purpose = Default::default(),
             // Reset touch state once all slots were released.
             TouchPurpose::Invalid(slots) => {
                 slots.remove(&touch.id);
