@@ -27,7 +27,7 @@ ahash = { version = "0.8.6", features = ["no-rng"] }
 bitflags = "2.2.1"
 clap = { version = "4.2.7", features = ["derive", "env"] }
 copypasta = { version = "0.10.1", default-features = false }
-crossfont = "0.8.1"
+crossfont = { git = "https://github.com/alacritty/crossfont", branch = "ignore-scalable-emojis" }
 glutin = { version = "0.32.2", default-features = false, features = ["egl", "wgl"] }
 home = "0.5.5"
 libc = "0.2"
@@ -96,6 +96,6 @@ wayland = [
     "glutin/wayland",
     "winit/wayland",
     "winit/wayland-dlopen",
-    "winit/wayland-csd-adwaita-crossfont",
+    "winit/wayland-csd-adwaita",
 ]
 nightly = []
