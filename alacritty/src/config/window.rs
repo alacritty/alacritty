@@ -162,11 +162,14 @@ pub struct Identity {
 
     /// Window class.
     pub class: Class,
+
+    /// Don't preserve window title.
+    pub no_preserve_title: bool,
 }
 
 impl Default for Identity {
     fn default() -> Self {
-        Self { title: DEFAULT_NAME.into(), class: Default::default() }
+        Self { title: DEFAULT_NAME.into(), class: Default::default(), no_preserve_title: false }
     }
 }
 
