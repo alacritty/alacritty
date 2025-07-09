@@ -32,6 +32,7 @@ _alacritty() {
 '(-q)*-v[Increases the level of verbosity (the max level is -vvv)]' \
 '--daemon[Do not spawn an initial window]' \
 '--hold[Remain open after child process exit]' \
+'--no-preserve-title[Don'\''t preserve window title when --class or --title is specified]' \
 '-h[Print help]' \
 '--help[Print help]' \
 '-V[Print version]' \
@@ -72,6 +73,7 @@ _arguments "${_arguments_options[@]}" : \
 '*-o+[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '*--option=[Override configuration file options \[example\: '\''cursor.style="Beam"'\''\]]:OPTION:_default' \
 '--hold[Remain open after child process exit]' \
+'--no-preserve-title[Don'\''t preserve window title when --class or --title is specified]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

@@ -214,6 +214,10 @@ pub struct WindowIdentity {
     /// Defines window class/app_id on X11/Wayland [default: Alacritty].
     #[clap(long, value_name = "general> | <general>,<instance", value_parser = parse_class)]
     pub class: Option<Class>,
+
+    /// Don't preserve window title when --class or --title is specified
+    #[clap(long)]
+    pub no_preserve_title: bool,
 }
 
 impl WindowIdentity {

@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_alacritty_global_optspecs
-	string join \n print-events ref-test embed= config-file= socket= q v daemon working-directory= hold e/command= T/title= class= o/option= h/help V/version
+	string join \n print-events ref-test embed= config-file= socket= q v daemon working-directory= hold e/command= T/title= class= no-preserve-title o/option= h/help V/version
 end
 
 function __fish_alacritty_needs_command
@@ -38,6 +38,7 @@ complete -c alacritty -n "__fish_alacritty_needs_command" -s q -d 'Reduces the l
 complete -c alacritty -n "__fish_alacritty_needs_command" -s v -d 'Increases the level of verbosity (the max level is -vvv)'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l daemon -d 'Do not spawn an initial window'
 complete -c alacritty -n "__fish_alacritty_needs_command" -l hold -d 'Remain open after child process exit'
+complete -c alacritty -n "__fish_alacritty_needs_command" -l no-preserve-title -d 'Don\'t preserve window title when --class or --title is specified'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s h -l help -d 'Print help'
 complete -c alacritty -n "__fish_alacritty_needs_command" -s V -l version -d 'Print version'
 complete -c alacritty -n "__fish_alacritty_needs_command" -f -a "msg" -d 'Send a message to the Alacritty socket'
@@ -55,6 +56,7 @@ complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l class -d 'Defines window class/app_id on X11/Wayland [default: Alacritty]' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s o -l option -d 'Override configuration file options [example: \'cursor.style="Beam"\']' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l hold -d 'Remain open after child process exit'
+complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -l no-preserve-title -d 'Don\'t preserve window title when --class or --title is specified'
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from create-window" -s h -l help -d 'Print help'
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from config" -s w -l window-id -d 'Window ID for the new config' -r
 complete -c alacritty -n "__fish_alacritty_using_subcommand msg; and __fish_seen_subcommand_from config" -s r -l reset -d 'Clear all runtime configuration changes'
