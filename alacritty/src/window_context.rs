@@ -172,8 +172,9 @@ impl WindowContext {
         let mut pty_config = config.pty_config();
         options.terminal_options.override_pty_config(&mut pty_config);
 
-        let preserve_title =
-            options.window_identity.title.is_some() && !options.window_identity.no_preserve_title && !config.window.identity.no_preserve_title;
+        let preserve_title = options.window_identity.title.is_some()
+            && !options.window_identity.no_preserve_title
+            && !config.window.identity.no_preserve_title;
 
         info!(
             "PTY dimensions: {:?} x {:?}",
