@@ -608,6 +608,27 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
 
         Some(Indexed { cell: &self.grid[self.point], point: self.point })
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.point >= self.end {
+            return (0, Some(0));
+        }
+
+        let size = if self.point.line == self.end.line {
+            self.end.column.saturating_sub(self.point.column.0)
+        } else {
+            let first_line = self.grid.columns.saturating_sub(self.point.column.0);
+
+            // How many lines in total separate start from end?
+            let total_lines = (self.end.line - self.point.line).0 as usize;
+            let middle_lines = total_lines.saturating_sub(1);
+
+            let last_line = self.end.column;
+            first_line + middle_lines * self.grid.columns + last_line.0
+        };
+
+        (size, Some(size))
+    }
 }
 
 /// Bidirectional iterator.
