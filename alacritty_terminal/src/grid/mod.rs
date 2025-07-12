@@ -617,13 +617,13 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
         let size = if self.point.line == self.end.line {
             (self.end.column - self.point.column).0
         } else {
-            let first_line = self.grid.columns.saturating_sub(self.point.column.0);
+            let cols_on_first_line = self.grid.columns.saturating_sub(self.point.column.0);
 
             // Lines between self.point and self.end, excluding first and last line
             let middle_lines = (self.end.line - self.point.line).0 as usize - 1;
 
             let last_line = self.end.column;
-            first_line + middle_lines * self.grid.columns + last_line.0
+            cols_on_first_line + middle_lines * self.grid.columns + last_line.0
         };
 
         (size, Some(size))
