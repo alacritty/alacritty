@@ -601,7 +601,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
         match self.point {
             Point { column, .. } if column == self.grid.last_column() => {
                 self.point.column = Column(0);
-                self.point.line += Line(1);
+                self.point.line += 1;
             },
             _ => self.point.column += Column(1),
         }
@@ -649,7 +649,7 @@ impl<T> BidirectionalIterator for GridIterator<'_, T> {
         match self.point {
             Point { column: Column(0), .. } => {
                 self.point.column = last_column;
-                self.point.line -= Line(1);
+                self.point.line -= 1;
             },
             _ => self.point.column -= Column(1),
         }
