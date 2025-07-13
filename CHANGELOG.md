@@ -12,7 +12,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ### Packaging
 
-- Minimum Rust version has been bumped to 1.81.0
+- Minimum Rust version has been bumped to 1.85.0
 
 ### Added
 
