@@ -355,6 +355,7 @@ fn accurate_size_hint() {
     size_hint_matches_count(grid.iter_from(Point::new(Line(0), Column(0))));
     size_hint_matches_count(grid.iter_from(Point::new(Line(2), Column(3))));
     size_hint_matches_count(grid.iter_from(Point::new(Line(4), Column(4))));
+    size_hint_matches_count(grid.iter_from(Point::new(Line(4), Column(2))));
     size_hint_matches_count(grid.iter_from(Point::new(Line(10), Column(10))));
     size_hint_matches_count(grid.iter_from(Point::new(Line(2), Column(10))));
 
