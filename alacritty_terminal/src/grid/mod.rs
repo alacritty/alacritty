@@ -599,7 +599,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
         }
 
         match self.point {
-            Point { column, .. } if column == self.grid.last_column() => {
+            Point { column, .. } if column >= self.grid.last_column() => {
                 self.point.column = Column(0);
                 self.point.line += 1;
             },
@@ -607,6 +607,24 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
         }
 
         Some(Indexed { cell: &self.grid[self.point], point: self.point })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.point >= self.end {
+            return (0, Some(0));
+        }
+
+        let size = if self.point.line == self.end.line {
+            (self.end.column - self.point.column).0
+        } else {
+            let cols_on_first_line = self.grid.columns.saturating_sub(self.point.column.0 + 1);
+            let middle_lines = (self.end.line - self.point.line).0 as usize - 1;
+            let cols_on_last_line = self.end.column + 1;
+
+            cols_on_first_line + middle_lines * self.grid.columns + cols_on_last_line.0
+        };
+
+        (size, Some(size))
     }
 }
 
@@ -621,7 +639,7 @@ impl<T> BidirectionalIterator for GridIterator<'_, T> {
         let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.
-        if self.point == Point::new(topmost_line, Column(0)) {
+        if self.point <= Point::new(topmost_line, Column(0)) {
             return None;
         }
 
