@@ -6,14 +6,14 @@ use log::info;
 
 use alacritty_terminal::term::cell::Flags;
 
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 use crate::renderer::Error;
+use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 
-use super::atlas::{Atlas, ATLAS_SIZE};
+use super::atlas::{ATLAS_SIZE, Atlas};
 use super::{
     Glyph, LoadGlyph, LoaderApi, RenderingGlyphFlags, RenderingPass, TextRenderApi,
     TextRenderBatch, TextRenderer, TextShader,

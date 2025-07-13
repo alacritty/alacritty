@@ -166,7 +166,7 @@ impl ConfigMonitor {
     /// This checks the supplied list of files against the monitored files to determine if a
     /// restart is necessary.
     pub fn needs_restart(&self, files: &[PathBuf]) -> bool {
-        Self::hash_paths(files).map_or(true, |hash| Some(hash) == self.watched_hash)
+        Self::hash_paths(files).is_none_or(|hash| Some(hash) == self.watched_hash)
     }
 
     /// Generate the hash for a list of paths.

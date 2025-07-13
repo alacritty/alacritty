@@ -1,6 +1,6 @@
 //! Grid resize and reflow.
 
-use std::cmp::{max, min, Ordering};
+use std::cmp::{Ordering, max, min};
 use std::mem;
 
 use crate::index::{Boundary, Column, Line};

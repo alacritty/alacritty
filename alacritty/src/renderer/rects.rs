@@ -9,9 +9,9 @@ use alacritty_terminal::grid::Dimensions;
 use alacritty_terminal::index::{Column, Point};
 use alacritty_terminal::term::cell::Flags;
 
+use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
-use crate::display::SizeInfo;
 use crate::gl::types::*;
 use crate::renderer::shader::{ShaderError, ShaderProgram, ShaderVersion};
 use crate::{gl, renderer};

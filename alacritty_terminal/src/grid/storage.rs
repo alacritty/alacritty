@@ -230,11 +230,7 @@ impl<T> Storage<T> {
         //
         // Requires `zeroed` to be smaller than `self.inner.len() * 2`,
         // but both `self.zero` and `requested` are always smaller than `self.inner.len()`.
-        if zeroed >= self.inner.len() {
-            zeroed - self.inner.len()
-        } else {
-            zeroed
-        }
+        if zeroed >= self.inner.len() { zeroed - self.inner.len() } else { zeroed }
     }
 
     /// Rotate the ringbuffer to reset `self.zero` back to index `0`.
@@ -269,9 +265,9 @@ impl<T> IndexMut<Line> for Storage<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::grid::row::Row;
-    use crate::grid::storage::{Storage, MAX_CACHE_SIZE};
     use crate::grid::GridCell;
+    use crate::grid::row::Row;
+    use crate::grid::storage::{MAX_CACHE_SIZE, Storage};
     use crate::index::{Column, Line};
     use crate::term::cell::Flags;
 

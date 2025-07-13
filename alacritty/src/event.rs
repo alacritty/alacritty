@@ -196,10 +196,9 @@ impl Processor {
     /// The result is exit code generate from the loop.
     pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
         let result = event_loop.run_app(self);
-        if let Some(initial_window_error) = self.initial_window_error.take() {
-            Err(initial_window_error)
-        } else {
-            result.map_err(Into::into)
+        match self.initial_window_error.take() {
+            Some(initial_window_error) => Err(initial_window_error),
+            _ => result.map_err(Into::into),
         }
     }
 
@@ -746,7 +745,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection.as_ref().map_or(true, Selection::is_empty)
+        self.terminal.selection.as_ref().is_none_or(Selection::is_empty)
     }
 
     fn clear_selection(&mut self) {
@@ -937,7 +936,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn start_search(&mut self, direction: Direction) {
         // Only create new history entry if the previous regex wasn't empty.
-        if self.search_state.history.front().map_or(true, |regex| !regex.is_empty()) {
+        if self.search_state.history.front().is_none_or(|regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
             self.search_state.history.truncate(MAX_SEARCH_HISTORY_SIZE);
         }

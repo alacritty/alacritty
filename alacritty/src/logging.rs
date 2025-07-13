@@ -87,11 +87,8 @@ impl Logger {
     }
 
     fn file_path(&self) -> Option<PathBuf> {
-        if let Ok(logfile) = self.logfile.lock() {
-            Some(logfile.path().clone())
-        } else {
-            None
-        }
+        let logfile_lock = self.logfile.lock().ok()?;
+        Some(logfile_lock.path().clone())
     }
 
     /// Log a record to the message bar.
@@ -204,7 +201,7 @@ impl OnDemandLogFile {
         path.push(format!("Alacritty-{}.log", process::id()));
 
         // Set log path as an environment variable.
-        env::set_var(ALACRITTY_LOG_ENV, path.as_os_str());
+        unsafe { env::set_var(ALACRITTY_LOG_ENV, path.as_os_str()) };
 
         OnDemandLogFile { path, file: None, created: Arc::new(AtomicBool::new(false)) }
     }

@@ -1,24 +1,24 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, ptr};
 
 use ahash::RandomState;
 use crossfont::Metrics;
 use glutin::context::{ContextApi, GlContext, PossiblyCurrentContext};
 use glutin::display::{GetGlDisplay, GlDisplay};
-use log::{debug, info, LevelFilter};
+use log::{LevelFilter, debug, info};
 use unicode_width::UnicodeWidthChar;
 
 use alacritty_terminal::index::Point;
 use alacritty_terminal::term::cell::Flags;
 
 use crate::config::debug::RendererPreference;
+use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCell;
-use crate::display::SizeInfo;
 use crate::gl;
 use crate::renderer::rects::{RectRenderer, RenderRect};
 use crate::renderer::shader::ShaderError;

@@ -2,9 +2,9 @@
 
 use alacritty_terminal::vte::ansi::CursorShape;
 
+use crate::display::SizeInfo;
 use crate::display::color::Rgb;
 use crate::display::content::RenderableCursor;
-use crate::display::SizeInfo;
 use crate::renderer::rects::RenderRect;
 
 /// Trait for conversion into the iterator.
