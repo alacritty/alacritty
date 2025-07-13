@@ -24,4 +24,4 @@ version = "0.2.3-dev"
 [dev-dependencies]
 log = "0.4.11"
 serde = { version = "1.0.117", features = ["derive"] }
-toml = "0.8.2"
+toml.workspace = true
