@@ -10,8 +10,8 @@ use crate::display::SizeInfo;
 use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
-use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 use crate::renderer::Error;
+use crate::renderer::shader::{ShaderProgram, ShaderVersion};
 
 use super::atlas::{ATLAS_SIZE, Atlas};
 use super::{

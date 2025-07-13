@@ -14,8 +14,8 @@ use winit::keyboard::{Key, ModifiersState};
 
 use alacritty_config::SerdeReplace;
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
-use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::term::Config as TermConfig;
+use alacritty_terminal::term::search::RegexSearch;
 use alacritty_terminal::tty::{Options as PtyOptions, Shell};
 
 use crate::config::LOG_TARGET_CONFIG;
