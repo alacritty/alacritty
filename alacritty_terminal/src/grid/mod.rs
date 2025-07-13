@@ -639,7 +639,7 @@ impl<T> BidirectionalIterator for GridIterator<'_, T> {
         let last_column = self.grid.last_column();
 
         // Stop once we've reached the end of the grid.
-        if self.point == Point::new(topmost_line, Column(0)) {
+        if self.point <= Point::new(topmost_line, Column(0)) {
             return None;
         }
 
