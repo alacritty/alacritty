@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io::{self, Result};
 use std::iter::once;
@@ -125,12 +126,57 @@ impl OnResize for Pty {
     }
 }
 
+// Modified per stdlib implementation.
+// https://github.com/rust-lang/rust/blob/6707bf0f59485cf054ac1095725df43220e4be20/library/std/src/sys/args/windows.rs#L174
+fn make_arg(arg: Cow<'_, str>) -> Cow<'_, str> {
+    let mut quote = false;
+    let mut escape = false;
+    for x in arg.chars() {
+        match x {
+            ' ' | '\t' => quote = true,
+            '\\' | '"' => escape = true,
+            _ => {},
+        }
+    }
+    if !quote && !escape {
+        return arg;
+    }
+
+    let mut output = String::with_capacity(arg.len());
+    if quote {
+        output.push('"');
+    }
+
+    let mut backslashes: usize = 0;
+    for x in arg.chars() {
+        if escape {
+            if x == '\\' {
+                backslashes += 1;
+            } else {
+                if x == '"' {
+                    // Add n+1 backslashes to total 2n+1 before internal '"'.
+                    output.extend((0..=backslashes).map(|_| '\\'));
+                }
+                backslashes = 0;
+            }
+        }
+        output.push(x);
+    }
+
+    if quote {
+        // Add n backslashes to total 2n before ending '"'.
+        output.extend((0..backslashes).map(|_| '\\'));
+        output.push('"');
+    }
+    output.into()
+}
+
 fn cmdline(config: &Options) -> String {
     let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program.as_str())
-        .chain(shell.args.iter().map(|s| s.as_str()))
+    once(shell.program.as_str().into())
+        .chain(shell.args.iter().map(|s| make_arg(s.into())))
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -139,4 +185,42 @@ fn cmdline(config: &Options) -> String {
 /// suffixed function variants, which accept UTF-16 encoded string values.
 pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
     OsStr::new(value).encode_wide().chain(once(0)).collect()
+}
+
+#[cfg(test)]
+mod test {
+    use super::make_arg;
+
+    #[test]
+    fn test_escape() {
+        let test_set = vec![
+            // Basic cases - no escaping needed
+            ("", ""),
+            ("abc", "abc"),
+            // Cases requiring quotes (space/tab)
+            (" ", "\" \""),
+            ("ab c", "\"ab c\""),
+            ("ab\tc", "\"ab\tc\""),
+            // Cases with backslashes only (no spaces, no quotes) - no quotes added
+            ("ab\\c", "ab\\c"),
+            // Cases with quotes only (no spaces) - quotes escaped but no outer quotes
+            ("ab\"c", "ab\\\"c"),
+            ("\"", "\\\""),
+            ("a\"b\"c", "a\\\"b\\\"c"),
+            // Cases requiring both quotes and escaping (contains spaces)
+            ("ab \"c", "\"ab \\\"c\""),
+            ("a \"b\" c", "\"a \\\"b\\\" c\""),
+            // Complex real-world cases
+            ("C:\\Program Files\\", "\"C:\\Program Files\\\\\""),
+            ("C:\\Program Files\\a.txt", "\"C:\\Program Files\\a.txt\""),
+            (
+                r#"sh -c "cd /home/user; ARG='abc' \""'${SHELL:-sh}" -i -c '"'echo hello'""#,
+                r#""sh -c \"cd /home/user; ARG='abc' \\\"\"'${SHELL:-sh}\" -i -c '\"'echo hello'\"""#,
+            ),
+        ];
+
+        for (input, expected) in test_set {
+            assert_eq!(make_arg(input.into()), expected, "Failed for input: {}", input);
+        }
+    }
 }
