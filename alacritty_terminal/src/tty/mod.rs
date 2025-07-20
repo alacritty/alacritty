@@ -39,9 +39,9 @@ pub struct Options {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Shell {
     /// Path to a shell program to run on startup.
-    pub(crate) program: String,
+    pub program: String,
     /// Arguments passed to shell.
-    pub(crate) args: Vec<String>,
+    pub args: Vec<String>,
 }
 
 impl Shell {

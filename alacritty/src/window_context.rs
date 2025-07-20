@@ -3,11 +3,12 @@
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::mem;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::{env, mem};
 
 use glutin::config::Config as GlutinConfig;
 use glutin::display::GetGlDisplay;
@@ -28,6 +29,7 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::test::TermSize;
 use alacritty_terminal::term::{Term, TermMode};
 use alacritty_terminal::tty;
+use alacritty_terminal::tty::Shell;
 
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
@@ -189,6 +191,20 @@ impl WindowContext {
         // access it.
         let terminal = Term::new(config.term_options(), &display.size_info, event_proxy.clone());
         let terminal = Arc::new(FairMutex::new(terminal));
+
+        if env::var("FLATPAK_ID").is_ok() && Path::new("/app/bin/host-spawn").exists() {
+            // Running in a flatpak sandbox so use
+            // host-spawn to run commands on the host
+
+            let mut args = vec![];
+
+            if let Some(shell) = pty_config.shell.as_ref() {
+                args.append(&mut vec![shell.program.to_owned()]);
+                args.append(&mut shell.args.to_owned());
+            }
+
+            pty_config.shell = Some(Shell::new("host-spawn".to_string(), args));
+        }
 
         // Create the PTY.
         //
