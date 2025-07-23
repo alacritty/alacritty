@@ -149,7 +149,7 @@ fn define_vertex_attributes(shader_version: ShaderVersion) -> (GLuint, GLuint) {
                     1,
                     gl::$type,
                     mem::size_of::<Vertex>() as i32,
-                    memoffset::offset_of!(Vertex, $field) as *const _,
+                    mem::offset_of!(Vertex, $field) as *const _,
                 );
 
                 attr_index += 1;
@@ -164,7 +164,7 @@ fn define_vertex_attributes(shader_version: ShaderVersion) -> (GLuint, GLuint) {
                     gl::$type,
                     gl::FALSE,
                     mem::size_of::<Vertex>() as i32,
-                    memoffset::offset_of!(Vertex, $field) as *const _,
+                    mem::offset_of!(Vertex, $field) as *const _,
                 );
 
                 attr_index += 1;
