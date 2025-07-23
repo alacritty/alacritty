@@ -141,6 +141,22 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"ClearSelection"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ToggleNormalSelection"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"Last"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"Copy"_
+|  _"Y"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ClearSelection"_
 |  _"V"_
 :[
 :  _"Vi|~Search"_
@@ -189,6 +205,14 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :[
 :  _"Vi|~Search"_
 :  _"InlineSearchPrevious"_
+|  _"\*"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"SemanticSearchForward"_
+|  _"#"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"SemanticSearchBackward"_
 |  _"K"_
 :[
 :  _"Vi|~Search"_
@@ -281,6 +305,14 @@ configuration. See *alacritty*(5) for full configuration format documentation.
 :  _"Shift"_
 :  _"Vi|~Search"_
 :  _"Bracket"_
+|  _"{"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ParagraphUp"_
+|  _"}"_
+:  _"Shift"_
+:  _"Vi|~Search"_
+:  _"ParagraphDown"_
 |  _"/"_
 :[
 :  _"Vi|~Search"_

@@ -84,7 +84,7 @@ to build Alacritty. Here's an apt command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
-apt install cmake g++ pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3
+apt install cmake g++ pkg-config libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3
 ```
 
 #### Arch Linux
@@ -136,7 +136,7 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel
+zypper install cmake freetype-devel fontconfig-devel libxcb-devel libxkbcommon-devel gcc-c++
 ```
 
 #### Slackware

@@ -6,15 +6,15 @@ use std::rc::Rc;
 
 use alacritty_config::SerdeReplace;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
-use log::{error, LevelFilter};
+use log::{LevelFilter, error};
 use serde::{Deserialize, Serialize};
 use toml::Value;
 
 use alacritty_terminal::tty::Options as PtyOptions;
 
+use crate::config::UiConfig;
 use crate::config::ui_config::Program;
 use crate::config::window::{Class, Identity};
-use crate::config::UiConfig;
 use crate::logging::LOG_TARGET_IPC_CONFIG;
 
 /// CLI options for the main Alacritty executable.
@@ -135,7 +135,7 @@ fn parse_class(input: &str) -> Result<Class, String> {
     let (general, instance) = match input.split_once(',') {
         // Warn the user if they've passed too many values.
         Some((_, instance)) if instance.contains(',') => {
-            return Err(String::from("Too many parameters"))
+            return Err(String::from("Too many parameters"));
         },
         Some((general, instance)) => (general, instance),
         None => (input, input),
@@ -181,7 +181,7 @@ impl TerminalOptions {
             if working_directory.is_dir() {
                 pty_config.working_directory = Some(working_directory.to_owned());
             } else {
-                error!("Invalid working directory: {:?}", working_directory);
+                error!("Invalid working directory: {working_directory:?}");
             }
         }
 
@@ -258,6 +258,9 @@ pub enum SocketMessage {
 
     /// Update the Alacritty configuration.
     Config(IpcConfig),
+
+    /// Read runtime Alacritty configuration.
+    GetConfig(IpcGetConfig),
 }
 
 /// Migrate the configuration file.
@@ -336,6 +339,17 @@ pub struct IpcConfig {
     pub reset: bool,
 }
 
+/// Parameters to the `get-config` IPC subcommand.
+#[cfg(unix)]
+#[derive(Args, Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+pub struct IpcGetConfig {
+    /// Window ID for the config request.
+    ///
+    /// Use `-1` to get the global config.
+    #[clap(short, long, allow_hyphen_values = true, env = "ALACRITTY_WINDOW_ID")]
+    pub window_id: Option<i128>,
+}
+
 /// Parsed CLI config overrides.
 #[derive(Debug, Default)]
 pub struct ParsedOptions {
@@ -370,7 +384,7 @@ impl ParsedOptions {
                 Err(err) => {
                     error!(
                         target: LOG_TARGET_IPC_CONFIG,
-                        "Unable to override option '{}': {}", option, err
+                        "Unable to override option '{option}': {err}"
                     );
                     self.config_options.swap_remove(i);
                 },

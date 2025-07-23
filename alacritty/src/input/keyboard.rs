@@ -11,7 +11,7 @@ use alacritty_terminal::event::EventListener;
 use alacritty_terminal::term::TermMode;
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
-use crate::config::{Action, BindingKey, BindingMode};
+use crate::config::{Action, BindingKey, BindingMode, KeyBinding};
 use crate::event::TYPING_SEARCH_DELAY;
 use crate::input::{ActionContext, Execute, Processor};
 use crate::scheduler::{TimerId, Topic};
@@ -77,6 +77,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         let mods = if self.alt_send_esc(&key, text) { mods } else { mods & !ModifiersState::ALT };
 
         let build_key_sequence = Self::should_build_sequence(&key, text, mode, mods);
+        let is_modifier_key = Self::is_modifier_key(&key);
 
         let bytes = if build_key_sequence {
             build_sequence(key, mods, mode)
@@ -92,7 +93,10 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         // Write only if we have something to write.
         if !bytes.is_empty() {
-            self.ctx.on_terminal_input_start();
+            // Don't clear selection/scroll down when writing escaped modifier keys.
+            if !is_modifier_key {
+                self.ctx.on_terminal_input_start();
+            }
             self.ctx.write_to_pty(bytes);
         }
     }
@@ -125,6 +129,16 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
         }
     }
 
+    fn is_modifier_key(key: &KeyEvent) -> bool {
+        matches!(
+            key.logical_key.as_ref(),
+            Key::Named(NamedKey::Shift)
+                | Key::Named(NamedKey::Control)
+                | Key::Named(NamedKey::Alt)
+                | Key::Named(NamedKey::Super)
+        )
+    }
+
     /// Check whether we should try to build escape sequence for the [`KeyEvent`].
     fn should_build_sequence(
         key: &KeyEvent,
@@ -138,8 +152,15 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
         let disambiguate = mode.contains(TermMode::DISAMBIGUATE_ESC_CODES)
             && (key.logical_key == Key::Named(NamedKey::Escape)
-                || (!mods.is_empty() && mods != ModifiersState::SHIFT)
-                || key.location == KeyLocation::Numpad);
+                || key.location == KeyLocation::Numpad
+                || (!mods.is_empty()
+                    && (mods != ModifiersState::SHIFT
+                        || matches!(
+                            key.logical_key,
+                            Key::Named(NamedKey::Tab)
+                                | Key::Named(NamedKey::Enter)
+                                | Key::Named(NamedKey::Backspace)
+                        ))));
 
         match key.logical_key {
             _ if disambiguate => true,
@@ -182,9 +203,8 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             key.logical_key.clone()
         };
 
-        for i in 0..self.ctx.config().key_bindings().len() {
-            let binding = &self.ctx.config().key_bindings()[i];
-
+        // Get the action of a key binding.
+        let mut binding_action = |binding: &KeyBinding| {
             let key = match (&binding.trigger, &logical_key) {
                 (BindingKey::Scancode(_), _) => BindingKey::Scancode(key.physical_key),
                 (_, code) => {
@@ -197,7 +217,30 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
                 *suppress_chars.get_or_insert(true) &= binding.action != Action::ReceiveChar;
 
                 // Binding was triggered; run the action.
-                binding.action.clone().execute(&mut self.ctx);
+                Some(binding.action.clone())
+            } else {
+                None
+            }
+        };
+
+        // Trigger matching key bindings.
+        for i in 0..self.ctx.config().key_bindings().len() {
+            let binding = &self.ctx.config().key_bindings()[i];
+            if let Some(action) = binding_action(binding) {
+                action.execute(&mut self.ctx);
+            }
+        }
+
+        // Trigger key bindings for hints.
+        for i in 0..self.ctx.config().hints.enabled.len() {
+            let hint = &self.ctx.config().hints.enabled[i];
+            let binding = match hint.binding.as_ref() {
+                Some(binding) => binding.key_binding(hint),
+                None => continue,
+            };
+
+            if let Some(action) = binding_action(binding) {
+                action.execute(&mut self.ctx);
             }
         }
 
@@ -224,7 +267,7 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
             | Key::Named(NamedKey::Backspace)
                 if !mode.contains(TermMode::REPORT_ALL_KEYS_AS_ESC) =>
             {
-                return
+                return;
             },
             _ => build_sequence(key, mods, mode),
         };

@@ -18,8 +18,8 @@ use crate::event::{Event, EventListener};
 use crate::grid::Dimensions;
 use crate::index::{Column, Line};
 use crate::term::{Term, TermMode};
-use crate::vte::ansi::{Handler, Rgb};
 use crate::vte::Params;
+use crate::vte::ansi::{Handler, Rgb};
 
 /// Max allowed dimensions (width, height) for the graphic, in pixels.
 pub const MAX_GRAPHIC_DIMENSIONS: [usize; 2] = [4096, 4096];
@@ -337,11 +337,7 @@ impl Graphics {
     pub fn take_queues(&mut self) -> Option<UpdateQueues> {
         let texture_operations = {
             let mut queue = self.texture_operations.lock();
-            if queue.is_empty() {
-                Vec::new()
-            } else {
-                mem::take(&mut *queue)
-            }
+            if queue.is_empty() { Vec::new() } else { mem::take(&mut *queue) }
         };
 
         if texture_operations.is_empty() && self.pending.is_empty() {
@@ -398,9 +394,9 @@ impl Graphics {
         //   On success, Pv represents the value read or set.
 
         fn generate_response(pi: u16, ps: u16, pv: &[usize]) -> String {
-            let mut text = format!("\x1b[?{};{}", pi, ps);
+            let mut text = format!("\x1b[?{pi};{ps}");
             for item in pv {
-                let _ = write!(&mut text, ";{}", item);
+                let _ = write!(&mut text, ";{item}");
             }
             text.push('S');
             text
@@ -464,7 +460,7 @@ impl Graphics {
 pub fn parse_sixel<L: EventListener>(term: &mut Term<L>, parser: sixel::Parser) {
     match parser.finish() {
         Ok((graphic, palette)) => insert_graphic(term, graphic, Some(palette)),
-        Err(err) => log::warn!("Failed to parse Sixel data: {}", err),
+        Err(err) => log::warn!("Failed to parse Sixel data: {err}"),
     }
 }
 

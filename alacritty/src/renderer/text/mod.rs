@@ -3,8 +3,8 @@ use crossfont::{GlyphKey, RasterizedGlyph};
 
 use alacritty_terminal::term::cell::Flags;
 
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
+use crate::display::content::RenderableCell;
 use crate::gl;
 use crate::gl::types::*;
 

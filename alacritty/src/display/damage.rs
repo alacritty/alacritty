@@ -238,12 +238,12 @@ impl<'a> RenderDamageIterator<'a> {
     fn overdamage(size_info: &SizeInfo<u32>, mut rect: Rect) -> Rect {
         rect.x = (rect.x - size_info.cell_width() as i32).max(0);
         rect.width = cmp::min(
-            size_info.width() as i32 - rect.x,
+            (size_info.width() as i32 - rect.x).max(0),
             rect.width + 2 * size_info.cell_width() as i32,
         );
         rect.y = (rect.y - size_info.cell_height() as i32 / 2).max(0);
         rect.height = cmp::min(
-            size_info.height() as i32 - rect.y,
+            (size_info.height() as i32 - rect.y).max(0),
             rect.height + size_info.cell_height() as i32,
         );
 
@@ -344,6 +344,11 @@ mod tests {
             ),
             rect
         );
+
+        // Test out of bounds coord clamping.
+        let rect = Rect::new(bound * 2, bound * 2, rect_side, rect_side);
+        let rect = RenderDamageIterator::overdamage(&size_info, rect);
+        assert_eq!(Rect::new(bound * 2 - cell_size, bound * 2 - cell_size / 2, 0, 0), rect);
     }
 
     #[test]

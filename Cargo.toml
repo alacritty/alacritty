@@ -7,7 +7,15 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+edition = "2024"
+rust-version = "1.85.0"
+
 [profile.release]
 lto = "thin"
 debug = 1
 incremental = false
+
+[workspace.dependencies]
+toml = "0.9.2"
+toml_edit = "0.23.1"

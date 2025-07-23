@@ -32,8 +32,8 @@ use alacritty_terminal::tty;
 use crate::cli::{ParsedOptions, WindowOptions};
 use crate::clipboard::Clipboard;
 use crate::config::UiConfig;
-use crate::display::window::Window;
 use crate::display::Display;
+use crate::display::window::Window;
 use crate::event::{
     ActionContext, Event, EventProxy, InlineSearchState, Mouse, SearchState, TouchPurpose,
 };
@@ -326,6 +326,12 @@ impl WindowContext {
         self.event_queue.push(event.into());
 
         self.dirty = true;
+    }
+
+    /// Get reference to the window's configuration.
+    #[cfg(unix)]
+    pub fn config(&self) -> &UiConfig {
+        &self.config
     }
 
     /// Clear the window config overrides.

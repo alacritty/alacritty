@@ -1,9 +1,10 @@
 use log::LevelFilter;
+use serde::Serialize;
 
 use alacritty_config_derive::ConfigDeserialize;
 
 /// Debugging options.
-#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(ConfigDeserialize, Serialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Debug {
     pub log_level: LevelFilter,
 
@@ -26,6 +27,7 @@ pub struct Debug {
 
     /// Record ref test.
     #[config(skip)]
+    #[serde(skip_serializing)]
     pub ref_test: bool,
 }
 
@@ -45,7 +47,7 @@ impl Default for Debug {
 }
 
 /// The renderer configuration options.
-#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(ConfigDeserialize, Serialize, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RendererPreference {
     /// OpenGL 3.3 renderer.
     Glsl3,

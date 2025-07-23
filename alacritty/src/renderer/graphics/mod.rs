@@ -137,7 +137,7 @@ impl GraphicsRenderer {
 
             unsafe {
                 gl::GenTextures(1, &mut texture);
-                trace!("Texture generated: {}", texture);
+                trace!("Texture generated: {texture}");
 
                 gl::BindTexture(gl::TEXTURE_2D, texture);
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAX_LEVEL, 0);
@@ -285,7 +285,7 @@ fn check_opengl_extensions(extensions: &[&str]) -> bool {
     for index in 0..num_exts as GLuint {
         let pointer = unsafe { gl::GetStringi(gl::EXTENSIONS, index) };
         if pointer.is_null() {
-            log::warn!("Can't get OpenGL extension name at index {} of {}", index, num_exts);
+            log::warn!("Can't get OpenGL extension name at index {index} of {num_exts}");
             return false;
         }
 
@@ -297,6 +297,6 @@ fn check_opengl_extensions(extensions: &[&str]) -> bool {
         }
     }
 
-    log::debug!("Missing OpenGL extensions: {:?}", needed);
+    log::debug!("Missing OpenGL extensions: {needed:?}");
     false
 }

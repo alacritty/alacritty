@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::event::EventListener;
 use crate::grid::{Dimensions, GridCell};
 use crate::index::{Boundary, Column, Direction, Line, Point, Side};
-use crate::term::cell::Flags;
 use crate::term::Term;
+use crate::term::cell::Flags;
 
 /// Possible vi mode motion movements.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -52,6 +52,10 @@ pub enum ViMotion {
     WordRightEnd,
     /// Move to opposing bracket.
     Bracket,
+    /// Move above the current paragraph.
+    ParagraphUp,
+    /// Move below the current paragraph.
+    ParagraphDown,
 }
 
 /// Cursor tracking vi mode position.
@@ -153,6 +157,27 @@ impl ViModeCursor {
                 self.point = word(term, self.point, Direction::Right, Side::Right);
             },
             ViMotion::Bracket => self.point = term.bracket_search(self.point).unwrap_or(self.point),
+            ViMotion::ParagraphUp => {
+                // Skip empty lines until we find the next paragraph,
+                // then skip over the paragraph until we reach the next empty line.
+                let topmost_line = term.topmost_line();
+                self.point.line = (*topmost_line..*self.point.line)
+                    .rev()
+                    .skip_while(|line| term.grid()[Line(*line)].is_clear())
+                    .find(|line| term.grid()[Line(*line)].is_clear())
+                    .map_or(topmost_line, Line);
+                self.point.column = Column(0);
+            },
+            ViMotion::ParagraphDown => {
+                // Skip empty lines until we find the next paragraph,
+                // then skip over the paragraph until we reach the next empty line.
+                let bottommost_line = term.bottommost_line();
+                self.point.line = (*self.point.line..*bottommost_line)
+                    .skip_while(|line| term.grid()[Line(*line)].is_clear())
+                    .find(|line| term.grid()[Line(*line)].is_clear())
+                    .map_or(bottommost_line, Line);
+                self.point.column = Column(0);
+            },
         }
 
         term.scroll_to_point(self.point);
@@ -226,17 +251,19 @@ fn first_occupied<T>(term: &Term<T>, mut point: Point) -> Point {
 
         // Fallback to the next non-empty cell.
         let mut line = point.line;
-        occupied.unwrap_or_else(|| loop {
-            if let Some(occupied) = first_occupied_in_line(term, line) {
-                break occupied;
-            }
+        occupied.unwrap_or_else(|| {
+            loop {
+                if let Some(occupied) = first_occupied_in_line(term, line) {
+                    break occupied;
+                }
 
-            let last_cell = Point::new(line, last_column);
-            if !is_wrap(term, last_cell) {
-                break last_cell;
-            }
+                let last_cell = Point::new(line, last_column);
+                if !is_wrap(term, last_cell) {
+                    break last_cell;
+                }
 
-            line += 1;
+                line += 1;
+            }
         })
     } else {
         occupied

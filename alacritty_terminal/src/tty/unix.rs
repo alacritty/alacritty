@@ -14,7 +14,7 @@ use std::process::{Child, Command};
 use std::sync::Arc;
 use std::{env, ptr};
 
-use libc::{c_int, TIOCSCTTY};
+use libc::{F_GETFL, F_SETFL, O_NONBLOCK, TIOCSCTTY, c_int, fcntl};
 use log::error;
 use polling::{Event, PollMode, Poller};
 use rustix_openpty::openpty;
@@ -22,7 +22,7 @@ use rustix_openpty::rustix::termios::Winsize;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use rustix_openpty::rustix::termios::{self, InputModes, OptionalActions};
 use signal_hook::low_level::{pipe as signal_pipe, unregister as unregister_signal};
-use signal_hook::{consts as sigconsts, SigId};
+use signal_hook::{SigId, consts as sigconsts};
 
 use crate::event::{OnResize, WindowSize};
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite, Options};
@@ -37,7 +37,7 @@ macro_rules! die {
     ($($arg:tt)*) => {{
         error!($($arg)*);
         std::process::exit(1);
-    }}
+    }};
 }
 
 /// Really only needed on BSD, but should be fine elsewhere.
@@ -82,11 +82,11 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Result<Passwd<'_>> {
     let entry = unsafe { entry.assume_init() };
 
     if status < 0 {
-        return Err(Error::new(ErrorKind::Other, "getpwuid_r failed"));
+        return Err(Error::other("getpwuid_r failed"));
     }
 
     if res.is_null() {
-        return Err(Error::new(ErrorKind::Other, "pw not found"));
+        return Err(Error::other("pw not found"));
     }
 
     // Sanity check.
@@ -247,7 +247,7 @@ pub fn from_fd(config: &Options, window_id: u64, master: OwnedFd, slave: OwnedFd
             // Create a new process group.
             let err = libc::setsid();
             if err == -1 {
-                return Err(Error::new(ErrorKind::Other, "Failed to set session id"));
+                return Err(Error::other("Failed to set session id"));
             }
 
             // Set working directory, ignoring invalid paths.
@@ -383,7 +383,7 @@ impl EventedPty for Pty {
         let mut buf = [0u8; 1];
         if let Err(err) = self.signals.read(&mut buf) {
             if err.kind() != ErrorKind::WouldBlock {
-                error!("Error reading from signal pipe: {}", err);
+                error!("Error reading from signal pipe: {err}");
             }
             return None;
         }
@@ -391,7 +391,7 @@ impl EventedPty for Pty {
         // Match on the child process.
         match self.child.try_wait() {
             Err(err) => {
-                error!("Error checking child process termination: {}", err);
+                error!("Error checking child process termination: {err}");
                 None
             },
             Ok(None) => None,
@@ -434,9 +434,7 @@ impl ToWinsize for WindowSize {
 }
 
 unsafe fn set_nonblocking(fd: c_int) {
-    use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
-
-    let res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    let res = unsafe { fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK) };
     assert_eq!(res, 0);
 }
 

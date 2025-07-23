@@ -56,18 +56,17 @@ impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::TooBigImage { width, height } => {
-                write!(fmt, "The image dimensions are too big ({}, {})", width, height)
+                write!(fmt, "The image dimensions are too big ({width}, {height})")
             },
 
             Error::InvalidColorComponent { register, component_value } => {
-                write!(fmt, "Invalid color component {} for register {}", component_value, register)
+                write!(fmt, "Invalid color component {component_value} for register {register}")
             },
 
             Error::InvalidColorCoordinateSystem { register, coordinate_system } => {
                 write!(
                     fmt,
-                    "Invalid color coordinate system {} for register {}",
-                    coordinate_system, register
+                    "Invalid color coordinate system {coordinate_system} for register {register}"
                 )
             },
         }
@@ -201,7 +200,7 @@ impl CommandParser {
                             return Err(Error::InvalidColorCoordinateSystem {
                                 register: register.0,
                                 coordinate_system: x,
-                            })
+                            });
                         },
                     };
 
@@ -547,11 +546,7 @@ fn hls_to_rgb(hue: u16, lum: u16, sat: u16) -> Rgb {
 
     fn clamp(x: f64) -> u8 {
         let x = f64::round(x * 255. / 100.) % 256.;
-        if x < 0. {
-            0
-        } else {
-            x as u8
-        }
+        if x < 0. { 0 } else { x as u8 }
     }
 
     Rgb { r: clamp(r), g: clamp(g), b: clamp(b) }
@@ -645,11 +640,7 @@ mod tests {
 
         // Reimplement abs_diff to be compatible with rustc before 1.60.
         fn abs_diff(x: u8, y: u8) -> u8 {
-            if x > y {
-                x - y
-            } else {
-                y - x
-            }
+            if x > y { x - y } else { y - x }
         }
 
         macro_rules! assert_color {

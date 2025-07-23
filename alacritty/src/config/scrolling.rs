@@ -1,5 +1,5 @@
 use serde::de::Error as SerdeError;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
@@ -7,7 +7,7 @@ use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 pub const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
 /// Struct for scrolling related settings.
-#[derive(ConfigDeserialize, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scrolling {
     pub multiplier: u8,
 
@@ -26,7 +26,7 @@ impl Scrolling {
     }
 }
 
-#[derive(SerdeReplace, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(SerdeReplace, Serialize, Copy, Clone, Debug, PartialEq, Eq)]
 struct ScrollingHistory(u32);
 
 impl Default for ScrollingHistory {

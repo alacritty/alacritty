@@ -42,7 +42,7 @@ impl ConfigMonitor {
         // a regular file.
         paths.retain(|path| {
             // Call `metadata` to resolve symbolic links.
-            path.metadata().map_or(false, |metadata| metadata.file_type().is_file())
+            path.metadata().is_ok_and(|metadata| metadata.file_type().is_file())
         });
 
         // Canonicalize paths, keeping the base paths for symlinks.
@@ -63,7 +63,7 @@ impl ConfigMonitor {
         ) {
             Ok(watcher) => watcher,
             Err(err) => {
-                error!("Unable to watch config file: {}", err);
+                error!("Unable to watch config file: {err}");
                 return None;
             },
         };
@@ -84,7 +84,7 @@ impl ConfigMonitor {
             // Watch all configuration file directories.
             for parent in &parents {
                 if let Err(err) = watcher.watch(parent, RecursiveMode::NonRecursive) {
-                    debug!("Unable to watch config directory {:?}: {}", parent, err);
+                    debug!("Unable to watch config directory {parent:?}: {err}");
                 }
             }
 
@@ -135,10 +135,10 @@ impl ConfigMonitor {
                         }
                     },
                     Ok(Err(err)) => {
-                        debug!("Config watcher errors: {:?}", err);
+                        debug!("Config watcher errors: {err:?}");
                     },
                     Err(err) => {
-                        debug!("Config watcher channel dropped unexpectedly: {}", err);
+                        debug!("Config watcher channel dropped unexpectedly: {err}");
                         break;
                     },
                 };
@@ -166,7 +166,7 @@ impl ConfigMonitor {
     /// This checks the supplied list of files against the monitored files to determine if a
     /// restart is necessary.
     pub fn needs_restart(&self, files: &[PathBuf]) -> bool {
-        Self::hash_paths(files).map_or(true, |hash| Some(hash) == self.watched_hash)
+        Self::hash_paths(files).is_none_or(|hash| Some(hash) == self.watched_hash)
     }
 
     /// Generate the hash for a list of paths.

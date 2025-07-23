@@ -32,28 +32,28 @@ use alacritty_terminal::index::{Column, Direction, Line, Point};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::{
-    self, LineDamageBounds, Term, TermDamage, TermMode, MIN_COLUMNS, MIN_SCREEN_LINES,
+    self, LineDamageBounds, MIN_COLUMNS, MIN_SCREEN_LINES, Term, TermDamage, TermMode,
 };
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
+use crate::config::UiConfig;
 use crate::config::debug::RendererPreference;
 use crate::config::font::Font;
 use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
-use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
 use crate::display::content::{RenderableContent, RenderableCursor};
 use crate::display::cursor::IntoRects;
-use crate::display::damage::{damage_y_to_viewport_y, DamageTracker};
+use crate::display::damage::{DamageTracker, damage_y_to_viewport_y};
 use crate::display::hint::{HintMatch, HintState};
 use crate::display::meter::Meter;
 use crate::display::window::Window;
 use crate::event::{Event, EventType, Mouse, SearchState};
 use crate::message_bar::{MessageBuffer, MessageType};
 use crate::renderer::rects::{RenderLine, RenderLines, RenderRect};
-use crate::renderer::{self, platform, GlyphCache, Renderer};
+use crate::renderer::{self, GlyphCache, Renderer, platform};
 use crate::scheduler::{Scheduler, TimerId, Topic};
 use crate::string::{ShortenDirection, StrShortener};
 
@@ -468,7 +468,7 @@ impl Display {
             config.window.dynamic_padding && config.window.dimensions().is_none(),
         );
 
-        info!("Cell size: {} x {}", cell_width, cell_height);
+        info!("Cell size: {cell_width} x {cell_height}");
         info!("Padding: {} x {}", size_info.padding_x(), size_info.padding_y());
         info!("Width: {}, Height: {}", size_info.width(), size_info.height());
 
@@ -521,7 +521,7 @@ impl Display {
 
         // Disable vsync.
         if let Err(err) = surface.set_swap_interval(&context, SwapInterval::DontWait) {
-            info!("Failed to disable vsync: {}", err);
+            info!("Failed to disable vsync: {err}");
         }
 
         Ok(Self {
@@ -628,7 +628,7 @@ impl Display {
             (surface, context) => surface.swap_buffers(context),
         };
         if let Err(err) = res {
-            debug!("error calling swap_buffers: {}", err);
+            debug!("error calling swap_buffers: {err}");
         }
     }
 
@@ -684,7 +684,7 @@ impl Display {
             cell_width = cell_dimensions.0;
             cell_height = cell_dimensions.1;
 
-            info!("Cell size: {} x {}", cell_width, cell_height);
+            info!("Cell size: {cell_width} x {cell_height}");
 
             // Mark entire terminal as damaged since glyph size could change without cell size
             // changes.
@@ -881,7 +881,7 @@ impl Display {
                     let hyperlink = cell.extra.as_ref().and_then(|extra| extra.hyperlink.as_ref());
 
                     let should_highlight = |hint: &Option<HintMatch>| {
-                        hint.as_ref().map_or(false, |hint| hint.should_highlight(point, hyperlink))
+                        hint.as_ref().is_some_and(|hint| hint.should_highlight(point, hyperlink))
                     };
                     if should_highlight(highlighted_hint) || should_highlight(vi_highlighted_hint) {
                         show_hint = true;
@@ -1106,7 +1106,7 @@ impl Display {
         }
 
         // Abort if mouse highlighting conditions are not met.
-        if !mouse.inside_text_area || !term.selection.as_ref().map_or(true, Selection::is_empty) {
+        if !mouse.inside_text_area || !term.selection.as_ref().is_none_or(Selection::is_empty) {
             if self.highlighted_hint.take().is_some() {
                 self.damage_tracker.frame().mark_fully_damaged();
                 dirty = true;
@@ -1122,7 +1122,7 @@ impl Display {
         if highlighted_hint.is_some() {
             // If mouse changed the line, we should update the hyperlink preview, since the
             // highlighted hint could be disrupted by the old preview.
-            dirty = self.hint_mouse_point.map_or(false, |p| p.line != point.line);
+            dirty = self.hint_mouse_point.is_some_and(|p| p.line != point.line);
             self.hint_mouse_point = Some(point);
             self.window.set_mouse_cursor(CursorIcon::Pointer);
         } else if self.highlighted_hint.is_some() {
@@ -1392,7 +1392,7 @@ impl Display {
         let bg = colors.line_indicator.background.unwrap_or(colors.primary.foreground);
 
         // Do not render anything if it would obscure the vi mode cursor.
-        if obstructed_column.map_or(true, |obstructed_column| obstructed_column < column) {
+        if obstructed_column.is_none_or(|obstructed_column| obstructed_column < column) {
             let glyph_cache = &mut self.glyph_cache;
             self.renderer.draw_string(point, fg, bg, text.chars(), &self.size_info, glyph_cache);
         }

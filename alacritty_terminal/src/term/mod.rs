@@ -7,8 +7,8 @@ use std::{cmp, mem, ptr, slice, str};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use base64::engine::general_purpose::STANDARD as Base64;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD as Base64;
 use bitflags::bitflags;
 use log::{debug, trace};
 use unicode_width::UnicodeWidthChar;
@@ -20,12 +20,12 @@ use crate::selection::{Selection, SelectionRange, SelectionType};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Colors;
 use crate::vi_mode::{ViModeCursor, ViMotion};
+use crate::vte::Params;
 use crate::vte::ansi::{
     self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, Hyperlink, KeyboardModes,
     KeyboardModesApplyBehavior, NamedColor, NamedMode, NamedPrivateMode, PrivateMode, Rgb,
     StandardCharset,
 };
-use crate::vte::Params;
 
 use crate::graphics::{Graphics, UpdateQueues};
 
@@ -687,7 +687,7 @@ impl<T> Term<T> {
             return;
         }
 
-        debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
+        debug!("New num_cols is {num_cols} and num_lines is {num_lines}");
 
         // Move vi mode cursor with the content.
         let history_size = self.history_size();
@@ -766,7 +766,7 @@ impl<T> Term<T> {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, mut lines: usize) {
-        trace!("Scrolling down relative: origin={}, lines={}", origin, lines);
+        trace!("Scrolling down relative: origin={origin}, lines={lines}");
 
         lines = cmp::min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
         lines = cmp::min(lines, (self.scroll_region.end - origin).0 as usize);
@@ -794,7 +794,7 @@ impl<T> Term<T> {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, mut lines: usize) {
-        trace!("Scrolling up relative: origin={}, lines={}", origin, lines);
+        trace!("Scrolling up relative: origin={origin}, lines={lines}");
 
         lines = cmp::min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
 
@@ -1183,7 +1183,7 @@ impl<T: EventListener> Handler for Term<T> {
         let line = Line(line);
         let col = Column(col);
 
-        trace!("Going to: line={}, col={}", line, col);
+        trace!("Going to: line={line}, col={col}");
         let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
             (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
@@ -1199,13 +1199,13 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn goto_line(&mut self, line: i32) {
-        trace!("Going to line: {}", line);
+        trace!("Going to line: {line}");
         self.goto(line, self.grid.cursor.point.column.0)
     }
 
     #[inline]
     fn goto_col(&mut self, col: usize) {
-        trace!("Going to column: {}", col);
+        trace!("Going to column: {col}");
         self.goto(self.grid.cursor.point.line.0, col)
     }
 
@@ -1239,7 +1239,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_up(&mut self, lines: usize) {
-        trace!("Moving up: {}", lines);
+        trace!("Moving up: {lines}");
 
         let line = self.grid.cursor.point.line - lines;
         let column = self.grid.cursor.point.column;
@@ -1248,7 +1248,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_down(&mut self, lines: usize) {
-        trace!("Moving down: {}", lines);
+        trace!("Moving down: {lines}");
 
         let line = self.grid.cursor.point.line + lines;
         let column = self.grid.cursor.point.column;
@@ -1257,7 +1257,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_forward(&mut self, cols: usize) {
-        trace!("Moving forward: {}", cols);
+        trace!("Moving forward: {cols}");
         let last_column = cmp::min(self.grid.cursor.point.column + cols, self.last_column());
 
         let cursor_line = self.grid.cursor.point.line.0 as usize;
@@ -1269,7 +1269,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_backward(&mut self, cols: usize) {
-        trace!("Moving backward: {}", cols);
+        trace!("Moving backward: {cols}");
         let column = self.grid.cursor.point.column.saturating_sub(cols);
 
         let cursor_line = self.grid.cursor.point.line.0 as usize;
@@ -1321,8 +1321,8 @@ impl<T: EventListener> Handler for Term<T> {
         if self.keyboard_mode_stack.len() >= KEYBOARD_MODE_STACK_MAX_DEPTH {
             let removed = self.title_stack.remove(0);
             trace!(
-                "Removing '{:?}' from bottom of keyboard mode stack that exceeds its maximum depth",
-                removed
+                "Removing '{removed:?}' from bottom of keyboard mode stack that exceeds its \
+                 maximum depth"
             );
         }
 
@@ -1356,7 +1356,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn device_status(&mut self, arg: usize) {
-        trace!("Reporting device status: {}", arg);
+        trace!("Reporting device status: {arg}");
         match arg {
             5 => {
                 let text = String::from("\x1b[0n");
@@ -1367,13 +1367,13 @@ impl<T: EventListener> Handler for Term<T> {
                 let text = format!("\x1b[{};{}R", pos.line + 1, pos.column + 1);
                 self.event_proxy.send_event(Event::PtyWrite(text));
             },
-            _ => debug!("unknown device status query: {}", arg),
+            _ => debug!("unknown device status query: {arg}"),
         };
     }
 
     #[inline]
     fn move_down_and_cr(&mut self, lines: usize) {
-        trace!("Moving down and cr: {}", lines);
+        trace!("Moving down and cr: {lines}");
 
         let line = self.grid.cursor.point.line + lines;
         self.goto(line.0, 0)
@@ -1381,7 +1381,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: usize) {
-        trace!("Moving up and cr: {}", lines);
+        trace!("Moving up and cr: {lines}");
 
         let line = self.grid.cursor.point.line - lines;
         self.goto(line.0, 0)
@@ -1521,7 +1521,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn insert_blank_lines(&mut self, lines: usize) {
-        trace!("Inserting blank {} lines", lines);
+        trace!("Inserting blank {lines} lines");
 
         let origin = self.grid.cursor.point.line;
         if self.scroll_region.contains(&origin) {
@@ -1534,7 +1534,7 @@ impl<T: EventListener> Handler for Term<T> {
         let origin = self.grid.cursor.point.line;
         let lines = cmp::min(self.screen_lines() - origin.0 as usize, lines);
 
-        trace!("Deleting {} lines", lines);
+        trace!("Deleting {lines} lines");
 
         if lines > 0 && self.scroll_region.contains(&origin) {
             self.scroll_up_relative(origin, lines);
@@ -1591,7 +1591,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_backward_tabs(&mut self, count: u16) {
-        trace!("Moving backward {} tabs", count);
+        trace!("Moving backward {count} tabs");
 
         let old_col = self.grid.cursor.point.column.0;
         for _ in 0..count {
@@ -1616,7 +1616,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn move_forward_tabs(&mut self, count: u16) {
-        trace!("Moving forward {} tabs", count);
+        trace!("Moving forward {count} tabs");
 
         let num_cols = self.columns();
         let old_col = self.grid.cursor.point.column.0;
@@ -1659,7 +1659,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
-        trace!("Clearing line: {:?}", mode);
+        trace!("Clearing line: {mode:?}");
 
         let cursor = &self.grid.cursor;
         let bg = cursor.template.bg;
@@ -1686,7 +1686,7 @@ impl<T: EventListener> Handler for Term<T> {
     /// Set the indexed color value.
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
-        trace!("Setting color[{}] = {:?}", index, color);
+        trace!("Setting color[{index}] = {color:?}");
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index] != Some(color) {
@@ -1699,7 +1699,7 @@ impl<T: EventListener> Handler for Term<T> {
     /// Respond to a color query escape sequence.
     #[inline]
     fn dynamic_color_sequence(&mut self, prefix: String, index: usize, terminator: &str) {
-        trace!("Requested write of escape sequence for color code {}: color[{}]", prefix, index);
+        trace!("Requested write of escape sequence for color code {prefix}: color[{index}]");
 
         let terminator = terminator.to_owned();
         self.event_proxy.send_event(Event::ColorRequest(
@@ -1716,7 +1716,7 @@ impl<T: EventListener> Handler for Term<T> {
     /// Reset the indexed color to original value.
     #[inline]
     fn reset_color(&mut self, index: usize) {
-        trace!("Resetting color[{}]", index);
+        trace!("Resetting color[{index}]");
 
         // Damage terminal if the color changed and it's not the cursor.
         if index != NamedColor::Cursor as usize && self.colors[index].is_some() {
@@ -1774,7 +1774,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
-        trace!("Clearing screen: {:?}", mode);
+        trace!("Clearing screen: {mode:?}");
         let bg = self.grid.cursor.template.bg;
 
         let screen_lines = self.screen_lines();
@@ -1845,7 +1845,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) {
-        trace!("Clearing tabs: {:?}", mode);
+        trace!("Clearing tabs: {mode:?}");
         match mode {
             ansi::TabulationClearMode::Current => {
                 self.tabs[self.grid.cursor.point.column] = false;
@@ -1898,14 +1898,14 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn set_hyperlink(&mut self, hyperlink: Option<Hyperlink>) {
-        trace!("Setting hyperlink: {:?}", hyperlink);
+        trace!("Setting hyperlink: {hyperlink:?}");
         self.grid.cursor.template.set_hyperlink(hyperlink.map(|e| e.into()));
     }
 
     /// Set a terminal attribute.
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
-        trace!("Setting attribute: {:?}", attr);
+        trace!("Setting attribute: {attr:?}");
         let cursor = &mut self.grid.cursor;
         match attr {
             Attr::Foreground(color) => cursor.template.fg = color,
@@ -1951,7 +1951,7 @@ impl<T: EventListener> Handler for Term<T> {
             Attr::Strike => cursor.template.flags.insert(Flags::STRIKEOUT),
             Attr::CancelStrike => cursor.template.flags.remove(Flags::STRIKEOUT),
             _ => {
-                debug!("Term got unhandled attr: {:?}", attr);
+                debug!("Term got unhandled attr: {attr:?}");
             },
         }
     }
@@ -1980,12 +1980,12 @@ impl<T: EventListener> Handler for Term<T> {
             },
 
             PrivateMode::Unknown(mode) => {
-                debug!("Ignoring unknown mode {} in set_private_mode", mode);
+                debug!("Ignoring unknown mode {mode} in set_private_mode");
                 return;
             },
         };
 
-        trace!("Setting private mode: {:?}", mode);
+        trace!("Setting private mode: {mode:?}");
         match mode {
             NamedPrivateMode::UrgencyHints => self.mode.insert(TermMode::URGENCY_HINTS),
             NamedPrivateMode::SwapScreenAndSetRestoreCursor => {
@@ -2060,12 +2060,12 @@ impl<T: EventListener> Handler for Term<T> {
             },
 
             PrivateMode::Unknown(mode) => {
-                debug!("Ignoring unknown mode {} in unset_private_mode", mode);
+                debug!("Ignoring unknown mode {mode} in unset_private_mode");
                 return;
             },
         };
 
-        trace!("Unsetting private mode: {:?}", mode);
+        trace!("Unsetting private mode: {mode:?}");
         match mode {
             NamedPrivateMode::UrgencyHints => self.mode.remove(TermMode::URGENCY_HINTS),
             NamedPrivateMode::SwapScreenAndSetRestoreCursor => {
@@ -2161,12 +2161,12 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
             ansi::Mode::Unknown(mode) => {
-                debug!("Ignoring unknown mode {} in set_mode", mode);
+                debug!("Ignoring unknown mode {mode} in set_mode");
                 return;
             },
         };
 
-        trace!("Setting public mode: {:?}", mode);
+        trace!("Setting public mode: {mode:?}");
         match mode {
             NamedMode::Insert => self.mode.insert(TermMode::INSERT),
             NamedMode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
@@ -2178,12 +2178,12 @@ impl<T: EventListener> Handler for Term<T> {
         let mode = match mode {
             ansi::Mode::Named(mode) => mode,
             ansi::Mode::Unknown(mode) => {
-                debug!("Ignoring unknown mode {} in unset_mode", mode);
+                debug!("Ignoring unknown mode {mode} in unset_mode");
                 return;
             },
         };
 
-        trace!("Setting public mode: {:?}", mode);
+        trace!("Setting public mode: {mode:?}");
         match mode {
             NamedMode::Insert => {
                 self.mode.remove(TermMode::INSERT);
@@ -2219,7 +2219,7 @@ impl<T: EventListener> Handler for Term<T> {
         let bottom = bottom.unwrap_or_else(|| self.screen_lines());
 
         if top >= bottom {
-            debug!("Invalid scrolling region: ({};{})", top, bottom);
+            debug!("Invalid scrolling region: ({top};{bottom})");
             return;
         }
 
@@ -2230,7 +2230,7 @@ impl<T: EventListener> Handler for Term<T> {
         let start = Line(top as i32 - 1);
         let end = Line(bottom as i32);
 
-        trace!("Setting scrolling region: ({};{})", start, end);
+        trace!("Setting scrolling region: ({start};{end})");
 
         let screen_lines = Line(self.screen_lines() as i32);
         self.scroll_region.start = cmp::min(start, screen_lines);
@@ -2252,19 +2252,19 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-        trace!("Configuring charset {:?} as {:?}", index, charset);
+        trace!("Configuring charset {index:?} as {charset:?}");
         self.grid.cursor.charsets[index] = charset;
     }
 
     #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
-        trace!("Setting active charset {:?}", index);
+        trace!("Setting active charset {index:?}");
         self.active_charset = index;
     }
 
     #[inline]
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
-        trace!("Setting cursor style {:?}", style);
+        trace!("Setting cursor style {style:?}");
         self.cursor_style = style;
 
         // Notify UI about blinking changes.
@@ -2273,7 +2273,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn set_cursor_shape(&mut self, shape: CursorShape) {
-        trace!("Setting cursor shape {:?}", shape);
+        trace!("Setting cursor shape {shape:?}");
 
         let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
         style.shape = shape;
@@ -2281,7 +2281,7 @@ impl<T: EventListener> Handler for Term<T> {
 
     #[inline]
     fn set_title(&mut self, title: Option<String>) {
-        trace!("Setting title to '{:?}'", title);
+        trace!("Setting title to '{title:?}'");
 
         self.title.clone_from(&title);
 
@@ -2300,8 +2300,7 @@ impl<T: EventListener> Handler for Term<T> {
         if self.title_stack.len() >= TITLE_STACK_MAX_DEPTH {
             let removed = self.title_stack.remove(0);
             trace!(
-                "Removing '{:?}' from bottom of title stack that exceeds its maximum depth",
-                removed
+                "Removing '{removed:?}' from bottom of title stack that exceeds its maximum depth"
             );
         }
 
@@ -2313,7 +2312,7 @@ impl<T: EventListener> Handler for Term<T> {
         trace!("Attempting to pop title from stack...");
 
         if let Some(popped) = self.title_stack.pop() {
-            trace!("Title '{:?}' popped from stack", popped);
+            trace!("Title '{popped:?}' popped from stack");
             self.set_title(popped);
         }
     }
@@ -2345,8 +2344,7 @@ impl<T: EventListener> Handler for Term<T> {
                 self.graphics.start_sixel_graphic(params);
             },
             _ => debug!(
-                "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, action: {:?}",
-                params, intermediates, ignore, action
+                "[unhandled hook] params={params:?}, ints: {intermediates:?}, ignore: {ignore:?}, action: {action:?}"
             ),
         }
     }
@@ -2355,11 +2353,11 @@ impl<T: EventListener> Handler for Term<T> {
     fn dcs_put(&mut self, byte: u8) {
         if let Some(parser) = &mut self.graphics.sixel_parser {
             if let Err(err) = parser.put(byte) {
-                log::warn!("Failed to parse Sixel data: {}", err);
+                log::warn!("Failed to parse Sixel data: {err}");
                 self.graphics.sixel_parser = None;
             }
         } else {
-            debug!("[unhandled put] byte={:?}", byte);
+            debug!("[unhandled put] byte={byte:?}");
         }
     }
 
@@ -2368,7 +2366,7 @@ impl<T: EventListener> Handler for Term<T> {
         if let Some(parser) = self.graphics.sixel_parser.take() {
             crate::graphics::parse_sixel(self, *parser);
         } else {
-            dbg!("[unhandled dcs_unhook]");
+            debug!("[unhandled dcs_unhook]");
         }
     }
 }
@@ -2387,11 +2385,7 @@ enum ModeState {
 
 impl From<bool> for ModeState {
     fn from(value: bool) -> Self {
-        if value {
-            Self::Set
-        } else {
-            Self::Reset
-        }
+        if value { Self::Set } else { Self::Reset }
     }
 }
 

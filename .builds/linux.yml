@@ -34,7 +34,7 @@ tasks:
       cargo test
   - oldstable: |
       cd alacritty
-      oldstable=$(cat alacritty/Cargo.toml | grep "rust-version" | sed 's/.*"\(.*\)".*/\1/')
+      oldstable=$(cat Cargo.toml | grep "rust-version" | sed 's/.*"\(.*\)".*/\1/')
       rustup toolchain install --profile minimal $oldstable
       rustup default $oldstable
       cargo test

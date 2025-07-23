@@ -31,7 +31,7 @@ use crate::cli::Options;
 #[cfg(test)]
 pub use crate::config::bindings::Binding;
 pub use crate::config::bindings::{
-    Action, BindingKey, BindingMode, MouseAction, SearchAction, ViAction,
+    Action, BindingKey, BindingMode, KeyBinding, MouseAction, SearchAction, ViAction,
 };
 pub use crate::config::ui_config::UiConfig;
 use crate::logging::LOG_TARGET_CONFIG;
@@ -148,7 +148,7 @@ pub fn load(options: &mut Options) -> UiConfig {
 
 /// Attempt to reload the configuration file.
 pub fn reload(config_path: &Path, options: &mut Options) -> Result<UiConfig> {
-    debug!("Reloading configuration file: {:?}", config_path);
+    debug!("Reloading configuration file: {config_path:?}");
 
     // Load config, propagating errors.
     let mut config = load_from(config_path)?;
@@ -162,9 +162,6 @@ pub fn reload(config_path: &Path, options: &mut Options) -> Result<UiConfig> {
 fn after_loading(config: &mut UiConfig, options: &mut Options) {
     // Override config with CLI options.
     options.override_config(config);
-
-    // Create key bindings for regex hints.
-    config.generate_hint_bindings();
 }
 
 /// Load configuration file and log errors.
@@ -172,11 +169,11 @@ fn load_from(path: &Path) -> Result<UiConfig> {
     match read_config(path) {
         Ok(config) => Ok(config),
         Err(Error::Io(io)) if io.kind() == io::ErrorKind::NotFound => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: File not found", path);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: File not found");
             Err(Error::Io(io))
         },
         Err(err) => {
-            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {path:?}: {err}");
             Err(err)
         },
     }
@@ -271,7 +268,7 @@ fn load_imports(
                 continue;
             },
             Err(err) => {
-                error!(target: LOG_TARGET_CONFIG, "Unable to import config {:?}: {}", path, err)
+                error!(target: LOG_TARGET_CONFIG, "Unable to import config {path:?}: {err}")
             },
         }
     }
@@ -371,19 +368,15 @@ fn prune_yaml_nulls(value: &mut serde_yaml::Value, warn_pruned: bool) {
 /// 2. $XDG_CONFIG_HOME/alacritty.toml
 /// 3. $HOME/.config/alacritty/alacritty.toml
 /// 4. $HOME/.alacritty.toml
+/// 5. /etc/alacritty/alacritty.toml
 #[cfg(not(windows))]
 pub fn installed_config(suffix: &str) -> Option<PathBuf> {
     let file_name = format!("alacritty.{suffix}");
 
     // Try using XDG location by default.
     xdg::BaseDirectories::with_prefix("alacritty")
-        .ok()
-        .and_then(|xdg| xdg.find_config_file(&file_name))
-        .or_else(|| {
-            xdg::BaseDirectories::new()
-                .ok()
-                .and_then(|fallback| fallback.find_config_file(&file_name))
-        })
+        .find_config_file(&file_name)
+        .or_else(|| xdg::BaseDirectories::new().find_config_file(&file_name))
         .or_else(|| {
             if let Ok(home) = env::var("HOME") {
                 // Fallback path: $HOME/.config/alacritty/alacritty.toml.
@@ -398,7 +391,9 @@ pub fn installed_config(suffix: &str) -> Option<PathBuf> {
                     return Some(fallback);
                 }
             }
-            None
+
+            let fallback = PathBuf::from("/etc/alacritty").join(&file_name);
+            fallback.exists().then_some(fallback)
         })
 }
 

@@ -68,6 +68,7 @@ following locations:
 2. `$XDG_CONFIG_HOME/alacritty.toml`
 3. `$HOME/.config/alacritty/alacritty.toml`
 4. `$HOME/.alacritty.toml`
+5. `/etc/alacritty/alacritty.toml`
 
 On Windows, the config file will be looked for in:
 

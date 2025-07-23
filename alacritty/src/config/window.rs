@@ -10,13 +10,13 @@ use winit::window::{Fullscreen, Theme as WinitTheme, WindowLevel as WinitWindowL
 
 use alacritty_config_derive::{ConfigDeserialize, SerdeReplace};
 
-use crate::config::ui_config::{Delta, Percentage};
 use crate::config::LOG_TARGET_CONFIG;
+use crate::config::ui_config::{Delta, Percentage};
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
 
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct WindowConfig {
     /// Initial position.
     pub position: Option<Delta<i32>>,
@@ -29,6 +29,7 @@ pub struct WindowConfig {
 
     /// XEmbed parent.
     #[config(skip)]
+    #[serde(skip_serializing)]
     pub embed: Option<u32>,
 
     /// Spread out additional padding evenly.
@@ -109,10 +110,7 @@ impl WindowConfig {
             warn!(
                 target: LOG_TARGET_CONFIG,
                 "Both `lines` and `columns` must be non-zero for `window.dimensions` to take \
-                 effect. Configured value of `{}` is 0 while that of `{}` is {}",
-                zero_key,
-                non_zero_key,
-                non_zero_value,
+                 effect. Configured value of `{zero_key}` is 0 while that of `{non_zero_key}` is {non_zero_value}",
             );
 
             None
@@ -157,7 +155,7 @@ impl WindowConfig {
     }
 }
 
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Identity {
     /// Window title.
     pub title: String,
@@ -172,7 +170,7 @@ impl Default for Identity {
     }
 }
 
-#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum StartupMode {
     #[default]
     Windowed,
@@ -181,7 +179,7 @@ pub enum StartupMode {
     SimpleFullscreen,
 }
 
-#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Decorations {
     #[default]
     Full,
@@ -193,7 +191,7 @@ pub enum Decorations {
 /// Window Dimensions.
 ///
 /// Newtype to avoid passing values incorrectly.
-#[derive(ConfigDeserialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Dimensions {
     /// Window width in character columns.
     pub columns: usize,
@@ -254,7 +252,7 @@ impl<'de> Deserialize<'de> for Class {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: class.instance: {}", err
+                                    "Config error: class.instance: {err}"
                                 );
                             },
                         },
@@ -263,7 +261,7 @@ impl<'de> Deserialize<'de> for Class {
                             Err(err) => {
                                 error!(
                                     target: LOG_TARGET_CONFIG,
-                                    "Config error: class.instance: {}", err
+                                    "Config error: class.instance: {err}"
                                 );
                             },
                         },
@@ -279,7 +277,7 @@ impl<'de> Deserialize<'de> for Class {
     }
 }
 
-#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionAsAlt {
     /// The left `Option` key is treated as `Alt`.
     OnlyLeft,
@@ -296,7 +294,7 @@ pub enum OptionAsAlt {
 }
 
 /// System decorations theme variant.
-#[derive(ConfigDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Theme {
     Light,
     Dark,
@@ -311,7 +309,7 @@ impl From<Theme> for WinitTheme {
     }
 }
 
-#[derive(ConfigDeserialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ConfigDeserialize, Serialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowLevel {
     #[default]
     Normal,

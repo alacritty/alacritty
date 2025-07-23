@@ -6,8 +6,8 @@ use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Write};
 use std::num::NonZeroUsize;
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
@@ -212,7 +212,7 @@ where
 
             // Register TTY through EventedRW interface.
             if let Err(err) = unsafe { self.pty.register(&self.poll, interest, poll_opts) } {
-                error!("Event loop registration error: {}", err);
+                error!("Event loop registration error: {err}");
                 return (self, state);
             }
 
@@ -235,7 +235,7 @@ where
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
                         _ => {
-                            error!("Event loop polling error: {}", err);
+                            error!("Event loop polling error: {err}");
                             break 'event_loop;
                         },
                     }
@@ -289,14 +289,14 @@ where
                                         continue;
                                     }
 
-                                    error!("Error reading from PTY in event loop: {}", err);
+                                    error!("Error reading from PTY in event loop: {err}");
                                     break 'event_loop;
                                 }
                             }
 
                             if event.writable {
                                 if let Err(err) = self.pty_write(&mut state) {
-                                    error!("Error writing to PTY in event loop: {}", err);
+                                    error!("Error writing to PTY in event loop: {err}");
                                     break 'event_loop;
                                 }
                             }
@@ -338,7 +338,7 @@ impl event::Notify for Notifier {
     {
         let bytes = bytes.into();
         // Terminal hangs if we send 0 bytes through.
-        if bytes.len() == 0 {
+        if bytes.is_empty() {
             return;
         }
 

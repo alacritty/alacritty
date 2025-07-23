@@ -8,11 +8,11 @@
 use std::collections::BTreeMap;
 use std::mem::{self, MaybeUninit};
 
-use crate::display::content::RenderableCell;
 use crate::display::SizeInfo;
+use crate::display::content::RenderableCell;
 use crate::gl::types::*;
 use crate::gl::{self};
-use crate::renderer::graphics::{shader, GraphicsRenderer};
+use crate::renderer::graphics::{GraphicsRenderer, shader};
 use crate::renderer::{RenderRect, Rgb};
 
 use alacritty_terminal::graphics::GraphicId;

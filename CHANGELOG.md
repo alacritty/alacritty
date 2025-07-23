@@ -10,6 +10,18 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 
 ## 0.16.0-dev
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.85.0
+
+### Added
+
+- Vi motions `*`, `#`, `{`, and `}`
+- IPC config retrieval using `alacritty msg get-config`
+- Multi-sequence touch zoom sequences
+- Vi action `Y` keybind, yank to the end of line
+- Add `/etc/alacritty/alacritty.toml` fallback for system wide configuration
+
 ### Changed
 
 - Hide login message if `~/.hushlogin` is present
@@ -17,6 +29,12 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Fixed
 
 - Crash when OpenGL context resets
+- Modifier keys clearing selection with kitty keyboard protocol enabled
+- `glyph_offset.y` not applied to strikeout
+- `Enter`,`Tab`, `Backspace` not disambiguated with `shift` in kitty keyboard's disambiguate mode
+- Hint bindings not respecting IPC overrides
+- Search matching a wrapping fullwidth character in the last column
+- Crash when `AppleFontSmoothing` option is not present on macOS
 
 ## 0.15.1
 

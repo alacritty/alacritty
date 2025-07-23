@@ -1,8 +1,8 @@
 use std::io::Write;
-use std::{io, panic};
+use std::{io, panic, ptr};
 
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    MessageBoxW, MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MB_TASKMODAL,
+    MB_ICONERROR, MB_OK, MB_SETFOREGROUND, MB_TASKMODAL, MessageBoxW,
 };
 
 use alacritty_terminal::tty::windows::win32_string;
@@ -15,7 +15,7 @@ pub fn attach_handler() {
         let msg = format!("{}\n\nPress Ctrl-C to Copy", panic_info);
         unsafe {
             MessageBoxW(
-                0isize,
+                ptr::null_mut(),
                 win32_string(&msg).as_ptr(),
                 win32_string("Alacritty: Runtime Error").as_ptr(),
                 MB_ICONERROR | MB_OK | MB_SETFOREGROUND | MB_TASKMODAL,

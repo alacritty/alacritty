@@ -2,13 +2,15 @@
 
 use std::path::PathBuf;
 
+use serde::Serialize;
+
 use alacritty_config_derive::ConfigDeserialize;
 
 /// General config section.
 ///
 /// This section is for fields which can not be easily categorized,
 /// to avoid common TOML issues with root-level fields.
-#[derive(ConfigDeserialize, Clone, PartialEq, Debug)]
+#[derive(ConfigDeserialize, Serialize, Clone, PartialEq, Debug)]
 pub struct General {
     /// Configuration file imports.
     ///

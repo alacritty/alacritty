@@ -11,8 +11,12 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 #[cfg(not(windows))]
 use std::os::unix::io::RawFd;
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::rc::Rc;
+#[cfg(unix)]
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, f32, mem};
 
@@ -35,6 +39,7 @@ use alacritty_terminal::event_loop::Notifier;
 use alacritty_terminal::grid::{BidirectionalIterator, Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Line, Point, Side};
 use alacritty_terminal::selection::{Selection, SelectionType};
+use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::search::{Match, RegexSearch};
 use alacritty_terminal::term::{self, ClipboardType, Term, TermMode};
 use alacritty_terminal::vte::ansi::NamedColor;
@@ -53,6 +58,8 @@ use crate::display::hint::HintMatch;
 use crate::display::window::Window;
 use crate::display::{Display, Preedit, SizeInfo};
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
+#[cfg(unix)]
+use crate::ipc::{self, SocketReply};
 use crate::logging::{LOG_TARGET_CONFIG, LOG_TARGET_WINIT};
 use crate::message_bar::{Message, MessageBuffer};
 use crate::scheduler::{Scheduler, TimerId, Topic};
@@ -189,10 +196,9 @@ impl Processor {
     /// The result is exit code generate from the loop.
     pub fn run(&mut self, event_loop: EventLoop<Event>) -> Result<(), Box<dyn Error>> {
         let result = event_loop.run_app(self);
-        if let Some(initial_window_error) = self.initial_window_error.take() {
-            Err(initial_window_error)
-        } else {
-            result.map_err(Into::into)
+        match self.initial_window_error.take() {
+            Some(initial_window_error) => Err(initial_window_error),
+            _ => result.map_err(Into::into),
         }
     }
 
@@ -308,6 +314,29 @@ impl ApplicationHandler<Event> for Processor {
                     }
                 }
             },
+            // Process IPC config requests.
+            #[cfg(unix)]
+            (EventType::IpcGetConfig(stream), window_id) => {
+                // Get the config for the requested window ID.
+                let config = match self.windows.iter().find(|(id, _)| window_id == Some(*id)) {
+                    Some((_, window_context)) => window_context.config(),
+                    None => &self.global_ipc_options.override_config_rc(self.config.clone()),
+                };
+
+                // Convert config to JSON format.
+                let config_json = match serde_json::to_string(&config) {
+                    Ok(config_json) => config_json,
+                    Err(err) => {
+                        error!("Failed config serialization: {err}");
+                        return;
+                    },
+                };
+
+                // Send JSON config to the socket.
+                if let Ok(mut stream) = stream.try_clone() {
+                    ipc::send_reply(&mut stream, SocketReply::GetConfig(config_json));
+                }
+            },
             (EventType::ConfigReload(path), _) => {
                 // Clear config logs from message bar for all terminals.
                 for window_context in self.windows.values_mut() {
@@ -354,7 +383,7 @@ impl ApplicationHandler<Event> for Processor {
                         event_loop.exit();
                     }
                 } else if let Err(err) = self.create_window(event_loop, options) {
-                    error!("Could not open window: {:?}", err);
+                    error!("Could not open window: {err:?}");
                 }
             },
             // Process events affecting all windows.
@@ -477,7 +506,7 @@ impl ApplicationHandler<Event> for Processor {
 
         // SAFETY: The clipboard must be dropped before the event loop, so use the nop clipboard
         // as a safe placeholder.
-        mem::swap(&mut self.clipboard, &mut Clipboard::new_nop());
+        self.clipboard = Clipboard::new_nop();
     }
 }
 
@@ -513,6 +542,8 @@ pub enum EventType {
     CreateWindow(WindowOptions),
     #[cfg(unix)]
     IpcConfig(IpcConfig),
+    #[cfg(unix)]
+    IpcGetConfig(Arc<UnixStream>),
     BlinkCursor,
     BlinkCursorTimeout,
     SearchNext,
@@ -680,7 +711,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let vi_mode = self.terminal.mode().contains(TermMode::VI);
 
         // Update selection.
-        if vi_mode && self.terminal.selection.as_ref().map_or(false, |s| !s.is_empty()) {
+        if vi_mode && self.terminal.selection.as_ref().is_some_and(|s| !s.is_empty()) {
             self.update_selection(self.terminal.vi_mode_cursor.point, Side::Right);
         } else if self.mouse.left_button_state == ElementState::Pressed
             || self.mouse.right_button_state == ElementState::Pressed
@@ -714,14 +745,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection.as_ref().map_or(true, Selection::is_empty)
+        self.terminal.selection.as_ref().is_none_or(Selection::is_empty)
     }
 
     fn clear_selection(&mut self) {
         // Clear the selection on the terminal.
         let selection = self.terminal.selection.take();
         // Mark the terminal as dirty when selection wasn't empty.
-        *self.dirty |= selection.map_or(false, |s| !s.is_empty());
+        *self.dirty |= selection.is_some_and(|s| !s.is_empty());
     }
 
     fn update_selection(&mut self, mut point: Point, side: Side) {
@@ -873,7 +904,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let result = spawn_daemon(program, args);
 
         match result {
-            Ok(_) => debug!("Launched {} with args {:?}", program, args),
+            Ok(_) => debug!("Launched {program} with args {args:?}"),
             Err(err) => warn!("Unable to launch {program} with args {args:?}: {err}"),
         }
     }
@@ -905,7 +936,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     #[inline]
     fn start_search(&mut self, direction: Direction) {
         // Only create new history entry if the previous regex wasn't empty.
-        if self.search_state.history.front().map_or(true, |regex| !regex.is_empty()) {
+        if self.search_state.history.front().is_none_or(|regex| !regex.is_empty()) {
             self.search_state.history.push_front(String::new());
             self.search_state.history.truncate(MAX_SEARCH_HISTORY_SIZE);
         }
@@ -938,6 +969,52 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         self.display.damage_tracker.frame().mark_fully_damaged();
         self.display.pending_update.dirty = true;
+    }
+
+    #[inline]
+    fn start_seeded_search(&mut self, direction: Direction, text: String) {
+        let origin = self.terminal.vi_mode_cursor.point;
+
+        // Start new search.
+        self.clear_selection();
+        self.start_search(direction);
+
+        // Enter initial selection text.
+        for c in text.chars() {
+            if let '$' | '('..='+' | '?' | '['..='^' | '{'..='}' = c {
+                self.search_input('\\');
+            }
+            self.search_input(c);
+        }
+
+        // Leave search mode.
+        self.confirm_search();
+
+        if !self.terminal.mode().contains(TermMode::VI) {
+            return;
+        }
+
+        // Find the target vi cursor point by going to the next match to the right of the origin,
+        // then jump to the next search match in the target direction.
+        let target = self.search_next(origin, Direction::Right, Side::Right).and_then(|rm| {
+            let regex_match = match direction {
+                Direction::Right => {
+                    let origin = rm.end().add(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Right, Side::Left)?
+                },
+                Direction::Left => {
+                    let origin = rm.start().sub(self.terminal, Boundary::None, 1);
+                    self.search_next(origin, Direction::Left, Side::Left)?
+                },
+            };
+            Some(*regex_match.start())
+        });
+
+        // Move the vi cursor to the target position.
+        if let Some(target) = target {
+            self.terminal_mut().vi_goto_point(target);
+            self.mark_dirty();
+        }
     }
 
     #[inline]
@@ -1215,6 +1292,55 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         if self.terminal().mode().contains(TermMode::VI) && !self.search_active() {
             self.terminal_mut().vi_mode_cursor.point = point;
         }
+    }
+
+    /// Get the semantic word at the specified point.
+    fn semantic_word(&self, point: Point) -> String {
+        let terminal = self.terminal();
+        let grid = terminal.grid();
+
+        // Find the next semantic word boundary to the right.
+        let mut end = terminal.semantic_search_right(point);
+
+        // Get point at which skipping over semantic characters has led us back to the
+        // original character.
+        let start_cell = &grid[point];
+        let search_end = if start_cell.flags.intersects(Flags::LEADING_WIDE_CHAR_SPACER) {
+            point.add(terminal, Boundary::None, 2)
+        } else if start_cell.flags.intersects(Flags::WIDE_CHAR) {
+            point.add(terminal, Boundary::None, 1)
+        } else {
+            point
+        };
+
+        // Keep moving until we're not on top of a semantic escape character.
+        let semantic_chars = terminal.semantic_escape_chars();
+        loop {
+            let cell = &grid[end];
+
+            // Get cell's character, taking wide characters into account.
+            let c = if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+                grid[end.sub(terminal, Boundary::None, 1)].c
+            } else {
+                cell.c
+            };
+
+            if !semantic_chars.contains(c) {
+                break;
+            }
+
+            end = terminal.semantic_search_right(end.add(terminal, Boundary::None, 1));
+
+            // Stop if the entire grid is only semantic escape characters.
+            if end == search_end {
+                return String::new();
+            }
+        }
+
+        // Find the beginning of the semantic word.
+        let start = terminal.semantic_search_left(end);
+
+        terminal.bounds_to_string(start, end)
     }
 
     /// Handle beginning of terminal text input.
@@ -1575,6 +1701,7 @@ pub enum TouchPurpose {
     Select(TouchEvent),
     Scroll(TouchEvent),
     Zoom(TouchZoom),
+    ZoomPendingSlot(TouchEvent),
     Tap(TouchEvent),
     Invalid(HashSet<u64, RandomState>),
 }
@@ -1617,11 +1744,8 @@ impl TouchZoom {
     }
 
     /// Get active touch slots.
-    pub fn slots(&self) -> HashSet<u64, RandomState> {
-        let mut set = HashSet::default();
-        set.insert(self.slots.0.id);
-        set.insert(self.slots.1.id);
-        set
+    pub fn slots(&self) -> (TouchEvent, TouchEvent) {
+        self.slots
     }
 
     /// Calculate distance between slots.
@@ -1790,7 +1914,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     TerminalEvent::Exit | TerminalEvent::ChildExit(_) | TerminalEvent::Wakeup => (),
                 },
                 #[cfg(unix)]
-                EventType::IpcConfig(_) => (),
+                EventType::IpcConfig(_) | EventType::IpcGetConfig(..) => (),
                 EventType::Message(_)
                 | EventType::ConfigReload(_)
                 | EventType::CreateWindow(_)
@@ -1916,7 +2040,7 @@ impl input::Processor<EventProxy, ActionContext<'_, Notifier, EventProxy>> {
                     | WindowEvent::Moved(_) => (),
                 }
             },
-            WinitEvent::Suspended { .. }
+            WinitEvent::Suspended
             | WinitEvent::NewEvents { .. }
             | WinitEvent::DeviceEvent { .. }
             | WinitEvent::LoopExiting
