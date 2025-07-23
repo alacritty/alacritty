@@ -2344,7 +2344,8 @@ impl<T: EventListener> Handler for Term<T> {
                 self.graphics.start_sixel_graphic(params);
             },
             _ => debug!(
-                "[unhandled hook] params={params:?}, ints: {intermediates:?}, ignore: {ignore:?}, action: {action:?}"
+                "[unhandled hook] params={params:?}, ints: {intermediates:?}, ignore: {ignore:?}, \
+                 action: {action:?}"
             ),
         }
     }
