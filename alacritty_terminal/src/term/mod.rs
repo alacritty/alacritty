@@ -1979,7 +1979,10 @@ impl<T: EventListener> Handler for Term<T> {
             },
             NamedPrivateMode::AlternateScroll => self.mode.insert(TermMode::ALTERNATE_SCROLL),
             NamedPrivateMode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
-            NamedPrivateMode::Origin => self.mode.insert(TermMode::ORIGIN),
+            NamedPrivateMode::Origin => {
+                self.mode.insert(TermMode::ORIGIN);
+                self.goto(0, 0);
+            },
             NamedPrivateMode::ColumnMode => self.deccolm(),
             NamedPrivateMode::BlinkingCursor => {
                 let style = self.cursor_style.get_or_insert(self.config.default_cursor_style);
