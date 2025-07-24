@@ -35,6 +35,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Hint bindings not respecting IPC overrides
 - Search matching a wrapping fullwidth character in the last column
 - Crash when `AppleFontSmoothing` option is not present on macOS
+- Origin mode (DECOM) not moving cursor to the origin point
 
 ## 0.15.1
 
