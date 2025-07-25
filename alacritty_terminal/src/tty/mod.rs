@@ -18,7 +18,7 @@ pub mod windows;
 pub use self::windows::*;
 
 /// Configuration for the `Pty` interface.
-#[derive(Clone, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Options {
     /// Shell options.
     ///
