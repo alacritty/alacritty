@@ -18,7 +18,7 @@ pub mod windows;
 pub use self::windows::*;
 
 /// Configuration for the `Pty` interface.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct Options {
     /// Shell options.
     ///
@@ -33,6 +33,13 @@ pub struct Options {
 
     /// Extra environment variables.
     pub env: HashMap<String, String>,
+
+    /// Specifies whether the shell arguments should be escaped.
+    ///
+    /// This is useful for passing arguments to applications that don't follow
+    /// the standard C run-time escaping rules, such as `cmd.exe /c`.
+    #[cfg(target_os = "windows")]
+    pub raw_args: bool,
 }
 
 /// Shell options.

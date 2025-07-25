@@ -175,10 +175,9 @@ fn cmdline(config: &Options) -> String {
     let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    once(shell.program.as_str().into())
-        .chain(shell.args.iter().map(|s| make_arg(s.into())))
-        .collect::<Vec<_>>()
-        .join(" ")
+    let args =
+        shell.args.iter().map(|s| if config.raw_args { s.into() } else { make_arg(s.into()) });
+    once(shell.program.as_str().into()).chain(args).collect::<Vec<_>>().join(" ")
 }
 
 /// Converts the string slice into a Windows-standard representation for "W"-
@@ -189,7 +188,8 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
 
 #[cfg(test)]
 mod test {
-    use super::make_arg;
+    use super::{cmdline, make_arg};
+    use crate::tty::{Options, Shell};
 
     #[test]
     fn test_escape() {
@@ -222,5 +222,23 @@ mod test {
         for (input, expected) in test_set {
             assert_eq!(make_arg(input.into()), expected, "Failed for input: {}", input);
         }
+    }
+
+    #[test]
+    fn test_cmdline() {
+        let mut options = Options {
+            shell: Some(Shell {
+                program: "echo".to_string(),
+                args: vec!["hello world".to_string()],
+            }),
+            working_directory: None,
+            drain_on_exit: true,
+            env: Default::default(),
+            raw_args: true,
+        };
+        assert_eq!(cmdline(&options), "echo hello world");
+
+        options.raw_args = false;
+        assert_eq!(cmdline(&options), "echo \"hello world\"");
     }
 }
