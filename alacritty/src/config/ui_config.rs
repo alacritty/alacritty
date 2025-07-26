@@ -138,7 +138,7 @@ impl UiConfig {
             drain_on_exit: false,
             env: HashMap::new(),
             #[cfg(target_os = "windows")]
-            raw_args: true,
+            escape_args: false,
         }
     }
 

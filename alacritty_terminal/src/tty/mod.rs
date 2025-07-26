@@ -34,12 +34,12 @@ pub struct Options {
     /// Extra environment variables.
     pub env: HashMap<String, String>,
 
-    /// Specifies whether the shell arguments should be escaped.
+    /// Specifies whether the Windows shell arguments should be escaped.
     ///
     /// This is useful for passing arguments to applications that don't follow
     /// the standard C run-time escaping rules, such as `cmd.exe /c`.
     #[cfg(target_os = "windows")]
-    pub raw_args: bool,
+    pub escape_args: bool,
 }
 
 /// Shell options.

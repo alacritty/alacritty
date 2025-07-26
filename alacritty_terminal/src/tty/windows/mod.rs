@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io::{self, Result};
 use std::iter::once;
@@ -128,56 +127,50 @@ impl OnResize for Pty {
 
 // Modified per stdlib implementation.
 // https://github.com/rust-lang/rust/blob/6707bf0f59485cf054ac1095725df43220e4be20/library/std/src/sys/args/windows.rs#L174
-fn make_arg(arg: Cow<'_, str>) -> Cow<'_, str> {
-    let mut quote = false;
-    let mut escape = false;
-    for x in arg.chars() {
-        match x {
-            ' ' | '\t' => quote = true,
-            '\\' | '"' => escape = true,
-            _ => {},
-        }
-    }
-    if !quote && !escape {
-        return arg;
-    }
-
-    let mut output = String::with_capacity(arg.len());
+fn push_escaped_arg(cmd: &mut Vec<u16>, arg: &str) {
+    let arg_bytes = arg.as_bytes();
+    let quote = arg_bytes.iter().any(|c| *c == b' ' || *c == b'\t') || arg_bytes.is_empty();
     if quote {
-        output.push('"');
+        cmd.push('"' as u16);
     }
 
     let mut backslashes: usize = 0;
-    for x in arg.chars() {
-        if escape {
-            if x == '\\' {
-                backslashes += 1;
-            } else {
-                if x == '"' {
-                    // Add n+1 backslashes to total 2n+1 before internal '"'.
-                    output.extend((0..=backslashes).map(|_| '\\'));
-                }
-                backslashes = 0;
+    for x in arg.encode_utf16() {
+        if x == '\\' as u16 {
+            backslashes += 1;
+        } else {
+            if x == '"' as u16 {
+                // Add n+1 backslashes to total 2n+1 before internal '"'.
+                cmd.extend((0..=backslashes).map(|_| '\\' as u16));
             }
+            backslashes = 0;
         }
-        output.push(x);
+        cmd.push(x);
     }
 
     if quote {
         // Add n backslashes to total 2n before ending '"'.
-        output.extend((0..backslashes).map(|_| '\\'));
-        output.push('"');
+        cmd.extend((0..backslashes).map(|_| '\\' as u16));
+        cmd.push('"' as u16);
     }
-    output.into()
 }
 
 fn cmdline(config: &Options) -> String {
     let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    let args =
-        shell.args.iter().map(|s| if config.raw_args { s.into() } else { make_arg(s.into()) });
-    once(shell.program.as_str().into()).chain(args).collect::<Vec<_>>().join(" ")
+    let mut cmd: Vec<u16> = Vec::new();
+    cmd.extend(shell.program.encode_utf16());
+
+    for arg in &shell.args {
+        cmd.push(' ' as u16);
+        if config.escape_args {
+            push_escaped_arg(&mut cmd, arg);
+        } else {
+            cmd.extend(arg.encode_utf16());
+        }
+    }
+    String::from_utf16_lossy(&cmd)
 }
 
 /// Converts the string slice into a Windows-standard representation for "W"-
@@ -188,16 +181,18 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
 
 #[cfg(test)]
 mod test {
-    use super::{cmdline, make_arg};
-    use crate::tty::{Options, Shell};
+    use crate::tty::{
+        Options, Shell,
+        windows::{cmdline, push_escaped_arg},
+    };
 
     #[test]
     fn test_escape() {
         let test_set = vec![
             // Basic cases - no escaping needed
-            ("", ""),
             ("abc", "abc"),
             // Cases requiring quotes (space/tab)
+            ("", "\"\""),
             (" ", "\" \""),
             ("ab c", "\"ab c\""),
             ("ab\tc", "\"ab\tc\""),
@@ -220,7 +215,9 @@ mod test {
         ];
 
         for (input, expected) in test_set {
-            assert_eq!(make_arg(input.into()), expected, "Failed for input: {}", input);
+            let mut arg = Vec::new();
+            push_escaped_arg(&mut arg, input);
+            assert_eq!(String::from_utf16_lossy(&arg), expected, "Failed for input: {}", input);
         }
     }
 
@@ -234,11 +231,11 @@ mod test {
             working_directory: None,
             drain_on_exit: true,
             env: Default::default(),
-            raw_args: true,
+            escape_args: false,
         };
         assert_eq!(cmdline(&options), "echo hello world");
 
-        options.raw_args = false;
+        options.escape_args = true;
         assert_eq!(cmdline(&options), "echo \"hello world\"");
     }
 }
