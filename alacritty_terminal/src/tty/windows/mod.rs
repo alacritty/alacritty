@@ -181,10 +181,8 @@ pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
 
 #[cfg(test)]
 mod test {
-    use crate::tty::{
-        Options, Shell,
-        windows::{cmdline, push_escaped_arg},
-    };
+    use crate::tty::windows::{cmdline, push_escaped_arg};
+    use crate::tty::{Options, Shell};
 
     #[test]
     fn test_escape() {
