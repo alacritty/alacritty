@@ -201,7 +201,7 @@ impl From<TerminalOptions> for PtyOptions {
             drain_on_exit: options.hold,
             env: HashMap::new(),
             #[cfg(target_os = "windows")]
-            raw_args: true,
+            escape_args: false,
         }
     }
 }
