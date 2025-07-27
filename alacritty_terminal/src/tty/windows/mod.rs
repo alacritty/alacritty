@@ -167,7 +167,7 @@ fn cmdline(config: &Options) -> String {
         if config.escape_args {
             push_escaped_arg(&mut cmd, arg);
         } else {
-            cmd.push_str(&arg)
+            cmd.push_str(arg)
         }
     }
     cmd
