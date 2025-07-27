@@ -160,14 +160,14 @@ fn cmdline(config: &Options) -> String {
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
     let mut cmd = String::new();
-    cmd.extend(shell.program.chars());
+    cmd.push_str(&shell.program);
 
     for arg in &shell.args {
         cmd.push(' ');
         if config.escape_args {
             push_escaped_arg(&mut cmd, arg);
         } else {
-            cmd.extend(arg.chars());
+            cmd.push_str(&arg)
         }
     }
     cmd
