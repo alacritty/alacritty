@@ -127,21 +127,21 @@ impl OnResize for Pty {
 
 // Modified per stdlib implementation.
 // https://github.com/rust-lang/rust/blob/6707bf0f59485cf054ac1095725df43220e4be20/library/std/src/sys/args/windows.rs#L174
-fn push_escaped_arg(cmd: &mut Vec<u16>, arg: &str) {
+fn push_escaped_arg(cmd: &mut String, arg: &str) {
     let arg_bytes = arg.as_bytes();
     let quote = arg_bytes.iter().any(|c| *c == b' ' || *c == b'\t') || arg_bytes.is_empty();
     if quote {
-        cmd.push('"' as u16);
+        cmd.push('"');
     }
 
     let mut backslashes: usize = 0;
-    for x in arg.encode_utf16() {
-        if x == '\\' as u16 {
+    for x in arg.chars() {
+        if x == '\\' {
             backslashes += 1;
         } else {
-            if x == '"' as u16 {
+            if x == '"' {
                 // Add n+1 backslashes to total 2n+1 before internal '"'.
-                cmd.extend((0..=backslashes).map(|_| '\\' as u16));
+                cmd.extend((0..=backslashes).map(|_| '\\'));
             }
             backslashes = 0;
         }
@@ -150,8 +150,8 @@ fn push_escaped_arg(cmd: &mut Vec<u16>, arg: &str) {
 
     if quote {
         // Add n backslashes to total 2n before ending '"'.
-        cmd.extend((0..backslashes).map(|_| '\\' as u16));
-        cmd.push('"' as u16);
+        cmd.extend((0..backslashes).map(|_| '\\'));
+        cmd.push('"');
     }
 }
 
@@ -159,18 +159,18 @@ fn cmdline(config: &Options) -> String {
     let default_shell = Shell::new("powershell".to_owned(), Vec::new());
     let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    let mut cmd: Vec<u16> = Vec::new();
-    cmd.extend(shell.program.encode_utf16());
+    let mut cmd = String::new();
+    cmd.extend(shell.program.chars());
 
     for arg in &shell.args {
-        cmd.push(' ' as u16);
+        cmd.push(' ');
         if config.escape_args {
             push_escaped_arg(&mut cmd, arg);
         } else {
-            cmd.extend(arg.encode_utf16());
+            cmd.extend(arg.chars());
         }
     }
-    String::from_utf16_lossy(&cmd)
+    cmd
 }
 
 /// Converts the string slice into a Windows-standard representation for "W"-
@@ -213,9 +213,9 @@ mod test {
         ];
 
         for (input, expected) in test_set {
-            let mut arg = Vec::new();
-            push_escaped_arg(&mut arg, input);
-            assert_eq!(String::from_utf16_lossy(&arg), expected, "Failed for input: {}", input);
+            let mut escaped_arg = String::new();
+            push_escaped_arg(&mut escaped_arg, input);
+            assert_eq!(escaped_arg, expected, "Failed for input: {}", input);
         }
     }
 
