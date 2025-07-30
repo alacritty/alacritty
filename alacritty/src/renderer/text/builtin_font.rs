@@ -902,19 +902,19 @@ impl Canvas {
                 let x = x as f32;
                 let distance = (x * x + y * y).sqrt() + distance_bias;
                 let value = if distance < radius - stroke_size_f - 1. {
-                    // Inside the circle
+                    // Inside the circle.
                     0.
                 } else if distance < radius - stroke_size_f {
-                    // On the inner border
+                    // On the inner border.
                     1. + distance - (radius - stroke_size_f)
                 } else if distance < radius - 1. {
-                    // Inside the stroke
+                    // Inside the stroke.
                     1.
                 } else if distance < radius {
-                    // On the outer border
+                    // On the outer border.
                     radius - distance
                 } else {
-                    // Outside of the circle
+                    // Outside of the circle.
                     0.
                 };
 
