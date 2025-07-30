@@ -879,24 +879,27 @@ impl Canvas {
     /// `self.width` and an attached rectangle to form a "╭" using a given `stroke_size` in the
     /// bottom-right quadrant of the `Canvas` coordinate system.
     fn draw_rounded_corner(&mut self, stroke_size: usize) {
-        let r = 0.5 * (self.width.min(self.height) + stroke_size) as f32;
+        let r = (self.width.min(self.height) + stroke_size) as f32 / 2.;
         let w = stroke_size as f32;
 
-        let mut x_offset = 0.0;
-        let mut y_offset = 0.0;
-        let d_bias: f32;
+        let bigger = self.width.max(self.height);
+        let smaller = self.width.min(self.height);
+
+        let d_bias = if smaller % 2 == stroke_size % 2 { 0. } else { 0.5 };
+
+        let mut x_offset = 0.;
+        let mut y_offset = 0.;
+        let offset = {
+            let mut offset = bigger as f32 / 2. - r + w / 2.;
+            if (self.width % 2 != self.height % 2) && (bigger % 2 == stroke_size % 2) {
+                offset += 1.;
+            }
+            offset
+        };
         if self.height > self.width {
-            y_offset = self.height as f32 * 0.5 - r + w * 0.5;
-            if (self.width % 2 != self.height % 2) && (self.height % 2 == stroke_size % 2) {
-                y_offset += 1.0;
-            }
-            d_bias = if self.width % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
+            y_offset = offset;
         } else {
-            x_offset = self.width as f32 * 0.5 - r + w * 0.5;
-            if (self.width % 2 != self.height % 2) && (self.width % 2 == stroke_size % 2) {
-                x_offset += 1.0;
-            }
-            d_bias = if self.height % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
+            x_offset = offset;
         }
 
         let radius_i = (self.width.min(self.height) + stroke_size + 1) / 2;
@@ -905,16 +908,21 @@ impl Canvas {
                 let y = y as f32;
                 let x = x as f32;
                 let d = (x * x + y * y).sqrt() + d_bias;
-                let v = if d < r - w - 1.0 {
-                    0.0
+                let v = if d < r - w - 1. {
+                    // Inside the ring
+                    0.
                 } else if d < r - w {
-                    1.0 + d - (r - w)
-                } else if d < r - 1.0 {
-                    1.0
+                    // On the inner border
+                    1. + d - (r - w)
+                } else if d < r - 1. {
+                    // Inside the stroke
+                    1.
                 } else if d < r {
+                    // On the outer border
                     r - d
                 } else {
-                    0.0
+                    // Outside of the ring
+                    0.
                 };
                 self.put_pixel(
                     x + x_offset,
@@ -925,9 +933,9 @@ impl Canvas {
         }
 
         if self.height > self.width {
-            self.draw_rect(self.x_center() - w * 0.5, 0.0, w, y_offset, COLOR_FILL);
+            self.draw_rect(self.x_center() - w * 0.5, 0., w, y_offset, COLOR_FILL);
         } else {
-            self.draw_rect(0.0, self.y_center() - w * 0.5, x_offset, w, COLOR_FILL);
+            self.draw_rect(0., self.y_center() - w * 0.5, x_offset, w, COLOR_FILL);
         }
     }
 
