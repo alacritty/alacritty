@@ -879,18 +879,29 @@ impl Canvas {
     /// `self.width` and an attached rectangle to form a "╭" using a given `stroke_size` in the
     /// bottom-right quadrant of the `Canvas` coordinate system.
     fn draw_rounded_corner(&mut self, stroke_size: usize) {
-        let r = 0.5 * (self.width + stroke_size) as f32;
+        let r = 0.5 * (self.width.min(self.height) + stroke_size) as f32;
         let w = stroke_size as f32;
-        let mut y_offset = self.height as f32 * 0.5 - r + w * 0.5;
 
-        // biases because of rounding issues
-        if (self.width % 2 != self.height % 2) && (self.height % 2 == stroke_size % 2) {
-            y_offset += 1.0;
+        let mut x_offset = 0.0;
+        let mut y_offset = 0.0;
+        let d_bias: f32;
+        if self.height > self.width {
+            y_offset = self.height as f32 * 0.5 - r + w * 0.5;
+            if (self.width % 2 != self.height % 2) && (self.height % 2 == stroke_size % 2) {
+                y_offset += 1.0;
+            }
+            d_bias = if self.width % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
+        } else {
+            x_offset = self.width as f32 * 0.5 - r + w * 0.5;
+            if (self.width % 2 != self.height % 2) && (self.width % 2 == stroke_size % 2) {
+                x_offset += 1.0;
+            }
+            d_bias = if self.height % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
         }
-        let d_bias = if self.width % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
 
-        for y in 0..(self.width + stroke_size + 1) / 2 {
-            for x in 0..(self.width + stroke_size + 1) / 2 {
+        let radius_i = (self.width.min(self.height) + stroke_size + 1) / 2;
+        for y in 0..radius_i {
+            for x in 0..radius_i {
                 let y = y as f32;
                 let x = x as f32;
                 let d = (x * x + y * y).sqrt() + d_bias;
@@ -905,11 +916,15 @@ impl Canvas {
                 } else {
                     0.0
                 };
-                self.put_pixel(x, y + y_offset, Pixel::gray((COLOR_FILL._r as f32 * v) as u8));
+                self.put_pixel(x + x_offset, y + y_offset, Pixel::gray((COLOR_FILL._r as f32 * v) as u8));
             }
         }
 
-        self.draw_rect(self.x_center() - w * 0.5, 0.0, w, y_offset, COLOR_FILL);
+        if self.height > self.width {
+            self.draw_rect(self.x_center() - w * 0.5, 0.0, w, y_offset, COLOR_FILL);
+        } else {
+            self.draw_rect(0.0, self.y_center() - w * 0.5, x_offset, w, COLOR_FILL);
+        }
     }
 
     /// Fills the `Canvas` with the given `Color`.
