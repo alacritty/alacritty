@@ -25,6 +25,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Hide login message if `~/.hushlogin` is present
+- Improve rendering of rounded corners with builtin box drawing
 
 ### Fixed
 
@@ -1403,4 +1404,3 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 - Clear the visible region when the RIS escape sequence (`echo -ne '\033c'`) is received
 - Prevent logger from crashing Alacritty when stdout/stderr is not available
 - Fix a crash when sending the IL escape sequence with a large number of lines
-- Fix rendering of rounded corners with builtin box drawing
