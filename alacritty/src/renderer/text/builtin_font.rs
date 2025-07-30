@@ -927,9 +927,21 @@ impl Canvas {
         }
 
         if self.height > self.width {
-            self.draw_rect(self.x_center() - stroke_size_f * 0.5, 0., stroke_size_f, y_offset, COLOR_FILL);
+            self.draw_rect(
+                self.x_center() - stroke_size_f * 0.5,
+                0.,
+                stroke_size_f,
+                y_offset,
+                COLOR_FILL,
+            );
         } else {
-            self.draw_rect(0., self.y_center() - stroke_size_f * 0.5, x_offset, stroke_size_f, COLOR_FILL);
+            self.draw_rect(
+                0.,
+                self.y_center() - stroke_size_f * 0.5,
+                x_offset,
+                stroke_size_f,
+                COLOR_FILL,
+            );
         }
     }
 
