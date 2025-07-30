@@ -875,9 +875,9 @@ impl Canvas {
         }
     }
 
-    /// Draws a quarter of a circle centered in `(0., self.height - radius)` with radius `self.width` and an attached
-    /// rectangle to form a "╭" using a given `stroke_size` in the bottom-right quadrant of the
-    /// `Canvas` coordinate system.
+    /// Draws a quarter of a circle centered in `(0., self.height - radius)` with radius
+    /// `self.width` and an attached rectangle to form a "╭" using a given `stroke_size` in the
+    /// bottom-right quadrant of the `Canvas` coordinate system.
     fn draw_rounded_corner(&mut self, stroke_size: usize) {
         let r = 0.5 * (self.width + stroke_size) as f32;
         let w = stroke_size as f32;
