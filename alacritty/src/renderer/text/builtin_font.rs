@@ -879,56 +879,57 @@ impl Canvas {
     /// `self.width` and an attached rectangle to form a "╭" using a given `stroke_size` in the
     /// bottom-right quadrant of the `Canvas` coordinate system.
     fn draw_rounded_corner(&mut self, stroke_size: usize) {
-        let r = (self.width.min(self.height) + stroke_size) as f32 / 2.;
-        let w = stroke_size as f32;
+        let radius = (self.width.min(self.height) + stroke_size) as f32 / 2.;
+        let stroke_size_f = stroke_size as f32;
 
         let mut x_offset = 0.;
         let mut y_offset = 0.;
-        let (bigger, smaller, offset) = if self.height > self.width {
+        let (long_side, short_side, offset) = if self.height > self.width {
             (&self.height, &self.width, &mut y_offset)
         } else {
             (&self.width, &self.height, &mut x_offset)
         };
-        let d_bias = if smaller % 2 == stroke_size % 2 { 0. } else { 0.5 };
-        *offset = *bigger as f32 / 2. - r + w / 2.;
-        if (self.width % 2 != self.height % 2) && (bigger % 2 == stroke_size % 2) {
+        let distance_bias = if short_side % 2 == stroke_size % 2 { 0. } else { 0.5 };
+        *offset = *long_side as f32 / 2. - radius + stroke_size_f / 2.;
+        if (self.width % 2 != self.height % 2) && (long_side % 2 == stroke_size % 2) {
             *offset += 1.;
         }
 
-        let radius_i = (smaller + stroke_size + 1) / 2;
+        let radius_i = (short_side + stroke_size + 1) / 2;
         for y in 0..radius_i {
             for x in 0..radius_i {
                 let y = y as f32;
                 let x = x as f32;
-                let d = (x * x + y * y).sqrt() + d_bias;
-                let v = if d < r - w - 1. {
-                    // Inside the ring
+                let distance = (x * x + y * y).sqrt() + distance_bias;
+                let value = if distance < radius - stroke_size_f - 1. {
+                    // Inside the circle
                     0.
-                } else if d < r - w {
+                } else if distance < radius - stroke_size_f {
                     // On the inner border
-                    1. + d - (r - w)
-                } else if d < r - 1. {
+                    1. + distance - (radius - stroke_size_f)
+                } else if distance < radius - 1. {
                     // Inside the stroke
                     1.
-                } else if d < r {
+                } else if distance < radius {
                     // On the outer border
-                    r - d
+                    radius - distance
                 } else {
-                    // Outside of the ring
+                    // Outside of the circle
                     0.
                 };
+
                 self.put_pixel(
                     x + x_offset,
                     y + y_offset,
-                    Pixel::gray((COLOR_FILL._r as f32 * v) as u8),
+                    Pixel::gray((COLOR_FILL._r as f32 * value) as u8),
                 );
             }
         }
 
         if self.height > self.width {
-            self.draw_rect(self.x_center() - w * 0.5, 0., w, y_offset, COLOR_FILL);
+            self.draw_rect(self.x_center() - stroke_size_f * 0.5, 0., stroke_size_f, y_offset, COLOR_FILL);
         } else {
-            self.draw_rect(0., self.y_center() - w * 0.5, x_offset, w, COLOR_FILL);
+            self.draw_rect(0., self.y_center() - stroke_size_f * 0.5, x_offset, stroke_size_f, COLOR_FILL);
         }
     }
 
