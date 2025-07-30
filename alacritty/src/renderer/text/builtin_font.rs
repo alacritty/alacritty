@@ -349,7 +349,7 @@ fn box_drawing(character: char, metrics: &Metrics, offset: &Delta<i8>) -> Raster
         },
         // Arcs: '╭', '╮', '╯', '╰'.
         '\u{256d}' | '\u{256e}' | '\u{256f}' | '\u{2570}' => {
-            canvas.draw_ellipse_arc(stroke_size);
+            canvas.draw_rounded_corner(stroke_size);
 
             // Mirror `X` axis.
             if character == '\u{256d}' || character == '\u{2570}' {
@@ -875,87 +875,56 @@ impl Canvas {
         }
     }
 
-    /// Draws a part of an ellipse centered in `(0., 0.)` with `self.x_center()` and `self.y_center`
-    /// vertex and co-vertex respectively using a given `stroke` in the bottom-right quadrant of the
+    /// Draws a quarter of a circle centered in `(0., self.height - radius)` with radius `self.width` and an attached
+    /// rectangle to form a "╭" using a given `stroke_size` in the bottom-right quadrant of the
     /// `Canvas` coordinate system.
-    fn draw_ellipse_arc(&mut self, stroke_size: usize) {
-        fn colors_with_error(error: f32, max_transparency: f32) -> (Pixel, Pixel) {
-            let transparency = error * max_transparency;
-            let alpha_1 = 1. - transparency;
-            let alpha_2 = 1. - (max_transparency - transparency);
-            let color_1 = Pixel::gray((COLOR_FILL._r as f32 * alpha_1) as u8);
-            let color_2 = Pixel::gray((COLOR_FILL._r as f32 * alpha_2) as u8);
-            (color_1, color_2)
+    fn draw_rounded_corner(&mut self, stroke_size: usize) {
+        let r = 0.5 * (self.width + stroke_size) as f32;
+        let w = stroke_size as f32;
+        let mut y_offset = self.height as f32 * 0.5 - r + w * 0.5;
+
+        // biases because of rounding issues
+        if (self.width % 2 != self.height % 2) && (self.height % 2 == stroke_size % 2) {
+            y_offset += 1.0;
         }
+        let d_bias = if self.width % 2 == stroke_size % 2 { 0.0 } else { 0.5 };
 
-        let h_line_bounds = self.h_line_bounds(self.y_center(), stroke_size);
-        let v_line_bounds = self.v_line_bounds(self.x_center(), stroke_size);
-        let h_line_bounds = (h_line_bounds.0 as usize, h_line_bounds.1 as usize);
-        let v_line_bounds = (v_line_bounds.0 as usize, v_line_bounds.1 as usize);
-        let max_transparency = 0.5;
-
-        for (radius_y, radius_x) in
-            (h_line_bounds.0..h_line_bounds.1).zip(v_line_bounds.0..v_line_bounds.1)
-        {
-            let radius_x = radius_x as f32;
-            let radius_y = radius_y as f32;
-            let radius_x2 = radius_x * radius_x;
-            let radius_y2 = radius_y * radius_y;
-            let quarter = f32::round(radius_x2 / f32::sqrt(radius_x2 + radius_y2)) as usize;
-
-            for x in 0..=quarter {
-                let x = x as f32;
-                let y = radius_y * f32::sqrt(1. - x * x / radius_x2);
-                let error = y.fract();
-
-                let (color_1, color_2) = colors_with_error(error, max_transparency);
-
-                let x = x.clamp(0., radius_x);
-                let y_next = (y + 1.).clamp(0., h_line_bounds.1 as f32 - 1.);
-                let y = y.clamp(0., h_line_bounds.1 as f32 - 1.);
-
-                self.put_pixel(x, y, color_1);
-                self.put_pixel(x, y_next, color_2);
-            }
-
-            let quarter = f32::round(radius_y2 / f32::sqrt(radius_x2 + radius_y2)) as usize;
-            for y in 0..=quarter {
+        for y in 0..(self.width + stroke_size + 1) / 2 {
+            for x in 0..(self.width + stroke_size + 1) / 2 {
                 let y = y as f32;
-                let x = radius_x * f32::sqrt(1. - y * y / radius_y2);
-                let error = x - x.fract();
-
-                let (color_1, color_2) = colors_with_error(error, max_transparency);
-
-                let x_next = (x + 1.).clamp(0., v_line_bounds.1 as f32 - 1.);
-                let x = x.clamp(0., v_line_bounds.1 as f32 - 1.);
-                let y = y.clamp(0., radius_y);
-
-                self.put_pixel(x, y, color_1);
-                self.put_pixel(x_next, y, color_2);
+                let x = x as f32;
+                // avoid slow `sqrt` if possible, equivalent to:
+                // ```rust
+                // let d = (x * x + y * y).sqrt() + d_bias;
+                // let v = if d < r - w - 1.0 {
+                //     0.0
+                // } else if d < r - w {
+                //     1.0 + d - (r - w)
+                // } else if d < r - 1.0 {
+                //     1.0
+                // } else if d < r {
+                //     r - d
+                // } else {
+                //     0.0
+                // };
+                // ```
+                let d2 = x * x + y * y;
+                let v = if d2 < (r - w - 1.0 - d_bias).powi(2) {
+                    0.0
+                } else if d2 < (r - w - d_bias).powi(2) {
+                    1.0 + d2.sqrt() + d_bias - (r - w)
+                } else if d2 < (r - 1.0 - d_bias).powi(2) {
+                    1.0
+                } else if d2 < (r - d_bias).powi(2) {
+                    r - d2.sqrt() - d_bias
+                } else {
+                    0.0
+                };
+                self.put_pixel(x, y + y_offset, Pixel::gray((COLOR_FILL._r as f32 * v) as u8));
             }
         }
 
-        // Ensure the part closer to edges is properly filled.
-        self.draw_h_line(0., self.y_center(), stroke_size as f32, stroke_size);
-        self.draw_v_line(self.x_center(), 0., stroke_size as f32, stroke_size);
-
-        // Fill the resulted arc, since it could have gaps in-between.
-        for y in 0..self.height {
-            let row = y * self.width;
-            let left = match self.buffer[row..row + self.width].iter().position(|p| p._r != 0) {
-                Some(left) => row + left,
-                _ => continue,
-            };
-            let right = match self.buffer[row..row + self.width].iter().rposition(|p| p._r != 0) {
-                Some(right) => row + right,
-                _ => continue,
-            };
-
-            for index in left + 1..right {
-                self.buffer[index] =
-                    self.buffer[index] + self.buffer[index - 1] / 2 + self.buffer[index + 1] / 2;
-            }
-        }
+        self.draw_rect(self.x_center() - w * 0.5, 0.0, w, y_offset, COLOR_FILL);
     }
 
     /// Fills the `Canvas` with the given `Color`.
