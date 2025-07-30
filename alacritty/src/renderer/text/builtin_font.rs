@@ -916,7 +916,11 @@ impl Canvas {
                 } else {
                     0.0
                 };
-                self.put_pixel(x + x_offset, y + y_offset, Pixel::gray((COLOR_FILL._r as f32 * v) as u8));
+                self.put_pixel(
+                    x + x_offset,
+                    y + y_offset,
+                    Pixel::gray((COLOR_FILL._r as f32 * v) as u8),
+                );
             }
         }
 
