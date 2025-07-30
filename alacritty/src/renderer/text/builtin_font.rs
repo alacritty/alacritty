@@ -882,27 +882,20 @@ impl Canvas {
         let r = (self.width.min(self.height) + stroke_size) as f32 / 2.;
         let w = stroke_size as f32;
 
-        let bigger = self.width.max(self.height);
-        let smaller = self.width.min(self.height);
-
-        let d_bias = if smaller % 2 == stroke_size % 2 { 0. } else { 0.5 };
-
         let mut x_offset = 0.;
         let mut y_offset = 0.;
-        let offset = {
-            let mut offset = bigger as f32 / 2. - r + w / 2.;
-            if (self.width % 2 != self.height % 2) && (bigger % 2 == stroke_size % 2) {
-                offset += 1.;
-            }
-            offset
-        };
-        if self.height > self.width {
-            y_offset = offset;
+        let (bigger, smaller, offset) = if self.height > self.width {
+            (&self.height, &self.width, &mut y_offset)
         } else {
-            x_offset = offset;
+            (&self.width, &self.height, &mut x_offset)
+        };
+        let d_bias = if smaller % 2 == stroke_size % 2 { 0. } else { 0.5 };
+        *offset = *bigger as f32 / 2. - r + w / 2.;
+        if (self.width % 2 != self.height % 2) && (bigger % 2 == stroke_size % 2) {
+            *offset += 1.;
         }
 
-        let radius_i = (self.width.min(self.height) + stroke_size + 1) / 2;
+        let radius_i = (smaller + stroke_size + 1) / 2;
         for y in 0..radius_i {
             for x in 0..radius_i {
                 let y = y as f32;
