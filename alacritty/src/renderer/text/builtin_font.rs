@@ -893,30 +893,15 @@ impl Canvas {
             for x in 0..(self.width + stroke_size + 1) / 2 {
                 let y = y as f32;
                 let x = x as f32;
-                // avoid slow `sqrt` if possible, equivalent to:
-                // ```rust
-                // let d = (x * x + y * y).sqrt() + d_bias;
-                // let v = if d < r - w - 1.0 {
-                //     0.0
-                // } else if d < r - w {
-                //     1.0 + d - (r - w)
-                // } else if d < r - 1.0 {
-                //     1.0
-                // } else if d < r {
-                //     r - d
-                // } else {
-                //     0.0
-                // };
-                // ```
-                let d2 = x * x + y * y;
-                let v = if d2 < (r - w - 1.0 - d_bias).powi(2) {
+                let d = (x * x + y * y).sqrt() + d_bias;
+                let v = if d < r - w - 1.0 {
                     0.0
-                } else if d2 < (r - w - d_bias).powi(2) {
-                    1.0 + d2.sqrt() + d_bias - (r - w)
-                } else if d2 < (r - 1.0 - d_bias).powi(2) {
+                } else if d < r - w {
+                    1.0 + d - (r - w)
+                } else if d < r - 1.0 {
                     1.0
-                } else if d2 < (r - d_bias).powi(2) {
-                    r - d2.sqrt() - d_bias
+                } else if d < r {
+                    r - d
                 } else {
                     0.0
                 };
