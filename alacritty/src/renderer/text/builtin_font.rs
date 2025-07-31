@@ -900,7 +900,7 @@ impl Canvas {
             for x in 0..radius_i {
                 let y = y as f32;
                 let x = x as f32;
-                let distance = (x * x + y * y).sqrt() + distance_bias;
+                let distance = x.hypot(y) + distance_bias;
                 let value = if distance < radius - stroke_size_f - 1. {
                     // Inside the circle.
                     0.
