@@ -25,6 +25,7 @@ Notable changes to the `alacritty_terminal` crate are documented in its
 ### Changed
 
 - Hide login message if `~/.hushlogin` is present
+- Improve rendering of rounded corners with builtin box drawing
 
 ### Fixed
 
